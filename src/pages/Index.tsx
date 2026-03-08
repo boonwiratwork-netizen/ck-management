@@ -9,6 +9,7 @@ import { useStockData } from '@/hooks/use-stock-data';
 import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
+import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
@@ -21,10 +22,10 @@ import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 
-type TabKey = 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery';
+type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery';
 
 const Index = () => {
   const skuData = useSkuData();
@@ -39,7 +40,7 @@ const Index = () => {
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('sku');
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -67,6 +68,7 @@ const Index = () => {
   };
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { key: 'sku', label: 'SKU Master', icon: <Package className="w-4 h-4" /> },
     { key: 'supplier', label: 'Suppliers', icon: <Users className="w-4 h-4" /> },
     { key: 'price', label: 'Prices', icon: <DollarSign className="w-4 h-4" /> },
@@ -108,7 +110,20 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'sku' ? (
+        {activeTab === 'dashboard' ? (
+          <Dashboard
+            skus={skus}
+            smStockBalances={smStockData.stockBalances}
+            productionPlans={productionData.plans}
+            productionRecords={productionData.records}
+            receipts={receiptData.receipts}
+            bomHeaders={bomData.headers}
+            bomLines={bomData.lines}
+            prices={priceData.prices}
+            deliveries={deliveryData.deliveries}
+            getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+          />
+        ) : activeTab === 'sku' ? (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
