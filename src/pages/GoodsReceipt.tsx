@@ -24,7 +24,9 @@ export interface DraftRow {
   quantityReceived: number;
   actualPrice: number;
   note: string;
-  saved: boolean;
+  isNew: boolean;        // true = brand new unsaved row
+  isEditing: boolean;    // true = currently in edit mode (new or existing being edited)
+  savedReceiptId?: string; // if editing an existing saved receipt, store its id
 }
 
 function createEmptyDraft(): DraftRow {
@@ -36,12 +38,13 @@ function createEmptyDraft(): DraftRow {
     quantityReceived: 0,
     actualPrice: 0,
     note: '',
-    saved: false,
+    isNew: true,
+    isEditing: true,
   };
 }
 
 export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices }: Props) {
-  const { receipts, addReceipt, deleteReceipt } = receiptData;
+  const { receipts, addReceipt, updateReceipt, deleteReceipt } = receiptData;
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
@@ -53,11 +56,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
     [receipts, currentWeek]
   );
   const thisWeekValue = useMemo(
-    () => thisWeekReceipts.reduce((sum, r) => sum + r.quantityReceived * r.actualPrice, 0),
+    () => thisWeekReceipts.reduce((sum, r) => sum + r.actualTotal, 0),
     [thisWeekReceipts]
   );
 
-  const unsavedCount = drafts.filter(d => !d.saved).length;
+  const hasUnsavedOrEditing = drafts.some(d => d.isEditing);
 
   const handleAddRow = useCallback(() => {
     setDrafts(prev => [...prev, createEmptyDraft()]);
@@ -66,7 +69,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
   const handleDuplicateRow = useCallback((index: number) => {
     setDrafts(prev => {
       const source = prev[index];
-      const dup: DraftRow = { ...source, tempId: crypto.randomUUID(), saved: false };
+      const dup: DraftRow = { ...source, tempId: crypto.randomUUID(), isNew: true, isEditing: true, savedReceiptId: undefined };
       const next = [...prev];
       next.splice(index + 1, 0, dup);
       return next;
@@ -75,7 +78,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
 
   const handleUpdateDraft = useCallback((tempId: string, field: keyof DraftRow, value: any) => {
     setDrafts(prev => prev.map(d =>
-      d.tempId === tempId ? { ...d, [field]: value, saved: false } : d
+      d.tempId === tempId ? { ...d, [field]: value } : d
     ));
   }, []);
 
@@ -88,28 +91,81 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
     toast.success('Receipt deleted');
   }, [deleteReceipt]);
 
-  const handleSaveAll = useCallback(() => {
-    const unsaved = drafts.filter(d => !d.saved && d.skuId && d.supplierId && d.quantityReceived > 0);
-    if (unsaved.length === 0) {
-      toast.error('No valid unsaved rows to save');
+  // Start editing a saved receipt
+  const handleEditSaved = useCallback((receipt: GoodsReceipt) => {
+    // Check if already editing this receipt
+    if (drafts.some(d => d.savedReceiptId === receipt.id)) return;
+    const draft: DraftRow = {
+      tempId: crypto.randomUUID(),
+      receiptDate: receipt.receiptDate,
+      skuId: receipt.skuId,
+      supplierId: receipt.supplierId,
+      quantityReceived: receipt.quantityReceived,
+      actualPrice: receipt.actualPrice,
+      note: receipt.note,
+      isNew: false,
+      isEditing: true,
+      savedReceiptId: receipt.id,
+    };
+    setDrafts(prev => [...prev, draft]);
+  }, [drafts]);
+
+  // Save a single row
+  const handleSaveRow = useCallback((tempId: string) => {
+    const draft = drafts.find(d => d.tempId === tempId);
+    if (!draft || !draft.skuId || !draft.supplierId || draft.quantityReceived <= 0) {
+      toast.error('Please fill in SKU, Supplier, and Qty');
       return;
     }
-    unsaved.forEach(d => {
-      const sku = rmSkus.find(s => s.id === d.skuId);
-      addReceipt({
-        receiptDate: d.receiptDate,
-        skuId: d.skuId,
-        supplierId: d.supplierId,
-        quantityReceived: d.quantityReceived,
-        actualPrice: d.actualPrice,
-        note: d.note,
-      }, sku, prices);
+    const sku = rmSkus.find(s => s.id === draft.skuId);
+    const data = {
+      receiptDate: draft.receiptDate,
+      skuId: draft.skuId,
+      supplierId: draft.supplierId,
+      quantityReceived: draft.quantityReceived,
+      actualPrice: draft.actualPrice,
+      note: draft.note,
+    };
+    if (draft.isNew) {
+      addReceipt(data, sku, prices);
+    } else if (draft.savedReceiptId) {
+      updateReceipt(draft.savedReceiptId, data, sku, prices);
+    }
+    setDrafts(prev => prev.filter(d => d.tempId !== tempId));
+    toast.success('Receipt saved');
+  }, [drafts, rmSkus, addReceipt, updateReceipt, prices]);
+
+  // Cancel editing
+  const handleCancelRow = useCallback((tempId: string) => {
+    // Just remove the draft — if it was editing an existing row, the original is still in receipts
+    setDrafts(prev => prev.filter(d => d.tempId !== tempId));
+  }, []);
+
+  const handleSaveAll = useCallback(() => {
+    const editingDrafts = drafts.filter(d => d.isEditing && d.skuId && d.supplierId && d.quantityReceived > 0);
+    if (editingDrafts.length === 0) {
+      toast.error('No valid rows to save');
+      return;
+    }
+    editingDrafts.forEach(draft => {
+      const sku = rmSkus.find(s => s.id === draft.skuId);
+      const data = {
+        receiptDate: draft.receiptDate,
+        skuId: draft.skuId,
+        supplierId: draft.supplierId,
+        quantityReceived: draft.quantityReceived,
+        actualPrice: draft.actualPrice,
+        note: draft.note,
+      };
+      if (draft.isNew) {
+        addReceipt(data, sku, prices);
+      } else if (draft.savedReceiptId) {
+        updateReceipt(draft.savedReceiptId, data, sku, prices);
+      }
     });
-    setDrafts(prev => prev.map(d =>
-      unsaved.find(u => u.tempId === d.tempId) ? { ...d, saved: true } : d
-    ));
-    toast.success(`${unsaved.length} receipt(s) saved`);
-  }, [drafts, rmSkus, addReceipt, prices]);
+    setDrafts(prev => prev.filter(d => !editingDrafts.find(e => e.tempId === d.tempId)));
+    toast.success(`${editingDrafts.length} receipt(s) saved`);
+  }, [drafts, rmSkus, addReceipt, updateReceipt, prices]);
 
   return (
     <div className="space-y-6">
@@ -122,10 +178,12 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
           <Button variant="outline" onClick={handleAddRow}>
             + Add Row
           </Button>
-          <Button onClick={handleSaveAll} disabled={unsavedCount === 0}>
-            <Save className="w-4 h-4" />
-            Save All{unsavedCount > 0 && ` (${unsavedCount})`}
-          </Button>
+          {hasUnsavedOrEditing && (
+            <Button onClick={handleSaveAll}>
+              <Save className="w-4 h-4" />
+              Save All ({drafts.filter(d => d.isEditing).length})
+            </Button>
+          )}
         </div>
       </div>
 
@@ -162,11 +220,15 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
         suppliers={activeSuppliers}
         allSuppliers={suppliers}
         prices={prices}
+        editingReceiptIds={drafts.filter(d => d.savedReceiptId).map(d => d.savedReceiptId!)}
         onUpdateDraft={handleUpdateDraft}
         onDeleteDraft={handleDeleteDraft}
         onDeleteSaved={handleDeleteSaved}
         onAddRow={handleAddRow}
         onDuplicateRow={handleDuplicateRow}
+        onEditSaved={handleEditSaved}
+        onSaveRow={handleSaveRow}
+        onCancelRow={handleCancelRow}
       />
     </div>
   );

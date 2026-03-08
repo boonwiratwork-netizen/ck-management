@@ -6,46 +6,49 @@ import { Price } from '@/types/price';
 export function useGoodsReceiptData() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
 
-  const getStandardPrice = (skuId: string, supplierId: string, prices: Price[]): number => {
+  const getStdUnitPrice = (skuId: string, supplierId: string, prices: Price[]): number => {
     const active = prices.find(p => p.skuId === skuId && p.supplierId === supplierId && p.isActive);
     return active?.pricePerPurchaseUom ?? 0;
   };
 
+  const buildReceipt = (
+    id: string,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    sku: SKU | undefined,
+    prices: Price[]
+  ): GoodsReceipt => {
+    const stdUnit = getStdUnitPrice(data.skuId, data.supplierId, prices);
+    const actualTotal = data.actualPrice * data.quantityReceived;
+    const standardPrice = stdUnit * data.quantityReceived;
+    return {
+      ...data,
+      id,
+      weekNumber: getWeekNumber(data.receiptDate),
+      purchaseUom: sku?.purchaseUom ?? '',
+      stdUnitPrice: stdUnit,
+      actualTotal,
+      standardPrice,
+      priceVariance: actualTotal - standardPrice,
+    };
+  };
+
   const addReceipt = useCallback((
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'standardPrice' | 'priceVariance'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {
-    const standardPrice = getStandardPrice(data.skuId, data.supplierId, prices);
-    const receipt: GoodsReceipt = {
-      ...data,
-      id: crypto.randomUUID(),
-      weekNumber: getWeekNumber(data.receiptDate),
-      purchaseUom: sku?.purchaseUom ?? '',
-      standardPrice,
-      priceVariance: data.actualPrice - standardPrice,
-    };
+    const receipt = buildReceipt(crypto.randomUUID(), data, sku, prices);
     setReceipts(prev => [receipt, ...prev]);
   }, []);
 
   const updateReceipt = useCallback((
     id: string,
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'standardPrice' | 'priceVariance'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {
-    const standardPrice = getStandardPrice(data.skuId, data.supplierId, prices);
     setReceipts(prev => prev.map(r =>
-      r.id === id
-        ? {
-            ...r,
-            ...data,
-            weekNumber: getWeekNumber(data.receiptDate),
-            purchaseUom: sku?.purchaseUom ?? '',
-            standardPrice,
-            priceVariance: data.actualPrice - standardPrice,
-          }
-        : r
+      r.id === id ? buildReceipt(id, data, sku, prices) : r
     ));
   }, []);
 
