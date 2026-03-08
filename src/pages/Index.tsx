@@ -89,6 +89,14 @@ const Index = () => {
               <DollarSign className="w-4 h-4" />
               Price Master
             </Button>
+            <Button
+              variant={activeTab === 'bom' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('bom')}
+            >
+              <FlaskConical className="w-4 h-4" />
+              BOM
+            </Button>
           </div>
         </div>
       </header>
