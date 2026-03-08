@@ -10,6 +10,7 @@ import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
+import { useStockCountData } from '@/hooks/use-stock-count-data';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
