@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 interface Props {
   deliveryData: ReturnType<typeof useDeliveryData>;
   skus: SKU[];
+  activeBranches: Branch[];
 }
 
 interface DraftDeliveryRow {
