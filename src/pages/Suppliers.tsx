@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Supplier } from '@/types/supplier';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { SupplierTable } from '@/components/SupplierTable';
 import { SupplierFormModal } from '@/components/SupplierFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -17,6 +18,50 @@ export default function SuppliersPage({ supplierData }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
+
+  const supplierCsvCols: CSVColumnDef[] = [
+    { key: 'name', label: 'Name', required: true },
+    { key: 'leadTime', label: 'Lead Time' },
+    { key: 'moq', label: 'MOQ' },
+    { key: 'moqUnit', label: 'MOQ Unit' },
+    { key: 'contactPerson', label: 'Contact Person' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'creditTerms', label: 'Credit Terms' },
+    { key: 'status', label: 'Status' },
+  ];
+
+  const validateSupplierCsv = useCallback((rows: Record<string, string>[]) => {
+    const errors: CSVValidationError[] = [];
+    const valid: Record<string, string>[] = [];
+    let skipped = 0;
+    const existing = new Set(suppliers.map(s => s.name.toLowerCase()));
+    const seen = new Set<string>();
+    rows.forEach((row, i) => {
+      const name = row['Name']?.trim();
+      if (!name) { errors.push({ row: i + 2, message: 'Name is required' }); return; }
+      if (existing.has(name.toLowerCase()) || seen.has(name.toLowerCase())) { skipped++; return; }
+      seen.add(name.toLowerCase());
+      valid.push(row);
+    });
+    return { valid, errors, skipped };
+  }, [suppliers]);
+
+  const handleSupplierCsvConfirm = useCallback((rows: Record<string, string>[]) => {
+    rows.forEach(row => {
+      addSupplier({
+        name: row['Name']?.trim() || '',
+        leadTime: Number(row['Lead Time']) || 0,
+        moq: Number(row['MOQ']) || 0,
+        moqUnit: row['MOQ Unit']?.trim() || '',
+        contactPerson: row['Contact Person']?.trim() || '',
+        phone: row['Phone']?.trim() || '',
+        creditTerms: row['Credit Terms']?.trim() || '',
+        status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
+      });
+    });
+    toast.success(`${rows.length} suppliers imported`);
+  }, [addSupplier]);
 
   const activeCount = useMemo(() => suppliers.filter(s => s.status === 'Active').length, [suppliers]);
 
@@ -51,10 +96,14 @@ export default function SuppliersPage({ supplierData }: Props) {
           <h2 className="text-2xl font-heading font-bold">Supplier Master</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage your suppliers and vendor information</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="w-4 h-4" />
-          Add Supplier
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCsvOpen(true)}>
+            <Upload className="w-4 h-4" /> Import CSV
+          </Button>
+          <Button onClick={handleAdd}>
+            <Plus className="w-4 h-4" /> Add Supplier
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -93,6 +142,15 @@ export default function SuppliersPage({ supplierData }: Props) {
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
+      />
+
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="Supplier Master"
+        columns={supplierCsvCols}
+        validate={validateSupplierCsv}
+        onConfirm={handleSupplierCsvConfirm}
       />
     </div>
   );
