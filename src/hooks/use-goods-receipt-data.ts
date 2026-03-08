@@ -33,7 +33,7 @@ export function useGoodsReceiptData() {
   };
 
   const addReceipt = useCallback((
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {
@@ -43,7 +43,7 @@ export function useGoodsReceiptData() {
 
   const updateReceipt = useCallback((
     id: string,
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {
