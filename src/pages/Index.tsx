@@ -153,11 +153,17 @@ const Index = () => {
             skus={skus}
             prices={priceData.prices}
           />
-        ) : (
+        ) : activeTab === 'receipt' ? (
           <GoodsReceiptPage
             receiptData={receiptData}
             skus={skus}
             suppliers={supplierData.suppliers}
+            prices={priceData.prices}
+          />
+        ) : (
+          <RMStockPage
+            skus={skus}
+            receipts={receiptData.receipts}
             prices={priceData.prices}
           />
         )}
