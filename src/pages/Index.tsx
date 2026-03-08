@@ -173,11 +173,17 @@ const Index = () => {
             suppliers={supplierData.suppliers}
             prices={priceData.prices}
           />
-        ) : (
+        ) : activeTab === 'stock' ? (
           <RMStockPage
             skus={skus}
             receipts={receiptData.receipts}
             prices={priceData.prices}
+          />
+        ) : (
+          <ProductionPage
+            productionData={productionData}
+            skus={skus}
+            bomHeaders={bomData.headers}
           />
         )}
       </main>
