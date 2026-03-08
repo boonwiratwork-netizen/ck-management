@@ -154,7 +154,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
         skuId: draft.skuId,
         supplierId: draft.supplierId,
         quantityReceived: draft.quantityReceived,
-        actualPrice: draft.actualPrice,
+        actualTotal: draft.actualTotal,
         note: draft.note,
       };
       if (draft.isNew) {
