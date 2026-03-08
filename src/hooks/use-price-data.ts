@@ -7,7 +7,7 @@ export function usePriceData() {
 
   const calcUsagePrice = (purchasePrice: number, sku: SKU | undefined): number => {
     if (!sku || sku.packSize === 0) return 0;
-    return (purchasePrice / sku.packSize) * sku.converter;
+    return (purchasePrice / sku.packSize) / sku.converter;
   };
 
   const addPrice = useCallback((data: Omit<Price, 'id' | 'pricePerUsageUom'>, sku: SKU | undefined) => {
