@@ -5,14 +5,16 @@ import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
 import { useBomData } from '@/hooks/use-bom-data';
+import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
 import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
+import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
