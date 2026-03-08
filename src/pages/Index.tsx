@@ -4,23 +4,26 @@ import { Supplier } from '@/types/supplier';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
+import { useBomData } from '@/hooks/use-bom-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
 import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
+import BOMPage from '@/pages/BOM';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
+  const bomData = useBomData();
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -86,6 +89,14 @@ const Index = () => {
               <DollarSign className="w-4 h-4" />
               Price Master
             </Button>
+            <Button
+              variant={activeTab === 'bom' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('bom')}
+            >
+              <FlaskConical className="w-4 h-4" />
+              BOM
+            </Button>
           </div>
         </div>
       </header>
@@ -109,12 +120,18 @@ const Index = () => {
           </div>
         ) : activeTab === 'supplier' ? (
           <SuppliersPage supplierData={supplierData} />
-        ) : (
+        ) : activeTab === 'price' ? (
           <PricesPage
             priceData={priceData}
             skus={skus}
             activeSuppliers={activeSuppliers}
             allSuppliers={supplierData.suppliers}
+          />
+        ) : (
+          <BOMPage
+            bomData={bomData}
+            skus={skus}
+            prices={priceData.prices}
           />
         )}
       </main>
