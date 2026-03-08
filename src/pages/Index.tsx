@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { SKU, SKUType } from '@/types/sku';
-import { Supplier } from '@/types/supplier';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
@@ -8,6 +7,8 @@ import { useBomData } from '@/hooks/use-bom-data';
 import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { useStockData } from '@/hooks/use-stock-data';
 import { useProductionData } from '@/hooks/use-production-data';
+import { useSmStockData } from '@/hooks/use-sm-stock-data';
+import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
@@ -17,9 +18,13 @@ import BOMPage from '@/pages/BOM';
 import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import RMStockPage from '@/pages/RMStock';
 import ProductionPage from '@/pages/Production';
+import SMStockPage from '@/pages/SMStock';
+import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck } from 'lucide-react';
 import { toast } from 'sonner';
+
+type TabKey = 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery';
 
 const Index = () => {
   const skuData = useSkuData();
@@ -29,10 +34,12 @@ const Index = () => {
   const receiptData = useGoodsReceiptData();
   const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment);
+  const deliveryData = useDeliveryData();
+  const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production'>('sku');
+  const [activeTab, setActiveTab] = useState<TabKey>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -59,9 +66,20 @@ const Index = () => {
     }
   };
 
+  const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+    { key: 'sku', label: 'SKU Master', icon: <Package className="w-4 h-4" /> },
+    { key: 'supplier', label: 'Suppliers', icon: <Users className="w-4 h-4" /> },
+    { key: 'price', label: 'Prices', icon: <DollarSign className="w-4 h-4" /> },
+    { key: 'bom', label: 'BOM', icon: <FlaskConical className="w-4 h-4" /> },
+    { key: 'receipt', label: 'Goods Receipt', icon: <ClipboardList className="w-4 h-4" /> },
+    { key: 'stock', label: 'RM Stock', icon: <Warehouse className="w-4 h-4" /> },
+    { key: 'production', label: 'Production', icon: <Factory className="w-4 h-4" /> },
+    { key: 'smstock', label: 'SM Stock', icon: <BoxesIcon className="w-4 h-4" /> },
+    { key: 'delivery', label: 'Delivery', icon: <Truck className="w-4 h-4" /> },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -73,68 +91,22 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Central Kitchen Operations</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={activeTab === 'sku' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('sku')}
-            >
-              <Package className="w-4 h-4" />
-              SKU Master
-            </Button>
-            <Button
-              variant={activeTab === 'supplier' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('supplier')}
-            >
-              <Users className="w-4 h-4" />
-              Supplier Master
-            </Button>
-            <Button
-              variant={activeTab === 'price' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('price')}
-            >
-              <DollarSign className="w-4 h-4" />
-              Price Master
-            </Button>
-            <Button
-              variant={activeTab === 'bom' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('bom')}
-            >
-              <FlaskConical className="w-4 h-4" />
-              BOM
-            </Button>
-            <Button
-              variant={activeTab === 'receipt' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('receipt')}
-            >
-              <ClipboardList className="w-4 h-4" />
-              Goods Receipt
-            </Button>
-            <Button
-              variant={activeTab === 'stock' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('stock')}
-            >
-              <Warehouse className="w-4 h-4" />
-              RM Stock
-            </Button>
-            <Button
-              variant={activeTab === 'production' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('production')}
-            >
-              <Factory className="w-4 h-4" />
-              Production
-            </Button>
+          <div className="flex items-center gap-1 flex-wrap">
+            {tabs.map(tab => (
+              <Button
+                key={tab.key}
+                variant={activeTab === tab.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.icon}
+                {tab.label}
+              </Button>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Main */}
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'sku' ? (
           <div className="space-y-6">
@@ -144,8 +116,7 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
               </div>
               <Button onClick={handleAdd}>
-                <Plus className="w-4 h-4" />
-                Add SKU
+                <Plus className="w-4 h-4" /> Add SKU
               </Button>
             </div>
             <SummaryCards counts={counts} total={skus.length} />
@@ -154,36 +125,19 @@ const Index = () => {
         ) : activeTab === 'supplier' ? (
           <SuppliersPage supplierData={supplierData} />
         ) : activeTab === 'price' ? (
-          <PricesPage
-            priceData={priceData}
-            skus={skus}
-            activeSuppliers={activeSuppliers}
-            allSuppliers={supplierData.suppliers}
-          />
+          <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} />
         ) : activeTab === 'bom' ? (
-          <BOMPage
-            bomData={bomData}
-            skus={skus}
-            prices={priceData.prices}
-          />
+          <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} />
         ) : activeTab === 'receipt' ? (
-          <GoodsReceiptPage
-            receiptData={receiptData}
-            skus={skus}
-            suppliers={supplierData.suppliers}
-            prices={priceData.prices}
-          />
+          <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
         ) : activeTab === 'stock' ? (
-          <RMStockPage
-            skus={skus}
-            stockData={stockData}
-          />
+          <RMStockPage skus={skus} stockData={stockData} />
+        ) : activeTab === 'production' ? (
+          <ProductionPage productionData={productionData} skus={skus} bomHeaders={bomData.headers} />
+        ) : activeTab === 'smstock' ? (
+          <SMStockPage skus={skus} smStockData={smStockData} />
         ) : (
-          <ProductionPage
-            productionData={productionData}
-            skus={skus}
-            bomHeaders={bomData.headers}
-          />
+          <DeliveryToBranchesPage deliveryData={deliveryData} skus={skus} />
         )}
       </main>
 
