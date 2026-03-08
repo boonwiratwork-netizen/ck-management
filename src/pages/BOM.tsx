@@ -77,7 +77,10 @@ const BOMPage = ({ bomData, skus, prices }: BOMPageProps) => {
     if (!selectedHeader || selectedHeader.bomMode !== 'multistep') return { steps: [], totalCost: 0, finalOutput: 0, costPerGram: 0 };
 
     let totalCost = 0;
-    const stepsCalc = selectedSteps.map((step, idx) => {
+    const stepsCalc: Array<{ step: typeof selectedSteps[0]; inputQty: number; outputQty: number; stepCost: number; ingredients: Array<any> }> = [];
+    
+    for (let idx = 0; idx < selectedSteps.length; idx++) {
+      const step = selectedSteps[idx];
       const stepLines = getLinesForStep(step.id);
       // Input = previous step output, or for step 1 = sum of fixed ingredient qtys
       let inputQty: number;
@@ -115,8 +118,8 @@ const BOMPage = ({ bomData, skus, prices }: BOMPageProps) => {
       const stepCost = ingredientsWithCost.reduce((s, i) => s + i.lineCost, 0);
       totalCost += stepCost;
 
-      return { step, inputQty: effectiveInput, outputQty, stepCost, ingredients: ingredientsWithCost };
-    });
+      stepsCalc.push({ step, inputQty: effectiveInput, outputQty, stepCost, ingredients: ingredientsWithCost });
+    }
 
     const finalOutput = stepsCalc.length > 0 ? stepsCalc[stepsCalc.length - 1].outputQty : 0;
     return { steps: stepsCalc, totalCost, finalOutput, costPerGram: finalOutput > 0 ? totalCost / finalOutput : 0 };
