@@ -109,6 +109,14 @@ const Index = () => {
               <ClipboardList className="w-4 h-4" />
               Goods Receipt
             </Button>
+            <Button
+              variant={activeTab === 'stock' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('stock')}
+            >
+              <Warehouse className="w-4 h-4" />
+              RM Stock
+            </Button>
           </div>
         </div>
       </header>
