@@ -43,6 +43,14 @@ const Index = () => {
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
   const branchData = useBranchData();
+  const stockCountData = useStockCountData({
+    skus: skuData.skus,
+    rmStockBalances: stockData.stockBalances,
+    smStockBalances: smStockData.stockBalances,
+    addRmAdjustment: stockData.addAdjustment,
+    addSmAdjustment: smStockData.addAdjustment,
+    getStdUnitPrice: stockData.getStdUnitPrice,
+  });
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
