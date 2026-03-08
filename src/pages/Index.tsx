@@ -11,6 +11,7 @@ import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
+import { useAuth } from '@/hooks/use-auth';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
@@ -26,14 +27,37 @@ import SMStockPage from '@/pages/SMStock';
 import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import BranchesPage from '@/pages/Branches';
+import UserManagementPage from '@/pages/UserManagement';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Upload } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
+const tabLabels: Record<TabKey, string> = {
+  dashboard: 'Dashboard',
+  sku: 'SKU Master',
+  supplier: 'Suppliers',
+  price: 'Price Master',
+  bom: 'BOM Master',
+  receipt: 'Goods Receipt',
+  stock: 'RM Stock',
+  production: 'Production',
+  smstock: 'SM Stock',
+  stockcount: 'Stock Count',
+  delivery: 'Delivery to Branches',
+  branches: 'Branches',
+  users: 'User Management',
+};
+
+// Tabs that CK Manager can fully interact with
+const ckManagerFullAccess: TabKey[] = ['dashboard', 'receipt', 'production', 'delivery', 'stock', 'smstock', 'stockcount'];
+// Tabs that CK Manager can view (read-only)
+const ckManagerReadOnly: TabKey[] = ['sku', 'supplier', 'price', 'bom', 'branches'];
+
 const Index = () => {
+  const { isAdmin, role } = useAuth();
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
@@ -59,7 +83,19 @@ const Index = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
-  // SKU CSV import
+  // Check if current tab is read-only for CK Manager
+  const isReadOnly = !isAdmin && ckManagerReadOnly.includes(activeTab);
+
+  // Redirect CK Manager from admin-only tabs
+  const handleTabChange = (tab: TabKey) => {
+    if (!isAdmin && tab === 'users') {
+      toast.error('Access denied: Admin only');
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  // SKU CSV import columns
   const skuCsvColumns: CSVColumnDef[] = [
     { key: 'name', label: 'Name', required: true },
     { key: 'type', label: 'Type', required: true },
@@ -146,7 +182,6 @@ const Index = () => {
     return c;
   }, [skus]);
 
-  // Check if SKU is used in BOM, Goods Receipt, or Production
   const isSkuUsed = (skuId: string) => {
     const inBom = bomData.lines.some(l => l.rmSkuId === skuId) || bomData.headers.some(h => h.smSkuId === skuId);
     const inReceipt = receiptData.receipts.some(r => r.skuId === skuId);
@@ -155,8 +190,16 @@ const Index = () => {
   };
 
   const handleAdd = () => { setEditingSku(null); setModalOpen(true); };
-  const handleEdit = (sku: SKU) => { setEditingSku(sku); setModalOpen(true); };
+  const handleEdit = (sku: SKU) => {
+    if (isReadOnly) return;
+    setEditingSku(sku);
+    setModalOpen(true);
+  };
   const handleDeleteRequest = (id: string) => {
+    if (!isAdmin) {
+      toast.error('Only admins can delete items');
+      return;
+    }
     const sku = skus.find(s => s.id === id);
     setDeleteConfirm({ id, name: sku?.name || sku?.skuId || 'this SKU' });
   };
@@ -181,25 +224,17 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <AppSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b bg-card px-4 gap-3 shrink-0">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border" />
             <h1 className="text-sm font-heading font-semibold text-muted-foreground truncate">
-              {activeTab === 'dashboard' ? 'Dashboard' :
-                activeTab === 'sku' ? 'SKU Master' :
-                activeTab === 'supplier' ? 'Suppliers' :
-                activeTab === 'price' ? 'Price Master' :
-                activeTab === 'bom' ? 'BOM Master' :
-                activeTab === 'receipt' ? 'Goods Receipt' :
-                activeTab === 'stock' ? 'RM Stock' :
-                activeTab === 'production' ? 'Production' :
-                activeTab === 'smstock' ? 'SM Stock' :
-                activeTab === 'stockcount' ? 'Stock Count' :
-                activeTab === 'delivery' ? 'Delivery to Branches' :
-                'Branches'}
+              {tabLabels[activeTab] || 'Dashboard'}
             </h1>
+            {isReadOnly && (
+              <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">View Only</span>
+            )}
           </header>
 
           <main className="flex-1 overflow-auto p-6">
@@ -226,24 +261,30 @@ const Index = () => {
                       <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
                       <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
-                        <Upload className="w-4 h-4" /> Import CSV
-                      </Button>
-                      <Button onClick={handleAdd}>
-                        <Plus className="w-4 h-4" /> Add SKU
-                      </Button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
+                          <Upload className="w-4 h-4" /> Import CSV
+                        </Button>
+                        <Button onClick={handleAdd}>
+                          <Plus className="w-4 h-4" /> Add SKU
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <SummaryCards counts={counts} total={skus.length} />
-                  <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+                  <SKUTable
+                    skus={skus}
+                    onEdit={isAdmin ? handleEdit : undefined}
+                    onDelete={isAdmin ? handleDeleteRequest : undefined}
+                  />
                 </div>
               ) : activeTab === 'supplier' ? (
-                <SuppliersPage supplierData={supplierData} />
+                <SuppliersPage supplierData={supplierData} readOnly={isReadOnly} />
               ) : activeTab === 'price' ? (
-                <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} />
+                <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} readOnly={isReadOnly} />
               ) : activeTab === 'bom' ? (
-                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} />
+                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={isReadOnly} />
               ) : activeTab === 'receipt' ? (
                 <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
               ) : activeTab === 'stock' ? (
@@ -261,7 +302,9 @@ const Index = () => {
               ) : activeTab === 'stockcount' ? (
                 <StockCountPage skus={skus} stockCountData={stockCountData} getStdUnitPrice={stockData.getStdUnitPrice} />
               ) : activeTab === 'branches' ? (
-                <BranchesPage branchData={branchData} />
+                <BranchesPage branchData={branchData} readOnly={isReadOnly} />
+              ) : activeTab === 'users' ? (
+                isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
@@ -275,32 +318,36 @@ const Index = () => {
         </div>
       </div>
 
-      <SKUFormModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleSubmit}
-        editingSku={editingSku}
-        activeSuppliers={activeSuppliers}
-        isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
-      />
+      {isAdmin && (
+        <>
+          <SKUFormModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSubmit={handleSubmit}
+            editingSku={editingSku}
+            activeSuppliers={activeSuppliers}
+            isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
+          />
 
-      <ConfirmDialog
-        open={!!deleteConfirm}
-        onOpenChange={open => !open && setDeleteConfirm(null)}
-        title="Delete SKU"
-        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        onConfirm={handleDeleteConfirm}
-      />
+          <ConfirmDialog
+            open={!!deleteConfirm}
+            onOpenChange={open => !open && setDeleteConfirm(null)}
+            title="Delete SKU"
+            description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+            confirmLabel="Delete"
+            onConfirm={handleDeleteConfirm}
+          />
 
-      <CSVImportModal
-        open={csvImportOpen}
-        onClose={() => setCsvImportOpen(false)}
-        title="SKU Master"
-        columns={skuCsvColumns}
-        validate={validateSkuCsv}
-        onConfirm={handleSkuCsvConfirm}
-      />
+          <CSVImportModal
+            open={csvImportOpen}
+            onClose={() => setCsvImportOpen(false)}
+            title="SKU Master"
+            columns={skuCsvColumns}
+            validate={validateSkuCsv}
+            onConfirm={handleSkuCsvConfirm}
+          />
+        </>
+      )}
     </SidebarProvider>
   );
 };
