@@ -23,6 +23,56 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
+
+  const priceCsvCols: CSVColumnDef[] = [
+    { key: 'skuName', label: 'SKU Name', required: true },
+    { key: 'supplierName', label: 'Supplier Name', required: true },
+    { key: 'pricePerPurchaseUom', label: 'Price Per Purchase UOM', required: true },
+    { key: 'vat', label: 'VAT' },
+    { key: 'isActive', label: 'Active' },
+    { key: 'effectiveDate', label: 'Effective Date' },
+    { key: 'note', label: 'Note' },
+  ];
+
+  const validatePriceCsv = useCallback((rows: Record<string, string>[]) => {
+    const errors: CSVValidationError[] = [];
+    const valid: Record<string, string>[] = [];
+    let skipped = 0;
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const skuName = row['SKU Name']?.trim();
+      const supplierName = row['Supplier Name']?.trim();
+      const price = row['Price Per Purchase UOM']?.trim();
+      if (!skuName) { errors.push({ row: rowNum, message: 'SKU Name is required' }); return; }
+      if (!supplierName) { errors.push({ row: rowNum, message: 'Supplier Name is required' }); return; }
+      if (!price || isNaN(Number(price)) || Number(price) <= 0) { errors.push({ row: rowNum, message: 'Price must be a positive number' }); return; }
+      const sku = skus.find(s => s.name.toLowerCase() === skuName.toLowerCase());
+      if (!sku) { errors.push({ row: rowNum, message: `SKU "${skuName}" not found` }); return; }
+      const supplier = allSuppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+      if (!supplier) { errors.push({ row: rowNum, message: `Supplier "${supplierName}" not found` }); return; }
+      valid.push(row);
+    });
+    return { valid, errors, skipped };
+  }, [skus, allSuppliers]);
+
+  const handlePriceCsvConfirm = useCallback((rows: Record<string, string>[]) => {
+    rows.forEach(row => {
+      const sku = skus.find(s => s.name.toLowerCase() === row['SKU Name']?.trim().toLowerCase());
+      const supplier = allSuppliers.find(s => s.name.toLowerCase() === row['Supplier Name']?.trim().toLowerCase());
+      if (!sku || !supplier) return;
+      addPrice({
+        skuId: sku.id,
+        supplierId: supplier.id,
+        pricePerPurchaseUom: Number(row['Price Per Purchase UOM']) || 0,
+        vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
+        isActive: row['Active']?.trim().toLowerCase() !== 'false' && row['Active']?.trim() !== '0',
+        effectiveDate: row['Effective Date']?.trim() || new Date().toISOString().slice(0, 10),
+        note: row['Note']?.trim() || '',
+      }, sku);
+    });
+    toast.success(`${rows.length} prices imported`);
+  }, [skus, allSuppliers, addPrice]);
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
