@@ -1,19 +1,28 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 import { SKU } from '@/types/sku';
 import { ProductionPlan, ProductionRecord, getISOWeekNumber, getWeekStart, getWeekEnd } from '@/types/production';
 import { GoodsReceipt } from '@/types/goods-receipt';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { Price } from '@/types/price';
 import { Delivery } from '@/types/delivery';
+import { StockBalance } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
-import { Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3 } from 'lucide-react';
+import { CalendarIcon, Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3, Wallet, ChevronDown } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
 
 interface DashboardProps {
   skus: SKU[];
   smStockBalances: SMStockBalance[];
+  rmStockBalances: StockBalance[];
   productionPlans: ProductionPlan[];
   productionRecords: ProductionRecord[];
   receipts: GoodsReceipt[];
@@ -22,11 +31,13 @@ interface DashboardProps {
   prices: Price[];
   deliveries: Delivery[];
   getTotalProducedForPlan: (planId: string) => number;
+  getStdUnitPrice: (skuId: string) => number;
 }
 
 const Dashboard = ({
   skus,
   smStockBalances,
+  rmStockBalances,
   productionPlans,
   productionRecords,
   receipts,
@@ -35,11 +46,20 @@ const Dashboard = ({
   prices,
   deliveries,
   getTotalProducedForPlan,
+  getStdUnitPrice,
 }: DashboardProps) => {
   const now = new Date();
-  const currentWeek = getISOWeekNumber(now.toISOString().slice(0, 10));
-  const weekStart = getWeekStart(now.toISOString().slice(0, 10));
-  const weekEnd = getWeekEnd(weekStart);
+  const todayStr = now.toISOString().slice(0, 10);
+  const defaultStart = new Date(getWeekStart(todayStr));
+  const defaultEnd = new Date(getWeekEnd(getWeekStart(todayStr)));
+
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: defaultStart,
+    to: defaultEnd,
+  });
+
+  const rangeStart = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : getWeekStart(todayStr);
+  const rangeEnd = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : getWeekEnd(getWeekStart(todayStr));
   const lastUpdated = now.toLocaleString();
 
   const skuMap = useMemo(() => {
@@ -48,11 +68,47 @@ const Dashboard = ({
     return m;
   }, [skus]);
 
-  // Section 1: SM Stock Overview
+  // Stock Value Overview
+  const [stockDetailOpen, setStockDetailOpen] = useState(false);
+
+  const stockValueOverview = useMemo(() => {
+    let totalRmValue = 0;
+    const rmRows: { name: string; stock: number; value: number; uom: string }[] = [];
+    rmStockBalances.forEach(bal => {
+      const sku = skuMap.get(bal.skuId);
+      const price = getStdUnitPrice(bal.skuId);
+      const value = bal.currentStock * price;
+      totalRmValue += value;
+      rmRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value, uom: sku?.usageUom ?? '' });
+    });
+
+    let totalSmValue = 0;
+    const smRows: { name: string; stock: number; value: number }[] = [];
+    smStockBalances.forEach(bal => {
+      const sku = skuMap.get(bal.skuId);
+      const bomHeader = bomHeaders.find(h => h.smSkuId === bal.skuId);
+      let costPerGram = 0;
+      if (bomHeader) {
+        const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
+        const batchCost = bLines.reduce((s, line) => {
+          const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
+          return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
+        }, 0);
+        const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
+        costPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
+      }
+      const value = costPerGram * bal.currentStock * 1000; // stock in kg → grams
+      totalSmValue += value;
+      smRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value });
+    });
+
+    return { totalRmValue, totalSmValue, combined: totalRmValue + totalSmValue, rmRows, smRows };
+  }, [rmStockBalances, smStockBalances, skuMap, getStdUnitPrice, bomHeaders, bomLines, prices]);
+
+  // SM Stock Overview
   const smStockRows = useMemo(() => {
     return smStockBalances.map(bal => {
       const sku = skuMap.get(bal.skuId);
-      // avg daily delivery over last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const recentDeliveries = deliveries.filter(
@@ -76,125 +132,194 @@ const Dashboard = ({
     });
   }, [smStockBalances, skuMap, deliveries]);
 
-  // Section 2: This Week Production Plans
-  const thisWeekPlans = useMemo(() => {
-    return productionPlans.filter(p => p.weekNumber === currentWeek);
-  }, [productionPlans, currentWeek]);
+  // Production Plans in range
+  const rangePlans = useMemo(() => {
+    return productionPlans.filter(p => p.weekStartDate <= rangeEnd && p.weekEndDate >= rangeStart);
+  }, [productionPlans, rangeStart, rangeEnd]);
 
   const planSummary = useMemo(() => {
-    const totalTarget = thisWeekPlans.reduce((s, p) => s + p.targetQtyKg, 0);
-    const totalProduced = thisWeekPlans.reduce((s, p) => s + getTotalProducedForPlan(p.id), 0);
+    const totalTarget = rangePlans.reduce((s, p) => s + p.targetQtyKg, 0);
+    const totalProduced = rangePlans.reduce((s, p) => s + getTotalProducedForPlan(p.id), 0);
     return { totalTarget, totalProduced, progress: totalTarget > 0 ? (totalProduced / totalTarget) * 100 : 0 };
-  }, [thisWeekPlans, getTotalProducedForPlan]);
+  }, [rangePlans, getTotalProducedForPlan]);
 
-  // Section 3: Weekly Purchase Summary
+  // Purchase Summary in range
   const purchaseSummary = useMemo(() => {
-    const weekReceipts = receipts.filter(r => {
-      return r.receiptDate >= weekStart && r.receiptDate <= weekEnd;
-    });
-    const totalActual = weekReceipts.reduce((s, r) => s + r.actualTotal, 0);
-    const totalStandard = weekReceipts.reduce((s, r) => s + r.standardPrice, 0);
-    const variance = totalActual - totalStandard;
-    return { totalActual, totalStandard, variance };
-  }, [receipts, weekStart, weekEnd]);
+    const rangeReceipts = receipts.filter(r => r.receiptDate >= rangeStart && r.receiptDate <= rangeEnd);
+    const totalActual = rangeReceipts.reduce((s, r) => s + r.actualTotal, 0);
+    const totalStandard = rangeReceipts.reduce((s, r) => s + r.standardPrice, 0);
+    return { totalActual, totalStandard, variance: totalActual - totalStandard };
+  }, [receipts, rangeStart, rangeEnd]);
 
-  // Section 4: Production Cost Analysis
+  // Production Cost Analysis in range
   const prodCostAnalysis = useMemo(() => {
-    const weekRecords = productionRecords.filter(r =>
-      r.productionDate >= weekStart && r.productionDate <= weekEnd
+    const rangeRecords = productionRecords.filter(r =>
+      r.productionDate >= rangeStart && r.productionDate <= rangeEnd
     );
-
-    // Group by SM SKU
     const bySmSku = new Map<string, ProductionRecord[]>();
-    weekRecords.forEach(r => {
+    rangeRecords.forEach(r => {
       const arr = bySmSku.get(r.smSkuId) || [];
       arr.push(r);
       bySmSku.set(r.smSkuId, arr);
     });
 
-    const rows: {
-      smSkuId: string;
-      name: string;
-      actualOutputKg: number;
-      standardValue: number;
-      actualValue: number;
-      variance: number;
-    }[] = [];
+    const rows: { smSkuId: string; name: string; actualOutputKg: number; standardValue: number; actualValue: number; variance: number }[] = [];
 
     bySmSku.forEach((recs, smSkuId) => {
       const sku = skuMap.get(smSkuId);
       const totalOutputKg = recs.reduce((s, r) => s + r.actualOutputKg, 0);
       const totalBatches = recs.reduce((s, r) => s + r.batchesProduced, 0);
 
-      // Standard: BOM cost/gram × actual output
       const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
       let bomCostPerGram = 0;
       if (bomHeader) {
         const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
         const batchCost = bLines.reduce((s, line) => {
-          const activePrice = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
-          return s + line.qtyPerBatch * (activePrice?.pricePerUsageUom ?? 0);
+          const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
+          return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
         }, 0);
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         bomCostPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
       const standardValue = bomCostPerGram * totalOutputKg * 1000;
 
-      // Actual: sum of (actual RM price × grams consumed)
       let actualValue = 0;
       if (bomHeader) {
         const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
         bLines.forEach(line => {
           const gramsConsumed = line.qtyPerBatch * totalBatches;
-          // Get actual unit price from recent receipts for this RM
           const rmReceipts = receipts.filter(r => r.skuId === line.rmSkuId);
           const latestReceipt = rmReceipts.length > 0
             ? rmReceipts.reduce((latest, r) => r.receiptDate > latest.receiptDate ? r : latest)
             : null;
-          const actualUnitPrice = latestReceipt?.actualUnitPrice ?? 0;
-          actualValue += gramsConsumed * actualUnitPrice;
+          actualValue += gramsConsumed * (latestReceipt?.actualUnitPrice ?? 0);
         });
       }
 
-      const variance = actualValue - standardValue;
-
-      rows.push({
-        smSkuId,
-        name: sku?.name ?? '—',
-        actualOutputKg: totalOutputKg,
-        standardValue,
-        actualValue,
-        variance,
-      });
+      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputKg: totalOutputKg, standardValue, actualValue, variance: actualValue - standardValue });
     });
 
     return rows;
-  }, [productionRecords, weekStart, weekEnd, skuMap, bomHeaders, bomLines, prices, receipts]);
+  }, [productionRecords, rangeStart, rangeEnd, skuMap, bomHeaders, bomLines, prices, receipts]);
 
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const statusColor = (status: string) => {
-    if (status === 'Done') return 'default';
-    if (status === 'In Progress') return 'secondary';
-    return 'outline';
+    if (status === 'Done') return 'default' as const;
+    if (status === 'In Progress') return 'secondary' as const;
+    return 'outline' as const;
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header with date range picker */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-heading font-bold">Dashboard</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Week {currentWeek}: {new Date(weekStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – {new Date(weekEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            {dateRange?.from && dateRange?.to
+              ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d, yyyy')}`
+              : 'Select date range'}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="w-3.5 h-3.5" />
-          Last updated: {lastUpdated}
+        <div className="flex items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn('justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dateRange?.from ? (
+                  dateRange.to ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d')}` : format(dateRange.from, 'MMM d')
+                ) : 'Pick dates'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            {lastUpdated}
+          </div>
         </div>
       </div>
 
-      {/* Section 1 — SM Stock Overview */}
+      {/* Stock Value Overview */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-primary" />
+            Stock Value Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-lg border p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">RM Stock Value</p>
+              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SM Stock Value</p>
+              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
+            </div>
+            <div className="rounded-lg border bg-primary/5 p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Inventory Value</p>
+              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.combined)}</p>
+            </div>
+          </div>
+
+          <Collapsible open={stockDetailOpen} onOpenChange={setStockDetailOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+                <ChevronDown className={cn("w-3.5 h-3.5 mr-1 transition-transform", stockDetailOpen && "rotate-180")} />
+                {stockDetailOpen ? 'Hide' : 'Show'} SKU breakdown
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* RM breakdown */}
+                <div>
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Raw Materials</h4>
+                  <div className="max-h-48 overflow-y-auto rounded border">
+                    <table className="w-full text-xs">
+                      <thead><tr className="border-b bg-muted/50"><th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Name</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Stock</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Value</th></tr></thead>
+                      <tbody>
+                        {stockValueOverview.rmRows.map((r, i) => (
+                          <tr key={i} className="border-b last:border-0"><td className="px-3 py-1.5">{r.name}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.value)}</td></tr>
+                        ))}
+                        {stockValueOverview.rmRows.length === 0 && <tr><td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No RM stock</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {/* SM breakdown */}
+                <div>
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Semi-finished</h4>
+                  <div className="max-h-48 overflow-y-auto rounded border">
+                    <table className="w-full text-xs">
+                      <thead><tr className="border-b bg-muted/50"><th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Name</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Stock (kg)</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Value</th></tr></thead>
+                      <tbody>
+                        {stockValueOverview.smRows.map((r, i) => (
+                          <tr key={i} className="border-b last:border-0"><td className="px-3 py-1.5">{r.name}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.stock)}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.value)}</td></tr>
+                        ))}
+                        {stockValueOverview.smRows.length === 0 && <tr><td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No SM stock</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
+
+      {/* SM Stock Overview */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -236,28 +361,22 @@ const Dashboard = ({
         </CardContent>
       </Card>
 
-      {/* Section 2 — This Week Production Plan */}
+      {/* Production Plan */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Factory className="w-4 h-4 text-primary" />
-            This Week Production Plan
+            Production Plan
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Target:</span>{' '}
-              <span className="font-semibold">{fmt(planSummary.totalTarget)} kg</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Produced:</span>{' '}
-              <span className="font-semibold">{fmt(planSummary.totalProduced)} kg</span>
-            </div>
+            <div className="text-sm"><span className="text-muted-foreground">Target:</span> <span className="font-semibold">{fmt(planSummary.totalTarget)} kg</span></div>
+            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold">{fmt(planSummary.totalProduced)} kg</span></div>
           </div>
           <Progress value={Math.min(planSummary.progress, 100)} className="h-2" />
-          {thisWeekPlans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No plans for this week.</p>
+          {rangePlans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No plans in selected range.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -270,16 +389,14 @@ const Dashboard = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {thisWeekPlans.map(plan => {
+                  {rangePlans.map(plan => {
                     const produced = getTotalProducedForPlan(plan.id);
                     return (
                       <tr key={plan.id} className="border-b last:border-0">
                         <td className="py-2">{skuMap.get(plan.smSkuId)?.name ?? '—'}</td>
                         <td className="py-2 text-right font-mono">{fmt(plan.targetQtyKg)}</td>
                         <td className="py-2 text-right font-mono">{fmt(produced)}</td>
-                        <td className="py-2 text-center">
-                          <Badge variant={statusColor(plan.status)}>{plan.status}</Badge>
-                        </td>
+                        <td className="py-2 text-center"><Badge variant={statusColor(plan.status)}>{plan.status}</Badge></td>
                       </tr>
                     );
                   })}
@@ -291,12 +408,12 @@ const Dashboard = ({
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 3 — Weekly Purchase Summary */}
+        {/* Purchase Summary */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-primary" />
-              Weekly Purchase Summary
+              Purchase Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -313,16 +430,14 @@ const Dashboard = ({
               <span className={`font-mono font-bold ${purchaseSummary.variance > 0 ? 'text-destructive' : purchaseSummary.variance < 0 ? 'text-green-600' : ''}`}>
                 {purchaseSummary.variance > 0 ? '+' : ''}{fmt(purchaseSummary.variance)}
                 {purchaseSummary.variance !== 0 && (
-                  purchaseSummary.variance > 0
-                    ? <TrendingUp className="w-3.5 h-3.5 inline ml-1" />
-                    : <TrendingDown className="w-3.5 h-3.5 inline ml-1" />
+                  purchaseSummary.variance > 0 ? <TrendingUp className="w-3.5 h-3.5 inline ml-1" /> : <TrendingDown className="w-3.5 h-3.5 inline ml-1" />
                 )}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Section 4 — Production Cost Analysis */}
+        {/* Production Cost Analysis */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -332,7 +447,7 @@ const Dashboard = ({
           </CardHeader>
           <CardContent>
             {prodCostAnalysis.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No production this week.</p>
+              <p className="text-sm text-muted-foreground">No production in selected range.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

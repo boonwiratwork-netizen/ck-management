@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Delivery } from '@/types/delivery';
+import { Branch } from '@/types/branch';
 import { getWeekNumber } from '@/types/goods-receipt';
 import { SKU } from '@/types/sku';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 interface Props {
   deliveryData: ReturnType<typeof useDeliveryData>;
   skus: SKU[];
+  activeBranches: Branch[];
 }
 
 interface DraftDeliveryRow {
@@ -39,7 +41,7 @@ function createEmptyDraft(): DraftDeliveryRow {
   };
 }
 
-export default function DeliveryToBranchesPage({ deliveryData, skus }: Props) {
+export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranches }: Props) {
   const { deliveries, addDelivery, updateDelivery, deleteDelivery } = deliveryData;
   const [drafts, setDrafts] = useState<DraftDeliveryRow[]>([]);
   const [search, setSearch] = useState('');
@@ -257,7 +259,13 @@ export default function DeliveryToBranchesPage({ deliveryData, skus }: Props) {
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>
-                      <Input value={draft.branchName} onChange={e => handleUpdateDraft(draft.tempId, 'branchName', e.target.value)} className="h-8 text-xs" placeholder="Branch name" />
+                      <Select value={draft.branchName || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v === '_none' ? '' : v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Branch" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">— Select —</SelectItem>
+                          {activeBranches.map(b => <SelectItem key={b.id} value={b.branchName}>{b.branchName} — {b.brandName}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className={tdClass}>
                       <Select value={draft.smSkuId || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v === '_none' ? '' : v)}>
