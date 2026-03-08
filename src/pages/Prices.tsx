@@ -108,10 +108,14 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
           <h2 className="text-2xl font-heading font-bold">Price Master</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage SKU pricing across suppliers</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="w-4 h-4" />
-          Add Price
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCsvOpen(true)}>
+            <Upload className="w-4 h-4" /> Import CSV
+          </Button>
+          <Button onClick={handleAdd}>
+            <Plus className="w-4 h-4" /> Add Price
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
