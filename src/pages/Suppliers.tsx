@@ -18,6 +18,50 @@ export default function SuppliersPage({ supplierData }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
+
+  const supplierCsvCols: CSVColumnDef[] = [
+    { key: 'name', label: 'Name', required: true },
+    { key: 'leadTime', label: 'Lead Time' },
+    { key: 'moq', label: 'MOQ' },
+    { key: 'moqUnit', label: 'MOQ Unit' },
+    { key: 'contactPerson', label: 'Contact Person' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'creditTerms', label: 'Credit Terms' },
+    { key: 'status', label: 'Status' },
+  ];
+
+  const validateSupplierCsv = useCallback((rows: Record<string, string>[]) => {
+    const errors: CSVValidationError[] = [];
+    const valid: Record<string, string>[] = [];
+    let skipped = 0;
+    const existing = new Set(suppliers.map(s => s.name.toLowerCase()));
+    const seen = new Set<string>();
+    rows.forEach((row, i) => {
+      const name = row['Name']?.trim();
+      if (!name) { errors.push({ row: i + 2, message: 'Name is required' }); return; }
+      if (existing.has(name.toLowerCase()) || seen.has(name.toLowerCase())) { skipped++; return; }
+      seen.add(name.toLowerCase());
+      valid.push(row);
+    });
+    return { valid, errors, skipped };
+  }, [suppliers]);
+
+  const handleSupplierCsvConfirm = useCallback((rows: Record<string, string>[]) => {
+    rows.forEach(row => {
+      addSupplier({
+        name: row['Name']?.trim() || '',
+        leadTime: Number(row['Lead Time']) || 0,
+        moq: Number(row['MOQ']) || 0,
+        moqUnit: row['MOQ Unit']?.trim() || '',
+        contactPerson: row['Contact Person']?.trim() || '',
+        phone: row['Phone']?.trim() || '',
+        creditTerms: row['Credit Terms']?.trim() || '',
+        status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
+      });
+    });
+    toast.success(`${rows.length} suppliers imported`);
+  }, [addSupplier]);
 
   const activeCount = useMemo(() => suppliers.filter(s => s.status === 'Active').length, [suppliers]);
 
