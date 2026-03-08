@@ -123,6 +123,7 @@ const Index = () => {
                 activeTab === 'stock' ? 'RM Stock' :
                 activeTab === 'production' ? 'Production' :
                 activeTab === 'smstock' ? 'SM Stock' :
+                activeTab === 'stockcount' ? 'Stock Count' :
                 activeTab === 'delivery' ? 'Delivery to Branches' :
                 'Branches'}
             </h1>
