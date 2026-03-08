@@ -226,9 +226,14 @@ const Index = () => {
                       <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
                       <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
                     </div>
-                    <Button onClick={handleAdd}>
-                      <Plus className="w-4 h-4" /> Add SKU
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
+                        <Upload className="w-4 h-4" /> Import CSV
+                      </Button>
+                      <Button onClick={handleAdd}>
+                        <Plus className="w-4 h-4" /> Add SKU
+                      </Button>
+                    </div>
                   </div>
                   <SummaryCards counts={counts} total={skus.length} />
                   <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDeleteRequest} />
