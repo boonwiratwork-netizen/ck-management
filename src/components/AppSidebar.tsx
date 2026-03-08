@@ -16,7 +16,7 @@ import {
   Truck, Store, ClipboardCheck,
 } from 'lucide-react';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery' | 'branches';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches';
 
 interface AppSidebarProps {
   activeTab: TabKey;
