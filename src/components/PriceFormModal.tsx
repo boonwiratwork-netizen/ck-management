@@ -110,7 +110,7 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
               </div>
               {selectedSku && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  = {form.pricePerPurchaseUom} ÷ {selectedSku.packSize} × {selectedSku.converter}
+                  = {form.pricePerPurchaseUom} ÷ {selectedSku.packSize} ÷ {selectedSku.converter}
                 </p>
               )}
             </div>
