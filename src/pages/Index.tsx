@@ -22,7 +22,7 @@ import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 
 type TabKey = 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery';
