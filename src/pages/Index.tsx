@@ -68,6 +68,7 @@ const Index = () => {
   };
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { key: 'sku', label: 'SKU Master', icon: <Package className="w-4 h-4" /> },
     { key: 'supplier', label: 'Suppliers', icon: <Users className="w-4 h-4" /> },
     { key: 'price', label: 'Prices', icon: <DollarSign className="w-4 h-4" /> },
