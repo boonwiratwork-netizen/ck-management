@@ -13,9 +13,10 @@ import { toast } from 'sonner';
 
 interface Props {
   branchData: ReturnType<typeof useBranchData>;
+  readOnly?: boolean;
 }
 
-export default function BranchesPage({ branchData }: Props) {
+export default function BranchesPage({ branchData, readOnly = false }: Props) {
   const { branches, addBranch, updateBranch, deleteBranch } = branchData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);

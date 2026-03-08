@@ -13,8 +13,8 @@ import { useState } from 'react';
 
 interface SKUTableProps {
   skus: SKU[];
-  onEdit: (sku: SKU) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (sku: SKU) => void;
+  onDelete?: (id: string) => void;
 }
 
 const typeBadge: Record<SKUType, string> = {
@@ -121,16 +121,22 @@ export function SKUTable({ skus, onEdit, onDelete }: SKUTableProps) {
                     <td className="px-4 py-3 text-muted-foreground text-xs">{sku.storageCondition}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">{sku.packSize} {sku.packUnit}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">{sku.shelfLife}d</td>
+                    {(onEdit || onDelete) && (
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(sku)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(sku.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        {onEdit && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(sku)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                        {onDelete && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(sku.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </td>
+                    )}
                   </tr>
                 ))
               )}

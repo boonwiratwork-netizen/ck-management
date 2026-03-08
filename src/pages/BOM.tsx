@@ -32,9 +32,10 @@ interface BOMPageProps {
   };
   skus: SKU[];
   prices: Price[];
+  readOnly?: boolean;
 }
 
-const BOMPage = ({ bomData, skus, prices }: BOMPageProps) => {
+const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,

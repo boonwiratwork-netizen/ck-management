@@ -1,0 +1,7 @@
+project_id = "lyhhaeikbvhmjpyjhdbg"
+
+[functions.initial-setup]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
