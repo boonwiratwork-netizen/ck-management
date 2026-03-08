@@ -57,6 +57,7 @@ const navGroups = [
     items: [
       { key: 'stock' as TabKey, label: 'RM Stock', icon: Warehouse },
       { key: 'smstock' as TabKey, label: 'SM Stock', icon: BoxesIcon },
+      { key: 'stockcount' as TabKey, label: 'Stock Count', icon: ClipboardCheck },
     ],
   },
   {
