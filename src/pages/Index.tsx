@@ -13,6 +13,7 @@ import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
 import GoodsReceiptPage from '@/pages/GoodsReceipt';
+import RMStockPage from '@/pages/RMStock';
 import { Button } from '@/components/ui/button';
 import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
