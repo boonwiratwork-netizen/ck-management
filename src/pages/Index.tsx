@@ -141,10 +141,17 @@ const Index = () => {
             activeSuppliers={activeSuppliers}
             allSuppliers={supplierData.suppliers}
           />
-        ) : (
+        ) : activeTab === 'bom' ? (
           <BOMPage
             bomData={bomData}
             skus={skus}
+            prices={priceData.prices}
+          />
+        ) : (
+          <GoodsReceiptPage
+            receiptData={receiptData}
+            skus={skus}
+            suppliers={supplierData.suppliers}
             prices={priceData.prices}
           />
         )}
