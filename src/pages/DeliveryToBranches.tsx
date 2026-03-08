@@ -259,7 +259,13 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>
-                      <Input value={draft.branchName} onChange={e => handleUpdateDraft(draft.tempId, 'branchName', e.target.value)} className="h-8 text-xs" placeholder="Branch name" />
+                      <Select value={draft.branchName || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v === '_none' ? '' : v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Branch" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">— Select —</SelectItem>
+                          {activeBranches.map(b => <SelectItem key={b.id} value={b.branchName}>{b.branchName} — {b.brandName}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className={tdClass}>
                       <Select value={draft.smSkuId || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v === '_none' ? '' : v)}>
