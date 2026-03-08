@@ -22,6 +22,7 @@ import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import RMStockPage from '@/pages/RMStock';
 import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
+import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import BranchesPage from '@/pages/Branches';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
