@@ -3,21 +3,24 @@ import { SKU, SKUType } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
+import { usePriceData } from '@/hooks/use-price-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
 import SuppliersPage from '@/pages/Suppliers';
+import PricesPage from '@/pages/Prices';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
   const skuData = useSkuData();
   const supplierData = useSupplierData();
+  const priceData = usePriceData();
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -75,6 +78,14 @@ const Index = () => {
               <Users className="w-4 h-4" />
               Supplier Master
             </Button>
+            <Button
+              variant={activeTab === 'price' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('price')}
+            >
+              <DollarSign className="w-4 h-4" />
+              Price Master
+            </Button>
           </div>
         </div>
       </header>
@@ -96,8 +107,15 @@ const Index = () => {
             <SummaryCards counts={counts} total={skus.length} />
             <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDelete} />
           </div>
-        ) : (
+        ) : activeTab === 'supplier' ? (
           <SuppliersPage supplierData={supplierData} />
+        ) : (
+          <PricesPage
+            priceData={priceData}
+            skus={skus}
+            activeSuppliers={activeSuppliers}
+            allSuppliers={supplierData.suppliers}
+          />
         )}
       </main>
 
