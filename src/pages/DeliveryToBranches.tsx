@@ -41,7 +41,7 @@ function createEmptyDraft(): DraftDeliveryRow {
   };
 }
 
-export default function DeliveryToBranchesPage({ deliveryData, skus }: Props) {
+export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranches }: Props) {
   const { deliveries, addDelivery, updateDelivery, deleteDelivery } = deliveryData;
   const [drafts, setDrafts] = useState<DraftDeliveryRow[]>([]);
   const [search, setSearch] = useState('');
