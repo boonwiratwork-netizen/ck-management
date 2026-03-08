@@ -122,6 +122,14 @@ const Index = () => {
               <Warehouse className="w-4 h-4" />
               RM Stock
             </Button>
+            <Button
+              variant={activeTab === 'production' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('production')}
+            >
+              <Factory className="w-4 h-4" />
+              Production
+            </Button>
           </div>
         </div>
       </header>
