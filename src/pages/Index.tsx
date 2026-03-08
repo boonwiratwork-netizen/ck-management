@@ -110,7 +110,20 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'sku' ? (
+        {activeTab === 'dashboard' ? (
+          <Dashboard
+            skus={skus}
+            smStockBalances={smStockData.stockBalances}
+            productionPlans={productionData.plans}
+            productionRecords={productionData.records}
+            receipts={receiptData.receipts}
+            bomHeaders={bomData.headers}
+            bomLines={bomData.lines}
+            prices={priceData.prices}
+            deliveries={deliveryData.deliveries}
+            getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+          />
+        ) : activeTab === 'sku' ? (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
