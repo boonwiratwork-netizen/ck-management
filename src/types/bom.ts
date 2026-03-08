@@ -1,25 +1,40 @@
 export type ProductionType = 'CK' | 'Outsource';
+export type BOMMode = 'simple' | 'multistep';
+export type IngredientQtyType = 'fixed' | 'percent';
 
 export interface BOMHeader {
   id: string;
-  smSkuId: string;        // references SKU.id (SM type only)
+  smSkuId: string;
   productionType: ProductionType;
+  bomMode: BOMMode;
+  // Simple BOM fields
   batchSize: number;       // grams
   yieldPercent: number;    // e.g. 0.70
-  // auto-calculated: batchSize * yieldPercent
 }
 
 export interface BOMLine {
   id: string;
   bomHeaderId: string;
-  rmSkuId: string;         // references SKU.id (RM type only)
+  rmSkuId: string;
   qtyPerBatch: number;     // in usage UOM
-  // auto-filled from SKU/Price: ingredientName, usageUom, costPerUnit
+  // For multi-step: which step this ingredient belongs to
+  stepId?: string;
+  qtyType?: IngredientQtyType;
+  percentOfInput?: number; // e.g. 0.10 = 10%
+}
+
+export interface BOMStep {
+  id: string;
+  bomHeaderId: string;
+  stepNumber: number;
+  stepName: string;
+  yieldPercent: number; // e.g. 0.80
 }
 
 export const EMPTY_BOM_HEADER: Omit<BOMHeader, 'id'> = {
   smSkuId: '',
   productionType: 'CK',
+  bomMode: 'simple',
   batchSize: 0,
   yieldPercent: 0.7,
 };
@@ -27,4 +42,10 @@ export const EMPTY_BOM_HEADER: Omit<BOMHeader, 'id'> = {
 export const EMPTY_BOM_LINE: Omit<BOMLine, 'id' | 'bomHeaderId'> = {
   rmSkuId: '',
   qtyPerBatch: 0,
+};
+
+export const EMPTY_BOM_STEP: Omit<BOMStep, 'id' | 'bomHeaderId'> = {
+  stepNumber: 1,
+  stepName: '',
+  yieldPercent: 1.0,
 };
