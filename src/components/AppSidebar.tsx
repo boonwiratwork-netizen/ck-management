@@ -8,15 +8,19 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck,
+  Truck, Store, ClipboardCheck, Settings, LogOut,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -68,9 +72,19 @@ const navGroups = [
   },
 ];
 
+const settingsGroup = {
+  label: 'Settings',
+  items: [
+    { key: 'users' as TabKey, label: 'User Management', icon: Settings },
+  ],
+};
+
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const { profile, role, isAdmin, signOut } = useAuth();
+
+  const allGroups = isAdmin ? [...navGroups, settingsGroup] : navGroups;
 
   return (
     <Sidebar collapsible="icon">
@@ -88,7 +102,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {navGroups.map(group => (
+        {allGroups.map(group => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel className="text-[10px] uppercase tracking-wider">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -114,6 +128,38 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           </SidebarGroup>
         ))}
       </SidebarContent>
+      <SidebarFooter className="border-t border-sidebar-border p-3">
+        {!collapsed && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium truncate">{profile?.full_name || 'User'}</p>
+              <Badge variant="secondary" className="text-[10px] mt-0.5">
+                {role === 'admin' ? 'Admin' : 'CK Manager'}
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 h-8 w-8"
+              onClick={signOut}
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+        {collapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-full"
+            onClick={signOut}
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+        )}
+      </SidebarFooter>
     </Sidebar>
   );
 }
