@@ -40,7 +40,7 @@ const Index = () => {
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('sku');
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
