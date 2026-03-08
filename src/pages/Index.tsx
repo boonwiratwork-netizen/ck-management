@@ -100,6 +100,17 @@ const Index = () => {
               <FlaskConical className="w-4 h-4" />
               BOM
             </Button>
+            <Button
+              variant={activeTab === 'receipt' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('receipt')}
+            >
+              <ClipboardList className="w-4 h-4" />
+              Goods Receipt
+            </Button>
+              <FlaskConical className="w-4 h-4" />
+              BOM
+            </Button>
           </div>
         </div>
       </header>
