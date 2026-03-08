@@ -30,7 +30,7 @@ import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat } from 'lucide-react';
+import { Plus, ChefHat, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
