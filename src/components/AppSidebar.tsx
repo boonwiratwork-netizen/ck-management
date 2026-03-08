@@ -13,7 +13,7 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store,
+  Truck, Store, ClipboardCheck,
 } from 'lucide-react';
 
 export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery' | 'branches';
