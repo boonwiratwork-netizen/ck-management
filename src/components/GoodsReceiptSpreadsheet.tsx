@@ -194,14 +194,14 @@ export function GoodsReceiptSpreadsheet({
                         type="number"
                         min={0}
                         step="any"
-                        value={draft.actualPrice || ''}
-                        onChange={e => onUpdateDraft(draft.tempId, 'actualPrice', Number(e.target.value))}
-                        className="h-8 text-xs text-right w-[90px] font-mono"
+                        value={draft.actualTotal || ''}
+                        onChange={e => onUpdateDraft(draft.tempId, 'actualTotal', Number(e.target.value))}
+                        className="h-8 text-xs text-right w-[100px] font-mono"
                         placeholder="0.00"
                       />
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
-                      {actualTotal > 0 ? actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      {actualUnit > 0 ? actualUnit.toFixed(4) : '—'}
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
                       {stdUnit > 0 ? stdUnit.toFixed(2) : '—'}
