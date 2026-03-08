@@ -57,6 +57,78 @@ const Index = () => {
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+
+  // SKU CSV import
+  const skuCsvColumns: CSVColumnDef[] = [
+    { key: 'name', label: 'Name', required: true },
+    { key: 'type', label: 'Type', required: true },
+    { key: 'category', label: 'Category', required: true },
+    { key: 'status', label: 'Status' },
+    { key: 'specNote', label: 'Spec Note' },
+    { key: 'packSize', label: 'Pack Size' },
+    { key: 'packUnit', label: 'Pack Unit' },
+    { key: 'purchaseUom', label: 'Purchase UOM' },
+    { key: 'usageUom', label: 'Usage UOM' },
+    { key: 'converter', label: 'Converter' },
+    { key: 'storageCondition', label: 'Storage Condition' },
+    { key: 'shelfLife', label: 'Shelf Life' },
+    { key: 'vat', label: 'VAT' },
+    { key: 'leadTime', label: 'Lead Time' },
+  ];
+
+  const validateSkuCsv = useCallback((rows: Record<string, string>[]) => {
+    const errors: CSVValidationError[] = [];
+    const valid: Record<string, string>[] = [];
+    let skipped = 0;
+    const validTypes = ['RM', 'SM', 'SP', 'PK'];
+    const validCategories = ['MT', 'SF', 'VG', 'FR', 'DG', 'SC', 'DY', 'OL'];
+    const validStorage = ['Frozen', 'Chilled', 'Ambient'];
+    const existingNames = new Set(skus.map(s => s.name.toLowerCase()));
+    const seenNames = new Set<string>();
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const name = row['Name']?.trim();
+      const type = row['Type']?.trim().toUpperCase();
+      if (!name) { errors.push({ row: rowNum, message: 'Name is required' }); return; }
+      if (!type || !validTypes.includes(type)) { errors.push({ row: rowNum, message: `Type must be one of ${validTypes.join('/')}` }); return; }
+      const cat = row['Category']?.trim().toUpperCase();
+      if (cat && !validCategories.includes(cat)) { errors.push({ row: rowNum, message: `Category must be one of ${validCategories.join('/')}` }); return; }
+      const storage = row['Storage Condition']?.trim();
+      if (storage && !validStorage.includes(storage)) { errors.push({ row: rowNum, message: `Storage Condition must be one of ${validStorage.join('/')}` }); return; }
+      if (existingNames.has(name.toLowerCase()) || seenNames.has(name.toLowerCase())) { skipped++; return; }
+      seenNames.add(name.toLowerCase());
+      valid.push(row);
+    });
+    return { valid, errors, skipped };
+  }, [skus]);
+
+  const handleSkuCsvConfirm = useCallback((rows: Record<string, string>[]) => {
+    let count = 0;
+    rows.forEach(row => {
+      addSku({
+        name: row['Name']?.trim() || '',
+        type: (row['Type']?.trim().toUpperCase() || 'RM') as any,
+        category: (row['Category']?.trim().toUpperCase() || 'MT') as any,
+        status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
+        specNote: row['Spec Note']?.trim() || '',
+        packSize: Number(row['Pack Size']) || 1,
+        packUnit: row['Pack Unit']?.trim() || '',
+        purchaseUom: row['Purchase UOM']?.trim() || '',
+        usageUom: row['Usage UOM']?.trim() || '',
+        converter: Number(row['Converter']) || 1,
+        storageCondition: (['Frozen', 'Chilled', 'Ambient'].includes(row['Storage Condition']?.trim()) ? row['Storage Condition']?.trim() : 'Ambient') as any,
+        shelfLife: Number(row['Shelf Life']) || 0,
+        vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
+        supplier1: '',
+        supplier2: '',
+        leadTime: Number(row['Lead Time']) || 0,
+      });
+      count++;
+    });
+    toast.success(`${count} SKUs imported successfully`);
+  }, [addSku]);
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
