@@ -22,11 +22,11 @@ export interface DraftRow {
   skuId: string;
   supplierId: string;
   quantityReceived: number;
-  actualPrice: number;
+  actualTotal: number;
   note: string;
-  isNew: boolean;        // true = brand new unsaved row
-  isEditing: boolean;    // true = currently in edit mode (new or existing being edited)
-  savedReceiptId?: string; // if editing an existing saved receipt, store its id
+  isNew: boolean;
+  isEditing: boolean;
+  savedReceiptId?: string;
 }
 
 function createEmptyDraft(): DraftRow {
