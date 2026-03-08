@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Supplier } from '@/types/supplier';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { SupplierTable } from '@/components/SupplierTable';
 import { SupplierFormModal } from '@/components/SupplierFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
