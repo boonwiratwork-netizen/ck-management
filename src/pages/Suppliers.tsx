@@ -3,6 +3,7 @@ import { Supplier } from '@/types/supplier';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { SupplierTable } from '@/components/SupplierTable';
 import { SupplierFormModal } from '@/components/SupplierFormModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,12 +16,23 @@ export default function SuppliersPage({ supplierData }: Props) {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier } = supplierData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const activeCount = useMemo(() => suppliers.filter(s => s.status === 'Active').length, [suppliers]);
 
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
   const handleEdit = (s: Supplier) => { setEditing(s); setModalOpen(true); };
-  const handleDelete = (id: string) => { deleteSupplier(id); toast.success('Supplier deleted'); };
+  const handleDeleteRequest = (id: string) => {
+    const s = suppliers.find(x => x.id === id);
+    setDeleteConfirm({ id, name: s?.name || 'this supplier' });
+  };
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      deleteSupplier(deleteConfirm.id);
+      toast.success(`Supplier "${deleteConfirm.name}" deleted`);
+      setDeleteConfirm(null);
+    }
+  };
 
   const handleSubmit = (data: Omit<Supplier, 'id'>) => {
     if (editing) {
@@ -45,7 +57,6 @@ export default function SuppliersPage({ supplierData }: Props) {
         </Button>
       </div>
 
-      {/* Summary Card */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Suppliers</p>
@@ -66,13 +77,22 @@ export default function SuppliersPage({ supplierData }: Props) {
         </div>
       </div>
 
-      <SupplierTable suppliers={suppliers} onEdit={handleEdit} onDelete={handleDelete} />
+      <SupplierTable suppliers={suppliers} onEdit={handleEdit} onDelete={handleDeleteRequest} />
 
       <SupplierFormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         editing={editing}
+      />
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={open => !open && setDeleteConfirm(null)}
+        title="Delete Supplier"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );

@@ -23,11 +23,12 @@ import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import BranchesPage from '@/pages/Branches';
+import { AppSidebar, TabKey } from '@/components/AppSidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck, LayoutDashboard, Store } from 'lucide-react';
+import { Plus, ChefHat } from 'lucide-react';
 import { toast } from 'sonner';
-
-type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery' | 'branches';
 
 const Index = () => {
   const skuData = useSkuData();
@@ -44,6 +45,7 @@ const Index = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -61,9 +63,27 @@ const Index = () => {
     return c;
   }, [skus]);
 
+  // Check if SKU is used in BOM, Goods Receipt, or Production
+  const isSkuUsed = (skuId: string) => {
+    const inBom = bomData.lines.some(l => l.rmSkuId === skuId) || bomData.headers.some(h => h.smSkuId === skuId);
+    const inReceipt = receiptData.receipts.some(r => r.skuId === skuId);
+    const inProduction = productionData.records.some(r => r.smSkuId === skuId);
+    return inBom || inReceipt || inProduction;
+  };
+
   const handleAdd = () => { setEditingSku(null); setModalOpen(true); };
   const handleEdit = (sku: SKU) => { setEditingSku(sku); setModalOpen(true); };
-  const handleDelete = (id: string) => { deleteSku(id); toast.success('SKU deleted'); };
+  const handleDeleteRequest = (id: string) => {
+    const sku = skus.find(s => s.id === id);
+    setDeleteConfirm({ id, name: sku?.name || sku?.skuId || 'this SKU' });
+  };
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      deleteSku(deleteConfirm.id);
+      toast.success(`SKU "${deleteConfirm.name}" deleted`);
+      setDeleteConfirm(null);
+    }
+  };
 
   const handleSubmit = (data: Omit<SKU, 'id' | 'skuId'>) => {
     if (editingSku) {
@@ -75,99 +95,94 @@ const Index = () => {
     }
   };
 
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { key: 'sku', label: 'SKU Master', icon: <Package className="w-4 h-4" /> },
-    { key: 'supplier', label: 'Suppliers', icon: <Users className="w-4 h-4" /> },
-    { key: 'price', label: 'Prices', icon: <DollarSign className="w-4 h-4" /> },
-    { key: 'bom', label: 'BOM', icon: <FlaskConical className="w-4 h-4" /> },
-    { key: 'receipt', label: 'Goods Receipt', icon: <ClipboardList className="w-4 h-4" /> },
-    { key: 'stock', label: 'RM Stock', icon: <Warehouse className="w-4 h-4" /> },
-    { key: 'production', label: 'Production', icon: <Factory className="w-4 h-4" /> },
-    { key: 'smstock', label: 'SM Stock', icon: <BoxesIcon className="w-4 h-4" /> },
-    { key: 'delivery', label: 'Delivery', icon: <Truck className="w-4 h-4" /> },
-    { key: 'branches', label: 'Branches', icon: <Store className="w-4 h-4" /> },
-  ];
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-              <ChefHat className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-lg font-heading font-bold leading-tight">CK Manager</h1>
-              <p className="text-xs text-muted-foreground">Central Kitchen Operations</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            {tabs.map(tab => (
-              <Button
-                key={tab.key}
-                variant={activeTab === tab.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.icon}
-                {tab.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </header>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-12 flex items-center border-b bg-card px-4 gap-3 shrink-0">
+            <SidebarTrigger />
+            <div className="h-5 w-px bg-border" />
+            <h1 className="text-sm font-heading font-semibold text-muted-foreground truncate">
+              {activeTab === 'dashboard' ? 'Dashboard' :
+                activeTab === 'sku' ? 'SKU Master' :
+                activeTab === 'supplier' ? 'Suppliers' :
+                activeTab === 'price' ? 'Price Master' :
+                activeTab === 'bom' ? 'BOM Master' :
+                activeTab === 'receipt' ? 'Goods Receipt' :
+                activeTab === 'stock' ? 'RM Stock' :
+                activeTab === 'production' ? 'Production' :
+                activeTab === 'smstock' ? 'SM Stock' :
+                activeTab === 'delivery' ? 'Delivery to Branches' :
+                'Branches'}
+            </h1>
+          </header>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'dashboard' ? (
-          <Dashboard
-            skus={skus}
-            smStockBalances={smStockData.stockBalances}
-            rmStockBalances={stockData.stockBalances}
-            productionPlans={productionData.plans}
-            productionRecords={productionData.records}
-            receipts={receiptData.receipts}
-            bomHeaders={bomData.headers}
-            bomLines={bomData.lines}
-            prices={priceData.prices}
-            deliveries={deliveryData.deliveries}
-            getTotalProducedForPlan={productionData.getTotalProducedForPlan}
-            getStdUnitPrice={stockData.getStdUnitPrice}
-          />
-        ) : activeTab === 'sku' ? (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
-              </div>
-              <Button onClick={handleAdd}>
-                <Plus className="w-4 h-4" /> Add SKU
-              </Button>
+          <main className="flex-1 overflow-auto p-6">
+            <div className="max-w-[1400px] mx-auto">
+              {activeTab === 'dashboard' ? (
+                <Dashboard
+                  skus={skus}
+                  smStockBalances={smStockData.stockBalances}
+                  rmStockBalances={stockData.stockBalances}
+                  productionPlans={productionData.plans}
+                  productionRecords={productionData.records}
+                  receipts={receiptData.receipts}
+                  bomHeaders={bomData.headers}
+                  bomLines={bomData.lines}
+                  prices={priceData.prices}
+                  deliveries={deliveryData.deliveries}
+                  getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+                  getStdUnitPrice={stockData.getStdUnitPrice}
+                />
+              ) : activeTab === 'sku' ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
+                      <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
+                    </div>
+                    <Button onClick={handleAdd}>
+                      <Plus className="w-4 h-4" /> Add SKU
+                    </Button>
+                  </div>
+                  <SummaryCards counts={counts} total={skus.length} />
+                  <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+                </div>
+              ) : activeTab === 'supplier' ? (
+                <SuppliersPage supplierData={supplierData} />
+              ) : activeTab === 'price' ? (
+                <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} />
+              ) : activeTab === 'bom' ? (
+                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} />
+              ) : activeTab === 'receipt' ? (
+                <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
+              ) : activeTab === 'stock' ? (
+                <RMStockPage skus={skus} stockData={stockData} />
+              ) : activeTab === 'production' ? (
+                <ProductionPage
+                  productionData={productionData}
+                  skus={skus}
+                  bomHeaders={bomData.headers}
+                  stockBalances={stockData.stockBalances}
+                  bomLines={bomData.lines}
+                />
+              ) : activeTab === 'smstock' ? (
+                <SMStockPage skus={skus} smStockData={smStockData} />
+              ) : activeTab === 'branches' ? (
+                <BranchesPage branchData={branchData} />
+              ) : (
+                <DeliveryToBranchesPage
+                  deliveryData={deliveryData}
+                  skus={skus}
+                  activeBranches={activeBranches}
+                  smStockBalances={smStockData.stockBalances}
+                />
+              )}
             </div>
-            <SummaryCards counts={counts} total={skus.length} />
-            <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDelete} />
-          </div>
-        ) : activeTab === 'supplier' ? (
-          <SuppliersPage supplierData={supplierData} />
-        ) : activeTab === 'price' ? (
-          <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} />
-        ) : activeTab === 'bom' ? (
-          <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} />
-        ) : activeTab === 'receipt' ? (
-          <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
-        ) : activeTab === 'stock' ? (
-          <RMStockPage skus={skus} stockData={stockData} />
-        ) : activeTab === 'production' ? (
-          <ProductionPage productionData={productionData} skus={skus} bomHeaders={bomData.headers} />
-        ) : activeTab === 'smstock' ? (
-          <SMStockPage skus={skus} smStockData={smStockData} />
-        ) : activeTab === 'branches' ? (
-          <BranchesPage branchData={branchData} />
-        ) : (
-          <DeliveryToBranchesPage deliveryData={deliveryData} skus={skus} activeBranches={activeBranches} />
-        )}
-      </main>
+          </main>
+        </div>
+      </div>
 
       <SKUFormModal
         open={modalOpen}
@@ -175,8 +190,18 @@ const Index = () => {
         onSubmit={handleSubmit}
         editingSku={editingSku}
         activeSuppliers={activeSuppliers}
+        isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
       />
-    </div>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={open => !open && setDeleteConfirm(null)}
+        title="Delete SKU"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
+      />
+    </SidebarProvider>
   );
 };
 
