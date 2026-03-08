@@ -121,7 +121,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                       </td>
                       <td className="px-4 py-3">{supplier?.name || '—'}</td>
                       <td className="px-4 py-3 text-right font-mono">{r.quantityReceived.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-center text-xs">{r.purchaseUom || '—'}</td>
+                      <td className="px-4 py-3 text-center text-xs">{r.usageUom || '—'}</td>
                       <td className="px-4 py-3 text-right font-mono">{r.actualPrice.toFixed(2)}</td>
                       <td className="px-4 py-3 text-right font-mono">{r.standardPrice.toFixed(2)}</td>
                       <td className={`px-4 py-3 text-right font-mono font-semibold ${
