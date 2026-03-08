@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Delivery } from '@/types/delivery';
+import { Branch } from '@/types/branch';
 import { getWeekNumber } from '@/types/goods-receipt';
 import { SKU } from '@/types/sku';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
