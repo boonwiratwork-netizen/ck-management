@@ -43,7 +43,7 @@ export function GoodsReceiptSpreadsheet({
 
   const getStdUnitPrice = (skuId: string, supplierId: string) => {
     const active = prices.find(p => p.skuId === skuId && p.supplierId === supplierId && p.isActive);
-    return active?.pricePerPurchaseUom ?? 0;
+    return active?.pricePerUsageUom ?? 0;
   };
 
   const filteredSaved = useMemo(() => {
