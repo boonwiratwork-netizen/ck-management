@@ -5,14 +5,16 @@ import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
 import { useBomData } from '@/hooks/use-bom-data';
+import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
 import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
+import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -20,10 +22,11 @@ const Index = () => {
   const supplierData = useSupplierData();
   const priceData = usePriceData();
   const bomData = useBomData();
+  const receiptData = useGoodsReceiptData();
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -97,6 +100,14 @@ const Index = () => {
               <FlaskConical className="w-4 h-4" />
               BOM
             </Button>
+            <Button
+              variant={activeTab === 'receipt' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('receipt')}
+            >
+              <ClipboardList className="w-4 h-4" />
+              Goods Receipt
+            </Button>
           </div>
         </div>
       </header>
@@ -127,10 +138,17 @@ const Index = () => {
             activeSuppliers={activeSuppliers}
             allSuppliers={supplierData.suppliers}
           />
-        ) : (
+        ) : activeTab === 'bom' ? (
           <BOMPage
             bomData={bomData}
             skus={skus}
+            prices={priceData.prices}
+          />
+        ) : (
+          <GoodsReceiptPage
+            receiptData={receiptData}
+            skus={skus}
+            suppliers={supplierData.suppliers}
             prices={priceData.prices}
           />
         )}
