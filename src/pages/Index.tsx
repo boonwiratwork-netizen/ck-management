@@ -15,6 +15,7 @@ import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
