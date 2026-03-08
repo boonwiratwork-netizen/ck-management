@@ -13,8 +13,9 @@ import SuppliersPage from '@/pages/Suppliers';
 import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
 import GoodsReceiptPage from '@/pages/GoodsReceipt';
+import RMStockPage from '@/pages/RMStock';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -26,7 +27,7 @@ const Index = () => {
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -108,6 +109,14 @@ const Index = () => {
               <ClipboardList className="w-4 h-4" />
               Goods Receipt
             </Button>
+            <Button
+              variant={activeTab === 'stock' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('stock')}
+            >
+              <Warehouse className="w-4 h-4" />
+              RM Stock
+            </Button>
           </div>
         </div>
       </header>
@@ -144,11 +153,17 @@ const Index = () => {
             skus={skus}
             prices={priceData.prices}
           />
-        ) : (
+        ) : activeTab === 'receipt' ? (
           <GoodsReceiptPage
             receiptData={receiptData}
             skus={skus}
             suppliers={supplierData.suppliers}
+            prices={priceData.prices}
+          />
+        ) : (
+          <RMStockPage
+            skus={skus}
+            receipts={receiptData.receipts}
             prices={priceData.prices}
           />
         )}
