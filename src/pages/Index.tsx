@@ -27,10 +27,12 @@ const Index = () => {
   const priceData = usePriceData();
   const bomData = useBomData();
   const receiptData = useGoodsReceiptData();
+  const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
+  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment);
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
