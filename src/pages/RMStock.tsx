@@ -1,24 +1,28 @@
 import { useState, useMemo } from 'react';
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
-import { GoodsReceipt } from '@/types/goods-receipt';
-import { Price } from '@/types/price';
-import { useStockData } from '@/hooks/use-stock-data';
-import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
+import { StockBalance, StockAdjustment } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Pencil, SlidersHorizontal, Search, Package } from 'lucide-react';
+import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { toast } from 'sonner';
 
 interface Props {
   skus: SKU[];
-  receipts: GoodsReceipt[];
-  prices: Price[];
+  stockData: {
+    stockBalances: StockBalance[];
+    setOpeningStock: (skuId: string, qty: number) => void;
+    addAdjustment: (adj: Omit<StockAdjustment, 'id'>) => void;
+    getStdUnitPrice: (skuId: string) => number;
+    getLastReceiptDate: (skuId: string) => string | null;
+    openingStocks: Record<string, number>;
+  };
 }
 
-export default function RMStockPage({ skus, receipts, prices }: Props) {
-  const { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks } = useStockData(skus, receipts, prices);
+export default function RMStockPage({ skus, stockData }: Props) {
+  const { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks } = stockData;
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
