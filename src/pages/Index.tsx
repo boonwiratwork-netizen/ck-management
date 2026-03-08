@@ -14,7 +14,7 @@ import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
 import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
