@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
@@ -6,8 +6,9 @@ import { usePriceData } from '@/hooks/use-price-data';
 import { PriceTable } from '@/components/PriceTable';
 import { PriceFormModal } from '@/components/PriceFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
