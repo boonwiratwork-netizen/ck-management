@@ -180,6 +180,8 @@ const Index = () => {
                 />
               ) : activeTab === 'smstock' ? (
                 <SMStockPage skus={skus} smStockData={smStockData} />
+              ) : activeTab === 'stockcount' ? (
+                <StockCountPage skus={skus} stockCountData={stockCountData} getStdUnitPrice={stockData.getStdUnitPrice} />
               ) : activeTab === 'branches' ? (
                 <BranchesPage branchData={branchData} />
               ) : (
