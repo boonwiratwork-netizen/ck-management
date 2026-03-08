@@ -39,7 +39,7 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
 
   const calculatedUsagePrice = useMemo(() => {
     if (!selectedSku || selectedSku.packSize === 0) return 0;
-    return (form.pricePerPurchaseUom / selectedSku.packSize) * selectedSku.converter;
+    return (form.pricePerPurchaseUom / selectedSku.packSize) / selectedSku.converter;
   }, [form.pricePerPurchaseUom, selectedSku]);
 
   const handleSubmit = (e: React.FormEvent) => {
