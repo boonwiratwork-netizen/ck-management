@@ -6,6 +6,8 @@ import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
 import { useBomData } from '@/hooks/use-bom-data';
 import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
+import { useStockData } from '@/hooks/use-stock-data';
+import { useProductionData } from '@/hooks/use-production-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
@@ -14,8 +16,9 @@ import PricesPage from '@/pages/Prices';
 import BOMPage from '@/pages/BOM';
 import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import RMStockPage from '@/pages/RMStock';
+import ProductionPage from '@/pages/Production';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -24,10 +27,12 @@ const Index = () => {
   const priceData = usePriceData();
   const bomData = useBomData();
   const receiptData = useGoodsReceiptData();
+  const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
+  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment);
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production'>('sku');
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -117,6 +122,14 @@ const Index = () => {
               <Warehouse className="w-4 h-4" />
               RM Stock
             </Button>
+            <Button
+              variant={activeTab === 'production' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('production')}
+            >
+              <Factory className="w-4 h-4" />
+              Production
+            </Button>
           </div>
         </div>
       </header>
@@ -160,11 +173,16 @@ const Index = () => {
             suppliers={supplierData.suppliers}
             prices={priceData.prices}
           />
-        ) : (
+        ) : activeTab === 'stock' ? (
           <RMStockPage
             skus={skus}
-            receipts={receiptData.receipts}
-            prices={priceData.prices}
+            stockData={stockData}
+          />
+        ) : (
+          <ProductionPage
+            productionData={productionData}
+            skus={skus}
+            bomHeaders={bomData.headers}
           />
         )}
       </main>
