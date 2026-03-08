@@ -112,9 +112,9 @@ export function GoodsReceiptSpreadsheet({
               {drafts.map((draft, idx) => {
                 const sku = skuMap[draft.skuId];
                 const stdUnit = getStdUnitPrice(draft.skuId, draft.supplierId);
-                const actualTotal = draft.actualPrice * draft.quantityReceived;
+                const actualUnit = draft.quantityReceived > 0 ? draft.actualTotal / draft.quantityReceived : 0;
                 const stdTotal = stdUnit * draft.quantityReceived;
-                const variance = actualTotal - stdTotal;
+                const variance = draft.actualTotal - stdTotal;
                 const weekNum = draft.receiptDate ? getWeekNumber(draft.receiptDate) : '';
 
                 const rowBg = draft.isNew
