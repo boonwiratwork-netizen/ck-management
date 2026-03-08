@@ -1,17 +1,28 @@
 import { useState, useMemo } from 'react';
 import { SKU, SKUType } from '@/types/sku';
+import { Supplier } from '@/types/supplier';
 import { useSkuData } from '@/hooks/use-sku-data';
+import { useSupplierData } from '@/hooks/use-supplier-data';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
+import SuppliersPage from '@/pages/Suppliers';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat } from 'lucide-react';
+import { Plus, ChefHat, Package, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
-  const { skus, addSku, updateSku, deleteSku } = useSkuData();
+  const skuData = useSkuData();
+  const supplierData = useSupplierData();
+  const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
+  const [activeTab, setActiveTab] = useState<'sku' | 'supplier'>('sku');
+
+  const activeSuppliers = useMemo(
+    () => supplierData.suppliers.filter(s => s.status === 'Active'),
+    [supplierData.suppliers]
+  );
 
   const counts = useMemo(() => {
     const c: Record<SKUType, number> = { RM: 0, SM: 0, SP: 0, PK: 0 };
@@ -19,20 +30,9 @@ const Index = () => {
     return c;
   }, [skus]);
 
-  const handleAdd = () => {
-    setEditingSku(null);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (sku: SKU) => {
-    setEditingSku(sku);
-    setModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    deleteSku(id);
-    toast.success('SKU deleted');
-  };
+  const handleAdd = () => { setEditingSku(null); setModalOpen(true); };
+  const handleEdit = (sku: SKU) => { setEditingSku(sku); setModalOpen(true); };
+  const handleDelete = (id: string) => { deleteSku(id); toast.success('SKU deleted'); };
 
   const handleSubmit = (data: Omit<SKU, 'id' | 'skuId'>) => {
     if (editingSku) {
@@ -58,22 +58,47 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Central Kitchen Operations</p>
             </div>
           </div>
-          <Button onClick={handleAdd}>
-            <Plus className="w-4 h-4" />
-            Add SKU
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeTab === 'sku' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('sku')}
+            >
+              <Package className="w-4 h-4" />
+              SKU Master
+            </Button>
+            <Button
+              variant={activeTab === 'supplier' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('supplier')}
+            >
+              <Users className="w-4 h-4" />
+              Supplier Master
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Main */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div>
-          <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
-        </div>
-
-        <SummaryCards counts={counts} total={skus.length} />
-        <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDelete} />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {activeTab === 'sku' ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
+              </div>
+              <Button onClick={handleAdd}>
+                <Plus className="w-4 h-4" />
+                Add SKU
+              </Button>
+            </div>
+            <SummaryCards counts={counts} total={skus.length} />
+            <SKUTable skus={skus} onEdit={handleEdit} onDelete={handleDelete} />
+          </div>
+        ) : (
+          <SuppliersPage supplierData={supplierData} />
+        )}
       </main>
 
       <SKUFormModal
@@ -81,6 +106,7 @@ const Index = () => {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         editingSku={editingSku}
+        activeSuppliers={activeSuppliers}
       />
     </div>
   );
