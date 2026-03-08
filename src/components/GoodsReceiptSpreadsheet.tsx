@@ -286,8 +286,8 @@ export function GoodsReceiptSpreadsheet({
                     <td className={tdReadOnly}>{supplier?.name || '—'}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.quantityReceived.toLocaleString()}</td>
                     <td className={`${tdReadOnly} text-center`}>{r.usageUom || '—'}</td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{r.actualPrice.toFixed(2)}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.actualUnitPrice.toFixed(4)}</td>
                     <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.stdUnitPrice.toFixed(2)}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.standardPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className={`${tdReadOnly} text-right font-mono font-semibold ${
