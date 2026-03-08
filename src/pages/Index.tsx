@@ -9,6 +9,7 @@ import { useStockData } from '@/hooks/use-stock-data';
 import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
+import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
 import { SKUFormModal } from '@/components/SKUFormModal';
