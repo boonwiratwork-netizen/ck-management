@@ -13,10 +13,10 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store,
+  Truck, Store, ClipboardCheck,
 } from 'lucide-react';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery' | 'branches';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -57,6 +57,7 @@ const navGroups = [
     items: [
       { key: 'stock' as TabKey, label: 'RM Stock', icon: Warehouse },
       { key: 'smstock' as TabKey, label: 'SM Stock', icon: BoxesIcon },
+      { key: 'stockcount' as TabKey, label: 'Stock Count', icon: ClipboardCheck },
     ],
   },
   {

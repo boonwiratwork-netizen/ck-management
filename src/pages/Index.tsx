@@ -10,6 +10,7 @@ import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
+import { useStockCountData } from '@/hooks/use-stock-count-data';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
@@ -21,6 +22,7 @@ import GoodsReceiptPage from '@/pages/GoodsReceipt';
 import RMStockPage from '@/pages/RMStock';
 import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
+import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import BranchesPage from '@/pages/Branches';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
@@ -41,6 +43,14 @@ const Index = () => {
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
   const branchData = useBranchData();
+  const stockCountData = useStockCountData({
+    skus: skuData.skus,
+    rmStockBalances: stockData.stockBalances,
+    smStockBalances: smStockData.stockBalances,
+    addRmAdjustment: stockData.addAdjustment,
+    addSmAdjustment: smStockData.addAdjustment,
+    getStdUnitPrice: stockData.getStdUnitPrice,
+  });
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
@@ -113,6 +123,7 @@ const Index = () => {
                 activeTab === 'stock' ? 'RM Stock' :
                 activeTab === 'production' ? 'Production' :
                 activeTab === 'smstock' ? 'SM Stock' :
+                activeTab === 'stockcount' ? 'Stock Count' :
                 activeTab === 'delivery' ? 'Delivery to Branches' :
                 'Branches'}
             </h1>
@@ -169,6 +180,8 @@ const Index = () => {
                 />
               ) : activeTab === 'smstock' ? (
                 <SMStockPage skus={skus} smStockData={smStockData} />
+              ) : activeTab === 'stockcount' ? (
+                <StockCountPage skus={skus} stockCountData={stockCountData} getStdUnitPrice={stockData.getStdUnitPrice} />
               ) : activeTab === 'branches' ? (
                 <BranchesPage branchData={branchData} />
               ) : (
