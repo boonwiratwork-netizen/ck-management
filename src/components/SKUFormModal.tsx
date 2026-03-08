@@ -1,21 +1,15 @@
 import { useEffect, useState } from 'react';
 import { SKU, SKUType, Category, SKUStatus, StorageCondition, EMPTY_SKU, SKU_TYPE_LABELS, CATEGORY_LABELS } from '@/types/sku';
+import { Supplier } from '@/types/supplier';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 
@@ -24,9 +18,10 @@ interface SKUFormModalProps {
   onClose: () => void;
   onSubmit: (data: Omit<SKU, 'id' | 'skuId'>) => void;
   editingSku?: SKU | null;
+  activeSuppliers?: Supplier[];
 }
 
-export function SKUFormModal({ open, onClose, onSubmit, editingSku }: SKUFormModalProps) {
+export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [] }: SKUFormModalProps) {
   const [form, setForm] = useState<Omit<SKU, 'id' | 'skuId'>>(EMPTY_SKU);
 
   useEffect(() => {
@@ -151,15 +146,31 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku }: SKUFormMod
             </div>
           </div>
 
-          {/* Row 5 - Suppliers */}
+          {/* Row 5 - Suppliers (dropdowns from Supplier Master) */}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>1st Supplier</Label>
-              <Input value={form.supplier1} onChange={e => update('supplier1', e.target.value)} />
+              <Select value={form.supplier1 || '_none'} onValueChange={v => update('supplier1', v === '_none' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {activeSuppliers.map(s => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>2nd Supplier</Label>
-              <Input value={form.supplier2} onChange={e => update('supplier2', e.target.value)} />
+              <Select value={form.supplier2 || '_none'} onValueChange={v => update('supplier2', v === '_none' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {activeSuppliers.map(s => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Lead Time (days)</Label>
