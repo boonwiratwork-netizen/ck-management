@@ -98,8 +98,8 @@ export function GoodsReceiptSpreadsheet({
                 <th className={thClass} style={{ minWidth: 160 }}>Supplier</th>
                 <th className={`${thClass} text-right`}>Qty</th>
                 <th className={`${thClass} text-center`}>UOM</th>
-                <th className={`${thClass} text-right`}>Actual ฿</th>
                 <th className={`${thClass} text-right`}>Actual Total</th>
+                <th className={`${thClass} text-right`}>Actual Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Total</th>
                 <th className={`${thClass} text-right`}>Variance</th>
@@ -112,9 +112,9 @@ export function GoodsReceiptSpreadsheet({
               {drafts.map((draft, idx) => {
                 const sku = skuMap[draft.skuId];
                 const stdUnit = getStdUnitPrice(draft.skuId, draft.supplierId);
-                const actualTotal = draft.actualPrice * draft.quantityReceived;
+                const actualUnit = draft.quantityReceived > 0 ? draft.actualTotal / draft.quantityReceived : 0;
                 const stdTotal = stdUnit * draft.quantityReceived;
-                const variance = actualTotal - stdTotal;
+                const variance = draft.actualTotal - stdTotal;
                 const weekNum = draft.receiptDate ? getWeekNumber(draft.receiptDate) : '';
 
                 const rowBg = draft.isNew
@@ -194,14 +194,14 @@ export function GoodsReceiptSpreadsheet({
                         type="number"
                         min={0}
                         step="any"
-                        value={draft.actualPrice || ''}
-                        onChange={e => onUpdateDraft(draft.tempId, 'actualPrice', Number(e.target.value))}
-                        className="h-8 text-xs text-right w-[90px] font-mono"
+                        value={draft.actualTotal || ''}
+                        onChange={e => onUpdateDraft(draft.tempId, 'actualTotal', Number(e.target.value))}
+                        className="h-8 text-xs text-right w-[100px] font-mono"
                         placeholder="0.00"
                       />
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
-                      {actualTotal > 0 ? actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      {actualUnit > 0 ? actualUnit.toFixed(4) : '—'}
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
                       {stdUnit > 0 ? stdUnit.toFixed(2) : '—'}
@@ -286,8 +286,8 @@ export function GoodsReceiptSpreadsheet({
                     <td className={tdReadOnly}>{supplier?.name || '—'}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.quantityReceived.toLocaleString()}</td>
                     <td className={`${tdReadOnly} text-center`}>{r.usageUom || '—'}</td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{r.actualPrice.toFixed(2)}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.actualUnitPrice.toFixed(4)}</td>
                     <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.stdUnitPrice.toFixed(2)}</td>
                     <td className={`${tdReadOnly} text-right font-mono`}>{r.standardPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className={`${tdReadOnly} text-right font-mono font-semibold ${

@@ -6,20 +6,20 @@ export interface GoodsReceipt {
   supplierId: string;        // references Supplier.id
   quantityReceived: number;  // in Usage UOM (g, ml, etc.)
   usageUom: string;          // auto-filled from SKU
-  actualPrice: number;       // actual unit price per Usage UOM, ex VAT
-  actualTotal: number;       // actualPrice × qty
+  actualTotal: number;       // total amount paid (entered by user)
+  actualUnitPrice: number;   // actualTotal ÷ qty (auto-calculated)
   stdUnitPrice: number;      // active Price Master price per Usage UOM
   standardPrice: number;     // stdUnitPrice × qty (total standard value)
   priceVariance: number;     // actualTotal − standardPrice
   note: string;
 }
 
-export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'> = {
+export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'> = {
   receiptDate: new Date().toISOString().slice(0, 10),
   skuId: '',
   supplierId: '',
   quantityReceived: 0,
-  actualPrice: 0,
+  actualTotal: 0,
   note: '',
 };
 

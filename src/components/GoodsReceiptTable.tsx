@@ -122,7 +122,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                       <td className="px-4 py-3">{supplier?.name || '—'}</td>
                       <td className="px-4 py-3 text-right font-mono">{r.quantityReceived.toLocaleString()}</td>
                       <td className="px-4 py-3 text-center text-xs">{r.usageUom || '—'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{r.actualPrice.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-mono">{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-4 py-3 text-right font-mono">{r.standardPrice.toFixed(2)}</td>
                       <td className={`px-4 py-3 text-right font-mono font-semibold ${
                         r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''

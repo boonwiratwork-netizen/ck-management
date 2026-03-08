@@ -13,27 +13,27 @@ export function useGoodsReceiptData() {
 
   const buildReceipt = (
     id: string,
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
     sku: SKU | undefined,
     prices: Price[]
   ): GoodsReceipt => {
     const stdUnit = getStdUnitPrice(data.skuId, data.supplierId, prices);
-    const actualTotal = data.actualPrice * data.quantityReceived;
     const standardPrice = stdUnit * data.quantityReceived;
+    const actualUnitPrice = data.quantityReceived > 0 ? data.actualTotal / data.quantityReceived : 0;
     return {
       ...data,
       id,
       weekNumber: getWeekNumber(data.receiptDate),
       usageUom: sku?.usageUom ?? '',
       stdUnitPrice: stdUnit,
-      actualTotal,
+      actualUnitPrice,
       standardPrice,
-      priceVariance: actualTotal - standardPrice,
+      priceVariance: data.actualTotal - standardPrice,
     };
   };
 
   const addReceipt = useCallback((
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {
@@ -43,7 +43,7 @@ export function useGoodsReceiptData() {
 
   const updateReceipt = useCallback((
     id: string,
-    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'>,
+    data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
     sku: SKU | undefined,
     prices: Price[]
   ) => {

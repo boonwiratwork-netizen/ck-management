@@ -22,11 +22,11 @@ export interface DraftRow {
   skuId: string;
   supplierId: string;
   quantityReceived: number;
-  actualPrice: number;
+  actualTotal: number;
   note: string;
-  isNew: boolean;        // true = brand new unsaved row
-  isEditing: boolean;    // true = currently in edit mode (new or existing being edited)
-  savedReceiptId?: string; // if editing an existing saved receipt, store its id
+  isNew: boolean;
+  isEditing: boolean;
+  savedReceiptId?: string;
 }
 
 function createEmptyDraft(): DraftRow {
@@ -36,7 +36,7 @@ function createEmptyDraft(): DraftRow {
     skuId: '',
     supplierId: '',
     quantityReceived: 0,
-    actualPrice: 0,
+    actualTotal: 0,
     note: '',
     isNew: true,
     isEditing: true,
@@ -101,7 +101,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       skuId: receipt.skuId,
       supplierId: receipt.supplierId,
       quantityReceived: receipt.quantityReceived,
-      actualPrice: receipt.actualPrice,
+      actualTotal: receipt.actualTotal,
       note: receipt.note,
       isNew: false,
       isEditing: true,
@@ -123,7 +123,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       skuId: draft.skuId,
       supplierId: draft.supplierId,
       quantityReceived: draft.quantityReceived,
-      actualPrice: draft.actualPrice,
+      actualTotal: draft.actualTotal,
       note: draft.note,
     };
     if (draft.isNew) {
@@ -154,7 +154,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
         skuId: draft.skuId,
         supplierId: draft.supplierId,
         quantityReceived: draft.quantityReceived,
-        actualPrice: draft.actualPrice,
+        actualTotal: draft.actualTotal,
         note: draft.note,
       };
       if (draft.isNew) {
