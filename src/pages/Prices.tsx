@@ -5,6 +5,7 @@ import { Supplier } from '@/types/supplier';
 import { usePriceData } from '@/hooks/use-price-data';
 import { PriceTable } from '@/components/PriceTable';
 import { PriceFormModal } from '@/components/PriceFormModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,12 +21,24 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
   const { prices, addPrice, updatePrice, deletePrice } = priceData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
   const handleEdit = (p: Price) => { setEditing(p); setModalOpen(true); };
-  const handleDelete = (id: string) => { deletePrice(id); toast.success('Price deleted'); };
+  const handleDeleteRequest = (id: string) => {
+    const p = prices.find(x => x.id === id);
+    const sku = skus.find(s => s.id === p?.skuId);
+    setDeleteConfirm({ id, name: sku?.name || 'this price record' });
+  };
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      deletePrice(deleteConfirm.id);
+      toast.success('Price deleted');
+      setDeleteConfirm(null);
+    }
+  };
 
   const handleSubmit = (data: Omit<Price, 'id' | 'pricePerUsageUom'>, sku: SKU | undefined) => {
     if (editing) {
@@ -50,7 +63,6 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         </Button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Prices</p>
@@ -83,7 +95,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         skus={skus}
         suppliers={allSuppliers}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={handleDeleteRequest}
       />
 
       <PriceFormModal
@@ -93,6 +105,15 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         editing={editing}
         skus={skus}
         activeSuppliers={activeSuppliers}
+      />
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={open => !open && setDeleteConfirm(null)}
+        title="Delete Price"
+        description={`Are you sure you want to delete the price for "${deleteConfirm?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );

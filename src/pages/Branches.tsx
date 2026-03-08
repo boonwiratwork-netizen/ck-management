@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Branch, EMPTY_BRANCH, BranchStatus } from '@/types/branch';
 import { useBranchData } from '@/hooks/use-branch-data';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +22,8 @@ export default function BranchesPage({ branchData }: Props) {
   const [form, setForm] = useState<Omit<Branch, 'id'>>(EMPTY_BRANCH);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     return branches.filter(b => {
@@ -32,16 +35,21 @@ export default function BranchesPage({ branchData }: Props) {
     });
   }, [branches, search, filterStatus]);
 
-  const handleAdd = () => { setEditing(null); setForm(EMPTY_BRANCH); setModalOpen(true); };
+  const handleAdd = () => { setEditing(null); setForm(EMPTY_BRANCH); setErrors({}); setModalOpen(true); };
   const handleEdit = (b: Branch) => {
     setEditing(b);
     setForm({ branchName: b.branchName, brandName: b.brandName, location: b.location, status: b.status });
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSubmit = () => {
-    if (!form.branchName.trim() || !form.brandName.trim()) {
-      toast.error('Branch Name and Brand Name are required');
+    const errs: Record<string, string> = {};
+    if (!form.branchName.trim()) errs.branchName = 'Branch Name is required';
+    if (!form.brandName.trim()) errs.brandName = 'Brand Name is required';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error('Please fill in all required fields');
       return;
     }
     if (editing) {
@@ -54,9 +62,16 @@ export default function BranchesPage({ branchData }: Props) {
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteBranch(id);
-    toast.success('Branch deleted');
+  const handleDeleteRequest = (id: string) => {
+    const b = branches.find(x => x.id === id);
+    setDeleteConfirm({ id, name: b?.branchName || 'this branch' });
+  };
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      deleteBranch(deleteConfirm.id);
+      toast.success(`Branch "${deleteConfirm.name}" deleted`);
+      setDeleteConfirm(null);
+    }
   };
 
   return (
@@ -129,13 +144,20 @@ export default function BranchesPage({ branchData }: Props) {
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">No branches found.</td></tr>
+              <tr>
+                <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
+                  <Store className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  {branches.length === 0
+                    ? 'No branches yet. Click "Add Branch" to create your first branch.'
+                    : 'No branches match your filters.'}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -149,11 +171,13 @@ export default function BranchesPage({ branchData }: Props) {
           <div className="space-y-4">
             <div>
               <Label>Branch Name *</Label>
-              <Input value={form.branchName} onChange={e => setForm(f => ({ ...f, branchName: e.target.value }))} />
+              <Input value={form.branchName} onChange={e => { setForm(f => ({ ...f, branchName: e.target.value })); if (errors.branchName) setErrors(e => { const n = {...e}; delete n.branchName; return n; }); }} className={errors.branchName ? 'border-destructive' : ''} />
+              {errors.branchName && <p className="text-xs text-destructive mt-1">{errors.branchName}</p>}
             </div>
             <div>
               <Label>Brand Name *</Label>
-              <Input value={form.brandName} onChange={e => setForm(f => ({ ...f, brandName: e.target.value }))} />
+              <Input value={form.brandName} onChange={e => { setForm(f => ({ ...f, brandName: e.target.value })); if (errors.brandName) setErrors(e => { const n = {...e}; delete n.brandName; return n; }); }} className={errors.brandName ? 'border-destructive' : ''} />
+              {errors.brandName && <p className="text-xs text-destructive mt-1">{errors.brandName}</p>}
             </div>
             <div>
               <Label>Location</Label>
@@ -176,6 +200,15 @@ export default function BranchesPage({ branchData }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={open => !open && setDeleteConfirm(null)}
+        title="Delete Branch"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

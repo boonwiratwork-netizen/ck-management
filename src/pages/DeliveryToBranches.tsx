@@ -3,17 +3,20 @@ import { Delivery } from '@/types/delivery';
 import { Branch } from '@/types/branch';
 import { getWeekNumber } from '@/types/goods-receipt';
 import { SKU } from '@/types/sku';
+import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search } from 'lucide-react';
+import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
   deliveryData: ReturnType<typeof useDeliveryData>;
   skus: SKU[];
   activeBranches: Branch[];
+  smStockBalances: SMStockBalance[];
 }
 
 interface DraftDeliveryRow {
@@ -41,11 +44,13 @@ function createEmptyDraft(): DraftDeliveryRow {
   };
 }
 
-export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranches }: Props) {
+export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranches, smStockBalances }: Props) {
   const { deliveries, addDelivery, updateDelivery, deleteDelivery } = deliveryData;
   const [drafts, setDrafts] = useState<DraftDeliveryRow[]>([]);
   const [search, setSearch] = useState('');
   const [filterBranch, setFilterBranch] = useState<string>('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [stockWarning, setStockWarning] = useState<{ tempId: string; skuName: string; need: number; have: number } | null>(null);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
@@ -100,12 +105,9 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     setDrafts(prev => prev.map(d => d.tempId === tempId ? { ...d, [field]: value } : d));
   }, []);
 
-  const handleSaveRow = useCallback((tempId: string) => {
+  const doSaveRow = useCallback((tempId: string) => {
     const draft = drafts.find(d => d.tempId === tempId);
-    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredKg <= 0) {
-      toast.error('Please fill in Branch, SM SKU, and Qty');
-      return;
-    }
+    if (!draft) return;
     const data = {
       deliveryDate: draft.deliveryDate,
       branchName: draft.branchName,
@@ -121,6 +123,30 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     setDrafts(prev => prev.filter(d => d.tempId !== tempId));
     toast.success('Delivery saved');
   }, [drafts, addDelivery, updateDelivery]);
+
+  const handleSaveRow = useCallback((tempId: string) => {
+    const draft = drafts.find(d => d.tempId === tempId);
+    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredKg <= 0) {
+      toast.error('Please fill in Branch, SM SKU, and Qty');
+      return;
+    }
+
+    // Check SM stock
+    const balance = smStockBalances.find(b => b.skuId === draft.smSkuId);
+    const currentStock = balance?.currentStock ?? 0;
+    if (currentStock - draft.qtyDeliveredKg < 0) {
+      const sku = skuMap[draft.smSkuId];
+      setStockWarning({
+        tempId,
+        skuName: sku?.name || draft.smSkuId,
+        need: draft.qtyDeliveredKg,
+        have: currentStock,
+      });
+      return;
+    }
+
+    doSaveRow(tempId);
+  }, [drafts, smStockBalances, skuMap, doSaveRow]);
 
   const handleCancelRow = useCallback((tempId: string) => {
     setDrafts(prev => prev.filter(d => d.tempId !== tempId));
@@ -142,10 +168,19 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     setDrafts(prev => [...prev, draft]);
   }, [drafts]);
 
-  const handleDeleteSaved = useCallback((id: string) => {
-    deleteDelivery(id);
-    toast.success('Delivery deleted');
-  }, [deleteDelivery]);
+  const handleDeleteRequest = useCallback((id: string) => {
+    const d = deliveries.find(x => x.id === id);
+    const sku = d ? skuMap[d.smSkuId] : null;
+    setDeleteConfirm({ id, name: sku?.name || 'this delivery' });
+  }, [deliveries, skuMap]);
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      deleteDelivery(deleteConfirm.id);
+      toast.success('Delivery deleted');
+      setDeleteConfirm(null);
+    }
+  };
 
   const handleSaveAll = useCallback(() => {
     const valid = drafts.filter(d => d.isEditing && d.smSkuId && d.branchName && d.qtyDeliveredKg > 0);
@@ -189,7 +224,6 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Deliveries</p>
@@ -215,7 +249,6 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -232,7 +265,6 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         )}
       </div>
 
-      {/* Spreadsheet */}
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -248,7 +280,6 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               </tr>
             </thead>
             <tbody>
-              {/* Drafts */}
               {drafts.map((draft, idx) => {
                 const weekNum = draft.deliveryDate ? getWeekNumber(draft.deliveryDate) : '';
                 const rowBg = draft.isNew ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-yellow-50 dark:bg-yellow-950/30';
@@ -303,7 +334,6 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                 </tr>
               )}
 
-              {/* Saved */}
               {filteredSaved.map(d => {
                 const sku = skuMap[d.smSkuId];
                 return (
@@ -320,7 +350,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     <td className={`${tdReadOnly} text-right`}>
                       <div className="flex items-center justify-end gap-0.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditSaved(d)} title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSaved(d.id)} title="Delete"><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(d.id)} title="Delete"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     </td>
                   </tr>
@@ -330,7 +360,8 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               {drafts.length === 0 && filteredSaved.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                    No deliveries yet. Click "+ Add Row" to start entering.
+                    <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    No deliveries yet. Click "+ Add Row" to record your first delivery.
                   </td>
                 </tr>
               )}
@@ -341,6 +372,30 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       <p className="text-xs text-muted-foreground">
         {filteredSaved.length} saved delivery(ies){drafts.length > 0 && ` · ${drafts.filter(d => d.isEditing).length} editing`}
       </p>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={open => !open && setDeleteConfirm(null)}
+        title="Delete Delivery"
+        description={`Are you sure you want to delete the delivery for "${deleteConfirm?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
+      />
+
+      <ConfirmDialog
+        open={!!stockWarning}
+        onOpenChange={open => !open && setStockWarning(null)}
+        title="⚠ Negative SM Stock Warning"
+        description={`This delivery will result in negative stock for "${stockWarning?.skuName}" (need ${stockWarning?.need?.toFixed(1)} kg, have ${stockWarning?.have?.toFixed(1)} kg). Continue anyway?`}
+        confirmLabel="Proceed Anyway"
+        variant="warning"
+        onConfirm={() => {
+          if (stockWarning) {
+            doSaveRow(stockWarning.tempId);
+            setStockWarning(null);
+          }
+        }}
+      />
     </div>
   );
 }
