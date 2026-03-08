@@ -9,6 +9,7 @@ import { useStockData } from '@/hooks/use-stock-data';
 import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
+import { useBranchData } from '@/hooks/use-branch-data';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
 import { SKUTable } from '@/components/SKUTable';
@@ -21,11 +22,12 @@ import RMStockPage from '@/pages/RMStock';
 import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
+import BranchesPage from '@/pages/Branches';
 import { Button } from '@/components/ui/button';
-import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck, LayoutDashboard } from 'lucide-react';
+import { Plus, ChefHat, Package, Users, DollarSign, FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon, Truck, LayoutDashboard, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
-type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery';
+type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'delivery' | 'branches';
 
 const Index = () => {
   const skuData = useSkuData();
@@ -37,6 +39,7 @@ const Index = () => {
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment);
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
+  const branchData = useBranchData();
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
@@ -45,6 +48,11 @@ const Index = () => {
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
     [supplierData.suppliers]
+  );
+
+  const activeBranches = useMemo(
+    () => branchData.branches.filter(b => b.status === 'Active'),
+    [branchData.branches]
   );
 
   const counts = useMemo(() => {
@@ -78,6 +86,7 @@ const Index = () => {
     { key: 'production', label: 'Production', icon: <Factory className="w-4 h-4" /> },
     { key: 'smstock', label: 'SM Stock', icon: <BoxesIcon className="w-4 h-4" /> },
     { key: 'delivery', label: 'Delivery', icon: <Truck className="w-4 h-4" /> },
+    { key: 'branches', label: 'Branches', icon: <Store className="w-4 h-4" /> },
   ];
 
   return (
@@ -114,6 +123,7 @@ const Index = () => {
           <Dashboard
             skus={skus}
             smStockBalances={smStockData.stockBalances}
+            rmStockBalances={stockData.stockBalances}
             productionPlans={productionData.plans}
             productionRecords={productionData.records}
             receipts={receiptData.receipts}
@@ -122,6 +132,7 @@ const Index = () => {
             prices={priceData.prices}
             deliveries={deliveryData.deliveries}
             getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+            getStdUnitPrice={stockData.getStdUnitPrice}
           />
         ) : activeTab === 'sku' ? (
           <div className="space-y-6">
@@ -151,8 +162,10 @@ const Index = () => {
           <ProductionPage productionData={productionData} skus={skus} bomHeaders={bomData.headers} />
         ) : activeTab === 'smstock' ? (
           <SMStockPage skus={skus} smStockData={smStockData} />
+        ) : activeTab === 'branches' ? (
+          <BranchesPage branchData={branchData} />
         ) : (
-          <DeliveryToBranchesPage deliveryData={deliveryData} skus={skus} />
+          <DeliveryToBranchesPage deliveryData={deliveryData} skus={skus} activeBranches={activeBranches} />
         )}
       </main>
 
