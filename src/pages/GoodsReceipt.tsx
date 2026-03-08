@@ -101,7 +101,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       skuId: receipt.skuId,
       supplierId: receipt.supplierId,
       quantityReceived: receipt.quantityReceived,
-      actualPrice: receipt.actualPrice,
+      actualTotal: receipt.actualTotal,
       note: receipt.note,
       isNew: false,
       isEditing: true,
