@@ -266,7 +266,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                                 <p className="text-xs text-muted-foreground">{getSkuCode(plan.smSkuId)} · {plan.targetQtyKg}kg target · {plan.numBatches} batches</p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                {!hasBom && <AlertTriangle className="w-3.5 h-3.5 text-warning" title="No BOM" />}
+                                {!hasBom && <span title="No BOM"><AlertTriangle className="w-3.5 h-3.5 text-warning" /></span>}
                                 <Badge variant="outline" className={`text-xs gap-1 ${statusCfg.color}`}>
                                   {statusCfg.icon}
                                   {plan.status}
