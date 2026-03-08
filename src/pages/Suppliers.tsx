@@ -143,6 +143,15 @@ export default function SuppliersPage({ supplierData }: Props) {
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
       />
+
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="Supplier Master"
+        columns={supplierCsvCols}
+        validate={validateSupplierCsv}
+        onConfirm={handleSupplierCsvConfirm}
+      />
     </div>
   );
 }

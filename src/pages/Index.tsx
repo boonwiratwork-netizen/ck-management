@@ -292,6 +292,15 @@ const Index = () => {
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
       />
+
+      <CSVImportModal
+        open={csvImportOpen}
+        onClose={() => setCsvImportOpen(false)}
+        title="SKU Master"
+        columns={skuCsvColumns}
+        validate={validateSkuCsv}
+        onConfirm={handleSkuCsvConfirm}
+      />
     </SidebarProvider>
   );
 };

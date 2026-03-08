@@ -170,6 +170,15 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
       />
+
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="Price Master"
+        columns={priceCsvCols}
+        validate={validatePriceCsv}
+        onConfirm={handlePriceCsvConfirm}
+      />
     </div>
   );
 }
