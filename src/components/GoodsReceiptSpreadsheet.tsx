@@ -98,8 +98,8 @@ export function GoodsReceiptSpreadsheet({
                 <th className={thClass} style={{ minWidth: 160 }}>Supplier</th>
                 <th className={`${thClass} text-right`}>Qty</th>
                 <th className={`${thClass} text-center`}>UOM</th>
-                <th className={`${thClass} text-right`}>Actual ฿</th>
                 <th className={`${thClass} text-right`}>Actual Total</th>
+                <th className={`${thClass} text-right`}>Actual Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Total</th>
                 <th className={`${thClass} text-right`}>Variance</th>
