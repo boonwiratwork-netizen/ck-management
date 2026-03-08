@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 
 interface Props {
   supplierData: ReturnType<typeof useSupplierData>;
+  readOnly?: boolean;
 }
 
-export default function SuppliersPage({ supplierData }: Props) {
+export default function SuppliersPage({ supplierData, readOnly = false }: Props) {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier } = supplierData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);

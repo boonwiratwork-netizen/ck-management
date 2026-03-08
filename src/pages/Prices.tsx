@@ -16,9 +16,10 @@ interface Props {
   skus: SKU[];
   activeSuppliers: Supplier[];
   allSuppliers: Supplier[];
+  readOnly?: boolean;
 }
 
-export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers }: Props) {
+export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false }: Props) {
   const { prices, addPrice, updatePrice, deletePrice } = priceData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
