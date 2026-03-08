@@ -120,12 +120,18 @@ const Index = () => {
           </div>
         ) : activeTab === 'supplier' ? (
           <SuppliersPage supplierData={supplierData} />
-        ) : (
+        ) : activeTab === 'price' ? (
           <PricesPage
             priceData={priceData}
             skus={skus}
             activeSuppliers={activeSuppliers}
             allSuppliers={supplierData.suppliers}
+          />
+        ) : (
+          <BOMPage
+            bomData={bomData}
+            skus={skus}
+            prices={priceData.prices}
           />
         )}
       </main>
