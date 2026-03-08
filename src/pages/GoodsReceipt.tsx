@@ -36,7 +36,7 @@ function createEmptyDraft(): DraftRow {
     skuId: '',
     supplierId: '',
     quantityReceived: 0,
-    actualPrice: 0,
+    actualTotal: 0,
     note: '',
     isNew: true,
     isEditing: true,
