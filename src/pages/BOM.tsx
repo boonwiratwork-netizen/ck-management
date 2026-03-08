@@ -380,7 +380,7 @@ const BOMPage = ({ bomData, skus, prices }: BOMPageProps) => {
                 const rmSku = getSkuById(line.rmSkuId);
                 const cost = getActiveCost(line.rmSkuId);
                 const lineCost = line.qtyPerBatch * cost;
-                if (editingLineId === line.id) return <React.Fragment key={line.id}>{renderLineEditor(false)}</React.Fragment>;
+                if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
                   <TableRow key={line.id}>
                     <TableCell className="text-xs font-mono">{rmSku?.skuId ?? '—'}</TableCell>
