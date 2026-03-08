@@ -6,13 +6,15 @@ export interface GoodsReceipt {
   supplierId: string;        // references Supplier.id
   quantityReceived: number;  // in Purchase UOM
   purchaseUom: string;       // auto-filled from SKU
-  actualPrice: number;       // actual price paid per Purchase UOM, ex VAT
-  standardPrice: number;     // auto-filled from active Price Master
-  priceVariance: number;     // auto-calculated: actual − standard
+  actualPrice: number;       // actual unit price per Purchase UOM, ex VAT
+  actualTotal: number;       // actualPrice × qty
+  stdUnitPrice: number;      // active Price Master price per Purchase UOM
+  standardPrice: number;     // stdUnitPrice × qty (total standard value)
+  priceVariance: number;     // actualTotal − standardPrice
   note: string;
 }
 
-export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'standardPrice' | 'priceVariance'> = {
+export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'purchaseUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualTotal'> = {
   receiptDate: new Date().toISOString().slice(0, 10),
   skuId: '',
   supplierId: '',
