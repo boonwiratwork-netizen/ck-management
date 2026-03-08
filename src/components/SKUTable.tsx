@@ -13,8 +13,8 @@ import { useState } from 'react';
 
 interface SKUTableProps {
   skus: SKU[];
-  onEdit: (sku: SKU) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (sku: SKU) => void;
+  onDelete?: (id: string) => void;
 }
 
 const typeBadge: Record<SKUType, string> = {
