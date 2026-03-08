@@ -22,6 +22,7 @@ const Index = () => {
   const supplierData = useSupplierData();
   const priceData = usePriceData();
   const bomData = useBomData();
+  const receiptData = useGoodsReceiptData();
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
