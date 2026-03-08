@@ -108,9 +108,6 @@ const Index = () => {
               <ClipboardList className="w-4 h-4" />
               Goods Receipt
             </Button>
-              <FlaskConical className="w-4 h-4" />
-              BOM
-            </Button>
           </div>
         </div>
       </header>
