@@ -84,6 +84,7 @@ const storeGroup = {
   items: [
     { key: 'store' as TabKey, label: 'Store', icon: Store },
     { key: 'menu-master' as TabKey, label: 'Menu Master', icon: UtensilsCrossed },
+    { key: 'menu-bom' as TabKey, label: 'Menu BOM', icon: BookOpen },
   ],
 };
 
