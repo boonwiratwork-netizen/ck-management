@@ -185,7 +185,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
               <Filter className="w-3.5 h-3.5 mr-1" /> Clear filter
             </Button>
             <span className="text-sm text-muted-foreground">
-              Showing {unpricedCount} active SKUs without an active price
+              Showing {unpricedCount} active RM/PK SKUs without an active price
             </span>
           </div>
           <div className="rounded-lg border bg-card overflow-hidden">
