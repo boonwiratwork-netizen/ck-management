@@ -379,7 +379,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
           triggerClassName="h-8 text-xs"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}
       </TableCell>
       {isMultiStep && (
