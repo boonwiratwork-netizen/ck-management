@@ -2,11 +2,11 @@ import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, DollarSign } from 'lucide-react';
+import { Pencil, Trash2, DollarSign, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
@@ -19,34 +19,62 @@ interface PriceTableProps {
   onEdit: (price: Price) => void;
   onDelete: (id: string) => void;
   loading?: boolean;
+  showUnpricedOnly?: boolean;
 }
 
-export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading }: PriceTableProps) {
+type SortKey = 'sku' | 'supplier';
+type SortDir = 'asc' | 'desc';
+
+export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading, showUnpricedOnly }: PriceTableProps) {
   const [search, setSearch] = useState('');
   const [filterSku, setFilterSku] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('sku');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const skuMap = Object.fromEntries(skus.map(s => [s.id, s]));
   const supplierMap = Object.fromEntries(suppliers.map(s => [s.id, s]));
 
-  const filtered = prices.filter(p => {
-    const sku = skuMap[p.skuId];
-    const supplier = supplierMap[p.supplierId];
-    const q = search.toLowerCase();
-    const matchesSearch =
-      (sku?.name || '').toLowerCase().includes(q) ||
-      (sku?.skuId || '').toLowerCase().includes(q) ||
-      (supplier?.name || '').toLowerCase().includes(q);
-    const matchesSku = filterSku === 'all' || p.skuId === filterSku;
-    return matchesSearch && matchesSku;
-  });
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
-  // Sort: active first, then by SKU name
-  const sorted = [...filtered].sort((a, b) => {
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    const nameA = skuMap[a.skuId]?.name || '';
-    const nameB = skuMap[b.skuId]?.name || '';
-    return nameA.localeCompare(nameB);
-  });
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
+  const sorted = useMemo(() => {
+    const filtered = prices.filter(p => {
+      const sku = skuMap[p.skuId];
+      const supplier = supplierMap[p.supplierId];
+      const q = search.toLowerCase();
+      const matchesSearch =
+        (sku?.name || '').toLowerCase().includes(q) ||
+        (sku?.skuId || '').toLowerCase().includes(q) ||
+        (supplier?.name || '').toLowerCase().includes(q);
+      const matchesSku = filterSku === 'all' || p.skuId === filterSku;
+      return matchesSearch && matchesSku;
+    });
+
+    filtered.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'sku') {
+        cmp = (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || '');
+      } else {
+        cmp = (supplierMap[a.supplierId]?.name || '').localeCompare(supplierMap[b.supplierId]?.name || '');
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+
+    return filtered;
+  }, [prices, search, filterSku, sortKey, sortDir, skuMap, supplierMap]);
 
   if (loading) return <SkeletonTable columns={9} rows={8} />;
 
@@ -83,8 +111,18 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-table-header">
-                <th className="text-left px-4 py-3 table-header">SKU</th>
-                <th className="text-left px-4 py-3 table-header">Supplier</th>
+                <th
+                  className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSort('sku')}
+                >
+                  <span className="inline-flex items-center">SKU <SortIcon col="sku" /></span>
+                </th>
+                <th
+                  className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSort('supplier')}
+                >
+                  <span className="inline-flex items-center">Supplier <SortIcon col="supplier" /></span>
+                </th>
                 <th className="text-right px-4 py-3 table-header">Price/Purchase UOM</th>
                 <th className="text-right px-4 py-3 table-header">Price/Usage UOM</th>
                 <th className="text-center px-4 py-3 table-header">VAT</th>

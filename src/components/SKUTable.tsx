@@ -1,7 +1,7 @@
 import { SKU, SKUType, SKU_TYPE_LABELS } from '@/types/sku';
 import { SkuCategory } from '@/hooks/use-sku-categories';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Package } from 'lucide-react';
+import { Pencil, Trash2, Package, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -30,10 +30,15 @@ const typeBadge: Record<SKUType, string> = {
   PK: 'badge-pk',
 };
 
+type SortKey = 'skuId' | 'name' | 'type' | 'category' | 'status';
+type SortDir = 'asc' | 'desc';
+
 export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }: SKUTableProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('skuId');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const catLabelMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -43,18 +48,58 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
 
   const getCatLabel = (code: string) => catLabelMap[code] || code;
 
-  const filtered = skus.filter((s) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      s.name.toLowerCase().includes(q) ||
-      s.skuId.toLowerCase().includes(q) ||
-      getCatLabel(s.category).toLowerCase().includes(q);
-    const matchesType = filterType === 'all' || s.type === filterType;
-    const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
+  const filtered = useMemo(() => {
+    const list = skus.filter((s) => {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        s.name.toLowerCase().includes(q) ||
+        s.skuId.toLowerCase().includes(q) ||
+        getCatLabel(s.category).toLowerCase().includes(q);
+      const matchesType = filterType === 'all' || s.type === filterType;
+      const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
+      return matchesSearch && matchesType && matchesStatus;
+    });
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'skuId': cmp = a.skuId.localeCompare(b.skuId); break;
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'type': cmp = a.type.localeCompare(b.type); break;
+        case 'category': cmp = getCatLabel(a.category).localeCompare(getCatLabel(b.category)); break;
+        case 'status': cmp = a.status.localeCompare(b.status); break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+
+    return list;
+  }, [skus, search, filterType, filterStatus, sortKey, sortDir, catLabelMap]);
 
   if (loading) return <SkeletonTable columns={8} rows={10} />;
+
+  const sortableHeaders: { key: SortKey; label: string; align?: string }[] = [
+    { key: 'skuId', label: 'SKU ID' },
+    { key: 'name', label: 'Name' },
+    { key: 'type', label: 'Type' },
+    { key: 'category', label: 'Category' },
+    { key: 'status', label: 'Status' },
+  ];
 
   return (
     <div className="space-y-4">
@@ -98,11 +143,18 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-table-header">
-                <th className="text-left px-4 py-3 table-header">SKU ID</th>
-                <th className="text-left px-4 py-3 table-header">Name</th>
-                <th className="text-left px-4 py-3 table-header">Type</th>
-                <th className="text-left px-4 py-3 table-header">Category</th>
-                <th className="text-left px-4 py-3 table-header">Status</th>
+                {sortableHeaders.map(h => (
+                  <th
+                    key={h.key}
+                    className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort(h.key)}
+                  >
+                    <span className="inline-flex items-center">
+                      {h.label}
+                      <SortIcon col={h.key} />
+                    </span>
+                  </th>
+                ))}
                 <th className="text-left px-4 py-3 table-header">Storage</th>
                 <th className="text-left px-4 py-3 table-header">Pack</th>
                 <th className="text-left px-4 py-3 table-header">Shelf Life</th>
