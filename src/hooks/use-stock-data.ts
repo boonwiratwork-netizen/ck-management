@@ -1,16 +1,36 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { StockBalance, StockAdjustment } from '@/types/stock';
 import { GoodsReceipt } from '@/types/goods-receipt';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function useStockData(
   skus: SKU[],
   receipts: GoodsReceipt[],
   prices: Price[]
 ) {
-  const [openingStocks, setOpeningStocks] = useState<Record<string, number>>({});
+  const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
+
+  // Load opening balances and adjustments
+  useEffect(() => {
+    supabase.from('stock_opening_balances').select('*')
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, number> = {};
+          data.forEach((r: any) => { map[r.sku_id] = r.quantity; });
+          setOpeningStocksState(map);
+        }
+      });
+    supabase.from('stock_adjustments').select('*').eq('stock_type', 'RM').order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setAdjustments(data.map((r: any) => ({
+          id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason,
+        })));
+      });
+  }, []);
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
 
@@ -20,29 +40,29 @@ export function useStockData(
       const totalReceived = receipts
         .filter(r => r.skuId === sku.id)
         .reduce((sum, r) => sum + r.quantityReceived, 0);
-      const totalConsumed = 0; // future: Production module
+      const totalConsumed = 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
       const currentStock = opening + totalReceived - totalConsumed + netAdjustment;
-
-      return {
-        skuId: sku.id,
-        openingStock: opening,
-        totalReceived,
-        totalConsumed,
-        adjustments: skuAdjustments,
-        currentStock,
-      };
+      return { skuId: sku.id, openingStock: opening, totalReceived, totalConsumed, adjustments: skuAdjustments, currentStock };
     });
   }, [rmSkus, receipts, openingStocks, adjustments]);
 
-  const setOpeningStock = useCallback((skuId: string, qty: number) => {
-    setOpeningStocks(prev => ({ ...prev, [skuId]: qty }));
+  const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
+    const { error } = await supabase.from('stock_opening_balances').upsert(
+      { sku_id: skuId, quantity: qty },
+      { onConflict: 'sku_id' }
+    );
+    if (error) { toast.error('Failed to set opening stock: ' + error.message); return; }
+    setOpeningStocksState(prev => ({ ...prev, [skuId]: qty }));
   }, []);
 
-  const addAdjustment = useCallback((adj: Omit<StockAdjustment, 'id'>) => {
-    const newAdj: StockAdjustment = { ...adj, id: crypto.randomUUID() };
-    setAdjustments(prev => [newAdj, ...prev]);
+  const addAdjustment = useCallback(async (adj: Omit<StockAdjustment, 'id'>) => {
+    const { data: row, error } = await supabase.from('stock_adjustments').insert({
+      sku_id: adj.skuId, adjustment_date: adj.date, quantity: adj.quantity, reason: adj.reason, stock_type: 'RM',
+    }).select().single();
+    if (error) { toast.error('Failed to add adjustment: ' + error.message); return; }
+    setAdjustments(prev => [{ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason }, ...prev]);
   }, []);
 
   const getStdUnitPrice = useCallback((skuId: string): number => {
@@ -58,12 +78,5 @@ export function useStockData(
     );
   }, [receipts]);
 
-  return {
-    stockBalances,
-    setOpeningStock,
-    addAdjustment,
-    getStdUnitPrice,
-    getLastReceiptDate,
-    openingStocks,
-  };
+  return { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks };
 }
