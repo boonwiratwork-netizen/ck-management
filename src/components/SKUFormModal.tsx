@@ -18,14 +18,16 @@ import { toast } from 'sonner';
 interface SKUFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<SKU, 'id' | 'skuId'>) => void;
+  onSubmit: (data: Omit<SKU, 'id' | 'skuId'>, newSkuCode?: string) => void;
   editingSku?: SKU | null;
   activeSuppliers?: Supplier[];
   isSkuUsed?: boolean;
+  allSkus?: SKU[];
 }
 
-export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [], isSkuUsed = false }: SKUFormModalProps) {
+export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [], isSkuUsed = false, allSkus = [] }: SKUFormModalProps) {
   const [form, setForm] = useState<Omit<SKU, 'id' | 'skuId'>>(EMPTY_SKU);
+  const [skuCode, setSkuCode] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -34,13 +36,18 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (editingSku) {
       const { id, skuId, ...rest } = editingSku;
       setForm(rest);
+      setSkuCode(skuId);
     } else {
       setForm(EMPTY_SKU);
+      setSkuCode('');
     }
     setErrors({});
     setSaving(false);
     setSaved(false);
   }, [editingSku, open]);
+
+  const skuCodeChanged = editingSku && skuCode !== editingSku.skuId;
+  const typePrefix: Record<SKUType, string> = { RM: 'RM-', SM: 'SM-', SP: 'SP-', PK: 'PK-' };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -50,6 +57,19 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (!form.usageUom.trim()) errs.usageUom = 'Usage UOM is required';
     if (form.packSize <= 0) errs.packSize = 'Must be a positive number';
     if (form.converter <= 0) errs.converter = 'Must be a positive number';
+
+    // Validate SKU code if editing and changed
+    if (editingSku && skuCode !== editingSku.skuId) {
+      const expectedPrefix = typePrefix[form.type];
+      if (!skuCode.startsWith(expectedPrefix)) {
+        errs.skuCode = `SKU code must start with ${expectedPrefix} for ${SKU_TYPE_LABELS[form.type]} type`;
+      } else if (!/^[A-Z]{2}-\d{4}$/.test(skuCode)) {
+        errs.skuCode = 'SKU code must follow format: XX-XXXX (e.g. RM-0001)';
+      } else if (allSkus.some(s => s.skuId === skuCode && s.id !== editingSku.id)) {
+        errs.skuCode = 'This SKU code already exists';
+      }
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -76,7 +96,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     }
     setSaving(true);
     try {
-      onSubmit(form);
+      onSubmit(form, skuCodeChanged ? skuCode : undefined);
       setSaved(true);
       setTimeout(() => {
         onClose();
@@ -112,6 +132,29 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {/* SKU Code (editable in edit mode) */}
+          {editingSku && (
+            <div>
+              <Label>SKU Code</Label>
+              <Input
+                value={skuCode}
+                onChange={e => {
+                  setSkuCode(e.target.value.toUpperCase());
+                  if (errors.skuCode) setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+                }}
+                placeholder="e.g. RM-0001"
+                className={errors.skuCode ? 'input-error' : ''}
+              />
+              {errors.skuCode && <p className="text-xs text-destructive mt-1">{errors.skuCode}</p>}
+              {skuCodeChanged && !errors.skuCode && (
+                <div className="mt-2 rounded-lg border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-600" />
+                  <span>Changing this SKU code will update all references in BOM, prices, receipts, and stock records. Make sure the new code follows the format: RM-XXXX, SM-XXXX, SP-XXXX, or PK-XXXX</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Row 1 */}
           <div>
             <Label className="label-required">SKU Name</Label>

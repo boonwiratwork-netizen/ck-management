@@ -77,7 +77,6 @@ export function useSkuData() {
   }, [skus]);
 
   const bulkAddSkus = useCallback(async (rows: Omit<SKU, 'id' | 'skuId'>[]) => {
-    // Fetch current max IDs from DB to avoid stale state
     const { data: existing } = await supabase.from('skus').select('sku_id, type');
     const counters: Record<string, number> = {};
     (existing || []).forEach((s: any) => {
@@ -102,7 +101,7 @@ export function useSkuData() {
     return inserted?.length ?? 0;
   }, []);
 
-  const updateSku = useCallback(async (id: string, data: Partial<Omit<SKU, 'id' | 'skuId'>>) => {
+  const updateSku = useCallback(async (id: string, data: Partial<Omit<SKU, 'id' | 'skuId'>>, newSkuCode?: string) => {
     const dbData: any = {};
     if (data.name !== undefined) dbData.name = data.name;
     if (data.type !== undefined) dbData.type = data.type;
@@ -120,10 +119,11 @@ export function useSkuData() {
     if (data.supplier1 !== undefined) dbData.supplier1 = data.supplier1;
     if (data.supplier2 !== undefined) dbData.supplier2 = data.supplier2;
     if (data.leadTime !== undefined) dbData.lead_time = data.leadTime;
+    if (newSkuCode) dbData.sku_id = newSkuCode;
 
     const { error } = await supabase.from('skus').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update SKU: ' + error.message); return; }
-    setSkus(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    setSkus(prev => prev.map(s => s.id === id ? { ...s, ...data, ...(newSkuCode ? { skuId: newSkuCode } : {}) } : s));
   }, []);
 
   const deleteSku = useCallback(async (id: string) => {
