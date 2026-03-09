@@ -88,44 +88,83 @@ export function useDailyStockCount({
     return { extBySku, ckBySku };
   }, [branches]);
 
-  // Load existing count sheet — recalculate received columns live
+  // Load existing count sheet — recalculate received + expected usage live
   const loadSheet = useCallback(async (branchId: string, date: string) => {
     setLoading(true);
-    const [sheetResult, receipts] = await Promise.all([
+    const [sheetResult, receipts, expectedUsage] = await Promise.all([
       supabase.from('daily_stock_counts').select('*').eq('branch_id', branchId).eq('count_date', date).order('created_at'),
       fetchReceiptTotals(branchId, date),
+      calculateExpectedUsage(branchId, date),
     ]);
     setLoading(false);
     if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
     const data = sheetResult.data || [];
     
-    // Patch rows with live receipt data and recalc balance/variance
+    // Patch rows with live receipt data AND live expected usage from current BOM
     const patched = data.map(r => {
       const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
-      const calcBalance = Number(r.opening_balance) + ck + ext - Number(r.expected_usage);
+      const expUsage = expectedUsage[r.sku_id] ?? 0;
+      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
-      return { ...r, received_external: ext, received_from_ck: ck, calculated_balance: calcBalance, variance };
+      return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
     
     // Update DB in background for any changed rows
     const updates = patched.filter((p, i) => 
       p.received_external !== Number(data[i].received_external) ||
-      p.received_from_ck !== Number(data[i].received_from_ck)
+      p.received_from_ck !== Number(data[i].received_from_ck) ||
+      p.expected_usage !== Number(data[i].expected_usage)
     );
     if (updates.length > 0) {
       for (const u of updates) {
         supabase.from('daily_stock_counts').update({
           received_external: u.received_external,
           received_from_ck: u.received_from_ck,
+          expected_usage: u.expected_usage,
           calculated_balance: u.calculated_balance,
           variance: u.variance,
         }).eq('id', u.id).then(() => {});
       }
     }
+
+    // Check for new SKUs from BOM that aren't in the existing sheet
+    const existingSkuIds = new Set(data.map(r => r.sku_id));
+    const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
+    const newSkuRows: any[] = [];
+    for (const sku of activeSkus) {
+      if (!existingSkuIds.has(sku.id) && (expectedUsage[sku.id] || receipts.extBySku[sku.id] || receipts.ckBySku[sku.id])) {
+        const expUsage = expectedUsage[sku.id] ?? 0;
+        const ext = receipts.extBySku[sku.id] ?? 0;
+        const ck = receipts.ckBySku[sku.id] ?? 0;
+        const calcBalance = 0 + ck + ext - expUsage;
+        newSkuRows.push({
+          branch_id: branchId,
+          count_date: date,
+          sku_id: sku.id,
+          opening_balance: 0,
+          received_from_ck: ck,
+          received_external: ext,
+          expected_usage: expUsage,
+          calculated_balance: calcBalance,
+          physical_count: null,
+          variance: 0,
+          is_submitted: false,
+        });
+      }
+    }
+
+    let insertedRows: any[] = [];
+    if (newSkuRows.length > 0) {
+      const { data: inserted } = await supabase
+        .from('daily_stock_counts')
+        .insert(newSkuRows)
+        .select();
+      if (inserted) insertedRows = inserted;
+    }
     
-    setRows(patched.map(toLocal));
-  }, [fetchReceiptTotals]);
+    setRows([...patched, ...insertedRows].map(toLocal));
+  }, [fetchReceiptTotals, calculateExpectedUsage, skus]);
 
   // Calculate expected usage from sales data
   const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
