@@ -328,26 +328,25 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                         const unitCost = getActiveCost(line.skuId);
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
-                          <TableRow key={line.id} className="h-12">
-                            <TableCell className="text-sm font-mono">
+                          <TableRow key={line.id} className="h-9">
+                            <TableCell className="text-[13px] font-mono py-2 px-3">
                               {sku?.skuId ?? '—'}
-                              <Badge variant="outline" className="text-[10px] ml-1">{sku?.type ?? '—'}</Badge>
                             </TableCell>
-                            <TableCell className="text-sm truncate overflow-hidden" title={sku?.name ?? '—'}>
+                            <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono">{line.qtyPerServing}</TableCell>
-                            <TableCell className="text-sm">{line.uom}</TableCell>
-                            <TableCell className="text-sm text-right font-mono">{line.yieldPct}%</TableCell>
-                            <TableCell className="text-sm text-right font-mono">{line.effectiveQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-sm text-right font-mono">
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerServing}</TableCell>
+                            <TableCell className="text-[13px] py-2 px-3">{line.uom}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.effectiveQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                               {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono font-medium">
+                            <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
                               {line.costPerServing > 0 ? `฿${line.costPerServing.toFixed(2)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             {canEdit && (
-                              <TableCell>
+                              <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
