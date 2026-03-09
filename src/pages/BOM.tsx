@@ -724,12 +724,11 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                                 {rmSku?.skuId ?? '—'}
                                 {renderTypeBadge(ing.rmSkuId)}
                               </TableCell>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{rmSku?.name}</TooltipContent>
+                              <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                                {rmSku?.name ?? '—'}
+                              </TableCell>
+                              {/* Tooltip removed — title attr used instead for truncated names */}
+                              {false && <TooltipProvider><Tooltip><TooltipTrigger asChild><span /></TooltipTrigger><TooltipContent>placeholder</TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
                               <TableCell className="text-sm">

@@ -389,14 +389,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                               {sku?.skuId ?? '—'}
                               <Badge variant="outline" className="text-[10px] ml-1">RM</Badge>
                             </TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <TableCell className="text-sm max-w-[120px] truncate">{sku?.name ?? '—'}</TableCell>
-                                </TooltipTrigger>
-                                <TooltipContent>{sku?.name}</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <TableCell className="text-sm truncate overflow-hidden" title={sku?.name ?? '—'}>
+                              {sku?.name ?? '—'}
+                            </TableCell>
                             <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
                             <TableCell className="text-sm">{line.uom}</TableCell>
                             <TableCell className="text-sm text-right font-mono">100%</TableCell>
