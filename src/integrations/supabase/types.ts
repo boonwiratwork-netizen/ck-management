@@ -817,6 +817,30 @@ export type Database = {
           },
         ]
       }
+      sku_categories: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name_en: string
+          name_th: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name_en?: string
+          name_th?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name_en?: string
+          name_th?: string
+        }
+        Relationships: []
+      }
       skus: {
         Row: {
           category: string
