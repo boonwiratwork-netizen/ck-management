@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SKU, SKUType } from '@/types/sku';
+import { useSpBomData } from '@/hooks/use-sp-bom-data';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
