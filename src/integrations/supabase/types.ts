@@ -632,6 +632,59 @@ export type Database = {
           },
         ]
       }
+      sales_entries: {
+        Row: {
+          branch_id: string
+          channel: string
+          created_at: string
+          id: string
+          menu_code: string
+          menu_name: string
+          net_amount: number
+          order_type: string
+          qty: number
+          receipt_no: string
+          sale_date: string
+          unit_price: number
+        }
+        Insert: {
+          branch_id: string
+          channel?: string
+          created_at?: string
+          id?: string
+          menu_code?: string
+          menu_name?: string
+          net_amount?: number
+          order_type?: string
+          qty?: number
+          receipt_no?: string
+          sale_date?: string
+          unit_price?: number
+        }
+        Update: {
+          branch_id?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          menu_code?: string
+          menu_name?: string
+          net_amount?: number
+          order_type?: string
+          qty?: number
+          receipt_no?: string
+          sale_date?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_entries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skus: {
         Row: {
           category: string
