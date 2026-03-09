@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const { data: existingAdmins } = await supabaseAdmin
       .from("user_roles")
       .select("id")
-      .eq("role", "admin")
+      .in("role", ["admin", "management"])
       .limit(1);
 
     if (existingAdmins && existingAdmins.length > 0) {
@@ -56,10 +56,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Assign admin role
+    // Assign management role
     await supabaseAdmin.from("user_roles").insert({
       user_id: newUser.user!.id,
-      role: "admin",
+      role: "management",
     });
 
     // Update profile name

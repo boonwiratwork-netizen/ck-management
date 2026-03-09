@@ -20,7 +20,7 @@ export default function InitialSetup({ onComplete }: Props) {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.from('user_roles').select('id').eq('role', 'admin').limit(1)
+    supabase.from('user_roles').select('id').in('role', ['admin', 'management']).limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
           toast.info('Setup already completed. Redirecting to login…');

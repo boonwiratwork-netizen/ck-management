@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .single();
 
-    if (!roleData || roleData.role !== "management") {
+    if (!roleData || (roleData.role !== "management" && roleData.role !== "admin")) {
       return new Response(JSON.stringify({ error: "Forbidden: Management only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
