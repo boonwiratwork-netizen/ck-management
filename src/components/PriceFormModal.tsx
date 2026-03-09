@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Price, EMPTY_PRICE } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
+import { BOMHeader } from '@/types/bom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -14,7 +15,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Search } from 'lucide-react';
+import { Search, AlertTriangle, Calculator } from 'lucide-react';
+import { isBomPrice } from '@/lib/bom-price-sync';
 
 interface PriceFormModalProps {
   open: boolean;
@@ -24,9 +26,11 @@ interface PriceFormModalProps {
   skus: SKU[];
   activeSuppliers: Supplier[];
   pricedSkuIds?: Set<string>;
+  prices?: Price[];
+  bomHeaders?: BOMHeader[];
 }
 
-export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeSuppliers, pricedSkuIds }: PriceFormModalProps) {
+export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeSuppliers, pricedSkuIds, prices = [], bomHeaders = [] }: PriceFormModalProps) {
   const [form, setForm] = useState<Omit<Price, 'id' | 'pricePerUsageUom'>>(EMPTY_PRICE);
   const [skuSearch, setSkuSearch] = useState('');
 
@@ -41,11 +45,31 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
   }, [editing, open]);
 
   const selectedSku = useMemo(() => skus.find(s => s.id === form.skuId), [skus, form.skuId]);
+  const isSmOrSp = selectedSku && (selectedSku.type === 'SM' || selectedSku.type === 'SP');
+
+  // Check if there's a BOM for the selected SM/SP SKU
+  const hasBom = useMemo(() => {
+    if (!selectedSku) return false;
+    if (selectedSku.type === 'SM') {
+      return bomHeaders.some(h => h.smSkuId === selectedSku.id);
+    }
+    // For SP, check sp_bom via prices (if has BOM price)
+    return false; // SP BOMs are handled in SpBom page
+  }, [selectedSku, bomHeaders]);
+
+  // Get the BOM-calculated cost for SM/SP
+  const bomCost = useMemo(() => {
+    if (!selectedSku || !isSmOrSp) return null;
+    const bomPrice = prices.find(p => p.skuId === selectedSku.id && isBomPrice(p.supplierId) && p.isActive);
+    return bomPrice?.pricePerUsageUom ?? null;
+  }, [selectedSku, isSmOrSp, prices]);
 
   const filteredSkus = useMemo(() => {
-    if (!skuSearch.trim()) return skus;
+    // Filter out SM/SP SKUs from the dropdown - they shouldn't be manually priced
+    const eligibleSkus = skus.filter(s => s.type !== 'SM' && s.type !== 'SP');
+    if (!skuSearch.trim()) return eligibleSkus;
     const q = skuSearch.toLowerCase();
-    return skus.filter(s =>
+    return eligibleSkus.filter(s =>
       s.skuId.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q)
     );
@@ -58,6 +82,7 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSmOrSp) return; // SM/SP prices are auto-managed
     onSubmit(form, selectedSku);
     onClose();
   };
@@ -94,7 +119,7 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
                   </div>
                   {skuSearch && (
                     <p className="text-xs text-muted-foreground mt-1 px-0.5">
-                      {filteredSkus.length} of {skus.length} SKUs
+                      {filteredSkus.length} of {skus.filter(s => s.type !== 'SM' && s.type !== 'SP').length} SKUs
                     </p>
                   )}
                 </div>
@@ -105,13 +130,13 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
                     <SelectItem key={s.id} value={s.id}>
                       <span className="inline-flex items-center gap-1.5">
                         {hasNoPrice && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-warning flex-shrink-0" />
                         )}
                         <span className="font-mono text-xs">{s.skuId}</span>
                         <span className="mx-0.5">—</span>
                         <span>{s.name}</span>
                         {hasNoPrice && (
-                          <span className="text-[10px] text-orange-500 font-medium ml-1">No price</span>
+                          <span className="text-[10px] text-warning font-medium ml-1">No price</span>
                         )}
                       </span>
                     </SelectItem>
@@ -119,91 +144,123 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
                 })}
               </SelectContent>
             </Select>
+            {isSmOrSp && (
+              <p className="text-xs text-muted-foreground mt-1">
+                SM/SP prices are auto-calculated from BOM. Use RM SKUs for manual pricing.
+              </p>
+            )}
           </div>
 
-          {/* Supplier */}
-          <div>
-            <Label>Supplier *</Label>
-            <Select value={form.supplierId || '_none'} onValueChange={v => update('supplierId', v === '_none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Select Supplier —</SelectItem>
-                {activeSuppliers.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Prices */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Price per Purchase UOM *</Label>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                required
-                value={form.pricePerPurchaseUom || ''}
-                onChange={e => update('pricePerPurchaseUom', Number(e.target.value))}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label>Price per Usage UOM</Label>
-              <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 font-mono text-sm font-semibold">
-                {calculatedUsagePrice.toFixed(2)}
+          {/* SM/SP warning — this shouldn't really show since they're filtered out, but just in case */}
+          {isSmOrSp ? (
+            <div className="space-y-3">
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calculator className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Price auto-calculated from BOM</span>
+                </div>
+                {bomCost !== null ? (
+                  <p className="text-sm text-muted-foreground">
+                    Cost/gram: <span className="font-mono font-semibold text-foreground">฿{bomCost.toFixed(4)}</span> (from BOM Master)
+                  </p>
+                ) : (
+                  <div className="flex items-start gap-2 text-warning">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm">No BOM found — add a BOM first to get cost</p>
+                  </div>
+                )}
               </div>
-              {selectedSku && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  = {form.pricePerPurchaseUom} ÷ {selectedSku.packSize} ÷ {selectedSku.converter}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* VAT & Active */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label>VAT</Label>
-              <div className="flex items-center gap-2 h-10">
-                <Switch checked={form.vat} onCheckedChange={v => update('vat', v)} />
-                <span className="text-sm text-muted-foreground">{form.vat ? 'Yes' : 'No'}</span>
+              <div className="flex justify-end pt-2">
+                <Button type="button" variant="outline" onClick={onClose}>Close</Button>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Active Price</Label>
-              <div className="flex items-center gap-2 h-10">
-                <Switch checked={form.isActive} onCheckedChange={v => update('isActive', v)} />
-                <span className="text-sm text-muted-foreground">{form.isActive ? 'Yes' : 'No'}</span>
+          ) : (
+            <>
+              {/* Supplier */}
+              <div>
+                <Label>Supplier *</Label>
+                <Select value={form.supplierId || '_none'} onValueChange={v => update('supplierId', v === '_none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Select Supplier —</SelectItem>
+                    {activeSuppliers.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </div>
 
-          {/* Effective Date */}
-          <div>
-            <Label>Effective Date *</Label>
-            <Input
-              type="date"
-              required
-              value={form.effectiveDate}
-              onChange={e => update('effectiveDate', e.target.value)}
-            />
-          </div>
+              {/* Prices */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Price per Purchase UOM *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    required
+                    value={form.pricePerPurchaseUom || ''}
+                    onChange={e => update('pricePerPurchaseUom', Number(e.target.value))}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Price per Usage UOM</Label>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 font-mono text-sm font-semibold">
+                    {calculatedUsagePrice.toFixed(2)}
+                  </div>
+                  {selectedSku && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = {form.pricePerPurchaseUom} ÷ {selectedSku.packSize} ÷ {selectedSku.converter}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-          {/* Note */}
-          <div>
-            <Label>Note</Label>
-            <Textarea value={form.note} onChange={e => update('note', e.target.value)} rows={2} placeholder="Optional notes..." />
-          </div>
+              {/* VAT & Active */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>VAT</Label>
+                  <div className="flex items-center gap-2 h-10">
+                    <Switch checked={form.vat} onCheckedChange={v => update('vat', v)} />
+                    <span className="text-sm text-muted-foreground">{form.vat ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Active Price</Label>
+                  <div className="flex items-center gap-2 h-10">
+                    <Switch checked={form.isActive} onCheckedChange={v => update('isActive', v)} />
+                    <span className="text-sm text-muted-foreground">{form.isActive ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={!form.skuId || !form.supplierId}>
-              {editing ? 'Update Price' : 'Add Price'}
-            </Button>
-          </div>
+              {/* Effective Date */}
+              <div>
+                <Label>Effective Date *</Label>
+                <Input
+                  type="date"
+                  required
+                  value={form.effectiveDate}
+                  onChange={e => update('effectiveDate', e.target.value)}
+                />
+              </div>
+
+              {/* Note */}
+              <div>
+                <Label>Note</Label>
+                <Textarea value={form.note} onChange={e => update('note', e.target.value)} rows={2} placeholder="Optional notes..." />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                <Button type="submit" disabled={!form.skuId || !form.supplierId}>
+                  {editing ? 'Update Price' : 'Add Price'}
+                </Button>
+              </div>
+            </>
+          )}
         </form>
       </DialogContent>
     </Dialog>

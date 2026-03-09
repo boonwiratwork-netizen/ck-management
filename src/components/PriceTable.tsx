@@ -2,7 +2,7 @@ import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, DollarSign, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, DollarSign, ArrowUp, ArrowDown, ArrowUpDown, Calculator } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -11,6 +11,7 @@ import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { isBomPrice, BOM_SUPPLIER_NAME } from '@/lib/bom-price-sync';
 
 interface PriceTableProps {
   prices: Price[];
@@ -55,10 +56,11 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
       const sku = skuMap[p.skuId];
       const supplier = supplierMap[p.supplierId];
       const q = search.toLowerCase();
+      const supplierName = isBomPrice(p.supplierId) ? BOM_SUPPLIER_NAME : (supplier?.name || '');
       const matchesSearch =
         (sku?.name || '').toLowerCase().includes(q) ||
         (sku?.skuId || '').toLowerCase().includes(q) ||
-        (supplier?.name || '').toLowerCase().includes(q);
+        supplierName.toLowerCase().includes(q);
       const matchesSku = filterSku === 'all' || p.skuId === filterSku;
       return matchesSearch && matchesSku;
     });
@@ -68,7 +70,9 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
       if (sortKey === 'sku') {
         cmp = (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || '');
       } else {
-        cmp = (supplierMap[a.supplierId]?.name || '').localeCompare(supplierMap[b.supplierId]?.name || '');
+        const nameA = isBomPrice(a.supplierId) ? BOM_SUPPLIER_NAME : (supplierMap[a.supplierId]?.name || '');
+        const nameB = isBomPrice(b.supplierId) ? BOM_SUPPLIER_NAME : (supplierMap[b.supplierId]?.name || '');
+        cmp = nameA.localeCompare(nameB);
       }
       return sortDir === 'desc' ? -cmp : cmp;
     });
@@ -148,6 +152,7 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
                   {sorted.map((price, idx) => {
                     const sku = skuMap[price.skuId];
                     const supplier = supplierMap[price.supplierId];
+                    const isBom = isBomPrice(price.supplierId);
                     return (
                       <tr
                         key={price.id}
@@ -159,12 +164,25 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
                           <div className="font-medium">{sku?.name || '—'}</div>
                           <div className="text-xs text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
                         </td>
-                        <td className="px-4 py-3">{supplier?.name || '—'}</td>
+                        <td className="px-4 py-3">
+                          {isBom ? (
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground italic">
+                              <Calculator className="w-3.5 h-3.5" />
+                              {BOM_SUPPLIER_NAME}
+                            </span>
+                          ) : (
+                            supplier?.name || '—'
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right font-mono tabular-nums">
-                          {price.pricePerPurchaseUom.toFixed(2)}
+                          {isBom ? (
+                            <span className="text-muted-foreground italic text-xs">from BOM</span>
+                          ) : (
+                            price.pricePerPurchaseUom.toFixed(2)
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold">
-                          {price.pricePerUsageUom.toFixed(2)}
+                          {price.pricePerUsageUom.toFixed(4)}
                         </td>
                         <td className="px-4 py-3 text-center text-xs">
                           {price.vat ? 'Yes' : 'No'}
@@ -186,24 +204,28 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
                           </Tooltip>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="icon-btn-edit" onClick={() => onEdit(price)}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Edit</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="icon-btn-delete" onClick={() => onDelete(price.id)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          {isBom ? (
+                            <span className="text-xs text-muted-foreground italic">System</span>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="icon-btn-edit" onClick={() => onEdit(price)}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Edit</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="icon-btn-delete" onClick={() => onDelete(price.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
