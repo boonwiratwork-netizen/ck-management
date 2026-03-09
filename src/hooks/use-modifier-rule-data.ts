@@ -11,6 +11,7 @@ const toLocal = (row: any): ModifierRule => ({
   uom: row.uom,
   description: row.description,
   isActive: row.is_active,
+  menuId: row.menu_id ?? null,
 });
 
 export function useModifierRuleData() {
