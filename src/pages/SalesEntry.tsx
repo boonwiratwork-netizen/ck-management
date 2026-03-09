@@ -36,13 +36,13 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {
-    if (isAdmin) return branches.filter(b => b.status === 'Active');
-    if (isBranchManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [branches, isAdmin, isBranchManager, profile]);
+    if (isManagement) return branches.filter(b => b.status === 'Active');
+    if (isStoreManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
+    return branches.filter(b => b.status === 'Active');
+  }, [branches, isManagement, isStoreManager, profile]);
 
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
 
   const [pastedText, setPastedText] = useState('');
