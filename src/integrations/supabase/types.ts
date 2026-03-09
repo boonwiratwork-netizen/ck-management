@@ -168,6 +168,72 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_stock_counts: {
+        Row: {
+          branch_id: string
+          calculated_balance: number
+          count_date: string
+          created_at: string
+          expected_usage: number
+          id: string
+          is_submitted: boolean
+          opening_balance: number
+          physical_count: number | null
+          received_external: number
+          received_from_ck: number
+          sku_id: string
+          submitted_at: string | null
+          variance: number
+        }
+        Insert: {
+          branch_id: string
+          calculated_balance?: number
+          count_date?: string
+          created_at?: string
+          expected_usage?: number
+          id?: string
+          is_submitted?: boolean
+          opening_balance?: number
+          physical_count?: number | null
+          received_external?: number
+          received_from_ck?: number
+          sku_id: string
+          submitted_at?: string | null
+          variance?: number
+        }
+        Update: {
+          branch_id?: string
+          calculated_balance?: number
+          count_date?: string
+          created_at?: string
+          expected_usage?: number
+          id?: string
+          is_submitted?: boolean
+          opening_balance?: number
+          physical_count?: number | null
+          received_external?: number
+          received_from_ck?: number
+          sku_id?: string
+          submitted_at?: string | null
+          variance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_stock_counts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_stock_counts_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deliveries: {
         Row: {
           branch_name: string
