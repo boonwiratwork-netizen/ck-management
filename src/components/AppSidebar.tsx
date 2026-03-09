@@ -117,6 +117,7 @@ const managementGroup: NavGroup = {
   items: [
     { key: 'branches', label: 'Branches', icon: Store },
     { key: 'users', label: 'User Management', icon: Settings },
+    { key: 'sku-categories', label: 'SKU Categories', icon: Package },
   ],
 };
 
