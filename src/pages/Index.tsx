@@ -359,7 +359,7 @@ const Index = () => {
               ) : activeTab === 'sales-entry' ? (
                 <SalesEntryPage branches={branchData.branches} />
               ) : activeTab === 'branch-receipt' ? (
-                <BranchReceiptPage skus={skus} prices={priceData.prices} branches={branchData.branches} />
+                <BranchReceiptPage skus={skus} prices={priceData.prices} branches={branchData.branches} suppliers={supplierData.suppliers} />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}
