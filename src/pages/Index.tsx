@@ -371,6 +371,17 @@ const Index = () => {
                   menus={menuData.menus}
                   branches={branchData.branches}
                 />
+              ) : activeTab === 'food-cost' ? (
+                <FoodCostPage
+                  skus={skus}
+                  prices={priceData.prices}
+                  menus={menuData.menus}
+                  menuBomLines={menuBomData.lines}
+                  modifierRules={modifierRuleData.rules}
+                  spBomLines={spBomData.lines}
+                  branches={branchData.branches}
+                  suppliers={supplierData.suppliers}
+                />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
