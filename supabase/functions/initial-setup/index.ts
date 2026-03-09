@@ -56,10 +56,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Assign admin role
+    // Assign management role
     await supabaseAdmin.from("user_roles").insert({
       user_id: newUser.user!.id,
-      role: "admin",
+      role: "management",
     });
 
     // Update profile name
