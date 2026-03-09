@@ -52,6 +52,7 @@ const tabLabels: Record<TabKey, string> = {
   branches: 'Branches',
   users: 'User Management',
   store: 'Store',
+  'menu-master': 'Menu Master',
 };
 
 // Tabs that CK Manager can fully interact with
