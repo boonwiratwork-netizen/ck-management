@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { syncBomPrice } from '@/lib/bom-price-sync';
 
 interface BOMPageProps {
   bomData: {
