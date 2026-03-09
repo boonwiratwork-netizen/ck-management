@@ -377,16 +377,32 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     </tr>
                   );
                 })}
-                {/* Running total */}
-                {drafts.length > 0 && (
-                  <tr className="border-t-2 bg-muted/30 font-medium">
-                    <td colSpan={5} className="px-3 py-2 text-right text-xs text-muted-foreground">Running Total →</td>
-                    <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
-                      ฿{drafts.reduce((s, d) => s + d.actualTotalPaid, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td colSpan={6}></td>
-                  </tr>
-                )}
+                {/* Running totals */}
+                {drafts.length > 0 && (() => {
+                  const runActual = drafts.reduce((s, d) => s + d.actualTotalPaid, 0);
+                  const runStd = drafts.reduce((s, d) => {
+                    const std = d.skuId ? getStdUnitPrice(d.skuId) : 0;
+                    return s + d.qtyReceived * std;
+                  }, 0);
+                  const runVar = runActual - runStd;
+                  return (
+                    <tr className="border-t-2 bg-muted/30 font-medium">
+                      <td colSpan={5} className="px-3 py-2 text-right text-xs text-muted-foreground">Running Total →</td>
+                      <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
+                        ฿{runActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td></td>
+                      <td></td>
+                      <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
+                        ฿{runStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-1.5 py-2 text-right text-xs font-mono font-bold ${runVar > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        {runVar > 0 ? '+' : ''}฿{runVar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

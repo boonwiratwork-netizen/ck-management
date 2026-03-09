@@ -319,6 +319,59 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
         </DialogContent>
       </Dialog>
 
+      {/* Test Rule Modal */}
+      <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-4 h-4" /> Test modifier rules
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Paste a menu name string to test</label>
+              <Textarea
+                value={testInput}
+                onChange={e => setTestInput(e.target.value)}
+                placeholder='e.g. "ชิโอะ ราเมน เส้นโฮมเมด"'
+                rows={3}
+                className="text-sm"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!testInput.trim()) { toast.error('Enter a menu name string'); return; }
+                const matched = ruleData.rules.filter(r => r.isActive && testInput.includes(r.keyword));
+                setTestResults(matched.map(r => ({ rule: r, sku: getSkuById(r.skuId) })));
+              }}
+            >
+              Run test
+            </Button>
+            {testResults.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> {testResults.length} rule(s) matched
+                </p>
+                {testResults.map(({ rule, sku }) => (
+                  <div key={rule.id} className="rounded-md border p-2.5 text-sm space-y-0.5">
+                    <p><span className="font-medium">Keyword:</span> "{rule.keyword}"</p>
+                    <p><span className="font-medium">Adds:</span> {rule.qtyPerMatch} {rule.uom} of {sku?.skuId} ({sku?.name})</p>
+                  </div>
+                ))}
+              </div>
+            ) : testInput.trim() && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <XCircle className="w-4 h-4" /> No rules matched this string
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteConfirm}

@@ -259,8 +259,16 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                     <TableBody>
                       {selectedLines.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={canEdit ? 9 : 8} className="text-center text-muted-foreground py-8">
-                            No ingredients yet
+                          <TableCell colSpan={canEdit ? 9 : 8} className="py-12">
+                            <div className="text-center space-y-3">
+                              <UtensilsCrossed className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                              <p className="text-muted-foreground">No ingredients added yet</p>
+                              {canEdit && (
+                                <Button size="sm" variant="outline" onClick={openAddModal}>
+                                  <Plus className="w-4 h-4 mr-1" /> Add first ingredient
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ) : (
