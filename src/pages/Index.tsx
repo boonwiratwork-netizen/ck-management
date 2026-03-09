@@ -33,6 +33,7 @@ import BranchesPage from '@/pages/Branches';
 import UserManagementPage from '@/pages/UserManagement';
 import MenuMasterPage from '@/pages/MenuMaster';
 import MenuBOMPage from '@/pages/MenuBOM';
+import SpBomPage from '@/pages/SpBom';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
