@@ -73,10 +73,38 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
 };
 
-// Tabs that CK Manager can fully interact with
-const ckManagerFullAccess: TabKey[] = ['dashboard', 'receipt', 'production', 'delivery', 'stock', 'smstock', 'stockcount'];
-// Tabs that CK Manager can view (read-only)
-const ckManagerReadOnly: TabKey[] = ['sku', 'supplier', 'price', 'bom', 'branches'];
+// Define which tabs each role can access
+function canAccessTab(role: string | null, tab: TabKey): boolean {
+  const ctx = tabContextMap[tab];
+  switch (role) {
+    case 'management':
+      return true;
+    case 'ck_manager':
+      return ctx === 'ck' || ctx === 'overview';
+    case 'store_manager':
+      return ctx === 'store';
+    case 'area_manager':
+      return ctx === 'store';
+    default:
+      return false;
+  }
+}
+
+// Management can edit everything. CK Manager can edit CK ops, view masters.
+// Store Manager can edit store ops, view store masters. Area Manager is read-only everywhere.
+function isTabReadOnly(role: string | null, tab: TabKey): boolean {
+  if (role === 'management') return false;
+  if (role === 'area_manager') return true;
+  if (role === 'ck_manager') {
+    const editableCk: TabKey[] = ['receipt', 'production', 'delivery', 'stock', 'smstock', 'stockcount'];
+    return !editableCk.includes(tab);
+  }
+  if (role === 'store_manager') {
+    const editableStore: TabKey[] = ['sales-entry', 'branch-receipt', 'daily-stock-count'];
+    return !editableStore.includes(tab);
+  }
+  return true;
+}
 
 function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: string }) {
   const ctx = tabContextMap[tab];
@@ -90,7 +118,7 @@ function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: stri
 }
 
 const Index = () => {
-  const { isAdmin, role, isBranchManager, profile } = useAuth();
+  const { isManagement, role, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
@@ -116,16 +144,16 @@ const Index = () => {
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(() => getDefaultTab(role, isBranchManager));
+  const [activeTab, setActiveTab] = useState<TabKey>(() => getDefaultTab(role));
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // Update default tab when role loads
   useEffect(() => {
     if (role) {
-      setActiveTab(getDefaultTab(role, isBranchManager));
+      setActiveTab(getDefaultTab(role));
     }
-  }, [role, isBranchManager]);
+  }, [role]);
 
   // Branch name for breadcrumbs
   const userBranchName = useMemo(() => {
@@ -133,23 +161,20 @@ const Index = () => {
     return branchData.branches.find(b => b.id === profile.branch_id)?.branchName;
   }, [profile?.branch_id, branchData.branches]);
 
-  // Check if current tab is read-only for CK Manager
-  const isReadOnly = !isAdmin && ckManagerReadOnly.includes(activeTab);
+  // For area_manager: filter branches by brand assignments
+  const areaManagerBranches = useMemo(() => {
+    if (!isAreaManager || brandAssignments.length === 0) return branchData.branches;
+    return branchData.branches.filter(b => brandAssignments.includes(b.brandName));
+  }, [isAreaManager, brandAssignments, branchData.branches]);
+
+  // Current tab read-only status
+  const readOnly = isTabReadOnly(role, activeTab);
 
   // Access control for tab changes
   const handleTabChange = (tab: TabKey) => {
-    if (!isAdmin && tab === 'users') {
-      toast.error('Access denied: Admin only');
-      return;
-    }
-    // CK Manager cannot access store tabs
-    if (role === 'ck_manager' && tabContextMap[tab] === 'store') {
-      toast.error('Access denied');
-      return;
-    }
-    // Branch manager cannot access CK tabs
-    if (isBranchManager && (tabContextMap[tab] === 'ck' || tab === 'dashboard')) {
-      toast.error('Access denied');
+    if (!canAccessTab(role, tab)) {
+      toast.error("You don't have access to that section");
+      setActiveTab(getDefaultTab(role));
       return;
     }
     setActiveTab(tab);
@@ -248,13 +273,13 @@ const Index = () => {
 
   const handleAdd = () => { setEditingSku(null); setModalOpen(true); };
   const handleEdit = (sku: SKU) => {
-    if (isReadOnly) return;
+    if (readOnly) return;
     setEditingSku(sku);
     setModalOpen(true);
   };
   const handleDeleteRequest = (id: string) => {
-    if (!isAdmin) {
-      toast.error('Only admins can delete items');
+    if (!isManagement) {
+      toast.error('Only Management can delete items');
       return;
     }
     const sku = skus.find(s => s.id === id);
@@ -294,7 +319,7 @@ const Index = () => {
                 {currentTab.title}
               </h1>
             </div>
-            {isReadOnly && (
+            {readOnly && (
               <span className="ml-2 text-[10px] uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
             )}
           </header>
@@ -324,7 +349,7 @@ const Index = () => {
                       <ContextBreadcrumb tab={activeTab} branchName={userBranchName} />
                       <p className="page-subtitle">{currentTab.subtitle}</p>
                     </div>
-                    {isAdmin && (
+                    {isManagement && (
                       <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="h-9">
                           <Upload className="w-4 h-4" /> Import CSV
@@ -338,16 +363,16 @@ const Index = () => {
                   <SummaryCards counts={counts} total={skus.length} />
                   <SKUTable
                     skus={skus}
-                    onEdit={isAdmin ? handleEdit : undefined}
-                    onDelete={isAdmin ? handleDeleteRequest : undefined}
+                    onEdit={isManagement ? handleEdit : undefined}
+                    onDelete={isManagement ? handleDeleteRequest : undefined}
                   />
                 </div>
               ) : activeTab === 'supplier' ? (
-                <SuppliersPage supplierData={supplierData} readOnly={isReadOnly} />
+                <SuppliersPage supplierData={supplierData} readOnly={readOnly} />
               ) : activeTab === 'price' ? (
-                <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} readOnly={isReadOnly} />
+                <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} readOnly={readOnly} />
               ) : activeTab === 'bom' ? (
-                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={isReadOnly} />
+                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={readOnly} />
               ) : activeTab === 'receipt' ? (
                 <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
               ) : activeTab === 'stock' ? (
@@ -365,11 +390,11 @@ const Index = () => {
               ) : activeTab === 'stockcount' ? (
                 <StockCountPage skus={skus} stockCountData={stockCountData} getStdUnitPrice={stockData.getStdUnitPrice} />
               ) : activeTab === 'branches' ? (
-                <BranchesPage branchData={branchData} readOnly={isReadOnly} />
+                <BranchesPage branchData={branchData} readOnly={readOnly} />
               ) : activeTab === 'users' ? (
-                isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
+                isManagement ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : activeTab === 'store' ? (
-                <StoreOverview branches={branchData.branches} onNavigate={handleTabChange} />
+                <StoreOverview branches={isAreaManager ? areaManagerBranches : branchData.branches} onNavigate={handleTabChange} />
               ) : activeTab === 'menu-master' ? (
                 <MenuMasterPage menuData={menuData} branches={branchData.branches} />
               ) : activeTab === 'menu-bom' ? (
@@ -379,26 +404,26 @@ const Index = () => {
                   skus={skus}
                   prices={priceData.prices}
                   branches={branchData.branches}
-                  readOnly={!isAdmin}
+                  readOnly={!isManagement}
                 />
                 ) : activeTab === 'sp-bom' ? (
                 <SpBomPage
                   spBomData={spBomData}
                   skus={skus}
                   prices={priceData.prices}
-                  readOnly={!isAdmin}
+                  readOnly={!isManagement}
                 />
               ) : activeTab === 'modifier-rules' ? (
                 <ModifierRulesPage
                   ruleData={modifierRuleData}
                   skus={skus}
                   menus={menuData.menus}
-                  readOnly={!isAdmin}
+                  readOnly={!isManagement}
                 />
               ) : activeTab === 'sales-entry' ? (
-                <SalesEntryPage branches={branchData.branches} />
+                <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} />
               ) : activeTab === 'branch-receipt' ? (
-                <BranchReceiptPage skus={skus} prices={priceData.prices} branches={branchData.branches} suppliers={supplierData.suppliers} />
+                <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}
@@ -406,7 +431,7 @@ const Index = () => {
                   modifierRules={modifierRuleData.rules}
                   spBomLines={spBomData.lines}
                   menus={menuData.menus}
-                  branches={branchData.branches}
+                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
                 />
               ) : activeTab === 'food-cost' ? (
                 <FoodCostPage
@@ -416,7 +441,7 @@ const Index = () => {
                   menuBomLines={menuBomData.lines}
                   modifierRules={modifierRuleData.rules}
                   spBomLines={spBomData.lines}
-                  branches={branchData.branches}
+                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
                   suppliers={supplierData.suppliers}
                 />
               ) : (
@@ -432,7 +457,7 @@ const Index = () => {
         </div>
       </div>
 
-      {isAdmin && (
+      {isManagement && (
         <>
           <SKUFormModal
             open={modalOpen}

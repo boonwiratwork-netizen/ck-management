@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify the caller is an admin
+    // Verify the caller is management
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -35,16 +35,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role
+    // Check management role
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "admin")
       .single();
 
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Forbidden: Admin only" }), {
+    if (!roleData || roleData.role !== "management") {
+      return new Response(JSON.stringify({ error: "Forbidden: Management only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -105,7 +104,6 @@ Deno.serve(async (req) => {
 
     if (action === "update_role") {
       const { user_id, role } = params;
-      // Delete existing roles and insert new one
       await supabaseAdmin
         .from("user_roles")
         .delete()
@@ -150,7 +148,6 @@ Deno.serve(async (req) => {
         .from("user_roles")
         .select("*");
 
-      // Get all auth users for email
       const { data: { users: authUsers } } =
         await supabaseAdmin.auth.admin.listUsers();
 
