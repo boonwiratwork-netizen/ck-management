@@ -277,7 +277,42 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none">— Select —</SelectItem>
-                  {MENU_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categoryNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {isAdmin && (
+                    <>
+                      <Separator className="my-1" />
+                      {showAddCat ? (
+                        <div className="flex items-center gap-1 px-2 py-1.5" onKeyDown={e => e.stopPropagation()}>
+                          <Input
+                            value={newCatInput}
+                            onChange={e => setNewCatInput(e.target.value)}
+                            placeholder="New category"
+                            className="h-7 text-xs"
+                            autoFocus
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                await addCategory(newCatInput);
+                                setNewCatInput('');
+                                setShowAddCat(false);
+                              }
+                            }}
+                          />
+                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setShowAddCat(false); setNewCatInput(''); }}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs text-primary hover:bg-accent cursor-pointer"
+                          onClick={(e) => { e.preventDefault(); setShowAddCat(true); }}
+                        >
+                          <Plus className="w-3 h-3" /> Add Category
+                        </button>
+                      )}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
