@@ -178,8 +178,12 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
       updateHeader(selectedHeaderId, headerForm);
       toast.success('BOM updated');
     } else {
-      const newId = addHeader(headerForm);
-      setSelectedHeaderId(newId);
+      const result = addHeader(headerForm);
+      if (result instanceof Promise) {
+        result.then(id => setSelectedHeaderId(id));
+      } else {
+        setSelectedHeaderId(result);
+      }
       toast.success('BOM created');
     }
     setEditingHeader(false);

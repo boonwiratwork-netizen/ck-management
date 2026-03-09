@@ -76,8 +76,12 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
 
   const handleCreate = () => {
     if (!newDate) { toast.error('Date is required'); return; }
-    const id = createSession(newDate, newNote);
-    setSelectedSessionId(id);
+    const result = createSession(newDate, newNote);
+    if (result instanceof Promise) {
+      result.then(id => setSelectedSessionId(id));
+    } else {
+      setSelectedSessionId(result);
+    }
     setCreateOpen(false);
     setNewNote('');
     toast.success('Stock count session created');

@@ -109,8 +109,12 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
       updatePlan(editingPlanId, planForm);
       toast.success('Plan updated');
     } else {
-      const newId = addPlan(planForm);
-      setSelectedPlanId(newId);
+      const result = addPlan(planForm);
+      if (result instanceof Promise) {
+        result.then(id => setSelectedPlanId(id));
+      } else {
+        setSelectedPlanId(result);
+      }
       toast.success('Plan added');
     }
     setPlanModalOpen(false);
