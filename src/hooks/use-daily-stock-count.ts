@@ -240,24 +240,11 @@ export function useDailyStockCount({
       return;
     }
 
-    // Get branch name for delivery lookup
-    const branch = branches.find(b => b.id === branchId);
-    const branchName = branch?.branchName || '';
-
-    // Calculate expected usage
-    const expectedUsage = await calculateExpectedUsage(branchId, date);
-
-    // Get deliveries from CK for this branch + date
-    const { data: deliveries } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('branch_name', branchName)
-      .eq('delivery_date', date);
-    
-    const ckDeliveryBySku: Record<string, number> = {};
-    (deliveries || []).forEach(d => {
-      ckDeliveryBySku[d.sm_sku_id] = (ckDeliveryBySku[d.sm_sku_id] || 0) + Number(d.qty_delivered_kg);
-    });
+    // Calculate expected usage + fetch receipt totals in parallel
+    const [expectedUsage, receipts] = await Promise.all([
+      calculateExpectedUsage(branchId, date),
+      fetchReceiptTotals(branchId, date),
+    ]);
 
     // Get previous day's physical counts as opening balance
     const prevDate = new Date(date);
