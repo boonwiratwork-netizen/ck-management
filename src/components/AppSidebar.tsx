@@ -19,7 +19,7 @@ import {
 import { useAuth, AppRole } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
 
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
@@ -46,6 +46,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   'branch-receipt': 'store',
   'daily-stock-count': 'store',
   'food-cost': 'store',
+  'sku-categories': 'management',
 };
 
 interface AppSidebarProps {
@@ -116,6 +117,7 @@ const managementGroup: NavGroup = {
   items: [
     { key: 'branches', label: 'Branches', icon: Store },
     { key: 'users', label: 'User Management', icon: Settings },
+    { key: 'sku-categories', label: 'SKU Categories', icon: Package },
   ],
 };
 

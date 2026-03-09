@@ -1,7 +1,9 @@
 export type SKUType = 'RM' | 'SM' | 'SP' | 'PK';
 export type SKUStatus = 'Active' | 'Inactive';
 export type StorageCondition = 'Frozen' | 'Chilled' | 'Ambient';
-export type Category = 'MT' | 'SF' | 'VG' | 'FR' | 'DG' | 'SC' | 'DY' | 'OL';
+
+// Category is now a dynamic string code from sku_categories table
+export type Category = string;
 
 export interface SKU {
   id: string;
@@ -31,7 +33,8 @@ export const SKU_TYPE_LABELS: Record<SKUType, string> = {
   PK: 'Packaging',
 };
 
-export const CATEGORY_LABELS: Record<Category, string> = {
+// Legacy static labels kept for backward compat but dynamic categories preferred
+export const CATEGORY_LABELS: Record<string, string> = {
   MT: 'Meat',
   SF: 'Seafood',
   VG: 'Vegetable',

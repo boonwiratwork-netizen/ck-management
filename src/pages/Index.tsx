@@ -15,6 +15,7 @@ import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
 import { useMenuData } from '@/hooks/use-menu-data';
 import { useMenuBomData } from '@/hooks/use-menu-bom-data';
+import { useSkuCategories } from '@/hooks/use-sku-categories';
 import { useAuth } from '@/hooks/use-auth';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
@@ -41,6 +42,7 @@ import DailyStockCountPage from '@/pages/DailyStockCount';
 import BranchReceiptPage from '@/pages/BranchReceipt';
 import FoodCostPage from '@/pages/FoodCost';
 import StoreOverview from '@/pages/StoreOverview';
+import SkuCategoriesPage from '@/pages/SkuCategories';
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -71,6 +73,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
   'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
+  'sku-categories': { title: 'SKU Categories', subtitle: 'Manage ingredient categories' },
 };
 
 // Define which tabs each role can access
@@ -133,6 +136,7 @@ const Index = () => {
   const menuBomData = useMenuBomData();
   const spBomData = useSpBomData();
   const modifierRuleData = useModifierRuleData();
+  const skuCategoryData = useSkuCategories();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
@@ -203,7 +207,6 @@ const Index = () => {
     const valid: Record<string, string>[] = [];
     let skipped = 0;
     const validTypes = ['RM', 'SM', 'SP', 'PK'];
-    const validCategories = ['MT', 'SF', 'VG', 'FR', 'DG', 'SC', 'DY', 'OL'];
     const validStorage = ['Frozen', 'Chilled', 'Ambient'];
     const existingNames = new Set(skus.map(s => s.name.toLowerCase()));
     const seenNames = new Set<string>();
@@ -214,8 +217,7 @@ const Index = () => {
       const type = row['Type']?.trim().toUpperCase();
       if (!name) { errors.push({ row: rowNum, message: 'Name is required' }); return; }
       if (!type || !validTypes.includes(type)) { errors.push({ row: rowNum, message: `Type must be one of ${validTypes.join('/')}` }); return; }
-      const cat = row['Category']?.trim().toUpperCase();
-      if (cat && !validCategories.includes(cat)) { errors.push({ row: rowNum, message: `Category must be one of ${validCategories.join('/')}` }); return; }
+      // Category is now dynamic — any non-empty code is accepted (will be auto-created if missing)
       const storage = row['Storage Condition']?.trim();
       if (storage && !validStorage.includes(storage)) { errors.push({ row: rowNum, message: `Storage Condition must be one of ${validStorage.join('/')}` }); return; }
       if (existingNames.has(name.toLowerCase()) || seenNames.has(name.toLowerCase())) { skipped++; return; }
@@ -226,10 +228,15 @@ const Index = () => {
   }, [skus]);
 
   const handleSkuCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    // Collect all category codes from the CSV
+    const csvCategoryCodes = [...new Set(rows.map(r => (r['Category']?.trim().toUpperCase() || 'MT')).filter(Boolean))];
+    // Auto-create missing categories
+    const newCats = await skuCategoryData.bulkEnsureCategories(csvCategoryCodes);
+
     const skuRows: Omit<SKU, 'id' | 'skuId'>[] = rows.map(row => ({
       name: row['Name']?.trim() || '',
       type: (row['Type']?.trim().toUpperCase() || 'RM') as any,
-      category: (row['Category']?.trim().toUpperCase() || 'MT') as any,
+      category: (row['Category']?.trim().toUpperCase() || 'MT'),
       status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
       specNote: row['Spec Note']?.trim() || '',
       packSize: Number(row['Pack Size']) || 1,
@@ -245,8 +252,14 @@ const Index = () => {
       leadTime: Number(row['Lead Time']) || 0,
     }));
     const count = await bulkAddSkus(skuRows);
-    if (count) toast.success(`${count} SKUs imported successfully`);
-  }, [bulkAddSkus]);
+    if (count) {
+      let msg = `${count} SKUs imported successfully`;
+      if (newCats.length > 0) {
+        msg += `. ${newCats.length} new categories auto-created: ${newCats.join(', ')}. You can rename them in SKU Categories settings.`;
+      }
+      toast.success(msg);
+    }
+  }, [bulkAddSkus, skuCategoryData]);
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
@@ -365,6 +378,7 @@ const Index = () => {
                     skus={skus}
                     onEdit={isManagement ? handleEdit : undefined}
                     onDelete={isManagement ? handleDeleteRequest : undefined}
+                    skuCategories={skuCategoryData.categories}
                   />
                 </div>
               ) : activeTab === 'supplier' ? (
@@ -444,6 +458,8 @@ const Index = () => {
                   branches={isAreaManager ? areaManagerBranches : branchData.branches}
                   suppliers={supplierData.suppliers}
                 />
+              ) : activeTab === 'sku-categories' ? (
+                <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={!isManagement} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
@@ -467,6 +483,9 @@ const Index = () => {
             activeSuppliers={activeSuppliers}
             isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
             allSkus={skus}
+            skuCategories={skuCategoryData.categories}
+            onAddCategory={skuCategoryData.addCategory}
+            onManageCategories={() => handleTabChange('sku-categories')}
           />
 
           <ConfirmDialog
