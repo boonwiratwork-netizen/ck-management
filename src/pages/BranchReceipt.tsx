@@ -128,7 +128,7 @@ function SkuCombobox({ value, onSelect, skus }: { value: string; onSelect: (id: 
 }
 
 export default function BranchReceiptPage({ skus, prices, branches, suppliers = [] }: Props) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { receipts, saveReceipts, deleteReceipt } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
