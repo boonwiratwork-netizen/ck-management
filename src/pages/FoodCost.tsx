@@ -67,7 +67,7 @@ interface MenuBreakdown {
 export default function FoodCostPage({
   skus, prices, menus, menuBomLines, modifierRules, spBomLines, branches, suppliers,
 }: FoodCostPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const today = new Date();
 
   const [preset, setPreset] = useState<DatePreset>('today');
