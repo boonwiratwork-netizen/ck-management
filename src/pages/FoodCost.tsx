@@ -74,7 +74,7 @@ export default function FoodCostPage({
   const [dateFrom, setDateFrom] = useState<Date>(today);
   const [dateTo, setDateTo] = useState<Date>(today);
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : 'all'
+    isStoreManager && profile?.branch_id ? profile.branch_id : 'all'
   );
   const [loading, setLoading] = useState(false);
   const [calculated, setCalculated] = useState(false);

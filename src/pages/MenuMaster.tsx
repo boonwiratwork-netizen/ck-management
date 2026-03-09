@@ -28,7 +28,7 @@ interface MenuMasterPageProps {
 
 export default function MenuMasterPage({ menuData, branches }: MenuMasterPageProps) {
   const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu } = menuData;
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { categories, addCategory, deleteCategory } = useMenuCategories();
 
   const [newCatInput, setNewCatInput] = useState('');

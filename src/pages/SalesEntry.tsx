@@ -32,7 +32,7 @@ interface SalesEntryPageProps {
 }
 
 export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {

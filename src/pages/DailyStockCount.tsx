@@ -35,7 +35,7 @@ export default function DailyStockCountPage({
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [showUnused, setShowUnused] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);

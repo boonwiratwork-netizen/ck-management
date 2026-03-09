@@ -149,10 +149,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
   const availableBranches = useMemo(() => {
-    if (isAdmin) return activeBranches;
-    if (isBranchManager && profile?.branch_id) return activeBranches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [isAdmin, isBranchManager, profile, activeBranches]);
+    if (isManagement) return activeBranches;
+    if (isStoreManager && profile?.branch_id) return activeBranches.filter(b => b.id === profile.branch_id);
+    return activeBranches;
+  }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const getStdUnitPrice = useCallback((skuId: string): number => {
     const active = prices.find(p => p.skuId === skuId && p.isActive);

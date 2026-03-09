@@ -16,7 +16,7 @@ interface StoreOverviewProps {
 }
 
 export default function StoreOverview({ branches, onNavigate }: StoreOverviewProps) {
-  const { profile, isBranchManager } = useAuth();
+  const { profile, isStoreManager } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 

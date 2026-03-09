@@ -28,8 +28,8 @@ interface ModifierRulesPageProps {
 }
 
 export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = false }: ModifierRulesPageProps) {
-  const { isAdmin } = useAuth();
-  const canEdit = isAdmin && !readOnly;
+  const { isManagement } = useAuth();
+  const canEdit = isManagement && !readOnly;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<ModifierRule | null>(null);
