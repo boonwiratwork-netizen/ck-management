@@ -12,6 +12,7 @@ import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
 import { useMenuData } from '@/hooks/use-menu-data';
+import { useMenuBomData } from '@/hooks/use-menu-bom-data';
 import { useAuth } from '@/hooks/use-auth';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
