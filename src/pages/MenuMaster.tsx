@@ -47,7 +47,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   // Branch manager sees only their branch
   const visibleMenus = useMemo(() => {
     let result = menus;
-    if (isBranchManager && profile?.branch_id) {
+    if (isStoreManager && profile?.branch_id) {
       result = result.filter(m => m.branchId === profile.branch_id);
     }
     if (search) {
