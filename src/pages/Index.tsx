@@ -72,6 +72,7 @@ const Index = () => {
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
   const branchData = useBranchData();
+  const menuData = useMenuData();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
