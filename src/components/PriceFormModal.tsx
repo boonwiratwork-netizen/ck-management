@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Price, EMPTY_PRICE } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
