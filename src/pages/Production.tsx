@@ -18,11 +18,11 @@ interface ProductionPageProps {
   productionData: {
     plans: ProductionPlan[];
     records: ProductionRecord[];
-    addPlan: (data: { smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }) => string;
-    updatePlan: (id: string, data: Partial<{ smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }>) => void;
-    deletePlan: (id: string) => void;
-    addRecord: (data: Omit<ProductionRecord, 'id' | 'smSkuId'>) => string | undefined;
-    deleteRecord: (id: string) => void;
+    addPlan: (data: { smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }) => string | Promise<string>;
+    updatePlan: (id: string, data: Partial<{ smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }>) => void | Promise<void>;
+    deletePlan: (id: string) => void | Promise<void>;
+    addRecord: (data: Omit<ProductionRecord, 'id' | 'smSkuId'>) => string | undefined | Promise<string | undefined>;
+    deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
     getOutputPerBatch: (smSkuId: string) => number;

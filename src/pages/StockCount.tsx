@@ -17,10 +17,10 @@ interface Props {
   skus: SKU[];
   stockCountData: {
     sessions: StockCountSession[];
-    createSession: (date: string, note: string) => string;
-    updateLine: (lineId: string, physicalQty: number | null, note?: string) => void;
-    confirmSession: (sessionId: string) => void;
-    deleteSession: (sessionId: string) => void;
+    createSession: (date: string, note: string) => string | Promise<string>;
+    updateLine: (lineId: string, physicalQty: number | null, note?: string) => void | Promise<void>;
+    confirmSession: (sessionId: string) => void | Promise<void>;
+    deleteSession: (sessionId: string) => void | Promise<void>;
     getLinesForSession: (sessionId: string) => StockCountLine[];
   };
   getStdUnitPrice: (skuId: string) => number;
