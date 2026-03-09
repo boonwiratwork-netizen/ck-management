@@ -136,6 +136,7 @@ const Index = () => {
   const menuBomData = useMenuBomData();
   const spBomData = useSpBomData();
   const modifierRuleData = useModifierRuleData();
+  const skuCategoryData = useSkuCategories();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
