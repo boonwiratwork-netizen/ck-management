@@ -9,7 +9,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/SearchableSelect';
 import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface Props {
@@ -290,22 +295,22 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>
-                      <Select value={draft.branchName || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v === '_none' ? '' : v)}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Branch" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {activeBranches.map(b => <SelectItem key={b.id} value={b.branchName}>{b.branchName} — {b.brandName}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={draft.branchName}
+                        onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v)}
+                        options={activeBranches.map(b => ({ value: b.branchName, label: `${b.branchName} — ${b.brandName}` }))}
+                        placeholder="Select Branch"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
-                      <Select value={draft.smSkuId || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v === '_none' ? '' : v)}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select SM SKU" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {smSkus.map(s => <SelectItem key={s.id} value={s.id}>{s.skuId} — {s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={draft.smSkuId}
+                        onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v)}
+                        options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                        placeholder="Select SM SKU"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
                       <Input type="number" min={0} step="any" value={draft.qtyDeliveredKg || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredKg', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
@@ -382,20 +387,47 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         onConfirm={handleDeleteConfirm}
       />
 
-      <ConfirmDialog
-        open={!!stockWarning}
-        onOpenChange={open => !open && setStockWarning(null)}
-        title="⚠ Negative SM Stock Warning"
-        description={`This delivery will result in negative stock for "${stockWarning?.skuName}" (need ${stockWarning?.need?.toFixed(1)} kg, have ${stockWarning?.have?.toFixed(1)} kg). Continue anyway?`}
-        confirmLabel="Proceed Anyway"
-        variant="warning"
-        onConfirm={() => {
-          if (stockWarning) {
-            doSaveRow(stockWarning.tempId);
-            setStockWarning(null);
-          }
-        }}
-      />
+      <AlertDialog open={!!stockWarning} onOpenChange={open => !open && setStockWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+              Negative SM stock warning
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">This delivery will result in negative stock:</p>
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+              <p className="text-sm"><span className="font-bold">{stockWarning?.skuName}</span></p>
+              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} kg</p>
+              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} kg</p>
+            </div>
+          </div>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-muted text-foreground hover:bg-muted/80"
+              onClick={() => {
+                setStockWarning(null);
+                // Focus qty field — user can manually adjust
+              }}
+            >
+              Adjust Qty
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (stockWarning) {
+                  doSaveRow(stockWarning.tempId);
+                  setStockWarning(null);
+                }
+              }}
+            >
+              Proceed Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

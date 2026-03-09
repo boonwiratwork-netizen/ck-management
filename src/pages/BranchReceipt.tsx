@@ -13,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Plus, Save, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -92,7 +94,7 @@ function SkuCombobox({ value, onSelect, skus }: { value: string; onSelect: (id: 
         <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-[280px] rounded-md border bg-popover shadow-md">
+        <div className="absolute z-[60] top-full left-0 mt-1 w-[280px] rounded-md border bg-popover shadow-lg" style={{ maxHeight: '240px' }}>
           <div className="p-1.5">
             <Input
               ref={inputRef}
@@ -282,7 +284,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
         <div className="flex items-center gap-2 ml-2">
           <Switch checked={quickRepeatSupplier} onCheckedChange={setQuickRepeatSupplier} id="quick-supplier" />
-          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Repeat supplier</label>
+          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Auto-copy supplier from row above</label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-xs">
+                When enabled, each new row will automatically copy the supplier name from the previous row. Useful when receiving from the same supplier across many items.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {drafts.length > 0 && (
           <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
@@ -304,13 +316,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
-                  <th className={thClass}>SKU Name</th>
+                  <th className={thClass}>Name</th>
                   <th className={thClass} style={{ minWidth: 140 }}>Supplier</th>
                   <th className={`${thClass} text-right`}>Qty</th>
                   <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Actual Total Paid (฿)</th>
-                  <th className={`${thClass} text-right`}>Actual Unit ฿</th>
-                  <th className={`${thClass} text-right`}>Std Unit ฿</th>
+                  <th className={`${thClass} text-right`}>Total Paid (฿)</th>
+                  <th className={`${thClass} text-right`}>Unit Price</th>
+                  <th className={`${thClass} text-right`}>Std Unit</th>
                   <th className={`${thClass} text-right`}>Std Total</th>
                   <th className={`${thClass} text-right`}>Variance</th>
                   <th className={thClass}>Notes</th>

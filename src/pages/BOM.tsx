@@ -5,6 +5,7 @@ import { BOMHeader, BOMLine, BOMStep, EMPTY_BOM_HEADER, EMPTY_BOM_LINE, EMPTY_BO
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/SearchableSelect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -268,14 +269,13 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
     <TableRow className="bg-muted/30">
       <TableCell>
-        <Select value={lineForm.rmSkuId} onValueChange={v => setLineForm(f => ({ ...f, rmSkuId: v }))}>
-          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select RM" /></SelectTrigger>
-          <SelectContent>
-            {rmSkus.map(s => (
-              <SelectItem key={s.id} value={s.id}>{s.skuId} — {s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={lineForm.rmSkuId}
+          onValueChange={v => setLineForm(f => ({ ...f, rmSkuId: v }))}
+          options={rmSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+          placeholder="Select RM"
+          triggerClassName="h-8 text-xs"
+        />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}</TableCell>
       {isMultiStep && (

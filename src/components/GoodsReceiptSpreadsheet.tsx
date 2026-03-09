@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/SearchableSelect';
 
 interface Props {
   savedReceipts: GoodsReceipt[];
@@ -146,47 +147,30 @@ export function GoodsReceiptSpreadsheet({
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>
-                      <Select
-                        value={draft.skuId || '_none'}
+                      <SearchableSelect
+                        value={draft.skuId}
                         onValueChange={v => {
-                          const newSkuId = v === '_none' ? '' : v;
-                          onUpdateDraft(draft.tempId, 'skuId', newSkuId);
-                          if (newSkuId) {
-                            const s = rmSkus.find(sk => sk.id === newSkuId);
+                          onUpdateDraft(draft.tempId, 'skuId', v);
+                          if (v) {
+                            const s = rmSkus.find(sk => sk.id === v);
                             if (s?.supplier1) {
                               onUpdateDraft(draft.tempId, 'supplierId', s.supplier1);
                             }
                           }
                         }}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Select SKU" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {rmSkus.map(s => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.skuId} — {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        options={rmSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                        placeholder="Select SKU"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
-                      <Select
-                        value={draft.supplierId || '_none'}
-                        onValueChange={v => onUpdateDraft(draft.tempId, 'supplierId', v === '_none' ? '' : v)}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Supplier" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {suppliers.map(s => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={draft.supplierId}
+                        onValueChange={v => onUpdateDraft(draft.tempId, 'supplierId', v)}
+                        options={suppliers.map(s => ({ value: s.id, label: s.name }))}
+                        placeholder="Supplier"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
                       <Input
