@@ -339,19 +339,19 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
               {/* Ingredients table */}
               <Card>
-                <CardContent className="p-0">
-                  <Table>
+                <CardContent className="p-0 overflow-hidden">
+                  <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">SKU Code</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
                         <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty/Batch</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Yield %</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Eff. Qty</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>}
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty/Batch</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
