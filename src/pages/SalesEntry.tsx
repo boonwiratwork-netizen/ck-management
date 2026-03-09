@@ -353,7 +353,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
                     <TableHead className="text-right table-header">Net Amount</TableHead>
                     <TableHead className="table-header">Channel</TableHead>
                     <TableHead className="table-header">Branch</TableHead>
-                    {isAdmin && <TableHead className="w-10 table-header" />}
+                    {isManagement && <TableHead className="w-10 table-header" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
