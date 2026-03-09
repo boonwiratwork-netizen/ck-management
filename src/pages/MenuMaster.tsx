@@ -265,7 +265,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <Select value={form.category || '__none''} onValueChange={v => setForm(f => ({ ...f, category: v === '__none' ? '' : v }))}>
+              <Select value={form.category || '__none'} onValueChange={v => setForm(f => ({ ...f, category: v === '__none' ? '' : v }))}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none">— Select —</SelectItem>
