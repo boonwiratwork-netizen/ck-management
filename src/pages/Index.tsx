@@ -458,6 +458,8 @@ const Index = () => {
                   branches={isAreaManager ? areaManagerBranches : branchData.branches}
                   suppliers={supplierData.suppliers}
                 />
+              ) : activeTab === 'sku-categories' ? (
+                <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={!isManagement} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
