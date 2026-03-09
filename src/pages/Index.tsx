@@ -378,6 +378,7 @@ const Index = () => {
                     skus={skus}
                     onEdit={isManagement ? handleEdit : undefined}
                     onDelete={isManagement ? handleDeleteRequest : undefined}
+                    skuCategories={skuCategoryData.categories}
                   />
                 </div>
               ) : activeTab === 'supplier' ? (
