@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { syncBomPrice } from '@/lib/bom-price-sync';
 
 interface BOMPageProps {
   bomData: {
@@ -34,6 +35,7 @@ interface BOMPageProps {
   skus: SKU[];
   prices: Price[];
   readOnly?: boolean;
+  onPricesRefresh?: () => void;
 }
 
 // Uncontrolled input that only fires onChange on blur
@@ -74,7 +76,7 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
   );
 }
 
-const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
+const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
@@ -196,6 +198,21 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
     }
   };
 
+  // Sync BOM cost to price table for the currently selected SM SKU
+  const syncCurrentBomPrice = useCallback(async (headerId?: string) => {
+    const hId = headerId || selectedHeaderId;
+    if (!hId) return;
+    const header = headers.find(h => h.id === hId);
+    if (!header) return;
+    const { costPerGram } = getBomCost(header);
+    if (costPerGram > 0) {
+      const skuName = getSkuCode(header.smSkuId) || getSkuName(header.smSkuId);
+      await syncBomPrice(header.smSkuId, costPerGram);
+      toast.success(`BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`);
+      onPricesRefresh?.();
+    }
+  }, [selectedHeaderId, headers, prices, onPricesRefresh]);
+
   // Header actions
   const handleAddHeader = () => {
     setHeaderForm(EMPTY_BOM_HEADER);
@@ -203,18 +220,19 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
     setSelectedHeaderId(null);
   };
 
-  const handleSaveHeader = () => {
+  const handleSaveHeader = async () => {
     if (!headerForm.smSkuId) { toast.error('Select an SM SKU'); return; }
     const exists = headers.find(h => h.smSkuId === headerForm.smSkuId && h.id !== selectedHeaderId);
     if (exists) { toast.error('BOM already exists for this SM SKU'); return; }
 
     if (selectedHeaderId && selectedHeader) {
-      updateHeader(selectedHeaderId, headerForm);
-      toast.success('BOM updated');
+      await updateHeader(selectedHeaderId, headerForm);
+      // Sync price after header update (batch size / yield changed)
+      setTimeout(() => syncCurrentBomPrice(selectedHeaderId), 300);
     } else {
       const result = addHeader(headerForm);
       if (result instanceof Promise) {
-        result.then(id => setSelectedHeaderId(id));
+        result.then(id => { setSelectedHeaderId(id); });
       } else {
         setSelectedHeaderId(result);
       }
@@ -249,18 +267,18 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
     setEditingLineId(null);
   };
 
-  const handleSaveLine = () => {
+  const handleSaveLine = async () => {
     if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
     if (addingLine) {
-      addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
-      toast.success('Ingredient added');
+      await addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
       setAddingLine(false);
       setAddingLineStepId(null);
     } else if (editingLineId) {
-      updateLine(editingLineId, lineForm);
-      toast.success('Ingredient updated');
+      await updateLine(editingLineId, lineForm);
       setEditingLineId(null);
     }
+    // Sync price after ingredient change
+    setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
   const handleEditLine = (line: BOMLine) => {
@@ -275,9 +293,11 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
     setAddingLine(false);
   };
 
-  const handleDeleteLine = (id: string) => {
-    deleteLine(id);
+  const handleDeleteLine = async (id: string) => {
+    await deleteLine(id);
     toast.success('Ingredient removed');
+    // Sync price after ingredient removal
+    setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
   const cancelLineEdit = () => { setAddingLine(false); setEditingLineId(null); setAddingLineStepId(null); };

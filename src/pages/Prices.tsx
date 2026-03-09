@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
+import { BOMHeader } from '@/types/bom';
 import { usePriceData } from '@/hooks/use-price-data';
 import { PriceTable } from '@/components/PriceTable';
 import { PriceFormModal } from '@/components/PriceFormModal';
@@ -10,6 +11,7 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/C
 import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { isBomPrice } from '@/lib/bom-price-sync';
 
 interface Props {
   priceData: ReturnType<typeof usePriceData>;
@@ -17,9 +19,10 @@ interface Props {
   activeSuppliers: Supplier[];
   allSuppliers: Supplier[];
   readOnly?: boolean;
+  bomHeaders?: BOMHeader[];
 }
 
-export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false }: Props) {
+export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false, bomHeaders = [] }: Props) {
   const { prices, addPrice, updatePrice, deletePrice } = priceData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
@@ -78,15 +81,16 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
-  // SKUs with at least one active price
+  // SKUs with at least one active price (excluding SM/SP which are BOM-managed)
   const pricedSkuIds = useMemo(() => {
     const set = new Set<string>();
     prices.forEach(p => { if (p.isActive) set.add(p.skuId); });
     return set;
   }, [prices]);
 
-  const activeSkus = useMemo(() => skus.filter(s => s.status === 'Active'), [skus]);
-  const unpricedCount = useMemo(() => activeSkus.filter(s => !pricedSkuIds.has(s.id)).length, [activeSkus, pricedSkuIds]);
+  // Only count RM/PK SKUs as "unpriced" since SM/SP are auto-managed via BOM
+  const activeRmPkSkus = useMemo(() => skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'PK')), [skus]);
+  const unpricedCount = useMemo(() => activeRmPkSkus.filter(s => !pricedSkuIds.has(s.id)).length, [activeRmPkSkus, pricedSkuIds]);
 
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
   const handleEdit = (p: Price) => { setEditing(p); setModalOpen(true); };
@@ -181,7 +185,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
               <Filter className="w-3.5 h-3.5 mr-1" /> Clear filter
             </Button>
             <span className="text-sm text-muted-foreground">
-              Showing {unpricedCount} active SKUs without an active price
+              Showing {unpricedCount} active RM/PK SKUs without an active price
             </span>
           </div>
           <div className="rounded-lg border bg-card overflow-hidden">
@@ -197,7 +201,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
                   </tr>
                 </thead>
                 <tbody>
-                  {activeSkus
+                  {activeRmPkSkus
                     .filter(s => !pricedSkuIds.has(s.id))
                     .sort((a, b) => a.skuId.localeCompare(b.skuId))
                     .map((sku, idx) => (
@@ -236,6 +240,8 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         skus={skus}
         activeSuppliers={activeSuppliers}
         pricedSkuIds={pricedSkuIds}
+        prices={prices}
+        bomHeaders={bomHeaders}
       />
 
       <ConfirmDialog
