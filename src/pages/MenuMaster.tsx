@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Menu, MENU_CATEGORIES, EMPTY_MENU } from '@/types/menu';
+import { Menu, EMPTY_MENU } from '@/types/menu';
 import { Branch } from '@/types/branch';
 import { useAuth } from '@/hooks/use-auth';
+import { useMenuCategories } from '@/hooks/use-menu-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit2, Trash2, Search, UtensilsCrossed } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Edit2, Trash2, Search, UtensilsCrossed, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MenuMasterPageProps {
