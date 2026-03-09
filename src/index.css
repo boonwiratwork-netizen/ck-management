@@ -2,97 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 25% 10%;
+    --background: 210 20% 98%;
+    --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card-foreground: 220 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover-foreground: 220 20% 10%;
 
-    --primary: 24 85% 52%;
+    --primary: 24 94% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 92%;
-    --secondary-foreground: 220 25% 20%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 25%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 220 16% 92%;
-    --accent-foreground: 220 25% 20%;
+    --accent: 24 100% 97%;
+    --accent-foreground: 24 94% 40%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 24 85% 52%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 24 94% 53%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    /* Custom tokens */
-    --success: 152 60% 42%;
+    /* Custom semantic tokens */
+    --success: 142 71% 35%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 210 70% 50%;
+    --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
 
     --surface-elevated: 0 0% 100%;
-    --surface-sunken: 220 20% 95%;
+    --surface-sunken: 220 20% 96%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Table tokens */
+    --table-header: 220 14% 97%;
+    --table-alt: 220 20% 99%;
+    --table-hover: 24 100% 97%;
+    --table-border: 220 13% 96%;
 
-    /* Type badge colors */
-    --badge-rm: 24 85% 52%;
-    --badge-sm: 210 70% 50%;
-    --badge-sp: 280 60% 55%;
-    --badge-pk: 152 60% 42%;
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: 24 94% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 24 100% 97%;
+    --sidebar-accent-foreground: 24 94% 40%;
+    --sidebar-border: 220 13% 93%;
+    --sidebar-ring: 24 94% 53%;
+    --sidebar-muted: 220 9% 64%;
+    --sidebar-section: 220 9% 72%;
+
+    /* Badge colors */
+    --badge-rm: 24 94% 53%;
+    --badge-sm: 217 91% 60%;
+    --badge-sp: 271 81% 56%;
+    --badge-pk: 142 71% 35%;
   }
 
   .dark {
-    --background: 220 25% 8%;
-    --foreground: 220 10% 92%;
-    --card: 220 22% 12%;
-    --card-foreground: 220 10% 92%;
-    --popover: 220 22% 12%;
-    --popover-foreground: 220 10% 92%;
-    --primary: 24 85% 55%;
+    --background: 220 20% 7%;
+    --foreground: 220 10% 93%;
+    --card: 220 18% 11%;
+    --card-foreground: 220 10% 93%;
+    --popover: 220 18% 11%;
+    --popover-foreground: 220 10% 93%;
+    --primary: 24 94% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 18% 18%;
+    --secondary: 220 16% 16%;
     --secondary-foreground: 220 10% 85%;
-    --muted: 220 18% 18%;
+    --muted: 220 16% 16%;
     --muted-foreground: 220 10% 55%;
-    --accent: 220 18% 18%;
-    --accent-foreground: 220 10% 85%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 18% 20%;
-    --input: 220 18% 20%;
-    --ring: 24 85% 55%;
-    --surface-elevated: 220 22% 14%;
-    --surface-sunken: 220 25% 6%;
-    --sidebar-background: 220 25% 8%;
-    --sidebar-foreground: 220 10% 85%;
-    --sidebar-primary: 24 85% 55%;
+    --accent: 24 50% 12%;
+    --accent-foreground: 24 94% 65%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 16% 18%;
+    --input: 220 16% 18%;
+    --ring: 24 94% 55%;
+
+    --table-header: 220 16% 14%;
+    --table-alt: 220 18% 10%;
+    --table-hover: 24 50% 12%;
+    --table-border: 220 16% 16%;
+
+    --surface-elevated: 220 18% 13%;
+    --surface-sunken: 220 20% 6%;
+    --sidebar-background: 220 20% 7%;
+    --sidebar-foreground: 220 10% 65%;
+    --sidebar-primary: 24 94% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 15%;
-    --sidebar-accent-foreground: 220 10% 85%;
-    --sidebar-border: 220 18% 20%;
-    --sidebar-ring: 24 85% 55%;
+    --sidebar-accent: 24 50% 12%;
+    --sidebar-accent-foreground: 24 94% 65%;
+    --sidebar-border: 220 16% 16%;
+    --sidebar-ring: 24 94% 55%;
+    --sidebar-muted: 220 10% 45%;
+    --sidebar-section: 220 10% 40%;
+
+    --success: 142 71% 40%;
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
   }
 }
 
@@ -102,29 +123,122 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
 }
 
 @layer utilities {
+  /* Type badges */
   .badge-rm {
-    background-color: hsl(var(--badge-rm) / 0.12);
+    background-color: hsl(var(--badge-rm) / 0.1);
     color: hsl(var(--badge-rm));
   }
   .badge-sm {
-    background-color: hsl(var(--badge-sm) / 0.12);
+    background-color: hsl(var(--badge-sm) / 0.1);
     color: hsl(var(--badge-sm));
   }
   .badge-sp {
-    background-color: hsl(var(--badge-sp) / 0.12);
+    background-color: hsl(var(--badge-sp) / 0.1);
     color: hsl(var(--badge-sp));
   }
   .badge-pk {
-    background-color: hsl(var(--badge-pk) / 0.12);
+    background-color: hsl(var(--badge-pk) / 0.1);
     color: hsl(var(--badge-pk));
+  }
+
+  /* Status pills */
+  .pill-active {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+  }
+  .pill-inactive {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+  }
+  .pill-submitted {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+  }
+
+  /* Variance colors */
+  .variance-positive {
+    color: hsl(0 72% 51%);
+  }
+  .variance-negative,
+  .variance-zero {
+    color: hsl(var(--success));
+  }
+
+  /* Page layout */
+  .page-container {
+    @apply px-8 py-6;
+  }
+  .page-title {
+    @apply text-2xl font-bold tracking-tight;
+    color: hsl(var(--foreground));
+  }
+  .page-subtitle {
+    @apply text-sm mt-1;
+    color: hsl(var(--muted-foreground));
+  }
+  .section-title {
+    @apply text-lg font-semibold tracking-tight;
+  }
+  .section-gap {
+    @apply space-y-8;
+  }
+
+  /* Table styling */
+  .table-header {
+    @apply text-[11px] uppercase tracking-wider font-semibold;
+    color: hsl(var(--muted-foreground));
+    background-color: hsl(var(--table-header));
+  }
+  .table-row-alt:nth-child(even) {
+    background-color: hsl(var(--table-alt));
+  }
+  .table-row-hover:hover {
+    background-color: hsl(var(--table-hover));
+  }
+
+  /* Card hover */
+  .card-hover {
+    @apply transition-all duration-200;
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -2px hsl(var(--foreground) / 0.08);
+  }
+
+  /* Monospace for numbers */
+  .font-mono-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Icon button action states */
+  .icon-btn-edit {
+    @apply h-8 w-8 rounded-md transition-colors;
+  }
+  .icon-btn-edit:hover {
+    background-color: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+  .icon-btn-delete {
+    @apply h-8 w-8 rounded-md transition-colors;
+  }
+  .icon-btn-delete:hover {
+    background-color: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
   }
 }

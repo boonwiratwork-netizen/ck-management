@@ -14,8 +14,17 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
-        body: ['"IBM Plex Sans Thai"', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        heading: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        body: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'monospace'],
+      },
+      fontSize: {
+        'page-title': ['24px', { lineHeight: '1.2', fontWeight: '700' }],
+        'section-title': ['18px', { lineHeight: '1.3', fontWeight: '600' }],
+        'table-header': ['11px', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '0.05em' }],
+        'body': ['14px', { lineHeight: '1.6', fontWeight: '400' }],
+        'helper': ['12px', { lineHeight: '1.5', fontWeight: '400' }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -72,12 +81,29 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+          muted: "hsl(var(--sidebar-muted))",
+          section: "hsl(var(--sidebar-section))",
         },
+        "table-header": "hsl(var(--table-header))",
+        "table-alt": "hsl(var(--table-alt))",
+        "table-hover": "hsl(var(--table-hover))",
+        "table-border": "hsl(var(--table-border))",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+      },
+      spacing: {
+        'page-x': '32px',
+        'page-y': '24px',
+        'card-p': '20px',
+        'section': '32px',
+        'field': '16px',
+      },
+      minHeight: {
+        'table-row': '48px',
       },
       keyframes: {
         "accordion-down": {
@@ -89,14 +115,19 @@ export default {
           to: { height: "0" },
         },
         "fade-in": {
-          from: { opacity: "0", transform: "translateY(8px)" },
+          from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-in": {
+          from: { opacity: "0", transform: "scale(0.95)" },
+          to: { opacity: "1", transform: "scale(1)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
+        "scale-in": "scale-in 0.2s ease-out",
       },
     },
   },
