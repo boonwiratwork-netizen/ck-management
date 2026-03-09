@@ -194,6 +194,7 @@ export default function UserManagement() {
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="ck_manager">CK Manager</SelectItem>
+                          <SelectItem value="branch_manager">Branch Manager</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
