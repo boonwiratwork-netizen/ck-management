@@ -332,6 +332,13 @@ const Index = () => {
                   branches={branchData.branches}
                   readOnly={!isAdmin}
                 />
+                ) : activeTab === 'sp-bom' ? (
+                <SpBomPage
+                  spBomData={spBomData}
+                  skus={skus}
+                  prices={priceData.prices}
+                  readOnly={!isAdmin}
+                />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
