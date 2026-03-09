@@ -69,10 +69,13 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     return counts;
   }, [visibleMenus]);
 
+  const categoryNames = useMemo(() => categories.map(c => c.name), [categories]);
+
   const uniqueCategories = useMemo(() => {
     const cats = new Set(menus.map(m => m.category).filter(Boolean));
+    categories.forEach(c => cats.add(c.name));
     return Array.from(cats).sort();
-  }, [menus]);
+  }, [menus, categories]);
 
   const handleAdd = () => {
     setEditing(null);
