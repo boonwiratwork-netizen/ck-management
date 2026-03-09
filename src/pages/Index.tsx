@@ -63,6 +63,7 @@ const tabLabels: Record<TabKey, string> = {
   'menu-bom': 'Menu BOM',
   'sp-bom': 'SP BOM',
   'modifier-rules': 'Modifier Rules',
+  'sales-entry': 'Sales Entry',
 };
 
 // Tabs that CK Manager can fully interact with
