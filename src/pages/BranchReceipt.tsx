@@ -248,7 +248,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       {/* Top controls */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Date</label>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn('w-[160px] justify-start text-left font-normal', !receiptDate && 'text-muted-foreground')}>
@@ -262,7 +262,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           </Popover>
         </div>
         <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
           <Select value={branchId || '_none'} onValueChange={v => setBranchId(v === '_none' ? '' : v)} disabled={isBranchManager}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select branch" /></SelectTrigger>
             <SelectContent>
@@ -273,9 +273,16 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         </div>
         <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
         {drafts.length > 0 && (
-          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.length})</Button>
+          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
         )}
       </div>
+
+      {/* Keyboard hints */}
+      {drafts.length > 0 && (
+        <div className="kbd-hint">
+          <kbd>Tab</kbd> to move between cells · <kbd>Enter</kbd> to save row · <kbd>Esc</kbd> to cancel
+        </div>
+      )}
 
       {/* Inline entry table */}
       {drafts.length > 0 && (
