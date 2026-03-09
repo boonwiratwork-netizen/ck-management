@@ -155,7 +155,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const previewCost = calcCostPerServing(previewEffQty, formSkuId);
 
   const renderInlineRow = () => (
-    <TableRow className="bg-muted/30 h-12" onKeyDown={handleKeyDown}>
+    <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
       <TableCell>
         <SearchableSelect
           value={formSkuId}
