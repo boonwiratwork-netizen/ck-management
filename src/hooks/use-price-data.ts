@@ -90,5 +90,5 @@ export function usePriceData() {
     setPrices(prev => prev.filter(p => p.id !== id));
   }, []);
 
-  return { prices, addPrice, updatePrice, deletePrice };
+  return { prices, addPrice, updatePrice, deletePrice, refreshPrices: fetchAll };
 }
