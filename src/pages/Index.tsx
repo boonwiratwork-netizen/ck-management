@@ -11,6 +11,7 @@ import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
+import { useMenuData } from '@/hooks/use-menu-data';
 import { useAuth } from '@/hooks/use-auth';
 import Dashboard from '@/pages/Dashboard';
 import { SummaryCards } from '@/components/SummaryCards';
@@ -28,6 +29,7 @@ import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
 import BranchesPage from '@/pages/Branches';
 import UserManagementPage from '@/pages/UserManagement';
+import MenuMasterPage from '@/pages/MenuMaster';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -50,6 +52,7 @@ const tabLabels: Record<TabKey, string> = {
   branches: 'Branches',
   users: 'User Management',
   store: 'Store',
+  'menu-master': 'Menu Master',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -69,6 +72,7 @@ const Index = () => {
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers);
   const branchData = useBranchData();
+  const menuData = useMenuData();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
@@ -93,7 +97,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master') {
       toast.error('Access denied');
       return;
     }
@@ -312,6 +316,8 @@ const Index = () => {
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : activeTab === 'store' ? (
                 <div className="text-muted-foreground text-center py-12">Store section coming soon.</div>
+              ) : activeTab === 'menu-master' ? (
+                <MenuMasterPage menuData={menuData} branches={branchData.branches} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}

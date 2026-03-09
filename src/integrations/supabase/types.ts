@@ -281,6 +281,50 @@ export type Database = {
           },
         ]
       }
+      menus: {
+        Row: {
+          branch_id: string | null
+          category: string
+          created_at: string
+          id: string
+          menu_code: string
+          menu_name: string
+          selling_price: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          menu_code?: string
+          menu_name?: string
+          selling_price?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          menu_code?: string
+          menu_name?: string
+          selling_price?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menus_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prices: {
         Row: {
           created_at: string
