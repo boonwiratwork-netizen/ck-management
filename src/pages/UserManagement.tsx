@@ -78,7 +78,12 @@ export default function UserManagement() {
   }, [callAdmin]);
 
   useEffect(() => {
-    if (session) fetchUsers();
+    if (session) {
+      fetchUsers();
+      supabase.from('branches').select('id, branch_name').then(({ data }) => {
+        setBranches(data || []);
+      });
+    }
   }, [session, fetchUsers]);
 
   const handleCreate = async () => {
