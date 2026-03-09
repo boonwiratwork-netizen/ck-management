@@ -48,10 +48,10 @@ export default function DailyStockCountPage({
   } = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
 
   const availableBranches = useMemo(() => {
-    if (isAdmin) return branches.filter(b => b.status === 'Active');
-    if (isBranchManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [branches, isAdmin, isBranchManager, profile]);
+    if (isManagement) return branches.filter(b => b.status === 'Active');
+    if (isStoreManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
+    return branches.filter(b => b.status === 'Active');
+  }, [branches, isManagement, isStoreManager, profile]);
 
   useEffect(() => {
     if (selectedBranch && selectedDate) {
