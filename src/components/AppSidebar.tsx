@@ -88,6 +88,7 @@ const storeGroup = {
     { key: 'sp-bom' as TabKey, label: 'SP BOM', icon: Sparkles, section: 'Masters' as const },
     { key: 'modifier-rules' as TabKey, label: 'Modifier Rules', icon: ListFilter, section: 'Masters' as const },
     { key: 'sales-entry' as TabKey, label: 'Sales Entry', icon: ShoppingCart, section: 'Operations' as const },
+    { key: 'branch-receipt' as TabKey, label: 'Branch Receipt', icon: ClipboardList, section: 'Operations' as const },
     { key: 'daily-stock-count' as TabKey, label: 'Daily Stock Count', icon: ClipboardCheck, section: 'Operations' as const },
   ],
 };
