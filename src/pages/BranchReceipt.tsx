@@ -169,7 +169,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     return '';
   }, [prices, supplierMap]);
 
-  const handleAddRow = useCallback(() => setDrafts(prev => [...prev, createEmptyDraft()]), []);
+  const handleAddRow = useCallback(() => setDrafts(prev => {
+    const newDraft = createEmptyDraft();
+    if (quickRepeatSupplier && prev.length > 0) {
+      newDraft.supplierName = prev[prev.length - 1].supplierName;
+    }
+    return [...prev, newDraft];
+  }), [quickRepeatSupplier]);
   const handleDeleteDraft = useCallback((tempId: string) => setDrafts(prev => prev.filter(d => d.tempId !== tempId)), []);
 
   const handleUpdateDraft = useCallback((tempId: string, field: keyof DraftRow, value: any) => {
