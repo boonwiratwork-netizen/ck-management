@@ -441,8 +441,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <th className={`${thClass} text-right`}>Actual Total ฿</th>
                   <th className={`${thClass} text-right`}>Std Total ฿</th>
                   <th className={`${thClass} text-right`}>Variance</th>
-                  {isAdmin && <th className={thClass}>Branch</th>}
-                  {isAdmin && <th className={`${thClass} text-center`}></th>}
+                  {isManagement && <th className={thClass}>Branch</th>}
+                  {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
               <tbody>
