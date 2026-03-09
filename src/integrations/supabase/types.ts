@@ -14,6 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
+      bom_headers: {
+        Row: {
+          batch_size: number
+          bom_mode: string
+          created_at: string
+          id: string
+          production_type: string
+          sm_sku_id: string
+          updated_at: string
+          yield_percent: number
+        }
+        Insert: {
+          batch_size?: number
+          bom_mode?: string
+          created_at?: string
+          id?: string
+          production_type?: string
+          sm_sku_id: string
+          updated_at?: string
+          yield_percent?: number
+        }
+        Update: {
+          batch_size?: number
+          bom_mode?: string
+          created_at?: string
+          id?: string
+          production_type?: string
+          sm_sku_id?: string
+          updated_at?: string
+          yield_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_headers_sm_sku_id_fkey"
+            columns: ["sm_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_lines: {
+        Row: {
+          bom_header_id: string
+          created_at: string
+          id: string
+          percent_of_input: number | null
+          qty_per_batch: number
+          qty_type: string | null
+          rm_sku_id: string
+          step_id: string | null
+        }
+        Insert: {
+          bom_header_id: string
+          created_at?: string
+          id?: string
+          percent_of_input?: number | null
+          qty_per_batch?: number
+          qty_type?: string | null
+          rm_sku_id: string
+          step_id?: string | null
+        }
+        Update: {
+          bom_header_id?: string
+          created_at?: string
+          id?: string
+          percent_of_input?: number | null
+          qty_per_batch?: number
+          qty_type?: string | null
+          rm_sku_id?: string
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_lines_bom_header_id_fkey"
+            columns: ["bom_header_id"]
+            isOneToOne: false
+            referencedRelation: "bom_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_lines_rm_sku_id_fkey"
+            columns: ["rm_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_steps: {
+        Row: {
+          bom_header_id: string
+          created_at: string
+          id: string
+          step_name: string
+          step_number: number
+          yield_percent: number
+        }
+        Insert: {
+          bom_header_id: string
+          created_at?: string
+          id?: string
+          step_name?: string
+          step_number?: number
+          yield_percent?: number
+        }
+        Update: {
+          bom_header_id?: string
+          created_at?: string
+          id?: string
+          step_name?: string
+          step_number?: number
+          yield_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_steps_bom_header_id_fkey"
+            columns: ["bom_header_id"]
+            isOneToOne: false
+            referencedRelation: "bom_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branches: {
         Row: {
           branch_name: string
@@ -43,6 +167,268 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      deliveries: {
+        Row: {
+          branch_name: string
+          created_at: string
+          delivery_date: string
+          id: string
+          note: string
+          qty_delivered_kg: number
+          sm_sku_id: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          branch_name?: string
+          created_at?: string
+          delivery_date?: string
+          id?: string
+          note?: string
+          qty_delivered_kg?: number
+          sm_sku_id: string
+          updated_at?: string
+          week_number?: number
+        }
+        Update: {
+          branch_name?: string
+          created_at?: string
+          delivery_date?: string
+          id?: string
+          note?: string
+          qty_delivered_kg?: number
+          sm_sku_id?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_sm_sku_id_fkey"
+            columns: ["sm_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goods_receipts: {
+        Row: {
+          actual_total: number
+          actual_unit_price: number
+          created_at: string
+          id: string
+          note: string
+          price_variance: number
+          quantity_received: number
+          receipt_date: string
+          sku_id: string
+          standard_price: number
+          std_unit_price: number
+          supplier_id: string
+          updated_at: string
+          usage_uom: string
+          week_number: number
+        }
+        Insert: {
+          actual_total?: number
+          actual_unit_price?: number
+          created_at?: string
+          id?: string
+          note?: string
+          price_variance?: number
+          quantity_received?: number
+          receipt_date?: string
+          sku_id: string
+          standard_price?: number
+          std_unit_price?: number
+          supplier_id: string
+          updated_at?: string
+          usage_uom?: string
+          week_number?: number
+        }
+        Update: {
+          actual_total?: number
+          actual_unit_price?: number
+          created_at?: string
+          id?: string
+          note?: string
+          price_variance?: number
+          quantity_received?: number
+          receipt_date?: string
+          sku_id?: string
+          standard_price?: number
+          std_unit_price?: number
+          supplier_id?: string
+          updated_at?: string
+          usage_uom?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_receipts_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prices: {
+        Row: {
+          created_at: string
+          effective_date: string
+          id: string
+          is_active: boolean
+          note: string
+          price_per_purchase_uom: number
+          price_per_usage_uom: number
+          sku_id: string
+          supplier_id: string
+          updated_at: string
+          vat: boolean
+        }
+        Insert: {
+          created_at?: string
+          effective_date?: string
+          id?: string
+          is_active?: boolean
+          note?: string
+          price_per_purchase_uom?: number
+          price_per_usage_uom?: number
+          sku_id: string
+          supplier_id: string
+          updated_at?: string
+          vat?: boolean
+        }
+        Update: {
+          created_at?: string
+          effective_date?: string
+          id?: string
+          is_active?: boolean
+          note?: string
+          price_per_purchase_uom?: number
+          price_per_usage_uom?: number
+          sku_id?: string
+          supplier_id?: string
+          updated_at?: string
+          vat?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prices_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_plans: {
+        Row: {
+          created_at: string
+          id: string
+          num_batches: number
+          sm_sku_id: string
+          status: string
+          target_qty_kg: number
+          updated_at: string
+          week_end_date: string
+          week_number: number
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          num_batches?: number
+          sm_sku_id: string
+          status?: string
+          target_qty_kg?: number
+          updated_at?: string
+          week_end_date?: string
+          week_number?: number
+          week_start_date?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          num_batches?: number
+          sm_sku_id?: string
+          status?: string
+          target_qty_kg?: number
+          updated_at?: string
+          week_end_date?: string
+          week_number?: number
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_plans_sm_sku_id_fkey"
+            columns: ["sm_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_records: {
+        Row: {
+          actual_output_kg: number
+          batches_produced: number
+          created_at: string
+          id: string
+          plan_id: string
+          production_date: string
+          sm_sku_id: string
+        }
+        Insert: {
+          actual_output_kg?: number
+          batches_produced?: number
+          created_at?: string
+          id?: string
+          plan_id: string
+          production_date?: string
+          sm_sku_id: string
+        }
+        Update: {
+          actual_output_kg?: number
+          batches_produced?: number
+          created_at?: string
+          id?: string
+          plan_id?: string
+          production_date?: string
+          sm_sku_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_records_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "production_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_records_sm_sku_id_fkey"
+            columns: ["sm_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -81,6 +467,262 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skus: {
+        Row: {
+          category: string
+          converter: number
+          created_at: string
+          id: string
+          lead_time: number
+          name: string
+          pack_size: number
+          pack_unit: string
+          purchase_uom: string
+          shelf_life: number
+          sku_id: string
+          spec_note: string
+          status: string
+          storage_condition: string
+          supplier1: string
+          supplier2: string
+          type: string
+          updated_at: string
+          usage_uom: string
+          vat: boolean
+        }
+        Insert: {
+          category?: string
+          converter?: number
+          created_at?: string
+          id?: string
+          lead_time?: number
+          name?: string
+          pack_size?: number
+          pack_unit?: string
+          purchase_uom?: string
+          shelf_life?: number
+          sku_id?: string
+          spec_note?: string
+          status?: string
+          storage_condition?: string
+          supplier1?: string
+          supplier2?: string
+          type?: string
+          updated_at?: string
+          usage_uom?: string
+          vat?: boolean
+        }
+        Update: {
+          category?: string
+          converter?: number
+          created_at?: string
+          id?: string
+          lead_time?: number
+          name?: string
+          pack_size?: number
+          pack_unit?: string
+          purchase_uom?: string
+          shelf_life?: number
+          sku_id?: string
+          spec_note?: string
+          status?: string
+          storage_condition?: string
+          supplier1?: string
+          supplier2?: string
+          type?: string
+          updated_at?: string
+          usage_uom?: string
+          vat?: boolean
+        }
+        Relationships: []
+      }
+      stock_adjustments: {
+        Row: {
+          adjustment_date: string
+          created_at: string
+          id: string
+          quantity: number
+          reason: string
+          sku_id: string
+          stock_type: string
+        }
+        Insert: {
+          adjustment_date?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          reason?: string
+          sku_id: string
+          stock_type?: string
+        }
+        Update: {
+          adjustment_date?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          reason?: string
+          sku_id?: string
+          stock_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_count_lines: {
+        Row: {
+          created_at: string
+          id: string
+          note: string
+          physical_qty: number | null
+          session_id: string
+          sku_id: string
+          system_qty: number
+          type: string
+          variance: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string
+          physical_qty?: number | null
+          session_id: string
+          sku_id: string
+          system_qty?: number
+          type?: string
+          variance?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string
+          physical_qty?: number | null
+          session_id?: string
+          sku_id?: string
+          system_qty?: number
+          type?: string
+          variance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_lines_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "stock_count_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_count_sessions: {
+        Row: {
+          completed_at: string | null
+          count_date: string
+          created_at: string
+          id: string
+          note: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          count_date?: string
+          created_at?: string
+          id?: string
+          note?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          count_date?: string
+          created_at?: string
+          id?: string
+          note?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      stock_opening_balances: {
+        Row: {
+          id: string
+          quantity: number
+          sku_id: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          quantity?: number
+          sku_id: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          quantity?: number
+          sku_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_opening_balances_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: true
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          contact_person: string
+          created_at: string
+          credit_terms: string
+          id: string
+          lead_time: number
+          moq: number
+          moq_unit: string
+          name: string
+          phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_person?: string
+          created_at?: string
+          credit_terms?: string
+          id?: string
+          lead_time?: number
+          moq?: number
+          moq_unit?: string
+          name?: string
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_person?: string
+          created_at?: string
+          credit_terms?: string
+          id?: string
+          lead_time?: number
+          moq?: number
+          moq_unit?: string
+          name?: string
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
