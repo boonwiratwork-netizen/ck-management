@@ -727,10 +727,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                               <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
                                 {rmSku?.name ?? '—'}
                               </TableCell>
-                              {/* Tooltip removed — title attr used instead for truncated names */}
-                              {false && <TooltipProvider><Tooltip><TooltipTrigger asChild><span /></TooltipTrigger><TooltipContent>placeholder</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
                               <TableCell className="text-sm">
                                 <Badge variant="outline" className="text-[10px]">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}
