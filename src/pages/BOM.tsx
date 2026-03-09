@@ -379,7 +379,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
           triggerClassName="h-8 text-xs"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}
       </TableCell>
       {isMultiStep && (
@@ -456,15 +456,15 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   // Common table headers for simple BOM
   const simpleTableHeaders = (
     <TableRow>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">SKU Code</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
       <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Yield %</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Eff. Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
     </TableRow>
   );
 
@@ -509,8 +509,8 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       </Card>
 
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-hidden">
+          <Table className="table-fixed">
             <TableHeader>{simpleTableHeaders}</TableHeader>
             <TableBody>
               {selectedLines.filter(l => !l.stepId).length === 0 && !addingLine && (
@@ -544,14 +544,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                       {rmSku?.skuId ?? '—'}
                       {renderTypeBadge(line.rmSkuId)}
                     </TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
-                        </TooltipTrigger>
-                        <TooltipContent>{rmSku?.name}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                      {rmSku?.name ?? '—'}
+                    </TableCell>
                     <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
                     <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
                     <TableCell className="text-sm text-right font-mono">100%</TableCell>
@@ -703,18 +698,18 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
               </CardHeader>
               <CardContent className="p-0 pb-4">
                 {(stepLines.length > 0 || (addingLine && addingLineStepId === sd.step.id)) && (
-                  <div className="px-4">
-                    <Table>
+                  <div className="px-4 overflow-hidden">
+                    <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">SKU</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
                           <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">Qty Type</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -729,14 +724,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                                 {rmSku?.skuId ?? '—'}
                                 {renderTypeBadge(ing.rmSkuId)}
                               </TableCell>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{rmSku?.name}</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                                {rmSku?.name ?? '—'}
+                              </TableCell>
                               <TableCell className="text-sm">
                                 <Badge variant="outline" className="text-[10px]">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}

@@ -162,22 +162,22 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           onValueChange={handleSkuChange}
           options={eligibleSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
           placeholder="Select SKU"
-          triggerClassName="h-8 text-xs"
+          triggerClassName="h-8 text-xs w-full"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell>
-        <Input type="number" className="h-8 w-20 text-xs text-right font-mono" value={formQty || ''}
+        <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
           onChange={e => setFormQty(Number(e.target.value))} />
       </TableCell>
       <TableCell>
-        <Input className="h-8 w-16 text-xs" value={formUom}
+        <Input className="h-8 w-full text-xs" value={formUom}
           onChange={e => setFormUom(e.target.value)} />
       </TableCell>
       <TableCell>
-        <Input type="number" className="h-8 w-16 text-xs text-right font-mono" value={formYield}
+        <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYield}
           onChange={e => setFormYield(Number(e.target.value) || 100)} />
       </TableCell>
       <TableCell className="text-xs text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
@@ -286,19 +286,19 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
               {/* Ingredients table */}
               <Card>
-                <CardContent className="p-0">
-                  <Table>
+                <CardContent className="p-0 overflow-hidden">
+                  <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">SKU Code</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
                         <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty/Serving</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Yield %</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Eff. Qty</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>}
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty/Serving</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -333,14 +333,9 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                               {sku?.skuId ?? '—'}
                               <Badge variant="outline" className="text-[10px] ml-1">{sku?.type ?? '—'}</Badge>
                             </TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <TableCell className="text-sm max-w-[120px] truncate">{sku?.name ?? '—'}</TableCell>
-                                </TooltipTrigger>
-                                <TooltipContent>{sku?.name}</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <TableCell className="text-sm truncate overflow-hidden" title={sku?.name ?? '—'}>
+                              {sku?.name ?? '—'}
+                            </TableCell>
                             <TableCell className="text-sm text-right font-mono">{line.qtyPerServing}</TableCell>
                             <TableCell className="text-sm">{line.uom}</TableCell>
                             <TableCell className="text-sm text-right font-mono">{line.yieldPct}%</TableCell>
