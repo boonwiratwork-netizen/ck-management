@@ -35,9 +35,15 @@ interface ManagedUser {
   user_id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'ck_manager';
+  role: 'admin' | 'ck_manager' | 'branch_manager';
   status: string;
   created_at: string;
+  branch_id: string | null;
+}
+
+interface BranchOption {
+  id: string;
+  branch_name: string;
 }
 
 export default function UserManagement() {
