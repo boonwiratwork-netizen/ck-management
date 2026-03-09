@@ -225,7 +225,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Apply to specific menu (optional)</label>
-              <Select value={formMenuId} onValueChange={setFormMenuId}>
+              <Select value={formMenuId} onValueChange={v => setFormMenuId(v === '__all__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Menus (global rule)" />
                 </SelectTrigger>
