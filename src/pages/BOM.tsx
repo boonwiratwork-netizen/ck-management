@@ -446,12 +446,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     </TableRow>
   );
 
-  // Type badge
-  const renderTypeBadge = (skuId: string) => {
-    const sku = getSkuById(skuId);
-    if (!sku) return null;
-    return <Badge variant={sku.type === 'SM' ? 'default' : 'outline'} className="text-[10px] ml-1">{sku.type}</Badge>;
-  };
+  // Type badge — removed per design: SKU code prefix already communicates type
 
   // Common table headers for simple BOM
   const simpleTableHeaders = (
