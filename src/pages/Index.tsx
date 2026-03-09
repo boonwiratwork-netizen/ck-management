@@ -293,10 +293,10 @@ const Index = () => {
     }
   };
 
-  const handleSubmit = (data: Omit<SKU, 'id' | 'skuId'>) => {
+  const handleSubmit = (data: Omit<SKU, 'id' | 'skuId'>, newSkuCode?: string) => {
     if (editingSku) {
-      updateSku(editingSku.id, data);
-      toast.success('SKU updated');
+      updateSku(editingSku.id, data, newSkuCode);
+      toast.success(newSkuCode ? `SKU updated — code changed to ${newSkuCode}` : 'SKU updated');
     } else {
       addSku(data);
       toast.success('SKU added');
