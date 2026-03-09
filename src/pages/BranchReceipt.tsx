@@ -223,7 +223,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const filteredHistory = useMemo(() => {
     return receipts.filter(r => {
       if (historyBranch !== 'all' && r.branchId !== historyBranch) return false;
-      if (isBranchManager && profile?.branch_id && r.branchId !== profile.branch_id) return false;
+      if (isStoreManager && profile?.branch_id && r.branchId !== profile.branch_id) return false;
       if (historyDateFrom && r.receiptDate < format(historyDateFrom, 'yyyy-MM-dd')) return false;
       if (historyDateTo && r.receiptDate > format(historyDateTo, 'yyyy-MM-dd')) return false;
       return true;
