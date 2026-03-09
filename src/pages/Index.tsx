@@ -40,7 +40,8 @@ import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
 import BranchReceiptPage from '@/pages/BranchReceipt';
 import FoodCostPage from '@/pages/FoodCost';
-import { AppSidebar, TabKey } from '@/components/AppSidebar';
+import StoreOverview from '@/pages/StoreOverview';
+import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -77,8 +78,19 @@ const ckManagerFullAccess: TabKey[] = ['dashboard', 'receipt', 'production', 'de
 // Tabs that CK Manager can view (read-only)
 const ckManagerReadOnly: TabKey[] = ['sku', 'supplier', 'price', 'bom', 'branches'];
 
+function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: string }) {
+  const ctx = tabContextMap[tab];
+  if (ctx === 'ck' || tab === 'dashboard') {
+    return <span className="text-helper text-muted-foreground">🍳 Central Kitchen</span>;
+  }
+  if (ctx === 'store') {
+    return <span className="text-helper text-muted-foreground">🏪 Store{branchName ? ` — ${branchName}` : ''}</span>;
+  }
+  return null;
+}
+
 const Index = () => {
-  const { isAdmin, role, isBranchManager } = useAuth();
+  const { isAdmin, role, isBranchManager, profile } = useAuth();
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
@@ -104,9 +116,22 @@ const Index = () => {
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(isBranchManager ? 'store' : 'dashboard');
+  const [activeTab, setActiveTab] = useState<TabKey>(() => getDefaultTab(role, isBranchManager));
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+
+  // Update default tab when role loads
+  useEffect(() => {
+    if (role) {
+      setActiveTab(getDefaultTab(role, isBranchManager));
+    }
+  }, [role, isBranchManager]);
+
+  // Branch name for breadcrumbs
+  const userBranchName = useMemo(() => {
+    if (!profile?.branch_id) return undefined;
+    return branchData.branches.find(b => b.id === profile.branch_id)?.branchName;
+  }, [profile?.branch_id, branchData.branches]);
 
   // Check if current tab is read-only for CK Manager
   const isReadOnly = !isAdmin && ckManagerReadOnly.includes(activeTab);
@@ -117,7 +142,13 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'branch-receipt' && tab !== 'daily-stock-count' && tab !== 'food-cost') {
+    // CK Manager cannot access store tabs
+    if (role === 'ck_manager' && tabContextMap[tab] === 'store') {
+      toast.error('Access denied');
+      return;
+    }
+    // Branch manager cannot access CK tabs
+    if (isBranchManager && (tabContextMap[tab] === 'ck' || tab === 'dashboard')) {
       toast.error('Access denied');
       return;
     }
@@ -290,6 +321,7 @@ const Index = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="page-title">{currentTab.title}</h2>
+                      <ContextBreadcrumb tab={activeTab} branchName={userBranchName} />
                       <p className="page-subtitle">{currentTab.subtitle}</p>
                     </div>
                     {isAdmin && (
@@ -337,13 +369,7 @@ const Index = () => {
               ) : activeTab === 'users' ? (
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : activeTab === 'store' ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <Package className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <p className="text-lg font-semibold text-foreground">Store overview coming soon</p>
-                  <p className="text-sm text-muted-foreground mt-1">We're cooking up something great here 🍳</p>
-                </div>
+                <StoreOverview branches={branchData.branches} onNavigate={handleTabChange} />
               ) : activeTab === 'menu-master' ? (
                 <MenuMasterPage menuData={menuData} branches={branchData.branches} />
               ) : activeTab === 'menu-bom' ? (
