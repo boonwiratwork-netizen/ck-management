@@ -49,6 +49,7 @@ const tabLabels: Record<TabKey, string> = {
   delivery: 'Delivery to Branches',
   branches: 'Branches',
   users: 'User Management',
+  store: 'Store',
 };
 
 // Tabs that CK Manager can fully interact with
