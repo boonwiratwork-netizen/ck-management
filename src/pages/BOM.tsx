@@ -366,7 +366,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
 
   // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
-    <TableRow className="bg-muted/30 h-12" onKeyDown={handleLineKeyDown}>
+    <TableRow className="bg-muted/30 h-9" onKeyDown={handleLineKeyDown}>
       <TableCell>
         <SearchableSelect
           value={lineForm.rmSkuId}
@@ -446,12 +446,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     </TableRow>
   );
 
-  // Type badge
-  const renderTypeBadge = (skuId: string) => {
-    const sku = getSkuById(skuId);
-    if (!sku) return null;
-    return <Badge variant={sku.type === 'SM' ? 'default' : 'outline'} className="text-[10px] ml-1">{sku.type}</Badge>;
-  };
+  // Type badge — removed per design: SKU code prefix already communicates type
 
   // Common table headers for simple BOM
   const simpleTableHeaders = (
@@ -539,25 +534,24 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                 const lineCost = effQty * cost;
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
-                  <TableRow key={line.id} className="h-12">
-                    <TableCell className="text-sm font-mono">
+                  <TableRow key={line.id} className="h-9">
+                    <TableCell className="text-[13px] font-mono py-2 px-3">
                       {rmSku?.skuId ?? '—'}
-                      {renderTypeBadge(line.rmSkuId)}
                     </TableCell>
-                    <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                    <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                       {rmSku?.name ?? '—'}
                     </TableCell>
-                    <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
-                    <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-sm text-right font-mono">100%</TableCell>
-                    <TableCell className="text-sm text-right font-mono">{effQty.toFixed(2)}</TableCell>
-                    <TableCell className="text-sm text-right font-mono">
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
+                    <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">100%</TableCell>
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                       {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}
                     </TableCell>
-                    <TableCell className="text-sm text-right font-mono font-medium">
+                    <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
                       {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2 px-3">
                       <div className="flex gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditLine(line)}>
                           <Edit2 className="w-3.5 h-3.5" />
@@ -719,28 +713,27 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                             return <Fragment key={ing.id}>{renderLineEditor(true, sd.inputQty)}</Fragment>;
                           }
                           return (
-                            <TableRow key={ing.id} className="h-12">
-                              <TableCell className="text-sm font-mono">
+                            <TableRow key={ing.id} className="h-9">
+                              <TableCell className="text-[13px] font-mono py-2 px-3">
                                 {rmSku?.skuId ?? '—'}
-                                {renderTypeBadge(ing.rmSkuId)}
                               </TableCell>
-                              <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                              <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                                 {rmSku?.name ?? '—'}
                               </TableCell>
-                              <TableCell className="text-sm">
+                              <TableCell className="text-[13px] py-2 px-3">
                                 <Badge variant="outline" className="text-[10px]">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-sm text-right font-mono">{ing.resolvedQty.toFixed(0)}g</TableCell>
-                              <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
-                              <TableCell className="text-sm text-right font-mono">
+                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">{ing.resolvedQty.toFixed(0)}g</TableCell>
+                              <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                                 {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-orange-500">—</span>}
                               </TableCell>
-                              <TableCell className="text-sm text-right font-mono font-medium">
+                              <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
                                 {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditLine(ing)}>
                                     <Edit2 className="w-3.5 h-3.5" />

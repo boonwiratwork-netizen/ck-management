@@ -183,7 +183,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const previewLineCost = previewEffQty * getActiveCost(formSkuId);
 
   const renderInlineRow = () => (
-    <TableRow className="bg-muted/30 h-12" onKeyDown={handleKeyDown}>
+    <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
       <TableCell>
         <SearchableSelect
           value={formSkuId}
@@ -384,26 +384,25 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         const costPerUnit = currentBatchYieldQty > 0 ? lineCost / currentBatchYieldQty : 0;
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
-                          <TableRow key={line.id} className="h-12">
-                            <TableCell className="text-sm font-mono">
+                          <TableRow key={line.id} className="h-9">
+                            <TableCell className="text-[13px] font-mono py-2 px-3">
                               {sku?.skuId ?? '—'}
-                              <Badge variant="outline" className="text-[10px] ml-1">RM</Badge>
                             </TableCell>
-                            <TableCell className="text-sm truncate overflow-hidden" title={sku?.name ?? '—'}>
+                            <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
-                            <TableCell className="text-sm">{line.uom}</TableCell>
-                            <TableCell className="text-sm text-right font-mono">100%</TableCell>
-                            <TableCell className="text-sm text-right font-mono">{effQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-sm text-right font-mono">
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
+                            <TableCell className="text-[13px] py-2 px-3">{line.uom}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">100%</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                               {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono font-medium">
+                            <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
                               {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             {canEdit && (
-                              <TableCell>
+                              <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
