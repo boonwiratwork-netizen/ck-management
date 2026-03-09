@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Menu, MENU_CATEGORIES, EMPTY_MENU } from '@/types/menu';
+import { Menu, EMPTY_MENU } from '@/types/menu';
 import { Branch } from '@/types/branch';
 import { useAuth } from '@/hooks/use-auth';
+import { useMenuCategories } from '@/hooks/use-menu-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit2, Trash2, Search, UtensilsCrossed } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Edit2, Trash2, Search, UtensilsCrossed, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MenuMasterPageProps {
@@ -27,7 +29,10 @@ interface MenuMasterPageProps {
 export default function MenuMasterPage({ menuData, branches }: MenuMasterPageProps) {
   const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu } = menuData;
   const { isAdmin, isBranchManager, profile } = useAuth();
+  const { categories, addCategory, deleteCategory } = useMenuCategories();
 
+  const [newCatInput, setNewCatInput] = useState('');
+  const [showAddCat, setShowAddCat] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Menu | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -64,10 +69,13 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     return counts;
   }, [visibleMenus]);
 
+  const categoryNames = useMemo(() => categories.map(c => c.name), [categories]);
+
   const uniqueCategories = useMemo(() => {
     const cats = new Set(menus.map(m => m.category).filter(Boolean));
+    categories.forEach(c => cats.add(c.name));
     return Array.from(cats).sort();
-  }, [menus]);
+  }, [menus, categories]);
 
   const handleAdd = () => {
     setEditing(null);
@@ -269,7 +277,42 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none">— Select —</SelectItem>
-                  {MENU_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categoryNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {isAdmin && (
+                    <>
+                      <Separator className="my-1" />
+                      {showAddCat ? (
+                        <div className="flex items-center gap-1 px-2 py-1.5" onKeyDown={e => e.stopPropagation()}>
+                          <Input
+                            value={newCatInput}
+                            onChange={e => setNewCatInput(e.target.value)}
+                            placeholder="New category"
+                            className="h-7 text-xs"
+                            autoFocus
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                await addCategory(newCatInput);
+                                setNewCatInput('');
+                                setShowAddCat(false);
+                              }
+                            }}
+                          />
+                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setShowAddCat(false); setNewCatInput(''); }}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs text-primary hover:bg-accent cursor-pointer"
+                          onClick={(e) => { e.preventDefault(); setShowAddCat(true); }}
+                        >
+                          <Plus className="w-3 h-3" /> Add Category
+                        </button>
+                      )}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
