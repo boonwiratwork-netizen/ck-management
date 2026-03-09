@@ -315,7 +315,7 @@ export function useDailyStockCount({
     setRows(allInserted.map(toLocal));
     toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
     setGenerating(false);
-  }, [skus, branches, calculateExpectedUsage, loadSheet]);
+  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet]);
 
   // Update physical count
   const updatePhysicalCount = useCallback(async (rowId: string, physicalCount: number | null) => {
