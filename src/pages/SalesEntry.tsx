@@ -297,7 +297,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
         <CardContent className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap items-end gap-3">
-            {isAdmin && (
+            {isManagement && (
               <div>
                 <label className="text-xs text-muted-foreground">Branch</label>
                 <Select value={filterBranch} onValueChange={setFilterBranch}>
