@@ -35,6 +35,7 @@ export function useModifierRuleData() {
       uom: data.uom,
       description: data.description,
       is_active: data.isActive,
+      menu_id: data.menuId,
     }).select().single();
     if (error) { toast.error('Failed to add rule: ' + error.message); return; }
     setRules(prev => [...prev, toLocal(row)]);
