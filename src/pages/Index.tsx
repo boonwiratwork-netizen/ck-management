@@ -343,6 +343,12 @@ const Index = () => {
                   prices={priceData.prices}
                   readOnly={!isAdmin}
                 />
+              ) : activeTab === 'modifier-rules' ? (
+                <ModifierRulesPage
+                  ruleData={modifierRuleData}
+                  skus={skus}
+                  readOnly={!isAdmin}
+                />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
