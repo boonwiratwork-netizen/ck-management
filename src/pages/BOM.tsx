@@ -76,7 +76,7 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
   );
 }
 
-const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
+const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
