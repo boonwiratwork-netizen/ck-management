@@ -17,16 +17,16 @@ interface BOMPageProps {
     headers: BOMHeader[];
     lines: BOMLine[];
     steps: BOMStep[];
-    addHeader: (data: Omit<BOMHeader, 'id'>) => string;
-    updateHeader: (id: string, data: Partial<Omit<BOMHeader, 'id'>>) => void;
-    deleteHeader: (id: string) => void;
-    addLine: (data: Omit<BOMLine, 'id'>) => void;
-    updateLine: (id: string, data: Partial<Omit<BOMLine, 'id' | 'bomHeaderId'>>) => void;
-    deleteLine: (id: string) => void;
+    addHeader: (data: Omit<BOMHeader, 'id'>) => string | Promise<string>;
+    updateHeader: (id: string, data: Partial<Omit<BOMHeader, 'id'>>) => void | Promise<void>;
+    deleteHeader: (id: string) => void | Promise<void>;
+    addLine: (data: Omit<BOMLine, 'id'>) => void | Promise<void>;
+    updateLine: (id: string, data: Partial<Omit<BOMLine, 'id' | 'bomHeaderId'>>) => void | Promise<void>;
+    deleteLine: (id: string) => void | Promise<void>;
     getLinesForHeader: (headerId: string) => BOMLine[];
-    addStep: (data: Omit<BOMStep, 'id'>) => string;
-    updateStep: (id: string, data: Partial<Omit<BOMStep, 'id' | 'bomHeaderId'>>) => void;
-    deleteStep: (id: string) => void;
+    addStep: (data: Omit<BOMStep, 'id'>) => string | Promise<string>;
+    updateStep: (id: string, data: Partial<Omit<BOMStep, 'id' | 'bomHeaderId'>>) => void | Promise<void>;
+    deleteStep: (id: string) => void | Promise<void>;
     getStepsForHeader: (headerId: string) => BOMStep[];
     getLinesForStep: (stepId: string) => BOMLine[];
   };
@@ -178,8 +178,12 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false }: BOMPageProps) => {
       updateHeader(selectedHeaderId, headerForm);
       toast.success('BOM updated');
     } else {
-      const newId = addHeader(headerForm);
-      setSelectedHeaderId(newId);
+      const result = addHeader(headerForm);
+      if (result instanceof Promise) {
+        result.then(id => setSelectedHeaderId(id));
+      } else {
+        setSelectedHeaderId(result);
+      }
       toast.success('BOM created');
     }
     setEditingHeader(false);

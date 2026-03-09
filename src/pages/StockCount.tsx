@@ -17,10 +17,10 @@ interface Props {
   skus: SKU[];
   stockCountData: {
     sessions: StockCountSession[];
-    createSession: (date: string, note: string) => string;
-    updateLine: (lineId: string, physicalQty: number | null, note?: string) => void;
-    confirmSession: (sessionId: string) => void;
-    deleteSession: (sessionId: string) => void;
+    createSession: (date: string, note: string) => string | Promise<string>;
+    updateLine: (lineId: string, physicalQty: number | null, note?: string) => void | Promise<void>;
+    confirmSession: (sessionId: string) => void | Promise<void>;
+    deleteSession: (sessionId: string) => void | Promise<void>;
     getLinesForSession: (sessionId: string) => StockCountLine[];
   };
   getStdUnitPrice: (skuId: string) => number;
@@ -76,8 +76,12 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
 
   const handleCreate = () => {
     if (!newDate) { toast.error('Date is required'); return; }
-    const id = createSession(newDate, newNote);
-    setSelectedSessionId(id);
+    const result = createSession(newDate, newNote);
+    if (result instanceof Promise) {
+      result.then(id => setSelectedSessionId(id));
+    } else {
+      setSelectedSessionId(result);
+    }
     setCreateOpen(false);
     setNewNote('');
     toast.success('Stock count session created');
