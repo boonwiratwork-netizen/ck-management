@@ -135,6 +135,37 @@
 }
 
 @layer utilities {
+  /* Hide number input spinners */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  /* Numeric inputs right-aligned */
+  .input-numeric {
+    @apply text-right tabular-nums;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Required field asterisk */
+  .label-required::after {
+    content: ' *';
+    color: hsl(var(--destructive));
+    font-weight: 500;
+  }
+
+  /* Error input state */
+  .input-error {
+    border-color: hsl(var(--destructive)) !important;
+  }
+  .input-error:focus-visible {
+    box-shadow: 0 0 0 2px hsl(var(--destructive) / 0.15) !important;
+  }
+
   /* Type badges */
   .badge-rm {
     background-color: hsl(var(--badge-rm) / 0.1);
@@ -177,6 +208,29 @@
   .variance-negative,
   .variance-zero {
     color: hsl(var(--success));
+  }
+
+  /* Daily stock count variance */
+  .var-neutral { color: hsl(var(--muted-foreground)); }
+  .var-good { color: hsl(142 71% 35%); background-color: hsl(142 71% 35% / 0.08); }
+  .var-great { color: hsl(142 71% 25%); background-color: hsl(142 71% 25% / 0.12); }
+  .var-minor-loss { color: hsl(24 94% 53%); background-color: hsl(24 94% 53% / 0.08); }
+  .var-major-loss { color: hsl(0 72% 51%); background-color: hsl(0 72% 51% / 0.1); }
+
+  /* Unsaved row indicator */
+  .row-unsaved {
+    position: relative;
+  }
+  .row-unsaved::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: hsl(var(--primary));
   }
 
   /* Page layout */
@@ -240,5 +294,13 @@
   .icon-btn-delete:hover {
     background-color: hsl(var(--destructive) / 0.1);
     color: hsl(var(--destructive));
+  }
+
+  /* Keyboard hint badge */
+  .kbd-hint {
+    @apply inline-flex items-center gap-1.5 text-[11px] text-muted-foreground;
+  }
+  .kbd-hint kbd {
+    @apply inline-flex items-center px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono font-medium;
   }
 }

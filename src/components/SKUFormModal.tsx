@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SKUFormModalProps {
@@ -27,6 +27,8 @@ interface SKUFormModalProps {
 export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [], isSkuUsed = false }: SKUFormModalProps) {
   const [form, setForm] = useState<Omit<SKU, 'id' | 'skuId'>>(EMPTY_SKU);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (editingSku) {
@@ -36,6 +38,8 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
       setForm(EMPTY_SKU);
     }
     setErrors({});
+    setSaving(false);
+    setSaved(false);
   }, [editingSku, open]);
 
   const validate = (): boolean => {
@@ -44,20 +48,43 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (!form.packUnit.trim()) errs.packUnit = 'Pack Unit is required';
     if (!form.purchaseUom.trim()) errs.purchaseUom = 'Purchase UOM is required';
     if (!form.usageUom.trim()) errs.usageUom = 'Usage UOM is required';
-    if (form.packSize <= 0) errs.packSize = 'Pack Size must be > 0';
-    if (form.converter <= 0) errs.converter = 'Converter must be > 0';
+    if (form.packSize <= 0) errs.packSize = 'Must be a positive number';
+    if (form.converter <= 0) errs.converter = 'Must be a positive number';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleBlur = (key: string) => {
+    if (key === 'name' && !form.name.trim()) {
+      setErrors(prev => ({ ...prev, name: 'SKU Name is required' }));
+    } else if (key === 'packUnit' && !form.packUnit.trim()) {
+      setErrors(prev => ({ ...prev, packUnit: 'Pack Unit is required' }));
+    } else if (key === 'purchaseUom' && !form.purchaseUom.trim()) {
+      setErrors(prev => ({ ...prev, purchaseUom: 'Purchase UOM is required' }));
+    } else if (key === 'usageUom' && !form.usageUom.trim()) {
+      setErrors(prev => ({ ...prev, usageUom: 'Usage UOM is required' }));
+    }
+  };
+
+  const errorCount = Object.keys(errors).length;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
-      toast.error('Please fill in all required fields');
+      toast.error(`Please fix ${Object.keys(errors).length} error(s) before saving`);
       return;
     }
-    onSubmit(form);
-    onClose();
+    setSaving(true);
+    try {
+      onSubmit(form);
+      setSaved(true);
+      setTimeout(() => {
+        onClose();
+        setSaved(false);
+      }, 400);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
@@ -65,38 +92,44 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
 
-  const originalType = editingSku?.type;
   const typeIsLocked = !!editingSku && isSkuUsed;
+  const isFormValid = form.name.trim() && form.packUnit.trim() && form.purchaseUom.trim() && form.usageUom.trim() && form.packSize > 0 && form.converter > 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+        <DialogHeader className="border-b pb-4">
           <DialogTitle className="font-heading text-xl">
             {editingSku ? `Edit ${editingSku.skuId}` : 'Add New SKU'}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+
+        {errorCount > 0 && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Please fix {errorCount} error{errorCount > 1 ? 's' : ''} before saving
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           {/* Row 1 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label>SKU Name *</Label>
-              <Input value={form.name} onChange={e => update('name', e.target.value)} placeholder="Enter SKU name" className={errors.name ? 'border-destructive' : ''} />
-              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
-            </div>
+          <div>
+            <Label className="label-required">SKU Name</Label>
+            <Input value={form.name} onChange={e => update('name', e.target.value)} onBlur={() => handleBlur('name')} placeholder="Enter SKU name" className={errors.name ? 'input-error' : ''} />
+            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
           </div>
 
           {/* Row 2 */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Type *</Label>
+              <Label className="label-required">Type</Label>
               {typeIsLocked ? (
                 <div>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm">
                     {form.type} — {SKU_TYPE_LABELS[form.type]}
                   </div>
                   <p className="text-xs text-warning mt-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Type locked — SKU is used in BOM/Receipt/Production
+                    <AlertTriangle className="w-3 h-3" /> Type locked — in use
                   </p>
                 </div>
               ) : (
@@ -111,10 +144,10 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
               )}
             </div>
             <div>
-              <Label>Category *</Label>
+              <Label className="label-required">Category</Label>
               <Select value={form.category} onValueChange={v => update('category', v as Category)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60">
                   {(Object.keys(CATEGORY_LABELS) as Category[]).map(c => (
                     <SelectItem key={c} value={c}>{c} — {CATEGORY_LABELS[c]}</SelectItem>
                   ))}
@@ -136,23 +169,23 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
           {/* Row 3 - Pack */}
           <div className="grid grid-cols-4 gap-4">
             <div>
-              <Label>Pack Size *</Label>
-              <Input type="number" min={0} value={form.packSize} onChange={e => update('packSize', Number(e.target.value))} className={errors.packSize ? 'border-destructive' : ''} />
+              <Label className="label-required">Pack Size</Label>
+              <Input type="number" min={0} value={form.packSize} onChange={e => update('packSize', Number(e.target.value))} className={errors.packSize ? 'input-error' : ''} />
               {errors.packSize && <p className="text-xs text-destructive mt-1">{errors.packSize}</p>}
             </div>
             <div>
-              <Label>Pack Unit *</Label>
-              <Input value={form.packUnit} onChange={e => update('packUnit', e.target.value)} placeholder="e.g. แพ็ค" className={errors.packUnit ? 'border-destructive' : ''} />
+              <Label className="label-required">Pack Unit</Label>
+              <Input value={form.packUnit} onChange={e => update('packUnit', e.target.value)} onBlur={() => handleBlur('packUnit')} placeholder="e.g. แพ็ค" className={errors.packUnit ? 'input-error' : ''} />
               {errors.packUnit && <p className="text-xs text-destructive mt-1">{errors.packUnit}</p>}
             </div>
             <div>
-              <Label>Purchase UOM *</Label>
-              <Input value={form.purchaseUom} onChange={e => update('purchaseUom', e.target.value)} placeholder="e.g. ก." className={errors.purchaseUom ? 'border-destructive' : ''} />
+              <Label className="label-required">Purchase UOM</Label>
+              <Input value={form.purchaseUom} onChange={e => update('purchaseUom', e.target.value)} onBlur={() => handleBlur('purchaseUom')} placeholder="e.g. ก." className={errors.purchaseUom ? 'input-error' : ''} />
               {errors.purchaseUom && <p className="text-xs text-destructive mt-1">{errors.purchaseUom}</p>}
             </div>
             <div>
-              <Label>Usage UOM *</Label>
-              <Input value={form.usageUom} onChange={e => update('usageUom', e.target.value)} placeholder="e.g. ก." className={errors.usageUom ? 'border-destructive' : ''} />
+              <Label className="label-required">Usage UOM</Label>
+              <Input value={form.usageUom} onChange={e => update('usageUom', e.target.value)} onBlur={() => handleBlur('usageUom')} placeholder="e.g. ก." className={errors.usageUom ? 'input-error' : ''} />
               {errors.usageUom && <p className="text-xs text-destructive mt-1">{errors.usageUom}</p>}
             </div>
           </div>
@@ -160,8 +193,8 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
           {/* Row 4 - Storage */}
           <div className="grid grid-cols-4 gap-4">
             <div>
-              <Label>Converter *</Label>
-              <Input type="number" min={0} step="any" value={form.converter} onChange={e => update('converter', Number(e.target.value))} className={errors.converter ? 'border-destructive' : ''} />
+              <Label className="label-required">Converter</Label>
+              <Input type="number" min={0} step="any" value={form.converter} onChange={e => update('converter', Number(e.target.value))} className={errors.converter ? 'input-error' : ''} />
               {errors.converter && <p className="text-xs text-destructive mt-1">{errors.converter}</p>}
             </div>
             <div>
@@ -194,7 +227,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
               <Label>1st Supplier</Label>
               <Select value={form.supplier1 || '_none'} onValueChange={v => update('supplier1', v === '_none' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60">
                   <SelectItem value="_none">— None —</SelectItem>
                   {activeSuppliers.map(s => (
                     <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
@@ -206,7 +239,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
               <Label>2nd Supplier</Label>
               <Select value={form.supplier2 || '_none'} onValueChange={v => update('supplier2', v === '_none' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60">
                   <SelectItem value="_none">— None —</SelectItem>
                   {activeSuppliers.map(s => (
                     <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
@@ -227,9 +260,17 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-2 border-t">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{editingSku ? 'Update SKU' : 'Add SKU'}</Button>
+            <Button type="submit" disabled={saving || !isFormValid}>
+              {saving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+              ) : saved ? (
+                <><Check className="w-4 h-4" /> Saved!</>
+              ) : (
+                editingSku ? 'Update SKU' : 'Add SKU'
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>
