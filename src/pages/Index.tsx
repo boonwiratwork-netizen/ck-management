@@ -113,7 +113,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'daily-stock-count') {
       toast.error('Access denied');
       return;
     }
