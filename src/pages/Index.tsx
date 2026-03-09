@@ -207,7 +207,6 @@ const Index = () => {
     const valid: Record<string, string>[] = [];
     let skipped = 0;
     const validTypes = ['RM', 'SM', 'SP', 'PK'];
-    const validCategories = ['MT', 'SF', 'VG', 'FR', 'DG', 'SC', 'DY', 'OL'];
     const validStorage = ['Frozen', 'Chilled', 'Ambient'];
     const existingNames = new Set(skus.map(s => s.name.toLowerCase()));
     const seenNames = new Set<string>();
@@ -218,8 +217,7 @@ const Index = () => {
       const type = row['Type']?.trim().toUpperCase();
       if (!name) { errors.push({ row: rowNum, message: 'Name is required' }); return; }
       if (!type || !validTypes.includes(type)) { errors.push({ row: rowNum, message: `Type must be one of ${validTypes.join('/')}` }); return; }
-      const cat = row['Category']?.trim().toUpperCase();
-      if (cat && !validCategories.includes(cat)) { errors.push({ row: rowNum, message: `Category must be one of ${validCategories.join('/')}` }); return; }
+      // Category is now dynamic — any non-empty code is accepted (will be auto-created if missing)
       const storage = row['Storage Condition']?.trim();
       if (storage && !validStorage.includes(storage)) { errors.push({ row: rowNum, message: `Storage Condition must be one of ${validStorage.join('/')}` }); return; }
       if (existingNames.has(name.toLowerCase()) || seenNames.has(name.toLowerCase())) { skipped++; return; }
@@ -230,10 +228,15 @@ const Index = () => {
   }, [skus]);
 
   const handleSkuCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    // Collect all category codes from the CSV
+    const csvCategoryCodes = [...new Set(rows.map(r => (r['Category']?.trim().toUpperCase() || 'MT')).filter(Boolean))];
+    // Auto-create missing categories
+    const newCats = await skuCategoryData.bulkEnsureCategories(csvCategoryCodes);
+
     const skuRows: Omit<SKU, 'id' | 'skuId'>[] = rows.map(row => ({
       name: row['Name']?.trim() || '',
       type: (row['Type']?.trim().toUpperCase() || 'RM') as any,
-      category: (row['Category']?.trim().toUpperCase() || 'MT') as any,
+      category: (row['Category']?.trim().toUpperCase() || 'MT'),
       status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
       specNote: row['Spec Note']?.trim() || '',
       packSize: Number(row['Pack Size']) || 1,
@@ -249,8 +252,14 @@ const Index = () => {
       leadTime: Number(row['Lead Time']) || 0,
     }));
     const count = await bulkAddSkus(skuRows);
-    if (count) toast.success(`${count} SKUs imported successfully`);
-  }, [bulkAddSkus]);
+    if (count) {
+      let msg = `${count} SKUs imported successfully`;
+      if (newCats.length > 0) {
+        msg += `. ${newCats.length} new categories auto-created: ${newCats.join(', ')}. You can rename them in SKU Categories settings.`;
+      }
+      toast.success(msg);
+    }
+  }, [bulkAddSkus, skuCategoryData]);
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
