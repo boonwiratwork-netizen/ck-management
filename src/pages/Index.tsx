@@ -73,6 +73,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
   'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
+  'sku-categories': { title: 'SKU Categories', subtitle: 'Manage ingredient categories' },
 };
 
 // Define which tabs each role can access
