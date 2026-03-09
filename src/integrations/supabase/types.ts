@@ -650,6 +650,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sp_bom: {
+        Row: {
+          batch_yield_qty: number
+          batch_yield_uom: string
+          cost_per_unit: number
+          created_at: string
+          id: string
+          ingredient_sku_id: string
+          qty_per_batch: number
+          sp_sku_id: string
+          uom: string
+        }
+        Insert: {
+          batch_yield_qty?: number
+          batch_yield_uom?: string
+          cost_per_unit?: number
+          created_at?: string
+          id?: string
+          ingredient_sku_id: string
+          qty_per_batch?: number
+          sp_sku_id: string
+          uom?: string
+        }
+        Update: {
+          batch_yield_qty?: number
+          batch_yield_uom?: string
+          cost_per_unit?: number
+          created_at?: string
+          id?: string
+          ingredient_sku_id?: string
+          qty_per_batch?: number
+          sp_sku_id?: string
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_bom_ingredient_sku_id_fkey"
+            columns: ["ingredient_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_bom_sp_sku_id_fkey"
+            columns: ["sp_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustments: {
         Row: {
           adjustment_date: string
