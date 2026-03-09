@@ -140,7 +140,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
         </div>
         <div className="rounded-lg border bg-card p-5">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
-          <p className="text-3xl font-heading font-bold mt-1 text-emerald-600">{activeCount}</p>
+          <p className="text-3xl font-heading font-bold mt-1 text-primary">{activeCount}</p>
         </div>
         {Object.entries(categoryCounts).slice(0, 2).map(([cat, count]) => (
           <div key={cat} className="rounded-lg border bg-card p-5">
