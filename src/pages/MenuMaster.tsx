@@ -58,7 +58,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     if (filterStatus !== 'all') result = result.filter(m => m.status === filterStatus);
     if (filterBranch !== 'all') result = result.filter(m => m.branchId === filterBranch);
     return result;
-  }, [menus, isBranchManager, profile, search, filterCategory, filterStatus, filterBranch]);
+  }, [menus, isStoreManager, profile, search, filterCategory, filterStatus, filterBranch]);
 
   // Summary
   const total = visibleMenus.length;
