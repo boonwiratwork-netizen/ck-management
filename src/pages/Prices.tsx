@@ -8,7 +8,7 @@ import { PriceFormModal } from '@/components/PriceFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp, Upload } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -25,6 +25,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
   const [editing, setEditing] = useState<Price | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [showUnpricedOnly, setShowUnpricedOnly] = useState(false);
 
   const priceCsvCols: CSVColumnDef[] = [
     { key: 'skuName', label: 'SKU Name', required: true },
@@ -77,6 +78,16 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
+  // SKUs with at least one active price
+  const pricedSkuIds = useMemo(() => {
+    const set = new Set<string>();
+    prices.forEach(p => { if (p.isActive) set.add(p.skuId); });
+    return set;
+  }, [prices]);
+
+  const activeSkus = useMemo(() => skus.filter(s => s.status === 'Active'), [skus]);
+  const unpricedCount = useMemo(() => activeSkus.filter(s => !pricedSkuIds.has(s.id)).length, [activeSkus, pricedSkuIds]);
+
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
   const handleEdit = (p: Price) => { setEditing(p); setModalOpen(true); };
   const handleDeleteRequest = (id: string) => {
@@ -119,7 +130,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Prices</p>
           <p className="text-3xl font-heading font-bold mt-1">{prices.length}</p>
@@ -144,15 +155,78 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
             {new Set(prices.map(p => p.skuId)).size}
           </p>
         </div>
+        <div
+          className={`rounded-lg border p-5 animate-fade-in cursor-pointer transition-colors ${
+            showUnpricedOnly ? 'bg-warning/10 border-warning/40' : 'bg-card hover:bg-warning/5'
+          }`}
+          onClick={() => setShowUnpricedOnly(v => !v)}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unpriced SKUs</p>
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warning/10">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+            </span>
+          </div>
+          <p className="text-3xl font-heading font-bold mt-1">{unpricedCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {showUnpricedOnly ? 'Showing unpriced • click to clear' : 'Click to filter'}
+          </p>
+        </div>
       </div>
 
-      <PriceTable
-        prices={prices}
-        skus={skus}
-        suppliers={allSuppliers}
-        onEdit={handleEdit}
-        onDelete={handleDeleteRequest}
-      />
+      {showUnpricedOnly ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowUnpricedOnly(false)}>
+              <Filter className="w-3.5 h-3.5 mr-1" /> Clear filter
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Showing {unpricedCount} active SKUs without an active price
+            </span>
+          </div>
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-table-header">
+                    <th className="text-left px-4 py-3 table-header">SKU ID</th>
+                    <th className="text-left px-4 py-3 table-header">Name</th>
+                    <th className="text-left px-4 py-3 table-header">Type</th>
+                    <th className="text-left px-4 py-3 table-header">Category</th>
+                    <th className="text-right px-4 py-3 table-header">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeSkus
+                    .filter(s => !pricedSkuIds.has(s.id))
+                    .sort((a, b) => a.skuId.localeCompare(b.skuId))
+                    .map((sku, idx) => (
+                      <tr key={sku.id} className={`border-b border-table-border last:border-0 table-row-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <td className="px-4 py-3 font-mono text-xs font-semibold">{sku.skuId}</td>
+                        <td className="px-4 py-3 font-medium">{sku.name}</td>
+                        <td className="px-4 py-3">{sku.type}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{sku.category}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button size="sm" variant="outline" onClick={() => { setEditing(null); setModalOpen(true); }}>
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Price
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <PriceTable
+          prices={prices}
+          skus={skus}
+          suppliers={allSuppliers}
+          onEdit={handleEdit}
+          onDelete={handleDeleteRequest}
+        />
+      )}
 
       <PriceFormModal
         open={modalOpen}
@@ -161,6 +235,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         editing={editing}
         skus={skus}
         activeSuppliers={activeSuppliers}
+        pricedSkuIds={pricedSkuIds}
       />
 
       <ConfirmDialog

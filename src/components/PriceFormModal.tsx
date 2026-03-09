@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Search } from 'lucide-react';
 
 interface PriceFormModalProps {
   open: boolean;
@@ -22,10 +23,12 @@ interface PriceFormModalProps {
   editing?: Price | null;
   skus: SKU[];
   activeSuppliers: Supplier[];
+  pricedSkuIds?: Set<string>;
 }
 
-export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeSuppliers }: PriceFormModalProps) {
+export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeSuppliers, pricedSkuIds }: PriceFormModalProps) {
   const [form, setForm] = useState<Omit<Price, 'id' | 'pricePerUsageUom'>>(EMPTY_PRICE);
+  const [skuSearch, setSkuSearch] = useState('');
 
   useEffect(() => {
     if (editing) {
@@ -34,9 +37,19 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
     } else {
       setForm(EMPTY_PRICE);
     }
+    setSkuSearch('');
   }, [editing, open]);
 
   const selectedSku = useMemo(() => skus.find(s => s.id === form.skuId), [skus, form.skuId]);
+
+  const filteredSkus = useMemo(() => {
+    if (!skuSearch.trim()) return skus;
+    const q = skuSearch.toLowerCase();
+    return skus.filter(s =>
+      s.skuId.toLowerCase().includes(q) ||
+      s.name.toLowerCase().includes(q)
+    );
+  }, [skus, skuSearch]);
 
   const calculatedUsagePrice = useMemo(() => {
     if (!selectedSku || selectedSku.packSize === 0) return 0;
@@ -65,13 +78,45 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
           {/* SKU */}
           <div>
             <Label>SKU *</Label>
-            <Select value={form.skuId || '_none'} onValueChange={v => update('skuId', v === '_none' ? '' : v)}>
+            <Select value={form.skuId || '_none'} onValueChange={v => { update('skuId', v === '_none' ? '' : v); setSkuSearch(''); }}>
               <SelectTrigger><SelectValue placeholder="Select SKU" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72">
+                <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search SKU code or name..."
+                      value={skuSearch}
+                      onChange={e => setSkuSearch(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                      onKeyDown={e => e.stopPropagation()}
+                    />
+                  </div>
+                  {skuSearch && (
+                    <p className="text-xs text-muted-foreground mt-1 px-0.5">
+                      {filteredSkus.length} of {skus.length} SKUs
+                    </p>
+                  )}
+                </div>
                 <SelectItem value="_none">— Select SKU —</SelectItem>
-                {skus.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.skuId} — {s.name}</SelectItem>
-                ))}
+                {filteredSkus.map(s => {
+                  const hasNoPrice = pricedSkuIds && !pricedSkuIds.has(s.id);
+                  return (
+                    <SelectItem key={s.id} value={s.id}>
+                      <span className="inline-flex items-center gap-1.5">
+                        {hasNoPrice && (
+                          <span className="inline-block w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                        )}
+                        <span className="font-mono text-xs">{s.skuId}</span>
+                        <span className="mx-0.5">—</span>
+                        <span>{s.name}</span>
+                        {hasNoPrice && (
+                          <span className="text-[10px] text-orange-500 font-medium ml-1">No price</span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
