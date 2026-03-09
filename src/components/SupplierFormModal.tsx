@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Loader2, Check } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,9 @@ interface Props {
 
 export function SupplierFormModal({ open, onClose, onSubmit, editing }: Props) {
   const [form, setForm] = useState<Omit<Supplier, 'id'>>(EMPTY_SUPPLIER);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (editing) {
@@ -27,30 +31,54 @@ export function SupplierFormModal({ open, onClose, onSubmit, editing }: Props) {
     } else {
       setForm(EMPTY_SUPPLIER);
     }
+    setErrors({});
+    setSaving(false);
+    setSaved(false);
   }, [editing, open]);
+
+  const handleBlur = (key: string) => {
+    if (key === 'name' && !form.name.trim()) {
+      setErrors(prev => ({ ...prev, name: 'Supplier Name is required' }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(form);
-    onClose();
+    if (!form.name.trim()) {
+      setErrors({ name: 'Supplier Name is required' });
+      return;
+    }
+    setSaving(true);
+    try {
+      onSubmit(form);
+      setSaved(true);
+      setTimeout(() => {
+        onClose();
+        setSaved(false);
+      }, 400);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-xl">
+        <DialogHeader className="border-b pb-4">
           <DialogTitle className="font-heading text-xl">
             {editing ? `Edit ${editing.name}` : 'Add New Supplier'}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div>
-            <Label>Supplier Name *</Label>
-            <Input required value={form.name} onChange={e => update('name', e.target.value)} placeholder="Enter supplier name" />
+            <Label className="label-required">Supplier Name</Label>
+            <Input required value={form.name} onChange={e => update('name', e.target.value)} onBlur={() => handleBlur('name')} placeholder="Enter supplier name" className={errors.name ? 'input-error' : ''} />
+            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -97,9 +125,17 @@ export function SupplierFormModal({ open, onClose, onSubmit, editing }: Props) {
             <Input value={form.creditTerms} onChange={e => update('creditTerms', e.target.value)} placeholder="e.g. 30 วัน, COD" />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-2 border-t">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update Supplier' : 'Add Supplier'}</Button>
+            <Button type="submit" disabled={saving || !form.name.trim()}>
+              {saving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+              ) : saved ? (
+                <><Check className="w-4 h-4" /> Saved!</>
+              ) : (
+                editing ? 'Update Supplier' : 'Add Supplier'
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>
