@@ -162,22 +162,22 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           onValueChange={handleSkuChange}
           options={eligibleSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
           placeholder="Select SKU"
-          triggerClassName="h-8 text-xs"
+          triggerClassName="h-8 text-xs w-full"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell>
-        <Input type="number" className="h-8 w-20 text-xs text-right font-mono" value={formQty || ''}
+        <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
           onChange={e => setFormQty(Number(e.target.value))} />
       </TableCell>
       <TableCell>
-        <Input className="h-8 w-16 text-xs" value={formUom}
+        <Input className="h-8 w-full text-xs" value={formUom}
           onChange={e => setFormUom(e.target.value)} />
       </TableCell>
       <TableCell>
-        <Input type="number" className="h-8 w-16 text-xs text-right font-mono" value={formYield}
+        <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYield}
           onChange={e => setFormYield(Number(e.target.value) || 100)} />
       </TableCell>
       <TableCell className="text-xs text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
