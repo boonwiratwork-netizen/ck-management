@@ -70,17 +70,27 @@ export function GoodsReceiptSpreadsheet({
 
   return (
     <div className="space-y-4">
+      {/* Keyboard hints */}
+      <div className="kbd-hint">
+        <kbd>Tab</kbd> to move between cells · <kbd>Enter</kbd> to save row · <kbd>Esc</kbd> to cancel
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search SKU or supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search SKU or supplier..."
+          className="flex-1"
+          totalCount={savedReceipts.length}
+          filteredCount={filteredSaved.length}
+          entityName="receipts"
+        />
         <Select value={filterSupplier} onValueChange={setFilterSupplier}>
           <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="All Suppliers" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             <SelectItem value="all">All Suppliers</SelectItem>
             {allSuppliers.map(s => (
               <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
