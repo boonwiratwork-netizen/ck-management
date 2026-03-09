@@ -386,7 +386,7 @@ const Index = () => {
               ) : activeTab === 'price' ? (
                 <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} readOnly={readOnly} />
               ) : activeTab === 'bom' ? (
-                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={readOnly} />
+                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={readOnly} onPricesRefresh={priceData.refreshPrices} />
               ) : activeTab === 'receipt' ? (
                 <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
               ) : activeTab === 'stock' ? (
