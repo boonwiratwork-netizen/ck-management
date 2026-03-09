@@ -14,13 +14,13 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles,
+  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -86,6 +86,7 @@ const storeGroup = {
     { key: 'menu-master' as TabKey, label: 'Menu Master', icon: UtensilsCrossed },
     { key: 'menu-bom' as TabKey, label: 'Menu BOM', icon: BookOpen },
     { key: 'sp-bom' as TabKey, label: 'SP BOM', icon: Sparkles },
+    { key: 'modifier-rules' as TabKey, label: 'Modifier Rules', icon: ListFilter },
   ],
 };
 

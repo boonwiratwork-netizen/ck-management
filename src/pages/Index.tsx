@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SKU, SKUType } from '@/types/sku';
 import { useSpBomData } from '@/hooks/use-sp-bom-data';
+import { useModifierRuleData } from '@/hooks/use-modifier-rule-data';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
@@ -34,6 +35,7 @@ import UserManagementPage from '@/pages/UserManagement';
 import MenuMasterPage from '@/pages/MenuMaster';
 import MenuBOMPage from '@/pages/MenuBOM';
 import SpBomPage from '@/pages/SpBom';
+import ModifierRulesPage from '@/pages/ModifierRules';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -59,6 +61,7 @@ const tabLabels: Record<TabKey, string> = {
   'menu-master': 'Menu Master',
   'menu-bom': 'Menu BOM',
   'sp-bom': 'SP BOM',
+  'modifier-rules': 'Modifier Rules',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -81,6 +84,7 @@ const Index = () => {
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
   const spBomData = useSpBomData();
+  const modifierRuleData = useModifierRuleData();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
@@ -105,7 +109,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules') {
       toast.error('Access denied');
       return;
     }
@@ -337,6 +341,12 @@ const Index = () => {
                   spBomData={spBomData}
                   skus={skus}
                   prices={priceData.prices}
+                  readOnly={!isAdmin}
+                />
+              ) : activeTab === 'modifier-rules' ? (
+                <ModifierRulesPage
+                  ruleData={modifierRuleData}
+                  skus={skus}
                   readOnly={!isAdmin}
                 />
               ) : (

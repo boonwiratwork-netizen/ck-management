@@ -350,6 +350,47 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_modifier_rules: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          keyword: string
+          qty_per_match: number
+          sku_id: string
+          uom: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          qty_per_match?: number
+          sku_id: string
+          uom?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          qty_per_match?: number
+          sku_id?: string
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_modifier_rules_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menus: {
         Row: {
           branch_id: string | null
