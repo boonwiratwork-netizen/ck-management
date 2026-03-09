@@ -220,18 +220,19 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     setSelectedHeaderId(null);
   };
 
-  const handleSaveHeader = () => {
+  const handleSaveHeader = async () => {
     if (!headerForm.smSkuId) { toast.error('Select an SM SKU'); return; }
     const exists = headers.find(h => h.smSkuId === headerForm.smSkuId && h.id !== selectedHeaderId);
     if (exists) { toast.error('BOM already exists for this SM SKU'); return; }
 
     if (selectedHeaderId && selectedHeader) {
-      updateHeader(selectedHeaderId, headerForm);
-      toast.success('BOM updated');
+      await updateHeader(selectedHeaderId, headerForm);
+      // Sync price after header update (batch size / yield changed)
+      setTimeout(() => syncCurrentBomPrice(selectedHeaderId), 300);
     } else {
       const result = addHeader(headerForm);
       if (result instanceof Promise) {
-        result.then(id => setSelectedHeaderId(id));
+        result.then(id => { setSelectedHeaderId(id); });
       } else {
         setSelectedHeaderId(result);
       }
