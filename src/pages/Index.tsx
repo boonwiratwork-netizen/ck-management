@@ -310,6 +310,8 @@ const Index = () => {
                 <BranchesPage branchData={branchData} readOnly={isReadOnly} />
               ) : activeTab === 'users' ? (
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
+              ) : activeTab === 'store' ? (
+                <div className="text-muted-foreground text-center py-12">Store section coming soon.</div>
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}

@@ -267,16 +267,33 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({ ...p, role: val }))}>
+              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({ ...p, role: val, branch_id: val === 'branch_manager' ? p.branch_id : '' }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="ck_manager">CK Manager</SelectItem>
+                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {newUser.role === 'branch_manager' && (
+              <div className="space-y-2">
+                <Label>Branch *</Label>
+                <Select value={newUser.branch_id} onValueChange={val => setNewUser(p => ({ ...p, branch_id: val }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.branch_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.branch_id && <p className="text-sm text-destructive">{errors.branch_id}</p>}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>

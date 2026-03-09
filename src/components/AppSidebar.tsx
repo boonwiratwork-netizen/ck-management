@@ -145,7 +145,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium truncate">{profile?.full_name || 'User'}</p>
               <Badge variant="secondary" className="text-[10px] mt-0.5">
-                {role === 'admin' ? 'Admin' : 'CK Manager'}
+                {role === 'admin' ? 'Admin' : role === 'branch_manager' ? 'Branch Manager' : 'CK Manager'}
               </Badge>
             </div>
             <Button

@@ -10,6 +10,7 @@ interface AuthContextType {
   profile: { full_name: string; status: string; branch_id: string | null } | null;
   role: AppRole | null;
   isAdmin: boolean;
+  isBranchManager: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
