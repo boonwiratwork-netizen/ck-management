@@ -456,15 +456,15 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   // Common table headers for simple BOM
   const simpleTableHeaders = (
     <TableRow>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">SKU Code</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
       <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Yield %</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Eff. Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
     </TableRow>
   );
 
