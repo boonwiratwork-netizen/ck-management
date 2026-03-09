@@ -187,10 +187,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{m.menuCode}</p>
-                      <p className="text-xs text-muted-foreground">{m.menuName}</p>
+                      <p className="text-sm font-medium">{m.menuCode} <span className="font-normal text-muted-foreground">{m.menuName}</span></p>
+                      <p className="text-xs text-muted-foreground">
+                        {menuBomData.getLinesForMenu(m.id).length} ingredients · {getBranchName(m.branchId)}
+                      </p>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{getBranchName(m.branchId)}</span>
                   </div>
                 </button>
               ))}
