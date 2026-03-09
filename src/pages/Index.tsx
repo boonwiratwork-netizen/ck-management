@@ -352,6 +352,8 @@ const Index = () => {
                   menus={menuData.menus}
                   readOnly={!isAdmin}
                 />
+              ) : activeTab === 'sales-entry' ? (
+                <SalesEntryPage branches={branchData.branches} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
