@@ -240,6 +240,8 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         skus={skus}
         activeSuppliers={activeSuppliers}
         pricedSkuIds={pricedSkuIds}
+        prices={prices}
+        bomHeaders={bomHeaders}
       />
 
       <ConfirmDialog
