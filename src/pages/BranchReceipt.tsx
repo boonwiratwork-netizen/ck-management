@@ -136,6 +136,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [quickRepeatSupplier, setQuickRepeatSupplier] = useState(false);
 
   // History filters
   const [historyDateFrom, setHistoryDateFrom] = useState<Date | undefined>(undefined);
