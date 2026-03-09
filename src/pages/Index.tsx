@@ -466,6 +466,7 @@ const Index = () => {
             editingSku={editingSku}
             activeSuppliers={activeSuppliers}
             isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
+            allSkus={skus}
           />
 
           <ConfirmDialog
