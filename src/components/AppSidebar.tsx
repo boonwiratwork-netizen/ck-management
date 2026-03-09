@@ -90,6 +90,7 @@ const storeGroup = {
     { key: 'sales-entry' as TabKey, label: 'Sales Entry', icon: ShoppingCart, section: 'Operations' as const },
     { key: 'branch-receipt' as TabKey, label: 'Branch Receipt', icon: ClipboardList, section: 'Operations' as const },
     { key: 'daily-stock-count' as TabKey, label: 'Daily Stock Count', icon: ClipboardCheck, section: 'Operations' as const },
+    { key: 'food-cost' as TabKey, label: 'Food Cost', icon: PieChart, section: 'Reports' as const },
   ],
 };
 
