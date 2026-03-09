@@ -1124,6 +1124,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_brand_assignments: {
+        Row: {
+          brand: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          brand: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          brand?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
