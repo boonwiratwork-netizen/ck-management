@@ -57,7 +57,7 @@ const ckManagerFullAccess: TabKey[] = ['dashboard', 'receipt', 'production', 'de
 const ckManagerReadOnly: TabKey[] = ['sku', 'supplier', 'price', 'bom', 'branches'];
 
 const Index = () => {
-  const { isAdmin, role } = useAuth();
+  const { isAdmin, role, isBranchManager } = useAuth();
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
