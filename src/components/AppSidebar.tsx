@@ -14,13 +14,13 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart,
+  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -90,6 +90,7 @@ const storeGroup = {
     { key: 'sales-entry' as TabKey, label: 'Sales Entry', icon: ShoppingCart, section: 'Operations' as const },
     { key: 'branch-receipt' as TabKey, label: 'Branch Receipt', icon: ClipboardList, section: 'Operations' as const },
     { key: 'daily-stock-count' as TabKey, label: 'Daily Stock Count', icon: ClipboardCheck, section: 'Operations' as const },
+    { key: 'food-cost' as TabKey, label: 'Food Cost', icon: PieChart, section: 'Reports' as const },
   ],
 };
 

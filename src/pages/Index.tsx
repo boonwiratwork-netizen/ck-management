@@ -39,6 +39,7 @@ import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
 import BranchReceiptPage from '@/pages/BranchReceipt';
+import FoodCostPage from '@/pages/FoodCost';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -68,6 +69,7 @@ const tabLabels: Record<TabKey, string> = {
   'sales-entry': 'Sales Entry',
   'branch-receipt': 'Branch Receipt',
   'daily-stock-count': 'Daily Stock Count',
+  'food-cost': 'Food Cost',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -115,7 +117,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'branch-receipt' && tab !== 'daily-stock-count') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'branch-receipt' && tab !== 'daily-stock-count' && tab !== 'food-cost') {
       toast.error('Access denied');
       return;
     }
@@ -368,6 +370,17 @@ const Index = () => {
                   spBomLines={spBomData.lines}
                   menus={menuData.menus}
                   branches={branchData.branches}
+                />
+              ) : activeTab === 'food-cost' ? (
+                <FoodCostPage
+                  skus={skus}
+                  prices={priceData.prices}
+                  menus={menuData.menus}
+                  menuBomLines={menuBomData.lines}
+                  modifierRules={modifierRuleData.rules}
+                  spBomLines={spBomData.lines}
+                  branches={branchData.branches}
+                  suppliers={supplierData.suppliers}
                 />
               ) : (
                 <DeliveryToBranchesPage
