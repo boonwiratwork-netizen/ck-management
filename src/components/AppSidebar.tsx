@@ -14,7 +14,7 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter,
+  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
