@@ -49,6 +49,7 @@ export function useModifierRuleData() {
     if (data.uom !== undefined) dbData.uom = data.uom;
     if (data.description !== undefined) dbData.description = data.description;
     if (data.isActive !== undefined) dbData.is_active = data.isActive;
+    if (data.menuId !== undefined) dbData.menu_id = data.menuId;
 
     const { error } = await supabase.from('menu_modifier_rules').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update rule: ' + error.message); return; }
