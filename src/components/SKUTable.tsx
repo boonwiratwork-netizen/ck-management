@@ -1,4 +1,5 @@
-import { SKU, SKUType, SKU_TYPE_LABELS, CATEGORY_LABELS } from '@/types/sku';
+import { SKU, SKUType, SKU_TYPE_LABELS } from '@/types/sku';
+import { SkuCategory } from '@/hooks/use-sku-categories';
 import { Button } from '@/components/ui/button';
 import { Pencil, Trash2, Package } from 'lucide-react';
 import {
@@ -8,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
@@ -19,6 +20,7 @@ interface SKUTableProps {
   onEdit?: (sku: SKU) => void;
   onDelete?: (id: string) => void;
   loading?: boolean;
+  skuCategories?: SkuCategory[];
 }
 
 const typeBadge: Record<SKUType, string> = {
@@ -28,17 +30,25 @@ const typeBadge: Record<SKUType, string> = {
   PK: 'badge-pk',
 };
 
-export function SKUTable({ skus, onEdit, onDelete, loading }: SKUTableProps) {
+export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }: SKUTableProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  const catLabelMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    skuCategories.forEach(c => { m[c.code] = c.nameEn; });
+    return m;
+  }, [skuCategories]);
+
+  const getCatLabel = (code: string) => catLabelMap[code] || code;
 
   const filtered = skus.filter((s) => {
     const q = search.toLowerCase();
     const matchesSearch =
       s.name.toLowerCase().includes(q) ||
       s.skuId.toLowerCase().includes(q) ||
-      (CATEGORY_LABELS[s.category] || '').toLowerCase().includes(q);
+      getCatLabel(s.category).toLowerCase().includes(q);
     const matchesType = filterType === 'all' || s.type === filterType;
     const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
@@ -130,7 +140,7 @@ export function SKUTable({ skus, onEdit, onDelete, loading }: SKUTableProps) {
                           {sku.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{CATEGORY_LABELS[sku.category]}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{getCatLabel(sku.category)}</td>
                       <td className="px-4 py-3">
                         <span className={sku.status === 'Active' ? 'pill-active' : 'pill-inactive'}>
                           {sku.status}
