@@ -6,7 +6,10 @@ import { Price } from '@/types/price';
 import { DraftRow } from '@/pages/GoodsReceipt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Copy, Plus, Search, Pencil, Check, X } from 'lucide-react';
+import { Trash2, Copy, Plus, Pencil, Check, X } from 'lucide-react';
+import { SearchInput } from '@/components/SearchInput';
+import { EmptyState } from '@/components/EmptyState';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
