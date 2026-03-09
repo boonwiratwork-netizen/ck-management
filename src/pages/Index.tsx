@@ -36,6 +36,7 @@ import MenuMasterPage from '@/pages/MenuMaster';
 import MenuBOMPage from '@/pages/MenuBOM';
 import SpBomPage from '@/pages/SpBom';
 import ModifierRulesPage from '@/pages/ModifierRules';
+import SalesEntryPage from '@/pages/SalesEntry';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -62,6 +63,7 @@ const tabLabels: Record<TabKey, string> = {
   'menu-bom': 'Menu BOM',
   'sp-bom': 'SP BOM',
   'modifier-rules': 'Modifier Rules',
+  'sales-entry': 'Sales Entry',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -109,7 +111,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry') {
       toast.error('Access denied');
       return;
     }
@@ -350,6 +352,8 @@ const Index = () => {
                   menus={menuData.menus}
                   readOnly={!isAdmin}
                 />
+              ) : activeTab === 'sales-entry' ? (
+                <SalesEntryPage branches={branchData.branches} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}

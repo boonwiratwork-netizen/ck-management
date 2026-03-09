@@ -14,13 +14,13 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter,
+  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -82,11 +82,12 @@ const settingsGroup = {
 const storeGroup = {
   label: 'Store',
   items: [
-    { key: 'store' as TabKey, label: 'Store', icon: Store },
-    { key: 'menu-master' as TabKey, label: 'Menu Master', icon: UtensilsCrossed },
-    { key: 'menu-bom' as TabKey, label: 'Menu BOM', icon: BookOpen },
-    { key: 'sp-bom' as TabKey, label: 'SP BOM', icon: Sparkles },
-    { key: 'modifier-rules' as TabKey, label: 'Modifier Rules', icon: ListFilter },
+    { key: 'store' as TabKey, label: 'Store', icon: Store, section: 'Masters' as const },
+    { key: 'menu-master' as TabKey, label: 'Menu Master', icon: UtensilsCrossed, section: 'Masters' as const },
+    { key: 'menu-bom' as TabKey, label: 'Menu BOM', icon: BookOpen, section: 'Masters' as const },
+    { key: 'sp-bom' as TabKey, label: 'SP BOM', icon: Sparkles, section: 'Masters' as const },
+    { key: 'modifier-rules' as TabKey, label: 'Modifier Rules', icon: ListFilter, section: 'Masters' as const },
+    { key: 'sales-entry' as TabKey, label: 'Sales Entry', icon: ShoppingCart, section: 'Operations' as const },
   ],
 };
 
