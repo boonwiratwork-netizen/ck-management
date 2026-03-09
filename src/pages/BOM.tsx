@@ -366,7 +366,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
 
   // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
-    <TableRow className="bg-muted/30 h-12" onKeyDown={handleLineKeyDown}>
+    <TableRow className="bg-muted/30 h-9" onKeyDown={handleLineKeyDown}>
       <TableCell>
         <SearchableSelect
           value={lineForm.rmSkuId}
