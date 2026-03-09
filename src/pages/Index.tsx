@@ -97,7 +97,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master') {
       toast.error('Access denied');
       return;
     }
