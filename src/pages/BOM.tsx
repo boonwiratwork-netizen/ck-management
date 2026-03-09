@@ -698,18 +698,18 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
               </CardHeader>
               <CardContent className="p-0 pb-4">
                 {(stepLines.length > 0 || (addingLine && addingLineStepId === sd.step.id)) && (
-                  <div className="px-4">
-                    <Table>
+                  <div className="px-4 overflow-hidden">
+                    <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">SKU</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
                           <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">Qty Type</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
