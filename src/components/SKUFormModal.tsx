@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { SKU, SKUType, Category, SKUStatus, StorageCondition, EMPTY_SKU, SKU_TYPE_LABELS, CATEGORY_LABELS } from '@/types/sku';
+import { SKU, SKUType, SKUStatus, StorageCondition, EMPTY_SKU, SKU_TYPE_LABELS } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
+import { SkuCategory } from '@/hooks/use-sku-categories';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -12,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { AlertTriangle, Loader2, Check } from 'lucide-react';
+import { AlertTriangle, Loader2, Check, Plus, Save, X, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SKUFormModalProps {
@@ -23,14 +24,21 @@ interface SKUFormModalProps {
   activeSuppliers?: Supplier[];
   isSkuUsed?: boolean;
   allSkus?: SKU[];
+  skuCategories?: SkuCategory[];
+  onAddCategory?: (code: string, nameEn: string, nameTh: string) => Promise<SkuCategory | null>;
+  onManageCategories?: () => void;
 }
 
-export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [], isSkuUsed = false, allSkus = [] }: SKUFormModalProps) {
+export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppliers = [], isSkuUsed = false, allSkus = [], skuCategories = [], onAddCategory, onManageCategories }: SKUFormModalProps) {
   const [form, setForm] = useState<Omit<SKU, 'id' | 'skuId'>>(EMPTY_SKU);
   const [skuCode, setSkuCode] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCatCode, setNewCatCode] = useState('');
+  const [newCatEn, setNewCatEn] = useState('');
+  const [newCatTh, setNewCatTh] = useState('');
 
   useEffect(() => {
     if (editingSku) {
@@ -44,6 +52,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     setErrors({});
     setSaving(false);
     setSaved(false);
+    setShowAddCategory(false);
   }, [editingSku, open]);
 
   const skuCodeChanged = editingSku && skuCode !== editingSku.skuId;
@@ -58,7 +67,6 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (form.packSize <= 0) errs.packSize = 'Must be a positive number';
     if (form.converter <= 0) errs.converter = 'Must be a positive number';
 
-    // Validate SKU code if editing and changed
     if (editingSku && skuCode !== editingSku.skuId) {
       const expectedPrefix = typePrefix[form.type];
       if (!skuCode.startsWith(expectedPrefix)) {
@@ -75,15 +83,10 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   };
 
   const handleBlur = (key: string) => {
-    if (key === 'name' && !form.name.trim()) {
-      setErrors(prev => ({ ...prev, name: 'SKU Name is required' }));
-    } else if (key === 'packUnit' && !form.packUnit.trim()) {
-      setErrors(prev => ({ ...prev, packUnit: 'Pack Unit is required' }));
-    } else if (key === 'purchaseUom' && !form.purchaseUom.trim()) {
-      setErrors(prev => ({ ...prev, purchaseUom: 'Purchase UOM is required' }));
-    } else if (key === 'usageUom' && !form.usageUom.trim()) {
-      setErrors(prev => ({ ...prev, usageUom: 'Usage UOM is required' }));
-    }
+    if (key === 'name' && !form.name.trim()) setErrors(prev => ({ ...prev, name: 'SKU Name is required' }));
+    else if (key === 'packUnit' && !form.packUnit.trim()) setErrors(prev => ({ ...prev, packUnit: 'Pack Unit is required' }));
+    else if (key === 'purchaseUom' && !form.purchaseUom.trim()) setErrors(prev => ({ ...prev, purchaseUom: 'Purchase UOM is required' }));
+    else if (key === 'usageUom' && !form.usageUom.trim()) setErrors(prev => ({ ...prev, usageUom: 'Usage UOM is required' }));
   };
 
   const errorCount = Object.keys(errors).length;
@@ -98,10 +101,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     try {
       onSubmit(form, skuCodeChanged ? skuCode : undefined);
       setSaved(true);
-      setTimeout(() => {
-        onClose();
-        setSaved(false);
-      }, 400);
+      setTimeout(() => { onClose(); setSaved(false); }, 400);
     } finally {
       setSaving(false);
     }
@@ -110,6 +110,19 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
+
+  const handleAddCategory = async () => {
+    if (!onAddCategory) return;
+    const result = await onAddCategory(newCatCode, newCatEn, newCatTh);
+    if (result) {
+      update('category', result.code);
+      setShowAddCategory(false);
+      setNewCatCode('');
+      setNewCatEn('');
+      setNewCatTh('');
+      toast.success(`Category "${result.code}" added`);
+    }
   };
 
   const typeIsLocked = !!editingSku && isSkuUsed;
@@ -188,12 +201,36 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
             </div>
             <div>
               <Label className="label-required">Category</Label>
-              <Select value={form.category} onValueChange={v => update('category', v as Category)}>
+              <Select value={form.category} onValueChange={v => update('category', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {(Object.keys(CATEGORY_LABELS) as Category[]).map(c => (
-                    <SelectItem key={c} value={c}>{c} — {CATEGORY_LABELS[c]}</SelectItem>
+                  {skuCategories.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.code} — {c.nameEn}</SelectItem>
                   ))}
+                  <div className="border-t mt-1 pt-1 px-1 space-y-1">
+                    {!showAddCategory ? (
+                      <>
+                        <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-primary text-xs" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAddCategory(true); }}>
+                          <Plus className="w-3 h-3 mr-1" /> Add Category
+                        </Button>
+                        {onManageCategories && (
+                          <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-muted-foreground text-xs" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManageCategories(); onClose(); }}>
+                            <Settings className="w-3 h-3 mr-1" /> Manage Categories
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="p-2 space-y-2" onClick={e => e.stopPropagation()}>
+                        <Input value={newCatCode} onChange={e => setNewCatCode(e.target.value.toUpperCase())} placeholder="Code (e.g. BV)" className="h-7 text-xs font-mono" maxLength={4} />
+                        <Input value={newCatEn} onChange={e => setNewCatEn(e.target.value)} placeholder="Name EN" className="h-7 text-xs" />
+                        <Input value={newCatTh} onChange={e => setNewCatTh(e.target.value)} placeholder="ชื่อ TH" className="h-7 text-xs" />
+                        <div className="flex gap-1">
+                          <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowAddCategory(false)}><X className="w-3 h-3" /></Button>
+                          <Button type="button" size="sm" className="h-7 text-xs flex-1" disabled={!newCatCode.trim() || !newCatEn.trim()} onClick={handleAddCategory}><Save className="w-3 h-3 mr-1" /> Save</Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
