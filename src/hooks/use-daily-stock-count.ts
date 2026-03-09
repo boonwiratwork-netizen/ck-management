@@ -269,8 +269,8 @@ export function useDailyStockCount({
     
     const insertRows = activeSkus.map(sku => {
       const opening = prevPhysical[sku.id] ?? 0;
-      const fromCk = ckDeliveryBySku[sku.id] ?? 0;
-      const receivedExternal = 0; // Could be extended later
+      const fromCk = receipts.ckBySku[sku.id] ?? 0;
+      const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
       const calcBalance = opening + fromCk + receivedExternal - expUsage;
 
