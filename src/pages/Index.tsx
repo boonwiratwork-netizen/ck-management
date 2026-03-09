@@ -85,7 +85,7 @@ const Index = () => {
     addSmAdjustment: smStockData.addAdjustment,
     getStdUnitPrice: stockData.getStdUnitPrice,
   });
-  const { skus, addSku, updateSku, deleteSku } = skuData;
+  const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>(isBranchManager ? 'store' : 'dashboard');

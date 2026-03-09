@@ -132,5 +132,5 @@ export function useSkuData() {
     setSkus(prev => prev.filter(s => s.id !== id));
   }, []);
 
-  return { skus, addSku, updateSku, deleteSku };
+  return { skus, addSku, bulkAddSkus, updateSku, deleteSku };
 }
