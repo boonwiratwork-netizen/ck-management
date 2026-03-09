@@ -91,14 +91,15 @@ export default function UserManagement() {
     if (!newUser.full_name.trim()) errs.full_name = 'Name is required';
     if (!newUser.email.trim()) errs.email = 'Email is required';
     if (!newUser.password || newUser.password.length < 6) errs.password = 'Password must be at least 6 characters';
+    if (newUser.role === 'branch_manager' && !newUser.branch_id) errs.branch_id = 'Branch is required for Branch Manager';
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     try {
-      await callAdmin({ action: 'create', ...newUser });
+      await callAdmin({ action: 'create', ...newUser, branch_id: newUser.role === 'branch_manager' ? newUser.branch_id : null });
       toast.success('User created successfully');
       setCreateOpen(false);
-      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager' });
+      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager', branch_id: '' });
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message);
