@@ -239,20 +239,15 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Apply to specific menu (optional)</label>
-              <Select value={formMenuId} onValueChange={v => setFormMenuId(v === '__all__' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Menus (global rule)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Menus (global rule)</SelectItem>
-                  {menus.map(m => (
-                    <SelectItem key={m.id} value={m.id}>
-                      <span className="font-mono text-xs mr-2">{m.menuCode}</span>
-                      {m.menuName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formMenuId || '__all__'}
+                onValueChange={v => setFormMenuId(v === '__all__' ? '' : v)}
+                options={[
+                  { value: '__all__', label: 'All Menus (global rule)' },
+                  ...menus.map(m => ({ value: m.id, label: `${m.menuCode} ${m.menuName}`, sublabel: m.menuCode })),
+                ]}
+                placeholder="All Menus (global rule)"
+              />
             </div>
 
             <div className="space-y-1.5">
