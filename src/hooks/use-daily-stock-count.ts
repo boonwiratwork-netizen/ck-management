@@ -61,7 +61,6 @@ export function useDailyStockCount({
     const branch = branches.find(b => b.id === branchId);
     const branchName = branch?.branchName || '';
 
-    // Branch receipts (external) - by branch_id + receipt_date
     const { data: brData } = await supabase
       .from('branch_receipts')
       .select('sku_id, qty_received')
@@ -73,7 +72,6 @@ export function useDailyStockCount({
       extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
     });
 
-    // CK deliveries - by branch_name + delivery_date
     const { data: dlData } = await supabase
       .from('deliveries')
       .select('sm_sku_id, qty_delivered_kg')
@@ -88,7 +86,92 @@ export function useDailyStockCount({
     return { extBySku, ckBySku };
   }, [branches]);
 
-  // Load existing count sheet — recalculate received + expected usage live
+  // Calculate expected usage from sales data × current BOM
+  const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
+    const { data: salesData } = await supabase
+      .from('sales_entries')
+      .select('*')
+      .eq('branch_id', branchId)
+      .eq('sale_date', date);
+    
+    const sales = salesData || [];
+    if (sales.length === 0) return {};
+
+    const menuByCode = new Map<string, Menu>();
+    menus.forEach(m => menuByCode.set(m.menuCode, m));
+    
+    const bomByMenuId = new Map<string, MenuBomLine[]>();
+    menuBomLines.forEach(l => {
+      const arr = bomByMenuId.get(l.menuId) || [];
+      arr.push(l);
+      bomByMenuId.set(l.menuId, arr);
+    });
+
+    const activeRules = modifierRules.filter(r => r.isActive);
+
+    const spBomBySpSku = new Map<string, SpBomLine[]>();
+    spBomLines.forEach(l => {
+      const arr = spBomBySpSku.get(l.spSkuId) || [];
+      arr.push(l);
+      spBomBySpSku.set(l.spSkuId, arr);
+    });
+
+    const skuMap = new Map<string, SKU>();
+    skus.forEach(s => skuMap.set(s.id, s));
+
+    const usage: Record<string, number> = {};
+    const addUsage = (skuId: string, qty: number) => {
+      usage[skuId] = (usage[skuId] || 0) + qty;
+    };
+
+    for (const sale of sales) {
+      const qty = Number(sale.qty) || 0;
+      if (qty === 0) continue;
+      
+      const menuCode = sale.menu_code;
+      const menuName = sale.menu_name || '';
+      const menu = menuByCode.get(menuCode);
+      
+      if (menu) {
+        const bomLines = bomByMenuId.get(menu.id) || [];
+        for (const line of bomLines) {
+          const ingredientQty = line.effectiveQty * qty;
+          const sku = skuMap.get(line.skuId);
+          
+          if (sku && sku.type === 'SP') {
+            const spLines = spBomBySpSku.get(line.skuId) || [];
+            for (const spLine of spLines) {
+              const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty;
+              addUsage(spLine.ingredientSkuId, rmQty);
+            }
+          } else {
+            addUsage(line.skuId, ingredientQty);
+          }
+        }
+
+        for (const rule of activeRules) {
+          if (rule.menuId && rule.menuId !== menu.id) continue;
+          if (menuName.includes(rule.keyword)) {
+            const modQty = rule.qtyPerMatch * qty;
+            const modSku = skuMap.get(rule.skuId);
+            if (modSku && modSku.type === 'SP') {
+              const spLines = spBomBySpSku.get(rule.skuId) || [];
+              for (const spLine of spLines) {
+                const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty;
+                addUsage(spLine.ingredientSkuId, rmQty);
+              }
+            } else {
+              addUsage(rule.skuId, modQty);
+            }
+          }
+        }
+      }
+    }
+
+    return usage;
+  }, [menus, menuBomLines, modifierRules, spBomLines, skus]);
+
+  // Load existing count sheet — recalculate received + expected usage live from current BOM
   const loadSheet = useCallback(async (branchId: string, date: string) => {
     setLoading(true);
     const [sheetResult, receipts, expectedUsage] = await Promise.all([
@@ -128,7 +211,7 @@ export function useDailyStockCount({
       }
     }
 
-    // Check for new SKUs from BOM that aren't in the existing sheet
+    // Add new SKU rows if BOM changes introduced new ingredients
     const existingSkuIds = new Set(data.map(r => r.sku_id));
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     const newSkuRows: any[] = [];
@@ -137,7 +220,7 @@ export function useDailyStockCount({
         const expUsage = expectedUsage[sku.id] ?? 0;
         const ext = receipts.extBySku[sku.id] ?? 0;
         const ck = receipts.ckBySku[sku.id] ?? 0;
-        const calcBalance = 0 + ck + ext - expUsage;
+        const calcBalance = ck + ext - expUsage;
         newSkuRows.push({
           branch_id: branchId,
           count_date: date,
@@ -166,105 +249,10 @@ export function useDailyStockCount({
     setRows([...patched, ...insertedRows].map(toLocal));
   }, [fetchReceiptTotals, calculateExpectedUsage, skus]);
 
-  // Calculate expected usage from sales data
-  const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
-    // Step 1: Get sales entries for branch + date
-    const { data: salesData } = await supabase
-      .from('sales_entries')
-      .select('*')
-      .eq('branch_id', branchId)
-      .eq('sale_date', date);
-    
-    const sales = salesData || [];
-    if (sales.length === 0) return {};
-
-    // Build lookup maps
-    const menuByCode = new Map<string, Menu>();
-    menus.forEach(m => menuByCode.set(m.menuCode, m));
-    
-    const bomByMenuId = new Map<string, MenuBomLine[]>();
-    menuBomLines.forEach(l => {
-      const arr = bomByMenuId.get(l.menuId) || [];
-      arr.push(l);
-      bomByMenuId.set(l.menuId, arr);
-    });
-
-    const activeRules = modifierRules.filter(r => r.isActive);
-
-    const spBomBySpSku = new Map<string, SpBomLine[]>();
-    spBomLines.forEach(l => {
-      const arr = spBomBySpSku.get(l.spSkuId) || [];
-      arr.push(l);
-      spBomBySpSku.set(l.spSkuId, arr);
-    });
-
-    const skuMap = new Map<string, SKU>();
-    skus.forEach(s => skuMap.set(s.id, s));
-
-    const usage: Record<string, number> = {};
-    const addUsage = (skuId: string, qty: number) => {
-      usage[skuId] = (usage[skuId] || 0) + qty;
-    };
-
-    // Step 2: For each sales row
-    for (const sale of sales) {
-      const qty = Number(sale.qty) || 0;
-      if (qty === 0) continue;
-      
-      const menuCode = sale.menu_code;
-      const menuName = sale.menu_name || '';
-      const menu = menuByCode.get(menuCode);
-      
-      if (menu) {
-        // Step 2a: Base BOM ingredients
-        const bomLines = bomByMenuId.get(menu.id) || [];
-        for (const line of bomLines) {
-          const ingredientQty = line.effectiveQty * qty;
-          const sku = skuMap.get(line.skuId);
-          
-          if (sku && sku.type === 'SP') {
-            // Step 2c: Expand SP into RM ingredients
-            const spLines = spBomBySpSku.get(line.skuId) || [];
-            for (const spLine of spLines) {
-              const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty;
-              addUsage(spLine.ingredientSkuId, rmQty);
-            }
-          } else {
-            addUsage(line.skuId, ingredientQty);
-          }
-        }
-
-        // Step 2b: Modifier rules
-        for (const rule of activeRules) {
-          // Rule must be global (menuId null) or match this specific menu
-          if (rule.menuId && rule.menuId !== menu.id) continue;
-          
-          if (menuName.includes(rule.keyword)) {
-            const modQty = rule.qtyPerMatch * qty;
-            const modSku = skuMap.get(rule.skuId);
-            
-            if (modSku && modSku.type === 'SP') {
-              const spLines = spBomBySpSku.get(rule.skuId) || [];
-              for (const spLine of spLines) {
-                const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty;
-                addUsage(spLine.ingredientSkuId, rmQty);
-              }
-            } else {
-              addUsage(rule.skuId, modQty);
-            }
-          }
-        }
-      }
-    }
-
-    return usage;
-  }, [menus, menuBomLines, modifierRules, spBomLines, skus]);
-
   // Generate count sheet
   const generateSheet = useCallback(async (branchId: string, date: string) => {
     setGenerating(true);
 
-    // Check if already exists
     const { data: existing } = await supabase
       .from('daily_stock_counts')
       .select('id')
@@ -279,13 +267,11 @@ export function useDailyStockCount({
       return;
     }
 
-    // Calculate expected usage + fetch receipt totals in parallel
     const [expectedUsage, receipts] = await Promise.all([
       calculateExpectedUsage(branchId, date),
       fetchReceiptTotals(branchId, date),
     ]);
 
-    // Get previous day's physical counts as opening balance
     const prevDate = new Date(date);
     prevDate.setDate(prevDate.getDate() - 1);
     const prevDateStr = prevDate.toISOString().slice(0, 10);
@@ -303,7 +289,6 @@ export function useDailyStockCount({
       }
     });
 
-    // Build rows for all active RM and SM SKUs
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     
     const insertRows = activeSkus.map(sku => {
@@ -334,7 +319,6 @@ export function useDailyStockCount({
       return;
     }
 
-    // Insert in chunks
     const chunkSize = 500;
     const allInserted: any[] = [];
     for (let i = 0; i < insertRows.length; i += chunkSize) {
