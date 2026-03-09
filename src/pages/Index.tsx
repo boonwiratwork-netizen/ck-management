@@ -44,32 +44,32 @@ import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
-const tabLabels: Record<TabKey, string> = {
-  dashboard: 'Dashboard',
-  sku: 'SKU Master',
-  supplier: 'Suppliers',
-  price: 'Price Master',
-  bom: 'BOM Master',
-  receipt: 'Goods Receipt',
-  stock: 'RM Stock',
-  production: 'Production',
-  smstock: 'SM Stock',
-  stockcount: 'Stock Count',
-  delivery: 'Delivery to Branches',
-  branches: 'Branches',
-  users: 'User Management',
-  store: 'Store',
-  'menu-master': 'Menu Master',
-  'menu-bom': 'Menu BOM',
-  'sp-bom': 'SP BOM',
-  'modifier-rules': 'Modifier Rules',
-  'sales-entry': 'Sales Entry',
-  'branch-receipt': 'Branch Receipt',
-  'daily-stock-count': 'Daily Stock Count',
-  'food-cost': 'Food Cost',
+const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
+  dashboard: { title: 'Dashboard', subtitle: '' },
+  sku: { title: 'SKU Master', subtitle: 'Manage your inventory items across all categories' },
+  supplier: { title: 'Suppliers', subtitle: 'Your trusted ingredient partners' },
+  price: { title: 'Price Master', subtitle: 'Track costs across all suppliers' },
+  bom: { title: 'BOM Master', subtitle: 'Track what goes into every dish' },
+  receipt: { title: 'Goods Receipt', subtitle: 'Record incoming ingredients' },
+  stock: { title: 'RM Stock', subtitle: 'Raw material inventory levels' },
+  production: { title: 'Production', subtitle: 'Plan and track your kitchen output' },
+  smstock: { title: 'SM Stock', subtitle: 'Semi-finished goods inventory' },
+  stockcount: { title: 'Stock Count', subtitle: 'Verify your physical inventory' },
+  delivery: { title: 'Delivery to Branches', subtitle: 'Track what leaves the kitchen' },
+  branches: { title: 'Branches', subtitle: 'Manage your restaurant locations' },
+  users: { title: 'User Management', subtitle: 'Team access and permissions' },
+  store: { title: 'Store Overview', subtitle: 'Branch operations at a glance' },
+  'menu-master': { title: 'Menu Master', subtitle: 'Your menu catalog' },
+  'menu-bom': { title: 'Menu BOM', subtitle: 'Ingredients behind every menu item' },
+  'sp-bom': { title: 'SP BOM', subtitle: 'Special product recipes' },
+  'modifier-rules': { title: 'Modifier Rules', subtitle: 'Auto-adjust ingredients for menu options' },
+  'sales-entry': { title: 'Sales Entry', subtitle: 'Record daily sales data' },
+  'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
+  'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
+  'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
 };
 
 // Tabs that CK Manager can fully interact with
@@ -247,24 +247,29 @@ const Index = () => {
     }
   };
 
+  const currentTab = tabLabels[activeTab] || { title: 'Dashboard', subtitle: '' };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b bg-card px-4 gap-3 shrink-0">
+          {/* Top header bar */}
+          <header className="h-14 flex items-center border-b bg-card px-6 gap-4 shrink-0">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border" />
-            <h1 className="text-sm font-heading font-semibold text-muted-foreground truncate">
-              {tabLabels[activeTab] || 'Dashboard'}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold text-foreground truncate">
+                {currentTab.title}
+              </h1>
+            </div>
             {isReadOnly && (
-              <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">View Only</span>
+              <span className="ml-2 text-[10px] uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
             )}
           </header>
 
-          <main className="flex-1 overflow-auto p-6">
-            <div className="max-w-[1400px] mx-auto">
+          <main className="flex-1 overflow-auto">
+            <div className="max-w-[1400px] mx-auto px-8 py-6">
               {activeTab === 'dashboard' ? (
                 <Dashboard
                   skus={skus}
@@ -281,18 +286,18 @@ const Index = () => {
                   getStdUnitPrice={stockData.getStdUnitPrice}
                 />
               ) : activeTab === 'sku' ? (
-                <div className="space-y-6">
+                <div className="section-gap">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-heading font-bold">SKU Master</h2>
-                      <p className="text-sm text-muted-foreground mt-0.5">Manage your inventory items across all categories</p>
+                      <h2 className="page-title">{currentTab.title}</h2>
+                      <p className="page-subtitle">{currentTab.subtitle}</p>
                     </div>
                     {isAdmin && (
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
+                        <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="h-9">
                           <Upload className="w-4 h-4" /> Import CSV
                         </Button>
-                        <Button onClick={handleAdd}>
+                        <Button onClick={handleAdd} className="h-9">
                           <Plus className="w-4 h-4" /> Add SKU
                         </Button>
                       </div>
@@ -332,7 +337,13 @@ const Index = () => {
               ) : activeTab === 'users' ? (
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : activeTab === 'store' ? (
-                <div className="text-muted-foreground text-center py-12">Store section coming soon.</div>
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Package className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-lg font-semibold text-foreground">Store overview coming soon</p>
+                  <p className="text-sm text-muted-foreground mt-1">We're cooking up something great here 🍳</p>
+                </div>
               ) : activeTab === 'menu-master' ? (
                 <MenuMasterPage menuData={menuData} branches={branchData.branches} />
               ) : activeTab === 'menu-bom' ? (

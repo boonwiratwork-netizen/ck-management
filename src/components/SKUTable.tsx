@@ -1,7 +1,7 @@
 import { SKU, SKUType, SKU_TYPE_LABELS, CATEGORY_LABELS } from '@/types/sku';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Search } from 'lucide-react';
+import { Pencil, Trash2, Search, Package } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -79,58 +79,68 @@ export function SKUTable({ skus, onEdit, onDelete }: SKUTableProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">SKU ID</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Storage</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Pack</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Shelf Life</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+              <tr className="border-b bg-table-header">
+                <th className="text-left px-4 py-3 table-header">SKU ID</th>
+                <th className="text-left px-4 py-3 table-header">Name</th>
+                <th className="text-left px-4 py-3 table-header">Type</th>
+                <th className="text-left px-4 py-3 table-header">Category</th>
+                <th className="text-left px-4 py-3 table-header">Status</th>
+                <th className="text-left px-4 py-3 table-header">Storage</th>
+                <th className="text-left px-4 py-3 table-header">Pack</th>
+                <th className="text-left px-4 py-3 table-header">Shelf Life</th>
+                {(onEdit || onDelete) && (
+                  <th className="text-right px-4 py-3 table-header">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                    {skus.length === 0 ? 'No SKUs yet. Add your first one!' : 'No SKUs match your filters.'}
+                  <td colSpan={9} className="px-4 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                        <Package className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {skus.length === 0 ? 'No SKUs added yet' : 'No SKUs match your filters'}
+                        </p>
+                        <p className="text-helper text-muted-foreground mt-1">
+                          {skus.length === 0 ? 'Add your first ingredient to get started' : 'Try adjusting your search or filter criteria'}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                filtered.map((sku) => (
-                  <tr key={sku.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                filtered.map((sku, idx) => (
+                  <tr key={sku.id} className={`border-b border-table-border last:border-0 table-row-hover transition-colors min-h-table-row ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
                     <td className="px-4 py-3 font-mono text-xs font-semibold">{sku.skuId}</td>
                     <td className="px-4 py-3 font-medium">{sku.name}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${typeBadge[sku.type]}`}>
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${typeBadge[sku.type]}`}>
                         {sku.type}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{CATEGORY_LABELS[sku.category]}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${
-                        sku.status === 'Active'
-                          ? 'bg-success/10 text-success'
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
+                      <span className={sku.status === 'Active' ? 'pill-active' : 'pill-inactive'}>
                         {sku.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{sku.storageCondition}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{sku.packSize} {sku.packUnit}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{sku.shelfLife}d</td>
+                    <td className="px-4 py-3 text-muted-foreground text-helper">{sku.storageCondition}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-helper">{sku.packSize} {sku.packUnit}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-helper">{sku.shelfLife}d</td>
                     {(onEdit || onDelete) && (
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {onEdit && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(sku)}>
+                          <Button variant="ghost" size="icon" className="icon-btn-edit" onClick={() => onEdit(sku)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
                         )}
                         {onDelete && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(sku.id)}>
+                          <Button variant="ghost" size="icon" className="icon-btn-delete" onClick={() => onDelete(sku.id)}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
@@ -144,7 +154,7 @@ export function SKUTable({ skus, onEdit, onDelete }: SKUTableProps) {
           </table>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">{filtered.length} of {skus.length} SKUs shown</p>
+      <p className="text-helper text-muted-foreground">{filtered.length} of {skus.length} SKUs shown</p>
     </div>
   );
 }

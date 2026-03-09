@@ -48,23 +48,24 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center space-y-3">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <ChefHat className="w-6 h-6 text-primary-foreground" />
+      <Card className="w-full max-w-sm border shadow-lg">
+        <CardHeader className="text-center space-y-4 pb-2">
+          <div className="mx-auto w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+            <ChefHat className="w-7 h-7 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-xl">CK Manager</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-page-title">CK Manager</CardTitle>
+            <p className="text-helper text-muted-foreground mt-1">by Live to Eat</p>
+            <CardDescription className="mt-3">
               {forgotMode ? 'Enter your email to reset your password' : 'Sign in to your account'}
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           {forgotMode ? (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
+            <form onSubmit={handleForgotPassword} className="space-y-field">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-helper font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -72,24 +73,25 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   autoComplete="email"
+                  className="h-10"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? 'Sending…' : 'Send Reset Link'}
               </Button>
               <Button
                 type="button"
                 variant="link"
-                className="w-full"
+                className="w-full text-muted-foreground"
                 onClick={() => setForgotMode(false)}
               >
                 Back to login
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-field">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-helper font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -97,10 +99,11 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   autoComplete="email"
+                  className="h-10"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-helper font-medium">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -109,19 +112,20 @@ export default function Login() {
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="current-password"
+                    className="h-10 pr-10"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
+                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign In'}
               </Button>
               <Button

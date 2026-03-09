@@ -18,6 +18,7 @@ import { StockBalance } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { CalendarIcon, Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3, Wallet, ChevronDown } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
+import { useAuth } from '@/hooks/use-auth';
 
 interface DashboardProps {
   skus: SKU[];
@@ -34,6 +35,12 @@ interface DashboardProps {
   getStdUnitPrice: (skuId: string) => number;
 }
 
+function getGreeting(name: string) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  return `${greeting}, ${name} 👋`;
+}
+
 const Dashboard = ({
   skus,
   smStockBalances,
@@ -48,6 +55,7 @@ const Dashboard = ({
   getTotalProducedForPlan,
   getStdUnitPrice,
 }: DashboardProps) => {
+  const { profile } = useAuth();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const defaultStart = new Date(getWeekStart(todayStr));
@@ -97,7 +105,7 @@ const Dashboard = ({
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         costPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
-      const value = costPerGram * bal.currentStock * 1000; // stock in kg → grams
+      const value = costPerGram * bal.currentStock * 1000;
       totalSmValue += value;
       smRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value });
     });
@@ -210,13 +218,17 @@ const Dashboard = ({
     return 'outline' as const;
   };
 
+  const firstName = profile?.full_name?.split(' ')[0] || 'Chef';
+
+  const hasNoData = rmStockBalances.length === 0 && smStockBalances.length === 0 && rangePlans.length === 0;
+
   return (
-    <div className="space-y-6">
-      {/* Header with date range picker */}
+    <div className="section-gap">
+      {/* Header with greeting */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Dashboard</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h2 className="page-title">{getGreeting(firstName)}</h2>
+          <p className="page-subtitle mt-1">
             {dateRange?.from && dateRange?.to
               ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d, yyyy')}`
               : 'Select date range'}
@@ -225,7 +237,7 @@ const Dashboard = ({
         <div className="flex items-center gap-3">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn('justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+              <Button variant="outline" size="sm" className={cn('justify-start text-left font-normal h-9', !dateRange && 'text-muted-foreground')}>
                 <CalendarIcon className="w-4 h-4 mr-2" />
                 {dateRange?.from ? (
                   dateRange.to ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d')}` : format(dateRange.from, 'MMM d')
@@ -243,72 +255,84 @@ const Dashboard = ({
               />
             </PopoverContent>
           </Popover>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-helper text-muted-foreground">
             <Clock className="w-3.5 h-3.5" />
             {lastUpdated}
           </div>
         </div>
       </div>
 
+      {hasNoData && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4">
+              <Package className="w-8 h-8 text-primary" />
+            </div>
+            <p className="text-lg font-semibold">Nothing cooking yet 🍳</p>
+            <p className="text-sm text-muted-foreground mt-1">Add your first data to get started — SKUs, recipes, or receipts!</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stock Value Overview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-primary" />
+      <Card className="card-hover">
+        <CardHeader className="pb-3 px-card-p pt-card-p">
+          <CardTitle className="text-section-title flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-primary" />
+            </div>
             Stock Value Overview
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-card-p pb-card-p">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-lg border p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">RM Stock Value</p>
-              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
+            <div className="rounded-lg border p-card-p">
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">RM Stock Value</p>
+              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
             </div>
-            <div className="rounded-lg border p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SM Stock Value</p>
-              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
+            <div className="rounded-lg border p-card-p">
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">SM Stock Value</p>
+              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
             </div>
-            <div className="rounded-lg border bg-primary/5 p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Inventory Value</p>
-              <p className="text-2xl font-heading font-bold mt-1 font-mono">{fmt(stockValueOverview.combined)}</p>
+            <div className="rounded-lg border bg-accent p-card-p">
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">Total Inventory Value</p>
+              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.combined)}</p>
             </div>
           </div>
 
           <Collapsible open={stockDetailOpen} onOpenChange={setStockDetailOpen}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+              <Button variant="ghost" size="sm" className="text-helper text-muted-foreground">
                 <ChevronDown className={cn("w-3.5 h-3.5 mr-1 transition-transform", stockDetailOpen && "rotate-180")} />
                 {stockDetailOpen ? 'Hide' : 'Show'} SKU breakdown
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* RM breakdown */}
                 <div>
-                  <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Raw Materials</h4>
-                  <div className="max-h-48 overflow-y-auto rounded border">
-                    <table className="w-full text-xs">
-                      <thead><tr className="border-b bg-muted/50"><th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Name</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Stock</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Value</th></tr></thead>
+                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Raw Materials</h4>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
                       <tbody>
                         {stockValueOverview.rmRows.map((r, i) => (
-                          <tr key={i} className="border-b last:border-0"><td className="px-3 py-1.5">{r.name}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.value)}</td></tr>
+                          <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
                         ))}
-                        {stockValueOverview.rmRows.length === 0 && <tr><td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No RM stock</td></tr>}
+                        {stockValueOverview.rmRows.length === 0 && <tr><td colSpan={3} className="px-3 py-8 text-center text-muted-foreground text-helper">No RM stock</td></tr>}
                       </tbody>
                     </table>
                   </div>
                 </div>
-                {/* SM breakdown */}
                 <div>
-                  <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Semi-finished</h4>
-                  <div className="max-h-48 overflow-y-auto rounded border">
-                    <table className="w-full text-xs">
-                      <thead><tr className="border-b bg-muted/50"><th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Name</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Stock (kg)</th><th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Value</th></tr></thead>
+                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Semi-finished</h4>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock (kg)</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
                       <tbody>
                         {stockValueOverview.smRows.map((r, i) => (
-                          <tr key={i} className="border-b last:border-0"><td className="px-3 py-1.5">{r.name}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.stock)}</td><td className="px-3 py-1.5 text-right font-mono">{fmt(r.value)}</td></tr>
+                          <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
                         ))}
-                        {stockValueOverview.smRows.length === 0 && <tr><td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No SM stock</td></tr>}
+                        {stockValueOverview.smRows.length === 0 && <tr><td colSpan={3} className="px-3 py-8 text-center text-muted-foreground text-helper">No SM stock</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -320,37 +344,49 @@ const Dashboard = ({
       </Card>
 
       {/* SM Stock Overview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package className="w-4 h-4 text-primary" />
+      <Card className="card-hover">
+        <CardHeader className="pb-3 px-card-p pt-card-p">
+          <CardTitle className="text-section-title flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center">
+              <Package className="w-4 h-4 text-info" />
+            </div>
             SM Stock Overview
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-card-p pb-card-p">
           {smStockRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No SM SKUs found.</p>
+            <div className="flex flex-col items-center py-8">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Package className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No SM SKUs found</p>
+              <p className="text-helper text-muted-foreground mt-1">Add semi-finished products to see stock levels</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-2 font-medium text-muted-foreground">Name</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Current Stock (kg)</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Cover Days</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-center">Status</th>
+                  <tr className="border-b bg-table-header">
+                    <th className="px-4 py-3 text-left table-header">Name</th>
+                    <th className="px-4 py-3 text-right table-header">Current Stock (kg)</th>
+                    <th className="px-4 py-3 text-right table-header">Cover Days</th>
+                    <th className="px-4 py-3 text-center table-header">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {smStockRows.map(row => (
-                    <tr key={row.skuId} className="border-b last:border-0">
-                      <td className="py-2">{row.name}</td>
-                      <td className="py-2 text-right font-mono">{fmt(row.currentStock)}</td>
-                      <td className="py-2 text-right font-mono">{row.coverDays !== null ? row.coverDays : '—'}</td>
-                      <td className="py-2 text-center">
-                        <Badge variant={row.color === 'warning' ? 'secondary' : row.color}>
+                  {smStockRows.map((row, idx) => (
+                    <tr key={row.skuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                      <td className="px-4 py-3 font-medium">{row.name}</td>
+                      <td className="px-4 py-3 text-right font-mono">{fmt(row.currentStock)}</td>
+                      <td className="px-4 py-3 text-right font-mono">{row.coverDays !== null ? row.coverDays : '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          row.color === 'destructive' ? 'bg-destructive/10 text-destructive' :
+                          row.color === 'warning' ? 'bg-warning/10 text-warning' :
+                          'bg-success/10 text-success'
+                        }`}>
                           {row.coverDays === null ? 'No data' : row.coverDays < 2 ? 'Critical' : row.coverDays <= 5 ? 'Low' : 'Healthy'}
-                        </Badge>
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -362,41 +398,49 @@ const Dashboard = ({
       </Card>
 
       {/* Production Plan */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Factory className="w-4 h-4 text-primary" />
+      <Card className="card-hover">
+        <CardHeader className="pb-3 px-card-p pt-card-p">
+          <CardTitle className="text-section-title flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+              <Factory className="w-4 h-4 text-success" />
+            </div>
             Production Plan
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="text-sm"><span className="text-muted-foreground">Target:</span> <span className="font-semibold">{fmt(planSummary.totalTarget)} kg</span></div>
-            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold">{fmt(planSummary.totalProduced)} kg</span></div>
+        <CardContent className="space-y-4 px-card-p pb-card-p">
+          <div className="flex items-center gap-6">
+            <div className="text-sm"><span className="text-muted-foreground">Target:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalTarget)} kg</span></div>
+            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalProduced)} kg</span></div>
           </div>
           <Progress value={Math.min(planSummary.progress, 100)} className="h-2" />
           {rangePlans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No plans in selected range.</p>
+            <div className="flex flex-col items-center py-8">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Factory className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No plans in selected range</p>
+              <p className="text-helper text-muted-foreground mt-1">Try a different date range or create a production plan</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-2 font-medium text-muted-foreground">SM SKU</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Target (kg)</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Produced (kg)</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-center">Status</th>
+                  <tr className="border-b bg-table-header">
+                    <th className="px-4 py-3 text-left table-header">SM SKU</th>
+                    <th className="px-4 py-3 text-right table-header">Target (kg)</th>
+                    <th className="px-4 py-3 text-right table-header">Produced (kg)</th>
+                    <th className="px-4 py-3 text-center table-header">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rangePlans.map(plan => {
+                  {rangePlans.map((plan, idx) => {
                     const produced = getTotalProducedForPlan(plan.id);
                     return (
-                      <tr key={plan.id} className="border-b last:border-0">
-                        <td className="py-2">{skuMap.get(plan.smSkuId)?.name ?? '—'}</td>
-                        <td className="py-2 text-right font-mono">{fmt(plan.targetQtyKg)}</td>
-                        <td className="py-2 text-right font-mono">{fmt(produced)}</td>
-                        <td className="py-2 text-center"><Badge variant={statusColor(plan.status)}>{plan.status}</Badge></td>
+                      <tr key={plan.id} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <td className="px-4 py-3 font-medium">{skuMap.get(plan.smSkuId)?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(plan.targetQtyKg)}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(produced)}</td>
+                        <td className="px-4 py-3 text-center"><Badge variant={statusColor(plan.status)}>{plan.status}</Badge></td>
                       </tr>
                     );
                   })}
@@ -409,14 +453,16 @@ const Dashboard = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Purchase Summary */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-primary" />
+        <Card className="card-hover">
+          <CardHeader className="pb-3 px-card-p pt-card-p">
+            <CardTitle className="text-section-title flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-warning" />
+              </div>
               Purchase Summary
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 px-card-p pb-card-p">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Actual Purchase Value</span>
               <span className="font-mono font-semibold">{fmt(purchaseSummary.totalActual)}</span>
@@ -425,9 +471,9 @@ const Dashboard = ({
               <span className="text-muted-foreground">Standard Purchase Value</span>
               <span className="font-mono font-semibold">{fmt(purchaseSummary.totalStandard)}</span>
             </div>
-            <div className="border-t pt-2 flex justify-between text-sm">
-              <span className="font-medium">Variance</span>
-              <span className={`font-mono font-bold ${purchaseSummary.variance > 0 ? 'text-destructive' : purchaseSummary.variance < 0 ? 'text-green-600' : ''}`}>
+            <div className="border-t pt-3 flex justify-between text-sm">
+              <span className="font-semibold">Variance</span>
+              <span className={`font-mono font-bold ${purchaseSummary.variance > 0 ? 'variance-positive' : purchaseSummary.variance < 0 ? 'variance-negative' : ''}`}>
                 {purchaseSummary.variance > 0 ? '+' : ''}{fmt(purchaseSummary.variance)}
                 {purchaseSummary.variance !== 0 && (
                   purchaseSummary.variance > 0 ? <TrendingUp className="w-3.5 h-3.5 inline ml-1" /> : <TrendingDown className="w-3.5 h-3.5 inline ml-1" />
@@ -438,36 +484,44 @@ const Dashboard = ({
         </Card>
 
         {/* Production Cost Analysis */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
+        <Card className="card-hover">
+          <CardHeader className="pb-3 px-card-p pt-card-p">
+            <CardTitle className="text-section-title flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-primary" />
+              </div>
               Production Cost Analysis
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-card-p pb-card-p">
             {prodCostAnalysis.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No production in selected range.</p>
+              <div className="flex flex-col items-center py-8">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <BarChart3 className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium">No production in selected range</p>
+                <p className="text-helper text-muted-foreground mt-1">Record production to see cost analysis</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">SM SKU</th>
-                      <th className="pb-2 font-medium text-muted-foreground text-right">Output (kg)</th>
-                      <th className="pb-2 font-medium text-muted-foreground text-right">Standard</th>
-                      <th className="pb-2 font-medium text-muted-foreground text-right">Actual</th>
-                      <th className="pb-2 font-medium text-muted-foreground text-right">Variance</th>
+                    <tr className="border-b bg-table-header">
+                      <th className="px-4 py-3 text-left table-header">SM SKU</th>
+                      <th className="px-4 py-3 text-right table-header">Output (kg)</th>
+                      <th className="px-4 py-3 text-right table-header">Standard</th>
+                      <th className="px-4 py-3 text-right table-header">Actual</th>
+                      <th className="px-4 py-3 text-right table-header">Variance</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {prodCostAnalysis.map(row => (
-                      <tr key={row.smSkuId} className="border-b last:border-0">
-                        <td className="py-2">{row.name}</td>
-                        <td className="py-2 text-right font-mono">{fmt(row.actualOutputKg)}</td>
-                        <td className="py-2 text-right font-mono">{fmt(row.standardValue)}</td>
-                        <td className="py-2 text-right font-mono">{fmt(row.actualValue)}</td>
-                        <td className={`py-2 text-right font-mono font-semibold ${row.variance > 0 ? 'text-destructive' : row.variance < 0 ? 'text-green-600' : ''}`}>
+                    {prodCostAnalysis.map((row, idx) => (
+                      <tr key={row.smSkuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <td className="px-4 py-3 font-medium">{row.name}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputKg)}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(row.standardValue)}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualValue)}</td>
+                        <td className={`px-4 py-3 text-right font-mono font-semibold ${row.variance > 0 ? 'variance-positive' : row.variance < 0 ? 'variance-negative' : ''}`}>
                           {row.variance > 0 ? '+' : ''}{fmt(row.variance)}
                         </td>
                       </tr>
