@@ -38,6 +38,7 @@ import SpBomPage from '@/pages/SpBom';
 import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
+import BranchReceiptPage from '@/pages/BranchReceipt';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
