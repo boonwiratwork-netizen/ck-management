@@ -278,7 +278,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                 <SelectContent>
                   <SelectItem value="__none">— Select —</SelectItem>
                   {categoryNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  {isAdmin && (
+                  {isManagement && (
                     <>
                       <Separator className="my-1" />
                       {showAddCat ? (

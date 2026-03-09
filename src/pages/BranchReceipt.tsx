@@ -462,8 +462,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       <td className={`${tdReadOnly} text-right font-mono font-semibold ${r.priceVariance > 0 ? 'text-destructive' : 'text-green-600'}`}>
                         {r.priceVariance > 0 ? '+' : ''}฿{r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
-                      {isAdmin && <td className={tdReadOnly}>{branch?.branchName || '—'}</td>}
-                      {isAdmin && (
+                      {isManagement && <td className={tdReadOnly}>{branch?.branchName || '—'}</td>}
+                      {isManagement && (
                         <td className={`${tdReadOnly} text-center`}>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { deleteReceipt(r.id); toast.success('Deleted'); }}>
                             <Trash2 className="w-3.5 h-3.5" />

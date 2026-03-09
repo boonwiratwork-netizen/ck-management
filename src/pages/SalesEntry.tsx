@@ -378,7 +378,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
                       <TableCell className="text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</TableCell>
                       <TableCell>{e.channel}</TableCell>
                       <TableCell>{branchMap[e.branchId] || '-'}</TableCell>
-                      {isAdmin && (
+                      {isManagement && (
                         <TableCell>
                           <TooltipProvider>
                             <Tooltip>

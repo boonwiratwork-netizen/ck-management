@@ -199,7 +199,7 @@ export default function DailyStockCountPage({
               — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ''}
             </span>
           </div>
-          {isAdmin && (
+          {isManagement && (
             <Button variant="outline" size="sm" onClick={handleUnlock}>
               <Unlock className="w-4 h-4" /> Unlock
             </Button>

@@ -386,10 +386,10 @@ export default function FoodCostPage({
             {/* Branch */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Branch</label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isBranchManager}>
+              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isStoreManager}>
                 <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">All Branches</SelectItem>}
+                  {isManagement && <SelectItem value="all">All Branches</SelectItem>}
                   {activeBranches.map(b => (
                     <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
                   ))}
