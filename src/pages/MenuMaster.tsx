@@ -124,7 +124,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     return branches.find(b => b.id === branchId)?.branchName || '—';
   };
 
-  const canEdit = isAdmin;
+  const canEdit = isManagement;
 
   return (
     <div className="space-y-6">
