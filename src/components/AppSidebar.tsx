@@ -95,7 +95,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const allGroups = isBranchManager
     ? [storeGroup]
     : isAdmin
-      ? [...navGroups, settingsGroup]
+      ? [...navGroups, storeGroup, settingsGroup]
       : navGroups;
 
   return (
