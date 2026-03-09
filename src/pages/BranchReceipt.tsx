@@ -284,7 +284,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
         <div className="flex items-center gap-2 ml-2">
           <Switch checked={quickRepeatSupplier} onCheckedChange={setQuickRepeatSupplier} id="quick-supplier" />
-          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Repeat supplier</label>
+          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Auto-copy supplier from row above</label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-xs">
+                When enabled, each new row will automatically copy the supplier name from the previous row. Useful when receiving from the same supplier across many items.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {drafts.length > 0 && (
           <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
