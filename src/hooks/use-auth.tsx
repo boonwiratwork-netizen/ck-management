@@ -2,14 +2,15 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'ck_manager';
+type AppRole = 'admin' | 'ck_manager' | 'branch_manager';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: { full_name: string; status: string } | null;
+  profile: { full_name: string; status: string; branch_id: string | null } | null;
   role: AppRole | null;
   isAdmin: boolean;
+  isBranchManager: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -21,13 +22,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<{ full_name: string; status: string } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; status: string; branch_id: string | null } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async (userId: string) => {
     const [profileRes, roleRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, status').eq('user_id', userId).single(),
+      supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
       supabase.from('user_roles').select('role').eq('user_id', userId).single(),
     ]);
     setProfile(profileRes.data || null);
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         role,
         isAdmin: role === 'admin',
+        isBranchManager: role === 'branch_manager',
         loading,
         signIn,
         signOut,

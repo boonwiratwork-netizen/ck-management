@@ -14,8 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      branches: {
+        Row: {
+          branch_name: string
+          brand_name: string
+          created_at: string
+          id: string
+          location: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch_name?: string
+          brand_name?: string
+          created_at?: string
+          id?: string
+          location?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_name?: string
+          brand_name?: string
+          created_at?: string
+          id?: string
+          location?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          branch_id: string | null
           created_at: string
           full_name: string
           id: string
@@ -24,6 +55,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          branch_id?: string | null
           created_at?: string
           full_name?: string
           id?: string
@@ -32,6 +64,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          branch_id?: string | null
           created_at?: string
           full_name?: string
           id?: string
@@ -39,7 +72,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -73,7 +114,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "ck_manager"
+      app_role: "admin" | "ck_manager" | "branch_manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -201,7 +242,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "ck_manager"],
+      app_role: ["admin", "ck_manager", "branch_manager"],
     },
   },
 } as const

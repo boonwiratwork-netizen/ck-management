@@ -49,6 +49,7 @@ const tabLabels: Record<TabKey, string> = {
   delivery: 'Delivery to Branches',
   branches: 'Branches',
   users: 'User Management',
+  store: 'Store',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -57,7 +58,7 @@ const ckManagerFullAccess: TabKey[] = ['dashboard', 'receipt', 'production', 'de
 const ckManagerReadOnly: TabKey[] = ['sku', 'supplier', 'price', 'bom', 'branches'];
 
 const Index = () => {
-  const { isAdmin, role } = useAuth();
+  const { isAdmin, role, isBranchManager } = useAuth();
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
@@ -79,17 +80,21 @@ const Index = () => {
   const { skus, addSku, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabKey>(isBranchManager ? 'store' : 'dashboard');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // Check if current tab is read-only for CK Manager
   const isReadOnly = !isAdmin && ckManagerReadOnly.includes(activeTab);
 
-  // Redirect CK Manager from admin-only tabs
+  // Access control for tab changes
   const handleTabChange = (tab: TabKey) => {
     if (!isAdmin && tab === 'users') {
       toast.error('Access denied: Admin only');
+      return;
+    }
+    if (isBranchManager && tab !== 'store') {
+      toast.error('Access denied');
       return;
     }
     setActiveTab(tab);
@@ -305,6 +310,8 @@ const Index = () => {
                 <BranchesPage branchData={branchData} readOnly={isReadOnly} />
               ) : activeTab === 'users' ? (
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
+              ) : activeTab === 'store' ? (
+                <div className="text-muted-foreground text-center py-12">Store section coming soon.</div>
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}

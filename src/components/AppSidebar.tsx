@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store';
 
 interface AppSidebarProps {
   activeTab: TabKey;
@@ -79,12 +79,23 @@ const settingsGroup = {
   ],
 };
 
+const storeGroup = {
+  label: 'Store',
+  items: [
+    { key: 'store' as TabKey, label: 'Store', icon: Store },
+  ],
+};
+
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { profile, role, isAdmin, signOut } = useAuth();
+  const { profile, role, isAdmin, isBranchManager, signOut } = useAuth();
 
-  const allGroups = isAdmin ? [...navGroups, settingsGroup] : navGroups;
+  const allGroups = isBranchManager
+    ? [storeGroup]
+    : isAdmin
+      ? [...navGroups, settingsGroup]
+      : navGroups;
 
   return (
     <Sidebar collapsible="icon">
@@ -134,7 +145,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium truncate">{profile?.full_name || 'User'}</p>
               <Badge variant="secondary" className="text-[10px] mt-0.5">
-                {role === 'admin' ? 'Admin' : 'CK Manager'}
+                {role === 'admin' ? 'Admin' : role === 'branch_manager' ? 'Branch Manager' : 'CK Manager'}
               </Badge>
             </div>
             <Button

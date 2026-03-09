@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const { action, ...params } = await req.json();
 
     if (action === "create") {
-      const { email, password, full_name, role } = params;
+      const { email, password, full_name, role, branch_id } = params;
 
       const { data: newUser, error: createError } =
         await supabaseAdmin.auth.admin.createUser({
@@ -76,10 +76,12 @@ Deno.serve(async (req) => {
         role: role || "ck_manager",
       });
 
-      // Update profile name
+      // Update profile name and branch_id
+      const profileUpdate: Record<string, unknown> = { full_name };
+      if (branch_id) profileUpdate.branch_id = branch_id;
       await supabaseAdmin
         .from("profiles")
-        .update({ full_name })
+        .update(profileUpdate)
         .eq("user_id", newUser.user!.id);
 
       return new Response(

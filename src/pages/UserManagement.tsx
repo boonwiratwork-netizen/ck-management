@@ -35,9 +35,15 @@ interface ManagedUser {
   user_id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'ck_manager';
+  role: 'admin' | 'ck_manager' | 'branch_manager';
   status: string;
   created_at: string;
+  branch_id: string | null;
+}
+
+interface BranchOption {
+  id: string;
+  branch_name: string;
 }
 
 export default function UserManagement() {
@@ -46,9 +52,10 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState<ManagedUser | null>(null);
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'ck_manager' as string });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'ck_manager' as string, branch_id: '' });
   const [newPassword, setNewPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<BranchOption[]>([]);
 
   const callAdmin = useCallback(async (body: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
@@ -71,7 +78,12 @@ export default function UserManagement() {
   }, [callAdmin]);
 
   useEffect(() => {
-    if (session) fetchUsers();
+    if (session) {
+      fetchUsers();
+      supabase.from('branches').select('id, branch_name').then(({ data }) => {
+        setBranches(data || []);
+      });
+    }
   }, [session, fetchUsers]);
 
   const handleCreate = async () => {
@@ -79,14 +91,15 @@ export default function UserManagement() {
     if (!newUser.full_name.trim()) errs.full_name = 'Name is required';
     if (!newUser.email.trim()) errs.email = 'Email is required';
     if (!newUser.password || newUser.password.length < 6) errs.password = 'Password must be at least 6 characters';
+    if (newUser.role === 'branch_manager' && !newUser.branch_id) errs.branch_id = 'Branch is required for Branch Manager';
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     try {
-      await callAdmin({ action: 'create', ...newUser });
+      await callAdmin({ action: 'create', ...newUser, branch_id: newUser.role === 'branch_manager' ? newUser.branch_id : null });
       toast.success('User created successfully');
       setCreateOpen(false);
-      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager' });
+      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager', branch_id: '' });
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -181,6 +194,7 @@ export default function UserManagement() {
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="ck_manager">CK Manager</SelectItem>
+                          <SelectItem value="branch_manager">Branch Manager</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -253,16 +267,33 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({ ...p, role: val }))}>
+              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({ ...p, role: val, branch_id: val === 'branch_manager' ? p.branch_id : '' }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="ck_manager">CK Manager</SelectItem>
+                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {newUser.role === 'branch_manager' && (
+              <div className="space-y-2">
+                <Label>Branch *</Label>
+                <Select value={newUser.branch_id} onValueChange={val => setNewUser(p => ({ ...p, branch_id: val }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.branch_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.branch_id && <p className="text-sm text-destructive">{errors.branch_id}</p>}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
