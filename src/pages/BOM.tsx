@@ -509,8 +509,8 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       </Card>
 
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-hidden">
+          <Table className="table-fixed">
             <TableHeader>{simpleTableHeaders}</TableHeader>
             <TableBody>
               {selectedLines.filter(l => !l.stepId).length === 0 && !addingLine && (
