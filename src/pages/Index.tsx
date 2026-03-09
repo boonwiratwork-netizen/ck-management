@@ -58,6 +58,7 @@ const tabLabels: Record<TabKey, string> = {
   store: 'Store',
   'menu-master': 'Menu Master',
   'menu-bom': 'Menu BOM',
+  'sp-bom': 'SP BOM',
 };
 
 // Tabs that CK Manager can fully interact with
