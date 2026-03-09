@@ -157,7 +157,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
               <TableHead>UOM</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Active</TableHead>
-              {canEdit && <TableHead className="w-20">Actions</TableHead>}
+              <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
