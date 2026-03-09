@@ -35,6 +35,7 @@ interface BOMPageProps {
   skus: SKU[];
   prices: Price[];
   readOnly?: boolean;
+  onPricesRefresh?: () => void;
 }
 
 // Uncontrolled input that only fires onChange on blur
