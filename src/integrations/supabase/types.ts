@@ -281,6 +281,57 @@ export type Database = {
           },
         ]
       }
+      menu_bom: {
+        Row: {
+          cost_per_serving: number
+          created_at: string
+          effective_qty: number
+          id: string
+          menu_id: string
+          qty_per_serving: number
+          sku_id: string
+          uom: string
+          yield_pct: number
+        }
+        Insert: {
+          cost_per_serving?: number
+          created_at?: string
+          effective_qty?: number
+          id?: string
+          menu_id: string
+          qty_per_serving?: number
+          sku_id: string
+          uom?: string
+          yield_pct?: number
+        }
+        Update: {
+          cost_per_serving?: number
+          created_at?: string
+          effective_qty?: number
+          id?: string
+          menu_id?: string
+          qty_per_serving?: number
+          sku_id?: string
+          uom?: string
+          yield_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_bom_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_bom_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_categories: {
         Row: {
           created_at: string
