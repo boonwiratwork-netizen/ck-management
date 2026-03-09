@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,23 @@ export default function InitialSetup({ onComplete }: Props) {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.from('user_roles').select('id').eq('role', 'admin').limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          toast.info('Setup already completed. Redirecting to login…');
+          onComplete();
+        } else {
+          setChecking(false);
+        }
+      });
+  }, [onComplete]);
+
+  if (checking) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Checking setup status…</div>;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
