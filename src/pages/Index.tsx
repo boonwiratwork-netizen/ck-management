@@ -69,6 +69,7 @@ const tabLabels: Record<TabKey, string> = {
   'sales-entry': 'Sales Entry',
   'branch-receipt': 'Branch Receipt',
   'daily-stock-count': 'Daily Stock Count',
+  'food-cost': 'Food Cost',
 };
 
 // Tabs that CK Manager can fully interact with
