@@ -46,6 +46,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   'branch-receipt': 'store',
   'daily-stock-count': 'store',
   'food-cost': 'store',
+  'sku-categories': 'management',
 };
 
 interface AppSidebarProps {
