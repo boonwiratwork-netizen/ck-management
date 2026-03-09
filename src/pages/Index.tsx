@@ -44,7 +44,7 @@ import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
