@@ -2,15 +2,18 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'ck_manager' | 'branch_manager';
+export type AppRole = 'management' | 'ck_manager' | 'store_manager' | 'area_manager';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: { full_name: string; status: string; branch_id: string | null } | null;
   role: AppRole | null;
-  isAdmin: boolean;
-  isBranchManager: boolean;
+  isManagement: boolean;
+  isStoreManager: boolean;
+  isAreaManager: boolean;
+  isCkManager: boolean;
+  brandAssignments: string[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -24,15 +27,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<{ full_name: string; status: string; branch_id: string | null } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [brandAssignments, setBrandAssignments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async (userId: string) => {
-    const [profileRes, roleRes] = await Promise.all([
+    const [profileRes, roleRes, brandRes] = await Promise.all([
       supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
       supabase.from('user_roles').select('role').eq('user_id', userId).single(),
+      supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
     ]);
     setProfile(profileRes.data || null);
     setRole((roleRes.data?.role as AppRole) || null);
+    setBrandAssignments((brandRes.data || []).map(b => b.brand));
   };
 
   useEffect(() => {
@@ -41,11 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Use setTimeout to avoid potential deadlock with Supabase auth
           setTimeout(() => fetchUserData(session.user.id), 0);
         } else {
           setProfile(null);
           setRole(null);
+          setBrandAssignments([]);
         }
         setLoading(false);
       }
@@ -75,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRole(null);
+    setBrandAssignments([]);
   };
 
   const resetPassword = async (email: string) => {
@@ -92,8 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         role,
-        isAdmin: role === 'admin',
-        isBranchManager: role === 'branch_manager',
+        isManagement: role === 'management',
+        isStoreManager: role === 'store_manager',
+        isAreaManager: role === 'area_manager',
+        isCkManager: role === 'ck_manager',
+        brandAssignments,
         loading,
         signIn,
         signOut,

@@ -1,50 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, AppRole } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, KeyRound, UserX, UserCheck, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ManagedUser {
   user_id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'ck_manager' | 'branch_manager';
+  role: AppRole;
   status: string;
   created_at: string;
   branch_id: string | null;
+  brand_assignments?: string[];
 }
 
 interface BranchOption {
   id: string;
   branch_name: string;
+  brand_name: string;
 }
+
+const ROLE_OPTIONS: { value: AppRole; label: string }[] = [
+  { value: 'management', label: 'Management' },
+  { value: 'ck_manager', label: 'CK Manager' },
+  { value: 'store_manager', label: 'Store Manager' },
+  { value: 'area_manager', label: 'Area Manager' },
+];
+
+const roleBadgeColors: Record<AppRole, string> = {
+  management: 'bg-gray-800 text-white',
+  ck_manager: 'bg-orange-500 text-white',
+  store_manager: 'bg-blue-500 text-white',
+  area_manager: 'bg-purple-500 text-white',
+};
 
 export default function UserManagement() {
   const { session } = useAuth();
@@ -52,15 +56,19 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState<ManagedUser | null>(null);
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'ck_manager' as string, branch_id: '' });
+  const [newUser, setNewUser] = useState({
+    full_name: '', email: '', password: '',
+    role: 'ck_manager' as AppRole,
+    branch_id: '',
+    brands: [] as string[],
+  });
   const [newPassword, setNewPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
 
   const callAdmin = useCallback(async (body: Record<string, unknown>) => {
-    const { data, error } = await supabase.functions.invoke('admin-create-user', {
-      body,
-    });
+    const { data, error } = await supabase.functions.invoke('admin-create-user', { body });
     if (error) throw new Error(error.message);
     if (data?.error) throw new Error(data.error);
     return data;
@@ -69,7 +77,15 @@ export default function UserManagement() {
   const fetchUsers = useCallback(async () => {
     try {
       const data = await callAdmin({ action: 'list_users' });
-      setUsers(data.users || []);
+      // Fetch brand assignments for all users
+      const { data: allBrands } = await supabase.from('user_brand_assignments').select('*');
+      const usersWithBrands = (data.users || []).map((u: any) => ({
+        ...u,
+        // Map old role names
+        role: u.role === 'admin' ? 'management' : u.role === 'branch_manager' ? 'store_manager' : u.role,
+        brand_assignments: (allBrands || []).filter((b: any) => b.user_id === u.user_id).map((b: any) => b.brand),
+      }));
+      setUsers(usersWithBrands);
     } catch (err: any) {
       toast.error('Failed to load users: ' + err.message);
     } finally {
@@ -80,8 +96,10 @@ export default function UserManagement() {
   useEffect(() => {
     if (session) {
       fetchUsers();
-      supabase.from('branches').select('id, branch_name').then(({ data }) => {
+      supabase.from('branches').select('id, branch_name, brand_name').then(({ data }) => {
         setBranches(data || []);
+        const brands = [...new Set((data || []).map(b => b.brand_name).filter(Boolean))];
+        setAvailableBrands(brands);
       });
     }
   }, [session, fetchUsers]);
@@ -91,15 +109,34 @@ export default function UserManagement() {
     if (!newUser.full_name.trim()) errs.full_name = 'Name is required';
     if (!newUser.email.trim()) errs.email = 'Email is required';
     if (!newUser.password || newUser.password.length < 6) errs.password = 'Password must be at least 6 characters';
-    if (newUser.role === 'branch_manager' && !newUser.branch_id) errs.branch_id = 'Branch is required for Branch Manager';
+    if (newUser.role === 'store_manager' && !newUser.branch_id) errs.branch_id = 'Branch is required for Store Manager';
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     try {
-      await callAdmin({ action: 'create', ...newUser, branch_id: newUser.role === 'branch_manager' ? newUser.branch_id : null });
+      const result = await callAdmin({
+        action: 'create',
+        email: newUser.email,
+        password: newUser.password,
+        full_name: newUser.full_name,
+        role: newUser.role,
+        branch_id: newUser.role === 'store_manager' ? newUser.branch_id : null,
+      });
+
+      // If area_manager, create brand assignments
+      if (newUser.role === 'area_manager' && result.user?.id) {
+        const brandsToAssign = newUser.brands.length > 0 ? newUser.brands : availableBrands;
+        for (const brand of brandsToAssign) {
+          await supabase.from('user_brand_assignments').insert({
+            user_id: result.user.id,
+            brand,
+          });
+        }
+      }
+
       toast.success('User created successfully');
       setCreateOpen(false);
-      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager', branch_id: '' });
+      setNewUser({ full_name: '', email: '', password: '', role: 'ck_manager', branch_id: '', brands: [] });
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -142,6 +179,27 @@ export default function UserManagement() {
     }
   };
 
+  const getAssignmentDisplay = (user: ManagedUser) => {
+    if (user.role === 'store_manager' && user.branch_id) {
+      const branch = branches.find(b => b.id === user.branch_id);
+      return branch?.branch_name || '—';
+    }
+    if (user.role === 'area_manager') {
+      if (!user.brand_assignments || user.brand_assignments.length === 0) return 'All';
+      return user.brand_assignments.join(', ');
+    }
+    return '—';
+  };
+
+  const toggleBrand = (brand: string) => {
+    setNewUser(p => ({
+      ...p,
+      brands: p.brands.includes(brand)
+        ? p.brands.filter(b => b !== brand)
+        : [...p.brands, brand],
+    }));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,6 +220,7 @@ export default function UserManagement() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Assignment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -169,11 +228,11 @@ export default function UserManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Loading…</TableCell>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading…</TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     No users found. Add your first user above.
                   </TableCell>
@@ -188,15 +247,18 @@ export default function UserManagement() {
                         value={u.role}
                         onValueChange={val => handleChangeRole(u, val)}
                       >
-                        <SelectTrigger className="w-[140px] h-8">
+                        <SelectTrigger className="w-[150px] h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="ck_manager">CK Manager</SelectItem>
-                          <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                          {ROLE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {getAssignmentDisplay(u)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.status === 'Active' ? 'default' : 'secondary'}>
@@ -205,16 +267,14 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        size="sm" variant="ghost"
                         onClick={() => { setResetOpen(u); setNewPassword(''); }}
                         title="Reset password"
                       >
                         <KeyRound className="w-4 h-4" />
                       </Button>
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        size="sm" variant="ghost"
                         onClick={() => handleToggleStatus(u)}
                         title={u.status === 'Active' ? 'Deactivate' : 'Activate'}
                       >
@@ -267,18 +327,22 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({ ...p, role: val, branch_id: val === 'branch_manager' ? p.branch_id : '' }))}>
+              <Select value={newUser.role} onValueChange={val => setNewUser(p => ({
+                ...p, role: val as AppRole,
+                branch_id: val === 'store_manager' ? p.branch_id : '',
+                brands: val === 'area_manager' ? p.brands : [],
+              }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="ck_manager">CK Manager</SelectItem>
-                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                  {ROLE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            {newUser.role === 'branch_manager' && (
+            {newUser.role === 'store_manager' && (
               <div className="space-y-2">
                 <Label>Branch *</Label>
                 <Select value={newUser.branch_id} onValueChange={val => setNewUser(p => ({ ...p, branch_id: val }))}>
@@ -292,6 +356,26 @@ export default function UserManagement() {
                   </SelectContent>
                 </Select>
                 {errors.branch_id && <p className="text-sm text-destructive">{errors.branch_id}</p>}
+              </div>
+            )}
+            {newUser.role === 'area_manager' && (
+              <div className="space-y-2">
+                <Label>Brand Access</Label>
+                <p className="text-xs text-muted-foreground">Select brands this user can access. Leave empty for all brands.</p>
+                <div className="space-y-2 mt-2">
+                  {availableBrands.map(brand => (
+                    <label key={brand} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={newUser.brands.includes(brand)}
+                        onCheckedChange={() => toggleBrand(brand)}
+                      />
+                      <span className="text-sm">{brand}</span>
+                    </label>
+                  ))}
+                  {availableBrands.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No brands found. Add branches with brand names first.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

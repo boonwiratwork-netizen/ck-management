@@ -28,7 +28,7 @@ interface MenuMasterPageProps {
 
 export default function MenuMasterPage({ menuData, branches }: MenuMasterPageProps) {
   const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu } = menuData;
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { categories, addCategory, deleteCategory } = useMenuCategories();
 
   const [newCatInput, setNewCatInput] = useState('');
@@ -47,7 +47,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   // Branch manager sees only their branch
   const visibleMenus = useMemo(() => {
     let result = menus;
-    if (isBranchManager && profile?.branch_id) {
+    if (isStoreManager && profile?.branch_id) {
       result = result.filter(m => m.branchId === profile.branch_id);
     }
     if (search) {
@@ -58,7 +58,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     if (filterStatus !== 'all') result = result.filter(m => m.status === filterStatus);
     if (filterBranch !== 'all') result = result.filter(m => m.branchId === filterBranch);
     return result;
-  }, [menus, isBranchManager, profile, search, filterCategory, filterStatus, filterBranch]);
+  }, [menus, isStoreManager, profile, search, filterCategory, filterStatus, filterBranch]);
 
   // Summary
   const total = visibleMenus.length;
@@ -124,7 +124,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     return branches.find(b => b.id === branchId)?.branchName || '—';
   };
 
-  const canEdit = isAdmin;
+  const canEdit = isManagement;
 
   return (
     <div className="space-y-6">
@@ -189,7 +189,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
             <SelectItem value="Inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        {isAdmin && (
+        {isManagement && (
           <Select value={filterBranch} onValueChange={setFilterBranch}>
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="Branch" /></SelectTrigger>
             <SelectContent>
@@ -278,7 +278,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                 <SelectContent>
                   <SelectItem value="__none">— Select —</SelectItem>
                   {categoryNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  {isAdmin && (
+                  {isManagement && (
                     <>
                       <Separator className="my-1" />
                       {showAddCat ? (

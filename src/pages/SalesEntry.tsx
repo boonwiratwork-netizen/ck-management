@@ -32,17 +32,17 @@ interface SalesEntryPageProps {
 }
 
 export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {
-    if (isAdmin) return branches.filter(b => b.status === 'Active');
-    if (isBranchManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [branches, isAdmin, isBranchManager, profile]);
+    if (isManagement) return branches.filter(b => b.status === 'Active');
+    if (isStoreManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
+    return branches.filter(b => b.status === 'Active');
+  }, [branches, isManagement, isStoreManager, profile]);
 
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
 
   const [pastedText, setPastedText] = useState('');
@@ -297,7 +297,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
         <CardContent className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap items-end gap-3">
-            {isAdmin && (
+            {isManagement && (
               <div>
                 <label className="text-xs text-muted-foreground">Branch</label>
                 <Select value={filterBranch} onValueChange={setFilterBranch}>
@@ -353,7 +353,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
                     <TableHead className="text-right table-header">Net Amount</TableHead>
                     <TableHead className="table-header">Channel</TableHead>
                     <TableHead className="table-header">Branch</TableHead>
-                    {isAdmin && <TableHead className="w-10 table-header" />}
+                    {isManagement && <TableHead className="w-10 table-header" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -378,7 +378,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
                       <TableCell className="text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</TableCell>
                       <TableCell>{e.channel}</TableCell>
                       <TableCell>{branchMap[e.branchId] || '-'}</TableCell>
-                      {isAdmin && (
+                      {isManagement && (
                         <TableCell>
                           <TooltipProvider>
                             <Tooltip>

@@ -16,11 +16,11 @@ interface StoreOverviewProps {
 }
 
 export default function StoreOverview({ branches, onNavigate }: StoreOverviewProps) {
-  const { profile, isBranchManager } = useAuth();
+  const { profile, isStoreManager } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
-  const branchId = isBranchManager ? profile?.branch_id : null;
+  const branchId = isStoreManager ? profile?.branch_id : null;
   const branchName = useMemo(() => {
     if (!branchId) return 'All Branches';
     return branches.find(b => b.id === branchId)?.branchName || 'Your Branch';

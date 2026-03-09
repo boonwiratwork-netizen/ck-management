@@ -128,12 +128,12 @@ function SkuCombobox({ value, onSelect, skus }: { value: string; onSelect: (id: 
 }
 
 export default function BranchReceiptPage({ skus, prices, branches, suppliers = [] }: Props) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const { receipts, saveReceipts, deleteReceipt } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
@@ -149,10 +149,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
   const availableBranches = useMemo(() => {
-    if (isAdmin) return activeBranches;
-    if (isBranchManager && profile?.branch_id) return activeBranches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [isAdmin, isBranchManager, profile, activeBranches]);
+    if (isManagement) return activeBranches;
+    if (isStoreManager && profile?.branch_id) return activeBranches.filter(b => b.id === profile.branch_id);
+    return activeBranches;
+  }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const getStdUnitPrice = useCallback((skuId: string): number => {
     const active = prices.find(p => p.skuId === skuId && p.isActive);
@@ -223,12 +223,12 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const filteredHistory = useMemo(() => {
     return receipts.filter(r => {
       if (historyBranch !== 'all' && r.branchId !== historyBranch) return false;
-      if (isBranchManager && profile?.branch_id && r.branchId !== profile.branch_id) return false;
+      if (isStoreManager && profile?.branch_id && r.branchId !== profile.branch_id) return false;
       if (historyDateFrom && r.receiptDate < format(historyDateFrom, 'yyyy-MM-dd')) return false;
       if (historyDateTo && r.receiptDate > format(historyDateTo, 'yyyy-MM-dd')) return false;
       return true;
     });
-  }, [receipts, historyBranch, historyDateFrom, historyDateTo, isBranchManager, profile]);
+  }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
   const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
@@ -263,7 +263,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
-          <Select value={branchId || '_none'} onValueChange={v => setBranchId(v === '_none' ? '' : v)} disabled={isBranchManager}>
+          <Select value={branchId || '_none'} onValueChange={v => setBranchId(v === '_none' ? '' : v)} disabled={isStoreManager}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select branch" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">— Select —</SelectItem>
@@ -413,7 +413,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </PopoverContent>
             </Popover>
           </div>
-          {isAdmin && (
+          {isManagement && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>
               <Select value={historyBranch} onValueChange={setHistoryBranch}>
@@ -441,8 +441,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <th className={`${thClass} text-right`}>Actual Total ฿</th>
                   <th className={`${thClass} text-right`}>Std Total ฿</th>
                   <th className={`${thClass} text-right`}>Variance</th>
-                  {isAdmin && <th className={thClass}>Branch</th>}
-                  {isAdmin && <th className={`${thClass} text-center`}></th>}
+                  {isManagement && <th className={thClass}>Branch</th>}
+                  {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -462,8 +462,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       <td className={`${tdReadOnly} text-right font-mono font-semibold ${r.priceVariance > 0 ? 'text-destructive' : 'text-green-600'}`}>
                         {r.priceVariance > 0 ? '+' : ''}฿{r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
-                      {isAdmin && <td className={tdReadOnly}>{branch?.branchName || '—'}</td>}
-                      {isAdmin && (
+                      {isManagement && <td className={tdReadOnly}>{branch?.branchName || '—'}</td>}
+                      {isManagement && (
                         <td className={`${tdReadOnly} text-center`}>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { deleteReceipt(r.id); toast.success('Deleted'); }}>
                             <Trash2 className="w-3.5 h-3.5" />

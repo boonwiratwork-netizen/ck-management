@@ -67,14 +67,14 @@ interface MenuBreakdown {
 export default function FoodCostPage({
   skus, prices, menus, menuBomLines, modifierRules, spBomLines, branches, suppliers,
 }: FoodCostPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const today = new Date();
 
   const [preset, setPreset] = useState<DatePreset>('today');
   const [dateFrom, setDateFrom] = useState<Date>(today);
   const [dateTo, setDateTo] = useState<Date>(today);
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : 'all'
+    isStoreManager && profile?.branch_id ? profile.branch_id : 'all'
   );
   const [loading, setLoading] = useState(false);
   const [calculated, setCalculated] = useState(false);
@@ -386,10 +386,10 @@ export default function FoodCostPage({
             {/* Branch */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Branch</label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isBranchManager}>
+              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isStoreManager}>
                 <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">All Branches</SelectItem>}
+                  {isManagement && <SelectItem value="all">All Branches</SelectItem>}
                   {activeBranches.map(b => (
                     <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
                   ))}

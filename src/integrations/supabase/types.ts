@@ -1124,6 +1124,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_brand_assignments: {
+        Row: {
+          brand: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          brand: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          brand?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1156,7 +1177,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "ck_manager" | "branch_manager"
+      app_role:
+        | "admin"
+        | "ck_manager"
+        | "branch_manager"
+        | "management"
+        | "store_manager"
+        | "area_manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1284,7 +1311,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "ck_manager", "branch_manager"],
+      app_role: [
+        "admin",
+        "ck_manager",
+        "branch_manager",
+        "management",
+        "store_manager",
+        "area_manager",
+      ],
     },
   },
 } as const

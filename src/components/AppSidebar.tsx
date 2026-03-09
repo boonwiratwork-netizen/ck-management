@@ -16,12 +16,11 @@ import {
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
   Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, AppRole } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 
 export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost';
 
-// Which context each tab belongs to
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
 export const tabContextMap: Record<TabKey, TabContext> = {
@@ -121,34 +120,39 @@ const managementGroup: NavGroup = {
 };
 
 const roleLabels: Record<string, string> = {
-  admin: 'Admin',
+  management: 'Management',
   ck_manager: 'CK Manager',
-  branch_manager: 'Branch Mgr',
+  store_manager: 'Store Manager',
+  area_manager: 'Area Manager',
 };
 
-export function getDefaultTab(role: string | null, isBranchManager: boolean): TabKey {
-  if (isBranchManager) return 'daily-stock-count';
-  if (role === 'ck_manager') return 'receipt';
-  return 'dashboard'; // admin
+export function getDefaultTab(role: AppRole | null): TabKey {
+  switch (role) {
+    case 'store_manager': return 'daily-stock-count';
+    case 'ck_manager': return 'receipt';
+    case 'area_manager': return 'food-cost';
+    case 'management':
+    default:
+      return 'dashboard';
+  }
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { profile, role, isAdmin, isBranchManager, signOut } = useAuth();
+  const { profile, role, isManagement, signOut } = useAuth();
 
   // Build groups based on role
   const allGroups: NavGroup[] = [];
 
-  if (isAdmin) {
-    // Admin sees everything
+  if (isManagement) {
     allGroups.push(overviewGroup, masterDataGroup, ckGroup, storeGroup, managementGroup);
-  } else if (isBranchManager) {
-    // Branch Manager: ONLY Store + Management (no CK at all)
-    allGroups.push(storeGroup, managementGroup);
-  } else {
-    // CK Manager: ONLY CK sections + Management (no Store at all)
-    allGroups.push(overviewGroup, masterDataGroup, ckGroup, managementGroup);
+  } else if (role === 'ck_manager') {
+    // CK Manager: ONLY CK sections (no Store, no Management)
+    allGroups.push(overviewGroup, masterDataGroup, ckGroup);
+  } else if (role === 'store_manager' || role === 'area_manager') {
+    // Store Manager / Area Manager: ONLY Store section
+    allGroups.push(storeGroup);
   }
 
   const initials = (profile?.full_name || 'U')
@@ -160,7 +164,6 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
-      {/* Logo area */}
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-sm">
@@ -175,10 +178,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         </div>
       </SidebarHeader>
 
-      {/* Navigation */}
       <SidebarContent className="px-2 py-2">
         {allGroups.map((group, groupIdx) => {
-          // Add a strong divider between CK and Store sections (for admin)
           const prevGroup = groupIdx > 0 ? allGroups[groupIdx - 1] : null;
           const showDivider = prevGroup &&
             ((prevGroup.section === 'ck' && group.section === 'store') ||
@@ -227,7 +228,6 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         })}
       </SidebarContent>
 
-      {/* Footer */}
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed ? (
           <div className="space-y-3">

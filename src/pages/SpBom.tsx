@@ -30,8 +30,8 @@ interface SpBomPageProps {
 }
 
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false }: SpBomPageProps) {
-  const { isAdmin } = useAuth();
-  const canEdit = isAdmin && !readOnly;
+  const { isManagement } = useAuth();
+  const canEdit = isManagement && !readOnly;
 
   const [selectedSpId, setSelectedSpId] = useState<string | null>(null);
   const [spSearch, setSpSearch] = useState('');

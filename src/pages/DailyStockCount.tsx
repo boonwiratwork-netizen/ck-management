@@ -30,12 +30,12 @@ interface DailyStockCountPageProps {
 export default function DailyStockCountPage({
   skus, menuBomLines, modifierRules, spBomLines, menus, branches,
 }: DailyStockCountPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [showUnused, setShowUnused] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
@@ -48,10 +48,10 @@ export default function DailyStockCountPage({
   } = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
 
   const availableBranches = useMemo(() => {
-    if (isAdmin) return branches.filter(b => b.status === 'Active');
-    if (isBranchManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
-    return [];
-  }, [branches, isAdmin, isBranchManager, profile]);
+    if (isManagement) return branches.filter(b => b.status === 'Active');
+    if (isStoreManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
+    return branches.filter(b => b.status === 'Active');
+  }, [branches, isManagement, isStoreManager, profile]);
 
   useEffect(() => {
     if (selectedBranch && selectedDate) {
@@ -199,7 +199,7 @@ export default function DailyStockCountPage({
               — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ''}
             </span>
           </div>
-          {isAdmin && (
+          {isManagement && (
             <Button variant="outline" size="sm" onClick={handleUnlock}>
               <Unlock className="w-4 h-4" /> Unlock
             </Button>
