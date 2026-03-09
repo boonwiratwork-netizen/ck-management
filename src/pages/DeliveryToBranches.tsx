@@ -295,22 +295,22 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>
-                      <Select value={draft.branchName || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v === '_none' ? '' : v)}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Branch" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {activeBranches.map(b => <SelectItem key={b.id} value={b.branchName}>{b.branchName} — {b.brandName}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={draft.branchName}
+                        onValueChange={v => handleUpdateDraft(draft.tempId, 'branchName', v)}
+                        options={activeBranches.map(b => ({ value: b.branchName, label: `${b.branchName} — ${b.brandName}` }))}
+                        placeholder="Select Branch"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
-                      <Select value={draft.smSkuId || '_none'} onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v === '_none' ? '' : v)}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select SM SKU" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">— Select —</SelectItem>
-                          {smSkus.map(s => <SelectItem key={s.id} value={s.id}>{s.skuId} — {s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={draft.smSkuId}
+                        onValueChange={v => handleUpdateDraft(draft.tempId, 'smSkuId', v)}
+                        options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                        placeholder="Select SM SKU"
+                        triggerClassName="h-8 text-xs"
+                      />
                     </td>
                     <td className={tdClass}>
                       <Input type="number" min={0} step="any" value={draft.qtyDeliveredKg || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredKg', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
