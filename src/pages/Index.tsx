@@ -85,7 +85,7 @@ const Index = () => {
     addSmAdjustment: smStockData.addAdjustment,
     getStdUnitPrice: stockData.getStdUnitPrice,
   });
-  const { skus, addSku, updateSku, deleteSku } = skuData;
+  const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>(isBranchManager ? 'store' : 'dashboard');
@@ -153,31 +153,28 @@ const Index = () => {
     return { valid, errors, skipped };
   }, [skus]);
 
-  const handleSkuCsvConfirm = useCallback((rows: Record<string, string>[]) => {
-    let count = 0;
-    rows.forEach(row => {
-      addSku({
-        name: row['Name']?.trim() || '',
-        type: (row['Type']?.trim().toUpperCase() || 'RM') as any,
-        category: (row['Category']?.trim().toUpperCase() || 'MT') as any,
-        status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
-        specNote: row['Spec Note']?.trim() || '',
-        packSize: Number(row['Pack Size']) || 1,
-        packUnit: row['Pack Unit']?.trim() || '',
-        purchaseUom: row['Purchase UOM']?.trim() || '',
-        usageUom: row['Usage UOM']?.trim() || '',
-        converter: Number(row['Converter']) || 1,
-        storageCondition: (['Frozen', 'Chilled', 'Ambient'].includes(row['Storage Condition']?.trim()) ? row['Storage Condition']?.trim() : 'Ambient') as any,
-        shelfLife: Number(row['Shelf Life']) || 0,
-        vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
-        supplier1: '',
-        supplier2: '',
-        leadTime: Number(row['Lead Time']) || 0,
-      });
-      count++;
-    });
-    toast.success(`${count} SKUs imported successfully`);
-  }, [addSku]);
+  const handleSkuCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    const skuRows: Omit<SKU, 'id' | 'skuId'>[] = rows.map(row => ({
+      name: row['Name']?.trim() || '',
+      type: (row['Type']?.trim().toUpperCase() || 'RM') as any,
+      category: (row['Category']?.trim().toUpperCase() || 'MT') as any,
+      status: row['Status']?.trim() === 'Inactive' ? 'Inactive' : 'Active',
+      specNote: row['Spec Note']?.trim() || '',
+      packSize: Number(row['Pack Size']) || 1,
+      packUnit: row['Pack Unit']?.trim() || '',
+      purchaseUom: row['Purchase UOM']?.trim() || '',
+      usageUom: row['Usage UOM']?.trim() || '',
+      converter: Number(row['Converter']) || 1,
+      storageCondition: (['Frozen', 'Chilled', 'Ambient'].includes(row['Storage Condition']?.trim()) ? row['Storage Condition']?.trim() : 'Ambient') as any,
+      shelfLife: Number(row['Shelf Life']) || 0,
+      vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
+      supplier1: '',
+      supplier2: '',
+      leadTime: Number(row['Lead Time']) || 0,
+    }));
+    const count = await bulkAddSkus(skuRows);
+    if (count) toast.success(`${count} SKUs imported successfully`);
+  }, [bulkAddSkus]);
 
   const activeSuppliers = useMemo(
     () => supplierData.suppliers.filter(s => s.status === 'Active'),
