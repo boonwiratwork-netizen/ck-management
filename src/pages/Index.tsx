@@ -356,6 +356,15 @@ const Index = () => {
                 />
               ) : activeTab === 'sales-entry' ? (
                 <SalesEntryPage branches={branchData.branches} />
+              ) : activeTab === 'daily-stock-count' ? (
+                <DailyStockCountPage
+                  skus={skus}
+                  menuBomLines={menuBomData.lines}
+                  modifierRules={modifierRuleData.rules}
+                  spBomLines={spBomData.lines}
+                  menus={menuData.menus}
+                  branches={branchData.branches}
+                />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
