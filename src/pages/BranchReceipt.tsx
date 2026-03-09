@@ -263,7 +263,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
-          <Select value={branchId || '_none'} onValueChange={v => setBranchId(v === '_none' ? '' : v)} disabled={isBranchManager}>
+          <Select value={branchId || '_none'} onValueChange={v => setBranchId(v === '_none' ? '' : v)} disabled={isStoreManager}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select branch" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">— Select —</SelectItem>
