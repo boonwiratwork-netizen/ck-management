@@ -66,6 +66,7 @@ const tabLabels: Record<TabKey, string> = {
   'sp-bom': 'SP BOM',
   'modifier-rules': 'Modifier Rules',
   'sales-entry': 'Sales Entry',
+  'branch-receipt': 'Branch Receipt',
   'daily-stock-count': 'Daily Stock Count',
 };
 
