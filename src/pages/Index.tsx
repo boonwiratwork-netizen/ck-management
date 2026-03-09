@@ -86,10 +86,14 @@ const Index = () => {
   // Check if current tab is read-only for CK Manager
   const isReadOnly = !isAdmin && ckManagerReadOnly.includes(activeTab);
 
-  // Redirect CK Manager from admin-only tabs
+  // Access control for tab changes
   const handleTabChange = (tab: TabKey) => {
     if (!isAdmin && tab === 'users') {
       toast.error('Access denied: Admin only');
+      return;
+    }
+    if (isBranchManager && tab !== 'store') {
+      toast.error('Access denied');
       return;
     }
     setActiveTab(tab);
