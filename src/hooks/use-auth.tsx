@@ -7,7 +7,7 @@ type AppRole = 'admin' | 'ck_manager' | 'branch_manager';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: { full_name: string; status: string } | null;
+  profile: { full_name: string; status: string; branch_id: string | null } | null;
   role: AppRole | null;
   isAdmin: boolean;
   loading: boolean;
