@@ -79,12 +79,23 @@ const settingsGroup = {
   ],
 };
 
+const storeGroup = {
+  label: 'Store',
+  items: [
+    { key: 'store' as TabKey, label: 'Store', icon: Store },
+  ],
+};
+
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { profile, role, isAdmin, signOut } = useAuth();
+  const { profile, role, isAdmin, isBranchManager, signOut } = useAuth();
 
-  const allGroups = isAdmin ? [...navGroups, settingsGroup] : navGroups;
+  const allGroups = isBranchManager
+    ? [storeGroup]
+    : isAdmin
+      ? [...navGroups, settingsGroup]
+      : navGroups;
 
   return (
     <Sidebar collapsible="icon">
