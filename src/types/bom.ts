@@ -49,3 +49,4 @@ export const EMPTY_BOM_STEP: Omit<BOMStep, 'id' | 'bomHeaderId'> = {
   stepName: '',
   yieldPercent: 1.0,
 };
+
