@@ -201,7 +201,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
                   </tr>
                 </thead>
                 <tbody>
-                  {activeSkus
+                  {activeRmPkSkus
                     .filter(s => !pricedSkuIds.has(s.id))
                     .sort((a, b) => a.skuId.localeCompare(b.skuId))
                     .map((sku, idx) => (
