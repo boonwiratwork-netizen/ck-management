@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { SKU, SKUType } from '@/types/sku';
 import { useSpBomData } from '@/hooks/use-sp-bom-data';
 import { useModifierRuleData } from '@/hooks/use-modifier-rule-data';
