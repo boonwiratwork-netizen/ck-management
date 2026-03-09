@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         role,
         isAdmin: role === 'admin',
+        isBranchManager: role === 'branch_manager',
         loading,
         signIn,
         signOut,
