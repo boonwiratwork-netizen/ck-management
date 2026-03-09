@@ -483,6 +483,9 @@ const Index = () => {
             activeSuppliers={activeSuppliers}
             isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
             allSkus={skus}
+            skuCategories={skuCategoryData.categories}
+            onAddCategory={skuCategoryData.addCategory}
+            onManageCategories={() => handleTabChange('sku-categories')}
           />
 
           <ConfirmDialog
