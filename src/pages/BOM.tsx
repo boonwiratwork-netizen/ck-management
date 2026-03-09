@@ -544,14 +544,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                       {rmSku?.skuId ?? '—'}
                       {renderTypeBadge(line.rmSkuId)}
                     </TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
-                        </TooltipTrigger>
-                        <TooltipContent>{rmSku?.name}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <TableCell className="text-sm truncate overflow-hidden" title={rmSku?.name ?? '—'}>
+                      {rmSku?.name ?? '—'}
+                    </TableCell>
                     <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
                     <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
                     <TableCell className="text-sm text-right font-mono">100%</TableCell>
