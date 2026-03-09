@@ -5,13 +5,14 @@ import { Menu } from '@/types/menu';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, FlaskConical, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ModifierRulesPageProps {
@@ -35,6 +36,9 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
   const [editingRule, setEditingRule] = useState<ModifierRule | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testInput, setTestInput] = useState('');
+  const [testResults, setTestResults] = useState<{ rule: ModifierRule; sku: SKU | undefined }[]>([]);
 
   // Form state
   const [formKeyword, setFormKeyword] = useState('');
@@ -153,7 +157,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
               <TableHead>UOM</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Active</TableHead>
-              {canEdit && <TableHead className="w-20">Actions</TableHead>}
+              <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,18 +191,27 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
                         {rule.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(rule)}>
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: rule.id, name: rule.keyword })}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Test rule" onClick={() => {
+                          setTestInput('');
+                          setTestResults([]);
+                          setTestModalOpen(true);
+                        }}>
+                          <FlaskConical className="w-3.5 h-3.5" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(rule)}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: rule.id, name: rule.keyword })}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -302,6 +315,59 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmit}>{editingRule ? 'Update' : 'Add'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Rule Modal */}
+      <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-4 h-4" /> Test modifier rules
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Paste a menu name string to test</label>
+              <Textarea
+                value={testInput}
+                onChange={e => setTestInput(e.target.value)}
+                placeholder='e.g. "ชิโอะ ราเมน เส้นโฮมเมด"'
+                rows={3}
+                className="text-sm"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!testInput.trim()) { toast.error('Enter a menu name string'); return; }
+                const matched = ruleData.rules.filter(r => r.isActive && testInput.includes(r.keyword));
+                setTestResults(matched.map(r => ({ rule: r, sku: getSkuById(r.skuId) })));
+              }}
+            >
+              Run test
+            </Button>
+            {testResults.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> {testResults.length} rule(s) matched
+                </p>
+                {testResults.map(({ rule, sku }) => (
+                  <div key={rule.id} className="rounded-md border p-2.5 text-sm space-y-0.5">
+                    <p><span className="font-medium">Keyword:</span> "{rule.keyword}"</p>
+                    <p><span className="font-medium">Adds:</span> {rule.qtyPerMatch} {rule.uom} of {sku?.skuId} ({sku?.name})</p>
+                  </div>
+                ))}
+              </div>
+            ) : testInput.trim() && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <XCircle className="w-4 h-4" /> No rules matched this string
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestModalOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -125,11 +125,18 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
 
     if (mapped.length === 0) { toast.error('No valid rows found'); setImporting(false); return; }
 
+    const totalImportRevenue = mapped.reduce((s, r) => s + r.netAmount, 0);
     const result = await bulkInsert(selectedBranch, mapped);
     if (result) {
       setImportResult({ inserted: result.inserted, skipped: result.skipped });
-      if (result.inserted > 0) toast.success(`${result.inserted} rows imported successfully`);
-      if (result.skipped > 0) toast.warning(`${result.skipped} duplicate rows skipped`);
+      const revStr = `฿${totalImportRevenue.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (result.inserted > 0) {
+        const parts = [`${result.inserted} rows imported`, revStr + ' total revenue'];
+        if (result.skipped > 0) parts.push(`${result.skipped} duplicates skipped`);
+        toast.success(parts.join(' · '));
+      } else if (result.skipped > 0) {
+        toast.warning(`${result.skipped} duplicate rows skipped`);
+      }
       setPastedText('');
       setParsedRows([]);
       fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);

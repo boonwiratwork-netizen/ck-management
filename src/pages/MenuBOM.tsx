@@ -187,10 +187,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{m.menuCode}</p>
-                      <p className="text-xs text-muted-foreground">{m.menuName}</p>
+                      <p className="text-sm font-medium">{m.menuCode} <span className="font-normal text-muted-foreground">{m.menuName}</span></p>
+                      <p className="text-xs text-muted-foreground">
+                        {menuBomData.getLinesForMenu(m.id).length} ingredients · {getBranchName(m.branchId)}
+                      </p>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{getBranchName(m.branchId)}</span>
                   </div>
                 </button>
               ))}
@@ -258,8 +259,16 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                     <TableBody>
                       {selectedLines.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={canEdit ? 9 : 8} className="text-center text-muted-foreground py-8">
-                            No ingredients yet
+                          <TableCell colSpan={canEdit ? 9 : 8} className="py-12">
+                            <div className="text-center space-y-3">
+                              <UtensilsCrossed className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                              <p className="text-muted-foreground">No ingredients added yet</p>
+                              {canEdit && (
+                                <Button size="sm" variant="outline" onClick={openAddModal}>
+                                  <Plus className="w-4 h-4 mr-1" /> Add first ingredient
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ) : (

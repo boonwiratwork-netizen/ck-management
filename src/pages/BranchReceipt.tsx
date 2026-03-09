@@ -12,6 +12,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Plus, Save, Trash2, ChevronsUpDown, Check } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -136,6 +137,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [quickRepeatSupplier, setQuickRepeatSupplier] = useState(false);
 
   // History filters
   const [historyDateFrom, setHistoryDateFrom] = useState<Date | undefined>(undefined);
@@ -168,7 +170,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     return '';
   }, [prices, supplierMap]);
 
-  const handleAddRow = useCallback(() => setDrafts(prev => [...prev, createEmptyDraft()]), []);
+  const handleAddRow = useCallback(() => setDrafts(prev => {
+    const newDraft = createEmptyDraft();
+    if (quickRepeatSupplier && prev.length > 0) {
+      newDraft.supplierName = prev[prev.length - 1].supplierName;
+    }
+    return [...prev, newDraft];
+  }), [quickRepeatSupplier]);
   const handleDeleteDraft = useCallback((tempId: string) => setDrafts(prev => prev.filter(d => d.tempId !== tempId)), []);
 
   const handleUpdateDraft = useCallback((tempId: string, field: keyof DraftRow, value: any) => {
@@ -272,6 +280,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           </Select>
         </div>
         <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
+        <div className="flex items-center gap-2 ml-2">
+          <Switch checked={quickRepeatSupplier} onCheckedChange={setQuickRepeatSupplier} id="quick-supplier" />
+          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Repeat supplier</label>
+        </div>
         {drafts.length > 0 && (
           <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
         )}
@@ -365,16 +377,32 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     </tr>
                   );
                 })}
-                {/* Running total */}
-                {drafts.length > 0 && (
-                  <tr className="border-t-2 bg-muted/30 font-medium">
-                    <td colSpan={5} className="px-3 py-2 text-right text-xs text-muted-foreground">Running Total →</td>
-                    <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
-                      ฿{drafts.reduce((s, d) => s + d.actualTotalPaid, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td colSpan={6}></td>
-                  </tr>
-                )}
+                {/* Running totals */}
+                {drafts.length > 0 && (() => {
+                  const runActual = drafts.reduce((s, d) => s + d.actualTotalPaid, 0);
+                  const runStd = drafts.reduce((s, d) => {
+                    const std = d.skuId ? getStdUnitPrice(d.skuId) : 0;
+                    return s + d.qtyReceived * std;
+                  }, 0);
+                  const runVar = runActual - runStd;
+                  return (
+                    <tr className="border-t-2 bg-muted/30 font-medium">
+                      <td colSpan={5} className="px-3 py-2 text-right text-xs text-muted-foreground">Running Total →</td>
+                      <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
+                        ฿{runActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td></td>
+                      <td></td>
+                      <td className="px-1.5 py-2 text-right text-xs font-mono font-bold">
+                        ฿{runStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-1.5 py-2 text-right text-xs font-mono font-bold ${runVar > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        {runVar > 0 ? '+' : ''}฿{runVar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

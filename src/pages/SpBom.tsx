@@ -236,25 +236,28 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false }:
 
                   {/* Batch yield row */}
                   <div className="flex items-center gap-2 text-sm border-t pt-3">
-                    <span className="text-muted-foreground">Batch yield:</span>
                     {editingYield && canEdit ? (
                       <>
-                        <span className="text-muted-foreground">1 batch produces</span>
+                        <span className="text-muted-foreground font-medium">1 batch produces</span>
                         <Input
                           type="number"
                           min={0.01}
                           step="any"
                           value={yieldQty || ''}
                           onChange={e => setYieldQty(Number(e.target.value))}
-                          className="h-7 w-20 text-sm"
+                          className="h-8 w-20 text-sm"
+                          placeholder="e.g. 30"
                         />
                         <Input
                           value={yieldUom}
                           onChange={e => setYieldUom(e.target.value)}
-                          placeholder="uom"
-                          className="h-7 w-24 text-sm"
+                          placeholder="e.g. ฟอง, g, portion"
+                          className="h-8 w-32 text-sm"
                         />
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                          if (!yieldUom.trim()) { toast.error('UOM is required for batch yield'); return; }
+                          saveYield();
+                        }}>
                           <Check className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingYield(false)}>
@@ -263,9 +266,11 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false }:
                       </>
                     ) : (
                       <>
-                        <span className="font-medium">
-                          1 batch produces {currentBatchYieldQty} {currentBatchYieldUom || '—'}
-                        </span>
+                        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5">
+                          <span className="text-muted-foreground">1 batch produces</span>
+                          <span className="font-bold text-base">{currentBatchYieldQty}</span>
+                          <span className="font-medium">{currentBatchYieldUom || <span className="text-destructive text-xs">⚠️ No UOM set</span>}</span>
+                        </div>
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={startEditYield}>
                             <Edit2 className="w-3.5 h-3.5" />
