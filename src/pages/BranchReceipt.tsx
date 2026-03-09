@@ -413,7 +413,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </PopoverContent>
             </Popover>
           </div>
-          {isAdmin && (
+          {isManagement && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>
               <Select value={historyBranch} onValueChange={setHistoryBranch}>
