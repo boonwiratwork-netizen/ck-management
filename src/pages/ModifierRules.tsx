@@ -191,18 +191,27 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
                         {rule.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(rule)}>
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: rule.id, name: rule.keyword })}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Test rule" onClick={() => {
+                          setTestInput('');
+                          setTestResults([]);
+                          setTestModalOpen(true);
+                        }}>
+                          <FlaskConical className="w-3.5 h-3.5" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(rule)}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: rule.id, name: rule.keyword })}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
