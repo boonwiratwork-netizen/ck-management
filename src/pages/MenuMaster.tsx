@@ -29,7 +29,10 @@ interface MenuMasterPageProps {
 export default function MenuMasterPage({ menuData, branches }: MenuMasterPageProps) {
   const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu } = menuData;
   const { isAdmin, isBranchManager, profile } = useAuth();
+  const { categories, addCategory, deleteCategory } = useMenuCategories();
 
+  const [newCatInput, setNewCatInput] = useState('');
+  const [showAddCat, setShowAddCat] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Menu | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
