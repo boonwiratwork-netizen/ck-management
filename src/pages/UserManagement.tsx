@@ -52,9 +52,10 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState<ManagedUser | null>(null);
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'ck_manager' as string });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'ck_manager' as string, branch_id: '' });
   const [newPassword, setNewPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<BranchOption[]>([]);
 
   const callAdmin = useCallback(async (body: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
