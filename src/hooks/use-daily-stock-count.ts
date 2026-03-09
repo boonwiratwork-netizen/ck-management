@@ -61,7 +61,6 @@ export function useDailyStockCount({
     const branch = branches.find(b => b.id === branchId);
     const branchName = branch?.branchName || '';
 
-    // Branch receipts (external) - by branch_id + receipt_date
     const { data: brData } = await supabase
       .from('branch_receipts')
       .select('sku_id, qty_received')
@@ -73,7 +72,6 @@ export function useDailyStockCount({
       extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
     });
 
-    // CK deliveries - by branch_name + delivery_date
     const { data: dlData } = await supabase
       .from('deliveries')
       .select('sm_sku_id, qty_delivered_kg')
@@ -88,48 +86,8 @@ export function useDailyStockCount({
     return { extBySku, ckBySku };
   }, [branches]);
 
-  // Load existing count sheet — recalculate received columns live
-  const loadSheet = useCallback(async (branchId: string, date: string) => {
-    setLoading(true);
-    const [sheetResult, receipts] = await Promise.all([
-      supabase.from('daily_stock_counts').select('*').eq('branch_id', branchId).eq('count_date', date).order('created_at'),
-      fetchReceiptTotals(branchId, date),
-    ]);
-    setLoading(false);
-    if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
-    const data = sheetResult.data || [];
-    
-    // Patch rows with live receipt data and recalc balance/variance
-    const patched = data.map(r => {
-      const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
-      const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
-      const calcBalance = Number(r.opening_balance) + ck + ext - Number(r.expected_usage);
-      const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
-      return { ...r, received_external: ext, received_from_ck: ck, calculated_balance: calcBalance, variance };
-    });
-    
-    // Update DB in background for any changed rows
-    const updates = patched.filter((p, i) => 
-      p.received_external !== Number(data[i].received_external) ||
-      p.received_from_ck !== Number(data[i].received_from_ck)
-    );
-    if (updates.length > 0) {
-      for (const u of updates) {
-        supabase.from('daily_stock_counts').update({
-          received_external: u.received_external,
-          received_from_ck: u.received_from_ck,
-          calculated_balance: u.calculated_balance,
-          variance: u.variance,
-        }).eq('id', u.id).then(() => {});
-      }
-    }
-    
-    setRows(patched.map(toLocal));
-  }, [fetchReceiptTotals]);
-
-  // Calculate expected usage from sales data
+  // Calculate expected usage from sales data × current BOM
   const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
-    // Step 1: Get sales entries for branch + date
     const { data: salesData } = await supabase
       .from('sales_entries')
       .select('*')
@@ -139,7 +97,6 @@ export function useDailyStockCount({
     const sales = salesData || [];
     if (sales.length === 0) return {};
 
-    // Build lookup maps
     const menuByCode = new Map<string, Menu>();
     menus.forEach(m => menuByCode.set(m.menuCode, m));
     
@@ -167,7 +124,6 @@ export function useDailyStockCount({
       usage[skuId] = (usage[skuId] || 0) + qty;
     };
 
-    // Step 2: For each sales row
     for (const sale of sales) {
       const qty = Number(sale.qty) || 0;
       if (qty === 0) continue;
@@ -177,14 +133,12 @@ export function useDailyStockCount({
       const menu = menuByCode.get(menuCode);
       
       if (menu) {
-        // Step 2a: Base BOM ingredients
         const bomLines = bomByMenuId.get(menu.id) || [];
         for (const line of bomLines) {
           const ingredientQty = line.effectiveQty * qty;
           const sku = skuMap.get(line.skuId);
           
           if (sku && sku.type === 'SP') {
-            // Step 2c: Expand SP into RM ingredients
             const spLines = spBomBySpSku.get(line.skuId) || [];
             for (const spLine of spLines) {
               const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty;
@@ -195,15 +149,11 @@ export function useDailyStockCount({
           }
         }
 
-        // Step 2b: Modifier rules
         for (const rule of activeRules) {
-          // Rule must be global (menuId null) or match this specific menu
           if (rule.menuId && rule.menuId !== menu.id) continue;
-          
           if (menuName.includes(rule.keyword)) {
             const modQty = rule.qtyPerMatch * qty;
             const modSku = skuMap.get(rule.skuId);
-            
             if (modSku && modSku.type === 'SP') {
               const spLines = spBomBySpSku.get(rule.skuId) || [];
               for (const spLine of spLines) {
@@ -221,11 +171,88 @@ export function useDailyStockCount({
     return usage;
   }, [menus, menuBomLines, modifierRules, spBomLines, skus]);
 
+  // Load existing count sheet — recalculate received + expected usage live from current BOM
+  const loadSheet = useCallback(async (branchId: string, date: string) => {
+    setLoading(true);
+    const [sheetResult, receipts, expectedUsage] = await Promise.all([
+      supabase.from('daily_stock_counts').select('*').eq('branch_id', branchId).eq('count_date', date).order('created_at'),
+      fetchReceiptTotals(branchId, date),
+      calculateExpectedUsage(branchId, date),
+    ]);
+    setLoading(false);
+    if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
+    const data = sheetResult.data || [];
+    
+    // Patch rows with live receipt data AND live expected usage from current BOM
+    const patched = data.map(r => {
+      const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
+      const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
+      const expUsage = expectedUsage[r.sku_id] ?? 0;
+      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage;
+      const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
+      return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
+    });
+    
+    // Update DB in background for any changed rows
+    const updates = patched.filter((p, i) => 
+      p.received_external !== Number(data[i].received_external) ||
+      p.received_from_ck !== Number(data[i].received_from_ck) ||
+      p.expected_usage !== Number(data[i].expected_usage)
+    );
+    if (updates.length > 0) {
+      for (const u of updates) {
+        supabase.from('daily_stock_counts').update({
+          received_external: u.received_external,
+          received_from_ck: u.received_from_ck,
+          expected_usage: u.expected_usage,
+          calculated_balance: u.calculated_balance,
+          variance: u.variance,
+        }).eq('id', u.id).then(() => {});
+      }
+    }
+
+    // Add new SKU rows if BOM changes introduced new ingredients
+    const existingSkuIds = new Set(data.map(r => r.sku_id));
+    const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
+    const newSkuRows: any[] = [];
+    for (const sku of activeSkus) {
+      if (!existingSkuIds.has(sku.id) && (expectedUsage[sku.id] || receipts.extBySku[sku.id] || receipts.ckBySku[sku.id])) {
+        const expUsage = expectedUsage[sku.id] ?? 0;
+        const ext = receipts.extBySku[sku.id] ?? 0;
+        const ck = receipts.ckBySku[sku.id] ?? 0;
+        const calcBalance = ck + ext - expUsage;
+        newSkuRows.push({
+          branch_id: branchId,
+          count_date: date,
+          sku_id: sku.id,
+          opening_balance: 0,
+          received_from_ck: ck,
+          received_external: ext,
+          expected_usage: expUsage,
+          calculated_balance: calcBalance,
+          physical_count: null,
+          variance: 0,
+          is_submitted: false,
+        });
+      }
+    }
+
+    let insertedRows: any[] = [];
+    if (newSkuRows.length > 0) {
+      const { data: inserted } = await supabase
+        .from('daily_stock_counts')
+        .insert(newSkuRows)
+        .select();
+      if (inserted) insertedRows = inserted;
+    }
+    
+    setRows([...patched, ...insertedRows].map(toLocal));
+  }, [fetchReceiptTotals, calculateExpectedUsage, skus]);
+
   // Generate count sheet
   const generateSheet = useCallback(async (branchId: string, date: string) => {
     setGenerating(true);
 
-    // Check if already exists
     const { data: existing } = await supabase
       .from('daily_stock_counts')
       .select('id')
@@ -240,13 +267,11 @@ export function useDailyStockCount({
       return;
     }
 
-    // Calculate expected usage + fetch receipt totals in parallel
     const [expectedUsage, receipts] = await Promise.all([
       calculateExpectedUsage(branchId, date),
       fetchReceiptTotals(branchId, date),
     ]);
 
-    // Get previous day's physical counts as opening balance
     const prevDate = new Date(date);
     prevDate.setDate(prevDate.getDate() - 1);
     const prevDateStr = prevDate.toISOString().slice(0, 10);
@@ -264,7 +289,6 @@ export function useDailyStockCount({
       }
     });
 
-    // Build rows for all active RM and SM SKUs
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     
     const insertRows = activeSkus.map(sku => {
@@ -295,7 +319,6 @@ export function useDailyStockCount({
       return;
     }
 
-    // Insert in chunks
     const chunkSize = 500;
     const allInserted: any[] = [];
     for (let i = 0; i < insertRows.length; i += chunkSize) {
