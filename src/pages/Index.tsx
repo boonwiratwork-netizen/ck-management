@@ -316,6 +316,8 @@ const Index = () => {
                 isAdmin ? <UserManagementPage /> : <div className="text-muted-foreground">Access denied</div>
               ) : activeTab === 'store' ? (
                 <div className="text-muted-foreground text-center py-12">Store section coming soon.</div>
+              ) : activeTab === 'menu-master' ? (
+                <MenuMasterPage menuData={menuData} branches={branchData.branches} />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
