@@ -267,18 +267,18 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     setEditingLineId(null);
   };
 
-  const handleSaveLine = () => {
+  const handleSaveLine = async () => {
     if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
     if (addingLine) {
-      addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
-      toast.success('Ingredient added');
+      await addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
       setAddingLine(false);
       setAddingLineStepId(null);
     } else if (editingLineId) {
-      updateLine(editingLineId, lineForm);
-      toast.success('Ingredient updated');
+      await updateLine(editingLineId, lineForm);
       setEditingLineId(null);
     }
+    // Sync price after ingredient change
+    setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
   const handleEditLine = (line: BOMLine) => {
@@ -293,9 +293,11 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     setAddingLine(false);
   };
 
-  const handleDeleteLine = (id: string) => {
-    deleteLine(id);
+  const handleDeleteLine = async (id: string) => {
+    await deleteLine(id);
     toast.success('Ingredient removed');
+    // Sync price after ingredient removal
+    setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
   const cancelLineEdit = () => { setAddingLine(false); setEditingLineId(null); setAddingLineStepId(null); };
