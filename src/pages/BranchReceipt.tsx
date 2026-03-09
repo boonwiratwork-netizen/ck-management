@@ -228,7 +228,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       if (historyDateTo && r.receiptDate > format(historyDateTo, 'yyyy-MM-dd')) return false;
       return true;
     });
-  }, [receipts, historyBranch, historyDateFrom, historyDateTo, isBranchManager, profile]);
+  }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
   const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
