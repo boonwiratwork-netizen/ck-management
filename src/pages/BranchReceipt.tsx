@@ -133,7 +133,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(
-    isBranchManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
