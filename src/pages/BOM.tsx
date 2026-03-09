@@ -198,6 +198,21 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     }
   };
 
+  // Sync BOM cost to price table for the currently selected SM SKU
+  const syncCurrentBomPrice = useCallback(async (headerId?: string) => {
+    const hId = headerId || selectedHeaderId;
+    if (!hId) return;
+    const header = headers.find(h => h.id === hId);
+    if (!header) return;
+    const { costPerGram } = getBomCost(header);
+    if (costPerGram > 0) {
+      const skuName = getSkuCode(header.smSkuId) || getSkuName(header.smSkuId);
+      await syncBomPrice(header.smSkuId, costPerGram);
+      toast.success(`BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`);
+      onPricesRefresh?.();
+    }
+  }, [selectedHeaderId, headers, prices, onPricesRefresh]);
+
   // Header actions
   const handleAddHeader = () => {
     setHeaderForm(EMPTY_BOM_HEADER);
