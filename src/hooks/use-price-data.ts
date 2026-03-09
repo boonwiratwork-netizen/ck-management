@@ -19,13 +19,13 @@ const toLocal = (row: any): Price => ({
 export function usePriceData() {
   const [prices, setPrices] = useState<Price[]>([]);
 
-  useEffect(() => {
-    supabase.from('prices').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load prices'); return; }
-        setPrices((data || []).map(toLocal));
-      });
+  const fetchAll = useCallback(async () => {
+    const { data, error } = await supabase.from('prices').select('*').order('created_at', { ascending: false });
+    if (error) { toast.error('Failed to load prices'); return; }
+    setPrices((data || []).map(toLocal));
   }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const calcUsagePrice = (purchasePrice: number, sku: SKU | undefined): number => {
     if (!sku || sku.packSize === 0) return 0;
