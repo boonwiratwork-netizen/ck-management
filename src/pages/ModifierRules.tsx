@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ModifierRule } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
+import { Menu } from '@/types/menu';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ModifierRulesPageProps {
@@ -22,10 +23,11 @@ interface ModifierRulesPageProps {
     deleteRule: (id: string) => Promise<void>;
   };
   skus: SKU[];
+  menus: Menu[];
   readOnly?: boolean;
 }
 
-export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: ModifierRulesPageProps) {
+export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = false }: ModifierRulesPageProps) {
   const { isAdmin } = useAuth();
   const canEdit = isAdmin && !readOnly;
 
@@ -41,11 +43,13 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
   const [formUom, setFormUom] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formActive, setFormActive] = useState(true);
+  const [formMenuId, setFormMenuId] = useState<string>('');
   const [skuSearch, setSkuSearch] = useState('');
 
   // RM + SP SKUs
   const eligibleSkus = useMemo(() => skus.filter(s => ['RM', 'SP'].includes(s.type)), [skus]);
   const getSkuById = (id: string) => skus.find(s => s.id === id);
+  const getMenuById = (id: string) => menus.find(m => m.id === id);
 
   const filteredRules = useMemo(() => {
     return showActiveOnly ? ruleData.rules.filter(r => r.isActive) : ruleData.rules;
@@ -59,6 +63,7 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
     setFormUom('');
     setFormDesc('');
     setFormActive(true);
+    setFormMenuId('');
     setSkuSearch('');
     setModalOpen(true);
   };
@@ -71,6 +76,7 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
     setFormUom(rule.uom);
     setFormDesc(rule.description);
     setFormActive(rule.isActive);
+    setFormMenuId(rule.menuId ?? '');
     setSkuSearch('');
     setModalOpen(true);
   };
@@ -93,6 +99,7 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
       uom: formUom,
       description: formDesc,
       isActive: formActive,
+      menuId: formMenuId || null,
     };
 
     if (editingRule) {
@@ -139,6 +146,7 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
           <TableHeader>
             <TableRow>
               <TableHead>Keyword</TableHead>
+              <TableHead>Menu</TableHead>
               <TableHead>SKU Code</TableHead>
               <TableHead>SKU Name</TableHead>
               <TableHead className="text-right">Qty/Match</TableHead>
@@ -151,16 +159,24 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
           <TableBody>
             {filteredRules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 8 : 7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={canEdit ? 9 : 8} className="text-center text-muted-foreground py-8">
                   No rules defined yet
                 </TableCell>
               </TableRow>
             ) : (
               filteredRules.map(rule => {
                 const sku = getSkuById(rule.skuId);
+                const menu = rule.menuId ? getMenuById(rule.menuId) : null;
                 return (
                   <TableRow key={rule.id}>
                     <TableCell className="font-medium">{rule.keyword}</TableCell>
+                    <TableCell>
+                      {menu ? (
+                        <span className="font-mono text-xs">{menu.menuCode}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">All Menus</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{sku?.skuId ?? '—'}</TableCell>
                     <TableCell>{sku?.name ?? '—'}</TableCell>
                     <TableCell className="text-right">{rule.qtyPerMatch}</TableCell>
@@ -205,6 +221,24 @@ export default function ModifierRulesPage({ ruleData, skus, readOnly = false }: 
                 onChange={e => setFormKeyword(e.target.value)}
                 placeholder='e.g. "เส้นโฮมเมด"'
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Apply to specific menu (optional)</label>
+              <Select value={formMenuId} onValueChange={v => setFormMenuId(v === '__all__' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Menus (global rule)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Menus (global rule)</SelectItem>
+                  {menus.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="font-mono text-xs mr-2">{m.menuCode}</span>
+                      {m.menuName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">

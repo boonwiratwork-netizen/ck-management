@@ -347,6 +347,7 @@ const Index = () => {
                 <ModifierRulesPage
                   ruleData={modifierRuleData}
                   skus={skus}
+                  menus={menuData.menus}
                   readOnly={!isAdmin}
                 />
               ) : (

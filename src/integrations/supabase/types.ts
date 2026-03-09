@@ -357,6 +357,7 @@ export type Database = {
           id: string
           is_active: boolean
           keyword: string
+          menu_id: string | null
           qty_per_match: number
           sku_id: string
           uom: string
@@ -367,6 +368,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword?: string
+          menu_id?: string | null
           qty_per_match?: number
           sku_id: string
           uom?: string
@@ -377,11 +379,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword?: string
+          menu_id?: string | null
           qty_per_match?: number
           sku_id?: string
           uom?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_modifier_rules_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_modifier_rules_sku_id_fkey"
             columns: ["sku_id"]

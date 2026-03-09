@@ -1,0 +1,1 @@
+ALTER TABLE public.menu_modifier_rules ADD COLUMN menu_id uuid REFERENCES public.menus(id) ON DELETE SET NULL DEFAULT NULL;

@@ -6,6 +6,7 @@ export interface ModifierRule {
   uom: string;
   description: string;
   isActive: boolean;
+  menuId: string | null;
 }
 
 export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, 'id'> = {
@@ -15,4 +16,5 @@ export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, 'id'> = {
   uom: '',
   description: '',
   isActive: true,
+  menuId: null,
 };
