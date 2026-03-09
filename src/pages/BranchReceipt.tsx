@@ -279,6 +279,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           </Select>
         </div>
         <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
+        <div className="flex items-center gap-2 ml-2">
+          <Switch checked={quickRepeatSupplier} onCheckedChange={setQuickRepeatSupplier} id="quick-supplier" />
+          <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Repeat supplier</label>
+        </div>
         {drafts.length > 0 && (
           <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
         )}
