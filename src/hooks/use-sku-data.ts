@@ -59,17 +59,48 @@ export function useSkuData() {
   }, []);
 
   const generateSkuId = (type: SKUType, existing: SKU[]): string => {
-    const count = existing.filter(s => s.type === type).length;
-    return `${type}-${String(count + 1).padStart(4, '0')}`;
+    const nums = existing
+      .filter(s => s.type === type)
+      .map(s => {
+        const match = s.skuId.match(new RegExp(`^${type}-(\\d+)$`));
+        return match ? parseInt(match[1], 10) : 0;
+      });
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return `${type}-${String(max + 1).padStart(4, '0')}`;
   };
 
   const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>) => {
-    // Generate skuId based on current state
     const skuId = generateSkuId(data.type, skus);
     const { data: row, error } = await supabase.from('skus').insert(toDb(data, skuId)).select().single();
     if (error) { toast.error('Failed to add SKU: ' + error.message); return; }
     setSkus(prev => [toLocal(row), ...prev]);
   }, [skus]);
+
+  const bulkAddSkus = useCallback(async (rows: Omit<SKU, 'id' | 'skuId'>[]) => {
+    // Fetch current max IDs from DB to avoid stale state
+    const { data: existing } = await supabase.from('skus').select('sku_id, type');
+    const counters: Record<string, number> = {};
+    (existing || []).forEach((s: any) => {
+      const match = s.sku_id.match(/^([A-Z]+)-(\d+)$/);
+      if (match) {
+        const t = match[1];
+        const n = parseInt(match[2], 10);
+        counters[t] = Math.max(counters[t] || 0, n);
+      }
+    });
+
+    const inserts = rows.map(data => {
+      const t = data.type;
+      counters[t] = (counters[t] || 0) + 1;
+      const skuId = `${t}-${String(counters[t]).padStart(4, '0')}`;
+      return toDb(data, skuId);
+    });
+
+    const { data: inserted, error } = await supabase.from('skus').insert(inserts).select();
+    if (error) { toast.error('Failed to import SKUs: ' + error.message); return 0; }
+    setSkus(prev => [...(inserted || []).map(toLocal), ...prev]);
+    return inserted?.length ?? 0;
+  }, []);
 
   const updateSku = useCallback(async (id: string, data: Partial<Omit<SKU, 'id' | 'skuId'>>) => {
     const dbData: any = {};
