@@ -81,15 +81,16 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
-  // SKUs with at least one active price
+  // SKUs with at least one active price (excluding SM/SP which are BOM-managed)
   const pricedSkuIds = useMemo(() => {
     const set = new Set<string>();
     prices.forEach(p => { if (p.isActive) set.add(p.skuId); });
     return set;
   }, [prices]);
 
-  const activeSkus = useMemo(() => skus.filter(s => s.status === 'Active'), [skus]);
-  const unpricedCount = useMemo(() => activeSkus.filter(s => !pricedSkuIds.has(s.id)).length, [activeSkus, pricedSkuIds]);
+  // Only count RM/PK SKUs as "unpriced" since SM/SP are auto-managed via BOM
+  const activeRmPkSkus = useMemo(() => skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'PK')), [skus]);
+  const unpricedCount = useMemo(() => activeRmPkSkus.filter(s => !pricedSkuIds.has(s.id)).length, [activeRmPkSkus, pricedSkuIds]);
 
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
   const handleEdit = (p: Price) => { setEditing(p); setModalOpen(true); };
