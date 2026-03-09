@@ -30,7 +30,7 @@ interface DailyStockCountPageProps {
 export default function DailyStockCountPage({
   skus, menuBomLines, modifierRules, spBomLines, menus, branches,
 }: DailyStockCountPageProps) {
-  const { isAdmin, isBranchManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState(today);
