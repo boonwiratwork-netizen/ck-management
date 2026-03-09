@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SKU, SKUType } from '@/types/sku';
+import { useSpBomData } from '@/hooks/use-sp-bom-data';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
@@ -32,6 +33,7 @@ import BranchesPage from '@/pages/Branches';
 import UserManagementPage from '@/pages/UserManagement';
 import MenuMasterPage from '@/pages/MenuMaster';
 import MenuBOMPage from '@/pages/MenuBOM';
+import SpBomPage from '@/pages/SpBom';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -56,6 +58,7 @@ const tabLabels: Record<TabKey, string> = {
   store: 'Store',
   'menu-master': 'Menu Master',
   'menu-bom': 'Menu BOM',
+  'sp-bom': 'SP BOM',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -77,6 +80,7 @@ const Index = () => {
   const branchData = useBranchData();
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
+  const spBomData = useSpBomData();
   const stockCountData = useStockCountData({
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
@@ -101,7 +105,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom') {
       toast.error('Access denied');
       return;
     }
@@ -326,6 +330,13 @@ const Index = () => {
                   skus={skus}
                   prices={priceData.prices}
                   branches={branchData.branches}
+                  readOnly={!isAdmin}
+                />
+                ) : activeTab === 'sp-bom' ? (
+                <SpBomPage
+                  spBomData={spBomData}
+                  skus={skus}
+                  prices={priceData.prices}
                   readOnly={!isAdmin}
                 />
               ) : (
