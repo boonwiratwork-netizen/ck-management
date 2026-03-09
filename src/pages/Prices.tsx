@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
+import { BOMHeader } from '@/types/bom';
 import { usePriceData } from '@/hooks/use-price-data';
 import { PriceTable } from '@/components/PriceTable';
 import { PriceFormModal } from '@/components/PriceFormModal';
@@ -10,6 +11,7 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/C
 import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { isBomPrice } from '@/lib/bom-price-sync';
 
 interface Props {
   priceData: ReturnType<typeof usePriceData>;
@@ -17,9 +19,10 @@ interface Props {
   activeSuppliers: Supplier[];
   allSuppliers: Supplier[];
   readOnly?: boolean;
+  bomHeaders?: BOMHeader[];
 }
 
-export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false }: Props) {
+export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false, bomHeaders = [] }: Props) {
   const { prices, addPrice, updatePrice, deletePrice } = priceData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
