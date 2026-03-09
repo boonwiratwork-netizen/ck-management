@@ -94,7 +94,7 @@ function SkuCombobox({ value, onSelect, skus }: { value: string; onSelect: (id: 
         <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-[280px] rounded-md border bg-popover shadow-md">
+        <div className="absolute z-[60] top-full left-0 mt-1 w-[280px] rounded-md border bg-popover shadow-lg" style={{ maxHeight: '240px' }}>
           <div className="p-1.5">
             <Input
               ref={inputRef}
