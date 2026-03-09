@@ -189,7 +189,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
             <SelectItem value="Inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        {isAdmin && (
+        {isManagement && (
           <Select value={filterBranch} onValueChange={setFilterBranch}>
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="Branch" /></SelectTrigger>
             <SelectContent>
