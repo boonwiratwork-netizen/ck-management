@@ -36,7 +36,7 @@ export const EMPTY_BOM_HEADER: Omit<BOMHeader, 'id'> = {
   productionType: 'CK',
   bomMode: 'simple',
   batchSize: 0,
-  yieldPercent: 0.7,
+  yieldPercent: 1.0,
 };
 
 export const EMPTY_BOM_LINE: Omit<BOMLine, 'id' | 'bomHeaderId'> = {
@@ -49,3 +49,4 @@ export const EMPTY_BOM_STEP: Omit<BOMStep, 'id' | 'bomHeaderId'> = {
   stepName: '',
   yieldPercent: 1.0,
 };
+

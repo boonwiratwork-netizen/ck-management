@@ -426,6 +426,7 @@ const Index = () => {
                   skus={skus}
                   prices={priceData.prices}
                   readOnly={!isManagement}
+                  onPricesRefresh={priceData.refreshPrices}
                 />
               ) : activeTab === 'modifier-rules' ? (
                 <ModifierRulesPage

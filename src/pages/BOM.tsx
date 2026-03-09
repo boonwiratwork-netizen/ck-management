@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment, useRef, useCallback } from 'react';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
-import { BOMHeader, BOMLine, BOMStep, EMPTY_BOM_HEADER, EMPTY_BOM_LINE, EMPTY_BOM_STEP, BOMMode, IngredientQtyType } from '@/types/bom';
+import { BOMHeader, BOMLine, BOMStep, EMPTY_BOM_HEADER, BOMMode, IngredientQtyType } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { syncBomPrice } from '@/lib/bom-price-sync';
 
@@ -87,14 +88,16 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   const [editingHeader, setEditingHeader] = useState(false);
   const [headerForm, setHeaderForm] = useState(EMPTY_BOM_HEADER);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
-  const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'>>({ rmSkuId: '', qtyPerBatch: 0 });
+  const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'> & { yieldPct: number }>({
+    rmSkuId: '', qtyPerBatch: 0, yieldPct: 100,
+  });
   const [addingLine, setAddingLine] = useState(false);
   const [addingLineStepId, setAddingLineStepId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState('');
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
-  // FIX 2: Allow both RM and SM as ingredients
   const ingredientSkus = useMemo(() => skus.filter(s => s.type === 'RM' || s.type === 'SM'), [skus]);
 
   const getSkuName = (id: string) => skus.find(s => s.id === id)?.name ?? '—';
@@ -110,11 +113,19 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   const selectedLines = selectedHeaderId ? getLinesForHeader(selectedHeaderId) : [];
   const selectedSteps = selectedHeaderId ? getStepsForHeader(selectedHeaderId) : [];
 
-  // Simple BOM calculations
+  // Yield-aware calculations for simple BOM
+  const calcEffQty = (qty: number, yieldPct: number) => yieldPct > 0 ? qty / (yieldPct / 100) : qty;
+
   const outputQty = selectedHeader && selectedHeader.bomMode === 'simple'
     ? selectedHeader.batchSize * selectedHeader.yieldPercent : 0;
+  
+  // Simple BOM: lines don't have yield in DB, but we treat yield=100% for backward compat
+  // For simple BOM we use raw qty (no per-line yield currently stored in bom_lines)
   const simpleTotalCost = selectedHeader?.bomMode === 'simple'
-    ? selectedLines.reduce((sum, l) => sum + l.qtyPerBatch * getActiveCost(l.rmSkuId), 0) : 0;
+    ? selectedLines.reduce((sum, l) => {
+        const cost = getActiveCost(l.rmSkuId);
+        return sum + l.qtyPerBatch * cost;
+      }, 0) : 0;
   const simpleCostPerGram = outputQty > 0 ? simpleTotalCost / outputQty : 0;
 
   // Multi-step calculations
@@ -198,7 +209,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     }
   };
 
-  // Sync BOM cost to price table for the currently selected SM SKU
   const syncCurrentBomPrice = useCallback(async (headerId?: string) => {
     const hId = headerId || selectedHeaderId;
     if (!hId) return;
@@ -227,7 +237,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
 
     if (selectedHeaderId && selectedHeader) {
       await updateHeader(selectedHeaderId, headerForm);
-      // Sync price after header update (batch size / yield changed)
       setTimeout(() => syncCurrentBomPrice(selectedHeaderId), 300);
     } else {
       const result = addHeader(headerForm);
@@ -259,9 +268,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     toast.success('BOM deleted');
   };
 
-  // Line actions
+  // Line actions — with auto-continue
   const handleStartAddLine = (stepId?: string) => {
-    setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId });
+    setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId, yieldPct: 100 });
     setAddingLine(true);
     setAddingLineStepId(stepId ?? null);
     setEditingLineId(null);
@@ -271,13 +280,14 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
     if (addingLine) {
       await addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
-      setAddingLine(false);
-      setAddingLineStepId(null);
+      // Auto-continue: open new empty row
+      const stepId = addingLineStepId;
+      setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId: stepId ?? undefined, yieldPct: 100 });
     } else if (editingLineId) {
       await updateLine(editingLineId, lineForm);
       setEditingLineId(null);
+      setAddingLine(false);
     }
-    // Sync price after ingredient change
     setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
@@ -288,6 +298,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       stepId: line.stepId,
       qtyType: line.qtyType,
       percentOfInput: line.percentOfInput,
+      yieldPct: 100,
     });
     setEditingLineId(line.id);
     setAddingLine(false);
@@ -296,11 +307,22 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   const handleDeleteLine = async (id: string) => {
     await deleteLine(id);
     toast.success('Ingredient removed');
-    // Sync price after ingredient removal
     setTimeout(() => syncCurrentBomPrice(), 300);
   };
 
-  const cancelLineEdit = () => { setAddingLine(false); setEditingLineId(null); setAddingLineStepId(null); };
+  const cancelLineEdit = () => {
+    // If adding and form is empty (auto-continue blank row), just stop
+    setAddingLine(false);
+    setEditingLineId(null);
+    setAddingLineStepId(null);
+  };
+
+  // Handle Escape on the adding row
+  const handleLineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      cancelLineEdit();
+    }
+  };
 
   // Step actions
   const handleAddStep = () => {
@@ -332,19 +354,34 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     setDraggedStepId(null);
   };
 
-  // Ingredient line editor (reusable)
+  // Filtered headers for left panel search
+  const filteredHeaders = useMemo(() => {
+    if (!listSearch) return headers;
+    const q = listSearch.toLowerCase();
+    return headers.filter(h => {
+      const sku = getSkuById(h.smSkuId);
+      return sku?.skuId.toLowerCase().includes(q) || sku?.name.toLowerCase().includes(q);
+    });
+  }, [headers, listSearch, skus]);
+
+  // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
-    <TableRow className="bg-muted/30">
+    <TableRow className="bg-muted/30 h-12" onKeyDown={handleLineKeyDown}>
       <TableCell>
         <SearchableSelect
           value={lineForm.rmSkuId}
-          onValueChange={v => setLineForm(f => ({ ...f, rmSkuId: v }))}
+          onValueChange={v => {
+            const sku = getSkuById(v);
+            setLineForm(f => ({ ...f, rmSkuId: v }));
+          }}
           options={ingredientSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
           placeholder="Select SKU"
           triggerClassName="h-8 text-xs"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">{lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}</TableCell>
+      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+        {lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}
+      </TableCell>
       {isMultiStep && (
         <TableCell>
           <Select value={lineForm.qtyType || 'fixed'} onValueChange={v => setLineForm(f => ({ ...f, qtyType: v as IngredientQtyType }))}>
@@ -359,28 +396,45 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       <TableCell>
         {isMultiStep && lineForm.qtyType === 'percent' ? (
           <div className="flex items-center gap-1">
-            <Input type="number" step="0.01" className="h-8 w-20 text-xs"
+            <Input type="number" step="0.01" className="h-8 w-20 text-xs text-right font-mono"
               value={lineForm.percentOfInput ? (lineForm.percentOfInput * 100) : ''}
               onChange={e => {
                 const pct = Number(e.target.value) / 100;
                 setLineForm(f => ({ ...f, percentOfInput: pct, qtyPerBatch: pct * (stepInputQty || 0) }));
               }} />
             <span className="text-xs text-muted-foreground">%</span>
-            <span className="text-xs text-muted-foreground ml-1">= {((lineForm.percentOfInput || 0) * (stepInputQty || 0)).toFixed(0)}g</span>
           </div>
         ) : (
-          <Input type="number" className="h-8 w-24 text-xs" value={lineForm.qtyPerBatch || ''}
+          <Input type="number" className="h-8 w-24 text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
             onChange={e => setLineForm(f => ({ ...f, qtyPerBatch: Number(e.target.value) }))} />
         )}
       </TableCell>
       <TableCell className="text-xs">{lineForm.rmSkuId ? getSkuById(lineForm.rmSkuId)?.usageUom : '—'}</TableCell>
-      <TableCell className="text-xs text-right">{lineForm.rmSkuId ? getActiveCost(lineForm.rmSkuId).toFixed(2) : '—'}</TableCell>
-      <TableCell className="text-xs text-right font-medium">
+      {!isMultiStep && (
+        <>
+          <TableCell>
+            <Input type="number" className="h-8 w-16 text-xs text-right font-mono" value={lineForm.yieldPct}
+              onChange={e => setLineForm(f => ({ ...f, yieldPct: Number(e.target.value) || 100 }))} />
+          </TableCell>
+          <TableCell className="text-xs text-right font-mono">
+            {lineForm.rmSkuId ? calcEffQty(lineForm.qtyPerBatch, lineForm.yieldPct).toFixed(2) : '—'}
+          </TableCell>
+        </>
+      )}
+      <TableCell className="text-xs text-right font-mono">
+        {lineForm.rmSkuId ? (() => {
+          const cost = getActiveCost(lineForm.rmSkuId);
+          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>;
+        })() : '—'}
+      </TableCell>
+      <TableCell className="text-xs text-right font-mono font-medium">
         {lineForm.rmSkuId ? (() => {
           const qty = isMultiStep && lineForm.qtyType === 'percent'
             ? (lineForm.percentOfInput || 0) * (stepInputQty || 0)
             : lineForm.qtyPerBatch;
-          return (qty * getActiveCost(lineForm.rmSkuId)).toFixed(2);
+          const effQty = isMultiStep ? qty : calcEffQty(qty, lineForm.yieldPct);
+          const cost = getActiveCost(lineForm.rmSkuId);
+          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-orange-500">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell>
@@ -392,93 +446,122 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     </TableRow>
   );
 
-  // Helper to render type badge for ingredient row
-  const renderIngredientTypeBadge = (skuId: string) => {
+  // Type badge
+  const renderTypeBadge = (skuId: string) => {
     const sku = getSkuById(skuId);
     if (!sku) return null;
-    return (
-      <Badge variant={sku.type === 'SM' ? 'default' : 'outline'} className="text-[10px] ml-1">
-        {sku.type}
-      </Badge>
-    );
+    return <Badge variant={sku.type === 'SM' ? 'default' : 'outline'} className="text-[10px] ml-1">{sku.type}</Badge>;
   };
 
-  // Render simple BOM detail
+  // Common table headers for simple BOM
+  const simpleTableHeaders = (
+    <TableRow>
+      <TableHead className="text-[11px] uppercase text-muted-foreground">SKU Code</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Yield %</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Eff. Qty</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
+    </TableRow>
+  );
+
+  // Render simple BOM
   const renderSimpleBOM = () => (
     <>
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-heading font-bold text-lg">{getSkuName(selectedHeader!.smSkuId)}</h3>
-              <p className="text-xs text-muted-foreground">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Simple BOM</p>
+              <h3 className="text-xl font-heading font-bold">{getSkuName(selectedHeader!.smSkuId)}</h3>
+              <p className="text-[13px] text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Simple BOM</p>
             </div>
-            <Button size="sm" variant="outline" onClick={handleEditHeader}>
-              <Edit2 className="w-3.5 h-3.5" /> Edit Header
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleEditHeader}>
+                <Edit2 className="w-3.5 h-3.5" /> Edit Header
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setFullscreen(!fullscreen)}>
+                {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mt-4">
             <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground">Batch Size</p>
-              <p className="text-lg font-bold">{selectedHeader!.batchSize.toLocaleString()}g</p>
+              <p className="text-[11px] uppercase text-muted-foreground">Batch Size</p>
+              <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()}g</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground">Yield</p>
-              <p className="text-lg font-bold">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
+              <p className="text-[11px] uppercase text-muted-foreground">Yield</p>
+              <p className="text-lg font-bold font-mono">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground">Output</p>
-              <p className="text-lg font-bold">{outputQty.toFixed(0)}g</p>
+              <p className="text-[11px] uppercase text-muted-foreground">Output</p>
+              <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-primary/10">
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
-              <p className="text-lg font-bold text-primary">฿{simpleCostPerGram.toFixed(4)}</p>
+              <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
+              <p className="text-lg font-bold text-primary font-mono">฿{simpleCostPerGram.toFixed(4)}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium">Ingredients ({selectedLines.length})</CardTitle>
-            <Button size="sm" onClick={() => handleStartAddLine()} disabled={addingLine}>
-              <Plus className="w-3.5 h-3.5" /> Add Ingredient
-            </Button>
-          </div>
-        </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">SKU</TableHead>
-                <TableHead className="text-xs">Name</TableHead>
-                <TableHead className="text-xs">Qty</TableHead>
-                <TableHead className="text-xs">UOM</TableHead>
-                <TableHead className="text-xs text-right">Cost/unit</TableHead>
-                <TableHead className="text-xs text-right">Line Cost</TableHead>
-                <TableHead className="text-xs w-20"></TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader>{simpleTableHeaders}</TableHeader>
             <TableBody>
-              {addingLine && !addingLineStepId && renderLineEditor(false)}
+              {selectedLines.filter(l => !l.stepId).length === 0 && !addingLine && (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-16">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                        <FlaskConical className="w-7 h-7 text-muted-foreground" />
+                      </div>
+                      <p className="font-medium text-foreground">No ingredients added yet</p>
+                      <Button
+                        variant="outline"
+                        className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        onClick={() => handleStartAddLine()}
+                      >
+                        <Plus className="w-4 h-4" /> Add First Ingredient
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
               {selectedLines.filter(l => !l.stepId).map(line => {
                 const rmSku = getSkuById(line.rmSkuId);
                 const cost = getActiveCost(line.rmSkuId);
-                const lineCost = line.qtyPerBatch * cost;
-                const isSM = rmSku?.type === 'SM';
+                const effQty = line.qtyPerBatch; // Simple BOM: no per-line yield stored yet
+                const lineCost = effQty * cost;
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
-                  <TableRow key={line.id} className={isSM ? 'border-l-2 border-l-blue-400' : ''}>
-                    <TableCell className="text-xs font-mono">
+                  <TableRow key={line.id} className="h-12">
+                    <TableCell className="text-sm font-mono">
                       {rmSku?.skuId ?? '—'}
-                      {renderIngredientTypeBadge(line.rmSkuId)}
+                      {renderTypeBadge(line.rmSkuId)}
                     </TableCell>
-                    <TableCell className="text-xs">{rmSku?.name ?? '—'}</TableCell>
-                    <TableCell className="text-xs">{line.qtyPerBatch}</TableCell>
-                    <TableCell className="text-xs">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-xs text-right">฿{cost.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs text-right font-medium">฿{lineCost.toFixed(2)}</TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
+                        </TooltipTrigger>
+                        <TooltipContent>{rmSku?.name}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TableCell className="text-sm text-right font-mono">{line.qtyPerBatch}</TableCell>
+                    <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
+                    <TableCell className="text-sm text-right font-mono">100%</TableCell>
+                    <TableCell className="text-sm text-right font-mono">{effQty.toFixed(2)}</TableCell>
+                    <TableCell className="text-sm text-right font-mono">
+                      {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm text-right font-mono font-medium">
+                      {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditLine(line)}>
@@ -492,18 +575,26 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                   </TableRow>
                 );
               })}
-              {selectedLines.filter(l => !l.stepId).length === 0 && !addingLine && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
-                    No ingredients yet. Click "Add Ingredient" to start building the recipe.
-                  </TableCell>
-                </TableRow>
-              )}
+              {addingLine && !addingLineStepId && renderLineEditor(false)}
             </TableBody>
           </Table>
+          {/* Add Ingredient button at bottom */}
+          {selectedLines.filter(l => !l.stepId).length > 0 && !addingLine && (
+            <div className="p-4 pt-2">
+              <Button
+                variant="outline"
+                className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                onClick={() => handleStartAddLine()}
+              >
+                <Plus className="w-4 h-4" /> Add Ingredient
+              </Button>
+            </div>
+          )}
+          {/* Totals pinned at bottom */}
           {simpleTotalCost > 0 && (
-            <div className="border-t px-4 py-3 flex justify-end">
-              <p className="text-sm font-medium">Total batch cost: <span className="text-primary font-bold">฿{simpleTotalCost.toFixed(2)}</span></p>
+            <div className="border-t px-6 py-3 flex justify-end gap-6">
+              <p className="text-sm">Total batch cost: <span className="font-bold font-mono text-primary">฿{simpleTotalCost.toFixed(2)}</span></p>
+              <p className="text-sm">Cost/gram: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span></p>
             </div>
           )}
         </CardContent>
@@ -511,15 +602,15 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     </>
   );
 
-  // Render multi-step BOM detail with UX overhaul
+  // Render multi-step BOM
   const renderMultiStepBOM = () => (
     <>
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-heading font-bold text-lg">{getSkuName(selectedHeader!.smSkuId)}</h3>
-              <p className="text-xs text-muted-foreground">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
+              <h3 className="text-xl font-heading font-bold">{getSkuName(selectedHeader!.smSkuId)}</h3>
+              <p className="text-[13px] text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={handleEditHeader}>
@@ -527,7 +618,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
               </Button>
               <Button size="sm" variant="outline" onClick={() => setFullscreen(!fullscreen)}>
                 {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                {fullscreen ? ' Exit Fullscreen' : ' Expand'}
               </Button>
             </div>
           </div>
@@ -536,9 +626,12 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
 
       {selectedSteps.length === 0 && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <FlaskConical className="w-8 h-8 text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">No steps yet. Add a step to define the production process.</p>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+              <FlaskConical className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <p className="font-medium">No steps yet</p>
+            <p className="text-sm text-muted-foreground">Add a step to define the production process.</p>
           </CardContent>
         </Card>
       )}
@@ -556,7 +649,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
               onDrop={() => handleDrop(sd.step.id)}
             >
               <CardHeader className="pb-3">
-                {/* Step header row */}
                 <div className="flex items-center gap-3">
                   <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
                     <GripVertical className="w-4 h-4" />
@@ -573,11 +665,10 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                   </Button>
                 </div>
 
-                {/* Input → Yield → Output row */}
                 <div className="flex items-center gap-5 mt-3 px-1 py-2 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Input:</span>
-                    <span className="font-semibold text-sm">{sd.inputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm font-mono">{sd.inputQty.toFixed(0)}g</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
@@ -594,17 +685,17 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                       step="0.01"
                       min={0}
                       max={1}
-                      className="h-8 w-24 text-xs"
+                      className="h-8 w-24 text-xs font-mono"
                     />
                     <span className="text-xs text-muted-foreground">({(sd.step.yieldPercent * 100).toFixed(0)}%)</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Output:</span>
-                    <span className="font-semibold text-sm text-primary">{sd.outputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)}g</span>
                   </div>
                   {sd.stepCost > 0 && (
-                    <Badge variant="secondary" className="text-xs ml-auto">
+                    <Badge variant="secondary" className="text-xs ml-auto font-mono">
                       Step cost: ฿{sd.stepCost.toFixed(2)}
                     </Badge>
                   )}
@@ -613,44 +704,52 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
               <CardContent className="p-0 pb-4">
                 {(stepLines.length > 0 || (addingLine && addingLineStepId === sd.step.id)) && (
                   <div className="px-4">
-                    <p className="text-xs text-muted-foreground font-medium mb-2">Ingredients ({stepLines.length})</p>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">SKU</TableHead>
-                          <TableHead className="text-xs">Name</TableHead>
-                          <TableHead className="text-xs">Qty Type</TableHead>
-                          <TableHead className="text-xs">Qty</TableHead>
-                          <TableHead className="text-xs">UOM</TableHead>
-                          <TableHead className="text-xs text-right">Cost/unit</TableHead>
-                          <TableHead className="text-xs text-right">Line Cost</TableHead>
-                          <TableHead className="text-xs w-20"></TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground">SKU</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground">Qty Type</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Qty</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground">UOM</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Cost/unit</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right">Line Cost</TableHead>
+                          <TableHead className="text-[11px] uppercase text-muted-foreground w-20"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {addingLine && addingLineStepId === sd.step.id && renderLineEditor(true, sd.inputQty)}
                         {sd.ingredients.map(ing => {
                           const rmSku = getSkuById(ing.rmSkuId);
-                          const isSM = rmSku?.type === 'SM';
                           if (editingLineId === ing.id) {
                             return <Fragment key={ing.id}>{renderLineEditor(true, sd.inputQty)}</Fragment>;
                           }
                           return (
-                            <TableRow key={ing.id} className={isSM ? 'border-l-2 border-l-blue-400' : ''}>
-                              <TableCell className="text-xs font-mono">
+                            <TableRow key={ing.id} className="h-12">
+                              <TableCell className="text-sm font-mono">
                                 {rmSku?.skuId ?? '—'}
-                                {renderIngredientTypeBadge(ing.rmSkuId)}
+                                {renderTypeBadge(ing.rmSkuId)}
                               </TableCell>
-                              <TableCell className="text-xs">{rmSku?.name ?? '—'}</TableCell>
-                              <TableCell className="text-xs">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <TableCell className="text-sm max-w-[120px] truncate">{rmSku?.name ?? '—'}</TableCell>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{rmSku?.name}</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TableCell className="text-sm">
                                 <Badge variant="outline" className="text-[10px]">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-xs">{ing.resolvedQty.toFixed(0)}g</TableCell>
-                              <TableCell className="text-xs">{rmSku?.usageUom ?? '—'}</TableCell>
-                              <TableCell className="text-xs text-right">฿{getActiveCost(ing.rmSkuId).toFixed(2)}</TableCell>
-                              <TableCell className="text-xs text-right font-medium">฿{ing.lineCost.toFixed(2)}</TableCell>
+                              <TableCell className="text-sm text-right font-mono">{ing.resolvedQty.toFixed(0)}g</TableCell>
+                              <TableCell className="text-sm">{rmSku?.usageUom ?? '—'}</TableCell>
+                              <TableCell className="text-sm text-right font-mono">
+                                {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-orange-500">—</span>}
+                              </TableCell>
+                              <TableCell className="text-sm text-right font-mono font-medium">
+                                {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditLine(ing)}>
@@ -664,12 +763,12 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                             </TableRow>
                           );
                         })}
+                        {addingLine && addingLineStepId === sd.step.id && renderLineEditor(true, sd.inputQty)}
                       </TableBody>
                     </Table>
                   </div>
                 )}
 
-                {/* Full-width Add Ingredient button */}
                 <div className="px-4 mt-3">
                   <Button
                     variant="outline"
@@ -686,31 +785,29 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
         })}
       </div>
 
-      {/* Full-width Add Step button */}
       <Button
         variant="outline"
-        className="w-full border-dashed border-2 text-primary hover:bg-primary/5 py-6 text-base"
+        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20 py-6 text-base"
         onClick={handleAddStep}
       >
         <Plus className="w-5 h-5" /> Add Step
       </Button>
 
-      {/* Multi-step cost summary */}
       {multiStepData.totalCost > 0 && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4">
             <div className="grid grid-cols-3 gap-6 text-center">
               <div>
-                <p className="text-xs text-muted-foreground">Total Ingredient Cost</p>
-                <p className="text-xl font-bold">฿{multiStepData.totalCost.toFixed(2)}</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Total Ingredient Cost</p>
+                <p className="text-xl font-bold font-mono">฿{multiStepData.totalCost.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Final Output</p>
-                <p className="text-xl font-bold">{multiStepData.finalOutput.toFixed(0)}g</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Final Output</p>
+                <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)}g</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
-                <p className="text-xl font-bold text-primary">฿{multiStepData.costPerGram.toFixed(4)}</p>
+                <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
+                <p className="text-xl font-bold text-primary font-mono">฿{multiStepData.costPerGram.toFixed(4)}</p>
               </div>
             </div>
           </CardContent>
@@ -732,21 +829,30 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       </div>
 
       <div className={`grid gap-6 ${fullscreen ? 'grid-cols-1' : 'grid-cols-12'}`}>
-        {/* LEFT: SM list (hidden in fullscreen) */}
+        {/* LEFT: SM list */}
         {!fullscreen && (
           <div className="col-span-4 space-y-3">
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                 </CardTitle>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search SM items..."
+                    value={listSearch}
+                    onChange={e => setListSearch(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
               </CardHeader>
-              <CardContent className="p-0">
-                {headers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-4 pb-4">No BOMs yet. Click "New BOM" to start.</p>
+              <CardContent className="flex-1 overflow-auto p-0">
+                {filteredHeaders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-4 pb-4 text-center py-6">No BOMs yet. Click "New BOM" to start.</p>
                 ) : (
                   <div className="divide-y">
-                    {headers.map(h => {
+                    {filteredHeaders.map(h => {
                       const sku = getSkuById(h.smSkuId);
                       const hLines = getLinesForHeader(h.id);
                       const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
@@ -759,21 +865,18 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium">{sku?.name ?? '—'}</p>
+                              <p className="text-sm font-medium">{sku?.skuId} · {sku?.name ?? '—'}</p>
                               <p className="text-xs text-muted-foreground">
-                                {sku?.skuId} · {h.productionType} · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hLines.length} ingredients
+                                {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">{hOutput.toFixed(0)}g</Badge>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={e => { e.stopPropagation(); handleDeleteHeader(h.id); }}>
-                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </Button>
-                            </div>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={e => { e.stopPropagation(); handleDeleteHeader(h.id); }}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
                           </div>
                           {hCost > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Cost: ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
+                            <p className="text-xs text-muted-foreground mt-1 font-mono">
+                              ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
                             </p>
                           )}
                         </div>
@@ -819,7 +922,6 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                     </div>
                   </div>
 
-                  {/* BOM Mode toggle */}
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                     <label className="text-sm font-medium">BOM Mode:</label>
                     <div className="flex items-center gap-2">
@@ -839,7 +941,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                         <Input type="number" value={headerForm.batchSize || ''} onChange={e => setHeaderForm(f => ({ ...f, batchSize: Number(e.target.value) }))} />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">% Yield (e.g. 0.70 = 70%)</label>
+                        <label className="text-xs font-medium text-muted-foreground">Yield % (e.g. 1.0 = 100%)</label>
                         <Input type="number" step="0.01" value={headerForm.yieldPercent || ''} onChange={e => setHeaderForm(f => ({ ...f, yieldPercent: Number(e.target.value) }))} />
                       </div>
                     </div>
@@ -848,7 +950,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                   {headerForm.bomMode === 'simple' && (
                     <div className="flex items-center gap-2 text-sm">
                       <FlaskConical className="w-4 h-4 text-muted-foreground" />
-                      Output per batch: <span className="font-semibold">{(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)}g</span>
+                      Output per batch: <span className="font-semibold font-mono">{(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)}g</span>
                     </div>
                   )}
 
@@ -867,8 +969,10 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
             ) : (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                  <ClipboardList className="w-10 h-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">Select an SM item from the left or create a new BOM</p>
+                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
+                    <ClipboardList className="w-7 h-7 text-muted-foreground" />
+                  </div>
+                  <p className="font-medium">Select an SM item from the left or create a new BOM</p>
                 </CardContent>
               </Card>
             )}
