@@ -465,7 +465,7 @@ export default function FoodCostPage({
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" className="text-xs" />
                       <YAxis yAxisId="left" className="text-xs" />
-                      <YAxis yAxisId="right" orientation="right" className="text-xs" domain={[0, 100]} />
+                      <YAxis yAxisId="right" orientation="right" className="text-xs" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
                       <Tooltip
                         formatter={(value: number, name: string) => {
                           if (name === 'FC%') return [`${value.toFixed(1)}%`, name];
@@ -475,7 +475,7 @@ export default function FoodCostPage({
                       <Legend />
                       <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" opacity={0.3} />
                       <Bar yAxisId="left" dataKey="stdFoodCost" name="Food Cost" fill="hsl(var(--destructive))" opacity={0.5} />
-                      <Line yAxisId="right" type="monotone" dataKey="stdFcPct" name="FC%" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="stdFcPct" name="FC%" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316' }} label={{ position: 'top', fontSize: 10, fill: '#f97316', formatter: (v: number) => `${v.toFixed(1)}%` }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>

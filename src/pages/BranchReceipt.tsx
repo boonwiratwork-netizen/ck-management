@@ -316,13 +316,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
-                  <th className={thClass}>SKU Name</th>
+                  <th className={thClass}>Name</th>
                   <th className={thClass} style={{ minWidth: 140 }}>Supplier</th>
                   <th className={`${thClass} text-right`}>Qty</th>
                   <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Actual Total Paid (฿)</th>
-                  <th className={`${thClass} text-right`}>Actual Unit ฿</th>
-                  <th className={`${thClass} text-right`}>Std Unit ฿</th>
+                  <th className={`${thClass} text-right`}>Total Paid (฿)</th>
+                  <th className={`${thClass} text-right`}>Unit Price</th>
+                  <th className={`${thClass} text-right`}>Std Unit</th>
                   <th className={`${thClass} text-right`}>Std Total</th>
                   <th className={`${thClass} text-right`}>Variance</th>
                   <th className={thClass}>Notes</th>

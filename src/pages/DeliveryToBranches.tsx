@@ -387,20 +387,47 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         onConfirm={handleDeleteConfirm}
       />
 
-      <ConfirmDialog
-        open={!!stockWarning}
-        onOpenChange={open => !open && setStockWarning(null)}
-        title="⚠ Negative SM Stock Warning"
-        description={`This delivery will result in negative stock for "${stockWarning?.skuName}" (need ${stockWarning?.need?.toFixed(1)} kg, have ${stockWarning?.have?.toFixed(1)} kg). Continue anyway?`}
-        confirmLabel="Proceed Anyway"
-        variant="warning"
-        onConfirm={() => {
-          if (stockWarning) {
-            doSaveRow(stockWarning.tempId);
-            setStockWarning(null);
-          }
-        }}
-      />
+      <AlertDialog open={!!stockWarning} onOpenChange={open => !open && setStockWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+              Negative SM stock warning
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">This delivery will result in negative stock:</p>
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+              <p className="text-sm"><span className="font-bold">{stockWarning?.skuName}</span></p>
+              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} kg</p>
+              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} kg</p>
+            </div>
+          </div>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-muted text-foreground hover:bg-muted/80"
+              onClick={() => {
+                setStockWarning(null);
+                // Focus qty field — user can manually adjust
+              }}
+            >
+              Adjust Qty
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (stockWarning) {
+                  doSaveRow(stockWarning.tempId);
+                  setStockWarning(null);
+                }
+              }}
+            >
+              Proceed Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -435,19 +435,15 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">SM SKU</label>
-              <Select value={planForm.smSkuId} onValueChange={v => setPlanForm(f => ({ ...f, smSkuId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select SM SKU" /></SelectTrigger>
-                <SelectContent>
-                  {smSkusAll.map(s => {
-                    const hasBom = bomHeaders.some(h => h.smSkuId === s.id);
-                    return (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.skuId} — {s.name} {!hasBom ? '⚠ No BOM' : ''}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={planForm.smSkuId}
+                onValueChange={v => setPlanForm(f => ({ ...f, smSkuId: v }))}
+                options={smSkusAll.map(s => {
+                  const hasBom = bomHeaders.some(h => h.smSkuId === s.id);
+                  return { value: s.id, label: `${s.skuId} — ${s.name}${!hasBom ? ' ⚠ No BOM' : ''}`, sublabel: s.skuId };
+                })}
+                placeholder="Select SM SKU"
+              />
               {planForm.smSkuId && !bomHeaders.some(h => h.smSkuId === planForm.smSkuId) && (
                 <p className="text-xs text-warning mt-1 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> No BOM found — RM stock cannot be deducted
