@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSalesEntryData, SalesEntry } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
@@ -8,9 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Upload, Trash2, ClipboardPaste } from 'lucide-react';
+import { SearchInput } from '@/components/SearchInput';
+import { SkeletonTable } from '@/components/SkeletonTable';
+import { EmptyState } from '@/components/EmptyState';
+import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const POS_COLUMNS = [
   'Date','Time','Receipt No','INV No','Tray Code','Menu Code','Menu Name',
@@ -20,6 +25,8 @@ const POS_COLUMNS = [
   'Opened By','Closed By','Branch',
 ];
 
+const EXPECTED_COL_COUNT = 29;
+
 interface SalesEntryPageProps {
   branches: Branch[];
 }
@@ -28,7 +35,6 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
   const { isAdmin, isBranchManager, profile } = useAuth();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
 
-  // Branch selector
   const availableBranches = useMemo(() => {
     if (isAdmin) return branches.filter(b => b.status === 'Active');
     if (isBranchManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
@@ -39,33 +45,42 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     isBranchManager && profile?.branch_id ? profile.branch_id : ''
   );
 
-  // Paste area
   const [pastedText, setPastedText] = useState('');
   const [parsedRows, setParsedRows] = useState<string[][]>([]);
   const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedRows?: string[][] } | null>(null);
+  const [showSkipped, setShowSkipped] = useState(false);
 
-  // History filters
   const [filterBranch, setFilterBranch] = useState<string>('__all__');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
 
-  // Delete confirm
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
-  // Auto-select branch for branch manager
-  useState(() => {
-    if (isBranchManager && profile?.branch_id && !selectedBranch) {
-      setSelectedBranch(profile.branch_id);
-    }
-  });
+  // Column count validation
+  const columnCounts = useMemo(() => {
+    if (parsedRows.length === 0) return [];
+    return parsedRows.map(r => r.length);
+  }, [parsedRows]);
+
+  const hasValidColumns = useMemo(() => {
+    if (parsedRows.length === 0) return true;
+    return parsedRows.every(r => r.length >= EXPECTED_COL_COUNT - 2 && r.length <= EXPECTED_COL_COUNT + 2);
+  }, [parsedRows]);
+
+  const avgColCount = useMemo(() => {
+    if (columnCounts.length === 0) return 0;
+    return Math.round(columnCounts.reduce((a, b) => a + b, 0) / columnCounts.length);
+  }, [columnCounts]);
 
   // Parse pasted text
   const handlePasteChange = useCallback((text: string) => {
     setPastedText(text);
+    setImportResult(null);
     if (!text.trim()) { setParsedRows([]); return; }
     const lines = text.trim().split('\n');
     const rows = lines.map(line => line.split('\t'));
-    // Filter out header row if it matches POS columns
     const filtered = rows.filter(r => {
       if (r.length < 5) return false;
       if (r[0]?.trim().toLowerCase() === 'date' || r[0]?.trim() === POS_COLUMNS[0]) return false;
@@ -82,7 +97,6 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     const mapped: Omit<SalesEntry, 'id' | 'branchId'>[] = [];
 
     for (const cols of parsedRows) {
-      // Extract needed columns by index (0-based): Date(0), ReceiptNo(2), MenuCode(5), MenuName(6), OrderType(7), Qty(8), UnitPrice(9), NetAmount(13), Channel(15)
       const dateStr = cols[0]?.trim() || '';
       const receiptNo = cols[2]?.trim() || '';
       const menuCode = cols[5]?.trim() || '';
@@ -93,23 +107,19 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
       const netAmount = Number(cols[13]?.trim()) || 0;
       const channel = cols[15]?.trim() || '';
 
-      // Parse date - try common formats
       let saleDate = '';
       if (dateStr) {
-        // Try DD/MM/YYYY or DD-MM-YYYY
         const parts = dateStr.split(/[\/\-\.]/);
         if (parts.length === 3) {
           const [d, m, y] = parts;
           const year = y.length === 2 ? '20' + y : y;
           saleDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         } else {
-          // Try as-is (YYYY-MM-DD)
           saleDate = dateStr;
         }
       }
 
-      if (!receiptNo && !menuCode) continue; // skip empty rows
-
+      if (!receiptNo && !menuCode) continue;
       mapped.push({ saleDate, receiptNo, menuCode, menuName, orderType, qty, unitPrice, netAmount, channel });
     }
 
@@ -117,6 +127,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
 
     const result = await bulkInsert(selectedBranch, mapped);
     if (result) {
+      setImportResult({ inserted: result.inserted, skipped: result.skipped });
       if (result.inserted > 0) toast.success(`${result.inserted} rows imported successfully`);
       if (result.skipped > 0) toast.warning(`${result.skipped} duplicate rows skipped`);
       setPastedText('');
@@ -126,7 +137,6 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     setImporting(false);
   }, [selectedBranch, parsedRows, bulkInsert, fetchEntries, filterBranch]);
 
-  // Filter history
   const handleApplyFilter = useCallback(() => {
     const filters: { branchId?: string; dateFrom?: string; dateTo?: string } = {};
     if (filterBranch !== '__all__') filters.branchId = filterBranch;
@@ -135,7 +145,6 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     fetchEntries(filters);
   }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
 
-  // Summary
   const totalQty = useMemo(() => entries.reduce((s, e) => s + e.qty, 0), [entries]);
   const totalRevenue = useMemo(() => entries.reduce((s, e) => s + e.netAmount, 0), [entries]);
 
@@ -145,8 +154,23 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     return m;
   }, [branches]);
 
+  // Filter history with search
+  const filteredEntries = useMemo(() => {
+    if (!historySearch) return entries;
+    const q = historySearch.toLowerCase();
+    return entries.filter(e =>
+      e.menuCode.toLowerCase().includes(q) ||
+      e.menuName.toLowerCase().includes(q) ||
+      e.receiptNo.toLowerCase().includes(q) ||
+      e.channel.toLowerCase().includes(q)
+    );
+  }, [entries, historySearch]);
+
+  // Preview first 3 rows
+  const previewRows = parsedRows.slice(0, 3);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* SECTION 1: PASTE SALES DATA */}
       <Card>
         <CardHeader>
@@ -155,13 +179,13 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
             Paste Sales Data
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Copy rows from your POS export and paste them below. The grid expects 29 tab-separated columns.
+            Copy rows from your POS export and paste them below. Expected: {EXPECTED_COL_COUNT} tab-separated columns.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Branch selector */}
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium whitespace-nowrap">Branch:</label>
+            <label className="text-sm font-medium whitespace-nowrap label-required">Branch</label>
             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Select branch" />
@@ -194,15 +218,73 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
             className="font-mono text-xs"
           />
 
+          {/* Paste feedback */}
           {parsedRows.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {parsedRows.length} rows detected
-            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-muted-foreground font-medium">{parsedRows.length} rows detected</span>
+                {hasValidColumns ? (
+                  <span className="text-success flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> ✓ {avgColCount} columns detected
+                  </span>
+                ) : (
+                  <span className="text-warning flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> ⚠️ Expected {EXPECTED_COL_COUNT} columns, got {avgColCount}
+                  </span>
+                )}
+              </div>
+
+              {/* Preview first 3 rows */}
+              {previewRows.length > 0 && (
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Preview (first {previewRows.length} rows):</p>
+                  <div className="overflow-x-auto">
+                    <table className="text-[11px] font-mono">
+                      <thead>
+                        <tr>
+                          <th className="px-1.5 py-1 text-left text-muted-foreground">Date</th>
+                          <th className="px-1.5 py-1 text-left text-muted-foreground">Receipt</th>
+                          <th className="px-1.5 py-1 text-left text-muted-foreground">Menu Code</th>
+                          <th className="px-1.5 py-1 text-left text-muted-foreground">Menu Name</th>
+                          <th className="px-1.5 py-1 text-right text-muted-foreground">Qty</th>
+                          <th className="px-1.5 py-1 text-right text-muted-foreground">Net Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewRows.map((r, i) => (
+                          <tr key={i}>
+                            <td className="px-1.5 py-0.5">{r[0]}</td>
+                            <td className="px-1.5 py-0.5">{r[2]}</td>
+                            <td className="px-1.5 py-0.5">{r[5]}</td>
+                            <td className="px-1.5 py-0.5 max-w-[150px] truncate">{r[6]}</td>
+                            <td className="px-1.5 py-0.5 text-right">{r[8]}</td>
+                            <td className="px-1.5 py-0.5 text-right">{r[13]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
-          <Button onClick={handleImport} disabled={importing || parsedRows.length === 0 || !selectedBranch}>
-            <Upload className="w-4 h-4" />
-            {importing ? 'Importing...' : `Import Pasted Data (${parsedRows.length} rows)`}
+          {/* Import result summary */}
+          {importResult && (
+            <div className="rounded-lg border bg-success/5 border-success/20 p-3 space-y-2">
+              <p className="text-sm font-medium text-success flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                {importResult.inserted} rows imported{importResult.skipped > 0 && `, ${importResult.skipped} duplicates skipped`}
+              </p>
+            </div>
+          )}
+
+          <Button onClick={handleImport} disabled={importing || parsedRows.length === 0 || !selectedBranch || !hasValidColumns}>
+            {importing ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+            ) : (
+              <><Upload className="w-4 h-4" /> Import Pasted Data ({parsedRows.length} rows)</>
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -242,58 +324,87 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
             <Button variant="outline" onClick={handleApplyFilter}>Apply</Button>
           </div>
 
+          {/* Search within results */}
+          {entries.length > 0 && (
+            <SearchInput
+              value={historySearch}
+              onChange={setHistorySearch}
+              placeholder="Search menu, receipt no, channel..."
+              totalCount={entries.length}
+              filteredCount={filteredEntries.length}
+              entityName="entries"
+            />
+          )}
+
           {/* Table */}
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Menu Code</TableHead>
-                  <TableHead>Menu Name</TableHead>
-                  <TableHead>Order Type</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="text-right">Net Amount</TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Branch</TableHead>
-                  {isAdmin && <TableHead className="w-10" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Loading...</TableCell></TableRow>
-                ) : entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No sales data</TableCell></TableRow>
-                ) : entries.map(e => (
-                  <TableRow key={e.id}>
-                    <TableCell className="whitespace-nowrap">{e.saleDate}</TableCell>
-                    <TableCell className="font-mono text-xs">{e.menuCode}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{e.menuName}</TableCell>
-                    <TableCell>{e.orderType}</TableCell>
-                    <TableCell className="text-right">{e.qty}</TableCell>
-                    <TableCell className="text-right">{e.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{e.netAmount.toFixed(2)}</TableCell>
-                    <TableCell>{e.channel}</TableCell>
-                    <TableCell>{branchMap[e.branchId] || '-'}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id })}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    )}
+          {loading ? (
+            <SkeletonTable columns={9} rows={8} />
+          ) : (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-table-header">
+                    <TableHead className="table-header">Date</TableHead>
+                    <TableHead className="table-header">Menu Code</TableHead>
+                    <TableHead className="table-header">Menu Name</TableHead>
+                    <TableHead className="table-header">Order Type</TableHead>
+                    <TableHead className="text-right table-header">Qty</TableHead>
+                    <TableHead className="text-right table-header">Unit Price</TableHead>
+                    <TableHead className="text-right table-header">Net Amount</TableHead>
+                    <TableHead className="table-header">Channel</TableHead>
+                    <TableHead className="table-header">Branch</TableHead>
+                    {isAdmin && <TableHead className="w-10 table-header" />}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredEntries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10}>
+                        <EmptyState
+                          icon={ShoppingCart}
+                          title={entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
+                          description={entries.length === 0 ? 'Paste your first POS export above to get started' : 'Try adjusting your search or filter'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredEntries.map((e, idx) => (
+                    <TableRow key={e.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                      <TableCell className="whitespace-nowrap">{e.saleDate}</TableCell>
+                      <TableCell className="font-mono text-xs">{e.menuCode}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{e.menuName}</TableCell>
+                      <TableCell>{e.orderType}</TableCell>
+                      <TableCell className="text-right tabular-nums">{e.qty}</TableCell>
+                      <TableCell className="text-right tabular-nums">{e.unitPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</TableCell>
+                      <TableCell>{e.channel}</TableCell>
+                      <TableCell>{branchMap[e.branchId] || '-'}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="icon-btn-delete h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
           {/* Summary */}
           {entries.length > 0 && (
             <div className="flex gap-6 text-sm pt-2 border-t">
               <span>Total Qty: <strong>{totalQty.toLocaleString()}</strong></span>
               <span>Total Revenue: <strong>฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-              <span className="text-muted-foreground">{entries.length} rows</span>
+              <span className="text-muted-foreground">{filteredEntries.length} rows</span>
             </div>
           )}
         </CardContent>
@@ -303,9 +414,9 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
         open={!!deleteConfirm}
         onOpenChange={open => !open && setDeleteConfirm(null)}
         title="Delete Sales Entry"
-        description="Are you sure you want to delete this sales entry?"
+        description={`Delete "${deleteConfirm?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
-        onConfirm={() => { if (deleteConfirm) { deleteEntry(deleteConfirm.id); setDeleteConfirm(null); } }}
+        onConfirm={() => { if (deleteConfirm) { deleteEntry(deleteConfirm.id); setDeleteConfirm(null); toast.success('Entry deleted'); } }}
       />
     </div>
   );
