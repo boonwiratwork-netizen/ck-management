@@ -138,6 +138,72 @@ export type Database = {
           },
         ]
       }
+      branch_receipts: {
+        Row: {
+          actual_total: number
+          actual_unit_price: number
+          branch_id: string
+          created_at: string
+          id: string
+          notes: string
+          price_variance: number
+          qty_received: number
+          receipt_date: string
+          sku_id: string
+          std_total: number
+          std_unit_price: number
+          supplier_name: string
+          uom: string
+        }
+        Insert: {
+          actual_total?: number
+          actual_unit_price?: number
+          branch_id: string
+          created_at?: string
+          id?: string
+          notes?: string
+          price_variance?: number
+          qty_received?: number
+          receipt_date?: string
+          sku_id: string
+          std_total?: number
+          std_unit_price?: number
+          supplier_name?: string
+          uom?: string
+        }
+        Update: {
+          actual_total?: number
+          actual_unit_price?: number
+          branch_id?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          price_variance?: number
+          qty_received?: number
+          receipt_date?: string
+          sku_id?: string
+          std_total?: number
+          std_unit_price?: number
+          supplier_name?: string
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_receipts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_receipts_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branches: {
         Row: {
           branch_name: string

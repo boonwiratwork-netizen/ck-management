@@ -38,6 +38,7 @@ import SpBomPage from '@/pages/SpBom';
 import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
+import BranchReceiptPage from '@/pages/BranchReceipt';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -65,6 +66,7 @@ const tabLabels: Record<TabKey, string> = {
   'sp-bom': 'SP BOM',
   'modifier-rules': 'Modifier Rules',
   'sales-entry': 'Sales Entry',
+  'branch-receipt': 'Branch Receipt',
   'daily-stock-count': 'Daily Stock Count',
 };
 
@@ -113,7 +115,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'daily-stock-count') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'branch-receipt' && tab !== 'daily-stock-count') {
       toast.error('Access denied');
       return;
     }
@@ -356,6 +358,8 @@ const Index = () => {
                 />
               ) : activeTab === 'sales-entry' ? (
                 <SalesEntryPage branches={branchData.branches} />
+              ) : activeTab === 'branch-receipt' ? (
+                <BranchReceiptPage skus={skus} prices={priceData.prices} branches={branchData.branches} />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}
