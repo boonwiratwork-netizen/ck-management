@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { SKU, SKUType } from '@/types/sku';
 import { useSpBomData } from '@/hooks/use-sp-bom-data';
 import { useModifierRuleData } from '@/hooks/use-modifier-rule-data';
@@ -37,6 +37,7 @@ import MenuBOMPage from '@/pages/MenuBOM';
 import SpBomPage from '@/pages/SpBom';
 import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
+import DailyStockCountPage from '@/pages/DailyStockCount';
 import { AppSidebar, TabKey } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -64,6 +65,7 @@ const tabLabels: Record<TabKey, string> = {
   'sp-bom': 'SP BOM',
   'modifier-rules': 'Modifier Rules',
   'sales-entry': 'Sales Entry',
+  'daily-stock-count': 'Daily Stock Count',
 };
 
 // Tabs that CK Manager can fully interact with
@@ -111,7 +113,7 @@ const Index = () => {
       toast.error('Access denied: Admin only');
       return;
     }
-    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry') {
+    if (isBranchManager && tab !== 'store' && tab !== 'menu-master' && tab !== 'menu-bom' && tab !== 'sp-bom' && tab !== 'modifier-rules' && tab !== 'sales-entry' && tab !== 'daily-stock-count') {
       toast.error('Access denied');
       return;
     }
@@ -354,6 +356,15 @@ const Index = () => {
                 />
               ) : activeTab === 'sales-entry' ? (
                 <SalesEntryPage branches={branchData.branches} />
+              ) : activeTab === 'daily-stock-count' ? (
+                <DailyStockCountPage
+                  skus={skus}
+                  menuBomLines={menuBomData.lines}
+                  modifierRules={modifierRuleData.rules}
+                  spBomLines={spBomData.lines}
+                  menus={menuData.menus}
+                  branches={branchData.branches}
+                />
               ) : (
                 <DeliveryToBranchesPage
                   deliveryData={deliveryData}
