@@ -36,6 +36,9 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
   const [editingRule, setEditingRule] = useState<ModifierRule | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testInput, setTestInput] = useState('');
+  const [testResults, setTestResults] = useState<{ rule: ModifierRule; sku: SKU | undefined }[]>([]);
 
   // Form state
   const [formKeyword, setFormKeyword] = useState('');
