@@ -199,6 +199,17 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
     );
   }, [menus, menuSearch]);
 
+  // Summary: how many menus have BOM set up
+  const menusWithBom = useMemo(() => menus.filter(m => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
+
+  // Helper: live cost for a menu
+  const getLiveMenuCost = useCallback((menuId: string) => {
+    return menuBomData.getLinesForMenu(menuId).reduce((sum, l) => {
+      const effQty = calcEffectiveQty(l.qtyPerServing, l.yieldPct);
+      return sum + effQty * getActiveCost(l.skuId);
+    }, 0);
+  }, [menuBomData, prices]);
+
   // Inline add
   const startAddLine = () => {
     setFormSkuId('');
