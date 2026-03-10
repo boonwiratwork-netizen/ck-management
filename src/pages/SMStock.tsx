@@ -229,6 +229,9 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                       {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{row.sku.usageUom}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {row.stockValue > 0 ? `฿${row.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </TableCell>
                     <TableCell className="text-xs">{row.lastDate ?? '—'}</TableCell>
                     <TableCell className="text-right text-muted-foreground">0</TableCell>
                     <TableCell>
