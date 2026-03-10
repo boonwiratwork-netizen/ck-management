@@ -403,11 +403,11 @@ export default function DailyStockCountPage({
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  defaultValue={rawPhysical !== null ? rawPhysical : ''}
+                                  defaultValue={row.physicalCount !== null ? row.physicalCount : ''}
                                   key={`phys-unused-${row.id}-${row.physicalCount}`}
                                   onBlur={e => {
                                     const val = e.target.value === '' ? null : Number(e.target.value);
-                                    if (val !== rawPhysical) updatePhysicalCount(row.id, val);
+                                    if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
                                   }}
                                   className="h-8 w-24 text-sm"
                                   placeholder="—"
