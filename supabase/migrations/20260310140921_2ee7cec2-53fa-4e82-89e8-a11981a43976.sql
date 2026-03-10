@@ -1,0 +1,1 @@
+ALTER TABLE public.menu_modifier_rules ALTER COLUMN sku_id DROP NOT NULL;
