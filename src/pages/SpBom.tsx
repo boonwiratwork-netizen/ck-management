@@ -533,7 +533,10 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                               {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
-                              {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              {(() => {
+                                const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
+                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                              })()}
                             </TableCell>
                             {canEdit && (
                               <TableCell className="py-1 px-2">

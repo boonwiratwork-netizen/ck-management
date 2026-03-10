@@ -486,7 +486,10 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                               {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                              {line.costPerServing > 0 ? `฿${line.costPerServing.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              {(() => {
+                                const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
+                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                              })()}
                             </TableCell>
                             {canEdit && (
                               <TableCell className="py-2 px-3">
