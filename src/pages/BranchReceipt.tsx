@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { useAuth } from '@/hooks/use-auth';
 import { useBranchReceiptData, BranchReceipt } from '@/hooks/use-branch-receipt-data';
 import { SKU } from '@/types/sku';
