@@ -204,7 +204,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       deliveryDate: delivery.deliveryDate,
       branchName: delivery.branchName,
       smSkuId: delivery.smSkuId,
-      qtyDeliveredKg: delivery.qtyDeliveredKg,
+      qtyDeliveredG: delivery.qtyDeliveredG,
       note: delivery.note,
       isNew: false,
       isEditing: true,
