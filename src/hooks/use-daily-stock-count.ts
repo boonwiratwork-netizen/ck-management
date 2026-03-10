@@ -82,7 +82,12 @@ export function useDailyStockCount({
     
     const ckBySku: Record<string, number> = {};
     (dlData || []).forEach(d => {
-      ckBySku[d.sm_sku_id] = (ckBySku[d.sm_sku_id] || 0) + Number(d.qty_delivered_kg);
+      const raw = Number(d.qty_delivered_kg);
+      const sku = skus.find(s => s.id === d.sm_sku_id);
+      const uom = (sku?.usageUom || '').toLowerCase();
+      // Delivery is stored in kg; convert to grams if SKU usage_uom is grams
+      const isGrams = ['ก.', 'g', 'กรัม'].includes(uom);
+      ckBySku[d.sm_sku_id] = (ckBySku[d.sm_sku_id] || 0) + (isGrams ? raw * 1000 : raw);
     });
 
     return { extBySku, ckBySku };
