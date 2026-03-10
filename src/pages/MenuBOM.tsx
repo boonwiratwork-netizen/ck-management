@@ -351,7 +351,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
         {!fullscreen && (
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Menus</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('section.menus')}</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">{menusWithBom} of {menus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
