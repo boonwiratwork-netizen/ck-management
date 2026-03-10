@@ -159,7 +159,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                           <p className="font-medium text-sm">{session.date}</p>
                           <Badge variant={session.status === 'Completed' ? 'default' : 'secondary'} className="text-[10px]">
                             {session.status === 'Completed' ? <Lock className="w-3 h-3 mr-1" /> : null}
-                            {session.status}
+                            {session.status === 'Completed' ? t('status.completed') : t('status.draft')}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{session.note || 'No note'}</p>
