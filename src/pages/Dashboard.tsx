@@ -293,7 +293,7 @@ const Dashboard = ({
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
             </div>
             <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">SM Stock Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.smStockValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
             </div>
             <div className="rounded-lg border bg-accent p-card-p">
