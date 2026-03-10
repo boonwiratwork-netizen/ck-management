@@ -55,7 +55,7 @@ export function useMenuData() {
     if (data.category !== undefined) dbData.category = data.category;
     if (data.sellingPrice !== undefined) dbData.selling_price = data.sellingPrice;
     if (data.status !== undefined) dbData.status = data.status;
-    if (data.branchId !== undefined) dbData.branch_id = data.branchId;
+    if (data.brandName !== undefined) dbData.brand_name = data.brandName;
 
     const { error } = await supabase.from('menus').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update menu: ' + error.message); return; }

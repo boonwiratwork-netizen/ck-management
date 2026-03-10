@@ -21,5 +21,5 @@ export const EMPTY_MENU: Omit<Menu, 'id'> = {
   category: '',
   sellingPrice: 0,
   status: 'Active',
-  branchId: null,
+  brandName: '',
 };
