@@ -392,7 +392,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                             </div>
                             {produced > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Produced: {produced.toFixed(1)}kg / {plan.targetQtyKg}kg ({((produced / plan.targetQtyKg) * 100).toFixed(0)}%)
+                                Produced: {(produced / 1000).toFixed(1)}kg / {plan.targetQtyKg}kg ({((produced / (plan.targetQtyKg * 1000)) * 100).toFixed(0)}%)
                               </p>
                             )}
                           </div>
