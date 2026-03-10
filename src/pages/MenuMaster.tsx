@@ -42,6 +42,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterBrand, setFilterBrand] = useState<string>('all');
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Form state
   const [form, setForm] = useState<Omit<Menu, 'id'>>(EMPTY_MENU);
