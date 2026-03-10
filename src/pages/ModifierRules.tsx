@@ -49,7 +49,6 @@ function MultiMenuSelector({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const isGlobal = selectedMenuIds.length === 0;
 
   const filtered = useMemo(() => {
