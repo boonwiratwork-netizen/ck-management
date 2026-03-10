@@ -329,12 +329,26 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       {drafts.length > 0 && (
          <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 180 }} />
+                <col style={{ width: 180 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
+              </colgroup>
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
-                  <th className={thClass} style={{ minWidth: 220 }}>{t('col.sku')}</th>
+                  <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.name')}</th>
-                  <th className={thClass} style={{ minWidth: 140 }}>{t('col.supplier')}</th>
+                  <th className={thClass}>{t('col.supplier')}</th>
                   <th className={`${thClass} text-right`}>{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>{t('col.totalPaid')}</th>
@@ -343,7 +357,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
                   <th className={`${thClass} text-right`}>{t('col.variance')}</th>
                   <th className={thClass}>{t('col.notes')}</th>
-                  <th className={`${thClass} text-center`} style={{ minWidth: 50 }}></th>
+                  <th className={`${thClass} text-center`}></th>
                 </tr>
               </thead>
               <tbody>
@@ -364,20 +378,29 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           skus={rmSkus}
                         />
                       </td>
-                      <td className={`${tdClass} text-xs text-muted-foreground`}>{sku?.name || '—'}</td>
+                      <td className={`${tdClass} text-xs text-muted-foreground`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.name || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
                       <td className={tdClass}>
-                        <Input value={draft.supplierName} onChange={e => handleUpdateDraft(draft.tempId, 'supplierName', e.target.value)} className="h-8 text-xs w-[130px]" placeholder="Supplier..." />
+                        <Input value={draft.supplierName} onChange={e => handleUpdateDraft(draft.tempId, 'supplierName', e.target.value)} className="h-8 text-xs w-full" placeholder="Supplier..." />
                       </td>
                       <td className={tdClass}>
                         <div className="flex items-center gap-1">
-                          <Input type="number" min={0} step="any" value={draft.qtyReceived || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyReceived', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
+                          <Input type="number" min={0} step="any" value={draft.qtyReceived || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyReceived', Number(e.target.value))} className="h-8 text-xs text-right w-full font-mono" placeholder="0" />
                         </div>
                       </td>
                       <td className={`${tdClass} text-center text-xs text-muted-foreground font-medium`}>
                         {uomLabel || '—'}
                       </td>
                       <td className={tdClass}>
-                        <Input type="number" min={0} step="any" value={draft.actualTotalPaid || ''} onChange={e => handleUpdateDraft(draft.tempId, 'actualTotalPaid', Number(e.target.value))} className="h-8 text-xs text-right w-[110px] font-mono" placeholder="0.00" />
+                        <Input type="number" min={0} step="any" value={draft.actualTotalPaid || ''} onChange={e => handleUpdateDraft(draft.tempId, 'actualTotalPaid', Number(e.target.value))} className="h-8 text-xs text-right w-full font-mono" placeholder="0.00" />
                       </td>
                       <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
                         {actualUnitPrice > 0 ? `฿${actualUnitPrice.toFixed(2)}` : '—'}
@@ -396,7 +419,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         ) : '—'}
                       </td>
                       <td className={tdClass}>
-                        <Input value={draft.notes} onChange={e => handleUpdateDraft(draft.tempId, 'notes', e.target.value)} className="h-8 text-xs w-[100px]" placeholder="Note..." />
+                        <Input value={draft.notes} onChange={e => handleUpdateDraft(draft.tempId, 'notes', e.target.value)} className="h-8 text-xs w-full" placeholder="Note..." />
                       </td>
                       <td className={`${tdClass} text-center`}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteDraft(draft.tempId)}>
@@ -495,7 +518,20 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
         <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 100 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 160 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 100 }} />
+                {isManagement && <col style={{ width: 120 }} />}
+                {isManagement && <col style={{ width: 60 }} />}
+              </colgroup>
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
                   <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('date')}>
@@ -515,10 +551,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   </th>
                   <th className={`${thClass} text-center`}>UOM</th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('actualTotal')}>
-                    <SortableHeader label="Actual Total ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                    <SortableHeader label="Actual ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
                   </th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('stdTotal')}>
-                    <SortableHeader label="Std Total ฿" sortKey="stdTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                    <SortableHeader label="Std ฿" sortKey="stdTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
                   </th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('variance')}>
                     <SortableHeader label="Variance" sortKey="variance" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
@@ -534,9 +570,27 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   return (
                     <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className={tdReadOnly}>{r.receiptDate}</td>
-                      <td className={`${tdReadOnly} font-mono`}>{sku?.skuId || '—'}</td>
-                      <td className={tdReadOnly}>{sku?.name || '—'}</td>
-                      <td className={tdReadOnly}>{r.supplierName || '—'}</td>
+                      <td className={`${tdReadOnly} font-mono truncate`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.skuId || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.skuId && <TooltipContent side="top"><p>{sku.skuId}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
+                      <td className={tdReadOnly}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.name || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
+                      <td className={`${tdReadOnly} truncate`}>{r.supplierName || '—'}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
                       <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>฿{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
