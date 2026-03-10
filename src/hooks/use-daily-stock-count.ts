@@ -400,7 +400,7 @@ export function useDailyStockCount({
     setRows(allInserted.map(toLocal));
     toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
     setGenerating(false);
-  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet]);
+  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter]);
 
   // Update physical count — convert from purchase UOM to usage UOM before storing
   const updatePhysicalCount = useCallback(async (rowId: string, physicalCount: number | null) => {
