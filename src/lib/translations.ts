@@ -261,7 +261,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Dashboard
   'col.coverDays': { th: 'เหลือกี่วัน', en: 'Cover Days' },
-  'col.stockKg': { th: 'สต๊อก (กก.)', en: 'Stock (kg)' },
+  'col.stockKg': { th: 'สต๊อก', en: 'Stock' },
   'col.value': { th: 'มูลค่า', en: 'Value' },
   'col.stock': { th: 'สต๊อก', en: 'Stock' },
 
