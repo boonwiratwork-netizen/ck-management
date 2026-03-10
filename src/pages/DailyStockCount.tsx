@@ -196,7 +196,7 @@ export default function DailyStockCountPage({
         <div className="flex items-center justify-between bg-success/5 border border-success/20 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="w-5 h-5" />
-            <span className="font-medium">Submitted</span>
+            <span className="font-medium">{t('status.submitted')}</span>
             <span className="text-sm opacity-80">
               — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ''}
             </span>
