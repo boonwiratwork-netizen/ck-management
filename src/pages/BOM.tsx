@@ -294,7 +294,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       setEditingLineId(null);
       setAddingLine(false);
     }
-    setTimeout(() => syncCurrentBomPrice(), 300);
+    await syncCurrentBomPrice();
   };
 
   const handleEditLine = (line: BOMLine) => {
