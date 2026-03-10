@@ -1,0 +1,1 @@
+ALTER TABLE public.stock_count_sessions ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
