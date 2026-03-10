@@ -177,7 +177,7 @@ const Dashboard = ({
 
     bySmSku.forEach((recs, smSkuId) => {
       const sku = skuMap.get(smSkuId);
-      const totalOutputKg = recs.reduce((s, r) => s + r.actualOutputKg, 0);
+      const totalOutputG = recs.reduce((s, r) => s + r.actualOutputG, 0);
       const totalBatches = recs.reduce((s, r) => s + r.batchesProduced, 0);
 
       const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
