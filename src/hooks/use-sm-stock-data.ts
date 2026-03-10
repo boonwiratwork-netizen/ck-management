@@ -3,7 +3,8 @@ import { StockAdjustment } from '@/types/stock';
 import { SKU } from '@/types/sku';
 import { ProductionRecord } from '@/types/production';
 import { Delivery } from '@/types/delivery';
-import { BOMHeader } from '@/types/bom';
+import { BOMHeader, BOMLine } from '@/types/bom';
+import { Price } from '@/types/price';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,13 +21,14 @@ export function useSmStockData(
   skus: SKU[],
   productionRecords: ProductionRecord[],
   deliveries: Delivery[],
-  bomHeaders: BOMHeader[]
+  bomHeaders: BOMHeader[],
+  bomLines: BOMLine[],
+  prices: Price[]
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
 
   useEffect(() => {
-    // SM opening stocks use same table, just filter SM skus on client
     supabase.from('stock_opening_balances').select('*')
       .then(({ data }) => {
         if (data) {
