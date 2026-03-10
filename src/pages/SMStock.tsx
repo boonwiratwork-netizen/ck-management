@@ -19,6 +19,7 @@ interface Props {
     stockBalances: SMStockBalance[];
     setOpeningStock: (skuId: string, qty: number) => void;
     addAdjustment: (adj: Omit<StockAdjustment, 'id'>) => void;
+    getBomCostPerGram: (skuId: string) => number;
     getLastProductionDate: (skuId: string) => string | null;
     openingStocks: Record<string, number>;
   };
