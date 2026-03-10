@@ -145,6 +145,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { profile, role, isManagement, signOut } = useAuth();
+  const { lang, toggleLang, t } = useLanguage();
 
   // Build groups based on role
   const allGroups: NavGroup[] = [];
