@@ -329,12 +329,26 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       {drafts.length > 0 && (
          <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 180 }} />
+                <col style={{ width: 180 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
+              </colgroup>
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
-                  <th className={thClass} style={{ minWidth: 220 }}>{t('col.sku')}</th>
+                  <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.name')}</th>
-                  <th className={thClass} style={{ minWidth: 140 }}>{t('col.supplier')}</th>
+                  <th className={thClass}>{t('col.supplier')}</th>
                   <th className={`${thClass} text-right`}>{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>{t('col.totalPaid')}</th>
@@ -343,7 +357,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
                   <th className={`${thClass} text-right`}>{t('col.variance')}</th>
                   <th className={thClass}>{t('col.notes')}</th>
-                  <th className={`${thClass} text-center`} style={{ minWidth: 50 }}></th>
+                  <th className={`${thClass} text-center`}></th>
                 </tr>
               </thead>
               <tbody>
