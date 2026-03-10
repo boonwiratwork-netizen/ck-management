@@ -204,7 +204,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
                     <TableCell>{statusDot(row.healthStatus)}</TableCell>
                     <TableCell className="font-mono text-xs">{row.sku.skuId}</TableCell>
                     <TableCell className="font-medium">{row.sku.name}</TableCell>
-                    <TableCell>{CATEGORY_LABELS[row.sku.category]}</TableCell>
+                    
                     <TableCell>{row.sku.storageCondition}</TableCell>
                     <TableCell className="text-right">
                       {editingOpening === row.sku.id ? (
