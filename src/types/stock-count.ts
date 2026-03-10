@@ -14,7 +14,7 @@ export interface StockCountLine {
   id: string;
   sessionId: string;
   skuId: string;
-  type: 'RM' | 'SM';
+  type: 'RM' | 'SM' | 'SP' | 'PK';
   systemQty: number;
   physicalQty: number | null;  // null = not yet counted
   variance: number;            // physical - system (0 if not counted)
