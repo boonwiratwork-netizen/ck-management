@@ -441,7 +441,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Status</label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as MenuStatus }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Active">Active</SelectItem>
