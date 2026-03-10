@@ -214,14 +214,12 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   const syncCurrentBomPrice = useCallback(async (headerId?: string) => {
     const hId = headerId || selectedHeaderId;
     if (!hId) return;
-    const header = headers.find(h => h.id === hId);
-    if (!header) return;
-    const { costPerGram } = getBomCost(header);
-    if (costPerGram > 0) {
-      const skuName = getSkuCode(header.smSkuId) || getSkuName(header.smSkuId);
-      await syncBomPrice(header.smSkuId, costPerGram);
-      // Cascade to Menu BOMs and SP BOMs using this SM SKU
-      const { menuBomCount, spBomCount } = await cascadeBomCost(header.smSkuId, costPerGram);
+    // Fetch fresh data from DB — not React state
+    const { costPerGram, smSkuId } = await computeBomCostFromDb(hId);
+    if (costPerGram > 0 && smSkuId) {
+      const skuName = getSkuCode(smSkuId) || getSkuName(smSkuId);
+      await syncBomPrice(smSkuId, costPerGram);
+      const { menuBomCount, spBomCount } = await cascadeBomCost(smSkuId, costPerGram);
       let msg = `BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`;
       if (menuBomCount > 0 || spBomCount > 0) {
         msg += ` — ${menuBomCount} menu BOM${menuBomCount !== 1 ? 's' : ''} and ${spBomCount} SP BOM${spBomCount !== 1 ? 's' : ''} refreshed`;
@@ -229,7 +227,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
       toast.success(msg);
       onPricesRefresh?.();
     }
-  }, [selectedHeaderId, headers, prices, onPricesRefresh]);
+  }, [selectedHeaderId, onPricesRefresh]);
 
   // Header actions
   const handleAddHeader = () => {
