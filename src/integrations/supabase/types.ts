@@ -250,6 +250,7 @@ export type Database = {
           sku_id: string
           submitted_at: string | null
           variance: number
+          waste: number
         }
         Insert: {
           branch_id: string
@@ -266,6 +267,7 @@ export type Database = {
           sku_id: string
           submitted_at?: string | null
           variance?: number
+          waste?: number
         }
         Update: {
           branch_id?: string
@@ -282,6 +284,7 @@ export type Database = {
           sku_id?: string
           submitted_at?: string | null
           variance?: number
+          waste?: number
         }
         Relationships: [
           {

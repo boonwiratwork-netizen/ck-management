@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_stock_counts ADD COLUMN waste numeric NOT NULL DEFAULT 0;

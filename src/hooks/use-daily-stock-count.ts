@@ -17,6 +17,7 @@ export interface DailyStockCountRow {
   receivedFromCk: number;
   receivedExternal: number;
   expectedUsage: number;
+  waste: number;
   calculatedBalance: number;
   physicalCount: number | null;
   variance: number;
@@ -33,6 +34,7 @@ const toLocal = (r: any): DailyStockCountRow => ({
   receivedFromCk: Number(r.received_from_ck),
   receivedExternal: Number(r.received_external),
   expectedUsage: Number(r.expected_usage),
+  waste: Number(r.waste ?? 0),
   calculatedBalance: Number(r.calculated_balance),
   physicalCount: r.physical_count !== null ? Number(r.physical_count) : null,
   variance: Number(r.variance),
@@ -229,7 +231,8 @@ export function useDailyStockCount({
       const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
       const expUsage = expectedUsage[r.sku_id] ?? 0;
-      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage;
+      const waste = Number(r.waste ?? 0);
+      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
@@ -270,6 +273,7 @@ export function useDailyStockCount({
           received_from_ck: ck,
           received_external: ext,
           expected_usage: expUsage,
+          waste: 0,
           calculated_balance: calcBalance,
           physical_count: null,
           variance: 0,
@@ -347,6 +351,7 @@ export function useDailyStockCount({
         received_from_ck: fromCk,
         received_external: receivedExternal,
         expected_usage: expUsage,
+        waste: 0,
         calculated_balance: calcBalance,
         physical_count: null as number | null,
         variance: 0,
@@ -395,6 +400,21 @@ export function useDailyStockCount({
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount, variance } : r));
   }, [rows]);
 
+  // Update waste
+  const updateWaste = useCallback(async (rowId: string, waste: number) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row || row.isSubmitted) return;
+
+    const calcBalance = row.openingBalance + row.receivedFromCk + row.receivedExternal - row.expectedUsage - waste;
+    const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
+    const { error } = await supabase
+      .from('daily_stock_counts')
+      .update({ waste, calculated_balance: calcBalance, variance })
+      .eq('id', rowId);
+    if (error) { toast.error('Failed to update waste'); return; }
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, waste, calculatedBalance: calcBalance, variance } : r));
+  }, [rows]);
+
   // Submit count
   const submitSheet = useCallback(async (branchId: string, date: string) => {
     const now = new Date().toISOString();
@@ -422,7 +442,7 @@ export function useDailyStockCount({
 
   return {
     rows, loading, generating,
-    loadSheet, generateSheet, updatePhysicalCount,
+    loadSheet, generateSheet, updatePhysicalCount, updateWaste,
     submitSheet, unlockSheet,
   };
 }
