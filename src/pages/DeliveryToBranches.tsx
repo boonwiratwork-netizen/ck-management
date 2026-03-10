@@ -309,15 +309,25 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
-                <th className={thClass}>Date</th>
-                <th className={`${thClass} text-center`}>Wk</th>
-                <th className={thClass} style={{ minWidth: 140 }}>Branch</th>
-                <th className={thClass} style={{ minWidth: 180 }}>SM SKU</th>
-                <th className={`${thClass} text-right`}>Qty (kg)</th>
+              <tr className="border-b bg-muted/50 sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('date')}>
+                  <span className="inline-flex items-center">Date<DelSortIcon col="date" /></span>
+                </th>
+                <th className={`${thClass} text-center cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('week')}>
+                  <span className="inline-flex items-center">Wk<DelSortIcon col="week" /></span>
+                </th>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 140 }} onClick={() => handleDelSort('branch')}>
+                  <span className="inline-flex items-center">Branch<DelSortIcon col="branch" /></span>
+                </th>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 180 }} onClick={() => handleDelSort('sku')}>
+                  <span className="inline-flex items-center">SM SKU<DelSortIcon col="sku" /></span>
+                </th>
+                <th className={`${thClass} text-right cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('qty')}>
+                  <span className="inline-flex items-center justify-end">Qty (kg)<DelSortIcon col="qty" /></span>
+                </th>
                 <th className={thClass}>Note</th>
                 <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>Actions</th>
               </tr>
