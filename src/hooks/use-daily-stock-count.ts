@@ -351,6 +351,7 @@ export function useDailyStockCount({
         received_from_ck: fromCk,
         received_external: receivedExternal,
         expected_usage: expUsage,
+        waste: 0,
         calculated_balance: calcBalance,
         physical_count: null as number | null,
         variance: 0,
