@@ -25,7 +25,7 @@ export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'recei
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
 export const tabContextMap: Record<TabKey, TabContext> = {
-  dashboard: 'overview',
+  dashboard: 'ck',
   sku: 'ck',
   supplier: 'ck',
   price: 'ck',
