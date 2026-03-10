@@ -94,6 +94,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     );
   }, [spSkus, spSearch]);
 
+  // Summary: how many SP items have BOM set up
+  const spWithBom = useMemo(() => spSkus.filter(s => spBomData.getLinesForSp(s.id).length > 0).length, [spSkus, spBomData]);
+
   // Sync SP BOM price
   const syncSpPrice = async () => {
     if (!selectedSpId || totalCostPerUnit <= 0) return;
