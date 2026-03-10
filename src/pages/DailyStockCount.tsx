@@ -236,10 +236,22 @@ export default function DailyStockCountPage({
                       <TableHead className="table-header">Type</TableHead>
                       <TableHead className="text-right table-header">Opening</TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap">From CK</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">Ext. Received</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">Exp. Usage</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">Calc. Balance</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">Physical Count</TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap">
+                        <div>Ext. Received</div>
+                        <div className="text-[10px] font-normal text-muted-foreground">(Purchase UOM)</div>
+                      </TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap">
+                        <div>Exp. Usage</div>
+                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                      </TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap">
+                        <div>Calc. Balance</div>
+                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                      </TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap">
+                        <div>Physical Count</div>
+                        <div className="text-[10px] font-normal text-muted-foreground">(Purchase UOM)</div>
+                      </TableHead>
                       <TableHead className="text-right table-header">Variance</TableHead>
                     </TableRow>
                   </TableHeader>
