@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { StockBalance, StockAdjustment } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
