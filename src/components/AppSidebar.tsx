@@ -63,14 +63,6 @@ interface NavGroup {
   items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
 }
 
-const overviewGroup: NavGroup = {
-  label: 'OVERVIEW', labelKey: 'nav.overview',
-  section: 'overview',
-  items: [
-    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-  ],
-};
-
 const masterDataGroup: NavGroup = {
   label: 'MASTER DATA', labelKey: 'nav.masterData',
   section: 'ck',
