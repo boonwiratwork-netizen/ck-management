@@ -41,6 +41,113 @@ const STATUS_CONFIG: Record<PlanStatus, { icon: React.ReactNode; color: string }
   'Done': { icon: <CheckCircle2 className="w-3 h-3" />, color: 'bg-success/10 text-success' },
 };
 
+// Inline absolute-positioned dropdown to avoid Dialog pointer-event interference
+function SmSkuSelector({
+  value,
+  onValueChange,
+  skus: skuList,
+  bomHeaders: bomH,
+}: {
+  value: string;
+  onValueChange: (id: string) => void;
+  skus: SKU[];
+  bomHeaders: BOMHeader[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = skuList.find(s => s.id === value);
+
+  const filtered = useMemo(() => {
+    if (!search) return skuList;
+    const q = search.toLowerCase();
+    return skuList.filter(s =>
+      s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+    );
+  }, [skuList, search]);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => { setOpen(!open); setSearch(''); }}
+        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent/50 transition-colors"
+      >
+        <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          {selected ? `${selected.skuId} — ${selected.name}` : 'Select SM SKU'}
+        </span>
+        <svg className="ml-2 h-4 w-4 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+
+      {open && (
+        <div
+          ref={dropdownRef}
+          className="absolute left-0 right-0 rounded-md border bg-popover shadow-md z-50 mt-1"
+          style={{ pointerEvents: 'auto' }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div className="p-1.5">
+            <Input
+              ref={inputRef}
+              placeholder="Search SM SKU..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="h-8 text-xs"
+              onMouseDown={e => e.stopPropagation()}
+            />
+          </div>
+          <div className="max-h-[220px] overflow-y-auto p-1" style={{ pointerEvents: 'auto' }}>
+            {filtered.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">No SKUs found</p>
+            )}
+            {filtered.map(s => {
+              const hasBom = bomH.some(h => h.smSkuId === s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { onValueChange(s.id); setOpen(false); setSearch(''); }}
+                  className={cn(
+                    'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
+                    value === s.id && 'bg-accent'
+                  )}
+                >
+                  <span className="truncate">
+                    <span className="font-mono mr-1">{s.skuId}</span> — {s.name}
+                    {!hasBom && <span className="text-warning ml-1">⚠ No BOM</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProductionPage({ productionData, skus, bomHeaders, stockBalances, bomLines }: ProductionPageProps) {
   const {
     plans, addPlan, updatePlan, deletePlan,
