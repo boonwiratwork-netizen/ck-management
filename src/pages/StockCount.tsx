@@ -287,11 +287,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                               {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
                             <td className="px-1.5 py-1 text-right">
-                              {isReadOnly ? (
-                                <span className="font-mono text-xs">
-                                  {line.physicalQty !== null ? line.physicalQty.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
-                                </span>
-                              ) : (
+                              <div className="flex items-center justify-end gap-1">
                                 <Input
                                   type="number"
                                   min={0}
@@ -305,7 +301,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                                   }}
                                   className="h-8 text-xs text-right w-[80px] font-mono"
                                 />
-                              )}
+                                <span className="text-[10px] text-muted-foreground w-6 text-left">{sku.usageUom}</span>
+                              </div>
                             </td>
                             <TableCell className={`text-right font-mono font-medium ${
                               !hasVariance ? 'text-muted-foreground' :
