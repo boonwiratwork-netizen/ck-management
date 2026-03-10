@@ -326,8 +326,8 @@ export default function DailyStockCountPage({
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
                               <span className="text-xs font-mono">
-                                {rawPhysical !== null ? rawPhysical.toFixed(2) : '—'}
-                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
+                                {row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}
+                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                               </span>
                             ) : (
                               <Input
@@ -335,11 +335,11 @@ export default function DailyStockCountPage({
                                 type="number"
                                 min={0}
                                 step="any"
-                                defaultValue={rawPhysical !== null ? rawPhysical : ''}
+                                defaultValue={row.physicalCount !== null ? row.physicalCount : ''}
                                 key={`phys-${row.id}-${row.physicalCount}`}
                                 onBlur={e => {
                                   const val = e.target.value === '' ? null : Number(e.target.value);
-                                  if (val !== rawPhysical) updatePhysicalCount(row.id, val);
+                                  if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
                                 }}
                                 onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
                                 className="h-8 text-xs text-right w-[80px] font-mono"
