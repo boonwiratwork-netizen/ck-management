@@ -419,7 +419,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         ) : '—'}
                       </td>
                       <td className={tdClass}>
-                        <Input value={draft.notes} onChange={e => handleUpdateDraft(draft.tempId, 'notes', e.target.value)} className="h-8 text-xs w-[100px]" placeholder="Note..." />
+                        <Input value={draft.notes} onChange={e => handleUpdateDraft(draft.tempId, 'notes', e.target.value)} className="h-8 text-xs w-full" placeholder="Note..." />
                       </td>
                       <td className={`${tdClass} text-center`}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteDraft(draft.tempId)}>
