@@ -255,7 +255,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                       <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
                         <SortableHeader label={t('col.systemQty')} sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead className="text-right">{t('col.physicalQty')}</TableHead>
+                      <TableHead className="text-right">{t('col.physicalQty')} (UOM)</TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
                         <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
