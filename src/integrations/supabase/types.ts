@@ -595,6 +595,42 @@ export type Database = {
         }
         Relationships: []
       }
+      modifier_rule_menus: {
+        Row: {
+          created_at: string
+          id: string
+          menu_id: string
+          rule_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_id: string
+          rule_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_id?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modifier_rule_menus_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modifier_rule_menus_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "menu_modifier_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prices: {
         Row: {
           created_at: string

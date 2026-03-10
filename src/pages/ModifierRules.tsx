@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
@@ -14,14 +15,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, FlaskConical, CheckCircle2, XCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash2, Edit2, FlaskConical, CheckCircle2, XCircle, Copy, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ModifierRulesPageProps {
   ruleData: {
     rules: ModifierRule[];
     loading: boolean;
-    addRule: (data: Omit<ModifierRule, 'id'>) => Promise<void>;
+    addRule: (data: Omit<ModifierRule, 'id'>) => Promise<ModifierRule | null>;
     updateRule: (id: string, data: Partial<Omit<ModifierRule, 'id'>>) => Promise<void>;
     deleteRule: (id: string) => Promise<void>;
   };
@@ -29,6 +32,174 @@ interface ModifierRulesPageProps {
   menus: Menu[];
   menuBomLines?: MenuBomLine[];
   readOnly?: boolean;
+}
+
+// Multi-menu selector component with checkboxes, portal-based dropdown
+function MultiMenuSelector({
+  selectedMenuIds,
+  onChangeMenuIds,
+  menus,
+}: {
+  selectedMenuIds: string[];
+  onChangeMenuIds: (ids: string[]) => void;
+  menus: Menu[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 220 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isGlobal = selectedMenuIds.length === 0;
+
+  const filtered = useMemo(() => {
+    if (!search) return menus;
+    const q = search.toLowerCase();
+    return menus.filter(m =>
+      m.menuCode.toLowerCase().includes(q) ||
+      m.menuName.toLowerCase().includes(q)
+    );
+  }, [menus, search]);
+
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 280),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      updatePosition();
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleScroll = () => updatePosition();
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  const toggleMenu = (menuId: string) => {
+    if (selectedMenuIds.includes(menuId)) {
+      onChangeMenuIds(selectedMenuIds.filter(id => id !== menuId));
+    } else {
+      onChangeMenuIds([...selectedMenuIds, menuId]);
+    }
+  };
+
+  const removeMenu = (menuId: string) => {
+    onChangeMenuIds(selectedMenuIds.filter(id => id !== menuId));
+  };
+
+  return (
+    <div>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => { setOpen(!open); setSearch(''); }}
+        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent/50 transition-colors"
+      >
+        <span className={cn('truncate', isGlobal && 'text-muted-foreground')}>
+          {isGlobal ? 'All Menus (global rule)' : `${selectedMenuIds.length} menu(s) selected`}
+        </span>
+        <svg className="ml-2 h-4 w-4 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+
+      {/* Selected menu tags */}
+      {selectedMenuIds.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selectedMenuIds.map(id => {
+            const m = menus.find(menu => menu.id === id);
+            return (
+              <Badge key={id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                {m ? `${m.menuCode} ${m.menuName}` : id}
+                <button type="button" onClick={() => removeMenu(id)} className="hover:bg-muted rounded-full p-0.5">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] rounded-md border bg-popover shadow-md"
+          style={{ top: pos.top, left: pos.left, width: pos.width, position: 'absolute' }}
+        >
+          <div className="p-1.5">
+            <Input
+              ref={inputRef}
+              placeholder="Search menus..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="max-h-[220px] overflow-y-auto p-1">
+            {/* All Menus option */}
+            <button
+              type="button"
+              onClick={() => { onChangeMenuIds([]); setOpen(false); }}
+              className={cn(
+                'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
+                isGlobal && 'bg-accent'
+              )}
+            >
+              <Checkbox checked={isGlobal} className="mr-2 h-3.5 w-3.5" tabIndex={-1} />
+              <span className="font-medium">All Menus (global rule)</span>
+            </button>
+            <div className="h-px bg-border my-1" />
+            {filtered.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">No menus found</p>
+            )}
+            {filtered.map(m => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => toggleMenu(m.id)}
+                className={cn(
+                  'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
+                  selectedMenuIds.includes(m.id) && 'bg-accent'
+                )}
+              >
+                <Checkbox checked={selectedMenuIds.includes(m.id)} className="mr-2 h-3.5 w-3.5" tabIndex={-1} />
+                <span className="truncate">{m.menuCode} {m.menuName}</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }
 
 export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
@@ -50,7 +221,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
   const [formUom, setFormUom] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formActive, setFormActive] = useState(true);
-  const [formMenuId, setFormMenuId] = useState<string>('');
+  const [formMenuIds, setFormMenuIds] = useState<string[]>([]);
   const [formRuleType, setFormRuleType] = useState<ModifierRuleType>('add');
   const [formSwapSkuId, setFormSwapSkuId] = useState('');
   const [formSubmenuId, setFormSubmenuId] = useState('');
@@ -76,37 +247,58 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
     return showActiveOnly ? ruleData.rules.filter(r => r.isActive) : ruleData.rules;
   }, [ruleData.rules, showActiveOnly]);
 
-  const openAddModal = () => {
-    setEditingRule(null);
-    setFormKeyword('');
-    setFormSkuId('');
-    setFormQty(0);
-    setFormUom('');
-    setFormDesc('');
-    setFormActive(true);
-    setFormMenuId('');
-    setFormRuleType('add');
-    setFormSwapSkuId('');
-    setFormSubmenuId('');
+  const resetForm = (overrides?: Partial<Omit<ModifierRule, 'id'>>) => {
+    setFormKeyword(overrides?.keyword ?? '');
+    setFormSkuId(overrides?.skuId ?? '');
+    setFormQty(overrides?.qtyPerMatch ?? 0);
+    setFormUom(overrides?.uom ?? '');
+    setFormDesc(overrides?.description ?? '');
+    setFormActive(overrides?.isActive ?? true);
+    setFormMenuIds(overrides?.menuIds ?? []);
+    setFormRuleType(overrides?.ruleType ?? 'add');
+    setFormSwapSkuId(overrides?.swapSkuId ?? '');
+    setFormSubmenuId(overrides?.submenuId ?? '');
     setSkuSearch('');
     setSwapSkuSearch('');
+  };
+
+  const openAddModal = () => {
+    setEditingRule(null);
+    resetForm();
     setModalOpen(true);
   };
 
   const openEditModal = (rule: ModifierRule) => {
     setEditingRule(rule);
-    setFormKeyword(rule.keyword);
-    setFormSkuId(rule.skuId);
-    setFormQty(rule.qtyPerMatch);
-    setFormUom(rule.uom);
-    setFormDesc(rule.description);
-    setFormActive(rule.isActive);
-    setFormMenuId(rule.menuId ?? '');
-    setFormRuleType(rule.ruleType);
-    setFormSwapSkuId(rule.swapSkuId ?? '');
-    setFormSubmenuId(rule.submenuId ?? '');
-    setSkuSearch('');
-    setSwapSkuSearch('');
+    resetForm({
+      keyword: rule.keyword,
+      skuId: rule.skuId,
+      qtyPerMatch: rule.qtyPerMatch,
+      uom: rule.uom,
+      description: rule.description,
+      isActive: rule.isActive,
+      menuIds: rule.menuIds,
+      ruleType: rule.ruleType,
+      swapSkuId: rule.swapSkuId ?? '',
+      submenuId: rule.submenuId ?? '',
+    });
+    setModalOpen(true);
+  };
+
+  const openDuplicateModal = (rule: ModifierRule) => {
+    setEditingRule(null);
+    resetForm({
+      keyword: rule.keyword + ' (copy)',
+      skuId: rule.skuId,
+      qtyPerMatch: rule.qtyPerMatch,
+      uom: rule.uom,
+      description: rule.description,
+      isActive: false, // inactive by default
+      menuIds: [...rule.menuIds],
+      ruleType: rule.ruleType,
+      swapSkuId: rule.swapSkuId ?? '',
+      submenuId: rule.submenuId ?? '',
+    });
     setModalOpen(true);
   };
 
@@ -137,7 +329,8 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
       uom: formRuleType === 'submenu' ? '' : formUom,
       description: formDesc,
       isActive: formActive,
-      menuId: formMenuId || null,
+      menuId: null,
+      menuIds: formMenuIds,
       ruleType: formRuleType,
       swapSkuId: formRuleType === 'swap' ? formSwapSkuId : null,
       submenuId: formRuleType === 'submenu' ? formSubmenuId : null,
@@ -169,6 +362,17 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
     if (t === 'swap') return 'secondary' as const;
     if (t === 'submenu') return 'outline' as const;
     return 'default' as const;
+  };
+
+  const getMenuDisplay = (rule: ModifierRule) => {
+    if (rule.menuIds.length === 0) {
+      return <span className="text-muted-foreground text-xs">All Menus</span>;
+    }
+    if (rule.menuIds.length === 1) {
+      const m = getMenuById(rule.menuIds[0]);
+      return <span className="font-mono text-xs">{m?.menuCode || '?'}</span>;
+    }
+    return <span className="text-xs">{rule.menuIds.length} menus</span>;
   };
 
   return (
@@ -207,7 +411,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
               <TableHead>UOM</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Active</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
+              <TableHead className="w-28">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -221,7 +425,6 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
               filteredRules.map(rule => {
                 const sku = rule.skuId ? getSkuById(rule.skuId) : undefined;
                 const swapSku = rule.swapSkuId ? getSkuById(rule.swapSkuId) : undefined;
-                const menu = rule.menuId ? getMenuById(rule.menuId) : null;
                 const submenu = rule.submenuId ? getMenuById(rule.submenuId) : null;
 
                 let skuDisplay = sku?.skuId ?? '—';
@@ -243,13 +446,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
                         {rule.ruleType}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {menu ? (
-                        <span className="font-mono text-xs">{menu.menuCode}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">All Menus</span>
-                      )}
-                    </TableCell>
+                    <TableCell>{getMenuDisplay(rule)}</TableCell>
                     <TableCell className="font-mono text-xs">{skuDisplay}</TableCell>
                     <TableCell>{skuNameDisplay}</TableCell>
                     <TableCell className="text-right">{rule.ruleType === 'submenu' ? '—' : rule.qtyPerMatch}</TableCell>
@@ -271,6 +468,9 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
                         </Button>
                         {canEdit && (
                           <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Duplicate rule" onClick={() => openDuplicateModal(rule)}>
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(rule)}>
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
@@ -291,7 +491,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
 
       {/* Add/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-visible">
           <DialogHeader>
             <DialogTitle>{editingRule ? 'Edit Rule' : 'Add Rule'}</DialogTitle>
           </DialogHeader>
@@ -318,15 +518,11 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Apply to specific menu (optional)</label>
-              <SearchableSelect
-                value={formMenuId || '__all__'}
-                onValueChange={v => setFormMenuId(v === '__all__' ? '' : v)}
-                options={[
-                  { value: '__all__', label: 'All Menus (global rule)' },
-                  ...menus.map(m => ({ value: m.id, label: `${m.menuCode} ${m.menuName}`, sublabel: m.menuCode })),
-                ]}
-                placeholder="All Menus (global rule)"
+              <label className="text-sm font-medium">Apply to menus (optional)</label>
+              <MultiMenuSelector
+                selectedMenuIds={formMenuIds}
+                onChangeMenuIds={setFormMenuIds}
+                menus={menus}
               />
             </div>
 
