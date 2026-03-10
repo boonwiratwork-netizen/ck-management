@@ -91,7 +91,80 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     return Array.from(cats).sort();
   }, [menus, categories]);
 
-  const handleAdd = () => {
+  // CSV Import
+  const menuCsvColumns: CSVColumnDef[] = [
+    { key: 'menu_code', label: 'menu_code', required: true },
+    { key: 'menu_name', label: 'menu_name', required: true },
+    { key: 'category', label: 'category' },
+    { key: 'selling_price', label: 'selling_price', required: true },
+    { key: 'status', label: 'status' },
+    { key: 'brand_name', label: 'brand_name', required: true },
+  ];
+
+  const validateMenuCsv = useCallback((rows: Record<string, string>[]) => {
+    const errors: CSVValidationError[] = [];
+    const valid: Record<string, string>[] = [];
+    let skipped = 0;
+    const existingCodes = new Set(menus.map(m => m.menuCode.toLowerCase()));
+    const seenCodes = new Set<string>();
+    const validBrands = new Set(brandNames.map(b => b.toLowerCase()));
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const code = row['menu_code']?.trim();
+      const name = row['menu_name']?.trim();
+      const price = row['selling_price']?.trim();
+      const brand = row['brand_name']?.trim();
+      const status = row['status']?.trim().toLowerCase();
+
+      if (!code) { errors.push({ row: rowNum, message: 'menu_code is required' }); return; }
+      if (!name) { errors.push({ row: rowNum, message: 'menu_name is required' }); return; }
+      if (!price || isNaN(Number(price))) { errors.push({ row: rowNum, message: 'selling_price must be a valid number' }); return; }
+      if (!brand) { errors.push({ row: rowNum, message: 'brand_name is required' }); return; }
+      if (!validBrands.has(brand.toLowerCase())) { errors.push({ row: rowNum, message: `brand_name "${brand}" not found in branches` }); return; }
+      if (status && !['active', 'inactive'].includes(status)) { errors.push({ row: rowNum, message: 'status must be Active or Inactive' }); return; }
+      if (existingCodes.has(code.toLowerCase())) { skipped++; return; }
+      if (seenCodes.has(code.toLowerCase())) { errors.push({ row: rowNum, message: `Duplicate menu_code "${code}" in file` }); return; }
+      seenCodes.add(code.toLowerCase());
+      valid.push(row);
+    });
+    return { valid, errors, skipped };
+  }, [menus, brandNames]);
+
+  const handleMenuCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    // Auto-create missing categories
+    const existingCatNames = new Set(categoryNames.map(c => c.toLowerCase()));
+    const newCats = new Set<string>();
+    rows.forEach(r => {
+      const cat = r['category']?.trim();
+      if (cat && !existingCatNames.has(cat.toLowerCase())) {
+        newCats.add(cat);
+        existingCatNames.add(cat.toLowerCase());
+      }
+    });
+    for (const cat of newCats) {
+      await addCategory(cat);
+    }
+
+    const menuRows: Omit<Menu, 'id'>[] = rows.map(r => {
+      const status = r['status']?.trim().toLowerCase();
+      return {
+        menuCode: r['menu_code']?.trim() || '',
+        menuName: r['menu_name']?.trim() || '',
+        category: r['category']?.trim() || '',
+        sellingPrice: Number(r['selling_price']) || 0,
+        status: status === 'inactive' ? 'Inactive' : 'Active',
+        brandName: r['brand_name']?.trim() || '',
+      };
+    });
+    const count = await bulkAddMenus(menuRows);
+    if (count) {
+      let msg = `${count} menus imported`;
+      if (newCats.size > 0) msg += `. ${newCats.size} new categories auto-created.`;
+      toast.success(msg);
+    }
+  }, [categoryNames, addCategory, bulkAddMenus]);
+
     setEditing(null);
     setForm({ ...EMPTY_MENU, menuCode: getNextCode() });
     setModalOpen(true);
