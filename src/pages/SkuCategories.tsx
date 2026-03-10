@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SkuCategory, useSkuCategories } from '@/hooks/use-sku-categories';
 import { SKU } from '@/types/sku';
 import { Button } from '@/components/ui/button';
