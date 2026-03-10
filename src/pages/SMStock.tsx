@@ -195,7 +195,28 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                     <TableCell>{CATEGORY_LABELS[row.sku.category]}</TableCell>
                     <TableCell>{row.sku.storageCondition}</TableCell>
                     <TableCell className="text-right">
-                      {row.opening.toLocaleString()} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {editingOpening === row.sku.id ? (
+                        <div className="flex items-center gap-1 justify-end">
+                          <Input
+                            type="number"
+                            className="w-24 h-7 text-xs text-right"
+                            value={openingValue}
+                            onChange={e => setOpeningValue(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleOpeningSubmit(row.sku.id)}
+                            autoFocus
+                          />
+                          <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpeningSubmit(row.sku.id)}>✓</Button>
+                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingOpening(null)}>✗</Button>
+                        </div>
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:underline"
+                          onClick={() => { setEditingOpening(row.sku.id); setOpeningValue(String(row.opening)); }}
+                        >
+                          {row.opening.toLocaleString()} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {(row.balance?.totalProduced ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
