@@ -191,7 +191,7 @@ const Dashboard = ({
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         bomCostPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
-      const standardValue = bomCostPerGram * totalOutputKg * 1000;
+      const standardValue = bomCostPerGram * totalOutputG;
 
       let actualValue = 0;
       if (bomHeader) {
