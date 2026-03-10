@@ -69,7 +69,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     if (filterStatus !== 'all') result = result.filter(m => m.status === filterStatus);
     if (filterBrand !== 'all') result = result.filter(m => m.brandName === filterBrand);
     return result;
-  }, [menus, isStoreManager, profile, search, filterCategory, filterStatus, filterBranch]);
+  }, [menus, isStoreManager, storeBrand, search, filterCategory, filterStatus, filterBrand]);
 
   // Summary
   const total = visibleMenus.length;
