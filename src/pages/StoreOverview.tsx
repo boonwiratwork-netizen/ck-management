@@ -173,7 +173,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
 
       {/* SECTION 2: QUICK ACTIONS */}
       <div>
-        <h3 className="section-title mb-4">Quick Actions</h3>
+        <h3 className="section-title mb-4">{t('title.quickActions')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
             onClick={() => onNavigate('sales-entry')}
