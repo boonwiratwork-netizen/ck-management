@@ -119,7 +119,7 @@ function MultiMenuSelector({
   };
 
   return (
-    <div>
+    <div className="relative">
       <button
         ref={triggerRef}
         type="button"
