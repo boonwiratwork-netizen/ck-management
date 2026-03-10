@@ -491,7 +491,10 @@ export type Database = {
           keyword: string
           menu_id: string | null
           qty_per_match: number
+          rule_type: string
           sku_id: string
+          submenu_id: string | null
+          swap_sku_id: string | null
           uom: string
         }
         Insert: {
@@ -502,7 +505,10 @@ export type Database = {
           keyword?: string
           menu_id?: string | null
           qty_per_match?: number
+          rule_type?: string
           sku_id: string
+          submenu_id?: string | null
+          swap_sku_id?: string | null
           uom?: string
         }
         Update: {
@@ -513,7 +519,10 @@ export type Database = {
           keyword?: string
           menu_id?: string | null
           qty_per_match?: number
+          rule_type?: string
           sku_id?: string
+          submenu_id?: string | null
+          swap_sku_id?: string | null
           uom?: string
         }
         Relationships: [
@@ -527,6 +536,20 @@ export type Database = {
           {
             foreignKeyName: "menu_modifier_rules_sku_id_fkey"
             columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_modifier_rules_submenu_id_fkey"
+            columns: ["submenu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_modifier_rules_swap_sku_id_fkey"
+            columns: ["swap_sku_id"]
             isOneToOne: false
             referencedRelation: "skus"
             referencedColumns: ["id"]
