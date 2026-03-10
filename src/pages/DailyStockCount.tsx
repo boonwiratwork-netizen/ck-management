@@ -304,14 +304,14 @@ export default function DailyStockCountPage({
                             {row.expectedUsage.toFixed(2)}
                             <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right align-middle px-2 py-1">
+                          <TableCell className="text-right tabular-nums px-2 py-1">
                             {isSubmitted ? (
-                              <span className="tabular-nums">
+                              <>
                                 {row.waste.toFixed(2)}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
-                              </span>
+                              </>
                             ) : (
-                              <span className="inline-flex items-center gap-0.5 align-middle">
+                              <>
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -321,25 +321,25 @@ export default function DailyStockCountPage({
                                     const val = Number(e.target.value) || 0;
                                     if (val !== row.waste) updateWaste(row.id, val);
                                   }}
-                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input"
+                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input inline-block align-middle"
                                   placeholder="0"
                                 />
-                                <span className="text-[9px] text-muted-foreground">{sku.usageUom}</span>
-                              </span>
+                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
+                              </>
                             )}
                           </TableCell>
                           <TableCell className="text-right tabular-nums font-medium px-2 py-1">
                             {row.calculatedBalance.toFixed(2)}
                             <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right align-middle px-2 py-1">
+                          <TableCell className="text-right tabular-nums px-2 py-1">
                             {isSubmitted ? (
-                              <span className="tabular-nums">
+                              <>
                                 {rawPhysical !== null ? rawPhysical.toFixed(2) : '—'}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
-                              </span>
+                              </>
                             ) : (
-                              <span className="inline-flex items-center gap-0.5 align-middle">
+                              <>
                                 <Input
                                   ref={(el) => setRef(row.id, el)}
                                   type="number"
@@ -351,11 +351,11 @@ export default function DailyStockCountPage({
                                     if (val !== rawPhysical) updatePhysicalCount(row.id, val);
                                   }}
                                   onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input"
+                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input inline-block align-middle"
                                   placeholder="—"
                                 />
-                                <span className="text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
-                              </span>
+                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
+                              </>
                             )}
                           </TableCell>
                           <TableCell className={`text-right tabular-nums font-medium px-2 py-1 ${varClass}`}>

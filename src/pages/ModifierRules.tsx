@@ -1,5 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
@@ -47,11 +46,9 @@ function MultiMenuSelector({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 220 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const isGlobal = selectedMenuIds.length === 0;
 
   const filtered = useMemo(() => {
@@ -63,34 +60,11 @@ function MultiMenuSelector({
     );
   }, [menus, search]);
 
-  const updatePosition = useCallback(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 280),
-      });
-    }
-  }, []);
-
   useEffect(() => {
     if (open) {
-      updatePosition();
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open, updatePosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleScroll = () => updatePosition();
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [open, updatePosition]);
+  }, [open]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -119,7 +93,7 @@ function MultiMenuSelector({
   };
 
   return (
-    <div>
+    <div className="relative">
       <button
         ref={triggerRef}
         type="button"
@@ -149,11 +123,12 @@ function MultiMenuSelector({
         </div>
       )}
 
-      {open && createPortal(
+      {open && (
         <div
           ref={dropdownRef}
-          className="rounded-md border bg-popover shadow-md"
-          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999, pointerEvents: 'auto' }}
+          className="absolute left-0 right-0 rounded-md border bg-popover shadow-md z-50 mt-1"
+          style={{ pointerEvents: 'auto' }}
+          onMouseDown={e => e.stopPropagation()}
         >
           <div className="p-1.5">
             <Input
@@ -162,9 +137,10 @@ function MultiMenuSelector({
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="h-8 text-xs"
+              onMouseDown={e => e.stopPropagation()}
             />
           </div>
-          <div className="max-h-[220px] overflow-y-auto p-1">
+          <div className="max-h-[220px] overflow-y-auto p-1" style={{ pointerEvents: 'auto' }}>
             {/* All Menus option */}
             <button
               type="button"
@@ -196,8 +172,7 @@ function MultiMenuSelector({
               </button>
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
