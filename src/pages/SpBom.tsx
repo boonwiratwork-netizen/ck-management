@@ -451,7 +451,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <div className="flex flex-col gap-1">
                         {canEdit && (
                           <Button size="sm" variant="outline" onClick={startEditYield}>
-                            <Edit2 className="w-3.5 h-3.5" /> Edit Yield
+                            <Edit2 className="w-3.5 h-3.5" /> {t('btn.editYield')}
                           </Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => setFullscreen(!fullscreen)}>
