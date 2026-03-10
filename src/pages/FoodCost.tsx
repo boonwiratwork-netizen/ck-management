@@ -413,7 +413,7 @@ export default function FoodCostPage({
           <div className="flex flex-wrap gap-3 items-end">
             {/* Preset buttons — auto-calculate on click */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Quick Period</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('title.quickPeriod')}</label>
               <div className="flex gap-1">
                 {(['today', 'this-week', 'this-month'] as DatePreset[]).map(p => (
                   <Button
