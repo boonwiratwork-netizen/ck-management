@@ -402,7 +402,14 @@ const Index = () => {
               ) : activeTab === 'smstock' ? (
                 <SMStockPage skus={skus} smStockData={smStockData} />
               ) : activeTab === 'stockcount' ? (
-                <StockCountPage skus={skus} stockCountData={stockCountData} getStdUnitPrice={stockData.getStdUnitPrice} />
+                <StockCountPage
+                  skus={skus}
+                  stockCountData={stockCountData}
+                  getStdUnitPrice={stockData.getStdUnitPrice}
+                  bomHeaders={bomData.headers}
+                  bomLines={bomData.lines}
+                  isManagement={isManagement}
+                />
               ) : activeTab === 'branches' ? (
                 <BranchesPage branchData={branchData} readOnly={readOnly} />
               ) : activeTab === 'users' ? (

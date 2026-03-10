@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 const toSession = (r: any): StockCountSession => ({
   id: r.id, date: r.count_date, note: r.note, status: r.status,
   createdAt: r.created_at, completedAt: r.completed_at ?? undefined,
+  deletedAt: r.deleted_at ?? undefined,
 });
 const toLine = (r: any): StockCountLine => ({
   id: r.id, sessionId: r.session_id, skuId: r.sku_id, type: r.type,
@@ -32,7 +33,7 @@ export function useStockCountData({
 
   useEffect(() => {
     Promise.all([
-      supabase.from('stock_count_sessions').select('*').order('created_at', { ascending: false }),
+      supabase.from('stock_count_sessions').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('stock_count_lines').select('*').order('created_at', { ascending: false }),
     ]).then(([s, l]) => {
       if (!s.error) setSessions((s.data || []).map(toSession));
@@ -47,17 +48,19 @@ export function useStockCountData({
     if (error) { toast.error('Failed to create session: ' + error.message); return ''; }
 
     const id = sessionRow.id;
-    const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
+    // Include all 4 types: RM, SM, SP, PK
+    const activeSkus = skus.filter(s => s.status === 'Active' && ['RM', 'SM', 'SP', 'PK'].includes(s.type));
 
     const newLines = activeSkus.map(sku => {
       let systemQty = 0;
       if (sku.type === 'RM') {
         systemQty = rmStockBalances.find(b => b.skuId === sku.id)?.currentStock ?? 0;
-      } else {
+      } else if (sku.type === 'SM') {
         systemQty = smStockBalances.find(b => b.skuId === sku.id)?.currentStock ?? 0;
       }
+      // SP and PK: systemQty stays 0 (no stock tracking for them yet)
       return {
-        session_id: id, sku_id: sku.id, type: sku.type as 'RM' | 'SM',
+        session_id: id, sku_id: sku.id, type: sku.type as string,
         system_qty: systemQty, physical_qty: null as number | null, variance: 0, note: '',
       };
     });
@@ -97,7 +100,7 @@ export function useStockCountData({
         skuId: line.skuId, date: session.date, quantity: line.variance,
         reason: `Stock Count ${session.date}${line.note ? ': ' + line.note : ''}`,
       };
-      if (line.type === 'RM') { await addRmAdjustment(adj); } else { await addSmAdjustment(adj); }
+      if (line.type === 'RM') { await addRmAdjustment(adj); } else if (line.type === 'SM') { await addSmAdjustment(adj); }
     }
 
     const { error } = await supabase.from('stock_count_sessions').update({
@@ -107,15 +110,36 @@ export function useStockCountData({
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: 'Completed' as const, completedAt: new Date().toISOString() } : s));
   }, [lines, sessions, addRmAdjustment, addSmAdjustment]);
 
-  const deleteSession = useCallback(async (sessionId: string) => {
-    await supabase.from('stock_count_lines').delete().eq('session_id', sessionId);
-    const { error } = await supabase.from('stock_count_sessions').delete().eq('id', sessionId);
+  const softDeleteSession = useCallback(async (sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    // If session was Completed, reverse the stock adjustments
+    if (session.status === 'Completed') {
+      const sessionLines = lines.filter(l => l.sessionId === sessionId);
+      for (const line of sessionLines) {
+        if (line.variance === 0 || line.physicalQty === null) continue;
+        const reverseAdj: Omit<StockAdjustment, 'id'> = {
+          skuId: line.skuId, date: new Date().toISOString().slice(0, 10),
+          quantity: -line.variance,
+          reason: `Reversed: Stock Count ${session.date}`,
+        };
+        if (line.type === 'RM') { await addRmAdjustment(reverseAdj); }
+        else if (line.type === 'SM') { await addSmAdjustment(reverseAdj); }
+      }
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('stock_count_sessions').update({
+      deleted_at: now,
+    }).eq('id', sessionId);
     if (error) { toast.error('Failed to delete session: ' + error.message); return; }
+
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     setLines(prev => prev.filter(l => l.sessionId !== sessionId));
-  }, []);
+  }, [sessions, lines, addRmAdjustment, addSmAdjustment]);
 
   const getLinesForSession = useCallback((sessionId: string) => lines.filter(l => l.sessionId === sessionId), [lines]);
 
-  return { sessions, lines, createSession, updateLine, confirmSession, deleteSession, getLinesForSession };
+  return { sessions, lines, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession };
 }

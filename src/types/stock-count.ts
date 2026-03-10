@@ -7,6 +7,7 @@ export interface StockCountSession {
   status: StockCountStatus;
   createdAt: string;      // ISO datetime
   completedAt?: string;   // ISO datetime
+  deletedAt?: string;     // ISO datetime — soft delete
 }
 
 export interface StockCountLine {
