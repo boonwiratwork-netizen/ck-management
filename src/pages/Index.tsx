@@ -433,6 +433,7 @@ const Index = () => {
                   ruleData={modifierRuleData}
                   skus={skus}
                   menus={menuData.menus}
+                  menuBomLines={menuBomData.lines}
                   readOnly={!isManagement}
                 />
               ) : activeTab === 'sales-entry' ? (
