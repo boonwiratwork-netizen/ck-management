@@ -220,7 +220,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Selling Price</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Branch</TableHead>
+              <TableHead>Brand</TableHead>
               {canEdit && <TableHead className="w-[100px] text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
