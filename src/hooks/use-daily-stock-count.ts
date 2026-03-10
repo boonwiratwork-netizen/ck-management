@@ -279,9 +279,10 @@ export function useDailyStockCount({
     for (const sku of activeSkus) {
       if (!existingSkuIds.has(sku.id) && (expectedUsage[sku.id] || receipts.extBySku[sku.id] || receipts.ckBySku[sku.id])) {
         const expUsage = expectedUsage[sku.id] ?? 0;
-        const ext = receipts.extBySku[sku.id] ?? 0;
+      const ext = receipts.extBySku[sku.id] ?? 0;
         const ck = receipts.ckBySku[sku.id] ?? 0;
-        const calcBalance = ck + ext - expUsage;
+        const extConvNew = getSkuConverter(sku.id);
+        const calcBalance = ck + (ext * extConvNew) - expUsage;
         newSkuRows.push({
           branch_id: branchId,
           count_date: date,
