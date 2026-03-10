@@ -43,6 +43,7 @@ const CSV_COLUMNS: CSVColumnDef[] = [
 
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
   const { isManagement } = useAuth();
+  const { t } = useLanguage();
   const canEdit = isManagement && !readOnly;
 
   const [selectedSpId, setSelectedSpId] = useState<string | null>(null);
