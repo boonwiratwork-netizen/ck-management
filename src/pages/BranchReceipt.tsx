@@ -378,7 +378,16 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           skus={rmSkus}
                         />
                       </td>
-                      <td className={`${tdClass} text-xs text-muted-foreground`}>{sku?.name || '—'}</td>
+                      <td className={`${tdClass} text-xs text-muted-foreground`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.name || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
                       <td className={tdClass}>
                         <Input value={draft.supplierName} onChange={e => handleUpdateDraft(draft.tempId, 'supplierName', e.target.value)} className="h-8 text-xs w-[130px]" placeholder="Supplier..." />
                       </td>
