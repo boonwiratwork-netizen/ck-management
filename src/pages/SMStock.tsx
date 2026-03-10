@@ -26,7 +26,7 @@ interface Props {
 }
 
 export default function SMStockPage({ skus, smStockData }: Props) {
-  const { stockBalances, setOpeningStock, addAdjustment, getLastProductionDate, openingStocks } = smStockData;
+  const { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks } = smStockData;
   const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
