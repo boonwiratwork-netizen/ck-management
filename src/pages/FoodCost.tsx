@@ -247,15 +247,47 @@ export default function FoodCostPage({
         if (rule.menuId && rule.menuId !== menu.id) continue;
         const menuName = sale.menu_name || '';
         if (menuName.includes(rule.keyword)) {
-          const modQty = rule.qtyPerMatch * qty;
-          const modSku = skuMap.get(rule.skuId);
-          if (modSku && modSku.type === 'SP') {
-            const spLines = spBomBySpSku.get(rule.skuId) || [];
-            for (const sp of spLines) {
-              saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * modQty * (stdPriceMap.get(sp.ingredientSkuId) || 0);
+          if (rule.ruleType === 'swap') {
+            if (rule.swapSkuId) {
+              const bomLines2 = bomByMenuId.get(menu.id) || [];
+              for (const line of bomLines2) {
+                if (line.skuId === rule.swapSkuId) {
+                  const removeQty = line.effectiveQty * qty;
+                  const rmSku = skuMap.get(rule.swapSkuId);
+                  if (rmSku && rmSku.type === 'SP') {
+                    const spLines = spBomBySpSku.get(rule.swapSkuId) || [];
+                    for (const sp of spLines) { saleCost -= (sp.qtyPerBatch / sp.batchYieldQty) * removeQty * (stdPriceMap.get(sp.ingredientSkuId) || 0); }
+                  } else {
+                    saleCost -= removeQty * (stdPriceMap.get(rule.swapSkuId) || 0);
+                  }
+                }
+              }
+            }
+            const modQty = rule.qtyPerMatch * qty;
+            const modSku = skuMap.get(rule.skuId);
+            if (modSku && modSku.type === 'SP') {
+              const spLines = spBomBySpSku.get(rule.skuId) || [];
+              for (const sp of spLines) { saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * modQty * (stdPriceMap.get(sp.ingredientSkuId) || 0); }
+            } else { saleCost += modQty * (stdPriceMap.get(rule.skuId) || 0); }
+          } else if (rule.ruleType === 'submenu') {
+            if (rule.submenuId) {
+              const subBomLines = bomByMenuId.get(rule.submenuId) || [];
+              for (const line of subBomLines) {
+                const iq = line.effectiveQty * qty;
+                const sk = skuMap.get(line.skuId);
+                if (sk && sk.type === 'SP') {
+                  const spLines = spBomBySpSku.get(line.skuId) || [];
+                  for (const sp of spLines) { saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * iq * (stdPriceMap.get(sp.ingredientSkuId) || 0); }
+                } else { saleCost += iq * (stdPriceMap.get(line.skuId) || 0); }
+              }
             }
           } else {
-            saleCost += modQty * (stdPriceMap.get(rule.skuId) || 0);
+            const modQty = rule.qtyPerMatch * qty;
+            const modSku = skuMap.get(rule.skuId);
+            if (modSku && modSku.type === 'SP') {
+              const spLines = spBomBySpSku.get(rule.skuId) || [];
+              for (const sp of spLines) { saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * modQty * (stdPriceMap.get(sp.ingredientSkuId) || 0); }
+            } else { saleCost += modQty * (stdPriceMap.get(rule.skuId) || 0); }
           }
         }
       }
