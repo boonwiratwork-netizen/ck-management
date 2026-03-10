@@ -57,6 +57,7 @@ const Dashboard = ({
   getStdUnitPrice,
 }: DashboardProps) => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const defaultStart = new Date(getWeekStart(todayStr));
