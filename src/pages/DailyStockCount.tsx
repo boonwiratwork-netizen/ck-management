@@ -75,12 +75,6 @@ export default function DailyStockCountPage({
     return sku.converter || 1;
   }, [skuMap]);
 
-  // Physical count is stored converted (Usage UOM); display in Purchase UOM
-  const getRawPhysical = useCallback((row: DailyStockCountRow): number | null => {
-    if (row.physicalCount === null) return null;
-    const conv = getConverter(row.skuId);
-    return conv !== 0 ? row.physicalCount / conv : row.physicalCount;
-  }, [getConverter]);
 
   const isSubmitted = rows.length > 0 && rows[0]?.isSubmitted;
 
