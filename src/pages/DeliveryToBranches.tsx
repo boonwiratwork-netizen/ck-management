@@ -290,7 +290,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</p>
+          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
         </div>
       </div>
 
