@@ -365,16 +365,20 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
               <div className="divide-y">
                 {filteredMenus.map(m => {
                   const lineCount = menuBomData.getLinesForMenu(m.id).length;
-                  const menuCost = menuBomData.getLinesForMenu(m.id).reduce((s, l) => s + l.costPerServing, 0);
+                  const menuCost = getLiveMenuCost(m.id);
+                  const hasBom = lineCount > 0;
                   return (
                     <button
                       key={m.id}
                       onClick={() => { setSelectedMenuId(m.id); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedMenuId === m.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      }`}
+                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
                     >
-                      <p className="text-sm font-medium">{m.menuCode} · {m.menuName}</p>
+                      <p className="text-sm font-medium flex items-center gap-1.5">
+                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {m.menuCode} · {m.menuName}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {lineCount} ingredients {menuCost > 0 && <span className="font-mono">· ฿{menuCost.toFixed(2)}/serving</span>}
                       </p>
