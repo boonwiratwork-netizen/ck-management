@@ -262,7 +262,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
   // Check RM stock before saving production record
   const checkStockAndSave = () => {
     if (recordForm.batchesProduced <= 0) { toast.error('Enter batches produced'); return; }
-    if (recordForm.actualOutputKg <= 0) { toast.error('Enter actual output'); return; }
+    if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
 
     if (!selectedPlan) return;
 
