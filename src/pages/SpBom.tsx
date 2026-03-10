@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { SpBomLine } from '@/types/sp-bom';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, Minimize2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { syncBomPrice } from '@/lib/bom-price-sync';
 
@@ -31,6 +32,14 @@ interface SpBomPageProps {
   onPricesRefresh?: () => void;
 }
 
+const CSV_COLUMNS: CSVColumnDef[] = [
+  { key: 'sp_code', label: 'sp_code', required: true },
+  { key: 'sku_code', label: 'sku_code', required: true },
+  { key: 'qty', label: 'qty', required: true },
+  { key: 'yield_pct', label: 'yield_pct' },
+  { key: 'batch_yield_qty', label: 'batch_yield_qty', required: true },
+];
+
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
   const { isManagement } = useAuth();
   const canEdit = isManagement && !readOnly;
@@ -39,24 +48,24 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const [spSearch, setSpSearch] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Batch yield editing
   const [editingYield, setEditingYield] = useState(false);
   const [yieldQty, setYieldQty] = useState(1);
-  const [yieldUom, setYieldUom] = useState('');
 
   // Inline editing state
   const [addingLine, setAddingLine] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [formSkuId, setFormSkuId] = useState('');
   const [formQty, setFormQty] = useState(0);
-  const [formUom, setFormUom] = useState('');
   const [formYieldPct, setFormYieldPct] = useState(100);
 
   const spSkus = useMemo(() => skus.filter(s => s.type === 'SP'), [skus]);
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
 
   const getSkuById = (id: string) => skus.find(s => s.id === id);
+  const getSkuByCode = (code: string) => skus.find(s => s.skuId === code);
 
   const getActiveCost = (skuId: string): number => {
     const active = prices.find(p => p.skuId === skuId && p.isActive);
@@ -69,10 +78,11 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const selectedLines = selectedSpId ? spBomData.getLinesForSp(selectedSpId) : [];
 
   const currentBatchYieldQty = selectedLines.length > 0 ? selectedLines[0].batchYieldQty : 1;
-  const currentBatchYieldUom = selectedLines.length > 0 ? selectedLines[0].batchYieldUom : '';
+  // Batch yield UOM is always from the SP SKU's usage_uom
+  const currentBatchYieldUom = selectedSp?.usageUom ?? '';
 
   const totalBatchCost = selectedLines.reduce((sum, l) => {
-    const effQty = calcEffQty(l.qtyPerBatch, 100); // SP BOM lines didn't have yield% before, use 100
+    const effQty = calcEffQty(l.qtyPerBatch, 100);
     return sum + effQty * getActiveCost(l.ingredientSkuId);
   }, 0);
   const totalCostPerUnit = currentBatchYieldQty > 0 ? totalBatchCost / currentBatchYieldQty : 0;
@@ -93,10 +103,11 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     onPricesRefresh?.();
   };
 
+  const formUom = formSkuId ? (getSkuById(formSkuId)?.usageUom ?? '') : '';
+
   const startAddLine = () => {
     setFormSkuId('');
     setFormQty(0);
-    setFormUom('');
     setFormYieldPct(100);
     setAddingLine(true);
     setEditingLineId(null);
@@ -105,7 +116,6 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const startEditLine = (line: SpBomLine) => {
     setFormSkuId(line.ingredientSkuId);
     setFormQty(line.qtyPerBatch);
-    setFormUom(line.uom);
     setFormYieldPct(100);
     setEditingLineId(line.id);
     setAddingLine(false);
@@ -113,8 +123,6 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const handleSkuChange = (id: string) => {
     setFormSkuId(id);
-    const sku = getSkuById(id);
-    if (sku) setFormUom(sku.usageUom);
   };
 
   const saveLine = async () => {
@@ -144,13 +152,10 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         costPerUnit,
       });
       toast.success('Ingredient added');
-      // Auto-continue
       setFormSkuId('');
       setFormQty(0);
-      setFormUom('');
       setFormYieldPct(100);
     }
-    // Sync price
     setTimeout(() => syncSpPrice(), 300);
   };
 
@@ -165,26 +170,145 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const startEditYield = () => {
     setYieldQty(currentBatchYieldQty);
-    setYieldUom(currentBatchYieldUom);
     setEditingYield(true);
   };
 
   const saveYield = async () => {
     if (!selectedSpId) return;
     if (yieldQty <= 0) { toast.error('Yield qty must be > 0'); return; }
-    if (!yieldUom.trim()) { toast.error('UOM is required'); return; }
-    await spBomData.updateBatchYield(selectedSpId, yieldQty, yieldUom);
+    await spBomData.updateBatchYield(selectedSpId, yieldQty, currentBatchYieldUom);
     setEditingYield(false);
     toast.success('Batch yield updated');
     setTimeout(() => syncSpPrice(), 300);
   };
+
+  // CSV import
+  const validateCsv = useCallback((rows: Record<string, string>[]) => {
+    const valid: Record<string, string>[] = [];
+    const errors: CSVValidationError[] = [];
+    let skipped = 0;
+
+    // Track which sp_codes already have BOM
+    const spCodesWithBom = new Set<string>();
+    spSkus.forEach(sp => {
+      if (spBomData.getLinesForSp(sp.id).length > 0) {
+        spCodesWithBom.add(sp.skuId);
+      }
+    });
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const spCode = (row['sp_code'] ?? '').trim();
+      const skuCode = (row['sku_code'] ?? '').trim();
+      const qtyStr = (row['qty'] ?? '').trim();
+      const batchYieldStr = (row['batch_yield_qty'] ?? '').trim();
+
+      if (!spCode) { errors.push({ row: rowNum, message: 'sp_code is required' }); return; }
+      if (!skuCode) { errors.push({ row: rowNum, message: 'sku_code is required' }); return; }
+      if (!qtyStr) { errors.push({ row: rowNum, message: 'qty is required' }); return; }
+      if (!batchYieldStr) { errors.push({ row: rowNum, message: 'batch_yield_qty is required' }); return; }
+
+      const spSku = getSkuByCode(spCode);
+      if (!spSku || spSku.type !== 'SP') { errors.push({ row: rowNum, message: `SP SKU "${spCode}" not found` }); return; }
+
+      const ingredientSku = getSkuByCode(skuCode);
+      if (!ingredientSku) { errors.push({ row: rowNum, message: `SKU "${skuCode}" not found` }); return; }
+
+      const qty = Number(qtyStr);
+      if (isNaN(qty) || qty <= 0) { errors.push({ row: rowNum, message: 'qty must be a positive number' }); return; }
+
+      const batchYield = Number(batchYieldStr);
+      if (isNaN(batchYield) || batchYield <= 0) { errors.push({ row: rowNum, message: 'batch_yield_qty must be a positive number' }); return; }
+
+      // Add warning for existing BOM (shown in errors list as info)
+      if (spCodesWithBom.has(spCode)) {
+        errors.push({ row: rowNum, message: `⚠️ "${spCode}" has existing BOM — will be replaced` });
+      }
+
+      valid.push(row);
+    });
+
+    return { valid, errors, skipped };
+  }, [skus, spSkus, spBomData]);
+
+  const handleCsvImport = useCallback(async (rows: Record<string, string>[]) => {
+    // Group rows by sp_code
+    const grouped: Record<string, Record<string, string>[]> = {};
+    rows.forEach(row => {
+      const spCode = (row['sp_code'] ?? '').trim();
+      if (!grouped[spCode]) grouped[spCode] = [];
+      grouped[spCode].push(row);
+    });
+
+    let spCount = 0;
+    let rowCount = 0;
+    let failCount = 0;
+
+    for (const [spCode, spRows] of Object.entries(grouped)) {
+      const spSku = getSkuByCode(spCode);
+      if (!spSku) { failCount += spRows.length; continue; }
+
+      // Delete existing lines for this SP
+      const existing = spBomData.getLinesForSp(spSku.id);
+      for (const line of existing) {
+        await spBomData.deleteLine(line.id);
+      }
+
+      const batchYieldQty = Number((spRows[0]['batch_yield_qty'] ?? '1').trim()) || 1;
+      const batchYieldUom = spSku.usageUom;
+
+      // Update batch yield
+      if (spRows.length > 0) {
+        await spBomData.updateBatchYield(spSku.id, batchYieldQty, batchYieldUom);
+      }
+
+      for (const row of spRows) {
+        const ingredientSku = getSkuByCode((row['sku_code'] ?? '').trim());
+        if (!ingredientSku) { failCount++; continue; }
+
+        const qty = Number((row['qty'] ?? '0').trim()) || 0;
+        const yieldPct = Number((row['yield_pct'] ?? '100').trim()) || 100;
+        const effQty = calcEffQty(qty, yieldPct);
+        const unitCost = getActiveCost(ingredientSku.id);
+        const costPerUnit = batchYieldQty > 0 ? (effQty * unitCost) / batchYieldQty : 0;
+
+        await spBomData.addLine({
+          spSkuId: spSku.id,
+          ingredientSkuId: ingredientSku.id,
+          qtyPerBatch: qty,
+          uom: ingredientSku.usageUom,
+          batchYieldQty,
+          batchYieldUom,
+          costPerUnit,
+        });
+        rowCount++;
+      }
+
+      // Sync price for this SP
+      const totalCost = spRows.reduce((sum, row) => {
+        const ingredientSku = getSkuByCode((row['sku_code'] ?? '').trim());
+        if (!ingredientSku) return sum;
+        const qty = Number((row['qty'] ?? '0').trim()) || 0;
+        const yieldPct = Number((row['yield_pct'] ?? '100').trim()) || 100;
+        return sum + calcEffQty(qty, yieldPct) * getActiveCost(ingredientSku.id);
+      }, 0);
+      if (batchYieldQty > 0 && totalCost > 0) {
+        await syncBomPrice(spSku.id, totalCost / batchYieldQty);
+      }
+
+      spCount++;
+    }
+
+    toast.success(`Imported: ${spCount} SP items, ${rowCount} rows inserted${failCount > 0 ? `, ${failCount} failed` : ''}`);
+    onPricesRefresh?.();
+  }, [skus, spBomData, prices, onPricesRefresh]);
 
   const previewEffQty = calcEffQty(formQty, formYieldPct);
   const previewLineCost = previewEffQty * getActiveCost(formSkuId);
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
-      <TableCell>
+      <TableCell className="py-1 px-2">
         <SearchableSelect
           value={formSkuId}
           onValueChange={handleSkuChange}
@@ -193,32 +317,29 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           triggerClassName="h-8 text-xs w-full"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
+      <TableCell className="text-[13px] text-muted-foreground truncate overflow-hidden py-1 px-2">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
           onChange={e => setFormQty(Number(e.target.value))} />
       </TableCell>
-      <TableCell>
-        <Input className="h-8 w-full text-xs" value={formUom}
-          onChange={e => setFormUom(e.target.value)} />
-      </TableCell>
-      <TableCell>
+      <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
+      <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYieldPct}
           onChange={e => setFormYieldPct(Number(e.target.value) || 100)} />
       </TableCell>
-      <TableCell className="text-xs text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
-      <TableCell className="text-xs text-right font-mono">
+      <TableCell className="text-[13px] text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
+      <TableCell className="text-[13px] text-right font-mono py-1 px-2">
         {formSkuId ? (() => {
           const c = getActiveCost(formSkuId);
           return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-orange-500">—</span>;
         })() : '—'}
       </TableCell>
-      <TableCell className="text-xs text-right font-mono font-medium">
+      <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
         {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-orange-500">—</span> : '—'}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1 px-2">
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
@@ -229,9 +350,16 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-heading font-bold">SP BOM</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials for Special items — ingredients and costing</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-heading font-bold">SP BOM</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials for Special items — ingredients and costing</p>
+        </div>
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+            <Upload className="w-4 h-4" /> Import CSV
+          </Button>
+        )}
       </div>
 
       <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[320px_1fr]'}`}>
@@ -255,7 +383,6 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                 {filteredSpSkus.map(s => {
                   const lineCount = spBomData.getLinesForSp(s.id).length;
                   const batchYield = spBomData.getLinesForSp(s.id)[0]?.batchYieldQty ?? 1;
-                  const batchUom = spBomData.getLinesForSp(s.id)[0]?.batchYieldUom ?? '';
                   return (
                     <button
                       key={s.id}
@@ -266,7 +393,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                     >
                       <p className="text-sm font-medium">{s.skuId} · {s.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {lineCount} ingredients {lineCount > 0 && <span>· {batchYield} {batchUom}</span>}
+                        {lineCount} ingredients {lineCount > 0 && <span>· {batchYield} {s.usageUom}</span>}
                       </p>
                     </button>
                   );
@@ -324,12 +451,12 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                     </div>
                   </div>
 
-                  {/* Batch yield editor */}
+                  {/* Batch yield editor — UOM is read-only from SP SKU */}
                   {editingYield && canEdit && (
                     <div className="flex items-center gap-2 text-sm border-t pt-3 mt-3">
                       <span className="text-muted-foreground font-medium">1 batch produces</span>
                       <Input type="number" min={0.01} step="any" value={yieldQty || ''} onChange={e => setYieldQty(Number(e.target.value))} className="h-8 w-20 text-sm" />
-                      <Input value={yieldUom} onChange={e => setYieldUom(e.target.value)} placeholder="e.g. ฟอง, g" className="h-8 w-32 text-sm" />
+                      <span className="text-sm text-muted-foreground font-medium">{currentBatchYieldUom || '—'}</span>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingYield(false)}><X className="w-3.5 h-3.5" /></Button>
                     </div>
@@ -343,15 +470,15 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty/Batch</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
-                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>}
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>SKU Code</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">Name</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Qty/Batch</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>UOM</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>Yield %</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Eff. Qty</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Cost/unit</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Line Cost</TableHead>
+                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -379,30 +506,29 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       {selectedLines.map(line => {
                         const sku = getSkuById(line.ingredientSkuId);
                         const unitPrice = getActiveCost(line.ingredientSkuId);
-                        const effQty = line.qtyPerBatch; // treat yield=100% for existing lines
+                        const effQty = line.qtyPerBatch;
                         const lineCost = effQty * unitPrice;
-                        const costPerUnit = currentBatchYieldQty > 0 ? lineCost / currentBatchYieldQty : 0;
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-[13px] font-mono py-2 px-3">
+                            <TableCell className="text-[13px] font-mono py-1 px-2">
                               {sku?.skuId ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
+                            <TableCell className="text-[13px] truncate overflow-hidden py-1 px-2" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
-                            <TableCell className="text-[13px] py-2 px-3">{line.uom}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">100%</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">
+                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
+                            <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{sku?.usageUom ?? line.uom}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">100%</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{effQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">
                               {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
+                            <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
                               {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             {canEdit && (
-                              <TableCell className="py-2 px-3">
+                              <TableCell className="py-1 px-2">
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -460,6 +586,16 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
             setTimeout(() => syncSpPrice(), 300);
           }
         }}
+      />
+
+      {/* CSV Import Modal */}
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="SP BOM"
+        columns={CSV_COLUMNS}
+        validate={validateCsv}
+        onConfirm={handleCsvImport}
       />
     </div>
   );
