@@ -23,6 +23,7 @@ interface MenuMasterPageProps {
     addMenu: (data: Omit<Menu, 'id'>) => Promise<void>;
     updateMenu: (id: string, data: Partial<Omit<Menu, 'id'>>) => Promise<void>;
     deleteMenu: (id: string) => Promise<void>;
+    bulkAddMenus: (rows: Omit<Menu, 'id'>[]) => Promise<number>;
   };
   branches: Branch[];
 }
