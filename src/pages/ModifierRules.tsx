@@ -46,7 +46,6 @@ function MultiMenuSelector({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 220 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
