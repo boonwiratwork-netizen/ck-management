@@ -393,31 +393,31 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
                   <thead>
                     <tr className="border-b bg-table-header sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
-                        <span className="inline-flex items-center">Date<SeSortIcon col="saleDate" /></span>
+                        <span className="inline-flex items-center">{t('col.date')}<SeSortIcon col="saleDate" /></span>
                       </th>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
-                        <span className="inline-flex items-center">Menu Code<SeSortIcon col="menuCode" /></span>
+                        <span className="inline-flex items-center">{t('col.menuCode')}<SeSortIcon col="menuCode" /></span>
                       </th>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
-                        <span className="inline-flex items-center">Menu Name<SeSortIcon col="menuName" /></span>
+                        <span className="inline-flex items-center">{t('col.menuName')}<SeSortIcon col="menuName" /></span>
                       </th>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
-                        <span className="inline-flex items-center">Order Type<SeSortIcon col="orderType" /></span>
+                        <span className="inline-flex items-center">{t('col.orderType')}<SeSortIcon col="orderType" /></span>
                       </th>
                       <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
-                        <span className="inline-flex items-center justify-end">Qty<SeSortIcon col="qty" /></span>
+                        <span className="inline-flex items-center justify-end">{t('col.qty')}<SeSortIcon col="qty" /></span>
                       </th>
                       <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
-                        <span className="inline-flex items-center justify-end">Unit Price<SeSortIcon col="unitPrice" /></span>
+                        <span className="inline-flex items-center justify-end">{t('col.unitPrice')}<SeSortIcon col="unitPrice" /></span>
                       </th>
                       <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
-                        <span className="inline-flex items-center justify-end">Net Amount<SeSortIcon col="netAmount" /></span>
+                        <span className="inline-flex items-center justify-end">{t('col.netAmount')}<SeSortIcon col="netAmount" /></span>
                       </th>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
-                        <span className="inline-flex items-center">Channel<SeSortIcon col="channel" /></span>
+                        <span className="inline-flex items-center">{t('col.channel')}<SeSortIcon col="channel" /></span>
                       </th>
                       <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
-                        <span className="inline-flex items-center">Branch<SeSortIcon col="branch" /></span>
+                        <span className="inline-flex items-center">{t('col.branch')}<SeSortIcon col="branch" /></span>
                       </th>
                       {isManagement && <th className="w-10 px-4 py-3 table-header" />}
                     </tr>
