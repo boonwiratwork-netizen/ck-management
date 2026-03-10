@@ -475,7 +475,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
         title="Delete Menu"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
-        confirmText="Delete"
+        confirmLabel="Delete"
         variant="destructive"
       />
 
