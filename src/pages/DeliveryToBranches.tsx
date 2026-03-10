@@ -68,7 +68,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     [deliveries, currentWeek]
   );
   const thisWeekQty = useMemo(
-    () => thisWeekDeliveries.reduce((s, d) => s + d.qtyDeliveredKg, 0),
+    () => thisWeekDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0),
     [thisWeekDeliveries]
   );
 
