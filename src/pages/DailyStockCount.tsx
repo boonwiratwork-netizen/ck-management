@@ -286,23 +286,29 @@ export default function DailyStockCountPage({
                             {row.calculatedBalance.toFixed(2)}
                             <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right w-28">
+                          <TableCell className="text-right w-32">
                             {isSubmitted ? (
-                              <span className="tabular-nums">{row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}</span>
+                              <span className="tabular-nums">
+                                {row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}
+                                <span className="ml-1 text-[10px] text-muted-foreground">{sku.purchaseUom}</span>
+                              </span>
                             ) : (
-                              <Input
-                                ref={(el) => setRef(row.id, el)}
-                                type="number"
-                                step="0.01"
-                                value={row.physicalCount !== null ? row.physicalCount : ''}
-                                onChange={e => {
-                                  const val = e.target.value === '' ? null : Number(e.target.value);
-                                  updatePhysicalCount(row.id, val);
-                                }}
-                                onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                className="h-9 w-24 text-sm font-medium border-2 border-input focus:border-primary"
-                                placeholder="—"
-                              />
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  ref={(el) => setRef(row.id, el)}
+                                  type="number"
+                                  step="0.01"
+                                  value={row.physicalCount !== null ? row.physicalCount : ''}
+                                  onChange={e => {
+                                    const val = e.target.value === '' ? null : Number(e.target.value);
+                                    updatePhysicalCount(row.id, val);
+                                  }}
+                                  onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
+                                  className="h-9 w-24 text-sm font-medium border-2 border-input focus:border-primary"
+                                  placeholder="—"
+                                />
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{sku.purchaseUom}</span>
+                              </div>
                             )}
                           </TableCell>
                           <TableCell className={`text-right tabular-nums font-medium rounded px-2 ${varClass}`}>

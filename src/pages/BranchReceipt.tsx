@@ -351,7 +351,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   const actualUnitPrice = draft.qtyReceived > 0 ? draft.actualTotalPaid / draft.qtyReceived : 0;
                   const stdTotal = draft.qtyReceived * stdUnit;
                   const variance = draft.actualTotalPaid - stdTotal;
-                  const uomLabel = sku?.usageUom || '';
+                  const uomLabel = sku?.purchaseUom || '';
 
                   return (
                     <tr key={draft.tempId} className="border-b last:border-0 bg-blue-50 dark:bg-blue-950/30">
