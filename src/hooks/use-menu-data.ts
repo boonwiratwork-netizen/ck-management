@@ -10,7 +10,7 @@ const toLocal = (row: any): Menu => ({
   category: row.category,
   sellingPrice: row.selling_price,
   status: row.status,
-  branchId: row.branch_id,
+  brandName: row.brand_name || '',
 });
 
 export function useMenuData() {
