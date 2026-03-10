@@ -139,7 +139,7 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-table-header">
