@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SpBomLine } from '@/types/sp-bom';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
@@ -42,6 +43,7 @@ const CSV_COLUMNS: CSVColumnDef[] = [
 
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
   const { isManagement } = useAuth();
+  const { t } = useLanguage();
   const canEdit = isManagement && !readOnly;
 
   const [selectedSpId, setSelectedSpId] = useState<string | null>(null);
@@ -355,12 +357,12 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">SP BOM</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.spBom')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials for Special items — ingredients and costing</p>
         </div>
         {canEdit && (
           <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> Import CSV
+            <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
         )}
       </div>
@@ -370,7 +372,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         {!fullscreen && (
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">SP Items</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('section.spItems')}</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">{spWithBom} of {spSkus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -449,7 +451,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <div className="flex flex-col gap-1">
                         {canEdit && (
                           <Button size="sm" variant="outline" onClick={startEditYield}>
-                            <Edit2 className="w-3.5 h-3.5" /> Edit Yield
+                            <Edit2 className="w-3.5 h-3.5" /> {t('btn.editYield')}
                           </Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => setFullscreen(!fullscreen)}>
@@ -478,14 +480,14 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>SKU Code</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">Name</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Qty/Batch</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>UOM</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>Yield %</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Eff. Qty</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Cost/unit</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Line Cost</TableHead>
+                         <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">{t('col.name')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.qtyPerBatch')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>{t('col.uom')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>{t('col.yieldPct')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.effQty')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.costUnit')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.lineCost')}</TableHead>
                         {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -504,7 +506,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                                   className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                                   onClick={startAddLine}
                                 >
-                                  <Plus className="w-4 h-4" /> Add First Ingredient
+                                  <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                                 </Button>
                               )}
                             </div>
@@ -564,7 +566,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                         onClick={startAddLine}
                       >
-                        <Plus className="w-4 h-4" /> Add Ingredient
+                        <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
                       </Button>
                     </div>
                   )}

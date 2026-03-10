@@ -13,7 +13,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { syncBomPrice } from '@/lib/bom-price-sync';
+import { syncBomPrice, cascadeBomCost } from '@/lib/bom-price-sync';
+import { useLanguage } from '@/hooks/use-language';
 
 interface BOMPageProps {
   bomData: {
@@ -78,6 +79,7 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
 }
 
 const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
+  const { t } = useLanguage();
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
@@ -218,7 +220,13 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     if (costPerGram > 0) {
       const skuName = getSkuCode(header.smSkuId) || getSkuName(header.smSkuId);
       await syncBomPrice(header.smSkuId, costPerGram);
-      toast.success(`BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`);
+      // Cascade to Menu BOMs and SP BOMs using this SM SKU
+      const { menuBomCount, spBomCount } = await cascadeBomCost(header.smSkuId, costPerGram);
+      let msg = `BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`;
+      if (menuBomCount > 0 || spBomCount > 0) {
+        msg += ` — ${menuBomCount} menu BOM${menuBomCount !== 1 ? 's' : ''} and ${spBomCount} SP BOM${spBomCount !== 1 ? 's' : ''} refreshed`;
+      }
+      toast.success(msg);
       onPricesRefresh?.();
     }
   }, [selectedHeaderId, headers, prices, onPricesRefresh]);
@@ -451,14 +459,14 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   // Common table headers for simple BOM
   const simpleTableHeaders = (
     <TableRow>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU Code</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Yield %</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Eff. Qty</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground">{t('col.name')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
+      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
       <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
     </TableRow>
   );
@@ -521,7 +529,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                         className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                         onClick={() => handleStartAddLine()}
                       >
-                        <Plus className="w-4 h-4" /> Add First Ingredient
+                        <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                       </Button>
                     </div>
                   </TableCell>
@@ -575,7 +583,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                 className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                 onClick={() => handleStartAddLine()}
               >
-                <Plus className="w-4 h-4" /> Add Ingredient
+                 <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
               </Button>
             </div>
           )}
@@ -803,7 +811,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">BOM Master</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.bomMaster')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage recipes for Semi-finished (SM) items</p>
         </div>
         <Button onClick={handleAddHeader}>
