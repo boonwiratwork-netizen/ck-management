@@ -152,9 +152,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                 <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
                 <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
