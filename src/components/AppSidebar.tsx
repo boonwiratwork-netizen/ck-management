@@ -17,6 +17,7 @@ import {
   Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart,
 } from 'lucide-react';
 import { useAuth, AppRole } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 
 export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
@@ -56,68 +57,69 @@ interface AppSidebarProps {
 
 interface NavGroup {
   label: string;
+  labelKey: string;
   icon?: React.ElementType;
   section: 'ck' | 'store' | 'management' | 'overview';
-  items: { key: TabKey; label: string; icon: React.ElementType }[];
+  items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
 }
 
 const overviewGroup: NavGroup = {
-  label: 'OVERVIEW',
+  label: 'OVERVIEW', labelKey: 'nav.overview',
   section: 'overview',
   items: [
-    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   ],
 };
 
 const masterDataGroup: NavGroup = {
-  label: 'MASTER DATA',
+  label: 'MASTER DATA', labelKey: 'nav.masterData',
   section: 'ck',
   items: [
-    { key: 'sku', label: 'SKU Master', icon: Package },
-    { key: 'supplier', label: 'Suppliers', icon: Users },
-    { key: 'price', label: 'Prices', icon: DollarSign },
+    { key: 'sku', labelKey: 'nav.skuMaster', icon: Package },
+    { key: 'supplier', labelKey: 'nav.suppliers', icon: Users },
+    { key: 'price', labelKey: 'nav.prices', icon: DollarSign },
   ],
 };
 
 const ckGroup: NavGroup = {
-  label: 'CENTRAL KITCHEN',
+  label: 'CENTRAL KITCHEN', labelKey: 'nav.centralKitchen',
   icon: ChefHat,
   section: 'ck',
   items: [
-    { key: 'bom', label: 'BOM', icon: FlaskConical },
-    { key: 'receipt', label: 'Goods Receipt', icon: ClipboardList },
-    { key: 'production', label: 'Production', icon: Factory },
-    { key: 'delivery', label: 'Delivery', icon: Truck },
-    { key: 'stock', label: 'RM Stock', icon: Warehouse },
-    { key: 'smstock', label: 'SM Stock', icon: BoxesIcon },
-    { key: 'stockcount', label: 'Stock Count', icon: ClipboardCheck },
+    { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
+    { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
+    { key: 'production', labelKey: 'nav.production', icon: Factory },
+    { key: 'delivery', labelKey: 'nav.delivery', icon: Truck },
+    { key: 'stock', labelKey: 'nav.rmStock', icon: Warehouse },
+    { key: 'smstock', labelKey: 'nav.smStock', icon: BoxesIcon },
+    { key: 'stockcount', labelKey: 'nav.stockCount', icon: ClipboardCheck },
   ],
 };
 
 const storeGroup: NavGroup = {
-  label: 'STORE',
+  label: 'STORE', labelKey: 'nav.store',
   icon: Store,
   section: 'store',
   items: [
-    { key: 'store', label: 'Store Overview', icon: Store },
-    { key: 'menu-master', label: 'Menu Master', icon: UtensilsCrossed },
-    { key: 'menu-bom', label: 'Menu BOM', icon: BookOpen },
-    { key: 'sp-bom', label: 'SP BOM', icon: Sparkles },
-    { key: 'modifier-rules', label: 'Modifier Rules', icon: ListFilter },
-    { key: 'sales-entry', label: 'Sales Entry', icon: ShoppingCart },
-    { key: 'branch-receipt', label: 'Branch Receipt', icon: ClipboardList },
-    { key: 'daily-stock-count', label: 'Daily Stock Count', icon: ClipboardCheck },
-    { key: 'food-cost', label: 'Food Cost', icon: PieChart },
+    { key: 'store', labelKey: 'nav.storeOverview', icon: Store },
+    { key: 'menu-master', labelKey: 'nav.menuMaster', icon: UtensilsCrossed },
+    { key: 'menu-bom', labelKey: 'nav.menuBom', icon: BookOpen },
+    { key: 'sp-bom', labelKey: 'nav.spBom', icon: Sparkles },
+    { key: 'modifier-rules', labelKey: 'nav.modifierRules', icon: ListFilter },
+    { key: 'sales-entry', labelKey: 'nav.salesEntry', icon: ShoppingCart },
+    { key: 'branch-receipt', labelKey: 'nav.branchReceipt', icon: ClipboardList },
+    { key: 'daily-stock-count', labelKey: 'nav.dailyStockCount', icon: ClipboardCheck },
+    { key: 'food-cost', labelKey: 'nav.foodCost', icon: PieChart },
   ],
 };
 
 const managementGroup: NavGroup = {
-  label: 'MANAGEMENT',
+  label: 'MANAGEMENT', labelKey: 'nav.management',
   section: 'management',
   items: [
-    { key: 'branches', label: 'Branches', icon: Store },
-    { key: 'users', label: 'User Management', icon: Settings },
-    { key: 'sku-categories', label: 'SKU Categories', icon: Package },
+    { key: 'branches', labelKey: 'nav.branches', icon: Store },
+    { key: 'users', labelKey: 'nav.userManagement', icon: Settings },
+    { key: 'sku-categories', labelKey: 'nav.skuCategories', icon: Package },
   ],
 };
 
@@ -143,6 +145,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { profile, role, isManagement, signOut } = useAuth();
+  const { lang, toggleLang, t } = useLanguage();
 
   // Build groups based on role
   const allGroups: NavGroup[] = [];
@@ -172,9 +175,21 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <ChefHat className="w-5 h-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
-              <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
+                  <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+                </div>
+                <button
+                  onClick={toggleLang}
+                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] font-medium shrink-0 hover:bg-accent transition-colors"
+                >
+                  <span className={lang === 'th' ? 'font-bold text-primary' : 'text-muted-foreground'}>TH</span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className={lang === 'en' ? 'font-bold text-primary' : 'text-muted-foreground'}>EN</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -189,7 +204,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
              (prevGroup.section === 'ck' && group.section === 'management'));
 
           return (
-            <div key={group.label}>
+            <div key={group.labelKey}>
               {showDivider && (
                 <div className="my-2 mx-3 border-t-2 border-sidebar-border" />
               )}
@@ -198,18 +213,19 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   {group.icon && !collapsed && (
                     <group.icon className="w-3 h-3" />
                   )}
-                  {group.label}
+                  {t(group.labelKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map(item => {
                       const isActive = activeTab === item.key;
+                      const label = t(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.key}>
                           <SidebarMenuButton
                             isActive={isActive}
                             onClick={() => onTabChange(item.key)}
-                            tooltip={item.label}
+                            tooltip={label}
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
                                 ? 'bg-accent text-accent-foreground font-semibold border-l-2 border-primary'
@@ -217,7 +233,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             }`}
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                            <span className="text-[13px]">{item.label}</span>
+                            <span className="text-[13px]">{label}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
@@ -259,6 +275,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           </div>
         ) : (
           <div className="space-y-2">
+            <button
+              onClick={toggleLang}
+              className="w-8 h-8 mx-auto rounded-full border border-sidebar-border flex items-center justify-center text-[10px] font-bold text-primary hover:bg-accent transition-colors"
+            >
+              {lang === 'th' ? 'TH' : 'EN'}
+            </button>
             <div className="w-8 h-8 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
               {initials}
             </div>
