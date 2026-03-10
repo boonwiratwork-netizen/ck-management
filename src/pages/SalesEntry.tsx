@@ -328,9 +328,9 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
 
           <Button onClick={handleImport} disabled={importing || parsedRows.length === 0 || !selectedBranch || !hasValidColumns}>
             {importing ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {t('btn.import')}...</>
             ) : (
-              <><Upload className="w-4 h-4" /> Import Pasted Data ({parsedRows.length} rows)</>
+              <><Upload className="w-4 h-4" /> {t('btn.importPastedData')} ({parsedRows.length} rows)</>
             )}
           </Button>
         </CardContent>
