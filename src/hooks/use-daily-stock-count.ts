@@ -101,7 +101,7 @@ export function useDailyStockCount({
     });
 
     return { extBySku, ckBySku };
-  }, [branches]);
+  }, [branches, getSkuConverter]);
 
   // Calculate expected usage from sales data × current BOM
   const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
