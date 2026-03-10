@@ -44,7 +44,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
 
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null;
   const sessionLines = selectedSessionId ? getLinesForSession(selectedSessionId) : [];
-  const isReadOnly = selectedSession?.status === 'Completed';
+  const isCompleted = selectedSession?.status === 'Completed';
+  const isReadOnly = false; // Allow editing even completed sessions
 
   const skuMap = useMemo(() => {
     const m: Record<string, SKU> = {};
@@ -206,8 +207,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                       <p className="font-medium">Count Date: {selectedSession.date}</p>
                       {selectedSession.note && <p className="text-sm text-muted-foreground">{selectedSession.note}</p>}
                     </div>
-                    <Badge variant={isReadOnly ? 'default' : 'secondary'}>
-                      {isReadOnly ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
+                    <Badge variant={isCompleted ? 'default' : 'secondary'}>
+                      {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
                     </Badge>
                   </div>
                 </CardContent>
@@ -254,7 +255,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                       <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
                         <SortableHeader label={t('col.systemQty')} sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead className="text-right">{t('col.physicalQty')}</TableHead>
+                      <TableHead className="text-right">{t('col.physicalQty')} (UOM)</TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
                         <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
@@ -286,11 +287,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                               {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
                             <td className="px-1.5 py-1 text-right">
-                              {isReadOnly ? (
-                                <span className="font-mono text-xs">
-                                  {line.physicalQty !== null ? line.physicalQty.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
-                                </span>
-                              ) : (
+                              <div className="flex items-center justify-end gap-1">
                                 <Input
                                   type="number"
                                   min={0}
@@ -304,7 +301,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                                   }}
                                   className="h-8 text-xs text-right w-[80px] font-mono"
                                 />
-                              )}
+                                <span className="text-[10px] text-muted-foreground w-6 text-left">{sku.usageUom}</span>
+                              </div>
                             </td>
                             <TableCell className={`text-right font-mono font-medium ${
                               !hasVariance ? 'text-muted-foreground' :
@@ -315,19 +313,15 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                                 (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
                             <td className="px-1.5 py-1">
-                              {isReadOnly ? (
-                                <span className="text-xs text-muted-foreground">{line.note || '—'}</span>
-                              ) : (
-                                <Input
-                                  defaultValue={line.note}
-                                  key={`note-${line.id}-${line.note}`}
-                                  placeholder="Optional"
-                                  onBlur={e => {
-                                    if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
-                                  }}
-                                  className="h-8 text-xs w-32"
-                                />
-                              )}
+                              <Input
+                                defaultValue={line.note}
+                                key={`note-${line.id}-${line.note}`}
+                                placeholder="Optional"
+                                onBlur={e => {
+                                  if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
+                                }}
+                                className="h-8 text-xs w-32"
+                              />
                             </td>
                           </TableRow>
                         );
@@ -368,7 +362,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
               </div>
 
               {/* Confirm Button */}
-              {!isReadOnly && (
+              {!isCompleted && (
                 <div className="flex justify-end">
                   <Button
                     onClick={() => setConfirmOpen(true)}

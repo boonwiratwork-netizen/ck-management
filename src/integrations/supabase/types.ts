@@ -495,7 +495,7 @@ export type Database = {
           menu_id: string | null
           qty_per_match: number
           rule_type: string
-          sku_id: string
+          sku_id: string | null
           submenu_id: string | null
           swap_sku_id: string | null
           uom: string
@@ -509,7 +509,7 @@ export type Database = {
           menu_id?: string | null
           qty_per_match?: number
           rule_type?: string
-          sku_id: string
+          sku_id?: string | null
           submenu_id?: string | null
           swap_sku_id?: string | null
           uom?: string
@@ -523,7 +523,7 @@ export type Database = {
           menu_id?: string | null
           qty_per_match?: number
           rule_type?: string
-          sku_id?: string
+          sku_id?: string | null
           submenu_id?: string | null
           swap_sku_id?: string | null
           uom?: string
