@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
-import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
 import { MenuBomLine } from '@/types/menu-bom';
 import { useAuth } from '@/hooks/use-auth';
