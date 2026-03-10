@@ -268,7 +268,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Branch Receipt</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.branchReceipt')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Record external purchases received at the branch</p>
       </div>
 
