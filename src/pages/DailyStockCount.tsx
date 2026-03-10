@@ -274,9 +274,18 @@ export default function DailyStockCountPage({
                           </TableCell>
                           <TableCell className="text-right tabular-nums">{row.openingBalance.toFixed(2)}</TableCell>
                           <TableCell className="text-right tabular-nums">{row.receivedFromCk.toFixed(2)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{row.receivedExternal.toFixed(2)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{row.expectedUsage.toFixed(2)}</TableCell>
-                          <TableCell className="text-right tabular-nums font-medium">{row.calculatedBalance.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.receivedExternal.toFixed(2)}
+                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.purchaseUom}</span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.expectedUsage.toFixed(2)}
+                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium">
+                            {row.calculatedBalance.toFixed(2)}
+                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                          </TableCell>
                           <TableCell className="text-right w-28">
                             {isSubmitted ? (
                               <span className="tabular-nums">{row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}</span>
