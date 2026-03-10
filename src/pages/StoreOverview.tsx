@@ -128,17 +128,17 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Yesterday's Count</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.yesterdayCount')}</p>
                 <div className="mt-2">
                   {yesterdayStockStatus === 'loading' ? (
                     <span className="text-muted-foreground">—</span>
                   ) : yesterdayStockStatus === 'submitted' ? (
                     <span className="inline-flex items-center gap-1.5 text-success font-semibold">
-                      <CheckCircle2 className="w-4 h-4" /> Submitted
+                      <CheckCircle2 className="w-4 h-4" /> {t('status.submitted')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-warning font-semibold">
-                      <AlertTriangle className="w-4 h-4" /> Not submitted
+                      <AlertTriangle className="w-4 h-4" /> {t('status.notSubmitted')}
                     </span>
                   )}
                 </div>
