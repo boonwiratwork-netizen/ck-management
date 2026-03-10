@@ -325,10 +325,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
       {/* Inline entry table */}
       {drafts.length > 0 && (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+         <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
                   <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
                   <th className={thClass}>Name</th>
