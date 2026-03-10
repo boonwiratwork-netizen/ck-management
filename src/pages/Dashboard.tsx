@@ -369,10 +369,10 @@ const Dashboard = ({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-table-header">
-                    <th className="px-4 py-3 text-left table-header">Name</th>
-                    <th className="px-4 py-3 text-right table-header">Current Stock (kg)</th>
-                    <th className="px-4 py-3 text-right table-header">Cover Days</th>
-                    <th className="px-4 py-3 text-center table-header">Status</th>
+                     <th className="px-4 py-3 text-left table-header">{t('col.name')}</th>
+                     <th className="px-4 py-3 text-right table-header">{t('col.currentStockKg')}</th>
+                     <th className="px-4 py-3 text-right table-header">{t('col.coverDays')}</th>
+                     <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
