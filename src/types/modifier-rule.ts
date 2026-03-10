@@ -1,3 +1,5 @@
+export type ModifierRuleType = 'add' | 'swap' | 'submenu';
+
 export interface ModifierRule {
   id: string;
   keyword: string;
@@ -7,6 +9,9 @@ export interface ModifierRule {
   description: string;
   isActive: boolean;
   menuId: string | null;
+  ruleType: ModifierRuleType;
+  swapSkuId: string | null;
+  submenuId: string | null;
 }
 
 export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, 'id'> = {
@@ -17,4 +22,7 @@ export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, 'id'> = {
   description: '',
   isActive: true,
   menuId: null,
+  ruleType: 'add',
+  swapSkuId: null,
+  submenuId: null,
 };

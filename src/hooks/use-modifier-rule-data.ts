@@ -12,6 +12,9 @@ const toLocal = (row: any): ModifierRule => ({
   description: row.description,
   isActive: row.is_active,
   menuId: row.menu_id ?? null,
+  ruleType: row.rule_type || 'add',
+  swapSkuId: row.swap_sku_id ?? null,
+  submenuId: row.submenu_id ?? null,
 });
 
 export function useModifierRuleData() {
@@ -36,6 +39,9 @@ export function useModifierRuleData() {
       description: data.description,
       is_active: data.isActive,
       menu_id: data.menuId,
+      rule_type: data.ruleType,
+      swap_sku_id: data.swapSkuId,
+      submenu_id: data.submenuId,
     }).select().single();
     if (error) { toast.error('Failed to add rule: ' + error.message); return; }
     setRules(prev => [...prev, toLocal(row)]);
@@ -50,6 +56,9 @@ export function useModifierRuleData() {
     if (data.description !== undefined) dbData.description = data.description;
     if (data.isActive !== undefined) dbData.is_active = data.isActive;
     if (data.menuId !== undefined) dbData.menu_id = data.menuId;
+    if (data.ruleType !== undefined) dbData.rule_type = data.ruleType;
+    if (data.swapSkuId !== undefined) dbData.swap_sku_id = data.swapSkuId;
+    if (data.submenuId !== undefined) dbData.submenu_id = data.submenuId;
 
     const { error } = await supabase.from('menu_modifier_rules').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update rule: ' + error.message); return; }

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ModifierRule } from '@/types/modifier-rule';
+import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
+import { MenuBomLine } from '@/types/menu-bom';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,10 +27,11 @@ interface ModifierRulesPageProps {
   };
   skus: SKU[];
   menus: Menu[];
+  menuBomLines?: MenuBomLine[];
   readOnly?: boolean;
 }
 
-export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = false }: ModifierRulesPageProps) {
+export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
   const canEdit = isManagement && !readOnly;
 
@@ -49,12 +51,26 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
   const [formDesc, setFormDesc] = useState('');
   const [formActive, setFormActive] = useState(true);
   const [formMenuId, setFormMenuId] = useState<string>('');
+  const [formRuleType, setFormRuleType] = useState<ModifierRuleType>('add');
+  const [formSwapSkuId, setFormSwapSkuId] = useState('');
+  const [formSubmenuId, setFormSubmenuId] = useState('');
   const [skuSearch, setSkuSearch] = useState('');
+  const [swapSkuSearch, setSwapSkuSearch] = useState('');
 
   // RM + SP SKUs
   const eligibleSkus = useMemo(() => skus.filter(s => ['RM', 'SP'].includes(s.type)), [skus]);
   const getSkuById = (id: string) => skus.find(s => s.id === id);
   const getMenuById = (id: string) => menus.find(m => m.id === id);
+
+  const bomByMenuId = useMemo(() => {
+    const m = new Map<string, MenuBomLine[]>();
+    menuBomLines.forEach(l => {
+      const arr = m.get(l.menuId) || [];
+      arr.push(l);
+      m.set(l.menuId, arr);
+    });
+    return m;
+  }, [menuBomLines]);
 
   const filteredRules = useMemo(() => {
     return showActiveOnly ? ruleData.rules.filter(r => r.isActive) : ruleData.rules;
@@ -69,7 +85,11 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
     setFormDesc('');
     setFormActive(true);
     setFormMenuId('');
+    setFormRuleType('add');
+    setFormSwapSkuId('');
+    setFormSubmenuId('');
     setSkuSearch('');
+    setSwapSkuSearch('');
     setModalOpen(true);
   };
 
@@ -82,7 +102,11 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
     setFormDesc(rule.description);
     setFormActive(rule.isActive);
     setFormMenuId(rule.menuId ?? '');
+    setFormRuleType(rule.ruleType);
+    setFormSwapSkuId(rule.swapSkuId ?? '');
+    setFormSubmenuId(rule.submenuId ?? '');
     setSkuSearch('');
+    setSwapSkuSearch('');
     setModalOpen(true);
   };
 
@@ -94,17 +118,29 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
 
   const handleSubmit = async () => {
     if (!formKeyword.trim()) { toast.error('Keyword is required'); return; }
-    if (!formSkuId) { toast.error('Please select a SKU'); return; }
-    if (formQty <= 0) { toast.error('Quantity must be > 0'); return; }
 
-    const data = {
+    if (formRuleType === 'add') {
+      if (!formSkuId) { toast.error('Please select a SKU'); return; }
+      if (formQty <= 0) { toast.error('Quantity must be > 0'); return; }
+    } else if (formRuleType === 'swap') {
+      if (!formSwapSkuId) { toast.error('Please select the Remove SKU'); return; }
+      if (!formSkuId) { toast.error('Please select the Add SKU'); return; }
+      if (formQty <= 0) { toast.error('Quantity must be > 0'); return; }
+    } else if (formRuleType === 'submenu') {
+      if (!formSubmenuId) { toast.error('Please select a submenu'); return; }
+    }
+
+    const data: Omit<ModifierRule, 'id'> = {
       keyword: formKeyword.trim(),
-      skuId: formSkuId,
-      qtyPerMatch: formQty,
-      uom: formUom,
+      skuId: formRuleType === 'submenu' ? '' : formSkuId,
+      qtyPerMatch: formRuleType === 'submenu' ? 1 : formQty,
+      uom: formRuleType === 'submenu' ? '' : formUom,
       description: formDesc,
       isActive: formActive,
       menuId: formMenuId || null,
+      ruleType: formRuleType,
+      swapSkuId: formRuleType === 'swap' ? formSwapSkuId : null,
+      submenuId: formRuleType === 'submenu' ? formSubmenuId : null,
     };
 
     if (editingRule) {
@@ -122,6 +158,18 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
     const q = skuSearch.toLowerCase();
     return eligibleSkus.filter(s => s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
   }, [eligibleSkus, skuSearch]);
+
+  const filteredSwapSkus = useMemo(() => {
+    if (!swapSkuSearch) return eligibleSkus;
+    const q = swapSkuSearch.toLowerCase();
+    return eligibleSkus.filter(s => s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
+  }, [eligibleSkus, swapSkuSearch]);
+
+  const ruleTypeBadgeVariant = (t: ModifierRuleType) => {
+    if (t === 'swap') return 'secondary' as const;
+    if (t === 'submenu') return 'outline' as const;
+    return 'default' as const;
+  };
 
   return (
     <div className="space-y-4">
@@ -151,6 +199,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
           <TableHeader>
             <TableRow>
               <TableHead>Keyword</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Menu</TableHead>
               <TableHead>SKU Code</TableHead>
               <TableHead>SKU Name</TableHead>
@@ -164,17 +213,36 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
           <TableBody>
             {filteredRules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 9 : 8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   No rules defined yet
                 </TableCell>
               </TableRow>
             ) : (
               filteredRules.map(rule => {
-                const sku = getSkuById(rule.skuId);
+                const sku = rule.skuId ? getSkuById(rule.skuId) : undefined;
+                const swapSku = rule.swapSkuId ? getSkuById(rule.swapSkuId) : undefined;
                 const menu = rule.menuId ? getMenuById(rule.menuId) : null;
+                const submenu = rule.submenuId ? getMenuById(rule.submenuId) : null;
+
+                let skuDisplay = sku?.skuId ?? '—';
+                let skuNameDisplay: React.ReactNode = sku?.name ?? '—';
+
+                if (rule.ruleType === 'swap') {
+                  skuDisplay = `${swapSku?.skuId ?? '?'} → ${sku?.skuId ?? '?'}`;
+                  skuNameDisplay = <span>{swapSku?.name ?? '?'} → {sku?.name ?? '?'}</span>;
+                } else if (rule.ruleType === 'submenu') {
+                  skuDisplay = submenu?.menuCode ?? '—';
+                  skuNameDisplay = submenu?.menuName ?? '—';
+                }
+
                 return (
                   <TableRow key={rule.id}>
                     <TableCell className="font-medium">{rule.keyword}</TableCell>
+                    <TableCell>
+                      <Badge variant={ruleTypeBadgeVariant(rule.ruleType)} className="text-[10px] uppercase">
+                        {rule.ruleType}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       {menu ? (
                         <span className="font-mono text-xs">{menu.menuCode}</span>
@@ -182,10 +250,10 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
                         <span className="text-muted-foreground text-xs">All Menus</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{sku?.skuId ?? '—'}</TableCell>
-                    <TableCell>{sku?.name ?? '—'}</TableCell>
-                    <TableCell className="text-right">{rule.qtyPerMatch}</TableCell>
-                    <TableCell>{rule.uom}</TableCell>
+                    <TableCell className="font-mono text-xs">{skuDisplay}</TableCell>
+                    <TableCell>{skuNameDisplay}</TableCell>
+                    <TableCell className="text-right">{rule.ruleType === 'submenu' ? '—' : rule.qtyPerMatch}</TableCell>
+                    <TableCell>{rule.ruleType === 'submenu' ? '—' : rule.uom}</TableCell>
                     <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{rule.description || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={rule.isActive ? 'default' : 'secondary'} className="text-[10px]">
@@ -229,6 +297,18 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
+              <label className="text-sm font-medium">Rule Type</label>
+              <Select value={formRuleType} onValueChange={v => setFormRuleType(v as ModifierRuleType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="add">ADD — Add extra ingredient</SelectItem>
+                  <SelectItem value="swap">SWAP — Replace one ingredient with another</SelectItem>
+                  <SelectItem value="submenu">SUBMENU — Expand a sub-menu's BOM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Keyword</label>
               <Input
                 value={formKeyword}
@@ -250,49 +330,97 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">SKU (RM / SP)</label>
-              <Select value={formSkuId} onValueChange={handleSkuChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select SKU..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="px-2 pb-2">
-                    <Input
-                      placeholder="Search SKU..."
-                      value={skuSearch}
-                      onChange={e => setSkuSearch(e.target.value)}
-                      className="h-8 text-sm"
-                      onClick={e => e.stopPropagation()}
-                    />
-                  </div>
-                  {filteredEligibleSkus.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      <span className="font-mono text-xs mr-2">{s.skuId}</span>
-                      {s.name}
-                      <Badge variant="outline" className="ml-2 text-[10px]">{s.type}</Badge>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* ADD type fields */}
+            {formRuleType === 'add' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">SKU (RM / SP)</label>
+                  <Select value={formSkuId} onValueChange={handleSkuChange}>
+                    <SelectTrigger><SelectValue placeholder="Select SKU..." /></SelectTrigger>
+                    <SelectContent>
+                      <div className="px-2 pb-2">
+                        <Input placeholder="Search SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value)} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                      </div>
+                      {filteredEligibleSkus.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="font-mono text-xs mr-2">{s.skuId}</span>{s.name}
+                          <Badge variant="outline" className="ml-2 text-[10px]">{s.type}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Qty per Match</label>
+                  <Input type="number" min={0} step="any" value={formQty || ''} onChange={e => setFormQty(Number(e.target.value))} placeholder="e.g. 110" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">UOM</label>
+                  <Input value={formUom} onChange={e => setFormUom(e.target.value)} placeholder="e.g. g, ml, egg" />
+                </div>
+              </>
+            )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Qty per Match</label>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={formQty || ''}
-                onChange={e => setFormQty(Number(e.target.value))}
-                placeholder="e.g. 110"
-              />
-            </div>
+            {/* SWAP type fields */}
+            {formRuleType === 'swap' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Remove SKU (ingredient to remove from BOM)</label>
+                  <Select value={formSwapSkuId} onValueChange={setFormSwapSkuId}>
+                    <SelectTrigger><SelectValue placeholder="Select SKU to remove..." /></SelectTrigger>
+                    <SelectContent>
+                      <div className="px-2 pb-2">
+                        <Input placeholder="Search SKU..." value={swapSkuSearch} onChange={e => setSwapSkuSearch(e.target.value)} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                      </div>
+                      {filteredSwapSkus.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="font-mono text-xs mr-2">{s.skuId}</span>{s.name}
+                          <Badge variant="outline" className="ml-2 text-[10px]">{s.type}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Add SKU (replacement ingredient)</label>
+                  <Select value={formSkuId} onValueChange={handleSkuChange}>
+                    <SelectTrigger><SelectValue placeholder="Select replacement SKU..." /></SelectTrigger>
+                    <SelectContent>
+                      <div className="px-2 pb-2">
+                        <Input placeholder="Search SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value)} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                      </div>
+                      {filteredEligibleSkus.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="font-mono text-xs mr-2">{s.skuId}</span>{s.name}
+                          <Badge variant="outline" className="ml-2 text-[10px]">{s.type}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Qty per Match (for Add SKU)</label>
+                  <Input type="number" min={0} step="any" value={formQty || ''} onChange={e => setFormQty(Number(e.target.value))} placeholder="e.g. 110" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">UOM</label>
+                  <Input value={formUom} onChange={e => setFormUom(e.target.value)} placeholder="e.g. g, ml" />
+                </div>
+              </>
+            )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">UOM</label>
-              <Input value={formUom} onChange={e => setFormUom(e.target.value)} placeholder="e.g. g, ml, egg" />
-            </div>
+            {/* SUBMENU type fields */}
+            {formRuleType === 'submenu' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Submenu (expand this menu's BOM)</label>
+                <SearchableSelect
+                  value={formSubmenuId}
+                  onValueChange={setFormSubmenuId}
+                  options={menus.map(m => ({ value: m.id, label: `${m.menuCode} ${m.menuName}`, sublabel: m.menuCode }))}
+                  placeholder="Select a menu..."
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Description (optional)</label>
@@ -349,12 +477,48 @@ export default function ModifierRulesPage({ ruleData, skus, menus, readOnly = fa
                 <p className="text-sm font-medium text-green-600 flex items-center gap-1">
                   <CheckCircle2 className="w-4 h-4" /> {testResults.length} rule(s) matched
                 </p>
-                {testResults.map(({ rule, sku }) => (
-                  <div key={rule.id} className="rounded-md border p-2.5 text-sm space-y-0.5">
-                    <p><span className="font-medium">Keyword:</span> "{rule.keyword}"</p>
-                    <p><span className="font-medium">Adds:</span> {rule.qtyPerMatch} {rule.uom} of {sku?.skuId} ({sku?.name})</p>
-                  </div>
-                ))}
+                {testResults.map(({ rule, sku }) => {
+                  const swapSku = rule.swapSkuId ? getSkuById(rule.swapSkuId) : undefined;
+                  const submenu = rule.submenuId ? getMenuById(rule.submenuId) : undefined;
+                  const submenuBom = submenu ? bomByMenuId.get(submenu.id) || [] : [];
+
+                  return (
+                    <div key={rule.id} className="rounded-md border p-2.5 text-sm space-y-0.5">
+                      <p>
+                        <span className="font-medium">Keyword:</span> "{rule.keyword}"
+                        <Badge variant={ruleTypeBadgeVariant(rule.ruleType)} className="ml-2 text-[10px] uppercase">{rule.ruleType}</Badge>
+                      </p>
+                      {rule.ruleType === 'add' && (
+                        <p><span className="font-medium">Adds:</span> {rule.qtyPerMatch} {rule.uom} of {sku?.skuId} ({sku?.name})</p>
+                      )}
+                      {rule.ruleType === 'swap' && (
+                        <>
+                          <p><span className="font-medium">Removes:</span> {swapSku?.skuId} ({swapSku?.name}) — full BOM qty</p>
+                          <p><span className="font-medium">Adds:</span> {rule.qtyPerMatch} {rule.uom} of {sku?.skuId} ({sku?.name})</p>
+                        </>
+                      )}
+                      {rule.ruleType === 'submenu' && (
+                        <>
+                          <p><span className="font-medium">Expands BOM of:</span> {submenu?.menuCode} {submenu?.menuName}</p>
+                          {submenuBom.length > 0 ? (
+                            <div className="mt-1 pl-2 border-l-2 border-muted space-y-0.5">
+                              {submenuBom.map(line => {
+                                const lSku = getSkuById(line.skuId);
+                                return (
+                                  <p key={line.id} className="text-xs text-muted-foreground">
+                                    + {line.effectiveQty.toFixed(2)} {lSku?.usageUom} of {lSku?.skuId} ({lSku?.name})
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No BOM lines found for this submenu</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : testInput.trim() && (
               <p className="text-sm text-muted-foreground flex items-center gap-1">
