@@ -607,8 +607,8 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
               <Input type="number" value={recordForm.batchesProduced || ''} onChange={e => setRecordForm(f => ({ ...f, batchesProduced: Number(e.target.value) }))} />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Actual Output (kg)</label>
-              <Input type="number" step="0.1" value={recordForm.actualOutputKg || ''} onChange={e => setRecordForm(f => ({ ...f, actualOutputKg: Number(e.target.value) }))} />
+              <label className="text-xs font-medium text-muted-foreground">Actual Output (g)</label>
+              <Input type="number" step="0.1" value={recordForm.actualOutputG || ''} onChange={e => setRecordForm(f => ({ ...f, actualOutputG: Number(e.target.value) }))} />
             </div>
             {selectedPlan && recordForm.batchesProduced > 0 && (
               <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-3 text-sm">

@@ -520,7 +520,7 @@ const Dashboard = ({
                     {prodCostAnalysis.map((row, idx) => (
                       <tr key={row.smSkuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
                         <td className="px-4 py-3 font-medium">{row.name}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputKg)}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputG)}</td>
                         <td className="px-4 py-3 text-right font-mono">{fmt(row.standardValue)}</td>
                         <td className="px-4 py-3 text-right font-mono">{fmt(row.actualValue)}</td>
                         <td className={`px-4 py-3 text-right font-mono font-semibold ${row.variance > 0 ? 'variance-positive' : row.variance < 0 ? 'variance-negative' : ''}`}>
