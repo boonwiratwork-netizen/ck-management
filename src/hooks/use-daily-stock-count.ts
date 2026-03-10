@@ -231,7 +231,8 @@ export function useDailyStockCount({
       const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
       const expUsage = expectedUsage[r.sku_id] ?? 0;
-      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage;
+      const waste = Number(r.waste ?? 0);
+      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
