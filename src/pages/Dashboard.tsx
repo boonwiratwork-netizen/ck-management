@@ -430,7 +430,7 @@ const Dashboard = ({
                   <tr className="border-b bg-table-header">
                      <th className="px-4 py-3 text-left table-header">{t('col.smSku')}</th>
                      <th className="px-4 py-3 text-right table-header">{t('summary.target')} (kg)</th>
-                     <th className="px-4 py-3 text-right table-header">{t('summary.produced')} (kg)</th>
+                     <th className="px-4 py-3 text-right table-header">{t('summary.produced')} (g)</th>
                      <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
                   </tr>
                 </thead>
