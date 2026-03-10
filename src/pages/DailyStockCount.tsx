@@ -43,7 +43,7 @@ export default function DailyStockCountPage({
 
   const {
     rows, loading, generating,
-    loadSheet, generateSheet, updatePhysicalCount,
+    loadSheet, generateSheet, updatePhysicalCount, updateWaste,
     submitSheet, unlockSheet,
   } = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
 
