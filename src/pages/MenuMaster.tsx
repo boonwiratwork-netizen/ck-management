@@ -29,7 +29,7 @@ interface MenuMasterPageProps {
 }
 
 export default function MenuMasterPage({ menuData, branches }: MenuMasterPageProps) {
-  const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu } = menuData;
+  const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu, bulkAddMenus } = menuData;
   const { isManagement, isStoreManager, profile } = useAuth();
   const { categories, addCategory, deleteCategory } = useMenuCategories();
 
