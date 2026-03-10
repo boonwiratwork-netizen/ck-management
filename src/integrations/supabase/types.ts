@@ -1109,6 +1109,7 @@ export type Database = {
           completed_at: string | null
           count_date: string
           created_at: string
+          deleted_at: string | null
           id: string
           note: string
           status: string
@@ -1117,6 +1118,7 @@ export type Database = {
           completed_at?: string | null
           count_date?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           note?: string
           status?: string
@@ -1125,6 +1127,7 @@ export type Database = {
           completed_at?: string | null
           count_date?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           note?: string
           status?: string

@@ -4,17 +4,18 @@ import { SKU, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
 import { StockCountSession, StockCountLine } from '@/types/stock-count';
+import { BOMHeader, BOMLine } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, ClipboardCheck, Lock, Trash2, ChevronRight, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
+import { Plus, ClipboardCheck, Lock, Trash2, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -24,26 +25,49 @@ interface Props {
     createSession: (date: string, note: string) => string | Promise<string>;
     updateLine: (lineId: string, physicalQty: number | null, note?: string) => void | Promise<void>;
     confirmSession: (sessionId: string) => void | Promise<void>;
-    deleteSession: (sessionId: string) => void | Promise<void>;
+    softDeleteSession: (sessionId: string) => void | Promise<void>;
     getLinesForSession: (sessionId: string) => StockCountLine[];
   };
   getStdUnitPrice: (skuId: string) => number;
+  bomHeaders: BOMHeader[];
+  bomLines: BOMLine[];
+  isManagement: boolean;
 }
 
-export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }: Props) {
-  const { sessions, createSession, updateLine, confirmSession, deleteSession, getLinesForSession } = stockCountData;
+export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, isManagement }: Props) {
+  const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession } = stockCountData;
   const { t } = useLanguage();
 
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10));
-  const [newNote, setNewNote] = useState('');
+  const today = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<string>('RM');
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [ckItemsOnly, setCkItemsOnly] = useState(false);
 
-  const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null;
+  // Derive CK RM SKU IDs: RM SKUs that appear as ingredients in BOMs where parent SM SKU is Active
+  const ckRmSkuIds = useMemo(() => {
+    const activeSmSkuIds = new Set(
+      skus.filter(s => s.type === 'SM' && s.status === 'Active').map(s => s.id)
+    );
+    const activeHeaderIds = new Set(
+      bomHeaders.filter(h => activeSmSkuIds.has(h.smSkuId)).map(h => h.id)
+    );
+    const rmIds = new Set<string>();
+    bomLines.forEach(l => {
+      if (activeHeaderIds.has(l.bomHeaderId)) rmIds.add(l.rmSkuId);
+    });
+    return rmIds;
+  }, [skus, bomHeaders, bomLines]);
+
+  // Find session for selected date
+  const sessionForDate = useMemo(() => {
+    return sessions.find(s => s.date === selectedDate) ?? null;
+  }, [sessions, selectedDate]);
+
+  const selectedSession = sessionForDate;
+  const selectedSessionId = selectedSession?.id ?? null;
   const sessionLines = selectedSessionId ? getLinesForSession(selectedSessionId) : [];
   const isCompleted = selectedSession?.status === 'Completed';
 
@@ -59,9 +83,10 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
       if (!sku) return false;
       if (line.type !== activeTab) return false;
       if (filterStorage !== 'all' && sku.storageCondition !== filterStorage) return false;
+      if (activeTab === 'RM' && ckItemsOnly && !ckRmSkuIds.has(line.skuId)) return false;
       return true;
     });
-  }, [sessionLines, skuMap, activeTab, filterStorage]);
+  }, [sessionLines, skuMap, activeTab, filterStorage, ckItemsOnly, ckRmSkuIds]);
 
   const scComparators = useMemo(() => ({
     skuId: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
@@ -85,23 +110,35 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     return { total: sessionLines.length, counted, withVariance, totalVarianceValue };
   }, [sessionLines, getStdUnitPrice]);
 
-  const rmCount = useMemo(() => sessionLines.filter(l => l.type === 'RM').length, [sessionLines]);
-  const smCount = useMemo(() => sessionLines.filter(l => l.type === 'SM').length, [sessionLines]);
+  const tabCounts = useMemo(() => ({
+    RM: sessionLines.filter(l => l.type === 'RM').length,
+    SM: sessionLines.filter(l => l.type === 'SM').length,
+    SP: sessionLines.filter(l => l.type === 'SP').length,
+    PK: sessionLines.filter(l => l.type === 'PK').length,
+  }), [sessionLines]);
 
   const varianceLines = useMemo(() => {
     return sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0);
   }, [sessionLines]);
 
-  const handleCreate = () => {
-    if (!newDate) { toast.error('Date is required'); return; }
-    const result = createSession(newDate, newNote);
-    if (result instanceof Promise) {
-      result.then(id => setSelectedSessionId(id));
-    } else {
-      setSelectedSessionId(result);
+  // Sessions available as dropdown options (for browsing)
+  const sessionOptions = useMemo(() => {
+    return sessions.map(s => {
+      const sLines = getLinesForSession(s.id);
+      const counted = sLines.filter(l => l.physicalQty !== null).length;
+      return { id: s.id, date: s.date, counted, total: sLines.length, status: s.status };
+    });
+  }, [sessions, getLinesForSession]);
+
+  const handleCreate = async () => {
+    if (sessionForDate) {
+      toast.error('A session already exists for this date');
+      return;
     }
-    setCreateOpen(false);
-    setNewNote('');
+    const result = createSession(selectedDate, '');
+    if (result instanceof Promise) {
+      await result;
+    }
     toast.success('Stock count session created');
   };
 
@@ -112,18 +149,18 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     toast.success('Stock adjustments applied and session locked');
   };
 
-  const handleDelete = () => {
+  const handleSoftDelete = async () => {
     if (!deleteConfirm) return;
-    if (selectedSessionId === deleteConfirm) setSelectedSessionId(null);
-    deleteSession(deleteConfirm);
+    await softDeleteSession(deleteConfirm);
     setDeleteConfirm(null);
-    toast.success('Session deleted');
+    setSelectedDate(today);
+    toast.success('Session deleted and adjustments reversed');
   };
 
   const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
 
   const renderCountTable = () => (
-    <div className="rounded-lg border overflow-auto max-h-[65vh]">
+    <div className="rounded-lg border overflow-auto max-h-[60vh]">
       <table className="w-full text-sm">
         <thead className="sticky-thead">
           <tr className="border-b bg-muted/50">
@@ -218,197 +255,169 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="page-title">{t('title.stockCount')}</h2>
-          <p className="page-subtitle">Physical inventory counts and variance adjustments</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> {t('btn.newCountSession')}
-        </Button>
+    <div className="space-y-4">
+      {/* Header */}
+      <div>
+        <h2 className="page-title">{t('title.stockCount')}</h2>
+        <p className="page-subtitle">Physical inventory counts and variance adjustments</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
-        {/* Sessions List */}
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">{t('section.sessions')}</p>
-          {sessions.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <ClipboardCheck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No count sessions yet</p>
-                <p className="text-xs mt-1">Create a new session to start counting</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sessions.map(session => {
-              const sLines = getLinesForSession(session.id);
-              const counted = sLines.filter(l => l.physicalQty !== null).length;
-              const isSelected = selectedSessionId === session.id;
-              return (
-                <Card
-                  key={session.id}
-                  className={`cursor-pointer transition-colors hover:border-primary/50 ${isSelected ? 'border-primary ring-1 ring-primary/20' : ''}`}
-                  onClick={() => setSelectedSessionId(session.id)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-medium text-xs">{session.date}</p>
-                          <Badge variant={session.status === 'Completed' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {session.status === 'Completed' ? <Lock className="w-2.5 h-2.5 mr-0.5" /> : null}
-                            {session.status === 'Completed' ? t('status.completed') : t('status.draft')}
-                          </Badge>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{session.note || 'No note'}</p>
-                        <p className="text-[10px] text-muted-foreground">{counted}/{sLines.length} counted</p>
-                      </div>
-                      <div className="flex items-center gap-0.5">
-                        {session.status === 'Draft' && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={e => { e.stopPropagation(); setDeleteConfirm(session.id); }}
-                          >
-                            <Trash2 className="w-3 h-3 text-destructive" />
-                          </Button>
-                        )}
-                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-
-        {/* Count Sheet */}
-        <div className="space-y-4">
-          {!selectedSession ? (
-            <Card>
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <ClipboardCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">Select a session to view the count sheet</p>
-                <p className="text-sm mt-1">Or create a new count session to begin</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Session Info */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">Count Date: {selectedSession.date}</p>
-                      {selectedSession.note && <p className="text-xs text-muted-foreground">{selectedSession.note}</p>}
-                    </div>
-                    <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
-                      {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Tabs for RM / SM */}
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <div className="flex items-center justify-between">
-                  <TabsList>
-                    <TabsTrigger value="RM" className="text-xs">RM ({rmCount})</TabsTrigger>
-                    <TabsTrigger value="SM" className="text-xs">SM ({smCount})</TabsTrigger>
-                  </TabsList>
-
-                  <Select value={filterStorage} onValueChange={setFilterStorage}>
-                    <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Storage</SelectItem>
-                      {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <TabsContent value="RM" className="mt-3">
-                  {renderCountTable()}
-                </TabsContent>
-                <TabsContent value="SM" className="mt-3">
-                  {renderCountTable()}
-                </TabsContent>
-              </Tabs>
-
-              {/* Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.totalSkus')}</p>
-                    <p className="text-2xl font-bold mt-1">{summary.total}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.counted')}</p>
-                    <p className="text-2xl font-bold mt-1">{summary.counted}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.withVariance')}</p>
-                    <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.varianceValue')}</p>
-                    <p className={`text-2xl font-bold mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
-                      ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Confirm Button */}
-              {!isCompleted && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={() => setConfirmOpen(true)}
-                    disabled={summary.counted === 0}
-                    className="gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> {t('btn.confirmAdjust')}
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Create Session Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Stock Count Session</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Count Date *</label>
-              <Input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
+      {/* Top control bar */}
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Date</label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="h-8 text-xs w-[150px]"
+              />
             </div>
-            <div>
-              <label className="text-sm font-medium">Note</label>
-              <Textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="e.g. Monthly physical inventory count" rows={2} />
+
+            {sessionOptions.length > 0 && (
+              <Select
+                value={selectedDate}
+                onValueChange={val => setSelectedDate(val)}
+              >
+                <SelectTrigger className="h-8 text-xs w-[320px]">
+                  <SelectValue placeholder="Browse sessions" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessionOptions.map(opt => (
+                    <SelectItem key={opt.id} value={opt.date} className="text-xs">
+                      {opt.date} · {opt.counted}/{opt.total} counted · {opt.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {sessionForDate && (
+              <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
+                {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
+              </Badge>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              {sessionForDate && isManagement && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs text-destructive hover:text-destructive"
+                  onClick={() => setDeleteConfirm(selectedSessionId!)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                </Button>
+              )}
+              {!sessionForDate && (
+                <Button size="sm" className="h-8 text-xs" onClick={handleCreate}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> New Count Session
+                </Button>
+              )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t('btn.cancel')}</Button>
-            <Button onClick={handleCreate}>{t('btn.add')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Count Sheet */}
+      {!selectedSession ? (
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <ClipboardCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No session for {selectedDate}</p>
+            <p className="text-sm mt-1">Create a new count session to begin</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Tabs for RM / SM / SP / PK */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <TabsList>
+                <TabsTrigger value="RM" className="text-xs">RM ({tabCounts.RM})</TabsTrigger>
+                <TabsTrigger value="SM" className="text-xs">SM ({tabCounts.SM})</TabsTrigger>
+                <TabsTrigger value="SP" className="text-xs">SP ({tabCounts.SP})</TabsTrigger>
+                <TabsTrigger value="PK" className="text-xs">PK ({tabCounts.PK})</TabsTrigger>
+              </TabsList>
+
+              <div className="flex items-center gap-3">
+                {activeTab === 'RM' && (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="ck-items-toggle"
+                      checked={ckItemsOnly}
+                      onCheckedChange={setCkItemsOnly}
+                    />
+                    <label htmlFor="ck-items-toggle" className="text-xs font-medium cursor-pointer">
+                      CK Items Only
+                    </label>
+                  </div>
+                )}
+
+                <Select value={filterStorage} onValueChange={setFilterStorage}>
+                  <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Storage</SelectItem>
+                    {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <TabsContent value="RM" className="mt-3">{renderCountTable()}</TabsContent>
+            <TabsContent value="SM" className="mt-3">{renderCountTable()}</TabsContent>
+            <TabsContent value="SP" className="mt-3">{renderCountTable()}</TabsContent>
+            <TabsContent value="PK" className="mt-3">{renderCountTable()}</TabsContent>
+          </Tabs>
+
+          {/* Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.totalSkus')}</p>
+                <p className="text-2xl font-bold mt-1">{summary.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.counted')}</p>
+                <p className="text-2xl font-bold mt-1">{summary.counted}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.withVariance')}</p>
+                <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.varianceValue')}</p>
+                <p className={`text-2xl font-bold mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
+                  ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Confirm Button */}
+          {!isCompleted && (
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={summary.counted === 0}
+                className="gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" /> {t('btn.confirmAdjust')}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Confirm Adjustment Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -468,9 +477,9 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
         open={!!deleteConfirm}
         onOpenChange={open => !open && setDeleteConfirm(null)}
         title="Delete Count Session"
-        description="Are you sure you want to delete this draft session? This cannot be undone."
+        description="This will reverse all stock adjustments from this session. This cannot be undone."
         confirmLabel="Delete"
-        onConfirm={handleDelete}
+        onConfirm={handleSoftDelete}
       />
     </div>
   );
