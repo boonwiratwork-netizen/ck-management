@@ -517,7 +517,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map(r => {
+                {displayHistory.map(r => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   return (
