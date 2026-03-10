@@ -64,62 +64,62 @@ interface NavGroup {
 }
 
 const overviewGroup: NavGroup = {
-  label: 'OVERVIEW',
+  label: 'OVERVIEW', labelKey: 'nav.overview',
   section: 'overview',
   items: [
-    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   ],
 };
 
 const masterDataGroup: NavGroup = {
-  label: 'MASTER DATA',
+  label: 'MASTER DATA', labelKey: 'nav.masterData',
   section: 'ck',
   items: [
-    { key: 'sku', label: 'SKU Master', icon: Package },
-    { key: 'supplier', label: 'Suppliers', icon: Users },
-    { key: 'price', label: 'Prices', icon: DollarSign },
+    { key: 'sku', labelKey: 'nav.skuMaster', icon: Package },
+    { key: 'supplier', labelKey: 'nav.suppliers', icon: Users },
+    { key: 'price', labelKey: 'nav.prices', icon: DollarSign },
   ],
 };
 
 const ckGroup: NavGroup = {
-  label: 'CENTRAL KITCHEN',
+  label: 'CENTRAL KITCHEN', labelKey: 'nav.centralKitchen',
   icon: ChefHat,
   section: 'ck',
   items: [
-    { key: 'bom', label: 'BOM', icon: FlaskConical },
-    { key: 'receipt', label: 'Goods Receipt', icon: ClipboardList },
-    { key: 'production', label: 'Production', icon: Factory },
-    { key: 'delivery', label: 'Delivery', icon: Truck },
-    { key: 'stock', label: 'RM Stock', icon: Warehouse },
-    { key: 'smstock', label: 'SM Stock', icon: BoxesIcon },
-    { key: 'stockcount', label: 'Stock Count', icon: ClipboardCheck },
+    { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
+    { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
+    { key: 'production', labelKey: 'nav.production', icon: Factory },
+    { key: 'delivery', labelKey: 'nav.delivery', icon: Truck },
+    { key: 'stock', labelKey: 'nav.rmStock', icon: Warehouse },
+    { key: 'smstock', labelKey: 'nav.smStock', icon: BoxesIcon },
+    { key: 'stockcount', labelKey: 'nav.stockCount', icon: ClipboardCheck },
   ],
 };
 
 const storeGroup: NavGroup = {
-  label: 'STORE',
+  label: 'STORE', labelKey: 'nav.store',
   icon: Store,
   section: 'store',
   items: [
-    { key: 'store', label: 'Store Overview', icon: Store },
-    { key: 'menu-master', label: 'Menu Master', icon: UtensilsCrossed },
-    { key: 'menu-bom', label: 'Menu BOM', icon: BookOpen },
-    { key: 'sp-bom', label: 'SP BOM', icon: Sparkles },
-    { key: 'modifier-rules', label: 'Modifier Rules', icon: ListFilter },
-    { key: 'sales-entry', label: 'Sales Entry', icon: ShoppingCart },
-    { key: 'branch-receipt', label: 'Branch Receipt', icon: ClipboardList },
-    { key: 'daily-stock-count', label: 'Daily Stock Count', icon: ClipboardCheck },
-    { key: 'food-cost', label: 'Food Cost', icon: PieChart },
+    { key: 'store', labelKey: 'nav.storeOverview', icon: Store },
+    { key: 'menu-master', labelKey: 'nav.menuMaster', icon: UtensilsCrossed },
+    { key: 'menu-bom', labelKey: 'nav.menuBom', icon: BookOpen },
+    { key: 'sp-bom', labelKey: 'nav.spBom', icon: Sparkles },
+    { key: 'modifier-rules', labelKey: 'nav.modifierRules', icon: ListFilter },
+    { key: 'sales-entry', labelKey: 'nav.salesEntry', icon: ShoppingCart },
+    { key: 'branch-receipt', labelKey: 'nav.branchReceipt', icon: ClipboardList },
+    { key: 'daily-stock-count', labelKey: 'nav.dailyStockCount', icon: ClipboardCheck },
+    { key: 'food-cost', labelKey: 'nav.foodCost', icon: PieChart },
   ],
 };
 
 const managementGroup: NavGroup = {
-  label: 'MANAGEMENT',
+  label: 'MANAGEMENT', labelKey: 'nav.management',
   section: 'management',
   items: [
-    { key: 'branches', label: 'Branches', icon: Store },
-    { key: 'users', label: 'User Management', icon: Settings },
-    { key: 'sku-categories', label: 'SKU Categories', icon: Package },
+    { key: 'branches', labelKey: 'nav.branches', icon: Store },
+    { key: 'users', labelKey: 'nav.userManagement', icon: Settings },
+    { key: 'sku-categories', labelKey: 'nav.skuCategories', icon: Package },
   ],
 };
 
