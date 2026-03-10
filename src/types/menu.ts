@@ -8,7 +8,7 @@ export interface Menu {
   category: string;
   sellingPrice: number;
   status: MenuStatus;
-  branchId: string | null;
+  brandName: string;
 }
 
 export const MENU_CATEGORIES: string[] = [
