@@ -57,7 +57,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   const [search, setSearch] = useState('');
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [stockWarning, setStockWarning] = useState<{ tempId: string; skuName: string; need: number; have: number } | null>(null);
+  const [stockWarning, setStockWarning] = useState<{ tempId: string; skuName: string; need: number; have: number; uom: string } | null>(null);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
