@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Calendar, Factory, CheckCircle2, Clock, PlayCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface ProductionPageProps {
   productionData: {
@@ -45,6 +46,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
     plans, addPlan, updatePlan, deletePlan,
     addRecord, deleteRecord, getRecordsForPlan, getTotalProducedForPlan, getOutputPerBatch,
   } = productionData;
+  const { t } = useLanguage();
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -204,29 +206,29 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Production</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.production')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Plan and record SM production runs</p>
         </div>
         <Button onClick={handleOpenAddPlan}>
-          <Plus className="w-4 h-4" /> New Plan
+          <Plus className="w-4 h-4" /> {t('btn.newPlan')}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Week Plans</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.thisWeekPlans')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{totalPlanned}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Completed</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.completed')}</p>
           <p className="text-3xl font-heading font-bold mt-1 text-success">{totalDone}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Plans</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalPlans')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{plans.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SM with BOM</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.smWithBom')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{smSkusWithBOM.length}</p>
         </div>
       </div>

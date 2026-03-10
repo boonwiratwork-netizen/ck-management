@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, KeyRound, UserX, UserCheck, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useLanguage } from '@/hooks/use-language';
 
 interface ManagedUser {
   user_id: string;
@@ -52,6 +53,7 @@ const roleBadgeColors: Record<AppRole, string> = {
 
 export default function UserManagement() {
   const { session } = useAuth();
+  const { t } = useLanguage();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -204,11 +206,11 @@ export default function UserManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">User Management</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.userManagement')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage user accounts and roles</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> Add User
+          <Plus className="w-4 h-4" /> {t('btn.addUser')}
         </Button>
       </div>
 
@@ -217,12 +219,12 @@ export default function UserManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Assignment</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('col.name')}</TableHead>
+                <TableHead>{t('col.email')}</TableHead>
+                <TableHead>{t('col.role')}</TableHead>
+                <TableHead>{t('col.assignment')}</TableHead>
+                <TableHead>{t('col.status')}</TableHead>
+                <TableHead className="text-right">{t('col.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,7 +264,7 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.status === 'Active' ? 'default' : 'secondary'}>
-                        {u.status}
+                        {u.status === 'Active' ? t('status.active') : t('status.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
@@ -380,8 +382,8 @@ export default function UserManagement() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create User</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleCreate}>{t('btn.createUser')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -402,8 +404,8 @@ export default function UserManagement() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetOpen(null)}>Cancel</Button>
-            <Button onClick={handleResetPassword}>Reset Password</Button>
+            <Button variant="outline" onClick={() => setResetOpen(null)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleResetPassword}>{t('btn.resetPassword')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

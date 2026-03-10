@@ -8,6 +8,7 @@ import { GoodsReceiptSpreadsheet } from '@/components/GoodsReceiptSpreadsheet';
 import { Button } from '@/components/ui/button';
 import { Save, ClipboardList, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   receiptData: ReturnType<typeof useGoodsReceiptData>;
@@ -45,6 +46,7 @@ function createEmptyDraft(): DraftRow {
 
 export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices }: Props) {
   const { receipts, addReceipt, updateReceipt, deleteReceipt } = receiptData;
+  const { t } = useLanguage();
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
@@ -171,17 +173,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Goods Receipt</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.goodsReceipt')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Record raw material receipts from suppliers</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleAddRow}>
-            + Add Row
+            {t('btn.addRow')}
           </Button>
           {hasUnsavedOrEditing && (
             <Button onClick={handleSaveAll}>
               <Save className="w-4 h-4" />
-              Save All ({drafts.filter(d => d.isEditing).length})
+              {t('btn.saveAll')} ({drafts.filter(d => d.isEditing).length})
             </Button>
           )}
         </div>
@@ -190,7 +192,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Receipts</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalReceipts')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{receipts.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
@@ -204,7 +206,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Week Purchase Value</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.weekPurchaseValue')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
