@@ -39,7 +39,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterBranch, setFilterBranch] = useState<string>('all');
+  const [filterBrand, setFilterBrand] = useState<string>('all');
 
   // Form state
   const [form, setForm] = useState<Omit<Menu, 'id'>>(EMPTY_MENU);
