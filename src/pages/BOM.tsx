@@ -847,6 +847,14 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                     className="pl-9 h-9 text-sm"
                   />
                 </div>
+                <div className="flex items-center justify-end mt-1.5">
+                  <button
+                    onClick={() => setSortAsc(!sortAsc)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto p-0">
                 {filteredHeaders.length === 0 ? (
