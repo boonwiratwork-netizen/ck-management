@@ -157,7 +157,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       deliveryDate: draft.deliveryDate,
       branchName: draft.branchName,
       smSkuId: draft.smSkuId,
-      qtyDeliveredKg: draft.qtyDeliveredKg,
+      qtyDeliveredG: draft.qtyDeliveredG,
       note: draft.note,
     };
     if (draft.isNew) {
