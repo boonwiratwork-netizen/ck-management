@@ -223,7 +223,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardPaste className="w-5 h-5" />
-            Paste Sales Data
+            {t('title.pasteSalesData')}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             Copy rows from your POS export and paste them below. Expected: {EXPECTED_COL_COUNT} tab-separated columns.
