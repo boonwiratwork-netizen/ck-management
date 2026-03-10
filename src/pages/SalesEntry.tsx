@@ -368,7 +368,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
               <label className="text-xs text-muted-foreground">To</label>
               <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-40" />
             </div>
-            <Button variant="outline" onClick={handleApplyFilter}>Apply</Button>
+            <Button variant="outline" onClick={handleApplyFilter}>{t('btn.apply')}</Button>
           </div>
 
           {/* Search within results */}
