@@ -194,12 +194,18 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
     return sum + effQty * getActiveCost(l.skuId);
   }, 0);
 
+  const [sortAsc, setSortAsc] = useState(true);
+
   const filteredMenus = useMemo(() => {
     const q = menuSearch.toLowerCase();
-    return menus.filter(m =>
+    const filtered = menus.filter(m =>
       m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q)
     );
-  }, [menus, menuSearch]);
+    return [...filtered].sort((a, b) => {
+      const cmp = a.menuCode.localeCompare(b.menuCode);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [menus, menuSearch, sortAsc]);
 
   // Summary: how many menus have BOM set up
   const menusWithBom = useMemo(() => menus.filter(m => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
@@ -361,6 +367,14 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                   onChange={e => setMenuSearch(e.target.value)}
                   className="pl-9 h-9 text-sm"
                 />
+              </div>
+              <div className="flex items-center justify-end mt-1.5">
+                <button
+                  onClick={() => setSortAsc(!sortAsc)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
+                </button>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">

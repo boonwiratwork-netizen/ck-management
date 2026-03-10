@@ -304,14 +304,14 @@ export default function DailyStockCountPage({
                             {row.expectedUsage.toFixed(2)}
                             <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right px-2 py-1">
+                          <TableCell className="text-right align-middle px-2 py-1">
                             {isSubmitted ? (
                               <span className="tabular-nums">
                                 {row.waste.toFixed(2)}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                               </span>
                             ) : (
-                              <div className="inline-flex items-center gap-0.5">
+                              <span className="inline-flex items-center gap-0.5 align-middle">
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -325,21 +325,21 @@ export default function DailyStockCountPage({
                                   placeholder="0"
                                 />
                                 <span className="text-[9px] text-muted-foreground">{sku.usageUom}</span>
-                              </div>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right tabular-nums font-medium px-2 py-1">
                             {row.calculatedBalance.toFixed(2)}
                             <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right px-2 py-1">
+                          <TableCell className="text-right align-middle px-2 py-1">
                             {isSubmitted ? (
                               <span className="tabular-nums">
                                 {rawPhysical !== null ? rawPhysical.toFixed(2) : '—'}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
                               </span>
                             ) : (
-                              <div className="inline-flex items-center gap-0.5">
+                              <span className="inline-flex items-center gap-0.5 align-middle">
                                 <Input
                                   ref={(el) => setRef(row.id, el)}
                                   type="number"
@@ -355,7 +355,7 @@ export default function DailyStockCountPage({
                                   placeholder="—"
                                 />
                                 <span className="text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
-                              </div>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className={`text-right tabular-nums font-medium px-2 py-1 ${varClass}`}>

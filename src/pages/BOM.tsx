@@ -360,15 +360,24 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     setDraggedStepId(null);
   };
 
+  const [sortAsc, setSortAsc] = useState(true);
+
   // Filtered headers for left panel search
   const filteredHeaders = useMemo(() => {
-    if (!listSearch) return headers;
     const q = listSearch.toLowerCase();
-    return headers.filter(h => {
-      const sku = getSkuById(h.smSkuId);
-      return sku?.skuId.toLowerCase().includes(q) || sku?.name.toLowerCase().includes(q);
+    const filtered = listSearch
+      ? headers.filter(h => {
+          const sku = getSkuById(h.smSkuId);
+          return sku?.skuId.toLowerCase().includes(q) || sku?.name.toLowerCase().includes(q);
+        })
+      : headers;
+    return [...filtered].sort((a, b) => {
+      const skuA = getSkuById(a.smSkuId)?.skuId ?? '';
+      const skuB = getSkuById(b.smSkuId)?.skuId ?? '';
+      const cmp = skuA.localeCompare(skuB);
+      return sortAsc ? cmp : -cmp;
     });
-  }, [headers, listSearch, skus]);
+  }, [headers, listSearch, skus, sortAsc]);
 
   // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
@@ -837,6 +846,14 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                     onChange={e => setListSearch(e.target.value)}
                     className="pl-9 h-9 text-sm"
                   />
+                </div>
+                <div className="flex items-center justify-end mt-1.5">
+                  <button
+                    onClick={() => setSortAsc(!sortAsc)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
+                  </button>
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto p-0">
