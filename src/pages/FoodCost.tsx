@@ -491,19 +491,19 @@ export default function FoodCostPage({
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.totalRevenue')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">฿{fmt(totalRevenue)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Standard Food Cost</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFoodCost')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">฿{fmt(totalStdCost)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Standard FC%</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFcPct')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">{stdFcPct.toFixed(1)}%</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">FC% Status</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.fcStatus')}</CardTitle></CardHeader>
               <CardContent>
                 <Badge variant={stdFcPct <= 35 ? 'default' : 'destructive'} className={cn("text-sm px-3 py-1", stdFcPct <= 35 ? "bg-emerald-500/15 text-emerald-700 border-emerald-200" : "")}>
                   {stdFcPct <= 35 ? <TrendingDown className="w-4 h-4 mr-1" /> : <TrendingUp className="w-4 h-4 mr-1" />}
