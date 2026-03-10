@@ -17,7 +17,7 @@ export interface ProductionRecord {
   productionDate: string;    // ISO date
   smSkuId: string;           // auto-filled from plan
   batchesProduced: number;
-  actualOutputKg: number;    // actual output in kg
+  actualOutputG: number;     // actual output in grams
 }
 
 export const EMPTY_PRODUCTION_PLAN: Omit<ProductionPlan, 'id' | 'numBatches' | 'weekNumber' | 'weekStartDate' | 'weekEndDate'> = {
