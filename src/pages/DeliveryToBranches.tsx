@@ -171,7 +171,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const handleSaveRow = useCallback((tempId: string) => {
     const draft = drafts.find(d => d.tempId === tempId);
-    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredKg <= 0) {
+    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredG <= 0) {
       toast.error('Please fill in Branch, SM SKU, and Qty');
       return;
     }
