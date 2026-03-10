@@ -80,8 +80,8 @@ export function useDailyStockCount({
     
     const extBySku: Record<string, number> = {};
     (brData || []).forEach(r => {
-      const conv = getSkuConverter(r.sku_id);
-      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received) * conv;
+      // Store raw qty_received (Purchase UOM) for display; converter applied in calcBalance only
+      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
     });
 
     const { data: dlData } = await supabase
