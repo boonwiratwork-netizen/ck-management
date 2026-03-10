@@ -305,34 +305,34 @@ export type Database = {
       }
       deliveries: {
         Row: {
-          actual_delivered_g: number
           branch_name: string
           created_at: string
           delivery_date: string
           id: string
           note: string
+          qty_delivered_g: number
           sm_sku_id: string
           updated_at: string
           week_number: number
         }
         Insert: {
-          actual_delivered_g?: number
           branch_name?: string
           created_at?: string
           delivery_date?: string
           id?: string
           note?: string
+          qty_delivered_g?: number
           sm_sku_id: string
           updated_at?: string
           week_number?: number
         }
         Update: {
-          actual_delivered_g?: number
           branch_name?: string
           created_at?: string
           delivery_date?: string
           id?: string
           note?: string
+          qty_delivered_g?: number
           sm_sku_id?: string
           updated_at?: string
           week_number?: number
