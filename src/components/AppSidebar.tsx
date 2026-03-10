@@ -192,7 +192,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
              (prevGroup.section === 'ck' && group.section === 'management'));
 
           return (
-            <div key={group.label}>
+            <div key={group.labelKey}>
               {showDivider && (
                 <div className="my-2 mx-3 border-t-2 border-sidebar-border" />
               )}
@@ -201,7 +201,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   {group.icon && !collapsed && (
                     <group.icon className="w-3 h-3" />
                   )}
-                  {group.label}
+                  {t(group.labelKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
