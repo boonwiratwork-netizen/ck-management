@@ -42,7 +42,7 @@ export function useMenuData() {
       category: data.category,
       selling_price: data.sellingPrice,
       status: data.status,
-      branch_id: data.branchId,
+      brand_name: data.brandName,
     }).select().single();
     if (error) { toast.error('Failed to add menu: ' + error.message); return; }
     setMenus(prev => [toLocal(row), ...prev]);
