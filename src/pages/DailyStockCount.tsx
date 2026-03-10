@@ -145,7 +145,7 @@ export default function DailyStockCountPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Daily Stock Count</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.dailyStockCount')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           Generate and manage daily stock count sheets for each branch
         </p>
