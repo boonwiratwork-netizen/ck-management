@@ -286,6 +286,26 @@ export default function DailyStockCountPage({
                             {row.expectedUsage.toFixed(2)}
                             <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
+                          <TableCell className="text-right w-32">
+                            {isSubmitted ? (
+                              <span className="tabular-nums">
+                                {row.waste.toFixed(2)}
+                                <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                              </span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={row.waste}
+                                  onChange={e => updateWaste(row.id, Number(e.target.value) || 0)}
+                                  className="h-9 w-24 text-sm font-medium border-2 border-input focus:border-primary"
+                                  placeholder="0"
+                                />
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{sku.usageUom}</span>
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums font-medium">
                             {row.calculatedBalance.toFixed(2)}
                             <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
