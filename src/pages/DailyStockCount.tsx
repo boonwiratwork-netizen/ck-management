@@ -32,6 +32,7 @@ export default function DailyStockCountPage({
   skus, menuBomLines, modifierRules, spBomLines, menus, branches,
 }: DailyStockCountPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
+  const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState(today);
