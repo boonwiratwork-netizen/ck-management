@@ -570,9 +570,27 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   return (
                     <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className={tdReadOnly}>{r.receiptDate}</td>
-                      <td className={`${tdReadOnly} font-mono`}>{sku?.skuId || '—'}</td>
-                      <td className={tdReadOnly}>{sku?.name || '—'}</td>
-                      <td className={tdReadOnly}>{r.supplierName || '—'}</td>
+                      <td className={`${tdReadOnly} font-mono truncate`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.skuId || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.skuId && <TooltipContent side="top"><p>{sku.skuId}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
+                      <td className={tdReadOnly}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{sku?.name || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
+                      <td className={`${tdReadOnly} truncate`}>{r.supplierName || '—'}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
                       <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>฿{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
