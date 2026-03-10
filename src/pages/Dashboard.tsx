@@ -107,7 +107,7 @@ const Dashboard = ({
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         costPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
-      const value = costPerGram * bal.currentStock * 1000;
+      const value = costPerGram * bal.currentStock;
       totalSmValue += value;
       smRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value });
     });
