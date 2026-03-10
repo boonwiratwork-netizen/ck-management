@@ -58,6 +58,15 @@ export function useDailyStockCount({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // Helper: get converter for purchase→usage UOM conversion
+  const getSkuConverter = useCallback((skuId: string): number => {
+    const sku = skus.find(s => s.id === skuId);
+    if (!sku) return 1;
+    // Only convert when purchase and usage UOM differ
+    if (sku.purchaseUom === sku.usageUom) return 1;
+    return sku.converter || 1;
+  }, [skus]);
+
   // Fetch live receipt totals for a branch+date
   const fetchReceiptTotals = useCallback(async (branchId: string, date: string) => {
     const branch = branches.find(b => b.id === branchId);
@@ -71,7 +80,8 @@ export function useDailyStockCount({
     
     const extBySku: Record<string, number> = {};
     (brData || []).forEach(r => {
-      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
+      const conv = getSkuConverter(r.sku_id);
+      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received) * conv;
     });
 
     const { data: dlData } = await supabase
