@@ -160,17 +160,56 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     return m;
   }, [branches]);
 
+  // Sorting
+  type SESortKey = 'saleDate' | 'menuCode' | 'menuName' | 'orderType' | 'qty' | 'unitPrice' | 'netAmount' | 'channel' | 'branch';
+  const [seSortKey, setSeSortKey] = useState<SESortKey>('saleDate');
+  const [seSortDir, setSeSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSeSort = (key: SESortKey) => {
+    if (seSortKey === key) {
+      setSeSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSeSortKey(key);
+      setSeSortDir('asc');
+    }
+  };
+
+  const SeSortIcon = ({ col }: { col: SESortKey }) => {
+    if (seSortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return seSortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
   // Filter history with search
   const filteredEntries = useMemo(() => {
-    if (!historySearch) return entries;
-    const q = historySearch.toLowerCase();
-    return entries.filter(e =>
-      e.menuCode.toLowerCase().includes(q) ||
-      e.menuName.toLowerCase().includes(q) ||
-      e.receiptNo.toLowerCase().includes(q) ||
-      e.channel.toLowerCase().includes(q)
-    );
-  }, [entries, historySearch]);
+    let list = entries;
+    if (historySearch) {
+      const q = historySearch.toLowerCase();
+      list = list.filter(e =>
+        e.menuCode.toLowerCase().includes(q) ||
+        e.menuName.toLowerCase().includes(q) ||
+        e.receiptNo.toLowerCase().includes(q) ||
+        e.channel.toLowerCase().includes(q)
+      );
+    }
+    list = [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (seSortKey) {
+        case 'saleDate': cmp = a.saleDate.localeCompare(b.saleDate); break;
+        case 'menuCode': cmp = a.menuCode.localeCompare(b.menuCode); break;
+        case 'menuName': cmp = a.menuName.localeCompare(b.menuName); break;
+        case 'orderType': cmp = a.orderType.localeCompare(b.orderType); break;
+        case 'qty': cmp = a.qty - b.qty; break;
+        case 'unitPrice': cmp = a.unitPrice - b.unitPrice; break;
+        case 'netAmount': cmp = a.netAmount - b.netAmount; break;
+        case 'channel': cmp = a.channel.localeCompare(b.channel); break;
+        case 'branch': cmp = (branchMap[a.branchId] || '').localeCompare(branchMap[b.branchId] || ''); break;
+      }
+      return seSortDir === 'desc' ? -cmp : cmp;
+    });
+    return list;
+  }, [entries, historySearch, seSortKey, seSortDir, branchMap]);
 
   // Preview first 3 rows
   const previewRows = parsedRows.slice(0, 3);
