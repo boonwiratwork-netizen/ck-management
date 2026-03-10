@@ -159,17 +159,17 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
-                <SortableHeader label={t('col.openingKg')} sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label="Opening" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('produced')}>
-                <SortableHeader label={t('col.producedKg')} sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label="Produced" sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('delivered')}>
-                <SortableHeader label={t('col.deliveredKg')} sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label="Delivered" sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead className="text-right">{t('col.adjustmentsKg')}</TableHead>
+              <TableHead className="text-right">Adjustments</TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
-                <SortableHeader label={t('col.currentStockKg')} sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead>{t('col.lastProduction')}</TableHead>
               <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
