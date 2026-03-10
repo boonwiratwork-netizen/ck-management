@@ -526,6 +526,15 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           }
         }}
       />
+
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="Menu BOM"
+        columns={csvColumns}
+        validate={validateCsv}
+        onConfirm={handleCsvConfirm}
+      />
     </div>
   );
 }
