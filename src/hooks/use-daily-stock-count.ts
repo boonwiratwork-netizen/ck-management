@@ -359,7 +359,9 @@ export function useDailyStockCount({
       const fromCk = receipts.ckBySku[sku.id] ?? 0;
       const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
-      const calcBalance = opening + fromCk + receivedExternal - expUsage;
+      // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
+      const extConv = getSkuConverter(sku.id);
+      const calcBalance = opening + fromCk + (receivedExternal * extConv) - expUsage;
 
       return {
         branch_id: branchId,
