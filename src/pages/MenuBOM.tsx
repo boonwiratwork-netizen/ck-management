@@ -37,6 +37,7 @@ interface MenuBOMPageProps {
 
 export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches, readOnly = false }: MenuBOMPageProps) {
   const { isManagement } = useAuth();
+  const { t } = useLanguage();
   const canEdit = isManagement && !readOnly;
 
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
