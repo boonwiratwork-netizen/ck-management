@@ -313,7 +313,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
   const handleDeleteLine = async (id: string) => {
     await deleteLine(id);
     toast.success('Ingredient removed');
-    setTimeout(() => syncCurrentBomPrice(), 300);
+    await syncCurrentBomPrice();
   };
 
   const cancelLineEdit = () => {
