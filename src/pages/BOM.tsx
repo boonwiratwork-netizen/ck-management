@@ -243,7 +243,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
 
     if (selectedHeaderId && selectedHeader) {
       await updateHeader(selectedHeaderId, headerForm);
-      setTimeout(() => syncCurrentBomPrice(selectedHeaderId), 300);
+      await syncCurrentBomPrice(selectedHeaderId);
     } else {
       const result = addHeader(headerForm);
       if (result instanceof Promise) {
