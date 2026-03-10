@@ -482,7 +482,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       {/* CSV Import Modal */}
       <CSVImportModal
         open={csvOpen}
-        onOpenChange={setCsvOpen}
+        onClose={() => setCsvOpen(false)}
         title="Import CSV — Menu Master"
         columns={menuCsvColumns}
         validate={validateMenuCsv}
