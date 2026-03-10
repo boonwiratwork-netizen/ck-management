@@ -423,7 +423,7 @@ export default function FoodCostPage({
                     onClick={() => handlePresetChange(p)}
                     className="text-xs h-8"
                   >
-                    {p === 'today' ? 'Today' : p === 'this-week' ? 'This Week' : 'This Month'}
+                    {p === 'today' ? t('btn.today') : p === 'this-week' ? t('btn.thisWeek') : t('btn.thisMonth')}
                   </Button>
                 ))}
               </div>
