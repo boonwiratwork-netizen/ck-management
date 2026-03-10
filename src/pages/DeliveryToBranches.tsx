@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/SearchableSelect';
-import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle } from 'lucide-react';
+import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
