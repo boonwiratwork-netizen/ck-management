@@ -448,6 +448,15 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
       />
+
+      <CSVImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        title="Menu Master"
+        columns={menuCsvColumns}
+        validate={validateMenuCsv}
+        onConfirm={handleMenuCsvConfirm}
+      />
     </div>
   );
 }
