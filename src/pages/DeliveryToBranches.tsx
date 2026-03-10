@@ -400,7 +400,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                       <div className="font-medium">{sku?.name || '—'}</div>
                       <div className="text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
                     </td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{d.qtyDeliveredKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>{d.qtyDeliveredG.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className={`${tdReadOnly} text-muted-foreground max-w-[120px] truncate`}>{d.note}</td>
                     <td className={`${tdReadOnly} text-right`}>
                       <div className="flex items-center justify-end gap-0.5">
