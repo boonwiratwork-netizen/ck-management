@@ -5,6 +5,7 @@ import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
 import { MenuBomLine } from '@/types/menu-bom';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -204,6 +205,7 @@ function MultiMenuSelector({
 
 export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
+  const { t } = useLanguage();
   const canEdit = isManagement && !readOnly;
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -379,14 +381,14 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Menu Modifier Rules</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.modifierRules')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             Define extra ingredient usage triggered by keywords found in POS menu name strings
           </p>
         </div>
         {canEdit && (
           <Button size="sm" onClick={openAddModal}>
-            <Plus className="w-4 h-4" /> Add Rule
+            <Plus className="w-4 h-4" /> {t('btn.addRule')}
           </Button>
         )}
       </div>
@@ -402,16 +404,16 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Keyword</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Menu</TableHead>
-              <TableHead>SKU Code</TableHead>
-              <TableHead>SKU Name</TableHead>
-              <TableHead className="text-right">Qty/Match</TableHead>
-              <TableHead>UOM</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead className="w-28">Actions</TableHead>
+              <TableHead>{t('col.keyword')}</TableHead>
+              <TableHead>{t('col.ruleType')}</TableHead>
+              <TableHead>{t('col.menu')}</TableHead>
+              <TableHead>{t('col.skuCode')}</TableHead>
+              <TableHead>{t('col.skuName')}</TableHead>
+              <TableHead className="text-right">{t('col.qty')}</TableHead>
+              <TableHead>{t('col.uom')}</TableHead>
+              <TableHead>{t('col.description')}</TableHead>
+              <TableHead>{t('col.status')}</TableHead>
+              <TableHead className="w-28">{t('col.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -454,7 +456,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
                     <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{rule.description || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={rule.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                        {rule.isActive ? 'Active' : 'Inactive'}
+                        {rule.isActive ? t('status.active') : t('status.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -633,8 +635,8 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editingRule ? 'Update' : 'Add'}</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleSubmit}>{editingRule ? t('btn.update') : t('btn.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

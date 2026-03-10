@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { useDailyStockCount, DailyStockCountRow } from '@/hooks/use-daily-stock-count';
 import { useAuth } from '@/hooks/use-auth';
 import { SKU } from '@/types/sku';
@@ -31,6 +32,7 @@ export default function DailyStockCountPage({
   skus, menuBomLines, modifierRules, spBomLines, menus, branches,
 }: DailyStockCountPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
+  const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState(today);
@@ -143,7 +145,7 @@ export default function DailyStockCountPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Daily Stock Count</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.dailyStockCount')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           Generate and manage daily stock count sheets for each branch
         </p>
@@ -180,10 +182,10 @@ export default function DailyStockCountPage({
               disabled={!selectedBranch || generating}
             >
               {generating ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-              ) : (
-                <><ClipboardCheck className="w-4 h-4" /> Generate Count Sheet</>
-              )}
+              <><Loader2 className="w-4 h-4 animate-spin" /> {t('btn.generate')}...</>
+            ) : (
+              <><ClipboardCheck className="w-4 h-4" /> {t('btn.generateCountSheet')}</>
+            )}
             </Button>
           </div>
         </CardContent>
@@ -194,14 +196,14 @@ export default function DailyStockCountPage({
         <div className="flex items-center justify-between bg-success/5 border border-success/20 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="w-5 h-5" />
-            <span className="font-medium">Submitted</span>
+            <span className="font-medium">{t('status.submitted')}</span>
             <span className="text-sm opacity-80">
               — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ''}
             </span>
           </div>
           {isManagement && (
             <Button variant="outline" size="sm" onClick={handleUnlock}>
-              <Unlock className="w-4 h-4" /> Unlock
+              <Unlock className="w-4 h-4" /> {t('btn.unlock')}
             </Button>
           )}
         </div>
@@ -231,32 +233,32 @@ export default function DailyStockCountPage({
                 <Table className="text-xs">
                   <TableHeader className="sticky-thead">
                     <TableRow className="bg-table-header">
-                      <TableHead className="table-header whitespace-nowrap px-2 py-1.5 text-[11px]">SKU Code</TableHead>
-                      <TableHead className="table-header px-2 py-1.5 text-[11px]">SKU Name</TableHead>
-                      <TableHead className="table-header px-2 py-1.5 text-[11px]">Type</TableHead>
-                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Opening</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">From CK</TableHead>
+                      <TableHead className="table-header whitespace-nowrap px-2 py-1.5 text-[11px]">{t('col.skuCode')}</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">{t('col.skuName')}</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">{t('col.type')}</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">{t('col.opening')}</TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">{t('col.fromCk')}</TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Ext. Recv</div>
+                        <div>{t('col.extRecv')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Exp. Usage</div>
+                        <div>{t('col.expUsage')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Waste</div>
+                        <div>{t('col.waste')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Calc. Bal.</div>
+                        <div>{t('col.calcBalance')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Physical</div>
+                        <div>{t('col.physical')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Variance</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">{t('col.variance')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -421,8 +423,8 @@ export default function DailyStockCountPage({
       {/* Submit button */}
       {rows.length > 0 && !isSubmitted && (
         <div className="flex justify-end">
-          <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
-            <Lock className="w-4 h-4" /> Submit Count
+           <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
+            <Lock className="w-4 h-4" /> {t('btn.submitCount')}
           </Button>
         </div>
       )}

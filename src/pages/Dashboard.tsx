@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -56,6 +57,7 @@ const Dashboard = ({
   getStdUnitPrice,
 }: DashboardProps) => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const defaultStart = new Date(getWeekStart(todayStr));
@@ -281,21 +283,21 @@ const Dashboard = ({
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Wallet className="w-4 h-4 text-primary" />
             </div>
-            Stock Value Overview
+            {t('title.stockValueOverview')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-card-p pb-card-p">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">RM Stock Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.rmStockValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
             </div>
             <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">SM Stock Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.smStockValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
             </div>
             <div className="rounded-lg border bg-accent p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">Total Inventory Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.totalInventoryValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.combined)}</p>
             </div>
           </div>
@@ -310,10 +312,10 @@ const Dashboard = ({
             <CollapsibleContent className="mt-3">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Raw Materials</h4>
+                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.rawMaterials')}</h4>
                   <div className="max-h-48 overflow-y-auto rounded-lg border">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
+                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">{t('col.name')}</th><th className="px-3 py-2 text-right table-header">{t('col.stock')}</th><th className="px-3 py-2 text-right table-header">{t('col.value')}</th></tr></thead>
                       <tbody>
                         {stockValueOverview.rmRows.map((r, i) => (
                           <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
@@ -324,10 +326,10 @@ const Dashboard = ({
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Semi-finished</h4>
+                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.semiFinished')}</h4>
                   <div className="max-h-48 overflow-y-auto rounded-lg border">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock (kg)</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
+                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">{t('col.name')}</th><th className="px-3 py-2 text-right table-header">{t('col.stockKg')}</th><th className="px-3 py-2 text-right table-header">{t('col.value')}</th></tr></thead>
                       <tbody>
                         {stockValueOverview.smRows.map((r, i) => (
                           <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
@@ -350,7 +352,7 @@ const Dashboard = ({
             <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center">
               <Package className="w-4 h-4 text-info" />
             </div>
-            SM Stock Overview
+            {t('title.smStockOverview')}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-card-p pb-card-p">
@@ -367,10 +369,10 @@ const Dashboard = ({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-table-header">
-                    <th className="px-4 py-3 text-left table-header">Name</th>
-                    <th className="px-4 py-3 text-right table-header">Current Stock (kg)</th>
-                    <th className="px-4 py-3 text-right table-header">Cover Days</th>
-                    <th className="px-4 py-3 text-center table-header">Status</th>
+                     <th className="px-4 py-3 text-left table-header">{t('col.name')}</th>
+                     <th className="px-4 py-3 text-right table-header">{t('col.currentStockKg')}</th>
+                     <th className="px-4 py-3 text-right table-header">{t('col.coverDays')}</th>
+                     <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -426,10 +428,10 @@ const Dashboard = ({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-table-header">
-                    <th className="px-4 py-3 text-left table-header">SM SKU</th>
-                    <th className="px-4 py-3 text-right table-header">Target (kg)</th>
-                    <th className="px-4 py-3 text-right table-header">Produced (kg)</th>
-                    <th className="px-4 py-3 text-center table-header">Status</th>
+                     <th className="px-4 py-3 text-left table-header">{t('col.smSku')}</th>
+                     <th className="px-4 py-3 text-right table-header">{t('summary.target')} (kg)</th>
+                     <th className="px-4 py-3 text-right table-header">{t('summary.produced')} (kg)</th>
+                     <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
                   </tr>
                 </thead>
                 <tbody>

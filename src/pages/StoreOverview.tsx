@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Branch } from '@/types/branch';
 import { TabKey } from '@/components/AppSidebar';
 import {
@@ -17,6 +18,7 @@ interface StoreOverviewProps {
 
 export default function StoreOverview({ branches, onNavigate }: StoreOverviewProps) {
   const { profile, isStoreManager } = useAuth();
+  const { t } = useLanguage();
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
@@ -84,8 +86,8 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
     <div className="section-gap">
       {/* Header */}
       <div>
-        <h2 className="page-title">Store Overview</h2>
-        <p className="page-subtitle">🏪 Store — {branchName}</p>
+        <h2 className="page-title">{t('title.storeOverview')}</h2>
+        <p className="page-subtitle">🏪 {t('nav.store')} — {branchName}</p>
       </div>
 
       {/* SECTION 1: TODAY'S SNAPSHOT */}
@@ -94,7 +96,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Today's Revenue</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.todayRevenue')}</p>
                 <p className="text-2xl font-bold mt-2 font-mono">
                   {loading ? '—' : `฿${fmt(todaySales?.revenue || 0)}`}
                 </p>
@@ -110,7 +112,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Today's Orders</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.todayOrders')}</p>
                 <p className="text-2xl font-bold mt-2 font-mono">
                   {loading ? '—' : (todaySales?.orders || 0)}
                 </p>
@@ -126,17 +128,17 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Yesterday's Count</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.yesterdayCount')}</p>
                 <div className="mt-2">
                   {yesterdayStockStatus === 'loading' ? (
                     <span className="text-muted-foreground">—</span>
                   ) : yesterdayStockStatus === 'submitted' ? (
                     <span className="inline-flex items-center gap-1.5 text-success font-semibold">
-                      <CheckCircle2 className="w-4 h-4" /> Submitted
+                      <CheckCircle2 className="w-4 h-4" /> {t('status.submitted')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-warning font-semibold">
-                      <AlertTriangle className="w-4 h-4" /> Not submitted
+                      <AlertTriangle className="w-4 h-4" /> {t('status.notSubmitted')}
                     </span>
                   )}
                 </div>
@@ -156,7 +158,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">This Month</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.thisMonthRevenue')}</p>
                 <p className="text-2xl font-bold mt-2 font-mono">
                   {loading ? '—' : `฿${fmt(monthRevenue)}`}
                 </p>
@@ -171,7 +173,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
 
       {/* SECTION 2: QUICK ACTIONS */}
       <div>
-        <h3 className="section-title mb-4">Quick Actions</h3>
+        <h3 className="section-title mb-4">{t('title.quickActions')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
             onClick={() => onNavigate('sales-entry')}
@@ -180,7 +182,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
-            <p className="font-semibold text-sm">Paste Today's Sales</p>
+            <p className="font-semibold text-sm">{t('btn.pasteTodaySales')}</p>
             <p className="text-helper text-muted-foreground mt-1">Import POS data for today</p>
           </button>
 
@@ -191,7 +193,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
             <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center mb-3 group-hover:bg-info/20 transition-colors">
               <ClipboardCheck className="w-5 h-5 text-info" />
             </div>
-            <p className="font-semibold text-sm">Start Stock Count</p>
+            <p className="font-semibold text-sm">{t('btn.startStockCount')}</p>
             <p className="text-helper text-muted-foreground mt-1">Count your daily inventory</p>
           </button>
 
@@ -202,7 +204,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
             <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center mb-3 group-hover:bg-success/20 transition-colors">
               <ClipboardList className="w-5 h-5 text-success" />
             </div>
-            <p className="font-semibold text-sm">Record Receipt</p>
+            <p className="font-semibold text-sm">{t('btn.recordReceipt')}</p>
             <p className="text-helper text-muted-foreground mt-1">Log incoming stock deliveries</p>
           </button>
         </div>

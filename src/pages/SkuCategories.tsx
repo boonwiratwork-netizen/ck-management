@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SkuCategory, useSkuCategories } from '@/hooks/use-sku-categories';
 import { SKU } from '@/types/sku';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ interface Props {
 
 export default function SkuCategoriesPage({ categoryData, skus, readOnly = false }: Props) {
   const { categories, addCategory, updateCategory, deleteCategory } = categoryData;
+  const { t } = useLanguage();
   const [adding, setAdding] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [newEn, setNewEn] = useState('');
@@ -58,12 +60,12 @@ export default function SkuCategoriesPage({ categoryData, skus, readOnly = false
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">SKU Categories</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.skuCategories')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage ingredient categories for SKU classification</p>
         </div>
         {!readOnly && (
           <Button onClick={() => setAdding(true)} disabled={adding}>
-            <Plus className="w-4 h-4" /> Add Category
+            <Plus className="w-4 h-4" /> {t('btn.addCategory')}
           </Button>
         )}
       </div>
@@ -72,11 +74,11 @@ export default function SkuCategoriesPage({ categoryData, skus, readOnly = false
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/30">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Code</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name (EN)</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name (TH)</th>
-              <th className="text-center px-4 py-3 font-medium text-muted-foreground">SKU Count</th>
-              {!readOnly && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>}
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.code')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.nameEn')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.nameTh')}</th>
+              <th className="text-center px-4 py-3 font-medium text-muted-foreground">{t('col.skuCount')}</th>
+              {!readOnly && <th className="text-right px-4 py-3 font-medium text-muted-foreground">{t('col.actions')}</th>}
             </tr>
           </thead>
           <tbody>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -68,6 +69,7 @@ export default function FoodCostPage({
   skus, prices, menus, menuBomLines, modifierRules, spBomLines, branches, suppliers,
 }: FoodCostPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
+  const { t } = useLanguage();
   const today = new Date();
 
   const [preset, setPreset] = useState<DatePreset>('today');
@@ -401,7 +403,7 @@ export default function FoodCostPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Food Cost Report</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.foodCost')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Analyze standard food cost against revenue</p>
       </div>
 
@@ -411,7 +413,7 @@ export default function FoodCostPage({
           <div className="flex flex-wrap gap-3 items-end">
             {/* Preset buttons — auto-calculate on click */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Quick Period</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('title.quickPeriod')}</label>
               <div className="flex gap-1">
                 {(['today', 'this-week', 'this-month'] as DatePreset[]).map(p => (
                   <Button
@@ -421,7 +423,7 @@ export default function FoodCostPage({
                     onClick={() => handlePresetChange(p)}
                     className="text-xs h-8"
                   >
-                    {p === 'today' ? 'Today' : p === 'this-week' ? 'This Week' : 'This Month'}
+                    {p === 'today' ? t('btn.today') : p === 'this-week' ? t('btn.thisWeek') : t('btn.thisMonth')}
                   </Button>
                 ))}
               </div>
@@ -472,12 +474,12 @@ export default function FoodCostPage({
 
             <Button onClick={handleCalculate} disabled={loading}>
               <Calculator className="w-4 h-4 mr-1" />
-              {loading ? 'Calculating...' : 'Calculate'}
+              {loading ? `${t('btn.calculate')}...` : t('btn.calculate')}
             </Button>
 
             {calculated && (
               <Button variant="outline" onClick={handleExportCSV}>
-                <Download className="w-4 h-4 mr-1" /> Export CSV
+                <Download className="w-4 h-4 mr-1" /> {t('btn.exportCsv')}
               </Button>
             )}
           </div>
@@ -489,19 +491,19 @@ export default function FoodCostPage({
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.totalRevenue')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">฿{fmt(totalRevenue)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Standard Food Cost</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFoodCost')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">฿{fmt(totalStdCost)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Standard FC%</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFcPct')}</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">{stdFcPct.toFixed(1)}%</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">FC% Status</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.fcStatus')}</CardTitle></CardHeader>
               <CardContent>
                 <Badge variant={stdFcPct <= 35 ? 'default' : 'destructive'} className={cn("text-sm px-3 py-1", stdFcPct <= 35 ? "bg-emerald-500/15 text-emerald-700 border-emerald-200" : "")}>
                   {stdFcPct <= 35 ? <TrendingDown className="w-4 h-4 mr-1" /> : <TrendingUp className="w-4 h-4 mr-1" />}
@@ -514,7 +516,7 @@ export default function FoodCostPage({
           {/* Daily Trend Chart */}
           {dailyData.length > 1 && (
             <Card>
-              <CardHeader><CardTitle>Daily Trend</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t('title.dailyTrend')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -553,13 +555,13 @@ export default function FoodCostPage({
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/30">
-                      <TableHead>#</TableHead>
-                      <TableHead>Menu Code</TableHead>
-                      <TableHead>Menu Name</TableHead>
-                      <TableHead className="text-right">Qty Sold</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
-                      <TableHead className="text-right">Food Cost</TableHead>
-                      <TableHead className="text-right">FC%</TableHead>
+                       <TableHead>#</TableHead>
+                       <TableHead>{t('col.menuCode')}</TableHead>
+                       <TableHead>{t('col.menuName')}</TableHead>
+                       <TableHead className="text-right">{t('col.qtySold')}</TableHead>
+                       <TableHead className="text-right">{t('col.revenue')}</TableHead>
+                       <TableHead className="text-right">{t('col.stdCost')}</TableHead>
+                       <TableHead className="text-right">{t('col.fcPct')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -591,13 +593,13 @@ export default function FoodCostPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>SKU Code</TableHead>
-                    <TableHead>SKU Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Expected Usage</TableHead>
-                    <TableHead>UOM</TableHead>
-                    <TableHead className="text-right">Std Unit Price</TableHead>
-                    <TableHead className="text-right">Std Cost</TableHead>
+                     <TableHead>{t('col.skuCode')}</TableHead>
+                     <TableHead>{t('col.skuName')}</TableHead>
+                     <TableHead>{t('col.type')}</TableHead>
+                     <TableHead className="text-right">{t('col.expectedUsage')}</TableHead>
+                     <TableHead>{t('col.uom')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdUnitPrice')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -627,13 +629,13 @@ export default function FoodCostPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Menu Code</TableHead>
-                    <TableHead>Menu Name</TableHead>
-                    <TableHead className="text-right">Qty Sold</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Food Cost</TableHead>
-                    <TableHead className="text-right">FC%</TableHead>
-                    <TableHead className="text-right">Cost/Serving</TableHead>
+                     <TableHead>{t('col.menuCode')}</TableHead>
+                     <TableHead>{t('col.menuName')}</TableHead>
+                     <TableHead className="text-right">{t('col.qtySold')}</TableHead>
+                     <TableHead className="text-right">{t('col.revenue')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
+                     <TableHead className="text-right">{t('col.fcPct')}</TableHead>
+                     <TableHead className="text-right">{t('col.costPerServing')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

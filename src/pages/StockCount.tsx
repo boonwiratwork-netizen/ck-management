@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SKU, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -30,6 +31,7 @@ interface Props {
 
 export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }: Props) {
   const { sessions, createSession, updateLine, confirmSession, deleteSession, getLinesForSession } = stockCountData;
+  const { t } = useLanguage();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -119,18 +121,18 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Stock Count</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.stockCount')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> New Count Session
+          <Plus className="w-4 h-4" /> {t('btn.newCountSession')}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
         {/* Sessions List */}
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Sessions</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">{t('section.sessions')}</p>
           {sessions.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -157,7 +159,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                           <p className="font-medium text-sm">{session.date}</p>
                           <Badge variant={session.status === 'Completed' ? 'default' : 'secondary'} className="text-[10px]">
                             {session.status === 'Completed' ? <Lock className="w-3 h-3 mr-1" /> : null}
-                            {session.status}
+                            {session.status === 'Completed' ? t('status.completed') : t('status.draft')}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{session.note || 'No note'}</p>
@@ -238,25 +240,25 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                   <TableHeader className="sticky-thead">
                     <TableRow>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('skuId')}>
-                        <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('name')}>
-                        <SortableHeader label="Name" sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('type')}>
-                        <SortableHeader label="Type" sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.type')} sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('storage')}>
-                        <SortableHeader label="Storage" sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
-                        <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                        <SortableHeader label={t('col.systemQty')} sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead className="text-right">Physical Qty</TableHead>
+                      <TableHead className="text-right">{t('col.physicalQty')}</TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
-                        <SortableHeader label="Variance" sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                        <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead>Note</TableHead>
+                      <TableHead>{t('col.note')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -333,25 +335,25 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Total SKUs</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.totalSkus')}</p>
                     <p className="text-2xl font-bold mt-1">{summary.total}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Counted</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.counted')}</p>
                     <p className="text-2xl font-bold mt-1">{summary.counted}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">With Variance</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.withVariance')}</p>
                     <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Variance Value</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.varianceValue')}</p>
                     <p className={`text-2xl font-bold mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
                       ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
@@ -367,7 +369,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                     disabled={summary.counted === 0}
                     className="gap-2"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Confirm & Adjust Stock
+                    <CheckCircle2 className="w-4 h-4" /> {t('btn.confirmAdjust')}
                   </Button>
                 </div>
               )}
@@ -393,8 +395,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create Session</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleCreate}>{t('btn.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

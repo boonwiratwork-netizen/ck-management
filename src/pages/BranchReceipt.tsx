@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useAuth } from '@/hooks/use-auth';
@@ -134,6 +135,7 @@ function SkuCombobox({ value, onSelect, skus }: { value: string; onSelect: (id: 
 
 export default function BranchReceiptPage({ skus, prices, branches, suppliers = [] }: Props) {
   const { isManagement, isStoreManager, profile } = useAuth();
+  const { t } = useLanguage();
   const { receipts, saveReceipts, deleteReceipt } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
@@ -266,7 +268,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Branch Receipt</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.branchReceipt')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Record external purchases received at the branch</p>
       </div>
 
@@ -296,7 +298,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
             </SelectContent>
           </Select>
         </div>
-        <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> Add Row</Button>
+        <Button variant="outline" onClick={handleAddRow}><Plus className="w-4 h-4 mr-1" /> {t('btn.addRow')}</Button>
         <div className="flex items-center gap-2 ml-2">
           <Switch checked={quickRepeatSupplier} onCheckedChange={setQuickRepeatSupplier} id="quick-supplier" />
           <label htmlFor="quick-supplier" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Auto-copy supplier from row above</label>
@@ -312,7 +314,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           </TooltipProvider>
         </div>
         {drafts.length > 0 && (
-          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
+          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> {t('btn.saveAll')} ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
         )}
       </div>
 
@@ -330,17 +332,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
             <table className="w-full text-sm">
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
-                  <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
-                  <th className={thClass}>Name</th>
-                  <th className={thClass} style={{ minWidth: 140 }}>Supplier</th>
-                  <th className={`${thClass} text-right`}>Qty</th>
-                  <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Total Paid (฿)</th>
-                  <th className={`${thClass} text-right`}>Unit Price</th>
-                  <th className={`${thClass} text-right`}>Std Unit</th>
-                  <th className={`${thClass} text-right`}>Std Total</th>
-                  <th className={`${thClass} text-right`}>Variance</th>
-                  <th className={thClass}>Notes</th>
+                  <th className={thClass} style={{ minWidth: 220 }}>{t('col.sku')}</th>
+                  <th className={thClass}>{t('col.name')}</th>
+                  <th className={thClass} style={{ minWidth: 140 }}>{t('col.supplier')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.qty')}</th>
+                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.totalPaid')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.unitPrice')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdUnit')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.variance')}</th>
+                  <th className={thClass}>{t('col.notes')}</th>
                   <th className={`${thClass} text-center`} style={{ minWidth: 50 }}></th>
                 </tr>
               </thead>
