@@ -4,7 +4,7 @@ export interface Delivery {
   weekNumber: number;
   branchName: string;
   smSkuId: string;            // references SKU.id (SM type only)
-  qtyDeliveredKg: number;
+  qtyDeliveredG: number;     // in grams
   note: string;
 }
 
