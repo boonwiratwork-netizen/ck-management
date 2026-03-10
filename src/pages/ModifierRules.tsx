@@ -149,11 +149,12 @@ function MultiMenuSelector({
         </div>
       )}
 
-      {open && createPortal(
+      {open && (
         <div
           ref={dropdownRef}
-          className="rounded-md border bg-popover shadow-md"
-          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999, pointerEvents: 'auto' }}
+          className="absolute left-0 right-0 rounded-md border bg-popover shadow-md z-50 mt-1"
+          style={{ pointerEvents: 'auto' }}
+          onMouseDown={e => e.stopPropagation()}
         >
           <div className="p-1.5">
             <Input
@@ -162,9 +163,10 @@ function MultiMenuSelector({
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="h-8 text-xs"
+              onMouseDown={e => e.stopPropagation()}
             />
           </div>
-          <div className="max-h-[220px] overflow-y-auto p-1">
+          <div className="max-h-[220px] overflow-y-auto p-1" style={{ pointerEvents: 'auto' }}>
             {/* All Menus option */}
             <button
               type="button"
@@ -196,8 +198,7 @@ function MultiMenuSelector({
               </button>
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
