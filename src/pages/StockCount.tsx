@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SKU, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
