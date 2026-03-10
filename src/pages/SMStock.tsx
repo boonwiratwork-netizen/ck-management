@@ -71,6 +71,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
       });
   }, [smSkus, stockBalances, getLastProductionDate, search, filterCategory, filterStorage]);
 
+  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, smComparators);
   const handleOpeningSubmit = (skuId: string) => {
     setOpeningStock(skuId, Number(openingValue) || 0);
     setEditingOpening(null);
