@@ -174,15 +174,40 @@ export default function FoodCostPage({
         if (rule.menuId && rule.menuId !== menu.id) continue;
         const menuName = sale.menu_name || '';
         if (menuName.includes(rule.keyword)) {
-          const modQty = rule.qtyPerMatch * qty;
-          const modSku = skuMap.get(rule.skuId);
-          if (modSku && modSku.type === 'SP') {
-            const spLines = spBomBySpSku.get(rule.skuId) || [];
-            for (const sp of spLines) {
-              add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * modQty);
+          if (rule.ruleType === 'swap') {
+            if (rule.swapSkuId) {
+              const bomLines2 = bomByMenuId.get(menu.id) || [];
+              for (const line of bomLines2) {
+                if (line.skuId === rule.swapSkuId) {
+                  add(rule.swapSkuId, -(line.effectiveQty * qty));
+                }
+              }
+            }
+            const modQty = rule.qtyPerMatch * qty;
+            const modSku = skuMap.get(rule.skuId);
+            if (modSku && modSku.type === 'SP') {
+              const spLines = spBomBySpSku.get(rule.skuId) || [];
+              for (const sp of spLines) { add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * modQty); }
+            } else { add(rule.skuId, modQty); }
+          } else if (rule.ruleType === 'submenu') {
+            if (rule.submenuId) {
+              const subBomLines = bomByMenuId.get(rule.submenuId) || [];
+              for (const line of subBomLines) {
+                const iq = line.effectiveQty * qty;
+                const sk = skuMap.get(line.skuId);
+                if (sk && sk.type === 'SP') {
+                  const spLines = spBomBySpSku.get(line.skuId) || [];
+                  for (const sp of spLines) { add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * iq); }
+                } else { add(line.skuId, iq); }
+              }
             }
           } else {
-            add(rule.skuId, modQty);
+            const modQty = rule.qtyPerMatch * qty;
+            const modSku = skuMap.get(rule.skuId);
+            if (modSku && modSku.type === 'SP') {
+              const spLines = spBomBySpSku.get(rule.skuId) || [];
+              for (const sp of spLines) { add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * modQty); }
+            } else { add(rule.skuId, modQty); }
           }
         }
       }
