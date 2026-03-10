@@ -283,7 +283,7 @@ const Dashboard = ({
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Wallet className="w-4 h-4 text-primary" />
             </div>
-            Stock Value Overview
+            {t('title.stockValueOverview')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-card-p pb-card-p">
