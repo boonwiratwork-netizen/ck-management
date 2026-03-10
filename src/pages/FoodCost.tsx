@@ -403,7 +403,7 @@ export default function FoodCostPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-heading font-bold">Food Cost Report</h2>
+        <h2 className="text-2xl font-heading font-bold">{t('title.foodCost')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Analyze standard food cost against revenue</p>
       </div>
 
