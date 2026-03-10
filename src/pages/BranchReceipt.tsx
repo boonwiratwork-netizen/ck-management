@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useAuth } from '@/hooks/use-auth';
