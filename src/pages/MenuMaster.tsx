@@ -245,7 +245,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                       {menu.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{getBranchName(menu.branchId)}</TableCell>
+                  <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
                   {canEdit && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
