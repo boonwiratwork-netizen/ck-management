@@ -357,12 +357,12 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">SP BOM</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.spBom')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials for Special items — ingredients and costing</p>
         </div>
         {canEdit && (
           <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> Import CSV
+            <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
         )}
       </div>
