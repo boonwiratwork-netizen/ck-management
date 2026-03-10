@@ -297,7 +297,7 @@ const Dashboard = ({
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
             </div>
             <div className="rounded-lg border bg-accent p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">Total Inventory Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.totalInventoryValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.combined)}</p>
             </div>
           </div>
