@@ -125,20 +125,36 @@ export default function SMStockPage({ skus, smStockData }: Props) {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-auto">
+      <div className="rounded-lg border overflow-auto max-h-[70vh]">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky-thead">
             <TableRow>
               <TableHead className="w-8"></TableHead>
-              <TableHead>SKU ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Storage</TableHead>
-              <TableHead className="text-right">Opening (kg)</TableHead>
-              <TableHead className="text-right">Produced (kg)</TableHead>
-              <TableHead className="text-right">Delivered (kg)</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
+                <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+                <SortableHeader label="Name" sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
+                <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
+                <SortableHeader label="Storage" sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
+                <SortableHeader label="Opening (kg)" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('produced')}>
+                <SortableHeader label="Produced (kg)" sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('delivered')}>
+                <SortableHeader label="Delivered (kg)" sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead className="text-right">Adjustments (kg)</TableHead>
-              <TableHead className="text-right">Current Stock (kg)</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
+                <SortableHeader label="Current Stock (kg)" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead>Last Production</TableHead>
               <TableHead className="text-right">Days Left</TableHead>
               <TableHead className="w-10"></TableHead>

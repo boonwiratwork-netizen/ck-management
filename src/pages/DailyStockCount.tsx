@@ -311,9 +311,9 @@ export default function DailyStockCountPage({
           {showUnused && unusedRows.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="overflow-auto max-h-[50vh]">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky-thead">
                       <TableRow className="bg-table-header">
                         <TableHead className="table-header">SKU Code</TableHead>
                         <TableHead className="table-header">SKU Name</TableHead>
