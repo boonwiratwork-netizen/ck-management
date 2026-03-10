@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { useSalesEntryData, SalesEntry } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
