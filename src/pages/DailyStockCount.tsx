@@ -229,7 +229,7 @@ export default function DailyStockCountPage({
                   </p>
                 </div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky-thead">
                     <TableRow className="bg-table-header">
                       <TableHead className="table-header whitespace-nowrap">SKU Code</TableHead>
                       <TableHead className="table-header">SKU Name</TableHead>
