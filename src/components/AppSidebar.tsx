@@ -78,6 +78,7 @@ const ckGroup: NavGroup = {
   icon: ChefHat,
   section: 'ck',
   items: [
+    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
     { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
     { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
     { key: 'production', labelKey: 'nav.production', icon: Factory },
