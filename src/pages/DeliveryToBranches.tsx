@@ -186,6 +186,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         skuName: sku?.name || draft.smSkuId,
         need: draft.qtyDeliveredG,
         have: currentStock,
+        uom: sku?.usageUom || 'g',
       });
       return;
     }
