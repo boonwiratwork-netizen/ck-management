@@ -17,6 +17,7 @@ export interface DailyStockCountRow {
   receivedFromCk: number;
   receivedExternal: number;
   expectedUsage: number;
+  waste: number;
   calculatedBalance: number;
   physicalCount: number | null;
   variance: number;
@@ -33,6 +34,7 @@ const toLocal = (r: any): DailyStockCountRow => ({
   receivedFromCk: Number(r.received_from_ck),
   receivedExternal: Number(r.received_external),
   expectedUsage: Number(r.expected_usage),
+  waste: Number(r.waste ?? 0),
   calculatedBalance: Number(r.calculated_balance),
   physicalCount: r.physical_count !== null ? Number(r.physical_count) : null,
   variance: Number(r.variance),
