@@ -437,14 +437,11 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">SM SKU</label>
-              <SearchableSelect
+              <SmSkuSelector
                 value={planForm.smSkuId}
                 onValueChange={v => setPlanForm(f => ({ ...f, smSkuId: v }))}
-                options={smSkusAll.map(s => {
-                  const hasBom = bomHeaders.some(h => h.smSkuId === s.id);
-                  return { value: s.id, label: `${s.skuId} — ${s.name}${!hasBom ? ' ⚠ No BOM' : ''}`, sublabel: s.skuId };
-                })}
-                placeholder="Select SM SKU"
+                skus={smSkusAll}
+                bomHeaders={bomHeaders}
               />
               {planForm.smSkuId && !bomHeaders.some(h => h.smSkuId === planForm.smSkuId) && (
                 <p className="text-xs text-warning mt-1 flex items-center gap-1">
