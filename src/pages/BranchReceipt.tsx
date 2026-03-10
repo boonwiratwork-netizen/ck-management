@@ -189,7 +189,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       const updated = { ...d, [field]: value };
       if (field === 'skuId' && value) {
         const sku = rmSkus.find(s => s.id === value);
-        if (sku) updated.uom = sku.usageUom;
+        if (sku) updated.uom = sku.purchaseUom;
         // Auto-fill supplier from active price master
         const supName = getActiveSupplierName(value);
         if (supName) updated.supplierName = supName;
