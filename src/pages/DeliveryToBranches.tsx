@@ -77,8 +77,30 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const editingIds = drafts.filter(d => d.savedDeliveryId).map(d => d.savedDeliveryId!);
 
+  // Sorting
+  type DelSortKey = 'date' | 'week' | 'branch' | 'sku' | 'qty';
+  const [delSortKey, setDelSortKey] = useState<DelSortKey | null>(null);
+  const [delSortDir, setDelSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleDelSort = (key: DelSortKey) => {
+    if (delSortKey === key) {
+      if (delSortDir === 'asc') setDelSortDir('desc');
+      else { setDelSortKey(null); setDelSortDir('desc'); }
+    } else {
+      setDelSortKey(key);
+      setDelSortDir('asc');
+    }
+  };
+
+  const DelSortIcon = ({ col }: { col: DelSortKey }) => {
+    if (delSortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return delSortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
   const filteredSaved = useMemo(() => {
-    return deliveries
+    let list = deliveries
       .filter(d => {
         if (editingIds.includes(d.id)) return false;
         const sku = skuMap[d.smSkuId];
@@ -88,9 +110,25 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           d.branchName.toLowerCase().includes(search.toLowerCase());
         const matchesBranch = filterBranch === 'all' || d.branchName === filterBranch;
         return matchesSearch && matchesBranch;
-      })
-      .sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate));
-  }, [deliveries, skuMap, search, filterBranch, editingIds]);
+      });
+
+    if (delSortKey) {
+      list = [...list].sort((a, b) => {
+        let cmp = 0;
+        switch (delSortKey) {
+          case 'date': cmp = a.deliveryDate.localeCompare(b.deliveryDate); break;
+          case 'week': cmp = a.weekNumber - b.weekNumber; break;
+          case 'branch': cmp = a.branchName.localeCompare(b.branchName); break;
+          case 'sku': cmp = (skuMap[a.smSkuId]?.name || '').localeCompare(skuMap[b.smSkuId]?.name || ''); break;
+          case 'qty': cmp = a.qtyDeliveredKg - b.qtyDeliveredKg; break;
+        }
+        return delSortDir === 'desc' ? -cmp : cmp;
+      });
+    } else {
+      list = [...list].sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate));
+    }
+    return list;
+  }, [deliveries, skuMap, search, filterBranch, editingIds, delSortKey, delSortDir]);
 
   const handleAddRow = useCallback(() => {
     setDrafts(prev => [...prev, createEmptyDraft()]);
