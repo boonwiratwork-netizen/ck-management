@@ -228,35 +228,35 @@ export default function DailyStockCountPage({
                     <kbd>Tab</kbd> / <kbd>Enter</kbd> to advance to next row · Physical Count auto-selects on focus
                   </p>
                 </div>
-                <Table>
+                <Table className="text-xs">
                   <TableHeader className="sticky-thead">
                     <TableRow className="bg-table-header">
-                      <TableHead className="table-header whitespace-nowrap">SKU Code</TableHead>
-                      <TableHead className="table-header">SKU Name</TableHead>
-                      <TableHead className="table-header">Type</TableHead>
-                      <TableHead className="text-right table-header">Opening</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">From CK</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">
-                        <div>Ext. Received</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(Purchase UOM)</div>
+                      <TableHead className="table-header whitespace-nowrap px-2 py-1.5 text-[11px]">SKU Code</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">SKU Name</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">Type</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Opening</TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">From CK</TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
+                        <div>Ext. Recv</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
                         <div>Exp. Usage</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
                         <div>Waste</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">
-                        <div>Calc. Balance</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
+                        <div>Calc. Bal.</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap">
-                        <div>Physical Count</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(Purchase UOM)</div>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
+                        <div>Physical</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header">Variance</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Variance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -267,57 +267,57 @@ export default function DailyStockCountPage({
 
                       return (
                         <TableRow key={row.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                          <TableCell className="font-mono text-xs">{sku.skuId}</TableCell>
-                          <TableCell className="max-w-[180px] truncate">{sku.name}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          <TableCell className="font-mono text-[11px] px-2 py-1">{sku.skuId}</TableCell>
+                          <TableCell className="max-w-[150px] truncate px-2 py-1 text-[11px]">{sku.name}</TableCell>
+                          <TableCell className="px-2 py-1">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
                               sku.type === 'RM' ? 'badge-rm' : sku.type === 'SM' ? 'badge-sm' : sku.type === 'SP' ? 'badge-sp' : 'badge-pk'
                             }`}>
                               {sku.type}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">{row.openingBalance.toFixed(2)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{row.receivedFromCk.toFixed(2)}</TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="text-right tabular-nums px-2 py-1">{row.openingBalance.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums px-2 py-1">{row.receivedFromCk.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums px-2 py-1">
                             {row.receivedExternal.toFixed(2)}
-                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.purchaseUom}</span>
+                            <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="text-right tabular-nums px-2 py-1">
                             {row.expectedUsage.toFixed(2)}
-                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                            <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right w-32">
+                          <TableCell className="text-right px-2 py-1">
                             {isSubmitted ? (
                               <span className="tabular-nums">
                                 {row.waste.toFixed(2)}
-                                <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                               </span>
                             ) : (
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="inline-flex items-center gap-0.5">
                                 <Input
                                   type="number"
                                   step="0.01"
                                   value={row.waste}
                                   onChange={e => updateWaste(row.id, Number(e.target.value) || 0)}
-                                  className="h-9 w-24 text-sm font-medium border-2 border-input focus:border-primary"
+                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input"
                                   placeholder="0"
                                 />
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{sku.usageUom}</span>
+                                <span className="text-[9px] text-muted-foreground">{sku.usageUom}</span>
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums font-medium">
+                          <TableCell className="text-right tabular-nums font-medium px-2 py-1">
                             {row.calculatedBalance.toFixed(2)}
-                            <span className="ml-1 text-[10px] text-muted-foreground">{sku.usageUom}</span>
+                            <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right w-32">
+                          <TableCell className="text-right px-2 py-1">
                             {isSubmitted ? (
                               <span className="tabular-nums">
                                 {row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}
-                                <span className="ml-1 text-[10px] text-muted-foreground">{sku.purchaseUom}</span>
+                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
                               </span>
                             ) : (
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="inline-flex items-center gap-0.5">
                                 <Input
                                   ref={(el) => setRef(row.id, el)}
                                   type="number"
@@ -328,14 +328,14 @@ export default function DailyStockCountPage({
                                     updatePhysicalCount(row.id, val);
                                   }}
                                   onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                  className="h-9 w-24 text-sm font-medium border-2 border-input focus:border-primary"
+                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input"
                                   placeholder="—"
                                 />
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{sku.purchaseUom}</span>
+                                <span className="text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className={`text-right tabular-nums font-medium rounded px-2 ${varClass}`}>
+                          <TableCell className={`text-right tabular-nums font-medium px-2 py-1 ${varClass}`}>
                             {row.physicalCount !== null ? row.variance.toFixed(2) : '—'}
                           </TableCell>
                         </TableRow>
