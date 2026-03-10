@@ -170,6 +170,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead>{t('col.uom')}</TableHead>
+              <TableHead className="text-right">Stock Value</TableHead>
               <TableHead>{t('col.lastProduction')}</TableHead>
               <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
