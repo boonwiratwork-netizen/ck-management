@@ -196,11 +196,11 @@ const translations: Record<string, Record<Lang, string>> = {
   'col.daysLeft': { th: 'เหลือกี่วัน', en: 'Days Left' },
 
   // SM Stock
-  'col.openingKg': { th: 'ยอดเปิด (กก.)', en: 'Opening (kg)' },
-  'col.producedKg': { th: 'ผลิต (กก.)', en: 'Produced (kg)' },
-  'col.deliveredKg': { th: 'ส่ง (กก.)', en: 'Delivered (kg)' },
-  'col.adjustmentsKg': { th: 'ปรับปรุง (กก.)', en: 'Adjustments (kg)' },
-  'col.currentStockKg': { th: 'สต๊อกปัจจุบัน (กก.)', en: 'Current Stock (kg)' },
+  'col.openingKg': { th: 'ยอดเปิด', en: 'Opening' },
+  'col.producedKg': { th: 'ผลิต', en: 'Produced' },
+  'col.deliveredKg': { th: 'ส่ง', en: 'Delivered' },
+  'col.adjustmentsKg': { th: 'ปรับปรุง', en: 'Adjustments' },
+  'col.currentStockKg': { th: 'สต๊อกปัจจุบัน', en: 'Current Stock' },
   'col.lastProduction': { th: 'ผลิตล่าสุด', en: 'Last Production' },
 
   // Stock Count
@@ -209,7 +209,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Delivery
   'col.smSku': { th: 'SKU กึ่งสำเร็จ', en: 'SM SKU' },
-  'col.qtyKg': { th: 'จำนวน (กก.)', en: 'Qty (kg)' },
+  'col.qtyKg': { th: 'จำนวน', en: 'Qty' },
 
   // Menu Master
   'col.menuCode': { th: 'รหัสเมนู', en: 'Code' },
@@ -261,7 +261,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Dashboard
   'col.coverDays': { th: 'เหลือกี่วัน', en: 'Cover Days' },
-  'col.stockKg': { th: 'สต๊อก (กก.)', en: 'Stock (kg)' },
+  'col.stockKg': { th: 'สต๊อก', en: 'Stock' },
   'col.value': { th: 'มูลค่า', en: 'Value' },
   'col.stock': { th: 'สต๊อก', en: 'Stock' },
 
@@ -279,7 +279,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'summary.totalStockValue': { th: 'มูลค่าสต๊อกรวม', en: 'Total Stock Value' },
   'summary.outOfStock': { th: 'หมดสต๊อก', en: 'Out of Stock' },
   'summary.smSkus': { th: 'กึ่งสำเร็จ', en: 'SM SKUs' },
-  'summary.totalStockKg': { th: 'สต๊อกรวม (กก.)', en: 'Total Stock (kg)' },
+  'summary.totalStockKg': { th: 'สต๊อกรวม', en: 'Total Stock' },
   'summary.totalSkus': { th: 'SKU ทั้งหมด', en: 'Total SKUs' },
   'summary.counted': { th: 'นับแล้ว', en: 'Counted' },
   'summary.withVariance': { th: 'มีผลต่าง', en: 'With Variance' },

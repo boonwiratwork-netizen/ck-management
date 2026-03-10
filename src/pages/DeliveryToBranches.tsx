@@ -57,7 +57,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   const [search, setSearch] = useState('');
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [stockWarning, setStockWarning] = useState<{ tempId: string; skuName: string; need: number; have: number } | null>(null);
+  const [stockWarning, setStockWarning] = useState<{ tempId: string; skuName: string; need: number; have: number; uom: string } | null>(null);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
@@ -186,6 +186,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         skuName: sku?.name || draft.smSkuId,
         need: draft.qtyDeliveredG,
         have: currentStock,
+        uom: sku?.usageUom || 'g',
       });
       return;
     }
@@ -290,7 +291,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</p>
+          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
         </div>
       </div>
 
@@ -449,8 +450,8 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
             <p className="text-sm text-muted-foreground">This delivery will result in negative stock:</p>
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <p className="text-sm"><span className="font-bold">{stockWarning?.skuName}</span></p>
-              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} kg</p>
-              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} kg</p>
+              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} {stockWarning?.uom}</p>
+              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} {stockWarning?.uom}</p>
             </div>
           </div>
           <AlertDialogFooter className="gap-2 sm:gap-0">
