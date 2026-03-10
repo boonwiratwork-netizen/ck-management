@@ -240,25 +240,25 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                   <TableHeader className="sticky-thead">
                     <TableRow>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('skuId')}>
-                        <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('name')}>
-                        <SortableHeader label="Name" sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('type')}>
-                        <SortableHeader label="Type" sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.type')} sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('storage')}>
-                        <SortableHeader label="Storage" sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                        <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
                       </TableHead>
                       <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
-                        <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                        <SortableHeader label={t('col.systemQty')} sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead className="text-right">Physical Qty</TableHead>
+                      <TableHead className="text-right">{t('col.physicalQty')}</TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
-                        <SortableHeader label="Variance" sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                        <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
                       </TableHead>
-                      <TableHead>Note</TableHead>
+                      <TableHead>{t('col.note')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
