@@ -220,7 +220,13 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     if (costPerGram > 0) {
       const skuName = getSkuCode(header.smSkuId) || getSkuName(header.smSkuId);
       await syncBomPrice(header.smSkuId, costPerGram);
-      toast.success(`BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`);
+      // Cascade to Menu BOMs and SP BOMs using this SM SKU
+      const { menuBomCount, spBomCount } = await cascadeBomCost(header.smSkuId, costPerGram);
+      let msg = `BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`;
+      if (menuBomCount > 0 || spBomCount > 0) {
+        msg += ` — ${menuBomCount} menu BOM${menuBomCount !== 1 ? 's' : ''} and ${spBomCount} SP BOM${spBomCount !== 1 ? 's' : ''} refreshed`;
+      }
+      toast.success(msg);
       onPricesRefresh?.();
     }
   }, [selectedHeaderId, headers, prices, onPricesRefresh]);
