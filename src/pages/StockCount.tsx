@@ -44,7 +44,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
 
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null;
   const sessionLines = selectedSessionId ? getLinesForSession(selectedSessionId) : [];
-  const isReadOnly = selectedSession?.status === 'Completed';
+  const isCompleted = selectedSession?.status === 'Completed';
+  const isReadOnly = false; // Allow editing even completed sessions
 
   const skuMap = useMemo(() => {
     const m: Record<string, SKU> = {};
