@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Input } from '@/components/ui/input';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,8 +31,10 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [pos, setPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 220 });
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find(o => o.value === value);
 
@@ -44,13 +47,43 @@ export function SearchableSelect({
     );
   }, [options, search]);
 
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 220),
+      });
+    }
+  }, []);
+
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus();
-  }, [open]);
+    if (open) {
+      updatePosition();
+      inputRef.current?.focus();
+    }
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleScroll = () => updatePosition();
+    // Listen on capture phase to catch scroll on any ancestor
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [open, updatePosition]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -59,8 +92,9 @@ export function SearchableSelect({
   }, [open]);
 
   return (
-    <div className={cn('relative', className)} ref={containerRef}>
+    <div className={cn('relative', className)}>
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => { if (!disabled) { setOpen(!open); setSearch(''); } }}
@@ -74,8 +108,12 @@ export function SearchableSelect({
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </button>
-      {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[220px] rounded-md border bg-popover shadow-md">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] rounded-md border bg-popover shadow-md"
+          style={{ top: pos.top, left: pos.left, width: pos.width, position: 'absolute' }}
+        >
           <div className="p-1.5">
             <Input
               ref={inputRef}
@@ -104,7 +142,8 @@ export function SearchableSelect({
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
