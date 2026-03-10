@@ -178,6 +178,107 @@ function MultiMenuSelector({
   );
 }
 
+// Single-select menu selector using same inline absolute pattern as MultiMenuSelector
+function SubmenuSelector({
+  value,
+  onValueChange,
+  menus,
+}: {
+  value: string;
+  onValueChange: (id: string) => void;
+  menus: Menu[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = menus.find(m => m.id === value);
+
+  const filtered = useMemo(() => {
+    if (!search) return menus;
+    const q = search.toLowerCase();
+    return menus.filter(m =>
+      m.menuCode.toLowerCase().includes(q) ||
+      m.menuName.toLowerCase().includes(q)
+    );
+  }, [menus, search]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => { setOpen(!open); setSearch(''); }}
+        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent/50 transition-colors"
+      >
+        <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          {selected ? `${selected.menuCode} ${selected.menuName}` : 'Select a menu...'}
+        </span>
+        <svg className="ml-2 h-4 w-4 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+
+      {open && (
+        <div
+          ref={dropdownRef}
+          className="absolute left-0 right-0 rounded-md border bg-popover shadow-md z-50 mt-1"
+          style={{ pointerEvents: 'auto' }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div className="p-1.5">
+            <Input
+              ref={inputRef}
+              placeholder="Search menus..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="h-8 text-xs"
+              onMouseDown={e => e.stopPropagation()}
+            />
+          </div>
+          <div className="max-h-[220px] overflow-y-auto p-1" style={{ pointerEvents: 'auto' }}>
+            {filtered.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">No menus found</p>
+            )}
+            {filtered.map(m => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => { onValueChange(m.id); setOpen(false); setSearch(''); }}
+                className={cn(
+                  'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
+                  value === m.id && 'bg-accent'
+                )}
+              >
+                <span className="truncate">{m.menuCode} {m.menuName}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
 export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
   const { t } = useLanguage();
