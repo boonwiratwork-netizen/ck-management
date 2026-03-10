@@ -245,6 +245,10 @@ export default function DailyStockCountPage({
                         <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap">
+                        <div>Waste</div>
+                        <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
+                      </TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap">
                         <div>Calc. Balance</div>
                         <div className="text-[10px] font-normal text-muted-foreground">(Usage UOM)</div>
                       </TableHead>
