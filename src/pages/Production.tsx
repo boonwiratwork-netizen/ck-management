@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Trash2, Calendar, Factory, CheckCircle2, Clock, PlayCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { cn } from '@/lib/utils';
 
 interface ProductionPageProps {
   productionData: {
