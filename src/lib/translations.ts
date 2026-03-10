@@ -209,7 +209,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Delivery
   'col.smSku': { th: 'SKU กึ่งสำเร็จ', en: 'SM SKU' },
-  'col.qtyKg': { th: 'จำนวน (กก.)', en: 'Qty (kg)' },
+  'col.qtyKg': { th: 'จำนวน', en: 'Qty' },
 
   // Menu Master
   'col.menuCode': { th: 'รหัสเมนู', en: 'Code' },
