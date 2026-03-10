@@ -341,12 +341,12 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Branch</label>
-              <Select value={form.branchId || '__none'} onValueChange={v => setForm(f => ({ ...f, branchId: v === '__none' ? null : v }))}>
-                <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <label className="text-xs font-medium text-muted-foreground">Brand</label>
+              <Select value={form.brandName || '__none'} onValueChange={v => setForm(f => ({ ...f, brandName: v === '__none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">— No branch —</SelectItem>
-                  {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+                  <SelectItem value="__none">— No brand —</SelectItem>
+                  {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
