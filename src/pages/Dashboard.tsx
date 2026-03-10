@@ -412,7 +412,7 @@ const Dashboard = ({
         <CardContent className="space-y-4 px-card-p pb-card-p">
           <div className="flex items-center gap-6">
             <div className="text-sm"><span className="text-muted-foreground">Target:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalTarget)} kg</span></div>
-            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalProduced)} kg</span></div>
+            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalProduced)} g</span></div>
           </div>
           <Progress value={Math.min(planSummary.progress, 100)} className="h-2" />
           {rangePlans.length === 0 ? (
