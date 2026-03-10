@@ -314,7 +314,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           </TooltipProvider>
         </div>
         {drafts.length > 0 && (
-          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> Save All ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
+          <Button onClick={handleSaveAll}><Save className="w-4 h-4 mr-1" /> {t('btn.saveAll')} ({drafts.filter(d => d.skuId && d.qtyReceived > 0).length})</Button>
         )}
       </div>
 
