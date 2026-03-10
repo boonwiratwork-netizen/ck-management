@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Copy, Plus, Pencil, Check, X } from 'lucide-react';
 import { SearchInput } from '@/components/SearchInput';
-import { EmptyState } from '@/components/EmptyState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -77,13 +76,11 @@ export function GoodsReceiptSpreadsheet({
   }), [skuMap, supplierMap]);
 
   const { sorted: sortedSaved, sortKey, sortDir, handleSort } = useSortableTable(filteredSaved, comparators);
-
-  // Default sort by date desc when no sort active
   const displaySaved = sortKey ? sortedSaved : [...filteredSaved].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
 
-  const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
+  const thClass = 'text-left px-2 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider whitespace-nowrap';
   const tdClass = 'px-1.5 py-1';
-  const tdReadOnly = 'px-3 py-2.5 text-xs';
+  const tdReadOnly = 'px-2 py-2 text-xs';
 
   return (
     <div className="space-y-4">
@@ -119,7 +116,22 @@ export function GoodsReceiptSpreadsheet({
       {/* Spreadsheet table */}
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: '100px' }} /> {/* Date */}
+              <col style={{ width: '40px' }} />  {/* Wk */}
+              <col style={{ width: '240px' }} /> {/* SKU */}
+              <col style={{ width: '140px' }} /> {/* Supplier */}
+              <col style={{ width: '70px' }} />  {/* Qty */}
+              <col style={{ width: '50px' }} />  {/* UOM */}
+              <col style={{ width: '90px' }} />  {/* Actual Total */}
+              <col style={{ width: '80px' }} />  {/* Actual Unit */}
+              <col style={{ width: '70px' }} />  {/* Std Unit */}
+              <col style={{ width: '80px' }} />  {/* Std Total */}
+              <col style={{ width: '80px' }} />  {/* Variance */}
+              <col style={{ width: '90px' }} />  {/* Note */}
+              <col style={{ width: '80px' }} />  {/* Actions */}
+            </colgroup>
             <thead className="sticky-thead">
               <tr className="border-b bg-muted/50">
                 <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('date')}>
@@ -128,10 +140,10 @@ export function GoodsReceiptSpreadsheet({
                 <th className={`${thClass} text-center cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('week')}>
                   <SortableHeader label="Wk" sortKey="week" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </th>
-                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} style={{ minWidth: 180 }} onClick={() => handleSort('sku')}>
+                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('sku')}>
                   <SortableHeader label="SKU" sortKey="sku" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </th>
-                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} style={{ minWidth: 160 }} onClick={() => handleSort('supplier')}>
+                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('supplier')}>
                   <SortableHeader label="Supplier" sortKey="supplier" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </th>
                 <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('qty')}>
@@ -139,16 +151,16 @@ export function GoodsReceiptSpreadsheet({
                 </th>
                 <th className={`${thClass} text-center`}>UOM</th>
                 <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('actualTotal')}>
-                  <SortableHeader label="Actual Total" sortKey="actualTotal" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                  <SortableHeader label="Actual ฿" sortKey="actualTotal" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
                 </th>
-                <th className={`${thClass} text-right`}>Actual Unit ฿</th>
-                <th className={`${thClass} text-right`}>Std Unit ฿</th>
-                <th className={`${thClass} text-right`}>Std Total</th>
+                <th className={`${thClass} text-right`}>Unit ฿</th>
+                <th className={`${thClass} text-right`}>Std ฿</th>
+                <th className={`${thClass} text-right`}>Std Tot</th>
                 <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('variance')}>
-                  <SortableHeader label="Variance" sortKey="variance" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                  <SortableHeader label="Var" sortKey="variance" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
                 </th>
                 <th className={thClass}>Note</th>
-                <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>Actions</th>
+                <th className={`${thClass} text-center`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -172,7 +184,7 @@ export function GoodsReceiptSpreadsheet({
                         type="date"
                         value={draft.receiptDate}
                         onChange={e => onUpdateDraft(draft.tempId, 'receiptDate', e.target.value)}
-                        className="h-8 text-xs w-[130px]"
+                        className="h-8 text-xs w-full"
                       />
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
@@ -190,7 +202,7 @@ export function GoodsReceiptSpreadsheet({
                         }}
                         options={rmSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
                         placeholder="Select SKU"
-                        triggerClassName="h-8 text-xs"
+                        triggerClassName="h-8 text-xs truncate"
                       />
                     </td>
                     <td className={tdClass}>
@@ -199,7 +211,7 @@ export function GoodsReceiptSpreadsheet({
                         onValueChange={v => onUpdateDraft(draft.tempId, 'supplierId', v)}
                         options={suppliers.map(s => ({ value: s.id, label: s.name }))}
                         placeholder="Supplier"
-                        triggerClassName="h-8 text-xs"
+                        triggerClassName="h-8 text-xs truncate"
                       />
                     </td>
                     <td className={tdClass}>
@@ -209,7 +221,7 @@ export function GoodsReceiptSpreadsheet({
                         step="any"
                         value={draft.quantityReceived || ''}
                         onChange={e => onUpdateDraft(draft.tempId, 'quantityReceived', Number(e.target.value))}
-                        className="h-8 text-xs text-right w-[80px] font-mono"
+                        className="h-8 text-xs text-right w-full font-mono"
                         placeholder="0"
                       />
                     </td>
@@ -223,12 +235,12 @@ export function GoodsReceiptSpreadsheet({
                         step="any"
                         value={draft.actualTotal || ''}
                         onChange={e => onUpdateDraft(draft.tempId, 'actualTotal', Number(e.target.value))}
-                        className="h-8 text-xs text-right w-[100px] font-mono"
+                        className="h-8 text-xs text-right w-full font-mono"
                         placeholder="0.00"
                       />
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
-                      {actualUnit > 0 ? actualUnit.toFixed(4) : '—'}
+                      {actualUnit > 0 ? actualUnit.toFixed(2) : '—'}
                     </td>
                     <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
                       {stdUnit > 0 ? stdUnit.toFixed(2) : '—'}
@@ -247,12 +259,12 @@ export function GoodsReceiptSpreadsheet({
                       <Input
                         value={draft.note}
                         onChange={e => onUpdateDraft(draft.tempId, 'note', e.target.value)}
-                        className="h-8 text-xs w-[120px]"
-                        placeholder="Note..."
+                        className="h-8 text-xs w-full"
+                        placeholder="Note"
                       />
                     </td>
-                    <td className={`${tdClass} text-right`}>
-                      <div className="flex items-center justify-end gap-0.5">
+                    <td className={`${tdClass} text-center`}>
+                      <div className="flex items-center justify-center gap-0">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -276,7 +288,7 @@ export function GoodsReceiptSpreadsheet({
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => onDuplicateRow(idx)}
-                          title="Duplicate row"
+                          title="Duplicate"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </Button>
@@ -286,73 +298,83 @@ export function GoodsReceiptSpreadsheet({
                 );
               })}
 
-              {/* Add row button inline */}
-              {drafts.length > 0 && (
-                <tr className="border-b">
-                  <td colSpan={13} className="px-3 py-2">
-                    <Button variant="ghost" size="sm" onClick={onAddRow} className="text-xs text-muted-foreground hover:text-foreground">
-                      <Plus className="w-3.5 h-3.5 mr-1" />
-                      Add another row
-                    </Button>
-                  </td>
-                </tr>
-              )}
-
               {/* Saved receipts (read-only) */}
               {displaySaved.map(r => {
                 const sku = skuMap[r.skuId];
                 const supplier = supplierMap[r.supplierId];
                 return (
-                  <tr key={r.id} className="border-b last:border-0 bg-background hover:bg-muted/30 transition-colors">
-                    <td className={tdReadOnly}>{r.receiptDate}</td>
-                    <td className={`${tdReadOnly} text-center font-mono`}>{r.weekNumber}</td>
-                    <td className={tdReadOnly}>
-                      <div className="font-medium">{sku?.name || '—'}</div>
-                      <div className="text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
-                    </td>
-                    <td className={tdReadOnly}>{supplier?.name || '—'}</td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{r.quantityReceived.toLocaleString()}</td>
-                    <td className={`${tdReadOnly} text-center`}>{skuMap[r.skuId]?.purchaseUom || r.usageUom || '—'}</td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.actualUnitPrice.toFixed(4)}</td>
-                    <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.stdUnitPrice.toFixed(2)}</td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{r.standardPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className={`${tdReadOnly} text-right font-mono font-semibold ${
-                      r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''
-                    }`}>
-                      {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className={`${tdReadOnly} text-muted-foreground max-w-[120px] truncate`}>{r.note}</td>
-                    <td className={`${tdReadOnly} text-right`}>
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => onEditSaved(r)}
-                          title="Edit"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => onDeleteSaved(r.id)}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                  <TooltipProvider key={r.id}>
+                    <tr className="border-b last:border-0 bg-background hover:bg-muted/30 transition-colors">
+                      <td className={tdReadOnly}>{r.receiptDate}</td>
+                      <td className={`${tdReadOnly} text-center font-mono`}>{r.weekNumber}</td>
+                      <td className={tdReadOnly}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="truncate">
+                              <span className="font-medium">{sku?.name || '—'}</span>
+                              <div className="text-muted-foreground font-mono text-[10px]">{sku?.skuId || '—'}</div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="font-medium">{sku?.name}</p>
+                            <p className="text-muted-foreground font-mono text-xs">{sku?.skuId}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td className={`${tdReadOnly} truncate`}>{supplier?.name || '—'}</td>
+                      <td className={`${tdReadOnly} text-right font-mono`}>{r.quantityReceived.toLocaleString()}</td>
+                      <td className={`${tdReadOnly} text-center text-muted-foreground`}>{skuMap[r.skuId]?.purchaseUom || r.usageUom || '—'}</td>
+                      <td className={`${tdReadOnly} text-right font-mono`}>{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.actualUnitPrice.toFixed(2)}</td>
+                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>{r.stdUnitPrice.toFixed(2)}</td>
+                      <td className={`${tdReadOnly} text-right font-mono`}>{r.standardPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className={`${tdReadOnly} text-right font-mono font-semibold ${
+                        r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''
+                      }`}>
+                        {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`${tdReadOnly} text-muted-foreground truncate`}>{r.note}</td>
+                      <td className={`${tdReadOnly} text-center`}>
+                        <div className="flex items-center justify-center gap-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => onEditSaved(r)}
+                            title="Edit"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => onDeleteSaved(r.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  </TooltipProvider>
                 );
               })}
+
+              {/* Add row button at bottom */}
+              <tr className="border-b">
+                <td colSpan={13} className="px-3 py-2">
+                  <Button variant="ghost" size="sm" onClick={onAddRow} className="text-xs text-muted-foreground hover:text-foreground">
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Add row
+                  </Button>
+                </td>
+              </tr>
 
               {drafts.length === 0 && displaySaved.length === 0 && (
                 <tr>
                   <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
-                    No receipts yet. Click "+ Add Row" to start entering.
+                    No receipts yet. Click "+ Add row" below to start entering.
                   </td>
                 </tr>
               )}

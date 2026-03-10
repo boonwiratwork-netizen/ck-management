@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, ClipboardCheck, Lock, Trash2, ChevronRight, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
@@ -37,7 +38,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
   const [createOpen, setCreateOpen] = useState(false);
   const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10));
   const [newNote, setNewNote] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('RM');
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -45,7 +46,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null;
   const sessionLines = selectedSessionId ? getLinesForSession(selectedSessionId) : [];
   const isCompleted = selectedSession?.status === 'Completed';
-  const isReadOnly = false; // Allow editing even completed sessions
 
   const skuMap = useMemo(() => {
     const m: Record<string, SKU> = {};
@@ -57,16 +57,15 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     return sessionLines.filter(line => {
       const sku = skuMap[line.skuId];
       if (!sku) return false;
-      if (filterType !== 'all' && line.type !== filterType) return false;
+      if (line.type !== activeTab) return false;
       if (filterStorage !== 'all' && sku.storageCondition !== filterStorage) return false;
       return true;
     });
-  }, [sessionLines, skuMap, filterType, filterStorage]);
+  }, [sessionLines, skuMap, activeTab, filterStorage]);
 
   const scComparators = useMemo(() => ({
     skuId: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
     name: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
-    type: (a: StockCountLine, b: StockCountLine) => a.type.localeCompare(b.type),
     storage: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.storageCondition || '').localeCompare(skuMap[b.skuId]?.storageCondition || ''),
     systemQty: (a: StockCountLine, b: StockCountLine) => a.systemQty - b.systemQty,
     variance: (a: StockCountLine, b: StockCountLine) => a.variance - b.variance,
@@ -85,6 +84,9 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
       }, 0);
     return { total: sessionLines.length, counted, withVariance, totalVarianceValue };
   }, [sessionLines, getStdUnitPrice]);
+
+  const rmCount = useMemo(() => sessionLines.filter(l => l.type === 'RM').length, [sessionLines]);
+  const smCount = useMemo(() => sessionLines.filter(l => l.type === 'SM').length, [sessionLines]);
 
   const varianceLines = useMemo(() => {
     return sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0);
@@ -118,19 +120,116 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     toast.success('Session deleted');
   };
 
+  const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
+
+  const renderCountTable = () => (
+    <div className="rounded-lg border overflow-auto max-h-[65vh]">
+      <table className="w-full text-sm">
+        <thead className="sticky-thead">
+          <tr className="border-b bg-muted/50">
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('skuId')}>
+              <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            </th>
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('name')}>
+              <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            </th>
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('storage')}>
+              <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            </th>
+            <th className={`${thClass} text-right bg-muted/50 cursor-pointer hover:bg-muted/70`} onClick={() => scHandleSort('systemQty')}>
+              <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+            </th>
+            <th className={`${thClass} text-right`}>
+              <div>Physical Qty</div>
+              <div className="text-[9px] font-normal text-muted-foreground">(Usage UOM)</div>
+            </th>
+            <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('variance')}>
+              <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+            </th>
+            <th className={thClass}>{t('col.note')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredLines.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="text-center py-10 text-muted-foreground">
+                <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                No {activeTab} SKUs match filters
+              </td>
+            </tr>
+          ) : (
+            sortedLines.map(line => {
+              const sku = skuMap[line.skuId];
+              if (!sku) return null;
+              const hasVariance = line.physicalQty !== null && line.variance !== 0;
+              return (
+                <tr key={line.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2 font-mono text-xs">{sku.skuId}</td>
+                  <td className="px-3 py-2 text-xs font-medium">{sku.name}</td>
+                  <td className="px-3 py-2 text-xs">{sku.storageCondition}</td>
+                  <td className="px-3 py-2 text-right bg-muted/30 font-mono text-xs">
+                    {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
+                  </td>
+                  <td className="px-1.5 py-1.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        defaultValue={line.physicalQty ?? ''}
+                        key={`phys-${line.id}-${line.physicalQty}`}
+                        placeholder="—"
+                        onBlur={e => {
+                          const val = e.target.value === '' ? null : Number(e.target.value);
+                          if (val !== line.physicalQty) updateLine(line.id, val);
+                        }}
+                        className="h-8 text-xs text-right w-[80px] font-mono"
+                      />
+                      <span className="text-[10px] text-muted-foreground w-6 text-left">{sku.usageUom}</span>
+                    </div>
+                  </td>
+                  <td className={`px-3 py-2 text-right font-mono text-xs font-medium ${
+                    !hasVariance ? 'text-muted-foreground' :
+                    line.variance > 0 ? 'text-success' : 'text-destructive'
+                  }`}>
+                    {line.physicalQty === null ? '—' :
+                      line.variance === 0 ? '0' :
+                      (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <Input
+                      defaultValue={line.note}
+                      key={`note-${line.id}-${line.note}`}
+                      placeholder="Optional"
+                      onBlur={e => {
+                        if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
+                      }}
+                      className="h-8 text-xs w-32"
+                    />
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.stockCount')}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
+          <h2 className="page-title">{t('title.stockCount')}</h2>
+          <p className="page-subtitle">Physical inventory counts and variance adjustments</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="w-4 h-4" /> {t('btn.newCountSession')}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
         {/* Sessions List */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">{t('section.sessions')}</p>
@@ -153,31 +252,31 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                   className={`cursor-pointer transition-colors hover:border-primary/50 ${isSelected ? 'border-primary ring-1 ring-primary/20' : ''}`}
                   onClick={() => setSelectedSessionId(session.id)}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm">{session.date}</p>
-                          <Badge variant={session.status === 'Completed' ? 'default' : 'secondary'} className="text-[10px]">
-                            {session.status === 'Completed' ? <Lock className="w-3 h-3 mr-1" /> : null}
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-xs">{session.date}</p>
+                          <Badge variant={session.status === 'Completed' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                            {session.status === 'Completed' ? <Lock className="w-2.5 h-2.5 mr-0.5" /> : null}
                             {session.status === 'Completed' ? t('status.completed') : t('status.draft')}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{session.note || 'No note'}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{counted}/{sLines.length} SKUs counted</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{session.note || 'No note'}</p>
+                        <p className="text-[10px] text-muted-foreground">{counted}/{sLines.length} counted</p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         {session.status === 'Draft' && (
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7"
+                            className="h-6 w-6"
                             onClick={e => { e.stopPropagation(); setDeleteConfirm(session.id); }}
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            <Trash2 className="w-3 h-3 text-destructive" />
                           </Button>
                         )}
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                       </div>
                     </div>
                   </CardContent>
@@ -204,132 +303,42 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Count Date: {selectedSession.date}</p>
-                      {selectedSession.note && <p className="text-sm text-muted-foreground">{selectedSession.note}</p>}
+                      <p className="font-medium text-sm">Count Date: {selectedSession.date}</p>
+                      {selectedSession.note && <p className="text-xs text-muted-foreground">{selectedSession.note}</p>}
                     </div>
-                    <Badge variant={isCompleted ? 'default' : 'secondary'}>
+                    <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
                       {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
                     </Badge>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-3">
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="RM">RM</SelectItem>
-                    <SelectItem value="SM">SM</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterStorage} onValueChange={setFilterStorage}>
-                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Storage</SelectItem>
-                    {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Tabs for RM / SM */}
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <div className="flex items-center justify-between">
+                  <TabsList>
+                    <TabsTrigger value="RM" className="text-xs">RM ({rmCount})</TabsTrigger>
+                    <TabsTrigger value="SM" className="text-xs">SM ({smCount})</TabsTrigger>
+                  </TabsList>
 
-              {/* Count Table */}
-              <div className="rounded-lg border overflow-auto max-h-[70vh]">
-                <Table>
-                  <TableHeader className="sticky-thead">
-                    <TableRow>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('skuId')}>
-                        <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('name')}>
-                        <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('type')}>
-                        <SortableHeader label={t('col.type')} sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('storage')}>
-                        <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
-                      </TableHead>
-                      <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
-                        <SortableHeader label={t('col.systemQty')} sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
-                      </TableHead>
-                      <TableHead className="text-right">{t('col.physicalQty')} (UOM)</TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
-                        <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
-                      </TableHead>
-                      <TableHead>{t('col.note')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLines.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                          <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                          No SKUs match filters
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedLines.map(line => {
-                        const sku = skuMap[line.skuId];
-                        if (!sku) return null;
-                        const hasVariance = line.physicalQty !== null && line.variance !== 0;
-                        return (
-                          <TableRow key={line.id}>
-                            <TableCell className="font-mono text-xs">{sku.skuId}</TableCell>
-                            <TableCell className="font-medium">{sku.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-[10px]">{line.type}</Badge>
-                            </TableCell>
-                            <TableCell className="text-xs">{sku.storageCondition}</TableCell>
-                            <TableCell className="text-right bg-muted/30 font-mono">
-                              {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <td className="px-1.5 py-1 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="any"
-                                  defaultValue={line.physicalQty ?? ''}
-                                  key={`phys-${line.id}-${line.physicalQty}`}
-                                  placeholder="—"
-                                  onBlur={e => {
-                                    const val = e.target.value === '' ? null : Number(e.target.value);
-                                    if (val !== line.physicalQty) updateLine(line.id, val);
-                                  }}
-                                  className="h-8 text-xs text-right w-[80px] font-mono"
-                                />
-                                <span className="text-[10px] text-muted-foreground w-6 text-left">{sku.usageUom}</span>
-                              </div>
-                            </td>
-                            <TableCell className={`text-right font-mono font-medium ${
-                              !hasVariance ? 'text-muted-foreground' :
-                              line.variance > 0 ? 'text-success' : 'text-destructive'
-                            }`}>
-                              {line.physicalQty === null ? '—' :
-                                line.variance === 0 ? '0' :
-                                (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <td className="px-1.5 py-1">
-                              <Input
-                                defaultValue={line.note}
-                                key={`note-${line.id}-${line.note}`}
-                                placeholder="Optional"
-                                onBlur={e => {
-                                  if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
-                                }}
-                                className="h-8 text-xs w-32"
-                              />
-                            </td>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                  <Select value={filterStorage} onValueChange={setFilterStorage}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Storage</SelectItem>
+                      {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <TabsContent value="RM" className="mt-3">
+                  {renderCountTable()}
+                </TabsContent>
+                <TabsContent value="SM" className="mt-3">
+                  {renderCountTable()}
+                </TabsContent>
+              </Tabs>
 
               {/* Summary */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
