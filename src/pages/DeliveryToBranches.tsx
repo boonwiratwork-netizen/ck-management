@@ -228,14 +228,14 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   };
 
   const handleSaveAll = useCallback(() => {
-    const valid = drafts.filter(d => d.isEditing && d.smSkuId && d.branchName && d.qtyDeliveredKg > 0);
+    const valid = drafts.filter(d => d.isEditing && d.smSkuId && d.branchName && d.qtyDeliveredG > 0);
     if (valid.length === 0) { toast.error('No valid rows to save'); return; }
     valid.forEach(draft => {
       const data = {
         deliveryDate: draft.deliveryDate,
         branchName: draft.branchName,
         smSkuId: draft.smSkuId,
-        qtyDeliveredKg: draft.qtyDeliveredKg,
+        qtyDeliveredG: draft.qtyDeliveredG,
         note: draft.note,
       };
       if (draft.isNew) addDelivery(data);
