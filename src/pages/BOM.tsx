@@ -820,6 +820,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                 </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {headers.filter(h => getLinesForHeader(h.id).length > 0).length} of {headers.length} items have BOM
+                </p>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -840,15 +843,19 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                       const hLines = getLinesForHeader(h.id);
                       const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
                       const isSelected = selectedHeaderId === h.id;
+                      const hasBom = hLines.length > 0;
                       return (
                         <div
                           key={h.id}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''}`}
+                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
                           onClick={() => { setSelectedHeaderId(h.id); setEditingHeader(false); setAddingLine(false); setEditingLineId(null); }}
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium">{sku?.skuId} · {sku?.name ?? '—'}</p>
+                              <p className="text-sm font-medium flex items-center gap-1.5">
+                                {!hasBom && <span className="text-orange-500">⚠️</span>}
+                                {sku?.skuId} · {sku?.name ?? '—'}
+                              </p>
                               <p className="text-xs text-muted-foreground">
                                 {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>

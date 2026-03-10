@@ -186,7 +186,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
   const selectedMenu = menus.find(m => m.id === selectedMenuId) ?? null;
   const selectedLines = selectedMenuId ? menuBomData.getLinesForMenu(selectedMenuId) : [];
-  const totalCost = selectedLines.reduce((sum, l) => sum + l.costPerServing, 0);
+  // Always compute cost from live prices (auto-recalc)
+  const totalCost = selectedLines.reduce((sum, l) => {
+    const effQty = calcEffectiveQty(l.qtyPerServing, l.yieldPct);
+    return sum + effQty * getActiveCost(l.skuId);
+  }, 0);
 
   const filteredMenus = useMemo(() => {
     const q = menuSearch.toLowerCase();
@@ -194,6 +198,17 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
       m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q)
     );
   }, [menus, menuSearch]);
+
+  // Summary: how many menus have BOM set up
+  const menusWithBom = useMemo(() => menus.filter(m => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
+
+  // Helper: live cost for a menu
+  const getLiveMenuCost = useCallback((menuId: string) => {
+    return menuBomData.getLinesForMenu(menuId).reduce((sum, l) => {
+      const effQty = calcEffectiveQty(l.qtyPerServing, l.yieldPct);
+      return sum + effQty * getActiveCost(l.skuId);
+    }, 0);
+  }, [menuBomData, prices]);
 
   // Inline add
   const startAddLine = () => {
@@ -335,6 +350,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Menus</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">{menusWithBom} of {menus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -349,16 +365,20 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
               <div className="divide-y">
                 {filteredMenus.map(m => {
                   const lineCount = menuBomData.getLinesForMenu(m.id).length;
-                  const menuCost = menuBomData.getLinesForMenu(m.id).reduce((s, l) => s + l.costPerServing, 0);
+                  const menuCost = getLiveMenuCost(m.id);
+                  const hasBom = lineCount > 0;
                   return (
                     <button
                       key={m.id}
                       onClick={() => { setSelectedMenuId(m.id); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedMenuId === m.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      }`}
+                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
                     >
-                      <p className="text-sm font-medium">{m.menuCode} · {m.menuName}</p>
+                      <p className="text-sm font-medium flex items-center gap-1.5">
+                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {m.menuCode} · {m.menuName}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {lineCount} ingredients {menuCost > 0 && <span className="font-mono">· ฿{menuCost.toFixed(2)}/serving</span>}
                       </p>
@@ -466,7 +486,10 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                               {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                              {line.costPerServing > 0 ? `฿${line.costPerServing.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              {(() => {
+                                const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
+                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                              })()}
                             </TableCell>
                             {canEdit && (
                               <TableCell className="py-2 px-3">

@@ -94,6 +94,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     );
   }, [spSkus, spSearch]);
 
+  // Summary: how many SP items have BOM set up
+  const spWithBom = useMemo(() => spSkus.filter(s => spBomData.getLinesForSp(s.id).length > 0).length, [spSkus, spBomData]);
+
   // Sync SP BOM price
   const syncSpPrice = async () => {
     if (!selectedSpId || totalCostPerUnit <= 0) return;
@@ -368,6 +371,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">SP Items</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">{spWithBom} of {spSkus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -383,15 +387,19 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                 {filteredSpSkus.map(s => {
                   const lineCount = spBomData.getLinesForSp(s.id).length;
                   const batchYield = spBomData.getLinesForSp(s.id)[0]?.batchYieldQty ?? 1;
+                  const hasBom = lineCount > 0;
                   return (
                     <button
                       key={s.id}
                       onClick={() => { setSelectedSpId(s.id); setEditingYield(false); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedSpId === s.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      }`}
+                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
                     >
-                      <p className="text-sm font-medium">{s.skuId} · {s.name}</p>
+                      <p className="text-sm font-medium flex items-center gap-1.5">
+                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {s.skuId} · {s.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {lineCount} ingredients {lineCount > 0 && <span>· {batchYield} {s.usageUom}</span>}
                       </p>
@@ -525,7 +533,10 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                               {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
                             </TableCell>
                             <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
-                              {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              {(() => {
+                                const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
+                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                              })()}
                             </TableCell>
                             {canEdit && (
                               <TableCell className="py-1 px-2">
