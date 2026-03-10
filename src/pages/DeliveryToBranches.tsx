@@ -179,12 +179,12 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     // Check SM stock
     const balance = smStockBalances.find(b => b.skuId === draft.smSkuId);
     const currentStock = balance?.currentStock ?? 0;
-    if (currentStock - draft.qtyDeliveredKg < 0) {
+    if (currentStock - draft.qtyDeliveredG < 0) {
       const sku = skuMap[draft.smSkuId];
       setStockWarning({
         tempId,
         skuName: sku?.name || draft.smSkuId,
-        need: draft.qtyDeliveredKg,
+        need: draft.qtyDeliveredG,
         have: currentStock,
       });
       return;
