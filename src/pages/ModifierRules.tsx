@@ -403,7 +403,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
 
     const data: Omit<ModifierRule, 'id'> = {
       keyword: formKeyword.trim(),
-      skuId: formRuleType === 'submenu' ? '' : formSkuId,
+      skuId: formRuleType === 'submenu' ? null as any : formSkuId,
       qtyPerMatch: formRuleType === 'submenu' ? 1 : formQty,
       uom: formRuleType === 'submenu' ? '' : formUom,
       description: formDesc,

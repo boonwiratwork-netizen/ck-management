@@ -366,7 +366,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
               </div>
 
               {/* Confirm Button */}
-              {!isReadOnly && (
+              {!isCompleted && (
                 <div className="flex justify-end">
                   <Button
                     onClick={() => setConfirmOpen(true)}

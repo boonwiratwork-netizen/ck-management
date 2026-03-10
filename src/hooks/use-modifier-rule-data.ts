@@ -53,7 +53,7 @@ export function useModifierRuleData() {
   const addRule = useCallback(async (data: Omit<ModifierRule, 'id'>) => {
     const { data: row, error } = await supabase.from('menu_modifier_rules').insert({
       keyword: data.keyword,
-      sku_id: data.skuId,
+      sku_id: data.skuId || null,
       qty_per_match: data.qtyPerMatch,
       uom: data.uom,
       description: data.description,
