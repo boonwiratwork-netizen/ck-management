@@ -132,7 +132,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
         {/* Sessions List */}
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Sessions</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">{t('section.sessions')}</p>
           {sessions.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
