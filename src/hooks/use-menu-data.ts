@@ -68,5 +68,20 @@ export function useMenuData() {
     setMenus(prev => prev.filter(m => m.id !== id));
   }, []);
 
-  return { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu };
+  const bulkAddMenus = useCallback(async (rows: Omit<Menu, 'id'>[]) => {
+    const dbRows = rows.map(r => ({
+      menu_code: r.menuCode,
+      menu_name: r.menuName,
+      category: r.category,
+      selling_price: r.sellingPrice,
+      status: r.status,
+      brand_name: r.brandName,
+    }));
+    const { data, error } = await supabase.from('menus').insert(dbRows).select();
+    if (error) { toast.error('Bulk insert failed: ' + error.message); return 0; }
+    setMenus(prev => [...(data || []).map(toLocal), ...prev]);
+    return data?.length || 0;
+  }, []);
+
+  return { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu, bulkAddMenus };
 }
