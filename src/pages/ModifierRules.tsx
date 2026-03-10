@@ -278,6 +278,7 @@ function SubmenuSelector({
       )}
     </div>
   );
+}
 
 export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
