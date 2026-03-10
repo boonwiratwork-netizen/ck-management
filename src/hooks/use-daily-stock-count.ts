@@ -345,7 +345,8 @@ export function useDailyStockCount({
     const prevPhysical: Record<string, number> = {};
     (prevCounts || []).forEach(p => {
       if (p.physical_count !== null) {
-        prevPhysical[p.sku_id] = Number(p.physical_count);
+        const conv = getSkuConverter(p.sku_id);
+        prevPhysical[p.sku_id] = Number(p.physical_count) * conv;
       }
     });
 
