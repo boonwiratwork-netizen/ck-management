@@ -60,12 +60,12 @@ export default function SkuCategoriesPage({ categoryData, skus, readOnly = false
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">SKU Categories</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.skuCategories')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage ingredient categories for SKU classification</p>
         </div>
         {!readOnly && (
           <Button onClick={() => setAdding(true)} disabled={adding}>
-            <Plus className="w-4 h-4" /> Add Category
+            <Plus className="w-4 h-4" /> {t('btn.addCategory')}
           </Button>
         )}
       </div>
