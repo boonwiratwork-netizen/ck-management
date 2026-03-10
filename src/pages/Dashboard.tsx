@@ -148,9 +148,9 @@ const Dashboard = ({
   }, [productionPlans, rangeStart, rangeEnd]);
 
   const planSummary = useMemo(() => {
-    const totalTarget = rangePlans.reduce((s, p) => s + p.targetQtyKg, 0);
+    const totalTargetG = rangePlans.reduce((s, p) => s + p.targetQtyKg * 1000, 0);
     const totalProduced = rangePlans.reduce((s, p) => s + getTotalProducedForPlan(p.id), 0);
-    return { totalTarget, totalProduced, progress: totalTarget > 0 ? (totalProduced / totalTarget) * 100 : 0 };
+    return { totalTarget: totalTargetG, totalProduced, progress: totalTargetG > 0 ? (totalProduced / totalTargetG) * 100 : 0 };
   }, [rangePlans, getTotalProducedForPlan]);
 
   // Purchase Summary in range
