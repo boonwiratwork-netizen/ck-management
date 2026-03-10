@@ -121,11 +121,11 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Stock Count</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.stockCount')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> New Count Session
+          <Plus className="w-4 h-4" /> {t('btn.newCountSession')}
         </Button>
       </div>
 
