@@ -206,7 +206,7 @@ const Dashboard = ({
         });
       }
 
-      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputKg: totalOutputKg, standardValue, actualValue, variance: actualValue - standardValue });
+      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputG: totalOutputG, standardValue, actualValue, variance: actualValue - standardValue });
     });
 
     return rows;
