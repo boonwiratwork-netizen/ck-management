@@ -400,6 +400,21 @@ export function useDailyStockCount({
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount, variance } : r));
   }, [rows]);
 
+  // Update waste
+  const updateWaste = useCallback(async (rowId: string, waste: number) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row || row.isSubmitted) return;
+
+    const calcBalance = row.openingBalance + row.receivedFromCk + row.receivedExternal - row.expectedUsage - waste;
+    const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
+    const { error } = await supabase
+      .from('daily_stock_counts')
+      .update({ waste, calculated_balance: calcBalance, variance })
+      .eq('id', rowId);
+    if (error) { toast.error('Failed to update waste'); return; }
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, waste, calculatedBalance: calcBalance, variance } : r));
+  }, [rows]);
+
   // Submit count
   const submitSheet = useCallback(async (branchId: string, date: string) => {
     const now = new Date().toISOString();
@@ -427,7 +442,7 @@ export function useDailyStockCount({
 
   return {
     rows, loading, generating,
-    loadSheet, generateSheet, updatePhysicalCount,
+    loadSheet, generateSheet, updatePhysicalCount, updateWaste,
     submitSheet, unlockSheet,
   };
 }
