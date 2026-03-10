@@ -42,6 +42,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const [menuSearch, setMenuSearch] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Inline editing state
   const [addingLine, setAddingLine] = useState(false);
@@ -50,6 +51,119 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const [formQty, setFormQty] = useState(0);
   const [formUom, setFormUom] = useState('');
   const [formYield, setFormYield] = useState(100);
+
+  // CSV import config
+  const csvColumns: CSVColumnDef[] = [
+    { key: 'menu_code', label: 'menu_code', required: true },
+    { key: 'sku_code', label: 'sku_code', required: true },
+    { key: 'qty', label: 'qty', required: true },
+    { key: 'yield_pct', label: 'yield_pct' },
+  ];
+
+  const validateCsv = useCallback((rows: Record<string, string>[]) => {
+    const valid: Record<string, string>[] = [];
+    const errors: CSVValidationError[] = [];
+    const seen = new Set<string>();
+    let skipped = 0;
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2;
+      const menuCode = (row['menu_code'] ?? '').trim();
+      const skuCode = (row['sku_code'] ?? '').trim();
+      const qtyStr = (row['qty'] ?? '').trim();
+      const yieldStr = (row['yield_pct'] ?? '').trim();
+
+      if (!menuCode) { errors.push({ row: rowNum, message: 'menu_code is required' }); return; }
+      if (!skuCode) { errors.push({ row: rowNum, message: 'sku_code is required' }); return; }
+      if (!qtyStr) { errors.push({ row: rowNum, message: 'qty is required' }); return; }
+
+      const menu = menus.find(m => m.menuCode.toLowerCase() === menuCode.toLowerCase());
+      if (!menu) { errors.push({ row: rowNum, message: `menu_code "${menuCode}" not found` }); return; }
+
+      const sku = skus.find(s => s.skuId.toLowerCase() === skuCode.toLowerCase());
+      if (!sku) { errors.push({ row: rowNum, message: `sku_code "${skuCode}" not found` }); return; }
+
+      const qty = Number(qtyStr);
+      if (isNaN(qty) || qty <= 0) { errors.push({ row: rowNum, message: 'qty must be a positive number' }); return; }
+
+      let yieldPct = 100;
+      if (yieldStr) {
+        yieldPct = Number(yieldStr);
+        if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) { errors.push({ row: rowNum, message: 'yield_pct must be between 0 and 100' }); return; }
+      }
+
+      const dupKey = `${menuCode.toLowerCase()}|${skuCode.toLowerCase()}`;
+      if (seen.has(dupKey)) { skipped++; return; }
+      seen.add(dupKey);
+
+      valid.push({ ...row, menu_code: menuCode, sku_code: skuCode, qty: String(qty), yield_pct: String(yieldPct) });
+    });
+
+    return { valid, errors, skipped };
+  }, [menus, skus]);
+
+  const handleCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    // Group rows by menu_code
+    const grouped = new Map<string, Record<string, string>[]>();
+    rows.forEach(row => {
+      const mc = row['menu_code'].toLowerCase();
+      if (!grouped.has(mc)) grouped.set(mc, []);
+      grouped.get(mc)!.push(row);
+    });
+
+    let menusImported = 0;
+    let rowsInserted = 0;
+    let failed = 0;
+
+    for (const [, menuRows] of grouped) {
+      const menuCode = menuRows[0]['menu_code'];
+      const menu = menus.find(m => m.menuCode.toLowerCase() === menuCode.toLowerCase());
+      if (!menu) { failed += menuRows.length; continue; }
+
+      // Delete existing BOM lines for this menu
+      const { error: delErr } = await supabase.from('menu_bom').delete().eq('menu_id', menu.id);
+      if (delErr) { failed += menuRows.length; continue; }
+
+      // Build insert rows
+      const insertRows = menuRows.map(row => {
+        const sku = skus.find(s => s.skuId.toLowerCase() === row['sku_code'].toLowerCase())!;
+        const qty = Number(row['qty']);
+        const yieldPct = Number(row['yield_pct']);
+        const effectiveQty = yieldPct > 0 ? qty / (yieldPct / 100) : qty;
+        const active = prices.find(p => p.skuId === sku.id && p.isActive);
+        const costPerServing = effectiveQty * (active?.pricePerUsageUom ?? 0);
+        return {
+          menu_id: menu.id,
+          sku_id: sku.id,
+          qty_per_serving: qty,
+          uom: sku.usageUom,
+          yield_pct: yieldPct,
+          effective_qty: effectiveQty,
+          cost_per_serving: costPerServing,
+        };
+      });
+
+      const { error: insErr } = await supabase.from('menu_bom').insert(insertRows);
+      if (insErr) { failed += menuRows.length; continue; }
+
+      menusImported++;
+      rowsInserted += menuRows.length;
+    }
+
+    // Refresh local state by reloading
+    const { data: freshData } = await supabase.from('menu_bom').select('*').order('created_at');
+    if (freshData) {
+      // Trigger a re-render through the hook — we need to reload the page data
+      // Since menuBomData comes from a hook, we'll reload the page
+      window.location.reload();
+    }
+
+    if (failed > 0) {
+      toast.warning(`Import done: ${menusImported} menus, ${rowsInserted} rows inserted, ${failed} failed`);
+    } else {
+      toast.success(`Import complete: ${menusImported} menus, ${rowsInserted} rows inserted`);
+    }
+  }, [menus, skus, prices]);
 
   // Eligible SKUs: RM, SM, SP
   const eligibleSkus = useMemo(() => skus.filter(s => ['RM', 'SM', 'SP'].includes(s.type)), [skus]);
