@@ -11,7 +11,7 @@ const toPlan = (r: any): ProductionPlan => ({
 });
 const toRecord = (r: any): ProductionRecord => ({
   id: r.id, planId: r.plan_id, productionDate: r.production_date,
-  smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputKg: r.actual_output_kg,
+  smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputG: r.actual_output_g,
 });
 
 interface StockDeduction {
@@ -98,7 +98,7 @@ export function useProductionData(
 
     const { data: row, error } = await supabase.from('production_records').insert({
       plan_id: data.planId, production_date: data.productionDate,
-      sm_sku_id: plan.smSkuId, batches_produced: data.batchesProduced, actual_output_kg: data.actualOutputKg,
+      sm_sku_id: plan.smSkuId, batches_produced: data.batchesProduced, actual_output_g: data.actualOutputG,
     }).select().single();
     if (error) { toast.error('Failed to add record: ' + error.message); return; }
     setRecords(prev => [toRecord(row), ...prev]);
@@ -125,7 +125,7 @@ export function useProductionData(
   }, []);
 
   const getRecordsForPlan = useCallback((planId: string) => records.filter(r => r.planId === planId), [records]);
-  const getTotalProducedForPlan = useCallback((planId: string) => records.filter(r => r.planId === planId).reduce((s, r) => s + r.actualOutputKg, 0), [records]);
+  const getTotalProducedForPlan = useCallback((planId: string) => records.filter(r => r.planId === planId).reduce((s, r) => s + r.actualOutputG, 0), [records]);
 
   return { plans, records, addPlan, updatePlan, deletePlan, addRecord, deleteRecord, getRecordsForPlan, getTotalProducedForPlan, getOutputPerBatch };
 }

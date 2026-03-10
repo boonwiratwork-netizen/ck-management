@@ -310,7 +310,7 @@ export type Database = {
           delivery_date: string
           id: string
           note: string
-          qty_delivered_kg: number
+          qty_delivered_g: number
           sm_sku_id: string
           updated_at: string
           week_number: number
@@ -321,7 +321,7 @@ export type Database = {
           delivery_date?: string
           id?: string
           note?: string
-          qty_delivered_kg?: number
+          qty_delivered_g?: number
           sm_sku_id: string
           updated_at?: string
           week_number?: number
@@ -332,7 +332,7 @@ export type Database = {
           delivery_date?: string
           id?: string
           note?: string
-          qty_delivered_kg?: number
+          qty_delivered_g?: number
           sm_sku_id?: string
           updated_at?: string
           week_number?: number
@@ -737,7 +737,7 @@ export type Database = {
       }
       production_records: {
         Row: {
-          actual_output_kg: number
+          actual_output_g: number
           batches_produced: number
           created_at: string
           id: string
@@ -746,7 +746,7 @@ export type Database = {
           sm_sku_id: string
         }
         Insert: {
-          actual_output_kg?: number
+          actual_output_g?: number
           batches_produced?: number
           created_at?: string
           id?: string
@@ -755,7 +755,7 @@ export type Database = {
           sm_sku_id: string
         }
         Update: {
-          actual_output_kg?: number
+          actual_output_g?: number
           batches_produced?: number
           created_at?: string
           id?: string

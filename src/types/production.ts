@@ -17,7 +17,7 @@ export interface ProductionRecord {
   productionDate: string;    // ISO date
   smSkuId: string;           // auto-filled from plan
   batchesProduced: number;
-  actualOutputKg: number;    // actual output in kg
+  actualOutputG: number;     // actual output in grams
 }
 
 export const EMPTY_PRODUCTION_PLAN: Omit<ProductionPlan, 'id' | 'numBatches' | 'weekNumber' | 'weekStartDate' | 'weekEndDate'> = {
@@ -30,7 +30,7 @@ export const EMPTY_PRODUCTION_RECORD: Omit<ProductionRecord, 'id' | 'smSkuId'> =
   planId: '',
   productionDate: new Date().toISOString().slice(0, 10),
   batchesProduced: 0,
-  actualOutputKg: 0,
+  actualOutputG: 0,
 };
 
 /** Get Monday of the week for a given date */

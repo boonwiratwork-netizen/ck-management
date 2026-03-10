@@ -19,13 +19,14 @@ interface Props {
     stockBalances: SMStockBalance[];
     setOpeningStock: (skuId: string, qty: number) => void;
     addAdjustment: (adj: Omit<StockAdjustment, 'id'>) => void;
+    getBomCostPerGram: (skuId: string) => number;
     getLastProductionDate: (skuId: string) => string | null;
     openingStocks: Record<string, number>;
   };
 }
 
 export default function SMStockPage({ skus, smStockData }: Props) {
-  const { stockBalances, setOpeningStock, addAdjustment, getLastProductionDate, openingStocks } = smStockData;
+  const { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks } = smStockData;
   const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
@@ -57,7 +58,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
         const lastDate = getLastProductionDate(sku.id);
         const currentStock = balance?.currentStock ?? 0;
         const opening = balance?.openingStock ?? 0;
-        const stockValue = currentStock * 1000 * 0; // BOM cost/gram placeholder
+        const stockValue = currentStock * getBomCostPerGram(sku.id);
 
         let healthStatus: 'red' | 'yellow' | 'green' = 'green';
         if (currentStock <= 0) healthStatus = 'red';
@@ -169,6 +170,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead>{t('col.uom')}</TableHead>
+              <TableHead className="text-right">Stock Value</TableHead>
               <TableHead>{t('col.lastProduction')}</TableHead>
               <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
@@ -177,7 +179,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
           <TableBody>
             {filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={14} className="text-center py-10 text-muted-foreground">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No SM SKUs found
                 </TableCell>
@@ -227,6 +229,9 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                       {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{row.sku.usageUom}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {row.stockValue > 0 ? `฿${row.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </TableCell>
                     <TableCell className="text-xs">{row.lastDate ?? '—'}</TableCell>
                     <TableCell className="text-right text-muted-foreground">0</TableCell>
                     <TableCell>

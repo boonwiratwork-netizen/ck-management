@@ -262,7 +262,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
   // Check RM stock before saving production record
   const checkStockAndSave = () => {
     if (recordForm.batchesProduced <= 0) { toast.error('Enter batches produced'); return; }
-    if (recordForm.actualOutputKg <= 0) { toast.error('Enter actual output'); return; }
+    if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
 
     if (!selectedPlan) return;
 
@@ -392,7 +392,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                             </div>
                             {produced > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Produced: {produced.toFixed(1)}kg / {plan.targetQtyKg}kg ({((produced / plan.targetQtyKg) * 100).toFixed(0)}%)
+                                Produced: {(produced / 1000).toFixed(1)}kg / {plan.targetQtyKg}kg ({((produced / (plan.targetQtyKg * 1000)) * 100).toFixed(0)}%)
                               </p>
                             )}
                           </div>
@@ -456,13 +456,13 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                     </div>
                     <div className="text-center p-3 rounded-lg bg-muted/50">
                       <p className="text-xs text-muted-foreground">Produced</p>
-                      <p className="text-lg font-bold">{getTotalProducedForPlan(selectedPlan.id).toFixed(1)} kg</p>
+                      <p className="text-lg font-bold">{(getTotalProducedForPlan(selectedPlan.id) / 1000).toFixed(1)} kg</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-primary/10">
                       <p className="text-xs text-muted-foreground">Progress</p>
                       <p className="text-lg font-bold text-primary">
                         {selectedPlan.targetQtyKg > 0
-                          ? ((getTotalProducedForPlan(selectedPlan.id) / selectedPlan.targetQtyKg) * 100).toFixed(0)
+                          ? ((getTotalProducedForPlan(selectedPlan.id) / (selectedPlan.targetQtyKg * 1000)) * 100).toFixed(0)
                           : 0}%
                       </p>
                     </div>
@@ -488,7 +488,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                         <TableHead className="text-xs">Date</TableHead>
                         <TableHead className="text-xs">SM SKU</TableHead>
                         <TableHead className="text-xs text-right">Batches</TableHead>
-                        <TableHead className="text-xs text-right">Output (kg)</TableHead>
+                        <TableHead className="text-xs text-right">Output (g)</TableHead>
                         <TableHead className="text-xs w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -506,7 +506,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                             <TableCell className="text-xs">{rec.productionDate}</TableCell>
                             <TableCell className="text-xs">{getSkuName(rec.smSkuId)}</TableCell>
                             <TableCell className="text-xs text-right">{rec.batchesProduced}</TableCell>
-                            <TableCell className="text-xs text-right font-medium">{rec.actualOutputKg.toFixed(1)}</TableCell>
+                            <TableCell className="text-xs text-right font-medium">{rec.actualOutputG.toFixed(1)}</TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteRecordRequest(rec.id)}>
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -562,7 +562,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
             </div>
             {planForm.smSkuId && planForm.targetQtyKg > 0 && (
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <p>Output per batch: <span className="font-semibold">{(getOutputPerBatch(planForm.smSkuId) / 1000).toFixed(2)} kg</span></p>
+                <p>Output per batch: <span className="font-semibold">{getOutputPerBatch(planForm.smSkuId).toFixed(0)} g</span></p>
                 <p>Batches needed: <span className="font-semibold">{previewBatches}</span></p>
               </div>
             )}
@@ -607,8 +607,8 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
               <Input type="number" value={recordForm.batchesProduced || ''} onChange={e => setRecordForm(f => ({ ...f, batchesProduced: Number(e.target.value) }))} />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Actual Output (kg)</label>
-              <Input type="number" step="0.1" value={recordForm.actualOutputKg || ''} onChange={e => setRecordForm(f => ({ ...f, actualOutputKg: Number(e.target.value) }))} />
+              <label className="text-xs font-medium text-muted-foreground">Actual Output (g)</label>
+              <Input type="number" step="0.1" value={recordForm.actualOutputG || ''} onChange={e => setRecordForm(f => ({ ...f, actualOutputG: Number(e.target.value) }))} />
             </div>
             {selectedPlan && recordForm.batchesProduced > 0 && (
               <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-3 text-sm">

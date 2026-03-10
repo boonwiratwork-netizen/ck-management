@@ -30,7 +30,7 @@ interface DraftDeliveryRow {
   deliveryDate: string;
   branchName: string;
   smSkuId: string;
-  qtyDeliveredKg: number;
+  qtyDeliveredG: number;
   note: string;
   isNew: boolean;
   isEditing: boolean;
@@ -43,7 +43,7 @@ function createEmptyDraft(): DraftDeliveryRow {
     deliveryDate: new Date().toISOString().slice(0, 10),
     branchName: '',
     smSkuId: '',
-    qtyDeliveredKg: 0,
+    qtyDeliveredG: 0,
     note: '',
     isNew: true,
     isEditing: true,
@@ -68,7 +68,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     [deliveries, currentWeek]
   );
   const thisWeekQty = useMemo(
-    () => thisWeekDeliveries.reduce((s, d) => s + d.qtyDeliveredKg, 0),
+    () => thisWeekDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0),
     [thisWeekDeliveries]
   );
 
@@ -122,7 +122,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           case 'week': cmp = a.weekNumber - b.weekNumber; break;
           case 'branch': cmp = a.branchName.localeCompare(b.branchName); break;
           case 'sku': cmp = (skuMap[a.smSkuId]?.name || '').localeCompare(skuMap[b.smSkuId]?.name || ''); break;
-          case 'qty': cmp = a.qtyDeliveredKg - b.qtyDeliveredKg; break;
+          case 'qty': cmp = a.qtyDeliveredG - b.qtyDeliveredG; break;
         }
         return delSortDir === 'desc' ? -cmp : cmp;
       });
@@ -157,7 +157,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       deliveryDate: draft.deliveryDate,
       branchName: draft.branchName,
       smSkuId: draft.smSkuId,
-      qtyDeliveredKg: draft.qtyDeliveredKg,
+      qtyDeliveredG: draft.qtyDeliveredG,
       note: draft.note,
     };
     if (draft.isNew) {
@@ -171,7 +171,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const handleSaveRow = useCallback((tempId: string) => {
     const draft = drafts.find(d => d.tempId === tempId);
-    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredKg <= 0) {
+    if (!draft || !draft.smSkuId || !draft.branchName || draft.qtyDeliveredG <= 0) {
       toast.error('Please fill in Branch, SM SKU, and Qty');
       return;
     }
@@ -179,12 +179,12 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     // Check SM stock
     const balance = smStockBalances.find(b => b.skuId === draft.smSkuId);
     const currentStock = balance?.currentStock ?? 0;
-    if (currentStock - draft.qtyDeliveredKg < 0) {
+    if (currentStock - draft.qtyDeliveredG < 0) {
       const sku = skuMap[draft.smSkuId];
       setStockWarning({
         tempId,
         skuName: sku?.name || draft.smSkuId,
-        need: draft.qtyDeliveredKg,
+        need: draft.qtyDeliveredG,
         have: currentStock,
       });
       return;
@@ -204,7 +204,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       deliveryDate: delivery.deliveryDate,
       branchName: delivery.branchName,
       smSkuId: delivery.smSkuId,
-      qtyDeliveredKg: delivery.qtyDeliveredKg,
+      qtyDeliveredG: delivery.qtyDeliveredG,
       note: delivery.note,
       isNew: false,
       isEditing: true,
@@ -228,14 +228,14 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   };
 
   const handleSaveAll = useCallback(() => {
-    const valid = drafts.filter(d => d.isEditing && d.smSkuId && d.branchName && d.qtyDeliveredKg > 0);
+    const valid = drafts.filter(d => d.isEditing && d.smSkuId && d.branchName && d.qtyDeliveredG > 0);
     if (valid.length === 0) { toast.error('No valid rows to save'); return; }
     valid.forEach(draft => {
       const data = {
         deliveryDate: draft.deliveryDate,
         branchName: draft.branchName,
         smSkuId: draft.smSkuId,
-        qtyDeliveredKg: draft.qtyDeliveredKg,
+        qtyDeliveredG: draft.qtyDeliveredG,
         note: draft.note,
       };
       if (draft.isNew) addDelivery(data);
@@ -363,7 +363,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                       />
                     </td>
                     <td className={tdClass}>
-                      <Input type="number" min={0} step="any" value={draft.qtyDeliveredKg || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredKg', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
+                      <Input type="number" min={0} step="any" value={draft.qtyDeliveredG || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredG', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
                     </td>
                     <td className={tdClass}>
                       <Input value={draft.note} onChange={e => handleUpdateDraft(draft.tempId, 'note', e.target.value)} className="h-8 text-xs w-[120px]" placeholder="Note..." />
@@ -400,7 +400,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                       <div className="font-medium">{sku?.name || '—'}</div>
                       <div className="text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
                     </td>
-                    <td className={`${tdReadOnly} text-right font-mono`}>{d.qtyDeliveredKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>{d.qtyDeliveredG.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                     <td className={`${tdReadOnly} text-muted-foreground max-w-[120px] truncate`}>{d.note}</td>
                     <td className={`${tdReadOnly} text-right`}>
                       <div className="flex items-center justify-end gap-0.5">

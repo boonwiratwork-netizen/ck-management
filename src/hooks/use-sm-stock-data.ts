@@ -3,7 +3,8 @@ import { StockAdjustment } from '@/types/stock';
 import { SKU } from '@/types/sku';
 import { ProductionRecord } from '@/types/production';
 import { Delivery } from '@/types/delivery';
-import { BOMHeader } from '@/types/bom';
+import { BOMHeader, BOMLine } from '@/types/bom';
+import { Price } from '@/types/price';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,13 +21,14 @@ export function useSmStockData(
   skus: SKU[],
   productionRecords: ProductionRecord[],
   deliveries: Delivery[],
-  bomHeaders: BOMHeader[]
+  bomHeaders: BOMHeader[],
+  bomLines: BOMLine[],
+  prices: Price[]
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
 
   useEffect(() => {
-    // SM opening stocks use same table, just filter SM skus on client
     supabase.from('stock_opening_balances').select('*')
       .then(({ data }) => {
         if (data) {
@@ -48,8 +50,8 @@ export function useSmStockData(
   const stockBalances = useMemo((): SMStockBalance[] => {
     return smSkus.map(sku => {
       const opening = openingStocks[sku.id] ?? 0;
-      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputKg, 0);
-      const totalDelivered = deliveries.filter(d => d.smSkuId === sku.id).reduce((sum, d) => sum + d.qtyDeliveredKg, 0);
+      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
+      const totalDelivered = deliveries.filter(d => d.smSkuId === sku.id).reduce((sum, d) => sum + d.qtyDeliveredG, 0);
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
@@ -74,7 +76,17 @@ export function useSmStockData(
     setAdjustments(prev => [{ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason }, ...prev]);
   }, []);
 
-  const getBomCostPerGram = useCallback((_skuId: string): number => 0, []);
+  const getBomCostPerGram = useCallback((skuId: string): number => {
+    const bomHeader = bomHeaders.find(h => h.smSkuId === skuId);
+    if (!bomHeader) return 0;
+    const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
+    const batchCost = bLines.reduce((s, line) => {
+      const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
+      return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
+    }, 0);
+    const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
+    return outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
+  }, [bomHeaders, bomLines, prices]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
     const recs = productionRecords.filter(r => r.smSkuId === skuId);

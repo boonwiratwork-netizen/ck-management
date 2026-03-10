@@ -107,7 +107,7 @@ const Dashboard = ({
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         costPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
-      const value = costPerGram * bal.currentStock * 1000;
+      const value = costPerGram * bal.currentStock;
       totalSmValue += value;
       smRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value });
     });
@@ -124,7 +124,7 @@ const Dashboard = ({
       const recentDeliveries = deliveries.filter(
         d => d.smSkuId === bal.skuId && d.deliveryDate >= thirtyDaysAgo.toISOString().slice(0, 10)
       );
-      const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredKg, 0);
+      const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0);
       const avgDailyDelivery = totalDelivered30d / 30;
       const coverDays = avgDailyDelivery > 0 ? bal.currentStock / avgDailyDelivery : 999;
 
@@ -148,9 +148,9 @@ const Dashboard = ({
   }, [productionPlans, rangeStart, rangeEnd]);
 
   const planSummary = useMemo(() => {
-    const totalTarget = rangePlans.reduce((s, p) => s + p.targetQtyKg, 0);
+    const totalTargetG = rangePlans.reduce((s, p) => s + p.targetQtyKg * 1000, 0);
     const totalProduced = rangePlans.reduce((s, p) => s + getTotalProducedForPlan(p.id), 0);
-    return { totalTarget, totalProduced, progress: totalTarget > 0 ? (totalProduced / totalTarget) * 100 : 0 };
+    return { totalTarget: totalTargetG, totalProduced, progress: totalTargetG > 0 ? (totalProduced / totalTargetG) * 100 : 0 };
   }, [rangePlans, getTotalProducedForPlan]);
 
   // Purchase Summary in range
@@ -173,11 +173,11 @@ const Dashboard = ({
       bySmSku.set(r.smSkuId, arr);
     });
 
-    const rows: { smSkuId: string; name: string; actualOutputKg: number; standardValue: number; actualValue: number; variance: number }[] = [];
+    const rows: { smSkuId: string; name: string; actualOutputG: number; standardValue: number; actualValue: number; variance: number }[] = [];
 
     bySmSku.forEach((recs, smSkuId) => {
       const sku = skuMap.get(smSkuId);
-      const totalOutputKg = recs.reduce((s, r) => s + r.actualOutputKg, 0);
+      const totalOutputG = recs.reduce((s, r) => s + r.actualOutputG, 0);
       const totalBatches = recs.reduce((s, r) => s + r.batchesProduced, 0);
 
       const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
@@ -191,7 +191,7 @@ const Dashboard = ({
         const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
         bomCostPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
       }
-      const standardValue = bomCostPerGram * totalOutputKg * 1000;
+      const standardValue = bomCostPerGram * totalOutputG;
 
       let actualValue = 0;
       if (bomHeader) {
@@ -206,7 +206,7 @@ const Dashboard = ({
         });
       }
 
-      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputKg: totalOutputKg, standardValue, actualValue, variance: actualValue - standardValue });
+      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputG: totalOutputG, standardValue, actualValue, variance: actualValue - standardValue });
     });
 
     return rows;
@@ -520,7 +520,7 @@ const Dashboard = ({
                     {prodCostAnalysis.map((row, idx) => (
                       <tr key={row.smSkuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
                         <td className="px-4 py-3 font-medium">{row.name}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputKg)}</td>
+                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputG)}</td>
                         <td className="px-4 py-3 text-right font-mono">{fmt(row.standardValue)}</td>
                         <td className="px-4 py-3 text-right font-mono">{fmt(row.actualValue)}</td>
                         <td className={`px-4 py-3 text-right font-mono font-semibold ${row.variance > 0 ? 'variance-positive' : row.variance < 0 ? 'variance-negative' : ''}`}>
