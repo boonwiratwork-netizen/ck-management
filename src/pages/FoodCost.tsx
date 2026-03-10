@@ -516,7 +516,7 @@ export default function FoodCostPage({
           {/* Daily Trend Chart */}
           {dailyData.length > 1 && (
             <Card>
-              <CardHeader><CardTitle>Daily Trend</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t('title.dailyTrend')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
