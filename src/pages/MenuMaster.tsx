@@ -102,7 +102,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       category: menu.category,
       sellingPrice: menu.sellingPrice,
       status: menu.status,
-      branchId: menu.branchId,
+      brandName: menu.brandName,
     });
     setModalOpen(true);
   };
