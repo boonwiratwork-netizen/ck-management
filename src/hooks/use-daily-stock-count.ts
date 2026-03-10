@@ -157,7 +157,7 @@ export function useDailyStockCount({
         }
 
         for (const rule of activeRules) {
-          if (rule.menuId && rule.menuId !== menu.id) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           if (menuName.includes(rule.keyword)) {
             if (rule.ruleType === 'swap') {
               // Remove the swap SKU's BOM qty for this menu
