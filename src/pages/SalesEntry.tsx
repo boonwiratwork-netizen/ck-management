@@ -5,13 +5,12 @@ import { Branch } from '@/types/branch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
-import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart } from 'lucide-react';
+import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -161,17 +160,56 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
     return m;
   }, [branches]);
 
+  // Sorting
+  type SESortKey = 'saleDate' | 'menuCode' | 'menuName' | 'orderType' | 'qty' | 'unitPrice' | 'netAmount' | 'channel' | 'branch';
+  const [seSortKey, setSeSortKey] = useState<SESortKey>('saleDate');
+  const [seSortDir, setSeSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSeSort = (key: SESortKey) => {
+    if (seSortKey === key) {
+      setSeSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSeSortKey(key);
+      setSeSortDir('asc');
+    }
+  };
+
+  const SeSortIcon = ({ col }: { col: SESortKey }) => {
+    if (seSortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return seSortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
   // Filter history with search
   const filteredEntries = useMemo(() => {
-    if (!historySearch) return entries;
-    const q = historySearch.toLowerCase();
-    return entries.filter(e =>
-      e.menuCode.toLowerCase().includes(q) ||
-      e.menuName.toLowerCase().includes(q) ||
-      e.receiptNo.toLowerCase().includes(q) ||
-      e.channel.toLowerCase().includes(q)
-    );
-  }, [entries, historySearch]);
+    let list = entries;
+    if (historySearch) {
+      const q = historySearch.toLowerCase();
+      list = list.filter(e =>
+        e.menuCode.toLowerCase().includes(q) ||
+        e.menuName.toLowerCase().includes(q) ||
+        e.receiptNo.toLowerCase().includes(q) ||
+        e.channel.toLowerCase().includes(q)
+      );
+    }
+    list = [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (seSortKey) {
+        case 'saleDate': cmp = a.saleDate.localeCompare(b.saleDate); break;
+        case 'menuCode': cmp = a.menuCode.localeCompare(b.menuCode); break;
+        case 'menuName': cmp = a.menuName.localeCompare(b.menuName); break;
+        case 'orderType': cmp = a.orderType.localeCompare(b.orderType); break;
+        case 'qty': cmp = a.qty - b.qty; break;
+        case 'unitPrice': cmp = a.unitPrice - b.unitPrice; break;
+        case 'netAmount': cmp = a.netAmount - b.netAmount; break;
+        case 'channel': cmp = a.channel.localeCompare(b.channel); break;
+        case 'branch': cmp = (branchMap[a.branchId] || '').localeCompare(branchMap[b.branchId] || ''); break;
+      }
+      return seSortDir === 'desc' ? -cmp : cmp;
+    });
+    return list;
+  }, [entries, historySearch, seSortKey, seSortDir, branchMap]);
 
   // Preview first 3 rows
   const previewRows = parsedRows.slice(0, 3);
@@ -347,62 +385,82 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
           {loading ? (
             <SkeletonTable columns={9} rows={8} />
           ) : (
-            <div className="border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-table-header">
-                    <TableHead className="table-header">Date</TableHead>
-                    <TableHead className="table-header">Menu Code</TableHead>
-                    <TableHead className="table-header">Menu Name</TableHead>
-                    <TableHead className="table-header">Order Type</TableHead>
-                    <TableHead className="text-right table-header">Qty</TableHead>
-                    <TableHead className="text-right table-header">Unit Price</TableHead>
-                    <TableHead className="text-right table-header">Net Amount</TableHead>
-                    <TableHead className="table-header">Channel</TableHead>
-                    <TableHead className="table-header">Branch</TableHead>
-                    {isManagement && <TableHead className="w-10 table-header" />}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEntries.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10}>
-                        <EmptyState
-                          icon={ShoppingCart}
-                          title={entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
-                          description={entries.length === 0 ? 'Paste your first POS export above to get started' : 'Try adjusting your search or filter'}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredEntries.map((e, idx) => (
-                    <TableRow key={e.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                      <TableCell className="whitespace-nowrap">{e.saleDate}</TableCell>
-                      <TableCell className="font-mono text-xs">{e.menuCode}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{e.menuName}</TableCell>
-                      <TableCell>{e.orderType}</TableCell>
-                      <TableCell className="text-right tabular-nums">{e.qty}</TableCell>
-                      <TableCell className="text-right tabular-nums">{e.unitPrice.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</TableCell>
-                      <TableCell>{e.channel}</TableCell>
-                      <TableCell>{branchMap[e.branchId] || '-'}</TableCell>
-                      {isManagement && (
-                        <TableCell>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="icon-btn-delete h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <div className="overflow-auto max-h-[70vh]">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-table-header sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
+                        <span className="inline-flex items-center">Date<SeSortIcon col="saleDate" /></span>
+                      </th>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
+                        <span className="inline-flex items-center">Menu Code<SeSortIcon col="menuCode" /></span>
+                      </th>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
+                        <span className="inline-flex items-center">Menu Name<SeSortIcon col="menuName" /></span>
+                      </th>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
+                        <span className="inline-flex items-center">Order Type<SeSortIcon col="orderType" /></span>
+                      </th>
+                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
+                        <span className="inline-flex items-center justify-end">Qty<SeSortIcon col="qty" /></span>
+                      </th>
+                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
+                        <span className="inline-flex items-center justify-end">Unit Price<SeSortIcon col="unitPrice" /></span>
+                      </th>
+                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
+                        <span className="inline-flex items-center justify-end">Net Amount<SeSortIcon col="netAmount" /></span>
+                      </th>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
+                        <span className="inline-flex items-center">Channel<SeSortIcon col="channel" /></span>
+                      </th>
+                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
+                        <span className="inline-flex items-center">Branch<SeSortIcon col="branch" /></span>
+                      </th>
+                      {isManagement && <th className="w-10 px-4 py-3 table-header" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEntries.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-4">
+                          <EmptyState
+                            icon={ShoppingCart}
+                            title={entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
+                            description={entries.length === 0 ? 'Paste your first POS export above to get started' : 'Try adjusting your search or filter'}
+                          />
+                        </td>
+                      </tr>
+                    ) : filteredEntries.map((e, idx) => (
+                      <tr key={e.id} className={`border-b border-table-border last:border-0 table-row-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <td className="px-4 py-3 whitespace-nowrap">{e.saleDate}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{e.menuCode}</td>
+                        <td className="px-4 py-3 max-w-[200px] truncate">{e.menuName}</td>
+                        <td className="px-4 py-3">{e.orderType}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{e.qty}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{e.unitPrice.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</td>
+                        <td className="px-4 py-3">{e.channel}</td>
+                        <td className="px-4 py-3">{branchMap[e.branchId] || '-'}</td>
+                        {isManagement && (
+                          <td className="px-4 py-3">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="icon-btn-delete h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/SearchableSelect';
-import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle } from 'lucide-react';
+import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
@@ -77,8 +77,30 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const editingIds = drafts.filter(d => d.savedDeliveryId).map(d => d.savedDeliveryId!);
 
+  // Sorting
+  type DelSortKey = 'date' | 'week' | 'branch' | 'sku' | 'qty';
+  const [delSortKey, setDelSortKey] = useState<DelSortKey | null>(null);
+  const [delSortDir, setDelSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleDelSort = (key: DelSortKey) => {
+    if (delSortKey === key) {
+      if (delSortDir === 'asc') setDelSortDir('desc');
+      else { setDelSortKey(null); setDelSortDir('desc'); }
+    } else {
+      setDelSortKey(key);
+      setDelSortDir('asc');
+    }
+  };
+
+  const DelSortIcon = ({ col }: { col: DelSortKey }) => {
+    if (delSortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
+    return delSortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
+  };
+
   const filteredSaved = useMemo(() => {
-    return deliveries
+    let list = deliveries
       .filter(d => {
         if (editingIds.includes(d.id)) return false;
         const sku = skuMap[d.smSkuId];
@@ -88,9 +110,25 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           d.branchName.toLowerCase().includes(search.toLowerCase());
         const matchesBranch = filterBranch === 'all' || d.branchName === filterBranch;
         return matchesSearch && matchesBranch;
-      })
-      .sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate));
-  }, [deliveries, skuMap, search, filterBranch, editingIds]);
+      });
+
+    if (delSortKey) {
+      list = [...list].sort((a, b) => {
+        let cmp = 0;
+        switch (delSortKey) {
+          case 'date': cmp = a.deliveryDate.localeCompare(b.deliveryDate); break;
+          case 'week': cmp = a.weekNumber - b.weekNumber; break;
+          case 'branch': cmp = a.branchName.localeCompare(b.branchName); break;
+          case 'sku': cmp = (skuMap[a.smSkuId]?.name || '').localeCompare(skuMap[b.smSkuId]?.name || ''); break;
+          case 'qty': cmp = a.qtyDeliveredKg - b.qtyDeliveredKg; break;
+        }
+        return delSortDir === 'desc' ? -cmp : cmp;
+      });
+    } else {
+      list = [...list].sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate));
+    }
+    return list;
+  }, [deliveries, skuMap, search, filterBranch, editingIds, delSortKey, delSortDir]);
 
   const handleAddRow = useCallback(() => {
     setDrafts(prev => [...prev, createEmptyDraft()]);
@@ -271,15 +309,25 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
-                <th className={thClass}>Date</th>
-                <th className={`${thClass} text-center`}>Wk</th>
-                <th className={thClass} style={{ minWidth: 140 }}>Branch</th>
-                <th className={thClass} style={{ minWidth: 180 }}>SM SKU</th>
-                <th className={`${thClass} text-right`}>Qty (kg)</th>
+              <tr className="border-b bg-muted/50 sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('date')}>
+                  <span className="inline-flex items-center">Date<DelSortIcon col="date" /></span>
+                </th>
+                <th className={`${thClass} text-center cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('week')}>
+                  <span className="inline-flex items-center">Wk<DelSortIcon col="week" /></span>
+                </th>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 140 }} onClick={() => handleDelSort('branch')}>
+                  <span className="inline-flex items-center">Branch<DelSortIcon col="branch" /></span>
+                </th>
+                <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 180 }} onClick={() => handleDelSort('sku')}>
+                  <span className="inline-flex items-center">SM SKU<DelSortIcon col="sku" /></span>
+                </th>
+                <th className={`${thClass} text-right cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('qty')}>
+                  <span className="inline-flex items-center justify-end">Qty (kg)<DelSortIcon col="qty" /></span>
+                </th>
                 <th className={thClass}>Note</th>
                 <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>Actions</th>
               </tr>
