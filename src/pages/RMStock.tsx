@@ -72,6 +72,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
       });
   }, [rmSkus, stockBalances, getStdUnitPrice, getLastReceiptDate, search, filterCategory, filterStorage]);
 
+  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
   const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
 
   const handleOpeningSubmit = (skuId: string) => {
