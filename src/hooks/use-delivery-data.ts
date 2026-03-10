@@ -10,7 +10,7 @@ const toLocal = (row: any): Delivery => ({
   weekNumber: row.week_number,
   branchName: row.branch_name,
   smSkuId: row.sm_sku_id,
-  qtyDeliveredKg: row.qty_delivered_kg,
+  qtyDeliveredG: row.qty_delivered_g,
   note: row.note,
 });
 
@@ -32,7 +32,7 @@ export function useDeliveryData() {
       week_number: weekNumber,
       branch_name: data.branchName,
       sm_sku_id: data.smSkuId,
-      qty_delivered_kg: data.qtyDeliveredKg,
+      qty_delivered_g: data.qtyDeliveredG,
       note: data.note,
     }).select().single();
     if (error) { toast.error('Failed to add delivery: ' + error.message); return; }
@@ -47,7 +47,7 @@ export function useDeliveryData() {
       week_number: weekNumber,
       branch_name: data.branchName,
       sm_sku_id: data.smSkuId,
-      qty_delivered_kg: data.qtyDeliveredKg,
+      qty_delivered_g: data.qtyDeliveredG,
       note: data.note,
     }).eq('id', id);
     if (error) { toast.error('Failed to update delivery: ' + error.message); return; }

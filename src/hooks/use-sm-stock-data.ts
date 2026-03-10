@@ -74,7 +74,17 @@ export function useSmStockData(
     setAdjustments(prev => [{ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason }, ...prev]);
   }, []);
 
-  const getBomCostPerGram = useCallback((_skuId: string): number => 0, []);
+  const getBomCostPerGram = useCallback((skuId: string): number => {
+    const bomHeader = bomHeaders.find(h => h.smSkuId === skuId);
+    if (!bomHeader) return 0;
+    const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
+    const batchCost = bLines.reduce((s, line) => {
+      const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
+      return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
+    }, 0);
+    const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
+    return outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
+  }, [bomHeaders, bomLines, prices]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
     const recs = productionRecords.filter(r => r.smSkuId === skuId);
