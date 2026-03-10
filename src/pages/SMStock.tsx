@@ -101,7 +101,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
           <p className="text-3xl font-heading font-bold mt-1">{smSkus.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalStockKg')}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">TOTAL STOCK</p>
           <p className="text-3xl font-heading font-bold mt-1">
             {filteredRows.reduce((s, r) => s + r.currentStock, 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
           </p>
