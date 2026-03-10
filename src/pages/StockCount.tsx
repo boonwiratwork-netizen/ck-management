@@ -313,19 +313,15 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                                 (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
                             <td className="px-1.5 py-1">
-                              {isReadOnly ? (
-                                <span className="text-xs text-muted-foreground">{line.note || '—'}</span>
-                              ) : (
-                                <Input
-                                  defaultValue={line.note}
-                                  key={`note-${line.id}-${line.note}`}
-                                  placeholder="Optional"
-                                  onBlur={e => {
-                                    if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
-                                  }}
-                                  className="h-8 text-xs w-32"
-                                />
-                              )}
+                              <Input
+                                defaultValue={line.note}
+                                key={`note-${line.id}-${line.note}`}
+                                placeholder="Optional"
+                                onBlur={e => {
+                                  if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
+                                }}
+                                className="h-8 text-xs w-32"
+                              />
                             </td>
                           </TableRow>
                         );

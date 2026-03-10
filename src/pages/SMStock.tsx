@@ -220,7 +220,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                         onClick={() => setAdjustModal({
                           skuId: row.sku.id,
                           skuName: row.sku.name,
-                          usageUom: 'kg',
+                          usageUom: row.sku.usageUom || 'kg',
                           currentStock: row.currentStock,
                         })}
                       >
