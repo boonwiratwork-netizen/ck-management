@@ -562,7 +562,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
             </div>
             {planForm.smSkuId && planForm.targetQtyKg > 0 && (
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <p>Output per batch: <span className="font-semibold">{(getOutputPerBatch(planForm.smSkuId) / 1000).toFixed(2)} kg</span></p>
+                <p>Output per batch: <span className="font-semibold">{getOutputPerBatch(planForm.smSkuId).toFixed(0)} g</span></p>
                 <p>Batches needed: <span className="font-semibold">{previewBatches}</span></p>
               </div>
             )}
