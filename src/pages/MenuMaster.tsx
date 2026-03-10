@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { MenuStatus } from '@/types/menu';
 import { Menu, EMPTY_MENU } from '@/types/menu';
 import { Branch } from '@/types/branch';
 import { useAuth } from '@/hooks/use-auth';
