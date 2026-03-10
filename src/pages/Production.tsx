@@ -488,7 +488,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                         <TableHead className="text-xs">Date</TableHead>
                         <TableHead className="text-xs">SM SKU</TableHead>
                         <TableHead className="text-xs text-right">Batches</TableHead>
-                        <TableHead className="text-xs text-right">Output (kg)</TableHead>
+                        <TableHead className="text-xs text-right">Output (g)</TableHead>
                         <TableHead className="text-xs w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
