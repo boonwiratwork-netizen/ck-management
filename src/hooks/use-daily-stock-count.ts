@@ -427,7 +427,9 @@ export function useDailyStockCount({
     const row = rows.find(r => r.id === rowId);
     if (!row || row.isSubmitted) return;
 
-    const calcBalance = row.openingBalance + row.receivedFromCk + row.receivedExternal - row.expectedUsage - waste;
+    // receivedExternal is raw Purchase UOM — apply converter for calcBalance
+    const extConv = getSkuConverter(row.skuId);
+    const calcBalance = row.openingBalance + row.receivedFromCk + (row.receivedExternal * extConv) - row.expectedUsage - waste;
     const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
     const { error } = await supabase
       .from('daily_stock_counts')
