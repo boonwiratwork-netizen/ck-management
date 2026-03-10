@@ -247,7 +247,9 @@ export function useDailyStockCount({
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
       const expUsage = expectedUsage[r.sku_id] ?? 0;
       const waste = Number(r.waste ?? 0);
-      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage - waste;
+      // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
+      const extConv = getSkuConverter(r.sku_id);
+      const calcBalance = Number(r.opening_balance) + ck + (ext * extConv) - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
