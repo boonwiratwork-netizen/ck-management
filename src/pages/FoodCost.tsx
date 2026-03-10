@@ -479,7 +479,7 @@ export default function FoodCostPage({
 
             {calculated && (
               <Button variant="outline" onClick={handleExportCSV}>
-                <Download className="w-4 h-4 mr-1" /> Export CSV
+                <Download className="w-4 h-4 mr-1" /> {t('btn.exportCsv')}
               </Button>
             )}
           </div>
