@@ -200,11 +200,11 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
           </SelectContent>
         </Select>
         {isManagement && (
-          <Select value={filterBranch} onValueChange={setFilterBranch}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Branch" /></SelectTrigger>
+          <Select value={filterBrand} onValueChange={setFilterBrand}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Brand" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+              <SelectItem value="all">All Brands</SelectItem>
+              {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
