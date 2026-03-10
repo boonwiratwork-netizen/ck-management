@@ -152,9 +152,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                 <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
                 <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
@@ -171,6 +168,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
                 <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
+              <TableHead>{t('col.uom')}</TableHead>
               <TableHead>{t('col.lastProduction')}</TableHead>
               <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
@@ -192,7 +190,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                     <TableCell>{statusDot(row.healthStatus)}</TableCell>
                     <TableCell className="font-mono text-xs">{row.sku.skuId}</TableCell>
                     <TableCell className="font-medium">{row.sku.name}</TableCell>
-                    <TableCell>{CATEGORY_LABELS[row.sku.category]}</TableCell>
                     <TableCell>{row.sku.storageCondition}</TableCell>
                     <TableCell className="text-right">
                       {editingOpening === row.sku.id ? (
@@ -205,7 +202,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                             onKeyDown={e => e.key === 'Enter' && handleOpeningSubmit(row.sku.id)}
                             autoFocus
                           />
-                          <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpeningSubmit(row.sku.id)}>✓</Button>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingOpening(null)}>✗</Button>
                         </div>
@@ -214,23 +210,23 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                           className="cursor-pointer hover:underline"
                           onClick={() => { setEditingOpening(row.sku.id); setOpeningValue(String(row.opening)); }}
                         >
-                          {row.opening.toLocaleString()} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                          {row.opening.toLocaleString()}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {(row.balance?.totalProduced ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {(row.balance?.totalProduced ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {(row.balance?.totalDelivered ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {(row.balance?.totalDelivered ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className={`text-right ${netAdj > 0 ? 'text-success' : netAdj < 0 ? 'text-destructive' : ''}`}>
-                      {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() + ' ' : '—'}
-                      {netAdj !== 0 && <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>}
+                      {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() : '—'}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{row.sku.usageUom}</TableCell>
                     <TableCell className="text-xs">{row.lastDate ?? '—'}</TableCell>
                     <TableCell className="text-right text-muted-foreground">0</TableCell>
                     <TableCell>

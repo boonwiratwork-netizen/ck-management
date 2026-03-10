@@ -364,7 +364,7 @@ export function GoodsReceiptSpreadsheet({
               {/* Add row button at bottom */}
               <tr className="border-b">
                 <td colSpan={13} className="px-3 py-2">
-                  <Button variant="ghost" size="sm" onClick={onAddRow} className="text-xs text-muted-foreground hover:text-foreground">
+                  <Button size="sm" onClick={onAddRow} className="text-xs bg-primary text-primary-foreground hover:bg-primary/90">
                     <Plus className="w-3.5 h-3.5 mr-1" />
                     Add row
                   </Button>

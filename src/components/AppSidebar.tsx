@@ -25,7 +25,7 @@ export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'recei
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
 export const tabContextMap: Record<TabKey, TabContext> = {
-  dashboard: 'overview',
+  dashboard: 'ck',
   sku: 'ck',
   supplier: 'ck',
   price: 'ck',
@@ -63,14 +63,6 @@ interface NavGroup {
   items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
 }
 
-const overviewGroup: NavGroup = {
-  label: 'OVERVIEW', labelKey: 'nav.overview',
-  section: 'overview',
-  items: [
-    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-  ],
-};
-
 const masterDataGroup: NavGroup = {
   label: 'MASTER DATA', labelKey: 'nav.masterData',
   section: 'ck',
@@ -86,6 +78,7 @@ const ckGroup: NavGroup = {
   icon: ChefHat,
   section: 'ck',
   items: [
+    { key: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
     { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
     { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
     { key: 'production', labelKey: 'nav.production', icon: Factory },
@@ -151,10 +144,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const allGroups: NavGroup[] = [];
 
   if (isManagement) {
-    allGroups.push(overviewGroup, masterDataGroup, ckGroup, storeGroup, managementGroup);
+    allGroups.push(masterDataGroup, ckGroup, storeGroup, managementGroup);
   } else if (role === 'ck_manager') {
     // CK Manager: ONLY CK sections (no Store, no Management)
-    allGroups.push(overviewGroup, masterDataGroup, ckGroup);
+    allGroups.push(masterDataGroup, ckGroup);
   } else if (role === 'store_manager' || role === 'area_manager') {
     // Store Manager / Area Manager: ONLY Store section
     allGroups.push(storeGroup);

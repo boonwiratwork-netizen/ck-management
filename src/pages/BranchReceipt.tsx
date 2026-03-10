@@ -406,6 +406,15 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     </tr>
                   );
                 })}
+                {/* Add row button */}
+                <tr className="border-b">
+                  <td colSpan={12} className="px-3 py-2">
+                    <Button size="sm" onClick={handleAddRow} className="text-xs bg-primary text-primary-foreground hover:bg-primary/90">
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Add row
+                    </Button>
+                  </td>
+                </tr>
                 {/* Running totals */}
                 {drafts.length > 0 && (() => {
                   const runActual = drafts.reduce((s, d) => s + d.actualTotalPaid, 0);

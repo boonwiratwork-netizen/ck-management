@@ -166,9 +166,6 @@ export default function RMStockPage({ skus, stockData }: Props) {
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                 <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
                 <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
@@ -194,7 +191,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
           <TableBody>
             {filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={14} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-10 text-muted-foreground">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No RM SKUs found
                 </TableCell>
@@ -207,7 +204,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
                     <TableCell>{statusDot(row.healthStatus)}</TableCell>
                     <TableCell className="font-mono text-xs">{row.sku.skuId}</TableCell>
                     <TableCell className="font-medium">{row.sku.name}</TableCell>
-                    <TableCell>{CATEGORY_LABELS[row.sku.category]}</TableCell>
+                    
                     <TableCell>{row.sku.storageCondition}</TableCell>
                     <TableCell className="text-right">
                       {editingOpening === row.sku.id ? (
