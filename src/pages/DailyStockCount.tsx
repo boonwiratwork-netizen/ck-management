@@ -265,7 +265,7 @@ export default function DailyStockCountPage({
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
                         <div>{t('col.physical')}</div>
-                        <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
+                        <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">{t('col.variance')}</TableHead>
                     </TableRow>
