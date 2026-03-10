@@ -330,32 +330,30 @@ export default function DailyStockCountPage({
                             {row.calculatedBalance.toFixed(2)}
                             <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums px-2 py-1">
+                          <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
-                              <>
+                              <span className="text-xs font-mono">
                                 {rawPhysical !== null ? rawPhysical.toFixed(2) : '—'}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
-                              </>
+                              </span>
                             ) : (
-                              <>
-                                <Input
-                                  ref={(el) => setRef(row.id, el)}
-                                  type="number"
-                                  step="0.01"
-                                  defaultValue={rawPhysical !== null ? rawPhysical : ''}
-                                  key={`phys-${row.id}-${row.physicalCount}`}
-                                  onBlur={e => {
-                                    const val = e.target.value === '' ? null : Number(e.target.value);
-                                    if (val !== rawPhysical) updatePhysicalCount(row.id, val);
-                                  }}
-                                  onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                  className="h-7 w-16 text-[11px] text-right font-mono border border-input inline-block align-middle"
-                                  placeholder="—"
-                                />
-                                <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
-                              </>
+                              <Input
+                                ref={(el) => setRef(row.id, el)}
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={rawPhysical !== null ? rawPhysical : ''}
+                                key={`phys-${row.id}-${row.physicalCount}`}
+                                onBlur={e => {
+                                  const val = e.target.value === '' ? null : Number(e.target.value);
+                                  if (val !== rawPhysical) updatePhysicalCount(row.id, val);
+                                }}
+                                onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
+                                className="h-8 text-xs text-right w-[80px] font-mono"
+                                placeholder="—"
+                              />
                             )}
-                          </TableCell>
+                          </td>
                           <TableCell className={`text-right tabular-nums font-medium px-2 py-1 ${varClass}`}>
                             {row.physicalCount !== null ? row.variance.toFixed(2) : '—'}
                           </TableCell>

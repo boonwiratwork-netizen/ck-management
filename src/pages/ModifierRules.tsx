@@ -586,11 +586,10 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
             {formRuleType === 'submenu' && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Submenu (expand this menu's BOM)</label>
-                <SearchableSelect
+                <SubmenuSelector
                   value={formSubmenuId}
                   onValueChange={setFormSubmenuId}
-                  options={menus.map(m => ({ value: m.id, label: `${m.menuCode} ${m.menuName}`, sublabel: m.menuCode }))}
-                  placeholder="Select a menu..."
+                  menus={menus}
                 />
               </div>
             )}
