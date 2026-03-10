@@ -214,7 +214,7 @@ export function GoodsReceiptSpreadsheet({
                       />
                     </td>
                     <td className={`${tdClass} text-center text-xs text-muted-foreground`}>
-                      {sku?.usageUom || '—'}
+                      {sku?.purchaseUom || '—'}
                     </td>
                     <td className={tdClass}>
                       <Input
