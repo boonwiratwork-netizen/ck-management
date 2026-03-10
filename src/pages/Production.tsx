@@ -506,7 +506,7 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                             <TableCell className="text-xs">{rec.productionDate}</TableCell>
                             <TableCell className="text-xs">{getSkuName(rec.smSkuId)}</TableCell>
                             <TableCell className="text-xs text-right">{rec.batchesProduced}</TableCell>
-                            <TableCell className="text-xs text-right font-medium">{rec.actualOutputKg.toFixed(1)}</TableCell>
+                            <TableCell className="text-xs text-right font-medium">{rec.actualOutputG.toFixed(1)}</TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteRecordRequest(rec.id)}>
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
