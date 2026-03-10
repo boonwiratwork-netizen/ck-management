@@ -203,7 +203,7 @@ export default function DailyStockCountPage({
           </div>
           {isManagement && (
             <Button variant="outline" size="sm" onClick={handleUnlock}>
-              <Unlock className="w-4 h-4" /> Unlock
+              <Unlock className="w-4 h-4" /> {t('btn.unlock')}
             </Button>
           )}
         </div>
