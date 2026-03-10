@@ -30,7 +30,7 @@ interface DraftDeliveryRow {
   deliveryDate: string;
   branchName: string;
   smSkuId: string;
-  qtyDeliveredKg: number;
+  qtyDeliveredG: number;
   note: string;
   isNew: boolean;
   isEditing: boolean;
