@@ -189,7 +189,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                     <TableCell>{statusDot(row.healthStatus)}</TableCell>
                     <TableCell className="font-mono text-xs">{row.sku.skuId}</TableCell>
                     <TableCell className="font-medium">{row.sku.name}</TableCell>
-                    <TableCell>{CATEGORY_LABELS[row.sku.category]}</TableCell>
                     <TableCell>{row.sku.storageCondition}</TableCell>
                     <TableCell className="text-right">
                       {editingOpening === row.sku.id ? (
@@ -202,7 +201,6 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                             onKeyDown={e => e.key === 'Enter' && handleOpeningSubmit(row.sku.id)}
                             autoFocus
                           />
-                          <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpeningSubmit(row.sku.id)}>✓</Button>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingOpening(null)}>✗</Button>
                         </div>
@@ -211,23 +209,23 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                           className="cursor-pointer hover:underline"
                           onClick={() => { setEditingOpening(row.sku.id); setOpeningValue(String(row.opening)); }}
                         >
-                          {row.opening.toLocaleString()} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                          {row.opening.toLocaleString()}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {(row.balance?.totalProduced ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {(row.balance?.totalProduced ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {(row.balance?.totalDelivered ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {(row.balance?.totalDelivered ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
                     <TableCell className={`text-right ${netAdj > 0 ? 'text-success' : netAdj < 0 ? 'text-destructive' : ''}`}>
-                      {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() + ' ' : '—'}
-                      {netAdj !== 0 && <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>}
+                      {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() : '—'}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-[10px] text-muted-foreground">{row.sku.usageUom}</span>
+                      {row.currentStock.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{row.sku.usageUom}</TableCell>
                     <TableCell className="text-xs">{row.lastDate ?? '—'}</TableCell>
                     <TableCell className="text-right text-muted-foreground">0</TableCell>
                     <TableCell>
