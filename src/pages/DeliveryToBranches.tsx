@@ -364,7 +364,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                       />
                     </td>
                     <td className={tdClass}>
-                      <Input type="number" min={0} step="any" value={draft.qtyDeliveredG || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredG', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
+                      <input type="number" min={0} step="any" defaultValue={draft.qtyDeliveredG || ''} onBlur={e => handleUpdateDraft(draft.tempId, 'qtyDeliveredG', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono px-1.5 py-1 border rounded-md bg-background" placeholder="0" onFocus={e => e.target.select()} key={`qty-${draft.tempId}-${draft.qtyDeliveredG}`} />
                     </td>
                     <td className={tdClass}>
                       <Input value={draft.note} onChange={e => handleUpdateDraft(draft.tempId, 'note', e.target.value)} className="h-8 text-xs w-[120px]" placeholder="Note..." />
