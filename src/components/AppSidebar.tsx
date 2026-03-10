@@ -207,12 +207,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   <SidebarMenu>
                     {group.items.map(item => {
                       const isActive = activeTab === item.key;
+                      const label = t(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.key}>
                           <SidebarMenuButton
                             isActive={isActive}
                             onClick={() => onTabChange(item.key)}
-                            tooltip={item.label}
+                            tooltip={label}
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
                                 ? 'bg-accent text-accent-foreground font-semibold border-l-2 border-primary'
@@ -220,7 +221,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             }`}
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                            <span className="text-[13px]">{item.label}</span>
+                            <span className="text-[13px]">{label}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
