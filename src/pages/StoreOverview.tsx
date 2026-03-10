@@ -112,7 +112,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Today's Orders</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.todayOrders')}</p>
                 <p className="text-2xl font-bold mt-2 font-mono">
                   {loading ? '—' : (todaySales?.orders || 0)}
                 </p>
