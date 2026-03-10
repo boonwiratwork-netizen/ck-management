@@ -275,6 +275,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           </div>
         ) : (
           <div className="space-y-2">
+            <button
+              onClick={toggleLang}
+              className="w-8 h-8 mx-auto rounded-full border border-sidebar-border flex items-center justify-center text-[10px] font-bold text-primary hover:bg-accent transition-colors"
+            >
+              {lang === 'th' ? 'TH' : 'EN'}
+            </button>
             <div className="w-8 h-8 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
               {initials}
             </div>
