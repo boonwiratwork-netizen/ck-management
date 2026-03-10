@@ -165,6 +165,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
   }, [categoryNames, addCategory, bulkAddMenus]);
 
+  const handleAdd = () => {
     setEditing(null);
     setForm({ ...EMPTY_MENU, menuCode: getNextCode() });
     setModalOpen(true);
