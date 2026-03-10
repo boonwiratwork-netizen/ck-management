@@ -474,7 +474,7 @@ export default function FoodCostPage({
 
             <Button onClick={handleCalculate} disabled={loading}>
               <Calculator className="w-4 h-4 mr-1" />
-              {loading ? 'Calculating...' : 'Calculate'}
+              {loading ? `${t('btn.calculate')}...` : t('btn.calculate')}
             </Button>
 
             {calculated && (
