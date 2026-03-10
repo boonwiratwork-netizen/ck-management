@@ -124,7 +124,7 @@ const Dashboard = ({
       const recentDeliveries = deliveries.filter(
         d => d.smSkuId === bal.skuId && d.deliveryDate >= thirtyDaysAgo.toISOString().slice(0, 10)
       );
-      const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredKg, 0);
+      const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0);
       const avgDailyDelivery = totalDelivered30d / 30;
       const coverDays = avgDailyDelivery > 0 ? bal.currentStock / avgDailyDelivery : 999;
 
