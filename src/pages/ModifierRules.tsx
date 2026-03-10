@@ -205,6 +205,7 @@ function MultiMenuSelector({
 
 export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines = [], readOnly = false }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
+  const { t } = useLanguage();
   const canEdit = isManagement && !readOnly;
 
   const [modalOpen, setModalOpen] = useState(false);
