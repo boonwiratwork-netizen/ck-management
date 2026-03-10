@@ -175,9 +175,21 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <ChefHat className="w-5 h-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
-              <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
+                  <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+                </div>
+                <button
+                  onClick={toggleLang}
+                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] font-medium shrink-0 hover:bg-accent transition-colors"
+                >
+                  <span className={lang === 'th' ? 'font-bold text-primary' : 'text-muted-foreground'}>TH</span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className={lang === 'en' ? 'font-bold text-primary' : 'text-muted-foreground'}>EN</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
