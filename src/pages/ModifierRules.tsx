@@ -456,7 +456,7 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
                     <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{rule.description || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={rule.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                        {rule.isActive ? 'Active' : 'Inactive'}
+                        {rule.isActive ? t('status.active') : t('status.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell>
