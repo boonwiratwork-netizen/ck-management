@@ -419,7 +419,8 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
       await ruleData.updateRule(editingRule.id, data);
       toast.success('Rule updated');
     } else {
-      await ruleData.addRule(data);
+      const result = await ruleData.addRule(data);
+      if (!result) return; // error toast already shown
       toast.success('Rule added');
     }
     setModalOpen(false);
