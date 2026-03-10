@@ -518,7 +518,20 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
         <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 100 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 160 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 100 }} />
+                {isManagement && <col style={{ width: 120 }} />}
+                {isManagement && <col style={{ width: 60 }} />}
+              </colgroup>
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
                   <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('date')}>
@@ -538,10 +551,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   </th>
                   <th className={`${thClass} text-center`}>UOM</th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('actualTotal')}>
-                    <SortableHeader label="Actual Total ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                    <SortableHeader label="Actual ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
                   </th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('stdTotal')}>
-                    <SortableHeader label="Std Total ฿" sortKey="stdTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                    <SortableHeader label="Std ฿" sortKey="stdTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
                   </th>
                   <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('variance')}>
                     <SortableHeader label="Variance" sortKey="variance" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
