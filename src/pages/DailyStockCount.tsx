@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { useDailyStockCount, DailyStockCountRow } from '@/hooks/use-daily-stock-count';
 import { useAuth } from '@/hooks/use-auth';
 import { SKU } from '@/types/sku';
