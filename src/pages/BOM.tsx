@@ -820,6 +820,9 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                 </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {headers.filter(h => getLinesForHeader(h.id).length > 0).length} of {headers.length} items have BOM
+                </p>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
