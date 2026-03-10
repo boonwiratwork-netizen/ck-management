@@ -381,14 +381,14 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Menu Modifier Rules</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.modifierRules')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             Define extra ingredient usage triggered by keywords found in POS menu name strings
           </p>
         </div>
         {canEdit && (
           <Button size="sm" onClick={openAddModal}>
-            <Plus className="w-4 h-4" /> Add Rule
+            <Plus className="w-4 h-4" /> {t('btn.addRule')}
           </Button>
         )}
       </div>
