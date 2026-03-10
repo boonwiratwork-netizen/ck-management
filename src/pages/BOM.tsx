@@ -79,6 +79,7 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
 }
 
 const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
+  const { t } = useLanguage();
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
