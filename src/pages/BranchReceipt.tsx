@@ -400,7 +400,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         {uomLabel || '—'}
                       </td>
                       <td className={tdClass}>
-                        <Input type="number" min={0} step="any" value={draft.actualTotalPaid || ''} onChange={e => handleUpdateDraft(draft.tempId, 'actualTotalPaid', Number(e.target.value))} className="h-8 text-xs text-right w-full font-mono" placeholder="0.00" />
+                        <input type="number" min={0} step="any" defaultValue={draft.actualTotalPaid || ''} onBlur={e => handleUpdateDraft(draft.tempId, 'actualTotalPaid', Number(e.target.value))} className="h-8 text-xs text-right w-full font-mono px-1.5 py-1 border rounded-md bg-background" placeholder="0.00" onFocus={e => e.target.select()} key={`paid-${draft.tempId}-${draft.actualTotalPaid}`} />
                       </td>
                       <td className={`${tdClass} text-right text-xs font-mono text-muted-foreground`}>
                         {actualUnitPrice > 0 ? `฿${actualUnitPrice.toFixed(2)}` : '—'}
