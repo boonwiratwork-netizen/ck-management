@@ -60,6 +60,17 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
     });
   }, [sessionLines, skuMap, filterType, filterStorage]);
 
+  const scComparators = useMemo(() => ({
+    skuId: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
+    name: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
+    type: (a: StockCountLine, b: StockCountLine) => a.type.localeCompare(b.type),
+    storage: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.storageCondition || '').localeCompare(skuMap[b.skuId]?.storageCondition || ''),
+    systemQty: (a: StockCountLine, b: StockCountLine) => a.systemQty - b.systemQty,
+    variance: (a: StockCountLine, b: StockCountLine) => a.variance - b.variance,
+  }), [skuMap]);
+
+  const { sorted: sortedLines, sortKey: scSortKey, sortDir: scSortDir, handleSort: scHandleSort } = useSortableTable(filteredLines, scComparators);
+
   const summary = useMemo(() => {
     const counted = sessionLines.filter(l => l.physicalQty !== null).length;
     const withVariance = sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0).length;
