@@ -402,19 +402,21 @@ export function useDailyStockCount({
     setGenerating(false);
   }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet]);
 
-  // Update physical count
+  // Update physical count — convert from purchase UOM to usage UOM before storing
   const updatePhysicalCount = useCallback(async (rowId: string, physicalCount: number | null) => {
     const row = rows.find(r => r.id === rowId);
     if (!row || row.isSubmitted) return;
 
-    const variance = physicalCount !== null ? physicalCount - row.calculatedBalance : 0;
+    const conv = getSkuConverter(row.skuId);
+    const convertedQty = physicalCount !== null ? physicalCount * conv : null;
+    const variance = convertedQty !== null ? convertedQty - row.calculatedBalance : 0;
     const { error } = await supabase
       .from('daily_stock_counts')
-      .update({ physical_count: physicalCount, variance })
+      .update({ physical_count: convertedQty, variance })
       .eq('id', rowId);
     if (error) { toast.error('Failed to update'); return; }
-    setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount, variance } : r));
-  }, [rows]);
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount: convertedQty, variance } : r));
+  }, [rows, getSkuConverter]);
 
   // Update waste
   const updateWaste = useCallback(async (rowId: string, waste: number) => {
