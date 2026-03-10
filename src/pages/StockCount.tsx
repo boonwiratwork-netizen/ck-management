@@ -285,24 +285,27 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                             <TableCell className="text-right bg-muted/30 font-mono">
                               {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <td className="px-1.5 py-1 text-right">
                               {isReadOnly ? (
-                                <span className="font-mono">
+                                <span className="font-mono text-xs">
                                   {line.physicalQty !== null ? line.physicalQty.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
                                 </span>
                               ) : (
                                 <Input
                                   type="number"
-                                  className="w-24 h-7 text-xs text-right ml-auto"
-                                  value={line.physicalQty ?? ''}
+                                  min={0}
+                                  step="any"
+                                  defaultValue={line.physicalQty ?? ''}
+                                  key={`phys-${line.id}-${line.physicalQty}`}
                                   placeholder="—"
-                                  onChange={e => {
+                                  onBlur={e => {
                                     const val = e.target.value === '' ? null : Number(e.target.value);
-                                    updateLine(line.id, val);
+                                    if (val !== line.physicalQty) updateLine(line.id, val);
                                   }}
+                                  className="h-8 text-xs text-right w-[80px] font-mono"
                                 />
                               )}
-                            </TableCell>
+                            </td>
                             <TableCell className={`text-right font-mono font-medium ${
                               !hasVariance ? 'text-muted-foreground' :
                               line.variance > 0 ? 'text-success' : 'text-destructive'
@@ -311,18 +314,21 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                                 line.variance === 0 ? '0' :
                                 (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </TableCell>
-                            <TableCell>
+                            <td className="px-1.5 py-1">
                               {isReadOnly ? (
                                 <span className="text-xs text-muted-foreground">{line.note || '—'}</span>
                               ) : (
                                 <Input
-                                  className="h-7 text-xs w-32"
-                                  value={line.note}
+                                  defaultValue={line.note}
+                                  key={`note-${line.id}-${line.note}`}
                                   placeholder="Optional"
-                                  onChange={e => updateLine(line.id, line.physicalQty, e.target.value)}
+                                  onBlur={e => {
+                                    if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
+                                  }}
+                                  className="h-8 text-xs w-32"
                                 />
                               )}
-                            </TableCell>
+                            </td>
                           </TableRow>
                         );
                       })
