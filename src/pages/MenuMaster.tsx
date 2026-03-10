@@ -130,9 +130,8 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
   };
 
-  const getBranchName = (branchId: string | null) => {
-    if (!branchId) return '—';
-    return branches.find(b => b.id === branchId)?.branchName || '—';
+  const getBrandDisplay = (brandName: string) => {
+    return brandName || '—';
   };
 
   const canEdit = isManagement;
