@@ -317,9 +317,16 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-heading font-bold">Menu BOM</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials per menu item — ingredients and costing</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-heading font-bold">Menu BOM</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials per menu item — ingredients and costing</p>
+        </div>
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+            <Upload className="w-4 h-4" /> Import CSV
+          </Button>
+        )}
       </div>
 
       <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[320px_1fr]'}`}>
