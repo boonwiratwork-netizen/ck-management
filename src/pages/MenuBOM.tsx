@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Menu } from '@/types/menu';
 import { MenuBomLine } from '@/types/menu-bom';
 import { SKU } from '@/types/sku';
@@ -10,10 +10,12 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Trash2, Edit2, Check, X, Search, UtensilsCrossed, DollarSign, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Search, UtensilsCrossed, DollarSign, Maximize2, Minimize2, Upload } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface MenuBOMPageProps {
