@@ -255,6 +255,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   const { sorted: sortedHistory, sortKey: hSortKey, sortDir: hSortDir, handleSort: hHandleSort } = useSortableTable(filteredHistory, historyComparators);
   const displayHistory = hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
+  const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
   const totalVariance = totalActual - totalStd;
 
   const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
