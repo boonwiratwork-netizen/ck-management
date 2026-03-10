@@ -152,16 +152,57 @@ export function useDailyStockCount({
         for (const rule of activeRules) {
           if (rule.menuId && rule.menuId !== menu.id) continue;
           if (menuName.includes(rule.keyword)) {
-            const modQty = rule.qtyPerMatch * qty;
-            const modSku = skuMap.get(rule.skuId);
-            if (modSku && modSku.type === 'SP') {
-              const spLines = spBomBySpSku.get(rule.skuId) || [];
-              for (const spLine of spLines) {
-                const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty;
-                addUsage(spLine.ingredientSkuId, rmQty);
+            if (rule.ruleType === 'swap') {
+              // Remove the swap SKU's BOM qty for this menu
+              if (rule.swapSkuId) {
+                const bomLines2 = bomByMenuId.get(menu.id) || [];
+                for (const line of bomLines2) {
+                  if (line.skuId === rule.swapSkuId) {
+                    const removeQty = line.effectiveQty * qty;
+                    addUsage(rule.swapSkuId, -removeQty);
+                  }
+                }
+              }
+              // Add replacement SKU
+              const modQty = rule.qtyPerMatch * qty;
+              const modSku = skuMap.get(rule.skuId);
+              if (modSku && modSku.type === 'SP') {
+                const spLines = spBomBySpSku.get(rule.skuId) || [];
+                for (const spLine of spLines) {
+                  addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+                }
+              } else {
+                addUsage(rule.skuId, modQty);
+              }
+            } else if (rule.ruleType === 'submenu') {
+              // Expand the submenu's BOM
+              if (rule.submenuId) {
+                const subBomLines = bomByMenuId.get(rule.submenuId) || [];
+                for (const line of subBomLines) {
+                  const ingredientQty2 = line.effectiveQty * qty;
+                  const sku2 = skuMap.get(line.skuId);
+                  if (sku2 && sku2.type === 'SP') {
+                    const spLines = spBomBySpSku.get(line.skuId) || [];
+                    for (const spLine of spLines) {
+                      addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
+                    }
+                  } else {
+                    addUsage(line.skuId, ingredientQty2);
+                  }
+                }
               }
             } else {
-              addUsage(rule.skuId, modQty);
+              // ADD type (existing behavior)
+              const modQty = rule.qtyPerMatch * qty;
+              const modSku = skuMap.get(rule.skuId);
+              if (modSku && modSku.type === 'SP') {
+                const spLines = spBomBySpSku.get(rule.skuId) || [];
+                for (const spLine of spLines) {
+                  addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+                }
+              } else {
+                addUsage(rule.skuId, modQty);
+              }
             }
           }
         }
