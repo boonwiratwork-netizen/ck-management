@@ -315,7 +315,7 @@ const Dashboard = ({
                   <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.rawMaterials')}</h4>
                   <div className="max-h-48 overflow-y-auto rounded-lg border">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
+                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">{t('col.name')}</th><th className="px-3 py-2 text-right table-header">{t('col.stock')}</th><th className="px-3 py-2 text-right table-header">{t('col.value')}</th></tr></thead>
                       <tbody>
                         {stockValueOverview.rmRows.map((r, i) => (
                           <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
