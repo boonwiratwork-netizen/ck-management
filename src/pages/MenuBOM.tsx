@@ -194,12 +194,18 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
     return sum + effQty * getActiveCost(l.skuId);
   }, 0);
 
+  const [sortAsc, setSortAsc] = useState(true);
+
   const filteredMenus = useMemo(() => {
     const q = menuSearch.toLowerCase();
-    return menus.filter(m =>
+    const filtered = menus.filter(m =>
       m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q)
     );
-  }, [menus, menuSearch]);
+    return [...filtered].sort((a, b) => {
+      const cmp = a.menuCode.localeCompare(b.menuCode);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [menus, menuSearch, sortAsc]);
 
   // Summary: how many menus have BOM set up
   const menusWithBom = useMemo(() => menus.filter(m => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
