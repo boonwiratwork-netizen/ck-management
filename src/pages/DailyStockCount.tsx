@@ -388,7 +388,7 @@ export default function DailyStockCountPage({
                       {unusedRows.map(row => {
                         const sku = skuMap.get(row.skuId);
                         if (!sku) return null;
-                        const rawPhysical = getRawPhysical(row);
+                        
                         return (
                           <TableRow key={row.id} className="text-muted-foreground">
                             <TableCell className="font-mono text-xs">{sku.skuId}</TableCell>
