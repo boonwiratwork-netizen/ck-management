@@ -268,7 +268,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredLines.map(line => {
+                      sortedLines.map(line => {
                         const sku = skuMap[line.skuId];
                         if (!sku) return null;
                         const hasVariance = line.physicalQty !== null && line.variance !== 0;

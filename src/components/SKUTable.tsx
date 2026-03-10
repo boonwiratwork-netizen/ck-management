@@ -142,7 +142,7 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
         <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-table-header">
+              <tr className="border-b bg-table-header sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
                 {sortableHeaders.map(h => (
                   <th
                     key={h.key}

@@ -114,7 +114,7 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
         <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-table-header">
+              <tr className="border-b bg-table-header sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
                 <th
                   className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors"
                   onClick={() => handleSort('sku')}
