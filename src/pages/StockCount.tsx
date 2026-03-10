@@ -369,7 +369,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                     disabled={summary.counted === 0}
                     className="gap-2"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Confirm & Adjust Stock
+                    <CheckCircle2 className="w-4 h-4" /> {t('btn.confirmAdjust')}
                   </Button>
                 </div>
               )}
