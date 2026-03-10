@@ -328,10 +328,11 @@ export default function DailyStockCountPage({
                                   ref={(el) => setRef(row.id, el)}
                                   type="number"
                                   step="0.01"
-                                  value={row.physicalCount !== null ? row.physicalCount : ''}
-                                  onChange={e => {
+                                  defaultValue={row.physicalCount !== null ? row.physicalCount : ''}
+                                  key={`phys-${row.id}-${row.physicalCount}`}
+                                  onBlur={e => {
                                     const val = e.target.value === '' ? null : Number(e.target.value);
-                                    updatePhysicalCount(row.id, val);
+                                    if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
                                   }}
                                   onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
                                   className="h-7 w-16 text-[11px] text-right font-mono border border-input"
