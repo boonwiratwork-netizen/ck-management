@@ -196,11 +196,11 @@ const translations: Record<string, Record<Lang, string>> = {
   'col.daysLeft': { th: 'เหลือกี่วัน', en: 'Days Left' },
 
   // SM Stock
-  'col.openingKg': { th: 'ยอดเปิด (กก.)', en: 'Opening (kg)' },
-  'col.producedKg': { th: 'ผลิต (กก.)', en: 'Produced (kg)' },
-  'col.deliveredKg': { th: 'ส่ง (กก.)', en: 'Delivered (kg)' },
-  'col.adjustmentsKg': { th: 'ปรับปรุง (กก.)', en: 'Adjustments (kg)' },
-  'col.currentStockKg': { th: 'สต๊อกปัจจุบัน (กก.)', en: 'Current Stock (kg)' },
+  'col.openingKg': { th: 'ยอดเปิด', en: 'Opening' },
+  'col.producedKg': { th: 'ผลิต', en: 'Produced' },
+  'col.deliveredKg': { th: 'ส่ง', en: 'Delivered' },
+  'col.adjustmentsKg': { th: 'ปรับปรุง', en: 'Adjustments' },
+  'col.currentStockKg': { th: 'สต๊อกปัจจุบัน', en: 'Current Stock' },
   'col.lastProduction': { th: 'ผลิตล่าสุด', en: 'Last Production' },
 
   // Stock Count
