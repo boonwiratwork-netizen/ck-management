@@ -57,9 +57,10 @@ interface AppSidebarProps {
 
 interface NavGroup {
   label: string;
+  labelKey: string;
   icon?: React.ElementType;
   section: 'ck' | 'store' | 'management' | 'overview';
-  items: { key: TabKey; label: string; icon: React.ElementType }[];
+  items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
 }
 
 const overviewGroup: NavGroup = {
