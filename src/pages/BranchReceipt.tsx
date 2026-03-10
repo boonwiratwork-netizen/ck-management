@@ -332,17 +332,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
             <table className="w-full text-sm">
               <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
-                  <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
-                  <th className={thClass}>Name</th>
-                  <th className={thClass} style={{ minWidth: 140 }}>Supplier</th>
-                  <th className={`${thClass} text-right`}>Qty</th>
-                  <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Total Paid (฿)</th>
-                  <th className={`${thClass} text-right`}>Unit Price</th>
-                  <th className={`${thClass} text-right`}>Std Unit</th>
-                  <th className={`${thClass} text-right`}>Std Total</th>
-                  <th className={`${thClass} text-right`}>Variance</th>
-                  <th className={thClass}>Notes</th>
+                  <th className={thClass} style={{ minWidth: 220 }}>{t('col.sku')}</th>
+                  <th className={thClass}>{t('col.name')}</th>
+                  <th className={thClass} style={{ minWidth: 140 }}>{t('col.supplier')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.qty')}</th>
+                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.totalPaid')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.unitPrice')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdUnit')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.variance')}</th>
+                  <th className={thClass}>{t('col.notes')}</th>
                   <th className={`${thClass} text-center`} style={{ minWidth: 50 }}></th>
                 </tr>
               </thead>

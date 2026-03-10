@@ -635,8 +635,8 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editingRule ? 'Update' : 'Add'}</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleSubmit}>{editingRule ? t('btn.update') : t('btn.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

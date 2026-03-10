@@ -74,11 +74,11 @@ export default function SkuCategoriesPage({ categoryData, skus, readOnly = false
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/30">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Code</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name (EN)</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name (TH)</th>
-              <th className="text-center px-4 py-3 font-medium text-muted-foreground">SKU Count</th>
-              {!readOnly && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>}
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.code')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.nameEn')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.nameTh')}</th>
+              <th className="text-center px-4 py-3 font-medium text-muted-foreground">{t('col.skuCount')}</th>
+              {!readOnly && <th className="text-right px-4 py-3 font-medium text-muted-foreground">{t('col.actions')}</th>}
             </tr>
           </thead>
           <tbody>

@@ -423,8 +423,8 @@ export default function DailyStockCountPage({
       {/* Submit button */}
       {rows.length > 0 && !isSubmitted && (
         <div className="flex justify-end">
-          <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
-            <Lock className="w-4 h-4" /> Submit Count
+           <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
+            <Lock className="w-4 h-4" /> {t('btn.submitCount')}
           </Button>
         </div>
       )}

@@ -629,13 +629,13 @@ export default function FoodCostPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Menu Code</TableHead>
-                    <TableHead>Menu Name</TableHead>
-                    <TableHead className="text-right">Qty Sold</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Food Cost</TableHead>
-                    <TableHead className="text-right">FC%</TableHead>
-                    <TableHead className="text-right">Cost/Serving</TableHead>
+                     <TableHead>{t('col.menuCode')}</TableHead>
+                     <TableHead>{t('col.menuName')}</TableHead>
+                     <TableHead className="text-right">{t('col.qtySold')}</TableHead>
+                     <TableHead className="text-right">{t('col.revenue')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
+                     <TableHead className="text-right">{t('col.fcPct')}</TableHead>
+                     <TableHead className="text-right">{t('col.costPerServing')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

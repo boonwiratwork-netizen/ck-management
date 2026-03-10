@@ -469,8 +469,8 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
           {/* Summary */}
           {entries.length > 0 && (
             <div className="flex gap-6 text-sm pt-2 border-t">
-              <span>Total Qty: <strong>{totalQty.toLocaleString()}</strong></span>
-              <span>Total Revenue: <strong>฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+              <span>{t('common.totalQty')}: <strong>{totalQty.toLocaleString()}</strong></span>
+              <span>{t('common.totalRevenue')}: <strong>฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
               <span className="text-muted-foreground">{filteredEntries.length} rows</span>
             </div>
           )}

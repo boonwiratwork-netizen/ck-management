@@ -395,8 +395,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create Session</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleCreate}>{t('btn.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
