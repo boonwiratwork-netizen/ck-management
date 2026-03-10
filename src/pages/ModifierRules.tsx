@@ -60,34 +60,11 @@ function MultiMenuSelector({
     );
   }, [menus, search]);
 
-  const updatePosition = useCallback(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 280),
-      });
-    }
-  }, []);
-
   useEffect(() => {
     if (open) {
-      updatePosition();
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open, updatePosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleScroll = () => updatePosition();
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [open, updatePosition]);
+  }, [open]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
