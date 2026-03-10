@@ -339,7 +339,7 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
       {/* SECTION 2: SALES HISTORY */}
       <Card>
         <CardHeader>
-          <CardTitle>Sales History</CardTitle>
+          <CardTitle>{t('title.salesHistory')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
