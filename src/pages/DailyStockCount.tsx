@@ -233,32 +233,32 @@ export default function DailyStockCountPage({
                 <Table className="text-xs">
                   <TableHeader className="sticky-thead">
                     <TableRow className="bg-table-header">
-                      <TableHead className="table-header whitespace-nowrap px-2 py-1.5 text-[11px]">SKU Code</TableHead>
-                      <TableHead className="table-header px-2 py-1.5 text-[11px]">SKU Name</TableHead>
-                      <TableHead className="table-header px-2 py-1.5 text-[11px]">Type</TableHead>
-                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Opening</TableHead>
-                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">From CK</TableHead>
+                      <TableHead className="table-header whitespace-nowrap px-2 py-1.5 text-[11px]">{t('col.skuCode')}</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">{t('col.skuName')}</TableHead>
+                      <TableHead className="table-header px-2 py-1.5 text-[11px]">{t('col.type')}</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">{t('col.opening')}</TableHead>
+                      <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">{t('col.fromCk')}</TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Ext. Recv</div>
+                        <div>{t('col.extRecv')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Exp. Usage</div>
+                        <div>{t('col.expUsage')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Waste</div>
+                        <div>{t('col.waste')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Calc. Bal.</div>
+                        <div>{t('col.calcBalance')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Usage)</div>
                       </TableHead>
                       <TableHead className="text-right table-header whitespace-nowrap px-2 py-1.5 text-[11px]">
-                        <div>Physical</div>
+                        <div>{t('col.physical')}</div>
                         <div className="text-[9px] font-normal text-muted-foreground">(Purch.)</div>
                       </TableHead>
-                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">Variance</TableHead>
+                      <TableHead className="text-right table-header px-2 py-1.5 text-[11px]">{t('col.variance')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
