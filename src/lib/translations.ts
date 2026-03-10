@@ -279,7 +279,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'summary.totalStockValue': { th: 'มูลค่าสต๊อกรวม', en: 'Total Stock Value' },
   'summary.outOfStock': { th: 'หมดสต๊อก', en: 'Out of Stock' },
   'summary.smSkus': { th: 'กึ่งสำเร็จ', en: 'SM SKUs' },
-  'summary.totalStockKg': { th: 'สต๊อกรวม (กก.)', en: 'Total Stock (kg)' },
+  'summary.totalStockKg': { th: 'สต๊อกรวม', en: 'Total Stock' },
   'summary.totalSkus': { th: 'SKU ทั้งหมด', en: 'Total SKUs' },
   'summary.counted': { th: 'นับแล้ว', en: 'Counted' },
   'summary.withVariance': { th: 'มีผลต่าง', en: 'With Variance' },

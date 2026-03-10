@@ -449,8 +449,8 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
             <p className="text-sm text-muted-foreground">This delivery will result in negative stock:</p>
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <p className="text-sm"><span className="font-bold">{stockWarning?.skuName}</span></p>
-              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} kg</p>
-              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} kg</p>
+              <p className="text-sm text-destructive font-medium">Current stock: {stockWarning?.have?.toFixed(1)} {stockWarning?.uom}</p>
+              <p className="text-sm text-destructive font-medium">Shortfall: {((stockWarning?.need ?? 0) - (stockWarning?.have ?? 0)).toFixed(1)} {stockWarning?.uom}</p>
             </div>
           </div>
           <AlertDialogFooter className="gap-2 sm:gap-0">

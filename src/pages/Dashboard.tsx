@@ -510,7 +510,7 @@ const Dashboard = ({
                   <thead>
                     <tr className="border-b bg-table-header">
                       <th className="px-4 py-3 text-left table-header">SM SKU</th>
-                      <th className="px-4 py-3 text-right table-header">Output (kg)</th>
+                      <th className="px-4 py-3 text-right table-header">Output (g)</th>
                       <th className="px-4 py-3 text-right table-header">Standard</th>
                       <th className="px-4 py-3 text-right table-header">Actual</th>
                       <th className="px-4 py-3 text-right table-header">Variance</th>
