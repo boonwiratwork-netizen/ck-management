@@ -186,7 +186,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
   const selectedMenu = menus.find(m => m.id === selectedMenuId) ?? null;
   const selectedLines = selectedMenuId ? menuBomData.getLinesForMenu(selectedMenuId) : [];
-  const totalCost = selectedLines.reduce((sum, l) => sum + l.costPerServing, 0);
+  // Always compute cost from live prices (auto-recalc)
+  const totalCost = selectedLines.reduce((sum, l) => {
+    const effQty = calcEffectiveQty(l.qtyPerServing, l.yieldPct);
+    return sum + effQty * getActiveCost(l.skuId);
+  }, 0);
 
   const filteredMenus = useMemo(() => {
     const q = menuSearch.toLowerCase();
