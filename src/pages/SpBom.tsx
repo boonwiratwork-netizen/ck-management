@@ -506,7 +506,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                                   className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                                   onClick={startAddLine}
                                 >
-                                  <Plus className="w-4 h-4" /> Add First Ingredient
+                                  <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                                 </Button>
                               )}
                             </div>
