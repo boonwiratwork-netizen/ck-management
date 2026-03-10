@@ -289,7 +289,7 @@ const Dashboard = ({
         <CardContent className="space-y-4 px-card-p pb-card-p">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">RM Stock Value</p>
+              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.rmStockValue')}</p>
               <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
             </div>
             <div className="rounded-lg border p-card-p">
