@@ -135,6 +135,19 @@
 }
 
 @layer utilities {
+  /* Sticky table header */
+  .sticky-thead th,
+  .sticky-thead td {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: hsl(var(--table-header));
+  }
+  .dark .sticky-thead th,
+  .dark .sticky-thead td {
+    background-color: hsl(var(--table-header));
+  }
+
   /* Hide number input spinners */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
