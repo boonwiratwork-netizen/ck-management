@@ -44,11 +44,22 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   // Form state
   const [form, setForm] = useState<Omit<Menu, 'id'>>(EMPTY_MENU);
 
-  // Branch manager sees only their branch
+  // Distinct brand names for filter/dropdown
+  const brandNames = useMemo(() => {
+    const set = new Set(branches.map(b => b.brandName).filter(Boolean));
+    return Array.from(set).sort();
+  }, [branches]);
+
+  // Store manager's brand (derived from their branch)
+  const storeBrand = useMemo(() => {
+    if (!isStoreManager || !profile?.branch_id) return null;
+    return branches.find(b => b.id === profile.branch_id)?.brandName || null;
+  }, [isStoreManager, profile, branches]);
+
   const visibleMenus = useMemo(() => {
     let result = menus;
-    if (isStoreManager && profile?.branch_id) {
-      result = result.filter(m => m.branchId === profile.branch_id);
+    if (isStoreManager && storeBrand) {
+      result = result.filter(m => m.brandName === storeBrand);
     }
     if (search) {
       const q = search.toLowerCase();
@@ -56,7 +67,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
     if (filterCategory !== 'all') result = result.filter(m => m.category === filterCategory);
     if (filterStatus !== 'all') result = result.filter(m => m.status === filterStatus);
-    if (filterBranch !== 'all') result = result.filter(m => m.branchId === filterBranch);
+    if (filterBrand !== 'all') result = result.filter(m => m.brandName === filterBrand);
     return result;
   }, [menus, isStoreManager, profile, search, filterCategory, filterStatus, filterBranch]);
 
