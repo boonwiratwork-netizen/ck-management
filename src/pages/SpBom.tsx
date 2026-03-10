@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { SpBomLine } from '@/types/sp-bom';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
