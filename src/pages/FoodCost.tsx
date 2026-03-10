@@ -69,6 +69,7 @@ export default function FoodCostPage({
   skus, prices, menus, menuBomLines, modifierRules, spBomLines, branches, suppliers,
 }: FoodCostPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
+  const { t } = useLanguage();
   const today = new Date();
 
   const [preset, setPreset] = useState<DatePreset>('today');
