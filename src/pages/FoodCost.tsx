@@ -171,7 +171,7 @@ export default function FoodCostPage({
       }
 
       for (const rule of activeRules) {
-        if (rule.menuId && rule.menuId !== menu.id) continue;
+        if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
         const menuName = sale.menu_name || '';
         if (menuName.includes(rule.keyword)) {
           if (rule.ruleType === 'swap') {
