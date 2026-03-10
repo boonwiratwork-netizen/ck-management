@@ -35,6 +35,19 @@ export default function SMStockPage({ skus, smStockData }: Props) {
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
 
+  type SMRow = { sku: SKU; balance: any; lastDate: string | null; currentStock: number; opening: number; stockValue: number; healthStatus: 'red' | 'yellow' | 'green' };
+
+  const smComparators = useMemo(() => ({
+    skuId: (a: SMRow, b: SMRow) => a.sku.skuId.localeCompare(b.sku.skuId),
+    name: (a: SMRow, b: SMRow) => a.sku.name.localeCompare(b.sku.name),
+    category: (a: SMRow, b: SMRow) => a.sku.category.localeCompare(b.sku.category),
+    storage: (a: SMRow, b: SMRow) => a.sku.storageCondition.localeCompare(b.sku.storageCondition),
+    opening: (a: SMRow, b: SMRow) => a.opening - b.opening,
+    produced: (a: SMRow, b: SMRow) => (a.balance?.totalProduced ?? 0) - (b.balance?.totalProduced ?? 0),
+    delivered: (a: SMRow, b: SMRow) => (a.balance?.totalDelivered ?? 0) - (b.balance?.totalDelivered ?? 0),
+    currentStock: (a: SMRow, b: SMRow) => a.currentStock - b.currentStock,
+  }), []);
+
   const filteredRows = useMemo(() => {
     return smSkus
       .map(sku => {
