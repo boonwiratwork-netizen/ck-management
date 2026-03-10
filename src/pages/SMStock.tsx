@@ -58,7 +58,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
         const lastDate = getLastProductionDate(sku.id);
         const currentStock = balance?.currentStock ?? 0;
         const opening = balance?.openingStock ?? 0;
-        const stockValue = currentStock * 1000 * 0; // BOM cost/gram placeholder
+        const stockValue = currentStock * getBomCostPerGram(sku.id);
 
         let healthStatus: 'red' | 'yellow' | 'green' = 'green';
         if (currentStock <= 0) healthStatus = 'red';
