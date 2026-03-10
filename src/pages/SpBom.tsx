@@ -480,14 +480,14 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>SKU Code</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">Name</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Qty/Batch</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>UOM</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>Yield %</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>Eff. Qty</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Cost/unit</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>Line Cost</TableHead>
+                         <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">{t('col.name')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.qtyPerBatch')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>{t('col.uom')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>{t('col.yieldPct')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.effQty')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.costUnit')}</TableHead>
+                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.lineCost')}</TableHead>
                         {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
