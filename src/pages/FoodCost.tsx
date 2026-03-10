@@ -593,13 +593,13 @@ export default function FoodCostPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>SKU Code</TableHead>
-                    <TableHead>SKU Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Expected Usage</TableHead>
-                    <TableHead>UOM</TableHead>
-                    <TableHead className="text-right">Std Unit Price</TableHead>
-                    <TableHead className="text-right">Std Cost</TableHead>
+                     <TableHead>{t('col.skuCode')}</TableHead>
+                     <TableHead>{t('col.skuName')}</TableHead>
+                     <TableHead>{t('col.type')}</TableHead>
+                     <TableHead className="text-right">{t('col.expectedUsage')}</TableHead>
+                     <TableHead>{t('col.uom')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdUnitPrice')}</TableHead>
+                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
