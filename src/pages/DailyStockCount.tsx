@@ -281,6 +281,7 @@ export default function DailyStockCountPage({
                       const sku = skuMap.get(row.skuId);
                       if (!sku) return null;
                       const varClass = getVarianceClass(row.variance, row.physicalCount, row.calculatedBalance);
+                      const rawPhysical = getRawPhysical(row);
 
                       return (
                         <TableRow key={row.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
