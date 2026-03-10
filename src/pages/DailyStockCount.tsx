@@ -299,8 +299,12 @@ export default function DailyStockCountPage({
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={row.waste}
-                                  onChange={e => updateWaste(row.id, Number(e.target.value) || 0)}
+                                  defaultValue={row.waste || ''}
+                                  key={`waste-${row.id}-${row.waste}`}
+                                  onBlur={e => {
+                                    const val = Number(e.target.value) || 0;
+                                    if (val !== row.waste) updateWaste(row.id, val);
+                                  }}
                                   className="h-7 w-16 text-[11px] text-right font-mono border border-input"
                                   placeholder="0"
                                 />
