@@ -335,25 +335,25 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Total SKUs</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.totalSkus')}</p>
                     <p className="text-2xl font-bold mt-1">{summary.total}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Counted</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.counted')}</p>
                     <p className="text-2xl font-bold mt-1">{summary.counted}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">With Variance</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.withVariance')}</p>
                     <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Variance Value</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.varianceValue')}</p>
                     <p className={`text-2xl font-bold mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
                       ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
