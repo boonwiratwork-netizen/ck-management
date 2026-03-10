@@ -221,9 +221,14 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
           <p className="text-sm text-muted-foreground mt-0.5">Manage menus across branches</p>
         </div>
         {canEdit && (
-          <Button onClick={handleAdd}>
-            <Plus className="w-4 h-4" /> Add Menu
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCsvOpen(true)} className="h-9">
+              <Upload className="w-4 h-4" /> Import CSV
+            </Button>
+            <Button onClick={handleAdd}>
+              <Plus className="w-4 h-4" /> Add Menu
+            </Button>
+          </div>
         )}
       </div>
 
