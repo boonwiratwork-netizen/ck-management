@@ -176,17 +176,12 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
           <h2 className="text-2xl font-heading font-bold">{t('title.goodsReceipt')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Record raw material receipts from suppliers</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleAddRow}>
-            {t('btn.addRow')}
+        {hasUnsavedOrEditing && (
+          <Button onClick={handleSaveAll}>
+            <Save className="w-4 h-4" />
+            {t('btn.saveAll')} ({drafts.filter(d => d.isEditing).length})
           </Button>
-          {hasUnsavedOrEditing && (
-            <Button onClick={handleSaveAll}>
-              <Save className="w-4 h-4" />
-              {t('btn.saveAll')} ({drafts.filter(d => d.isEditing).length})
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Summary Cards */}
