@@ -86,8 +86,8 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
     <div className="section-gap">
       {/* Header */}
       <div>
-        <h2 className="page-title">Store Overview</h2>
-        <p className="page-subtitle">🏪 Store — {branchName}</p>
+        <h2 className="page-title">{t('title.storeOverview')}</h2>
+        <p className="page-subtitle">🏪 {t('nav.store')} — {branchName}</p>
       </div>
 
       {/* SECTION 1: TODAY'S SNAPSHOT */}
