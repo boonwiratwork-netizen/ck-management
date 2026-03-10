@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { ModifierRule, ModifierRuleType } from '@/types/modifier-rule';
 import { SKU } from '@/types/sku';
 import { Menu } from '@/types/menu';
