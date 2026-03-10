@@ -456,13 +456,13 @@ export default function ProductionPage({ productionData, skus, bomHeaders, stock
                     </div>
                     <div className="text-center p-3 rounded-lg bg-muted/50">
                       <p className="text-xs text-muted-foreground">Produced</p>
-                      <p className="text-lg font-bold">{getTotalProducedForPlan(selectedPlan.id).toFixed(1)} kg</p>
+                      <p className="text-lg font-bold">{(getTotalProducedForPlan(selectedPlan.id) / 1000).toFixed(1)} kg</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-primary/10">
                       <p className="text-xs text-muted-foreground">Progress</p>
                       <p className="text-lg font-bold text-primary">
                         {selectedPlan.targetQtyKg > 0
-                          ? ((getTotalProducedForPlan(selectedPlan.id) / selectedPlan.targetQtyKg) * 100).toFixed(0)
+                          ? ((getTotalProducedForPlan(selectedPlan.id) / (selectedPlan.targetQtyKg * 1000)) * 100).toFixed(0)
                           : 0}%
                       </p>
                     </div>
