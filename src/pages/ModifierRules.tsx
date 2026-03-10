@@ -404,16 +404,16 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Keyword</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Menu</TableHead>
-              <TableHead>SKU Code</TableHead>
-              <TableHead>SKU Name</TableHead>
-              <TableHead className="text-right">Qty/Match</TableHead>
-              <TableHead>UOM</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead className="w-28">Actions</TableHead>
+              <TableHead>{t('col.keyword')}</TableHead>
+              <TableHead>{t('col.ruleType')}</TableHead>
+              <TableHead>{t('col.menu')}</TableHead>
+              <TableHead>{t('col.skuCode')}</TableHead>
+              <TableHead>{t('col.skuName')}</TableHead>
+              <TableHead className="text-right">{t('col.qty')}</TableHead>
+              <TableHead>{t('col.uom')}</TableHead>
+              <TableHead>{t('col.description')}</TableHead>
+              <TableHead>{t('col.status')}</TableHead>
+              <TableHead className="w-28">{t('col.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
