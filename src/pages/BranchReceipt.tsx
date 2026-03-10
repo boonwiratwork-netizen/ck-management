@@ -189,7 +189,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       const updated = { ...d, [field]: value };
       if (field === 'skuId' && value) {
         const sku = rmSkus.find(s => s.id === value);
-        if (sku) updated.uom = sku.usageUom;
+        if (sku) updated.uom = sku.purchaseUom;
         // Auto-fill supplier from active price master
         const supName = getActiveSupplierName(value);
         if (supName) updated.supplierName = supName;
@@ -351,7 +351,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   const actualUnitPrice = draft.qtyReceived > 0 ? draft.actualTotalPaid / draft.qtyReceived : 0;
                   const stdTotal = draft.qtyReceived * stdUnit;
                   const variance = draft.actualTotalPaid - stdTotal;
-                  const uomLabel = sku?.usageUom || '';
+                  const uomLabel = sku?.purchaseUom || '';
 
                   return (
                     <tr key={draft.tempId} className="border-b last:border-0 bg-blue-50 dark:bg-blue-950/30">
@@ -527,7 +527,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       <td className={tdReadOnly}>{sku?.name || '—'}</td>
                       <td className={tdReadOnly}>{r.supplierName || '—'}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
-                      <td className={`${tdReadOnly} text-center`}>{r.uom}</td>
+                      <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>฿{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className={`${tdReadOnly} text-right font-mono font-semibold ${r.priceVariance > 0 ? 'text-destructive' : 'text-green-600'}`}>
