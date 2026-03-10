@@ -48,8 +48,8 @@ export function useSmStockData(
   const stockBalances = useMemo((): SMStockBalance[] => {
     return smSkus.map(sku => {
       const opening = openingStocks[sku.id] ?? 0;
-      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputKg, 0);
-      const totalDelivered = deliveries.filter(d => d.smSkuId === sku.id).reduce((sum, d) => sum + d.qtyDeliveredKg, 0);
+      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
+      const totalDelivered = deliveries.filter(d => d.smSkuId === sku.id).reduce((sum, d) => sum + d.qtyDeliveredG, 0);
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
