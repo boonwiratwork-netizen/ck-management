@@ -122,7 +122,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           case 'week': cmp = a.weekNumber - b.weekNumber; break;
           case 'branch': cmp = a.branchName.localeCompare(b.branchName); break;
           case 'sku': cmp = (skuMap[a.smSkuId]?.name || '').localeCompare(skuMap[b.smSkuId]?.name || ''); break;
-          case 'qty': cmp = a.qtyDeliveredKg - b.qtyDeliveredKg; break;
+          case 'qty': cmp = a.qtyDeliveredG - b.qtyDeliveredG; break;
         }
         return delSortDir === 'desc' ? -cmp : cmp;
       });
