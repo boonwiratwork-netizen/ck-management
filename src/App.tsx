@@ -39,21 +39,23 @@ function SetupRoute() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/setup" element={<SetupRoute />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <LanguageProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/setup" element={<SetupRoute />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 
