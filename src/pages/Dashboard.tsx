@@ -326,7 +326,7 @@ const Dashboard = ({
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Semi-finished</h4>
+                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.semiFinished')}</h4>
                   <div className="max-h-48 overflow-y-auto rounded-lg border">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">Name</th><th className="px-3 py-2 text-right table-header">Stock (kg)</th><th className="px-3 py-2 text-right table-header">Value</th></tr></thead>
