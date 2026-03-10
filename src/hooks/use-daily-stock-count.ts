@@ -58,6 +58,15 @@ export function useDailyStockCount({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // Helper: get converter for purchase→usage UOM conversion
+  const getSkuConverter = useCallback((skuId: string): number => {
+    const sku = skus.find(s => s.id === skuId);
+    if (!sku) return 1;
+    // Only convert when purchase and usage UOM differ
+    if (sku.purchaseUom === sku.usageUom) return 1;
+    return sku.converter || 1;
+  }, [skus]);
+
   // Fetch live receipt totals for a branch+date
   const fetchReceiptTotals = useCallback(async (branchId: string, date: string) => {
     const branch = branches.find(b => b.id === branchId);
@@ -71,7 +80,8 @@ export function useDailyStockCount({
     
     const extBySku: Record<string, number> = {};
     (brData || []).forEach(r => {
-      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
+      const conv = getSkuConverter(r.sku_id);
+      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received) * conv;
     });
 
     const { data: dlData } = await supabase
@@ -91,7 +101,7 @@ export function useDailyStockCount({
     });
 
     return { extBySku, ckBySku };
-  }, [branches]);
+  }, [branches, getSkuConverter]);
 
   // Calculate expected usage from sales data × current BOM
   const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
@@ -335,7 +345,8 @@ export function useDailyStockCount({
     const prevPhysical: Record<string, number> = {};
     (prevCounts || []).forEach(p => {
       if (p.physical_count !== null) {
-        prevPhysical[p.sku_id] = Number(p.physical_count);
+        const conv = getSkuConverter(p.sku_id);
+        prevPhysical[p.sku_id] = Number(p.physical_count) * conv;
       }
     });
 
@@ -389,21 +400,23 @@ export function useDailyStockCount({
     setRows(allInserted.map(toLocal));
     toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
     setGenerating(false);
-  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet]);
+  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter]);
 
-  // Update physical count
+  // Update physical count — convert from purchase UOM to usage UOM before storing
   const updatePhysicalCount = useCallback(async (rowId: string, physicalCount: number | null) => {
     const row = rows.find(r => r.id === rowId);
     if (!row || row.isSubmitted) return;
 
-    const variance = physicalCount !== null ? physicalCount - row.calculatedBalance : 0;
+    const conv = getSkuConverter(row.skuId);
+    const convertedQty = physicalCount !== null ? physicalCount * conv : null;
+    const variance = convertedQty !== null ? convertedQty - row.calculatedBalance : 0;
     const { error } = await supabase
       .from('daily_stock_counts')
-      .update({ physical_count: physicalCount, variance })
+      .update({ physical_count: convertedQty, variance })
       .eq('id', rowId);
     if (error) { toast.error('Failed to update'); return; }
-    setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount, variance } : r));
-  }, [rows]);
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, physicalCount: convertedQty, variance } : r));
+  }, [rows, getSkuConverter]);
 
   // Update waste
   const updateWaste = useCallback(async (rowId: string, waste: number) => {
