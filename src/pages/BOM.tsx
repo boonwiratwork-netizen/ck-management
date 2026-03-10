@@ -811,7 +811,7 @@ const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: B
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">BOM Master</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.bomMaster')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage recipes for Semi-finished (SM) items</p>
         </div>
         <Button onClick={handleAddHeader}>
