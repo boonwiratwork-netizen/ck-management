@@ -393,7 +393,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       </td>
                       <td className={tdClass}>
                         <div className="flex items-center gap-1">
-                          <Input type="number" min={0} step="any" value={draft.qtyReceived || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyReceived', Number(e.target.value))} className="h-8 text-xs text-right w-[80px] font-mono" placeholder="0" />
+                          <Input type="number" min={0} step="any" value={draft.qtyReceived || ''} onChange={e => handleUpdateDraft(draft.tempId, 'qtyReceived', Number(e.target.value))} className="h-8 text-xs text-right w-full font-mono" placeholder="0" />
                         </div>
                       </td>
                       <td className={`${tdClass} text-center text-xs text-muted-foreground font-medium`}>
