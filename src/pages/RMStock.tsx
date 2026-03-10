@@ -198,7 +198,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map(row => {
+              sortedRows.map(row => {
                 const netAdj = (row.balance?.adjustments ?? []).reduce((s, a) => s + a.quantity, 0);
                 return (
                   <TableRow key={row.sku.id}>
