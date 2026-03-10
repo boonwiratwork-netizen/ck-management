@@ -222,7 +222,7 @@ export default function DailyStockCountPage({
         <>
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2 border-b bg-muted/30">
                   <p className="kbd-hint">
                     <kbd>Tab</kbd> / <kbd>Enter</kbd> to advance to next row · Physical Count auto-selects on focus
