@@ -389,7 +389,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         </TooltipProvider>
                       </td>
                       <td className={tdClass}>
-                        <Input value={draft.supplierName} onChange={e => handleUpdateDraft(draft.tempId, 'supplierName', e.target.value)} className="h-8 text-xs w-[130px]" placeholder="Supplier..." />
+                        <Input value={draft.supplierName} onChange={e => handleUpdateDraft(draft.tempId, 'supplierName', e.target.value)} className="h-8 text-xs w-full" placeholder="Supplier..." />
                       </td>
                       <td className={tdClass}>
                         <div className="flex items-center gap-1">
