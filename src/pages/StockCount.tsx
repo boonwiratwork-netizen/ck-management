@@ -31,6 +31,7 @@ interface Props {
 
 export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }: Props) {
   const { sessions, createSession, updateLine, confirmSession, deleteSession, getLinesForSession } = stockCountData;
+  const { t } = useLanguage();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
