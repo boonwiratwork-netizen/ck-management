@@ -10,7 +10,7 @@ const toLocal = (row: any): Menu => ({
   category: row.category,
   sellingPrice: row.selling_price,
   status: row.status,
-  branchId: row.branch_id,
+  brandName: row.brand_name || '',
 });
 
 export function useMenuData() {
@@ -42,7 +42,7 @@ export function useMenuData() {
       category: data.category,
       selling_price: data.sellingPrice,
       status: data.status,
-      branch_id: data.branchId,
+      brand_name: data.brandName,
     }).select().single();
     if (error) { toast.error('Failed to add menu: ' + error.message); return; }
     setMenus(prev => [toLocal(row), ...prev]);
@@ -55,7 +55,7 @@ export function useMenuData() {
     if (data.category !== undefined) dbData.category = data.category;
     if (data.sellingPrice !== undefined) dbData.selling_price = data.sellingPrice;
     if (data.status !== undefined) dbData.status = data.status;
-    if (data.branchId !== undefined) dbData.branch_id = data.branchId;
+    if (data.brandName !== undefined) dbData.brand_name = data.brandName;
 
     const { error } = await supabase.from('menus').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update menu: ' + error.message); return; }

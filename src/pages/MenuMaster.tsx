@@ -39,16 +39,27 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterBranch, setFilterBranch] = useState<string>('all');
+  const [filterBrand, setFilterBrand] = useState<string>('all');
 
   // Form state
   const [form, setForm] = useState<Omit<Menu, 'id'>>(EMPTY_MENU);
 
-  // Branch manager sees only their branch
+  // Distinct brand names for filter/dropdown
+  const brandNames = useMemo(() => {
+    const set = new Set(branches.map(b => b.brandName).filter(Boolean));
+    return Array.from(set).sort();
+  }, [branches]);
+
+  // Store manager's brand (derived from their branch)
+  const storeBrand = useMemo(() => {
+    if (!isStoreManager || !profile?.branch_id) return null;
+    return branches.find(b => b.id === profile.branch_id)?.brandName || null;
+  }, [isStoreManager, profile, branches]);
+
   const visibleMenus = useMemo(() => {
     let result = menus;
-    if (isStoreManager && profile?.branch_id) {
-      result = result.filter(m => m.branchId === profile.branch_id);
+    if (isStoreManager && storeBrand) {
+      result = result.filter(m => m.brandName === storeBrand);
     }
     if (search) {
       const q = search.toLowerCase();
@@ -56,9 +67,9 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
     if (filterCategory !== 'all') result = result.filter(m => m.category === filterCategory);
     if (filterStatus !== 'all') result = result.filter(m => m.status === filterStatus);
-    if (filterBranch !== 'all') result = result.filter(m => m.branchId === filterBranch);
+    if (filterBrand !== 'all') result = result.filter(m => m.brandName === filterBrand);
     return result;
-  }, [menus, isStoreManager, profile, search, filterCategory, filterStatus, filterBranch]);
+  }, [menus, isStoreManager, storeBrand, search, filterCategory, filterStatus, filterBrand]);
 
   // Summary
   const total = visibleMenus.length;
@@ -91,7 +102,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       category: menu.category,
       sellingPrice: menu.sellingPrice,
       status: menu.status,
-      branchId: menu.branchId,
+      brandName: menu.brandName,
     });
     setModalOpen(true);
   };
@@ -119,9 +130,8 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
   };
 
-  const getBranchName = (branchId: string | null) => {
-    if (!branchId) return '—';
-    return branches.find(b => b.id === branchId)?.branchName || '—';
+  const getBrandDisplay = (brandName: string) => {
+    return brandName || '—';
   };
 
   const canEdit = isManagement;
@@ -190,11 +200,11 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
           </SelectContent>
         </Select>
         {isManagement && (
-          <Select value={filterBranch} onValueChange={setFilterBranch}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Branch" /></SelectTrigger>
+          <Select value={filterBrand} onValueChange={setFilterBrand}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Brand" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+              <SelectItem value="all">All Brands</SelectItem>
+              {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
@@ -210,7 +220,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Selling Price</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Branch</TableHead>
+              <TableHead>Brand</TableHead>
               {canEdit && <TableHead className="w-[100px] text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -235,7 +245,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                       {menu.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{getBranchName(menu.branchId)}</TableCell>
+                  <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
                   {canEdit && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -331,12 +341,12 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Branch</label>
-              <Select value={form.branchId || '__none'} onValueChange={v => setForm(f => ({ ...f, branchId: v === '__none' ? null : v }))}>
-                <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <label className="text-xs font-medium text-muted-foreground">Brand</label>
+              <Select value={form.brandName || '__none'} onValueChange={v => setForm(f => ({ ...f, brandName: v === '__none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">— No branch —</SelectItem>
-                  {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+                  <SelectItem value="__none">— No brand —</SelectItem>
+                  {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

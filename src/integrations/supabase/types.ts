@@ -535,7 +535,7 @@ export type Database = {
       }
       menus: {
         Row: {
-          branch_id: string | null
+          brand_name: string
           category: string
           created_at: string
           id: string
@@ -546,7 +546,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string | null
+          brand_name?: string
           category?: string
           created_at?: string
           id?: string
@@ -557,7 +557,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string | null
+          brand_name?: string
           category?: string
           created_at?: string
           id?: string
@@ -567,15 +567,7 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "menus_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       prices: {
         Row: {

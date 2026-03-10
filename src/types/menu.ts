@@ -8,7 +8,7 @@ export interface Menu {
   category: string;
   sellingPrice: number;
   status: MenuStatus;
-  branchId: string | null;
+  brandName: string;
 }
 
 export const MENU_CATEGORIES: string[] = [
@@ -21,5 +21,5 @@ export const EMPTY_MENU: Omit<Menu, 'id'> = {
   category: '',
   sellingPrice: 0,
   status: 'Active',
-  branchId: null,
+  brandName: '',
 };
