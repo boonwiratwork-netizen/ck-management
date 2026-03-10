@@ -4,6 +4,8 @@ import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { Price } from '@/types/price';
 import { DraftRow } from '@/pages/GoodsReceipt';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Copy, Plus, Pencil, Check, X } from 'lucide-react';
@@ -52,7 +54,6 @@ export function GoodsReceiptSpreadsheet({
 
   const filteredSaved = useMemo(() => {
     return savedReceipts.filter(r => {
-      // Hide receipts currently being edited
       if (editingReceiptIds.includes(r.id)) return false;
       const sku = skuMap[r.skuId];
       const supplier = supplierMap[r.supplierId];
@@ -62,8 +63,23 @@ export function GoodsReceiptSpreadsheet({
         (supplier?.name || '').toLowerCase().includes(search.toLowerCase());
       const matchesSupplier = filterSupplier === 'all' || r.supplierId === filterSupplier;
       return matchesSearch && matchesSupplier;
-    }).sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+    });
   }, [savedReceipts, skuMap, supplierMap, search, filterSupplier, editingReceiptIds]);
+
+  const comparators = useMemo(() => ({
+    date: (a: GoodsReceipt, b: GoodsReceipt) => a.receiptDate.localeCompare(b.receiptDate),
+    week: (a: GoodsReceipt, b: GoodsReceipt) => a.weekNumber - b.weekNumber,
+    sku: (a: GoodsReceipt, b: GoodsReceipt) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
+    supplier: (a: GoodsReceipt, b: GoodsReceipt) => (supplierMap[a.supplierId]?.name || '').localeCompare(supplierMap[b.supplierId]?.name || ''),
+    qty: (a: GoodsReceipt, b: GoodsReceipt) => a.quantityReceived - b.quantityReceived,
+    actualTotal: (a: GoodsReceipt, b: GoodsReceipt) => a.actualTotal - b.actualTotal,
+    variance: (a: GoodsReceipt, b: GoodsReceipt) => a.priceVariance - b.priceVariance,
+  }), [skuMap, supplierMap]);
+
+  const { sorted: sortedSaved, sortKey, sortDir, handleSort } = useSortableTable(filteredSaved, comparators);
+
+  // Default sort by date desc when no sort active
+  const displaySaved = sortKey ? sortedSaved : [...filteredSaved].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
 
   const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
   const tdClass = 'px-1.5 py-1';
@@ -102,21 +118,35 @@ export function GoodsReceiptSpreadsheet({
 
       {/* Spreadsheet table */}
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky-thead">
               <tr className="border-b bg-muted/50">
-                <th className={thClass}>Date</th>
-                <th className={`${thClass} text-center`}>Wk</th>
-                <th className={thClass} style={{ minWidth: 180 }}>SKU</th>
-                <th className={thClass} style={{ minWidth: 160 }}>Supplier</th>
-                <th className={`${thClass} text-right`}>Qty</th>
+                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('date')}>
+                  <SortableHeader label="Date" sortKey="date" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </th>
+                <th className={`${thClass} text-center cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('week')}>
+                  <SortableHeader label="Wk" sortKey="week" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </th>
+                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} style={{ minWidth: 180 }} onClick={() => handleSort('sku')}>
+                  <SortableHeader label="SKU" sortKey="sku" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </th>
+                <th className={`${thClass} cursor-pointer hover:bg-muted/50`} style={{ minWidth: 160 }} onClick={() => handleSort('supplier')}>
+                  <SortableHeader label="Supplier" sortKey="supplier" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </th>
+                <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('qty')}>
+                  <SortableHeader label="Qty" sortKey="qty" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                </th>
                 <th className={`${thClass} text-center`}>UOM</th>
-                <th className={`${thClass} text-right`}>Actual Total</th>
+                <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('actualTotal')}>
+                  <SortableHeader label="Actual Total" sortKey="actualTotal" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                </th>
                 <th className={`${thClass} text-right`}>Actual Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Unit ฿</th>
                 <th className={`${thClass} text-right`}>Std Total</th>
-                <th className={`${thClass} text-right`}>Variance</th>
+                <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => handleSort('variance')}>
+                  <SortableHeader label="Variance" sortKey="variance" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                </th>
                 <th className={thClass}>Note</th>
                 <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>Actions</th>
               </tr>
@@ -269,7 +299,7 @@ export function GoodsReceiptSpreadsheet({
               )}
 
               {/* Saved receipts (read-only) */}
-              {filteredSaved.map(r => {
+              {displaySaved.map(r => {
                 const sku = skuMap[r.skuId];
                 const supplier = supplierMap[r.supplierId];
                 return (
@@ -319,7 +349,7 @@ export function GoodsReceiptSpreadsheet({
                 );
               })}
 
-              {drafts.length === 0 && filteredSaved.length === 0 && (
+              {drafts.length === 0 && displaySaved.length === 0 && (
                 <tr>
                   <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                     No receipts yet. Click "+ Add Row" to start entering.
@@ -331,7 +361,7 @@ export function GoodsReceiptSpreadsheet({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        {filteredSaved.length} saved receipt(s){drafts.length > 0 && ` · ${drafts.filter(d => d.isEditing).length} editing`}
+        {displaySaved.length} saved receipt(s){drafts.length > 0 && ` · ${drafts.filter(d => d.isEditing).length} editing`}
       </p>
     </div>
   );

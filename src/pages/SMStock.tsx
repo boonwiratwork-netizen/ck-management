@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { StockAdjustment } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { Button } from '@/components/ui/button';
@@ -33,6 +35,19 @@ export default function SMStockPage({ skus, smStockData }: Props) {
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
 
+  type SMRow = { sku: SKU; balance: any; lastDate: string | null; currentStock: number; opening: number; stockValue: number; healthStatus: 'red' | 'yellow' | 'green' };
+
+  const smComparators = useMemo(() => ({
+    skuId: (a: SMRow, b: SMRow) => a.sku.skuId.localeCompare(b.sku.skuId),
+    name: (a: SMRow, b: SMRow) => a.sku.name.localeCompare(b.sku.name),
+    category: (a: SMRow, b: SMRow) => a.sku.category.localeCompare(b.sku.category),
+    storage: (a: SMRow, b: SMRow) => a.sku.storageCondition.localeCompare(b.sku.storageCondition),
+    opening: (a: SMRow, b: SMRow) => a.opening - b.opening,
+    produced: (a: SMRow, b: SMRow) => (a.balance?.totalProduced ?? 0) - (b.balance?.totalProduced ?? 0),
+    delivered: (a: SMRow, b: SMRow) => (a.balance?.totalDelivered ?? 0) - (b.balance?.totalDelivered ?? 0),
+    currentStock: (a: SMRow, b: SMRow) => a.currentStock - b.currentStock,
+  }), []);
+
   const filteredRows = useMemo(() => {
     return smSkus
       .map(sku => {
@@ -56,6 +71,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
       });
   }, [smSkus, stockBalances, getLastProductionDate, search, filterCategory, filterStorage]);
 
+  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, smComparators);
   const handleOpeningSubmit = (skuId: string) => {
     setOpeningStock(skuId, Number(openingValue) || 0);
     setEditingOpening(null);
@@ -123,20 +139,36 @@ export default function SMStockPage({ skus, smStockData }: Props) {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-auto">
+      <div className="rounded-lg border overflow-auto max-h-[70vh]">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky-thead">
             <TableRow>
               <TableHead className="w-8"></TableHead>
-              <TableHead>SKU ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Storage</TableHead>
-              <TableHead className="text-right">Opening (kg)</TableHead>
-              <TableHead className="text-right">Produced (kg)</TableHead>
-              <TableHead className="text-right">Delivered (kg)</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
+                <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+                <SortableHeader label="Name" sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
+                <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
+                <SortableHeader label="Storage" sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
+                <SortableHeader label="Opening (kg)" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('produced')}>
+                <SortableHeader label="Produced (kg)" sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('delivered')}>
+                <SortableHeader label="Delivered (kg)" sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead className="text-right">Adjustments (kg)</TableHead>
-              <TableHead className="text-right">Current Stock (kg)</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
+                <SortableHeader label="Current Stock (kg)" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead>Last Production</TableHead>
               <TableHead className="text-right">Days Left</TableHead>
               <TableHead className="w-10"></TableHead>
@@ -151,7 +183,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map(row => {
+              sortedRows.map(row => {
                 const netAdj = (row.balance?.adjustments ?? []).reduce((s, a) => s + a.quantity, 0);
                 return (
                   <TableRow key={row.sku.id}>

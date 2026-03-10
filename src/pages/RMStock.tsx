@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { StockBalance, StockAdjustment } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +35,19 @@ export default function RMStockPage({ skus, stockData }: Props) {
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
 
+  type RMRow = { sku: SKU; balance: any; stdUnit: number; lastDate: string | null; currentStock: number; opening: number; stockValue: number; healthStatus: 'red' | 'yellow' | 'green' };
+
+  const rmComparators = useMemo(() => ({
+    skuId: (a: RMRow, b: RMRow) => a.sku.skuId.localeCompare(b.sku.skuId),
+    name: (a: RMRow, b: RMRow) => a.sku.name.localeCompare(b.sku.name),
+    category: (a: RMRow, b: RMRow) => a.sku.category.localeCompare(b.sku.category),
+    storage: (a: RMRow, b: RMRow) => a.sku.storageCondition.localeCompare(b.sku.storageCondition),
+    opening: (a: RMRow, b: RMRow) => a.opening - b.opening,
+    received: (a: RMRow, b: RMRow) => (a.balance?.totalReceived ?? 0) - (b.balance?.totalReceived ?? 0),
+    currentStock: (a: RMRow, b: RMRow) => a.currentStock - b.currentStock,
+    stockValue: (a: RMRow, b: RMRow) => a.stockValue - b.stockValue,
+  }), []);
+
   const filteredRows = useMemo(() => {
     return rmSkus
       .map(sku => {
@@ -57,6 +72,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
       });
   }, [rmSkus, stockBalances, getStdUnitPrice, getLastReceiptDate, search, filterCategory, filterStorage]);
 
+  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
   const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
 
   const handleOpeningSubmit = (skuId: string) => {
@@ -137,21 +153,37 @@ export default function RMStockPage({ skus, stockData }: Props) {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-auto">
+      <div className="rounded-lg border overflow-auto max-h-[70vh]">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky-thead">
             <TableRow>
               <TableHead className="w-8"></TableHead>
-              <TableHead>SKU ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Storage</TableHead>
-              <TableHead className="text-right">Opening</TableHead>
-              <TableHead className="text-right">Received</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
+                <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+                <SortableHeader label="Name" sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
+                <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
+                <SortableHeader label="Storage" sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
+                <SortableHeader label="Opening" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('received')}>
+                <SortableHeader label="Received" sortKey="received" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead className="text-right">Adjustments</TableHead>
-              <TableHead className="text-right">Current Stock</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
+                <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead>UOM</TableHead>
-              <TableHead className="text-right">Stock Value</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('stockValue')}>
+                <SortableHeader label="Stock Value" sortKey="stockValue" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </TableHead>
               <TableHead>Last Receipt</TableHead>
               <TableHead className="text-right">Days Left</TableHead>
               <TableHead className="w-10"></TableHead>
@@ -166,7 +198,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map(row => {
+              sortedRows.map(row => {
                 const netAdj = (row.balance?.adjustments ?? []).reduce((s, a) => s + a.quantity, 0);
                 return (
                   <TableRow key={row.sku.id}>

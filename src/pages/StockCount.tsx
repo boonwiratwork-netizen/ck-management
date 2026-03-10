@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { SKU, StorageCondition } from '@/types/sku';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { StockCountSession, StockCountLine } from '@/types/stock-count';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +59,17 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
       return true;
     });
   }, [sessionLines, skuMap, filterType, filterStorage]);
+
+  const scComparators = useMemo(() => ({
+    skuId: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
+    name: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
+    type: (a: StockCountLine, b: StockCountLine) => a.type.localeCompare(b.type),
+    storage: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.storageCondition || '').localeCompare(skuMap[b.skuId]?.storageCondition || ''),
+    systemQty: (a: StockCountLine, b: StockCountLine) => a.systemQty - b.systemQty,
+    variance: (a: StockCountLine, b: StockCountLine) => a.variance - b.variance,
+  }), [skuMap]);
+
+  const { sorted: sortedLines, sortKey: scSortKey, sortDir: scSortDir, handleSort: scHandleSort } = useSortableTable(filteredLines, scComparators);
 
   const summary = useMemo(() => {
     const counted = sessionLines.filter(l => l.physicalQty !== null).length;
@@ -220,17 +233,29 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
               </div>
 
               {/* Count Table */}
-              <div className="rounded-lg border overflow-auto">
+              <div className="rounded-lg border overflow-auto max-h-[70vh]">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky-thead">
                     <TableRow>
-                      <TableHead>SKU ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Storage</TableHead>
-                      <TableHead className="text-right bg-muted/50">System Qty</TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('skuId')}>
+                        <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('name')}>
+                        <SortableHeader label="Name" sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('type')}>
+                        <SortableHeader label="Type" sortKey="type" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('storage')}>
+                        <SortableHeader label="Storage" sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+                      </TableHead>
+                      <TableHead className="text-right bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => scHandleSort('systemQty')}>
+                        <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                      </TableHead>
                       <TableHead className="text-right">Physical Qty</TableHead>
-                      <TableHead className="text-right">Variance</TableHead>
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => scHandleSort('variance')}>
+                        <SortableHeader label="Variance" sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+                      </TableHead>
                       <TableHead>Note</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -243,7 +268,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredLines.map(line => {
+                      sortedLines.map(line => {
                         const sku = skuMap[line.skuId];
                         if (!sku) return null;
                         const hasVariance = line.physicalQty !== null && line.variance !== 0;

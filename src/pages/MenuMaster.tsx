@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
+import { MenuStatus } from '@/types/menu';
 import { Menu, EMPTY_MENU } from '@/types/menu';
 import { Branch } from '@/types/branch';
 import { useAuth } from '@/hooks/use-auth';
 import { useMenuCategories } from '@/hooks/use-menu-categories';
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -73,6 +76,17 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     if (filterBrand !== 'all') result = result.filter(m => m.brandName === filterBrand);
     return result;
   }, [menus, isStoreManager, storeBrand, search, filterCategory, filterStatus, filterBrand]);
+
+  const comparators = useMemo(() => ({
+    menuCode: (a: Menu, b: Menu) => a.menuCode.localeCompare(b.menuCode),
+    menuName: (a: Menu, b: Menu) => a.menuName.localeCompare(b.menuName),
+    category: (a: Menu, b: Menu) => a.category.localeCompare(b.category),
+    sellingPrice: (a: Menu, b: Menu) => a.sellingPrice - b.sellingPrice,
+    status: (a: Menu, b: Menu) => a.status.localeCompare(b.status),
+    brandName: (a: Menu, b: Menu) => a.brandName.localeCompare(b.brandName),
+  }), []);
+
+  const { sorted: sortedMenus, sortKey, sortDir, handleSort } = useSortableTable(visibleMenus, comparators);
 
   // Summary
   const total = visibleMenus.length;
@@ -294,58 +308,72 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="w-[100px]">Code</TableHead>
-              <TableHead>Menu Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Selling Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Brand</TableHead>
-              {canEdit && <TableHead className="w-[100px] text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : visibleMenus.length === 0 ? (
-              <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">No menus found</TableCell></TableRow>
-            ) : (
-              visibleMenus.map(menu => (
-                <TableRow key={menu.id}>
-                  <TableCell className="font-mono text-xs">{menu.menuCode}</TableCell>
-                  <TableCell className="font-medium">{menu.menuName}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">{menu.category || '—'}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {menu.sellingPrice.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={menu.status === 'Active' ? 'default' : 'outline'} className="text-xs">
-                      {menu.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
-                  {canEdit && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(menu)}>
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm({ id: menu.id, name: menu.menuName || menu.menuCode })}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
+        <div className="overflow-auto max-h-[70vh]">
+          <Table>
+            <TableHeader className="sticky-thead">
+              <TableRow className="bg-table-header">
+                <TableHead className="w-[100px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('menuCode')}>
+                  <SortableHeader label="Code" sortKey="menuCode" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('menuName')}>
+                  <SortableHeader label="Menu Name" sortKey="menuName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
+                  <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sellingPrice')}>
+                  <SortableHeader label="Selling Price" sortKey="sellingPrice" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                  <SortableHeader label="Status" sortKey="status" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('brandName')}>
+                  <SortableHeader label="Brand" sortKey="brandName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                {canEdit && <TableHead className="w-[100px] text-right">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+              ) : sortedMenus.length === 0 ? (
+                <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">No menus found</TableCell></TableRow>
+              ) : (
+                sortedMenus.map(menu => (
+                  <TableRow key={menu.id}>
+                    <TableCell className="font-mono text-xs">{menu.menuCode}</TableCell>
+                    <TableCell className="font-medium">{menu.menuName}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">{menu.category || '—'}</Badge>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    <TableCell className="text-right font-mono">
+                      {menu.sellingPrice.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={menu.status === 'Active' ? 'default' : 'outline'} className="text-xs">
+                        {menu.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
+                    {canEdit && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(menu)}>
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteConfirm({ id: menu.id, name: menu.menuName || menu.menuCode })}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Add/Edit Modal */}
@@ -397,10 +425,10 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                       ) : (
                         <button
                           type="button"
-                          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs text-primary hover:bg-accent cursor-pointer"
-                          onClick={(e) => { e.preventDefault(); setShowAddCat(true); }}
+                          className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-primary hover:bg-accent rounded-sm cursor-pointer"
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); setShowAddCat(true); }}
                         >
-                          <Plus className="w-3 h-3" /> Add Category
+                          <Plus className="w-3 h-3" /> Add new category
                         </button>
                       )}
                     </>
@@ -409,12 +437,12 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Selling Price (ex-VAT)</label>
-              <Input type="number" value={form.sellingPrice || ''} onChange={e => setForm(f => ({ ...f, sellingPrice: Number(e.target.value) || 0 }))} />
+              <label className="text-xs font-medium text-muted-foreground">Selling Price (฿)</label>
+              <Input type="number" min={0} step="0.01" value={form.sellingPrice || ''} onChange={e => setForm(f => ({ ...f, sellingPrice: Number(e.target.value) }))} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Status</label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as 'Active' | 'Inactive' }))}>
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as MenuStatus }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Active">Active</SelectItem>
@@ -427,7 +455,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
               <Select value={form.brandName || '__none'} onValueChange={v => setForm(f => ({ ...f, brandName: v === '__none' ? '' : v }))}>
                 <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">— No brand —</SelectItem>
+                  <SelectItem value="__none">— Select —</SelectItem>
                   {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -435,24 +463,27 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editing ? 'Save' : 'Add'}</Button>
+            <Button onClick={handleSubmit}>{editing ? 'Update' : 'Add'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirm */}
       <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={open => !open && setDeleteConfirm(null)}
         title="Delete Menu"
         description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
         onConfirm={handleDeleteConfirm}
+        confirmLabel="Delete"
+        variant="destructive"
       />
 
+      {/* CSV Import Modal */}
       <CSVImportModal
         open={csvOpen}
         onClose={() => setCsvOpen(false)}
-        title="Menu Master"
+        title="Import CSV — Menu Master"
         columns={menuCsvColumns}
         validate={validateMenuCsv}
         onConfirm={handleMenuCsvConfirm}

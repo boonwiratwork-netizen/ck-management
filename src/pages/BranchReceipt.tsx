@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useSortableTable } from '@/hooks/use-sortable-table';
+import { SortableHeader } from '@/components/SortableHeader';
 import { useAuth } from '@/hooks/use-auth';
 import { useBranchReceiptData, BranchReceipt } from '@/hooks/use-branch-receipt-data';
 import { SKU } from '@/types/sku';
@@ -240,6 +242,19 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     });
   }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
+  const historyComparators = useMemo(() => ({
+    date: (a: BranchReceipt, b: BranchReceipt) => a.receiptDate.localeCompare(b.receiptDate),
+    sku: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
+    skuName: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
+    supplier: (a: BranchReceipt, b: BranchReceipt) => a.supplierName.localeCompare(b.supplierName),
+    qty: (a: BranchReceipt, b: BranchReceipt) => a.qtyReceived - b.qtyReceived,
+    actualTotal: (a: BranchReceipt, b: BranchReceipt) => a.actualTotal - b.actualTotal,
+    stdTotal: (a: BranchReceipt, b: BranchReceipt) => a.stdTotal - b.stdTotal,
+    variance: (a: BranchReceipt, b: BranchReceipt) => a.priceVariance - b.priceVariance,
+  }), [skuMap]);
+
+  const { sorted: sortedHistory, sortKey: hSortKey, sortDir: hSortDir, handleSort: hHandleSort } = useSortableTable(filteredHistory, historyComparators);
+  const displayHistory = hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
   const totalVariance = totalActual - totalStd;
@@ -310,10 +325,10 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
       {/* Inline entry table */}
       {drafts.length > 0 && (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+         <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
                   <th className={thClass} style={{ minWidth: 220 }}>SKU</th>
                   <th className={thClass}>Name</th>
@@ -468,25 +483,41 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         </div>
 
         <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky-thead">
                 <tr className="border-b bg-muted/50">
-                  <th className={thClass}>Date</th>
-                  <th className={thClass}>SKU</th>
-                  <th className={thClass}>SKU Name</th>
-                  <th className={thClass}>Supplier</th>
-                  <th className={`${thClass} text-right`}>Qty</th>
+                  <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('date')}>
+                    <SortableHeader label="Date" sortKey="date" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  </th>
+                  <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('sku')}>
+                    <SortableHeader label="SKU" sortKey="sku" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  </th>
+                  <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('skuName')}>
+                    <SortableHeader label="SKU Name" sortKey="skuName" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  </th>
+                  <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('supplier')}>
+                    <SortableHeader label="Supplier" sortKey="supplier" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  </th>
+                  <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('qty')}>
+                    <SortableHeader label="Qty" sortKey="qty" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  </th>
                   <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Actual Total ฿</th>
-                  <th className={`${thClass} text-right`}>Std Total ฿</th>
-                  <th className={`${thClass} text-right`}>Variance</th>
+                  <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('actualTotal')}>
+                    <SortableHeader label="Actual Total ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  </th>
+                  <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('stdTotal')}>
+                    <SortableHeader label="Std Total ฿" sortKey="stdTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  </th>
+                  <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => hHandleSort('variance')}>
+                    <SortableHeader label="Variance" sortKey="variance" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  </th>
                   {isManagement && <th className={thClass}>Branch</th>}
                   {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map(r => {
+                {displayHistory.map(r => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   return (
