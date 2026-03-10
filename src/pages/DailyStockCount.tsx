@@ -67,6 +67,21 @@ export default function DailyStockCountPage({
     return m;
   }, [skus]);
 
+  // Get converter for a SKU (only when purchase != usage UOM)
+  const getConverter = useCallback((skuId: string): number => {
+    const sku = skuMap.get(skuId);
+    if (!sku) return 1;
+    if (sku.purchaseUom === sku.usageUom) return 1;
+    return sku.converter || 1;
+  }, [skuMap]);
+
+  // Physical count is stored converted (Usage UOM); display in Purchase UOM
+  const getRawPhysical = useCallback((row: DailyStockCountRow): number | null => {
+    if (row.physicalCount === null) return null;
+    const conv = getConverter(row.skuId);
+    return conv !== 0 ? row.physicalCount / conv : row.physicalCount;
+  }, [getConverter]);
+
   const isSubmitted = rows.length > 0 && rows[0]?.isSubmitted;
 
   const handleGenerate = useCallback(() => {
@@ -266,6 +281,7 @@ export default function DailyStockCountPage({
                       const sku = skuMap.get(row.skuId);
                       if (!sku) return null;
                       const varClass = getVarianceClass(row.variance, row.physicalCount, row.calculatedBalance);
+                      const rawPhysical = getRawPhysical(row);
 
                       return (
                         <TableRow key={row.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
@@ -299,8 +315,12 @@ export default function DailyStockCountPage({
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={row.waste}
-                                  onChange={e => updateWaste(row.id, Number(e.target.value) || 0)}
+                                  defaultValue={row.waste || ''}
+                                  key={`waste-${row.id}-${row.waste}`}
+                                  onBlur={e => {
+                                    const val = Number(e.target.value) || 0;
+                                    if (val !== row.waste) updateWaste(row.id, val);
+                                  }}
                                   className="h-7 w-16 text-[11px] text-right font-mono border border-input"
                                   placeholder="0"
                                 />
@@ -315,7 +335,7 @@ export default function DailyStockCountPage({
                           <TableCell className="text-right px-2 py-1">
                             {isSubmitted ? (
                               <span className="tabular-nums">
-                                {row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}
+                                {rawPhysical !== null ? rawPhysical.toFixed(2) : '—'}
                                 <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.purchaseUom}</span>
                               </span>
                             ) : (
@@ -324,10 +344,11 @@ export default function DailyStockCountPage({
                                   ref={(el) => setRef(row.id, el)}
                                   type="number"
                                   step="0.01"
-                                  value={row.physicalCount !== null ? row.physicalCount : ''}
-                                  onChange={e => {
+                                  defaultValue={rawPhysical !== null ? rawPhysical : ''}
+                                  key={`phys-${row.id}-${row.physicalCount}`}
+                                  onBlur={e => {
                                     const val = e.target.value === '' ? null : Number(e.target.value);
-                                    updatePhysicalCount(row.id, val);
+                                    if (val !== rawPhysical) updatePhysicalCount(row.id, val);
                                   }}
                                   onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
                                   className="h-7 w-16 text-[11px] text-right font-mono border border-input"
@@ -378,6 +399,7 @@ export default function DailyStockCountPage({
                       {unusedRows.map(row => {
                         const sku = skuMap.get(row.skuId);
                         if (!sku) return null;
+                        const rawPhysical = getRawPhysical(row);
                         return (
                           <TableRow key={row.id} className="text-muted-foreground">
                             <TableCell className="font-mono text-xs">{sku.skuId}</TableCell>
@@ -392,10 +414,11 @@ export default function DailyStockCountPage({
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={row.physicalCount !== null ? row.physicalCount : ''}
-                                  onChange={e => {
+                                  defaultValue={rawPhysical !== null ? rawPhysical : ''}
+                                  key={`phys-unused-${row.id}-${row.physicalCount}`}
+                                  onBlur={e => {
                                     const val = e.target.value === '' ? null : Number(e.target.value);
-                                    updatePhysicalCount(row.id, val);
+                                    if (val !== rawPhysical) updatePhysicalCount(row.id, val);
                                   }}
                                   className="h-8 w-24 text-sm"
                                   placeholder="—"

@@ -80,8 +80,8 @@ export function useDailyStockCount({
     
     const extBySku: Record<string, number> = {};
     (brData || []).forEach(r => {
-      const conv = getSkuConverter(r.sku_id);
-      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received) * conv;
+      // Store raw qty_received (Purchase UOM) for display; converter applied in calcBalance only
+      extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
     });
 
     const { data: dlData } = await supabase
@@ -247,7 +247,9 @@ export function useDailyStockCount({
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
       const expUsage = expectedUsage[r.sku_id] ?? 0;
       const waste = Number(r.waste ?? 0);
-      const calcBalance = Number(r.opening_balance) + ck + ext - expUsage - waste;
+      // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
+      const extConv = getSkuConverter(r.sku_id);
+      const calcBalance = Number(r.opening_balance) + ck + (ext * extConv) - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
@@ -277,9 +279,10 @@ export function useDailyStockCount({
     for (const sku of activeSkus) {
       if (!existingSkuIds.has(sku.id) && (expectedUsage[sku.id] || receipts.extBySku[sku.id] || receipts.ckBySku[sku.id])) {
         const expUsage = expectedUsage[sku.id] ?? 0;
-        const ext = receipts.extBySku[sku.id] ?? 0;
+      const ext = receipts.extBySku[sku.id] ?? 0;
         const ck = receipts.ckBySku[sku.id] ?? 0;
-        const calcBalance = ck + ext - expUsage;
+        const extConvNew = getSkuConverter(sku.id);
+        const calcBalance = ck + (ext * extConvNew) - expUsage;
         newSkuRows.push({
           branch_id: branchId,
           count_date: date,
@@ -345,8 +348,8 @@ export function useDailyStockCount({
     const prevPhysical: Record<string, number> = {};
     (prevCounts || []).forEach(p => {
       if (p.physical_count !== null) {
-        const conv = getSkuConverter(p.sku_id);
-        prevPhysical[p.sku_id] = Number(p.physical_count) * conv;
+        // physical_count is already stored in Usage UOM (converted at input time)
+        prevPhysical[p.sku_id] = Number(p.physical_count);
       }
     });
 
@@ -357,7 +360,9 @@ export function useDailyStockCount({
       const fromCk = receipts.ckBySku[sku.id] ?? 0;
       const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
-      const calcBalance = opening + fromCk + receivedExternal - expUsage;
+      // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
+      const extConv = getSkuConverter(sku.id);
+      const calcBalance = opening + fromCk + (receivedExternal * extConv) - expUsage;
 
       return {
         branch_id: branchId,
@@ -423,7 +428,9 @@ export function useDailyStockCount({
     const row = rows.find(r => r.id === rowId);
     if (!row || row.isSubmitted) return;
 
-    const calcBalance = row.openingBalance + row.receivedFromCk + row.receivedExternal - row.expectedUsage - waste;
+    // receivedExternal is raw Purchase UOM — apply converter for calcBalance
+    const extConv = getSkuConverter(row.skuId);
+    const calcBalance = row.openingBalance + row.receivedFromCk + (row.receivedExternal * extConv) - row.expectedUsage - waste;
     const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
     const { error } = await supabase
       .from('daily_stock_counts')
