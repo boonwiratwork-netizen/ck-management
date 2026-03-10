@@ -207,8 +207,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice }
                       <p className="font-medium">Count Date: {selectedSession.date}</p>
                       {selectedSession.note && <p className="text-sm text-muted-foreground">{selectedSession.note}</p>}
                     </div>
-                    <Badge variant={isReadOnly ? 'default' : 'secondary'}>
-                      {isReadOnly ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
+                    <Badge variant={isCompleted ? 'default' : 'secondary'}>
+                      {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
                     </Badge>
                   </div>
                 </CardContent>
