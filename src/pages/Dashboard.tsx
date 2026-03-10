@@ -352,7 +352,7 @@ const Dashboard = ({
             <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center">
               <Package className="w-4 h-4 text-info" />
             </div>
-            SM Stock Overview
+            {t('title.smStockOverview')}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-card-p pb-card-p">
