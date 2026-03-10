@@ -16,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   deliveryData: ReturnType<typeof useDeliveryData>;
@@ -51,6 +52,7 @@ function createEmptyDraft(): DraftDeliveryRow {
 
 export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranches, smStockBalances }: Props) {
   const { deliveries, addDelivery, updateDelivery, deleteDelivery } = deliveryData;
+  const { t } = useLanguage();
   const [drafts, setDrafts] = useState<DraftDeliveryRow[]>([]);
   const [search, setSearch] = useState('');
   const [filterBranch, setFilterBranch] = useState<string>('all');
@@ -253,15 +255,15 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Delivery to Branches</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.delivery')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Record SM deliveries to branches — auto-deducts from SM Stock</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleAddRow}>+ Add Row</Button>
+          <Button variant="outline" onClick={handleAddRow}>{t('btn.addRow')}</Button>
           {hasUnsaved && (
             <Button onClick={handleSaveAll}>
               <Save className="w-4 h-4" />
-              Save All ({drafts.filter(d => d.isEditing).length})
+              {t('btn.saveAll')} ({drafts.filter(d => d.isEditing).length})
             </Button>
           )}
         </div>
@@ -269,7 +271,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Deliveries</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalDeliveries')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{deliveries.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
@@ -283,7 +285,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         </div>
         <div className="rounded-lg border bg-card p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Week Qty Delivered</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.weekQtyDelivered')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
@@ -299,9 +301,9 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
         </div>
         {branches.length > 0 && (
           <Select value={filterBranch} onValueChange={setFilterBranch}>
-            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder={t('common.allBranches')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
+              <SelectItem value="all">{t('common.allBranches')}</SelectItem>
               {branches.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -314,22 +316,22 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
             <thead>
               <tr className="border-b bg-muted/50 sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
                 <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('date')}>
-                  <span className="inline-flex items-center">Date<DelSortIcon col="date" /></span>
+                  <span className="inline-flex items-center">{t('col.date')}<DelSortIcon col="date" /></span>
                 </th>
                 <th className={`${thClass} text-center cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('week')}>
-                  <span className="inline-flex items-center">Wk<DelSortIcon col="week" /></span>
+                  <span className="inline-flex items-center">{t('col.week')}<DelSortIcon col="week" /></span>
                 </th>
                 <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 140 }} onClick={() => handleDelSort('branch')}>
-                  <span className="inline-flex items-center">Branch<DelSortIcon col="branch" /></span>
+                  <span className="inline-flex items-center">{t('col.branch')}<DelSortIcon col="branch" /></span>
                 </th>
                 <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} style={{ minWidth: 180 }} onClick={() => handleDelSort('sku')}>
-                  <span className="inline-flex items-center">SM SKU<DelSortIcon col="sku" /></span>
+                  <span className="inline-flex items-center">{t('col.smSku')}<DelSortIcon col="sku" /></span>
                 </th>
                 <th className={`${thClass} text-right cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('qty')}>
-                  <span className="inline-flex items-center justify-end">Qty (kg)<DelSortIcon col="qty" /></span>
+                  <span className="inline-flex items-center justify-end">{t('col.qtyKg')}<DelSortIcon col="qty" /></span>
                 </th>
-                <th className={thClass}>Note</th>
-                <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>Actions</th>
+                <th className={thClass}>{t('col.note')}</th>
+                <th className={`${thClass} text-right`} style={{ minWidth: 100 }}>{t('col.actions')}</th>
               </tr>
             </thead>
             <tbody>

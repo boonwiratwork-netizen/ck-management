@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { isBomPrice } from '@/lib/bom-price-sync';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   priceData: ReturnType<typeof usePriceData>;
@@ -24,6 +25,7 @@ interface Props {
 
 export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false, bomHeaders = [] }: Props) {
   const { prices, addPrice, updatePrice, deletePrice } = priceData;
+  const { t } = useLanguage();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -121,27 +123,27 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Price Master</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.priceMaster')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage SKU pricing across suppliers</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> Import CSV
+            <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
           <Button onClick={handleAdd}>
-            <Plus className="w-4 h-4" /> Add Price
+            <Plus className="w-4 h-4" /> {t('btn.addPrice')}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Prices</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalPrices')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{prices.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active Prices</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.activePrices')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <DollarSign className="w-4 h-4 text-success" />
             </span>
@@ -150,7 +152,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SKUs Priced</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.skusPriced')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
               <TrendingUp className="w-4 h-4 text-primary" />
             </span>
@@ -166,7 +168,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
           onClick={() => setShowUnpricedOnly(v => !v)}
         >
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unpriced SKUs</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.unpricedSkus')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warning/10">
               <AlertTriangle className="w-4 h-4 text-warning" />
             </span>
@@ -182,7 +184,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowUnpricedOnly(false)}>
-              <Filter className="w-3.5 h-3.5 mr-1" /> Clear filter
+              <Filter className="w-3.5 h-3.5 mr-1" /> {t('btn.clearFilter')}
             </Button>
             <span className="text-sm text-muted-foreground">
               Showing {unpricedCount} active RM/PK SKUs without an active price
@@ -193,11 +195,11 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-table-header">
-                    <th className="text-left px-4 py-3 table-header">SKU ID</th>
-                    <th className="text-left px-4 py-3 table-header">Name</th>
-                    <th className="text-left px-4 py-3 table-header">Type</th>
-                    <th className="text-left px-4 py-3 table-header">Category</th>
-                    <th className="text-right px-4 py-3 table-header">Action</th>
+                    <th className="text-left px-4 py-3 table-header">{t('col.skuId')}</th>
+                    <th className="text-left px-4 py-3 table-header">{t('col.name')}</th>
+                    <th className="text-left px-4 py-3 table-header">{t('col.type')}</th>
+                    <th className="text-left px-4 py-3 table-header">{t('col.category')}</th>
+                    <th className="text-right px-4 py-3 table-header">{t('col.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -212,7 +214,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
                         <td className="px-4 py-3 text-muted-foreground">{sku.category}</td>
                         <td className="px-4 py-3 text-right">
                           <Button size="sm" variant="outline" onClick={() => { setEditing(null); setModalOpen(true); }}>
-                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Price
+                            <Plus className="w-3.5 h-3.5 mr-1" /> {t('btn.addPrice')}
                           </Button>
                         </td>
                       </tr>

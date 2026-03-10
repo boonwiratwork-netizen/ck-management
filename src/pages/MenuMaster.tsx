@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Edit2, Trash2, Search, UtensilsCrossed, X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface MenuMasterPageProps {
   menuData: {
@@ -35,6 +36,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
   const { menus, loading, getNextCode, addMenu, updateMenu, deleteMenu, bulkAddMenus } = menuData;
   const { isManagement, isStoreManager, profile } = useAuth();
   const { categories, addCategory, deleteCategory } = useMenuCategories();
+  const { t } = useLanguage();
 
   const [newCatInput, setNewCatInput] = useState('');
   const [showAddCat, setShowAddCat] = useState(false);
@@ -231,16 +233,16 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Menu Master</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.menuMaster')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage menus across branches</p>
         </div>
         {canEdit && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setCsvOpen(true)} className="h-9">
-              <Upload className="w-4 h-4" /> Import CSV
+              <Upload className="w-4 h-4" /> {t('btn.importCsv')}
             </Button>
             <Button onClick={handleAdd}>
-              <Plus className="w-4 h-4" /> Add Menu
+              <Plus className="w-4 h-4" /> {t('btn.addMenu')}
             </Button>
           </div>
         )}
@@ -249,11 +251,11 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Menus</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalMenus')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{total}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.active')}</p>
           <p className="text-3xl font-heading font-bold mt-1 text-primary">{activeCount}</p>
         </div>
         {Object.entries(categoryCounts).slice(0, 2).map(([cat, count]) => (
@@ -283,23 +285,23 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
         <Select value={filterCategory} onValueChange={setFilterCategory}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">{t('common.allCategories')}</SelectItem>
             {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            <SelectItem value="Active">{t('status.active')}</SelectItem>
+            <SelectItem value="Inactive">{t('status.inactive')}</SelectItem>
           </SelectContent>
         </Select>
         {isManagement && (
           <Select value={filterBrand} onValueChange={setFilterBrand}>
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="Brand" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Brands</SelectItem>
+              <SelectItem value="all">{t('common.allBrands')}</SelectItem>
               {brandNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -313,24 +315,24 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
             <TableHeader className="sticky-thead">
               <TableRow className="bg-table-header">
                 <TableHead className="w-[100px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('menuCode')}>
-                  <SortableHeader label="Code" sortKey="menuCode" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('col.menuCode')} sortKey="menuCode" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('menuName')}>
-                  <SortableHeader label="Menu Name" sortKey="menuName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('col.menuName')} sortKey="menuName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                  <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
                 <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sellingPrice')}>
-                  <SortableHeader label="Selling Price" sortKey="sellingPrice" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                  <SortableHeader label={t('col.sellingPrice')} sortKey="sellingPrice" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                  <SortableHeader label="Status" sortKey="status" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('col.status')} sortKey="status" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('brandName')}>
-                  <SortableHeader label="Brand" sortKey="brandName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('col.brand')} sortKey="brandName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
-                {canEdit && <TableHead className="w-[100px] text-right">Actions</TableHead>}
+                {canEdit && <TableHead className="w-[100px] text-right">{t('col.actions')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -351,7 +353,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                     </TableCell>
                     <TableCell>
                       <Badge variant={menu.status === 'Active' ? 'default' : 'outline'} className="text-xs">
-                        {menu.status}
+                        {menu.status === 'Active' ? t('status.active') : t('status.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>

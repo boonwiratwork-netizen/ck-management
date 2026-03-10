@@ -8,6 +8,7 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/C
 import { Button } from '@/components/ui/button';
 import { Plus, Users, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   supplierData: ReturnType<typeof useSupplierData>;
@@ -16,6 +17,7 @@ interface Props {
 
 export default function SuppliersPage({ supplierData, readOnly = false }: Props) {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier } = supplierData;
+  const { t } = useLanguage();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -94,27 +96,27 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Supplier Master</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.supplierMaster')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage your suppliers and vendor information</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> Import CSV
+            <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
           <Button onClick={handleAdd}>
-            <Plus className="w-4 h-4" /> Add Supplier
+            <Plus className="w-4 h-4" /> {t('btn.addSupplier')}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Suppliers</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalSuppliers')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{suppliers.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.active')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <Users className="w-4 h-4 text-success" />
             </span>
@@ -122,7 +124,7 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
           <p className="text-3xl font-heading font-bold mt-1">{activeCount}</p>
         </div>
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inactive</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.inactive')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{suppliers.length - activeCount}</p>
         </div>
       </div>

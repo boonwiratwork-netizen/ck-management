@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Search, Store } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   branchData: ReturnType<typeof useBranchData>;
@@ -18,6 +19,7 @@ interface Props {
 
 export default function BranchesPage({ branchData, readOnly = false }: Props) {
   const { branches, addBranch, updateBranch, deleteBranch } = branchData;
+  const { t } = useLanguage();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [form, setForm] = useState<Omit<Branch, 'id'>>(EMPTY_BRANCH);
@@ -79,22 +81,22 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">Branches</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.branches')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Manage branch and brand master data</p>
         </div>
         <Button onClick={handleAdd}>
-          <Plus className="w-4 h-4" /> Add Branch
+          <Plus className="w-4 h-4" /> {t('btn.addBranch')}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Branches</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalBranches')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{branches.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.active')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
               <Store className="w-4 h-4 text-primary" />
             </span>
@@ -102,7 +104,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
           <p className="text-3xl font-heading font-bold mt-1">{branches.filter(b => b.status === 'Active').length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Brands</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.brands')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{new Set(branches.map(b => b.brandName)).size}</p>
         </div>
       </div>
@@ -115,9 +117,9 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            <SelectItem value="Active">{t('status.active')}</SelectItem>
+            <SelectItem value="Inactive">{t('status.inactive')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -126,11 +128,11 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Branch Name</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Brand</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Location</th>
-              <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
-              <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.name')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.brand')}</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t('col.location')}</th>
+              <th className="text-center px-4 py-3 font-medium text-muted-foreground">{t('col.status')}</th>
+              <th className="text-right px-4 py-3 font-medium text-muted-foreground">{t('col.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -140,7 +142,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
                 <td className="px-4 py-3">{b.brandName}</td>
                 <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
                 <td className="px-4 py-3 text-center">
-                  <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status}</Badge>
+                  <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -196,8 +198,8 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editing ? 'Update' : 'Add'}</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>{t('btn.cancel')}</Button>
+            <Button onClick={handleSubmit}>{editing ? t('btn.update') : t('btn.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

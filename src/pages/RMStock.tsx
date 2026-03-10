@@ -10,6 +10,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Pencil, SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   skus: SKU[];
@@ -25,6 +26,7 @@ interface Props {
 
 export default function RMStockPage({ skus, stockData }: Props) {
   const { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks } = stockData;
+  const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -94,7 +96,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">RM Stock</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.rmStock')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Auto-calculated raw material stock balances</p>
         </div>
       </div>
@@ -102,15 +104,15 @@ export default function RMStockPage({ skus, stockData }: Props) {
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">RM SKUs</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.rmSkus')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{rmSkus.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Stock Value</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalStockValue')}</p>
           <p className="text-3xl font-heading font-bold mt-1">฿{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Out of Stock</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.outOfStock')}</p>
           <p className="text-3xl font-heading font-bold mt-1 text-destructive">
             {filteredRows.filter(r => r.healthStatus === 'red').length}
           </p>
@@ -133,7 +135,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">{t('common.allCategories')}</SelectItem>
             {(Object.entries(CATEGORY_LABELS) as [Category, string][]).map(([k, v]) => (
               <SelectItem key={k} value={k}>{v}</SelectItem>
             ))}
@@ -144,7 +146,7 @@ export default function RMStockPage({ skus, stockData }: Props) {
             <SelectValue placeholder="Storage" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Storage</SelectItem>
+            <SelectItem value="all">{t('common.allStorage')}</SelectItem>
             {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
@@ -159,33 +161,33 @@ export default function RMStockPage({ skus, stockData }: Props) {
             <TableRow>
               <TableHead className="w-8"></TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
-                <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                <SortableHeader label="Name" sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
-                <SortableHeader label="Storage" sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
-                <SortableHeader label="Opening" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.opening')} sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('received')}>
-                <SortableHeader label="Received" sortKey="received" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.received')} sortKey="received" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead className="text-right">Adjustments</TableHead>
+              <TableHead className="text-right">{t('col.adjustments')}</TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
-                <SortableHeader label="Current Stock" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.currentStock')} sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead>UOM</TableHead>
+              <TableHead>{t('col.uom')}</TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('stockValue')}>
-                <SortableHeader label="Stock Value" sortKey="stockValue" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.stockValue')} sortKey="stockValue" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead>Last Receipt</TableHead>
-              <TableHead className="text-right">Days Left</TableHead>
+              <TableHead>{t('col.lastReceipt')}</TableHead>
+              <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>

@@ -11,6 +11,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Props {
   skus: SKU[];
@@ -25,6 +26,7 @@ interface Props {
 
 export default function SMStockPage({ skus, smStockData }: Props) {
   const { stockBalances, setOpeningStock, addAdjustment, getLastProductionDate, openingStocks } = smStockData;
+  const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -87,7 +89,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">SM Stock</h2>
+          <h2 className="text-2xl font-heading font-bold">{t('title.smStock')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Semi-finished product stock balances</p>
         </div>
       </div>
@@ -95,17 +97,17 @@ export default function SMStockPage({ skus, smStockData }: Props) {
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">SM SKUs</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.smSkus')}</p>
           <p className="text-3xl font-heading font-bold mt-1">{smSkus.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Stock (kg)</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalStockKg')}</p>
           <p className="text-3xl font-heading font-bold mt-1">
             {filteredRows.reduce((s, r) => s + r.currentStock, 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
           </p>
         </div>
         <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Out of Stock</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.outOfStock')}</p>
           <p className="text-3xl font-heading font-bold mt-1 text-destructive">
             {filteredRows.filter(r => r.healthStatus === 'red').length}
           </p>
@@ -121,7 +123,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
         <Select value={filterCategory} onValueChange={setFilterCategory}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">{t('common.allCategories')}</SelectItem>
             {(Object.entries(CATEGORY_LABELS) as [Category, string][]).map(([k, v]) => (
               <SelectItem key={k} value={k}>{v}</SelectItem>
             ))}
@@ -130,7 +132,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
         <Select value={filterStorage} onValueChange={setFilterStorage}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="Storage" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Storage</SelectItem>
+            <SelectItem value="all">{t('common.allStorage')}</SelectItem>
             {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
@@ -145,32 +147,32 @@ export default function SMStockPage({ skus, smStockData }: Props) {
             <TableRow>
               <TableHead className="w-8"></TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
-                <SortableHeader label="SKU ID" sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                <SortableHeader label="Name" sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('category')}>
-                <SortableHeader label="Category" sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.category')} sortKey="category" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
-                <SortableHeader label="Storage" sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
-                <SortableHeader label="Opening (kg)" sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.openingKg')} sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('produced')}>
-                <SortableHeader label="Produced (kg)" sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.producedKg')} sortKey="produced" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('delivered')}>
-                <SortableHeader label="Delivered (kg)" sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.deliveredKg')} sortKey="delivered" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead className="text-right">Adjustments (kg)</TableHead>
+              <TableHead className="text-right">{t('col.adjustmentsKg')}</TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
-                <SortableHeader label="Current Stock (kg)" sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+                <SortableHeader label={t('col.currentStockKg')} sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead>Last Production</TableHead>
-              <TableHead className="text-right">Days Left</TableHead>
+              <TableHead>{t('col.lastProduction')}</TableHead>
+              <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
