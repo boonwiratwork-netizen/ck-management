@@ -17,6 +17,7 @@ interface Props {
 
 export default function SkuCategoriesPage({ categoryData, skus, readOnly = false }: Props) {
   const { categories, addCategory, updateCategory, deleteCategory } = categoryData;
+  const { t } = useLanguage();
   const [adding, setAdding] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [newEn, setNewEn] = useState('');
