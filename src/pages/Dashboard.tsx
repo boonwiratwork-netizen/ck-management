@@ -173,7 +173,7 @@ const Dashboard = ({
       bySmSku.set(r.smSkuId, arr);
     });
 
-    const rows: { smSkuId: string; name: string; actualOutputKg: number; standardValue: number; actualValue: number; variance: number }[] = [];
+    const rows: { smSkuId: string; name: string; actualOutputG: number; standardValue: number; actualValue: number; variance: number }[] = [];
 
     bySmSku.forEach((recs, smSkuId) => {
       const sku = skuMap.get(smSkuId);
