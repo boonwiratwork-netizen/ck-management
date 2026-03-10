@@ -182,10 +182,10 @@ export default function DailyStockCountPage({
               disabled={!selectedBranch || generating}
             >
               {generating ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-              ) : (
-                <><ClipboardCheck className="w-4 h-4" /> Generate Count Sheet</>
-              )}
+              <><Loader2 className="w-4 h-4 animate-spin" /> {t('btn.generate')}...</>
+            ) : (
+              <><ClipboardCheck className="w-4 h-4" /> {t('btn.generateCountSheet')}</>
+            )}
             </Button>
           </div>
         </CardContent>
