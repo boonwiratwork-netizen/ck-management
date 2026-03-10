@@ -152,8 +152,8 @@ function MultiMenuSelector({
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] rounded-md border bg-popover shadow-md"
-          style={{ top: pos.top, left: pos.left, width: pos.width, position: 'absolute' }}
+          className="rounded-md border bg-popover shadow-md"
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999, pointerEvents: 'auto' }}
         >
           <div className="p-1.5">
             <Input
