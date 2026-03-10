@@ -89,12 +89,18 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   }, 0);
   const totalCostPerUnit = currentBatchYieldQty > 0 ? totalBatchCost / currentBatchYieldQty : 0;
 
+  const [sortAsc, setSortAsc] = useState(true);
+
   const filteredSpSkus = useMemo(() => {
     const q = spSearch.toLowerCase();
-    return spSkus.filter(s =>
+    const filtered = spSkus.filter(s =>
       s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
     );
-  }, [spSkus, spSearch]);
+    return [...filtered].sort((a, b) => {
+      const cmp = a.skuId.localeCompare(b.skuId);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [spSkus, spSearch, sortAsc]);
 
   // Summary: how many SP items have BOM set up
   const spWithBom = useMemo(() => spSkus.filter(s => spBomData.getLinesForSp(s.id).length > 0).length, [spSkus, spBomData]);
