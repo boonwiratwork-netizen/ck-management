@@ -242,8 +242,19 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     });
   }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
-  const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
-  const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
+  const historyComparators = useMemo(() => ({
+    date: (a: BranchReceipt, b: BranchReceipt) => a.receiptDate.localeCompare(b.receiptDate),
+    sku: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
+    skuName: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
+    supplier: (a: BranchReceipt, b: BranchReceipt) => a.supplierName.localeCompare(b.supplierName),
+    qty: (a: BranchReceipt, b: BranchReceipt) => a.qtyReceived - b.qtyReceived,
+    actualTotal: (a: BranchReceipt, b: BranchReceipt) => a.actualTotal - b.actualTotal,
+    stdTotal: (a: BranchReceipt, b: BranchReceipt) => a.stdTotal - b.stdTotal,
+    variance: (a: BranchReceipt, b: BranchReceipt) => a.priceVariance - b.priceVariance,
+  }), [skuMap]);
+
+  const { sorted: sortedHistory, sortKey: hSortKey, sortDir: hSortDir, handleSort: hHandleSort } = useSortableTable(filteredHistory, historyComparators);
+  const displayHistory = hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const totalVariance = totalActual - totalStd;
 
   const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
