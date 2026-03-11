@@ -1118,7 +1118,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
               </div>
               {!allocationValid && (
-                <p className="text-[10px] text-destructive font-medium flex items-center gap-1">
+                <p className="text-xs text-destructive font-medium flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
                 </p>
               )}
