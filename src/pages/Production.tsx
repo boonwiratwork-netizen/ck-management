@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { StatusDot } from '@/components/ui/status-dot';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -507,22 +508,15 @@ export default function ProductionPage({
   const recordSku = recordSkuId ? skus.find(s => s.id === recordSkuId) : null;
   const recordRow = recordSkuId ? rows.find(r => r.sku.id === recordSkuId) : null;
 
-  // Status dot — matches SM Stock exactly
-  const statusDot = (color: 'red' | 'amber' | 'green', size = 'w-2.5 h-2.5') => (
-    <span className={cn(
-      'inline-block rounded-full', size,
-      color === 'red' && 'bg-destructive',
-      color === 'amber' && 'bg-warning',
-      color === 'green' && 'bg-success',
-    )} />
-  );
+  // Status dot — using StatusDot component
+  // (kept as thin wrapper for cover display helper below)
 
   // Cover days display with dot
   const coverDisplay = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
     return (
       <span className="inline-flex items-center gap-1">
-        {statusDot(color, 'w-2 h-2')}
+        <StatusDot status={color} size="sm" />
         <span>{fmtDays(cover)}</span>
         <span className="text-xs text-muted-foreground">{t('prod.days')}</span>
       </span>
@@ -553,19 +547,19 @@ export default function ProductionPage({
                 const curMon = getCurrentWeekMonday();
                 const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
                 if (weekStart === curMon) return (
-                  <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                  <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                     {t('prod.thisWeek')}
                   </Badge>
                 );
                 if (weekStart === nextMon) return (
-                  <Badge variant="outline" className="text-[10px] text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
+                  <Badge variant="outline" className="text-xs text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
                     {t('prod.nextWeek')}
                   </Badge>
                 );
                 return null;
               })()}
               {planLocked && savedWeek === weekNumber && (
-                <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                   ✓ {t('prod.savedBadge')}
                 </Badge>
               )}
@@ -643,7 +637,7 @@ export default function ProductionPage({
                   <col style={{ width: '90px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
-                  <tr className="bg-muted/50 border-b text-xs">
+                  <tr className="bg-table-header border-b text-xs">
                     <th className="px-1 py-2 text-center text-muted-foreground"></th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
@@ -674,14 +668,14 @@ export default function ProductionPage({
                       <tr
                         key={row.sku.id}
                         className={cn(
-                          'border-b hover:bg-muted/30 transition-colors',
+                          'border-b hover:bg-table-hover transition-colors',
                           isSufficient && 'opacity-60',
                           borderClass,
                         )}
                       >
                         {/* STATUS DOT — reflects coverAfter if plan entered, else coverNow */}
                         <td className="px-1 py-1.5 text-center">
-                          {statusDot(hasPlanned ? row.coverAfterColor : row.coverNowColor)}
+                          <StatusDot status={hasPlanned ? row.coverAfterColor : row.coverNowColor} />
                         </td>
 
                         {/* CODE */}
@@ -781,7 +775,8 @@ export default function ProductionPage({
                 <CollapsibleTrigger asChild>
                   <button className="flex items-center gap-2 text-sm font-medium text-warning hover:text-foreground transition-colors w-full py-2">
                     <ChevronDown className={cn('w-4 h-4 transition-transform', noBomOpen && 'rotate-180')} />
-                    ⚠️ {noBomRows.length} {t('prod.noBomItems')}
+                    <StatusDot status="amber" size="sm" className="mr-1" />
+                    {noBomRows.length} {t('prod.noBomItems')}
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -793,7 +788,7 @@ export default function ProductionPage({
                         <col style={{ width: '120px' }} />
                       </colgroup>
                       <thead>
-                        <tr className="bg-muted/50 border-b text-xs">
+                        <tr className="bg-table-header border-b text-xs">
                           <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
                           <th className="px-2 py-1.5 text-left"></th>
@@ -801,7 +796,7 @@ export default function ProductionPage({
                       </thead>
                       <tbody>
                         {noBomRows.map(row => (
-                          <tr key={row.sku.id} className="border-b hover:bg-muted/30">
+                          <tr key={row.sku.id} className="border-b hover:bg-table-hover">
                             <td className="px-2 py-1.5 font-mono text-xs">{row.sku.skuId}</td>
                             <td className="px-2 py-1.5 truncate">{row.sku.name}</td>
                             <td className="px-2 py-1.5">
@@ -844,7 +839,7 @@ export default function ProductionPage({
                     <col style={{ width: '100px' }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
-                    <tr className="bg-muted/50 border-b text-xs">
+                    <tr className="bg-table-header border-b text-xs">
                       <th className="px-1 py-2 text-center text-muted-foreground"></th>
                       <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
                       <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
@@ -867,8 +862,8 @@ export default function ProductionPage({
                       const dotColor: 'red' | 'amber' | 'green' = done ? 'green' : partial ? 'amber' : 'red';
 
                       return (
-                        <tr key={row.sku.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="px-1 py-1.5 text-center">{statusDot(dotColor)}</td>
+                        <tr key={row.sku.id} className="border-b hover:bg-table-hover transition-colors">
+                          <td className="px-1 py-1.5 text-center"><StatusDot status={dotColor} /></td>
                           <td className="px-1.5 py-1.5 font-mono text-xs truncate">{row.sku.skuId}</td>
                           <td className="px-1.5 py-1.5 truncate">
                             <Tooltip>
@@ -912,7 +907,7 @@ export default function ProductionPage({
                 <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full py-2">
                   <ChevronDown className={cn('w-4 h-4 transition-transform', historyOpen && 'rotate-180')} />
                   {t('prod.historyTitle')} {weekNumber}
-                  <Badge variant="outline" className="text-[10px] ml-1">{weekRecords.length}</Badge>
+                  <Badge variant="outline" className="text-xs ml-1">{weekRecords.length}</Badge>
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -929,7 +924,7 @@ export default function ProductionPage({
                         <col style={{ width: '50px' }} />
                       </colgroup>
                       <thead>
-                        <tr className="bg-muted/50 border-b text-xs">
+                        <tr className="bg-table-header border-b text-xs">
                           <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
@@ -939,7 +934,7 @@ export default function ProductionPage({
                       </thead>
                       <tbody>
                         {weekRecords.map(rec => (
-                          <tr key={rec.id} className="border-b hover:bg-muted/30">
+                          <tr key={rec.id} className="border-b hover:bg-table-hover">
                             <td className="px-2 py-1.5">{rec.productionDate}</td>
                             <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
                             <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>

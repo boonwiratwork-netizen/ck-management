@@ -248,9 +248,9 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const hasUnsaved = drafts.some(d => d.isEditing);
 
-  const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
+  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground';
   const tdClass = 'px-1.5 py-1';
-  const tdReadOnly = 'px-3 py-2.5 text-xs';
+  const tdReadOnly = 'px-3 py-2 text-sm';
 
   return (
     <div className="space-y-6">
@@ -271,27 +271,27 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalDeliveries')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">{deliveries.length}</p>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('summary.totalDeliveries')}</p>
+          <p className="text-2xl font-heading font-bold mt-1">{deliveries.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Week (W{currentWeek})</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Week (W{currentWeek})</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
               <Truck className="w-4 h-4 text-primary" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekDeliveries.length}</p>
+          <p className="text-2xl font-heading font-bold mt-1">{thisWeekDeliveries.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.weekQtyDelivered')}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('summary.weekQtyDelivered')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
+          <p className="text-2xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
         </div>
       </div>
 
@@ -313,9 +313,18 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: 110 }} />
+              <col style={{ width: 50 }} />
+              <col style={{ width: 150 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 100 }} />
+            </colgroup>
             <thead>
-              <tr className="border-b bg-muted/50 sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
+              <tr className="bg-table-header border-b sticky top-0 z-10">
                 <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('date')}>
                   <span className="inline-flex items-center">{t('col.date')}<DelSortIcon col="date" /></span>
                 </th>
@@ -338,7 +347,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
             <tbody>
               {drafts.map((draft, idx) => {
                 const weekNum = draft.deliveryDate ? getWeekNumber(draft.deliveryDate) : '';
-                const rowBg = draft.isNew ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-yellow-50 dark:bg-yellow-950/30';
+                const rowBg = draft.isNew ? 'bg-accent/50' : 'bg-warning/5';
                 return (
                   <tr key={draft.tempId} className={`border-b last:border-0 transition-colors ${rowBg}`}>
                     <td className={tdClass}>
@@ -393,7 +402,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               {filteredSaved.map(d => {
                 const sku = skuMap[d.smSkuId];
                 return (
-                  <tr key={d.id} className="border-b last:border-0 bg-background hover:bg-muted/30 transition-colors">
+                  <tr key={d.id} className="border-b border-table-border last:border-0 bg-background hover:bg-table-hover transition-colors">
                     <td className={tdReadOnly}>{d.deliveryDate}</td>
                     <td className={`${tdReadOnly} text-center font-mono`}>{d.weekNumber}</td>
                     <td className={tdReadOnly}>{d.branchName}</td>
