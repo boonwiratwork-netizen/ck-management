@@ -1095,7 +1095,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     </div>
                     {/* Conflict warning below affected row */}
                     {hasConflict && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-orange-600 mt-1 ml-2">
+                      <div className="flex items-center gap-1.5 text-xs text-primary mt-1 ml-2">
                         <AlertTriangle className="w-3 h-3" />
                         {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
                       </div>
