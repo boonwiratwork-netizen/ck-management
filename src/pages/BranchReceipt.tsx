@@ -763,34 +763,22 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       <div className="space-y-4 pt-4 border-t">
         <h3 className="text-lg font-heading font-semibold">Receipt History</h3>
         <div className="flex flex-wrap gap-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">From</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal text-xs', !historyDateFrom && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {historyDateFrom ? format(historyDateFrom, 'PP') : 'Start'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={historyDateFrom} onSelect={setHistoryDateFrom} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">To</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal text-xs', !historyDateTo && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {historyDateTo ? format(historyDateTo, 'PP') : 'End'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={historyDateTo} onSelect={setHistoryDateTo} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <DatePicker
+            value={historyDateFrom}
+            onChange={setHistoryDateFrom}
+            placeholder="Start"
+            label="From"
+            labelPosition="left"
+            align="start"
+          />
+          <DatePicker
+            value={historyDateTo}
+            onChange={setHistoryDateTo}
+            placeholder="End"
+            label="To"
+            labelPosition="left"
+            align="start"
+          />
           {isManagement && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>

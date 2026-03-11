@@ -996,15 +996,15 @@ export default function ProductionPage({
               </div>
             )}
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">{t('prod.dateLabel')}</label>
-              <DatePicker
-                value={recordForm.productionDate ? new Date(recordForm.productionDate + 'T00:00:00') : undefined}
-                onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }))}
-                defaultToday
-                align="start"
-              />
-            </div>
+            <DatePicker
+              value={recordForm.productionDate ? new Date(recordForm.productionDate + 'T00:00:00') : undefined}
+              onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }))}
+              defaultToday
+              label="Date"
+              required
+              labelPosition="above"
+              align="start"
+            />
             <div>
               <label className="text-xs font-medium text-muted-foreground">{t('prod.actualOutputLabel')}</label>
               <Input

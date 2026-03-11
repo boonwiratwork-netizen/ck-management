@@ -166,15 +166,15 @@ export default function DailyStockCountPage({
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap items-end gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground label-required">Date</label>
-              <DatePicker
-                value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
-                onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
-                defaultToday
-                align="start"
-              />
-            </div>
+            <DatePicker
+              value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
+              onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+              defaultToday
+              label="Date"
+              required
+              labelPosition="above"
+              align="start"
+            />
             <div>
               <label className="text-xs text-muted-foreground label-required">Branch</label>
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>

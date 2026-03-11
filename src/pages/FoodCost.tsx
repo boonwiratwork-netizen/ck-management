@@ -436,25 +436,23 @@ export default function FoodCostPage({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">From</label>
-              <DatePicker
-                value={dateFrom}
-                onChange={d => { if (d) { setDateFrom(d); setPreset('custom'); } }}
-                placeholder="From date"
-                align="start"
-              />
-            </div>
+            <DatePicker
+              value={dateFrom}
+              onChange={d => { if (d) { setDateFrom(d); setPreset('custom'); } }}
+              placeholder="From date"
+              label="From"
+              labelPosition="left"
+              align="start"
+            />
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">To</label>
-              <DatePicker
-                value={dateTo}
-                onChange={d => { if (d) { setDateTo(d); setPreset('custom'); } }}
-                placeholder="To date"
-                align="start"
-              />
-            </div>
+            <DatePicker
+              value={dateTo}
+              onChange={d => { if (d) { setDateTo(d); setPreset('custom'); } }}
+              placeholder="To date"
+              label="To"
+              labelPosition="left"
+              align="start"
+            />
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Branch</label>

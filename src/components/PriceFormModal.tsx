@@ -237,15 +237,15 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
               </div>
 
               {/* Effective Date */}
-              <div>
-                <Label>Effective Date *</Label>
-                <DatePicker
-                  value={form.effectiveDate ? new Date(form.effectiveDate + 'T00:00:00') : undefined}
-                  onChange={d => update('effectiveDate', d ? d.toISOString().slice(0, 10) : '')}
-                  defaultToday
-                  align="start"
-                />
-              </div>
+              <DatePicker
+                value={form.effectiveDate ? new Date(form.effectiveDate + 'T00:00:00') : undefined}
+                onChange={d => update('effectiveDate', d ? d.toISOString().slice(0, 10) : '')}
+                defaultToday
+                label="Effective Date"
+                required
+                labelPosition="above"
+                align="start"
+              />
 
               {/* Note */}
               <div>

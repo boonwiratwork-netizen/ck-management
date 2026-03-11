@@ -586,24 +586,22 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                 </Select>
               </div>
             )}
-            <div>
-              <label className="text-xs text-muted-foreground">From</label>
-              <DatePicker
-                value={filterDateFrom ? new Date(filterDateFrom + 'T00:00:00') : undefined}
-                onChange={d => setFilterDateFrom(d ? d.toISOString().slice(0, 10) : '')}
-                placeholder="From date"
-                align="start"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">To</label>
-              <DatePicker
-                value={filterDateTo ? new Date(filterDateTo + 'T00:00:00') : undefined}
-                onChange={d => setFilterDateTo(d ? d.toISOString().slice(0, 10) : '')}
-                placeholder="To date"
-                align="start"
-              />
-            </div>
+            <DatePicker
+              value={filterDateFrom ? new Date(filterDateFrom + 'T00:00:00') : undefined}
+              onChange={d => setFilterDateFrom(d ? d.toISOString().slice(0, 10) : '')}
+              placeholder="From date"
+              label="From"
+              labelPosition="left"
+              align="start"
+            />
+            <DatePicker
+              value={filterDateTo ? new Date(filterDateTo + 'T00:00:00') : undefined}
+              onChange={d => setFilterDateTo(d ? d.toISOString().slice(0, 10) : '')}
+              placeholder="To date"
+              label="To"
+              labelPosition="left"
+              align="start"
+            />
             <Button variant="outline" onClick={handleApplyFilter}>{t('btn.apply')}</Button>
           </div>
 
