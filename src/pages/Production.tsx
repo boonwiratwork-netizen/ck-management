@@ -432,6 +432,14 @@ export default function ProductionPage({
     const remaining = row ? Math.max(0, row.planG - row.producedG) : 0;
     setRecordSkuId(skuId);
     setRecordForm({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: remaining, notes: '' });
+    setEditingRecordId(null);
+    setRecordModalOpen(true);
+  };
+
+  const openEditRecordModal = (record: ProductionRecord) => {
+    setRecordSkuId(record.smSkuId);
+    setRecordForm({ productionDate: record.productionDate, actualOutputG: record.actualOutputG, notes: '' });
+    setEditingRecordId(record.id);
     setRecordModalOpen(true);
   };
 
