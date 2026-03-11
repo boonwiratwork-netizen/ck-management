@@ -251,8 +251,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const { sorted: sortedHistory, sortKey: hSortKey, sortDir: hSortDir, handleSort: hHandleSort } = useSortableTable(filteredHistory, comparators);
   const displayHistory = hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
 
-  const thClass = 'text-left px-2 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider whitespace-nowrap';
-  const tdReadOnly = 'px-2 py-2 text-xs';
+  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+  const tdReadOnly = 'px-3 py-2 text-sm';
 
   const savableCount = useMemo(() => {
     let c = 0;
