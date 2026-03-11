@@ -637,15 +637,15 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   // Common table headers for simple BOM
   const simpleTableHeaders = (
     <TableRow>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">{t('col.name')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.name')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>
     </TableRow>
   );
 
