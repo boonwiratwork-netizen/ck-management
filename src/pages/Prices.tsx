@@ -123,8 +123,8 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.priceMaster')}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage SKU pricing across suppliers</p>
+          <h2 className="page-title">{t('title.priceMaster')}</h2>
+          <p className="page-subtitle">Manage SKU pricing across suppliers</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
