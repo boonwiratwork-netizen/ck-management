@@ -67,7 +67,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Manual Entry State ———
   const [manualOpen, setManualOpen] = useState(true);
-  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
+  const [manualDate, setManualDate] = useState(toLocalDateStr(new Date()));
   const [manualBranch, setManualBranch] = useState<string>(
     isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
