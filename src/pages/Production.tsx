@@ -934,7 +934,7 @@ export default function ProductionPage({
                       </thead>
                       <tbody>
                         {weekRecords.map(rec => (
-                          <tr key={rec.id} className="border-b hover:bg-muted/30">
+                          <tr key={rec.id} className="border-b hover:bg-table-hover">
                             <td className="px-2 py-1.5">{rec.productionDate}</td>
                             <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
                             <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
