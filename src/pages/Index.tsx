@@ -5,6 +5,7 @@ import { useModifierRuleData } from '@/hooks/use-modifier-rule-data';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
+import { useByproductData } from '@/hooks/use-byproduct-data';
 import { useBomData } from '@/hooks/use-bom-data';
 import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { useStockData } from '@/hooks/use-stock-data';
@@ -126,11 +127,12 @@ const Index = () => {
   const supplierData = useSupplierData();
   const priceData = usePriceData();
   const bomData = useBomData();
+  const byproductData = useByproductData();
   const receiptData = useGoodsReceiptData();
   const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps);
   const deliveryData = useDeliveryData();
-  const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps);
+  const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps, byproductData.byproducts);
   const branchData = useBranchData();
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
@@ -386,7 +388,7 @@ const Index = () => {
               ) : activeTab === 'price' ? (
                 <PricesPage priceData={priceData} skus={skus} activeSuppliers={activeSuppliers} allSuppliers={supplierData.suppliers} readOnly={readOnly} bomHeaders={bomData.headers} />
               ) : activeTab === 'bom' ? (
-                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={readOnly} onPricesRefresh={priceData.refreshPrices} />
+                <BOMPage bomData={bomData} skus={skus} prices={priceData.prices} readOnly={readOnly} onPricesRefresh={priceData.refreshPrices} byproductData={byproductData} />
               ) : activeTab === 'receipt' ? (
                 <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
               ) : activeTab === 'stock' ? (
@@ -402,6 +404,7 @@ const Index = () => {
                   smStockBalances={smStockData.stockBalances}
                   menuBomLines={menuBomData.lines}
                   menus={menuData.menus}
+                  bomByproducts={byproductData.byproducts}
                 />
               ) : activeTab === 'smstock' ? (
                 <SMStockPage skus={skus} smStockData={smStockData} />

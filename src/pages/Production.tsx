@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { SKU } from '@/types/sku';
 import { BOMStep } from '@/types/bom';
+import { BomByproduct } from '@/types/byproduct';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { ProductionPlan, ProductionRecord, PlanStatus, EMPTY_PRODUCTION_RECORD } from '@/types/production';
 import { StockBalance } from '@/types/stock';
@@ -42,6 +43,7 @@ interface ProductionPageProps {
   smStockBalances: SMStockBalance[];
   menuBomLines: MenuBomLine[];
   menus: Menu[];
+  bomByproducts: BomByproduct[];
 }
 
 function getSmartWeekStart(): string {
@@ -95,7 +97,7 @@ interface PlanRow {
 }
 
 export default function ProductionPage({
-  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus,
+  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus, bomByproducts,
 }: ProductionPageProps) {
   const { addRecord, deleteRecord, getOutputPerBatch, records } = productionData;
 
@@ -111,6 +113,7 @@ export default function ProductionPage({
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
   const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), batchesProduced: 0, actualOutputG: 0, notes: '' });
+  const [byproductActuals, setByproductActuals] = useState<Record<string, number>>({});
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -398,6 +401,13 @@ export default function ProductionPage({
   // Open record modal
   const openRecordModal = (skuId: string) => {
     const row = rows.find(r => r.sku.id === skuId);
+    const headerBps = bomByproducts.filter(bp => {
+      const header = bomHeaders.find(h => h.smSkuId === skuId);
+      return header && bp.bomHeaderId === header.id && bp.tracksInventory && bp.skuId;
+    });
+    const defaults: Record<string, number> = {};
+    headerBps.forEach(bp => { defaults[bp.id] = bp.outputQty; });
+    setByproductActuals(defaults);
     setRecordSkuId(skuId);
     setRecordForm({
       productionDate: new Date().toISOString().slice(0, 10),
