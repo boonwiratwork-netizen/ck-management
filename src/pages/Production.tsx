@@ -93,7 +93,7 @@ function getCurrentWeekMonday(): string {
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(today);
   mon.setDate(today.getDate() + diff);
-  return mon.toISOString().slice(0, 10);
+  return toLocalDateStr(mon);
 }
 
 /* ─── Number formatting helpers ─── */
