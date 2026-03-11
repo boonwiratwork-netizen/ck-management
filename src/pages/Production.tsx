@@ -546,7 +546,7 @@ export default function ProductionPage({
               </span>
               {(() => {
                 const curMon = getCurrentWeekMonday();
-                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
+                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return toLocalDateStr(d); })();
                 if (weekStart === curMon) return (
                   <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                     {t('prod.thisWeek')}
