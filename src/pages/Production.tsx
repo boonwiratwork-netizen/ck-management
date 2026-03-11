@@ -31,6 +31,7 @@ interface ProductionPageProps {
     updatePlan: (id: string, data: Partial<{ smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }>) => void | Promise<void>;
     deletePlan: (id: string) => void | Promise<void>;
     addRecord: (data: Omit<ProductionRecord, 'id' | 'smSkuId'>) => string | undefined | Promise<string | undefined>;
+    updateRecord: (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => void | Promise<void>;
     deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
