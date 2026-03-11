@@ -9,7 +9,8 @@ const toHeader = (r: any): BOMHeader => ({
 });
 const toLine = (r: any): BOMLine => ({
   id: r.id, bomHeaderId: r.bom_header_id, rmSkuId: r.rm_sku_id,
-  qtyPerBatch: r.qty_per_batch, stepId: r.step_id ?? undefined,
+  qtyPerBatch: r.qty_per_batch, yieldPercent: r.yield_percent ?? 1.0,
+  stepId: r.step_id ?? undefined,
   qtyType: r.qty_type ?? undefined, percentOfInput: r.percent_of_input ?? undefined,
 });
 const toStep = (r: any): BOMStep => ({
