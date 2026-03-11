@@ -83,12 +83,14 @@ export function useSmStockData(
     const bomHeader = bomHeaders.find(h => h.smSkuId === skuId);
     if (!bomHeader) return 0;
 
+    let totalCost = 0;
+    let mainOutput = 0;
+
     if (bomHeader.bomMode === 'multistep') {
       const steps = bomSteps.filter(s => s.bomHeaderId === bomHeader.id).sort((a, b) => a.stepNumber - b.stepNumber);
       const allLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
       if (steps.length === 0) return 0;
 
-      let totalCost = 0;
       let prevOutput = 0;
       steps.forEach((step, idx) => {
         const sLines = allLines.filter(l => l.stepId === step.id);
@@ -107,18 +109,25 @@ export function useSmStockData(
           return s + qty * (ap?.pricePerUsageUom ?? 0);
         }, 0);
       });
-      return prevOutput > 0 ? totalCost / prevOutput : 0;
+      mainOutput = prevOutput;
+    } else {
+      // Simple BOM
+      const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
+      totalCost = bLines.reduce((s, line) => {
+        const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
+        return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
+      }, 0);
+      mainOutput = bomHeader.batchSize * bomHeader.yieldPercent;
     }
 
-    // Simple BOM
-    const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-    const batchCost = bLines.reduce((s, line) => {
-      const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
-      return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
-    }, 0);
-    const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
-    return outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
-  }, [bomHeaders, bomLines, bomSteps, prices]);
+    // Apply by-product allocation
+    const headerByproducts = bomByproducts.filter(bp => bp.bomHeaderId === bomHeader.id);
+    const totalByproductPct = headerByproducts.reduce((s, bp) => s + bp.costAllocationPct, 0);
+    const mainPct = Math.max(0, 100 - totalByproductPct);
+    const allocatedCost = totalCost * (mainPct / 100);
+
+    return mainOutput > 0 ? allocatedCost / mainOutput : 0;
+  }, [bomHeaders, bomLines, bomSteps, prices, bomByproducts]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
     const recs = productionRecords.filter(r => r.smSkuId === skuId);
