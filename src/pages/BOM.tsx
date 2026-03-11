@@ -906,6 +906,147 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     </>
   );
 
+  // Reusable by-products section for both simple and multi-step BOMs
+  const renderByproductsSection = () => {
+    if (!selectedHeaderId || !selectedHeader) return null;
+    const bps = selectedByproducts;
+
+    return (
+      <>
+        {bps.length === 0 ? (
+          <div className="px-2 pt-2">
+            <button
+              className="text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-2"
+              onClick={handleAddByproduct}
+            >
+              + Add By-product
+            </button>
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">By-products</h4>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleAddByproduct}>
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 140 }}>Type / SKU</TableHead>
+                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Output (g)</TableHead>
+                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Alloc %</TableHead>
+                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost (฿)</TableHead>
+                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/g</TableHead>
+                    <TableHead style={{ width: 40 }}></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bps.map(bp => {
+                    const bpAllocCost = totalBatchCost * (bp.costAllocationPct / 100);
+                    const bpCpg = bp.outputQty > 0 ? bpAllocCost / bp.outputQty : 0;
+                    const hasConflict = bp.tracksInventory && bp.skuId && skuHasOwnBom(bp.skuId);
+                    return (
+                      <Fragment key={bp.id}>
+                        <TableRow className="h-9">
+                          <TableCell className="py-1">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  className={`text-[10px] px-1.5 py-0.5 rounded ${bp.tracksInventory ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                                  onClick={() => updateByproduct(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
+                                >
+                                  {bp.tracksInventory ? 'Inventory SKU' : 'Non-inventory'}
+                                </button>
+                              </div>
+                              {bp.tracksInventory ? (
+                                <SearchableSelect
+                                  value={bp.skuId || ''}
+                                  onValueChange={v => updateByproduct(bp.id, { skuId: v, name: getSkuName(v) })}
+                                  options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                                  placeholder="Select SM SKU"
+                                  triggerClassName="h-7 text-xs"
+                                />
+                              ) : (
+                                <BlurInput
+                                  defaultValue={bp.name}
+                                  onBlurValue={val => updateByproduct(bp.id, { name: val })}
+                                  className="h-7 text-xs w-full"
+                                  placeholder="By-product name..."
+                                />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-1">
+                            <BlurInput
+                              defaultValue={bp.outputQty}
+                              onBlurValue={val => handleByproductOutputChange(bp.id, Number(val) || 0)}
+                              type="number"
+                              className="h-7 w-full text-xs text-right font-mono"
+                            />
+                          </TableCell>
+                          <TableCell className="py-1">
+                            <BlurInput
+                              defaultValue={bp.costAllocationPct.toFixed(1)}
+                              onBlurValue={val => handleByproductPctChange(bp.id, Number(val) || 0)}
+                              type="number"
+                              step="0.1"
+                              className="h-7 w-full text-xs text-right font-mono"
+                            />
+                          </TableCell>
+                          <TableCell className="text-[13px] text-right font-mono py-1">
+                            {bpAllocCost > 0 ? `฿${bpAllocCost.toFixed(2)}` : '—'}
+                          </TableCell>
+                          <TableCell className="text-[13px] text-right font-mono py-1">
+                            {bpCpg > 0 ? `฿${bpCpg.toFixed(4)}` : '—'}
+                          </TableCell>
+                          <TableCell className="py-1">
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDeleteByproduct(bp.id)}>
+                              <Trash2 className="w-3 h-3 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {hasConflict && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-1 px-2">
+                              <div className="flex items-center gap-1.5 text-[10px] text-warning">
+                                <AlertTriangle className="w-3 h-3" />
+                                {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* Summary */}
+              <div className="border-t pt-2 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Main product ({getSkuCode(selectedHeader.smSkuId)})</span>
+                  <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Main product cost/gram</span>
+                  <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
+                </div>
+                {!allocationValid && (
+                  <p className="text-[10px] text-destructive font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
