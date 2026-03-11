@@ -284,14 +284,14 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           </div>
           <p className="text-2xl font-heading font-bold mt-1">{thisWeekDeliveries.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.weekQtyDelivered')}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('summary.weekQtyDelivered')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <TrendingUp className="w-4 h-4 text-success" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
+          <p className="text-2xl font-heading font-bold mt-1">{thisWeekQty.toLocaleString(undefined, { maximumFractionDigits: 1 })} g</p>
         </div>
       </div>
 
