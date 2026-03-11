@@ -328,7 +328,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
         })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
-        {formSkuId && previewCost > 0 ? `฿${previewCost.toFixed(2)}` : formSkuId ? <span className="text-orange-500">—</span> : '—'}
+        {formSkuId && previewCost > 0 ? `฿${previewCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
