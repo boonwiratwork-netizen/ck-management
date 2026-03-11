@@ -424,7 +424,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <>
                       {filteredGroupedSuppliers.brand.length > 0 && (
                         <>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Brand Suppliers</div>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Brand Suppliers</div>
                           {filteredGroupedSuppliers.brand.map(s => (
                             <button
                               key={s.id}
