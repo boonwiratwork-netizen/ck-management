@@ -401,6 +401,13 @@ export default function ProductionPage({
   // Open record modal
   const openRecordModal = (skuId: string) => {
     const row = rows.find(r => r.sku.id === skuId);
+    const headerBps = bomByproducts.filter(bp => {
+      const header = bomHeaders.find(h => h.smSkuId === skuId);
+      return header && bp.bomHeaderId === header.id && bp.tracksInventory && bp.skuId;
+    });
+    const defaults: Record<string, number> = {};
+    headerBps.forEach(bp => { defaults[bp.id] = bp.outputQty; });
+    setByproductActuals(defaults);
     setRecordSkuId(skuId);
     setRecordForm({
       productionDate: new Date().toISOString().slice(0, 10),
