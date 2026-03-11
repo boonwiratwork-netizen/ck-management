@@ -508,15 +508,8 @@ export default function ProductionPage({
   const recordSku = recordSkuId ? skus.find(s => s.id === recordSkuId) : null;
   const recordRow = recordSkuId ? rows.find(r => r.sku.id === recordSkuId) : null;
 
-  // Status dot — matches SM Stock exactly
-  const statusDot = (color: 'red' | 'amber' | 'green', size = 'w-2.5 h-2.5') => (
-    <span className={cn(
-      'inline-block rounded-full', size,
-      color === 'red' && 'bg-destructive',
-      color === 'amber' && 'bg-warning',
-      color === 'green' && 'bg-success',
-    )} />
-  );
+  // Status dot — using StatusDot component
+  // (kept as thin wrapper for cover display helper below)
 
   // Cover days display with dot
   const coverDisplay = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
