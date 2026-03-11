@@ -536,23 +536,23 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-[13px] font-mono py-1 px-2">
+                            <TableCell className="text-sm font-mono py-1 px-2">
                               {sku?.skuId ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] truncate overflow-hidden py-1 px-2" title={sku?.name ?? '—'}>
+                            <TableCell className="text-sm truncate overflow-hidden py-1 px-2" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
-                            <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{sku?.usageUom ?? line.uom}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">100%</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{effQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">
-                              {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground py-1 px-2">{sku?.usageUom ?? line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">100%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">{effQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">
+                              {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
+                            <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
                               {(() => {
                                 const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
-                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-primary">—</span>;
                               })()}
                             </TableCell>
                             {canEdit && (
