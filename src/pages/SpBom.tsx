@@ -576,9 +576,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   {/* Add button at bottom */}
                   {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId && (
                     <div className="p-4 pt-2">
-                      <Button
+                       <Button
                         variant="outline"
-                        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                         onClick={startAddLine}
                       >
                         <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
