@@ -150,7 +150,7 @@ export default function ProductionPage({
   // Record modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
-  const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: 0, notes: '' });
+  const [recordForm, setRecordForm] = useState({ productionDate: toLocalDateStr(new Date()), actualOutputG: 0, notes: '' });
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   // Dialogs
