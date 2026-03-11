@@ -41,7 +41,7 @@ interface DraftDeliveryRow {
 function createEmptyDraft(): DraftDeliveryRow {
   return {
     tempId: crypto.randomUUID(),
-    deliveryDate: new Date().toISOString().slice(0, 10),
+    deliveryDate: toLocalDateStr(new Date()),
     branchName: '',
     smSkuId: '',
     qtyDeliveredG: 0,
