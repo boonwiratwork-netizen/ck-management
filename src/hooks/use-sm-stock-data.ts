@@ -25,7 +25,8 @@ export function useSmStockData(
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
   prices: Price[],
-  bomSteps: BOMStep[] = []
+  bomSteps: BOMStep[] = [],
+  bomByproducts: BomByproduct[] = []
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
