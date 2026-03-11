@@ -341,15 +341,15 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYieldPct}
           onChange={e => setFormYieldPct(Number(e.target.value) || 100)} />
       </TableCell>
-      <TableCell className="text-[13px] text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
-      <TableCell className="text-[13px] text-right font-mono py-1 px-2">
+      <TableCell className="text-sm text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
+      <TableCell className="text-sm text-right font-mono py-1 px-2">
         {formSkuId ? (() => {
           const c = getActiveCost(formSkuId);
-          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-orange-500">—</span>;
+          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
-      <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
-        {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-orange-500">—</span> : '—'}
+      <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
+        {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
       </TableCell>
       <TableCell className="py-1 px-2">
         <div className="flex gap-1">
