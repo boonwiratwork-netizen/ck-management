@@ -382,6 +382,74 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     setDraggedStepId(null);
   };
 
+  // By-product actions
+  const handleAddByproduct = async () => {
+    if (!selectedHeaderId) return;
+    // Calculate default allocation
+    const existing = getByproductsForHeader(selectedHeaderId);
+    const totalOutput = mainProductOutput + existing.reduce((s, bp) => s + bp.outputQty, 0);
+    await addByproduct({
+      bomHeaderId: selectedHeaderId,
+      skuId: null,
+      name: '',
+      outputQty: 0,
+      costAllocationPct: 0,
+      tracksInventory: false,
+    });
+  };
+
+  const handleByproductOutputChange = async (bpId: string, newOutputQty: number) => {
+    await updateByproduct(bpId, { outputQty: newOutputQty });
+    // Auto-rebalance allocations
+    await autoRebalanceAllocations(bpId, undefined, newOutputQty);
+  };
+
+  const handleByproductPctChange = async (bpId: string, newPct: number) => {
+    await updateByproduct(bpId, { costAllocationPct: newPct });
+  };
+
+  const autoRebalanceAllocations = async (changedId?: string, changedPct?: number, changedOutput?: number) => {
+    if (!selectedHeaderId) return;
+    const bps = getByproductsForHeader(selectedHeaderId);
+    if (bps.length === 0) return;
+    
+    // Recalculate default allocations based on output proportions
+    const totalBpOutput = bps.reduce((s, bp) => {
+      const out = bp.id === changedId && changedOutput !== undefined ? changedOutput : bp.outputQty;
+      return s + out;
+    }, 0);
+    const totalOutput = mainProductOutput + totalBpOutput;
+    
+    if (totalOutput <= 0) return;
+    
+    const updates = bps.map(bp => {
+      const out = bp.id === changedId && changedOutput !== undefined ? changedOutput : bp.outputQty;
+      return {
+        id: bp.id,
+        costAllocationPct: totalOutput > 0 ? (out / totalOutput) * 100 : 0,
+      };
+    });
+    await bulkUpdateAllocations(updates);
+  };
+
+  const handleDeleteByproduct = async (bpId: string) => {
+    await deleteByproduct(bpId);
+    await syncCurrentBomPrice();
+  };
+
+  // Check if an SM SKU has its own BOM (for conflict warning)
+  const skuHasOwnBom = (skuId: string | null): boolean => {
+    if (!skuId) return false;
+    return headers.some(h => h.smSkuId === skuId && h.id !== selectedHeaderId);
+  };
+
+  // Check if an SM SKU is registered as a by-product somewhere
+  const getByproductParentHeader = (skuId: string): BOMHeader | null => {
+    const bp = byproducts.find(b => b.skuId === skuId && b.tracksInventory);
+    if (!bp) return null;
+    return headers.find(h => h.id === bp.bomHeaderId) ?? null;
+  };
+
   const [sortAsc, setSortAsc] = useState(true);
 
   // Filtered headers for left panel search
