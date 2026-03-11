@@ -324,13 +324,15 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const handleEditLine = (line: BOMLine) => {
+    const yieldPctDisplay = Math.round((line.yieldPercent ?? 1.0) * 100);
     setLineForm({
       rmSkuId: line.rmSkuId,
       qtyPerBatch: line.qtyPerBatch,
+      yieldPercent: line.yieldPercent ?? 1.0,
       stepId: line.stepId,
       qtyType: line.qtyType,
       percentOfInput: line.percentOfInput,
-      yieldPct: 100,
+      yieldPct: yieldPctDisplay,
     });
     setEditingLineId(line.id);
     setAddingLine(false);
