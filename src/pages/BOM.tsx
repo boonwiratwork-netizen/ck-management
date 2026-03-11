@@ -311,10 +311,10 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const handleSaveLine = async () => {
     if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
     if (addingLine) {
-      await addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
+      await addLine({ ...lineForm, yieldPercent: lineForm.yieldPct / 100, bomHeaderId: selectedHeaderId });
       // Auto-continue: open new empty row
       const stepId = addingLineStepId;
-      setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId: stepId ?? undefined, yieldPct: 100 });
+      setLineForm({ rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId: stepId ?? undefined, yieldPct: 100 });
     } else if (editingLineId) {
       await updateLine(editingLineId, lineForm);
       setEditingLineId(null);
