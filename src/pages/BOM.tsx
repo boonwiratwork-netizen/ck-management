@@ -1059,7 +1059,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           placeholder="g"
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">g</span>
+                      <span className="text-xs text-muted-foreground shrink-0">g</span>
 
                       {/* Alloc % */}
                       <div className="shrink-0 w-16">
