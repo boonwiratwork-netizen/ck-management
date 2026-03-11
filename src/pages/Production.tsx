@@ -84,6 +84,15 @@ function getWorkingDaysLeftInWeek(): number {
   return 6 - day; // Mon=5…Fri=1
 }
 
+function getCurrentWeekMonday(): string {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + diff);
+  return mon.toISOString().slice(0, 10);
+}
+
 /* ─── Number formatting helpers ─── */
 const fmtG = (v: number) => Math.round(v).toLocaleString();
 const fmtDays = (v: number) => v.toFixed(1);
