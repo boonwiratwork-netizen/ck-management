@@ -411,7 +411,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       onClick={() => { setSelectedSpId(s.id); setEditingYield(false); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedSpId === s.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                      } ${!hasBom ? 'bg-primary/5' : ''}`}
                     >
                       <p className="text-sm font-medium flex items-center gap-1.5">
                         {!hasBom && <span className="text-orange-500">⚠️</span>}
