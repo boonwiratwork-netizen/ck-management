@@ -1068,7 +1068,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {headers.filter(h => getLinesForHeader(h.id).length > 0).length} of {headers.length} items have BOM
+                  {headers.filter(h => getLinesForHeader(h.id).length > 0).length} of {headers.filter(h => !byproducts.some(bp => bp.skuId === h.smSkuId && bp.tracksInventory)).length} items have BOM
                 </p>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
