@@ -975,140 +975,175 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     const bps = selectedByproducts;
 
     return (
-      <>
-        {bps.length === 0 ? (
-          <div className="px-2 pt-2">
-            <button
-              className="text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-2"
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium">By-products</h4>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
               onClick={handleAddByproduct}
             >
-              + Add By-product
-            </button>
+              <Plus className="w-3.5 h-3.5" /> Add By-product
+            </Button>
           </div>
-        ) : (
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">By-products</h4>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleAddByproduct}>
-                  <Plus className="w-3 h-3 mr-1" /> Add
-                </Button>
-              </div>
 
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 140 }}>Type / SKU</TableHead>
-                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>Output (g)</TableHead>
-                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Alloc %</TableHead>
-                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost (฿)</TableHead>
-                    <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/g</TableHead>
-                    <TableHead style={{ width: 40 }}></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bps.map(bp => {
-                    const bpAllocCost = totalBatchCost * (bp.costAllocationPct / 100);
-                    const bpCpg = bp.outputQty > 0 ? bpAllocCost / bp.outputQty : 0;
-                    const hasConflict = bp.tracksInventory && bp.skuId && skuHasOwnBom(bp.skuId);
-                    return (
-                      <Fragment key={bp.id}>
-                        <TableRow className="h-9">
-                          <TableCell className="py-1">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  className={`text-[10px] px-1.5 py-0.5 rounded ${bp.tracksInventory ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
-                                  onClick={() => updateByproduct(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
-                                >
-                                  {bp.tracksInventory ? 'Inventory SKU' : 'Non-inventory'}
-                                </button>
-                              </div>
-                              {bp.tracksInventory ? (
-                                <SearchableSelect
-                                  value={bp.skuId || ''}
-                                  onValueChange={v => updateByproduct(bp.id, { skuId: v, name: getSkuName(v) })}
-                                  options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-                                  placeholder="Select SM SKU"
-                                  triggerClassName="h-7 text-xs"
-                                />
-                              ) : (
-                                <BlurInput
-                                  defaultValue={bp.name}
-                                  onBlurValue={val => updateByproduct(bp.id, { name: val })}
-                                  className="h-7 text-xs w-full"
-                                  placeholder="By-product name..."
-                                />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-1">
-                            <BlurInput
-                              defaultValue={bp.outputQty}
-                              onBlurValue={val => handleByproductOutputChange(bp.id, Number(val) || 0)}
-                              type="number"
-                              className="h-7 w-full text-xs text-right font-mono"
-                            />
-                          </TableCell>
-                          <TableCell className="py-1">
-                            <BlurInput
-                              defaultValue={bp.costAllocationPct.toFixed(1)}
-                              onBlurValue={val => handleByproductPctChange(bp.id, Number(val) || 0)}
-                              type="number"
-                              step="0.1"
-                              className="h-7 w-full text-xs text-right font-mono"
-                            />
-                          </TableCell>
-                          <TableCell className="text-[13px] text-right font-mono py-1">
-                            {bpAllocCost > 0 ? `฿${bpAllocCost.toFixed(2)}` : '—'}
-                          </TableCell>
-                          <TableCell className="text-[13px] text-right font-mono py-1">
-                            {bpCpg > 0 ? `฿${bpCpg.toFixed(4)}` : '—'}
-                          </TableCell>
-                          <TableCell className="py-1">
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDeleteByproduct(bp.id)}>
-                              <Trash2 className="w-3 h-3 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        {hasConflict && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="py-1 px-2">
-                              <div className="flex items-center gap-1.5 text-[10px] text-warning">
-                                <AlertTriangle className="w-3 h-3" />
-                                {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
-                              </div>
-                            </TableCell>
-                          </TableRow>
+          {bps.length === 0 && (
+            <p className="text-xs text-muted-foreground py-4 text-center">No by-products. Click "Add By-product" to define output splits.</p>
+          )}
+
+          {bps.length > 0 && (
+            <div className="space-y-2">
+              {bps.map(bp => {
+                const bpAllocCost = totalBatchCost * (bp.costAllocationPct / 100);
+                const bpCpg = bp.outputQty > 0 ? bpAllocCost / bp.outputQty : 0;
+                const hasConflict = bp.tracksInventory && bp.skuId && skuHasOwnBom(bp.skuId);
+                return (
+                  <div key={bp.id}>
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/20">
+                      {/* Type badge */}
+                      <button
+                        className={`text-[10px] px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
+                        onClick={() => handleByproductFieldChange(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
+                      >
+                        {bp.tracksInventory ? 'SKU' : 'Text'}
+                      </button>
+
+                      {/* SKU selector or name field */}
+                      <div className="min-w-0 flex-1">
+                        {bp.tracksInventory ? (
+                          <SearchableSelect
+                            value={bp.skuId || ''}
+                            onValueChange={v => handleByproductFieldChange(bp.id, { skuId: v, name: getSkuName(v) })}
+                            options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                            placeholder="Select SM SKU"
+                            triggerClassName="h-8 text-xs"
+                          />
+                        ) : (
+                          <BlurInput
+                            defaultValue={bp.name}
+                            onBlurValue={val => handleByproductFieldChange(bp.id, { name: val })}
+                            className="h-8 text-xs w-full"
+                            placeholder="By-product name..."
+                          />
                         )}
-                      </Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                      </div>
 
-              {/* Summary */}
-              <div className="border-t pt-2 space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Main product ({getSkuCode(selectedHeader.smSkuId)})</span>
-                  <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Main product cost/gram</span>
-                  <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
-                </div>
-                {!allocationValid && (
-                  <p className="text-[10px] text-destructive font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
-                  </p>
+                      {/* Output g */}
+                      <div className="shrink-0 w-20">
+                        <BlurInput
+                          key={`out-${bp.id}-${bp.outputQty}`}
+                          defaultValue={bp.outputQty}
+                          onBlurValue={val => handleByproductOutputChange(bp.id, Number(val) || 0)}
+                          type="number"
+                          className="h-8 w-full text-xs text-right font-mono"
+                          placeholder="g"
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">g</span>
+
+                      {/* Alloc % */}
+                      <div className="shrink-0 w-16">
+                        <BlurInput
+                          key={`pct-${bp.id}-${bp.costAllocationPct.toFixed(1)}`}
+                          defaultValue={bp.costAllocationPct.toFixed(1)}
+                          onBlurValue={val => handleByproductPctChange(bp.id, Number(val) || 0)}
+                          type="number"
+                          step="0.1"
+                          className="h-8 w-full text-xs text-right font-mono"
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">%</span>
+
+                      {/* Cost ฿ read-only */}
+                      <div className="shrink-0 w-20 text-right">
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {bpAllocCost > 0 ? `฿${bpAllocCost.toFixed(2)}` : '—'}
+                        </span>
+                      </div>
+
+                      {/* Cost/g read-only */}
+                      <div className="shrink-0 w-20 text-right">
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {bpCpg > 0 ? `฿${bpCpg.toFixed(4)}` : '—'}
+                        </span>
+                      </div>
+
+                      {/* Delete */}
+                      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => handleDeleteByproduct(bp.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                    {/* Conflict warning below affected row */}
+                    {hasConflict && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-orange-600 mt-1 ml-2">
+                        <AlertTriangle className="w-3 h-3" />
+                        {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Summary */}
+          {bps.length > 0 && (
+            <div className="border-t pt-2 space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Main product ({getSkuCode(selectedHeader.smSkuId)})</span>
+                <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Main product cost/gram</span>
+                <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
+              </div>
+              {!allocationValid && (
+                <p className="text-[10px] text-destructive font-medium flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Save By-products button */}
+          {bps.length > 0 && (
+            <div className="border-t pt-3 flex items-center justify-between">
+              <div>
+                {byproductsSavedMsg && (
+                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> By-products saved ✓
+                  </span>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </>
+              <Button
+                onClick={handleSaveByproducts}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={!byproductsDirty}
+              >
+                Save By-products
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     );
   };
+
+  {/* Unsaved by-product changes dialog */}
+  const unsavedDialog = showUnsavedDialog ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-background rounded-lg border shadow-lg p-6 max-w-sm w-full space-y-4">
+        <h3 className="text-sm font-semibold">Unsaved By-product Changes</h3>
+        <p className="text-sm text-muted-foreground">You have unsaved by-product changes. Save before leaving?</p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={confirmDiscardByproducts}>Discard</Button>
+          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={confirmSaveAndNav}>Save & Continue</Button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
