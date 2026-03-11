@@ -39,7 +39,7 @@ export function SummaryCards({ counts, total }: SummaryCardsProps) {
                 <Icon className="w-4 h-4" />
               </span>
             </div>
-            <p className="text-3xl font-bold mt-2 font-mono-num">{counts[type]}</p>
+            <p className="text-2xl font-bold mt-2 font-mono-num">{counts[type]}</p>
             <p className="text-helper text-muted-foreground mt-0.5">{SKU_TYPE_LABELS[type]}</p>
           </div>
         );
