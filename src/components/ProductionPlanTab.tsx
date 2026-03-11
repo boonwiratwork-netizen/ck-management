@@ -402,50 +402,55 @@ export function ProductionPlanTab({ skus, bomHeaders, smStockBalances, menuBomLi
                           ? <span className="text-muted-foreground italic">No BOM</span>
                           : !row.hasSalesData
                             ? <span className="text-muted-foreground italic">No data</span>
-                            : row.forecastWeek.toFixed(0)}
+                            : <>{row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-xs">{row.sku.usageUom}</span></>}
                       </td>
 
                       {/* Per day */}
                       <td className="px-1.5 py-1 text-right font-mono text-muted-foreground text-[10px]">
-                        {row.hasBom && row.hasSalesData ? row.perDay.toFixed(0) : ''}
+                        {row.hasBom && row.hasSalesData ? <>{row.perDay.toFixed(0)} <span className="text-xs">{row.sku.usageUom}</span></> : ''}
                       </td>
 
                       {/* Stock now */}
-                      <td className="px-1.5 py-1 text-right font-mono">{row.stockNow.toFixed(0)}</td>
+                      <td className="px-1.5 py-1 text-right font-mono">{row.stockNow.toFixed(0)} <span className="text-muted-foreground text-xs">{row.sku.usageUom}</span></td>
 
                       {/* Cover now */}
                       <td className={cn('px-1.5 py-1 text-right font-mono', row.hasSalesData && coverColor(row.coverNow, row.target))}>
-                        {!row.hasSalesData ? '' : row.coverNow === Infinity ? '∞' : row.coverNow.toFixed(1)}
+                        {!row.hasSalesData ? '' : row.coverNow === Infinity ? '∞' : <>{row.coverNow.toFixed(1)} <span className="text-muted-foreground text-xs">days</span></>}
                       </td>
 
                       {/* Plan batches - EDITABLE */}
                       <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
-                        <input
-                          ref={el => { planInputRefs.current[row.sku.id] = el; }}
-                          type="number"
-                          className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none disabled:opacity-30"
-                          value={planBatches[row.sku.id] || ''}
-                          onChange={e => updateBatches(row.sku.id, Number(e.target.value) || 0)}
-                          onFocus={e => e.target.select()}
-                          onKeyDown={e => handlePlanKeyDown(e, row.sku.id)}
-                          disabled={!row.hasBom}
-                          min={0}
-                        />
+                        {!row.hasBom ? (
+                          <span className="flex items-center justify-center h-8 text-muted-foreground italic text-[10px]">No BOM</span>
+                        ) : (
+                          <div className="flex items-center gap-0.5">
+                            <input
+                              ref={el => { planInputRefs.current[row.sku.id] = el; }}
+                              type="number"
+                              className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
+                              value={planBatches[row.sku.id] || ''}
+                              onChange={e => updateBatches(row.sku.id, Number(e.target.value) || 0)}
+                              onFocus={e => e.target.select()}
+                              onKeyDown={e => handlePlanKeyDown(e, row.sku.id)}
+                              min={0}
+                            />
+                          </div>
+                        )}
                       </td>
 
                       {/* Plan g */}
                       <td className="px-1.5 py-1 text-right font-mono text-muted-foreground">
-                        {row.planG > 0 ? row.planG.toFixed(0) : ''}
+                        {row.planG > 0 ? <>{row.planG.toFixed(0)} <span className="text-xs">{row.sku.usageUom}</span></> : ''}
                       </td>
 
                       {/* Stock after */}
                       <td className="px-1.5 py-1 text-right font-mono font-medium">
-                        {row.stockAfter.toFixed(0)}
+                        {row.stockAfter.toFixed(0)} <span className="text-muted-foreground text-xs">{row.sku.usageUom}</span>
                       </td>
 
                       {/* Cover after */}
                       <td className={cn('px-1.5 py-1 text-right font-mono font-medium', row.hasSalesData && coverColor(row.coverAfter, row.target))}>
-                        {!row.hasSalesData ? '' : row.coverAfter === Infinity ? '∞' : row.coverAfter.toFixed(1)}
+                        {!row.hasSalesData ? '' : row.coverAfter === Infinity ? '∞' : <>{row.coverAfter.toFixed(1)} <span className="text-muted-foreground text-xs">days</span></>}
                       </td>
 
                       {/* Target */}
