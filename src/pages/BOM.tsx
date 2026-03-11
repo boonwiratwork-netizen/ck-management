@@ -625,7 +625,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveLine}><Check className="w-3.5 h-3.5 text-success" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelLineEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
