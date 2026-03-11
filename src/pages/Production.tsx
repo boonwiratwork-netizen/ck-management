@@ -47,6 +47,7 @@ interface ProductionPageProps {
   bomByproducts: BomByproduct[];
 }
 
+/* ─── Week helpers ─── */
 function getSmartWeekStart(): string {
   const today = new Date();
   const day = today.getDay();
@@ -61,9 +62,8 @@ function getSmartWeekStart(): string {
   return mon.toISOString().slice(0, 10);
 }
 
-function getWeekEndDate(weekStart: string): string {
-  const d = new Date(weekStart);
-  d.setDate(d.getDate() + 6);
+function getWeekEndDate(ws: string): string {
+  const d = new Date(ws); d.setDate(d.getDate() + 6);
   return d.toISOString().slice(0, 10);
 }
 
@@ -78,27 +78,41 @@ function getISOWeekNumber(dateStr: string): number {
 
 function getWorkingDaysLeftInWeek(): number {
   const today = new Date();
-  const day = today.getDay(); // 0=Sun, 1=Mon...5=Fri
-  if (day === 0 || day === 6) return 5; // weekend → next week has 5
-  return 6 - day; // Mon=5, Tue=4, Wed=3, Thu=2, Fri=1
+  const day = today.getDay();
+  if (day === 0 || day === 6) return 5;
+  return 6 - day; // Mon=5…Fri=1
 }
 
+/* ─── Number formatting helpers ─── */
+const fmtG = (v: number) => Math.round(v).toLocaleString();
+const fmtDays = (v: number) => v.toFixed(1);
+
+/* ─── Row types ─── */
 interface PlanRow {
   sku: SKU;
   hasBom: boolean;
   forecastWeek: number;
-  indirectDemand: number;
-  indirectParentCount: number;
+  dailyNeed: number;
   stockNow: number;
-  gap: number;
+  target: number;
+  coverNow: number;      // stock / daily need
+  produceTarget: number;  // (dailyNeed * target) - stockNow, min 0
+  suggestedBatches: number;
   plannedBatches: number;
   outputPerBatch: number;
   planG: number;
   stockAfter: number;
-  target: number;
-  statusColor: 'red' | 'amber' | 'green';
-  afterStatusColor: 'red' | 'amber' | 'green';
+  coverAfter: number;
+  coverNowColor: 'red' | 'amber' | 'green';
+  coverAfterColor: 'red' | 'amber' | 'green';
   producedG: number;
+}
+
+function getCoverColor(cover: number, target: number, dailyNeed: number): 'red' | 'amber' | 'green' {
+  if (dailyNeed <= 0) return 'green';
+  if (cover < target * 0.5) return 'red';
+  if (cover < target) return 'amber';
+  return 'green';
 }
 
 export default function ProductionPage({
@@ -118,18 +132,18 @@ export default function ProductionPage({
   const [mode, setMode] = useState<'planning' | 'execution'>('planning');
   const [planLocked, setPlanLocked] = useState(false);
   const [savedWeek, setSavedWeek] = useState<number | null>(null);
+  const [suggestedInitialized, setSuggestedInitialized] = useState(false);
 
-  // Record modal state
+  // Record modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
   const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: 0, notes: '' });
 
-  // Delete confirmation & stock warning & critical warning
+  // Dialogs
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [stockWarning, setStockWarning] = useState<{ shortages: { name: string; need: number; have: number }[] } | null>(null);
   const [criticalWarning, setCriticalWarning] = useState<number | null>(null);
 
-  // History & No BOM collapsibles
+  // Collapsibles
   const [historyOpen, setHistoryOpen] = useState(false);
   const [noBomOpen, setNoBomOpen] = useState(false);
 
@@ -139,13 +153,12 @@ export default function ProductionPage({
   const weekEnd = getWeekEndDate(weekStart);
   const weekNumber = getISOWeekNumber(weekStart);
 
-  // Fetch global settings
+  // ─── Data fetching ───
   useEffect(() => {
     supabase.from('global_settings' as any).select('*').eq('key', 'cover_days_target').single()
       .then(({ data }: any) => { if (data) setGlobalTarget(Number(data.value) || 7); });
   }, []);
 
-  // Fetch per-SKU targets
   useEffect(() => {
     supabase.from('skus').select('id, cover_days_target' as any)
       .not('cover_days_target', 'is', null)
@@ -158,7 +171,6 @@ export default function ProductionPage({
       });
   }, []);
 
-  // Fetch last 7 days sales
   useEffect(() => {
     const today = new Date();
     const sevenDaysAgo = new Date(today);
@@ -171,10 +183,11 @@ export default function ProductionPage({
       });
   }, []);
 
-  // Fetch plan lines for selected week
+  // Fetch saved plan for week
   useEffect(() => {
     setPlanLocked(false);
     setSavedWeek(null);
+    setSuggestedInitialized(false);
     supabase.from('weekly_plan_lines' as any).select('*').eq('week_start', weekStart)
       .then(({ data }: any) => {
         const map: Record<string, number> = {};
@@ -187,7 +200,7 @@ export default function ProductionPage({
       });
   }, [weekStart]);
 
-  // Direct forecast from menu_bom
+  // ─── Forecast calculation (unchanged logic) ───
   const directForecast = useMemo(() => {
     const menuCodeToId = new Map(menus.map(m => [m.menuCode, m.id]));
     const smSkuIds = new Set(smSkus.map(s => s.id));
@@ -202,21 +215,17 @@ export default function ProductionPage({
     return usage;
   }, [salesData, menus, menuBomLines, smSkus]);
 
-  // Indirect forecast: SM used as ingredient in other SM BOMs
-  const { totalForecast, indirectDemandMap, indirectParentMap } = useMemo(() => {
+  const { totalForecast } = useMemo(() => {
     const smSkuIds = new Set(smSkus.map(s => s.id));
     const parentChildMap = new Map<string, { childSmId: string; qtyPerBatch: number }[]>();
-    const childParentCount: Record<string, number> = {};
 
     bomHeaders.forEach(header => {
       if (!smSkuIds.has(header.smSkuId)) return;
-      const lines = bomLines.filter(l => l.bomHeaderId === header.id);
-      lines.forEach(line => {
+      bomLines.filter(l => l.bomHeaderId === header.id).forEach(line => {
         if (smSkuIds.has(line.rmSkuId)) {
           const existing = parentChildMap.get(header.smSkuId) || [];
           existing.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
           parentChildMap.set(header.smSkuId, existing);
-          childParentCount[line.rmSkuId] = (childParentCount[line.rmSkuId] || 0) + 1;
         }
       });
     });
@@ -249,7 +258,7 @@ export default function ProductionPage({
       total[sku.id] = (directForecast[sku.id] || 0) + (indirect[sku.id] || 0);
     });
 
-    return { totalForecast: total, indirectDemandMap: indirect, indirectParentMap: childParentCount };
+    return { totalForecast: total };
   }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch]);
 
   // Production records for selected week per SKU
@@ -263,65 +272,107 @@ export default function ProductionPage({
     return map;
   }, [records, weekStart, weekEnd]);
 
-  // Week history records
   const weekRecords = useMemo(() => {
     return records
       .filter(r => r.productionDate >= weekStart && r.productionDate <= weekEnd)
       .sort((a, b) => b.productionDate.localeCompare(a.productionDate));
   }, [records, weekStart, weekEnd]);
 
-  // Build rows — sorted by SKU code ascending, always
+  // ─── Build rows with CORRECT formulas ───
   const rows = useMemo((): PlanRow[] => {
     return smSkus
       .map(sku => {
         const hasBom = bomHeaders.some(h => h.smSkuId === sku.id);
         const forecastWeek = totalForecast[sku.id] || 0;
-        const indirectDemand = indirectDemandMap[sku.id] || 0;
-        const indirectParentCount = indirectParentMap[sku.id] || 0;
-        const perDay = forecastWeek / 7;
+        const dailyNeed = forecastWeek / 7;
         const stockNow = smStockBalances.find(b => b.skuId === sku.id)?.currentStock ?? 0;
-        const gap = forecastWeek - stockNow;
-        const plannedBatches = planBatches[sku.id] || 0;
-        const outputPerBatch = getOutputPerBatch(sku.id);
-        const planG = plannedBatches * outputPerBatch;
-        const stockAfter = stockNow + planG;
         const target = skuTargets[sku.id] ?? globalTarget;
-        const targetNeed = perDay * target;
+        const outputPerBatch = getOutputPerBatch(sku.id);
         const producedG = weekRecordsBySku[sku.id] || 0;
 
-        // Current status: stock now vs target days of need
-        let statusColor: 'red' | 'amber' | 'green' = 'green';
-        if (perDay > 0) {
-          if (stockNow < targetNeed * 0.5) statusColor = 'red';
-          else if (stockNow < targetNeed) statusColor = 'amber';
-        }
+        // COVER NOW
+        const coverNow = dailyNeed > 0 ? stockNow / dailyNeed : Infinity;
 
-        // After status
-        let afterStatusColor: 'red' | 'amber' | 'green' = 'green';
-        if (perDay > 0) {
-          if (stockAfter < targetNeed * 0.5) afterStatusColor = 'red';
-          else if (stockAfter < targetNeed) afterStatusColor = 'amber';
-        }
+        // PRODUCE TARGET = max(0, dailyNeed * target - stockNow)
+        const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
 
-        return { sku, hasBom, forecastWeek, indirectDemand, indirectParentCount, stockNow, gap, plannedBatches, outputPerBatch, planG, stockAfter, target, statusColor, afterStatusColor, producedG };
+        // SUGGESTED BATCHES
+        const suggestedBatches = (outputPerBatch > 0 && produceTarget > 0) ? Math.ceil(produceTarget / outputPerBatch) : 0;
+
+        // Use saved/edited plan or suggested
+        const plannedBatches = planBatches[sku.id] ?? suggestedBatches;
+        const planG = plannedBatches * outputPerBatch;
+        const stockAfter = stockNow + planG;
+
+        // COVER AFTER
+        const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
+
+        const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
+        // Status dot: if no plan entered yet, use coverNow; else coverAfter
+        const coverAfterColor = getCoverColor(plannedBatches > 0 ? coverAfter : coverNow, target, dailyNeed);
+
+        return {
+          sku, hasBom, forecastWeek, dailyNeed, stockNow, target,
+          coverNow, produceTarget, suggestedBatches, plannedBatches,
+          outputPerBatch, planG, stockAfter, coverAfter,
+          coverNowColor,
+          coverAfterColor: getCoverColor(coverAfter, target, dailyNeed),
+          producedG,
+        };
       })
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [smSkus, bomHeaders, totalForecast, indirectDemandMap, indirectParentMap, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
+  }, [smSkus, bomHeaders, totalForecast, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
+
+  // Initialize suggested batches (only once when no saved plan exists)
+  useEffect(() => {
+    if (suggestedInitialized || planLocked) return;
+    // If planBatches is empty and rows have suggestions, pre-fill
+    const hasSaved = Object.keys(planBatches).length > 0;
+    if (!hasSaved && rows.length > 0) {
+      const suggested: Record<string, number> = {};
+      rows.forEach(r => {
+        if (r.hasBom && r.suggestedBatches > 0) {
+          suggested[r.sku.id] = r.suggestedBatches;
+        }
+      });
+      if (Object.keys(suggested).length > 0) {
+        setPlanBatches(suggested);
+      }
+      setSuggestedInitialized(true);
+    }
+  }, [rows, planLocked, suggestedInitialized, planBatches]);
 
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);
-  const execRows = useMemo(() => bomRows.filter(r => r.plannedBatches > 0), [bomRows]);
 
-  // Navigate weeks
+  // Execution rows: only planned > 0, sorted by status then SKU code
+  const execRows = useMemo(() => {
+    const planned = bomRows.filter(r => r.plannedBatches > 0);
+    return planned.sort((a, b) => {
+      const remA = a.planG - a.producedG;
+      const remB = b.planG - b.producedG;
+      const doneA = remA <= 0;
+      const doneB = remB <= 0;
+      const partialA = a.producedG > 0 && !doneA;
+      const partialB = b.producedG > 0 && !doneB;
+      const notStartedA = a.producedG === 0 && !doneA;
+      const notStartedB = b.producedG === 0 && !doneB;
+      // Red (not started) first, amber (partial) second, green (done) last
+      const orderA = notStartedA ? 0 : partialA ? 1 : 2;
+      const orderB = notStartedB ? 0 : partialB ? 1 : 2;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.sku.skuId.localeCompare(b.sku.skuId);
+    });
+  }, [bomRows]);
+
+  // ─── Handlers ───
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d.toISOString().slice(0, 10)); };
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d.toISOString().slice(0, 10)); };
 
-  // Plan batches change (defaultValue + onBlur)
   const handlePlanChange = useCallback((skuId: string, val: string) => {
     setPlanBatches(prev => ({ ...prev, [skuId]: Number(val) || 0 }));
   }, []);
 
-  // Tab key moves down plan column
   const handlePlanKeyDown = (e: React.KeyboardEvent, skuId: string) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -333,7 +384,6 @@ export default function ProductionPage({
     }
   };
 
-  // Save global target
   const saveGlobalTarget = async (value: number) => {
     setGlobalTarget(value);
     await supabase.from('global_settings' as any).update({ value: String(value) } as any).eq('key', 'cover_days_target');
@@ -357,8 +407,7 @@ export default function ProductionPage({
   };
 
   const handleSavePlan = () => {
-    // Check critical rows with no plan
-    const criticalCount = bomRows.filter(r => r.statusColor === 'red' && r.plannedBatches === 0).length;
+    const criticalCount = bomRows.filter(r => r.coverAfterColor === 'red' && r.plannedBatches === 0).length;
     if (criticalCount > 0) {
       setCriticalWarning(criticalCount);
       return;
@@ -366,64 +415,28 @@ export default function ProductionPage({
     doSavePlan();
   };
 
-  const unlockPlan = () => {
-    setPlanLocked(false);
-    setSavedWeek(null);
-  };
+  const unlockPlan = () => { setPlanLocked(false); setSavedWeek(null); };
 
-  // Open record modal
+  // Record modal
   const openRecordModal = (skuId: string) => {
     const row = rows.find(r => r.sku.id === skuId);
     const remaining = row ? Math.max(0, row.planG - row.producedG) : 0;
     setRecordSkuId(skuId);
-    setRecordForm({
-      productionDate: new Date().toISOString().slice(0, 10),
-      actualOutputG: remaining,
-      notes: '',
-    });
+    setRecordForm({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: remaining, notes: '' });
     setRecordModalOpen(true);
   };
 
-  // Save record
-  const checkStockAndSaveRecord = () => {
-    if (!recordSkuId) return;
-    if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
-
-    const bomHeader = bomHeaders.find(h => h.smSkuId === recordSkuId);
-    if (bomHeader) {
-      const lines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-      const outputPerBatch = getOutputPerBatch(recordSkuId);
-      const batchesNeeded = outputPerBatch > 0 ? Math.ceil(recordForm.actualOutputG / outputPerBatch) : 0;
-      const shortages: { name: string; need: number; have: number }[] = [];
-      lines.forEach(line => {
-        const deductQty = line.qtyPerBatch * batchesNeeded;
-        const balance = stockBalances.find(b => b.skuId === line.rmSkuId);
-        const currentStock = balance?.currentStock ?? 0;
-        if (currentStock - deductQty < 0) {
-          const sku = skus.find(s => s.id === line.rmSkuId);
-          shortages.push({ name: sku?.name || line.rmSkuId, need: deductQty, have: currentStock });
-        }
-      });
-      if (shortages.length > 0) {
-        setStockWarning({ shortages });
-        return;
-      }
-    }
-    doSaveRecord();
-  };
-
+  // Single-confirm save record
   const doSaveRecord = async () => {
     if (!recordSkuId) return;
+    if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
 
     let plan = productionData.plans.find(p => p.smSkuId === recordSkuId && p.weekStartDate === weekStart);
     let planId = plan?.id;
 
     if (!planId) {
       const result = await productionData.addPlan({
-        smSkuId: recordSkuId,
-        targetQtyKg: 0,
-        status: 'In Progress',
-        weekDate: weekStart,
+        smSkuId: recordSkuId, targetQtyKg: 0, status: 'In Progress', weekDate: weekStart,
       });
       planId = typeof result === 'string' ? result : '';
     }
@@ -439,12 +452,10 @@ export default function ProductionPage({
       batchesProduced,
       actualOutputG: recordForm.actualOutputG,
     });
-    toast.success('Production recorded');
+    toast.success(t('prod.recordSaved'));
     setRecordModalOpen(false);
-    setStockWarning(null);
   };
 
-  // Delete record
   const handleDeleteRecordConfirm = () => {
     if (!deleteConfirm) return;
     deleteRecord(deleteConfirm.id);
@@ -452,6 +463,7 @@ export default function ProductionPage({
     setDeleteConfirm(null);
   };
 
+  // ─── Helpers ───
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const getSkuName = (id: string) => skus.find(s => s.id === id)?.name ?? '—';
   const getSkuCode = (id: string) => skus.find(s => s.id === id)?.skuId ?? '';
@@ -460,14 +472,27 @@ export default function ProductionPage({
   const recordSku = recordSkuId ? skus.find(s => s.id === recordSkuId) : null;
   const recordRow = recordSkuId ? rows.find(r => r.sku.id === recordSkuId) : null;
 
-  const statusDot = (color: 'red' | 'amber' | 'green') => (
+  // Status dot — matches SM Stock exactly
+  const statusDot = (color: 'red' | 'amber' | 'green', size = 'w-2.5 h-2.5') => (
     <span className={cn(
-      'inline-block w-3 h-3 rounded-full',
+      'inline-block rounded-full', size,
       color === 'red' && 'bg-destructive',
       color === 'amber' && 'bg-warning',
       color === 'green' && 'bg-success',
     )} />
   );
+
+  // Cover days display with dot
+  const coverDisplay = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
+    if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {statusDot(color, 'w-2 h-2')}
+        <span>{fmtDays(cover)}</span>
+        <span className="text-xs text-muted-foreground">{t('prod.days')}</span>
+      </span>
+    );
+  };
 
   return (
     <TooltipProvider>
@@ -475,9 +500,9 @@ export default function ProductionPage({
         {/* ═══ PAGE HEADER ═══ */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Left: title */}
-          <div>
-            <h2 className="text-xl font-heading font-bold">{t('prod.title')}</h2>
-            <p className="text-xs text-muted-foreground">{t('prod.subtitle')}</p>
+          <div className="min-w-0">
+            <h2 className="text-2xl font-heading font-bold">{t('prod.title')}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">{t('prod.subtitle')}</p>
           </div>
 
           {/* Center: week selector */}
@@ -485,9 +510,16 @@ export default function ProductionPage({
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevWeek}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="text-sm font-semibold whitespace-nowrap min-w-[220px] text-center">
-              Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold whitespace-nowrap min-w-[220px] text-center">
+                Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
+              </span>
+              {planLocked && savedWeek === weekNumber && (
+                <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                  ✓ {t('prod.savedBadge')}
+                </Badge>
+              )}
+            </div>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextWeek}>
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -495,12 +527,11 @@ export default function ProductionPage({
 
           {/* Right: target + mode toggle + save */}
           <div className="flex items-center gap-3">
-            {/* Target Cover Days */}
             <div className="flex items-center gap-1.5">
               <label className="text-xs text-muted-foreground whitespace-nowrap">{t('prod.targetCoverDays')}</label>
               <input
                 type="number"
-                className="h-7 w-14 text-xs text-right font-mono px-1.5 border rounded-md bg-background"
+                className="h-8 w-14 text-sm text-right font-mono px-1.5 border rounded-md bg-background"
                 defaultValue={globalTarget}
                 key={`gt-${globalTarget}`}
                 onBlur={e => saveGlobalTarget(Number(e.target.value) || 7)}
@@ -508,7 +539,6 @@ export default function ProductionPage({
               />
             </div>
 
-            {/* Mode toggle */}
             <div className="flex rounded-md overflow-hidden border">
               <button
                 className={cn(
@@ -530,7 +560,6 @@ export default function ProductionPage({
               </button>
             </div>
 
-            {/* Save plan (planning mode only) */}
             {mode === 'planning' && !planLocked && (
               <Button onClick={handleSavePlan} disabled={saving} size="sm" className="h-8">
                 <Save className="w-3.5 h-3.5 mr-1" />
@@ -538,14 +567,9 @@ export default function ProductionPage({
               </Button>
             )}
             {mode === 'planning' && planLocked && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-success font-medium whitespace-nowrap">
-                  {t('prod.planSaved')} {savedWeek} {t('prod.planSavedSuffix')}
-                </span>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={unlockPlan}>
-                  {t('prod.editPlan')}
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={unlockPlan}>
+                {t('prod.editPlan')}
+              </Button>
             )}
           </div>
         </div>
@@ -553,59 +577,68 @@ export default function ProductionPage({
         {/* ═══ PLANNING MODE ═══ */}
         {mode === 'planning' && (
           <>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full table-fixed text-xs">
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full table-fixed text-sm">
                 <colgroup>
-                  <col style={{ width: '40px' }} />
+                  <col style={{ width: '36px' }} />
                   <col style={{ width: '80px' }} />
-                  <col style={{ width: '160px' }} />
-                  <col style={{ width: '90px' }} />
-                  <col style={{ width: '90px' }} />
-                  <col style={{ width: '90px' }} />
-                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '150px' }} />
+                  <col style={{ width: '80px' }} />
                   <col style={{ width: '90px' }} />
                   <col style={{ width: '90px' }} />
                   <col style={{ width: '80px' }} />
-                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '90px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
-                  <tr className="bg-muted/50 border-b">
-                    <th className="px-1 py-2 text-center text-[10px] text-muted-foreground">{t('prod.colStatus')}</th>
-                    <th className="px-1.5 py-2 text-left text-[10px]">{t('prod.colCode')}</th>
-                    <th className="px-1.5 py-2 text-left text-[10px]">{t('prod.colName')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colNeedWk')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colStockNow')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colGap')}</th>
-                    <th className="px-1.5 py-2 text-center text-[10px] bg-primary/10 border-x border-primary/20 font-bold text-primary">{t('prod.colPlanBatch')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colPlanG')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colAfter')}</th>
-                    <th className="px-1.5 py-2 text-center text-[10px]">{t('prod.colAfterStatus')}</th>
-                    <th className="px-1.5 py-2 text-right text-[10px] text-muted-foreground">{t('prod.colBatchSize')}</th>
+                  <tr className="bg-muted/50 border-b text-xs">
+                    <th className="px-1 py-2 text-center text-muted-foreground"></th>
+                    <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
+                    <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colBatchSize')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colNeedWk')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colStockNow')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colCoverNow')}</th>
+                    <th className="px-1.5 py-2 text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">{t('prod.colPlanBatch')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colPlanG')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colCoverAfter')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colAfter')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bomRows.map((row) => {
                     const uom = row.sku.usageUom || 'g';
-                    const overstocked = row.gap < 0;
-                    const hasPlannedBatches = row.plannedBatches > 0;
+                    const isSufficient = row.produceTarget === 0;
+                    const hasPlanned = row.plannedBatches > 0;
+
+                    // Left border: green if coverAfter green, else orange
+                    const borderClass = hasPlanned
+                      ? row.coverAfterColor === 'green'
+                        ? 'border-l-[3px] border-l-success'
+                        : 'border-l-[3px] border-l-warning'
+                      : '';
 
                     return (
                       <tr
                         key={row.sku.id}
                         className={cn(
                           'border-b hover:bg-muted/30 transition-colors',
-                          overstocked && 'opacity-60',
-                          hasPlannedBatches && 'border-l-4 border-l-primary',
+                          isSufficient && 'opacity-60',
+                          borderClass,
                         )}
                       >
-                        {/* STATUS dot */}
-                        <td className="px-1 py-1 text-center">{statusDot(row.statusColor)}</td>
+                        {/* STATUS DOT — reflects coverAfter if plan entered, else coverNow */}
+                        <td className="px-1 py-1.5 text-center">
+                          {statusDot(hasPlanned ? row.coverAfterColor : row.coverNowColor)}
+                        </td>
 
                         {/* CODE */}
-                        <td className="px-1.5 py-1 font-mono truncate text-[11px]">{row.sku.skuId}</td>
+                        <td className="px-1.5 py-1.5 font-mono text-xs truncate">{row.sku.skuId}</td>
 
                         {/* NAME */}
-                        <td className="px-1.5 py-1 truncate">
+                        <td className="px-1.5 py-1.5 truncate">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="truncate block">{row.sku.name}</span>
@@ -614,31 +647,33 @@ export default function ProductionPage({
                           </Tooltip>
                         </td>
 
+                        {/* g/BATCH */}
+                        <td className="px-1.5 py-1.5 text-right font-mono">
+                          {row.outputPerBatch > 0 ? fmtG(row.outputPerBatch) : '—'}
+                        </td>
+
                         {/* NEED/WK */}
-                        <td className="px-1.5 py-1 text-right font-mono">
+                        <td className="px-1.5 py-1.5 text-right font-mono">
                           {row.forecastWeek > 0
-                            ? <>{row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-[10px]">{uom}</span></>
+                            ? <>{fmtG(row.forecastWeek)} <span className="text-xs text-muted-foreground">{uom}</span></>
                             : <span className="text-muted-foreground">—</span>
                           }
                         </td>
 
                         {/* STOCK NOW */}
-                        <td className="px-1.5 py-1 text-right font-mono">
-                          {row.stockNow.toFixed(0)} <span className="text-muted-foreground text-[10px]">{uom}</span>
+                        <td className="px-1.5 py-1.5 text-right font-mono">
+                          {fmtG(row.stockNow)} <span className="text-xs text-muted-foreground">{uom}</span>
                         </td>
 
-                        {/* GAP */}
-                        <td className={cn('px-1.5 py-1 text-right font-mono', row.gap > 0 ? 'text-destructive font-bold' : 'text-success')}>
-                          {row.gap > 0
-                            ? <>{row.gap.toFixed(0)} <span className="text-[10px]">{uom}</span></>
-                            : <span className="text-muted-foreground text-[10px]">{t('prod.sufficient')}</span>
-                          }
+                        {/* COVER NOW */}
+                        <td className="px-1.5 py-1.5 text-right">
+                          {coverDisplay(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
                           {planLocked ? (
-                            <div className="h-8 flex items-center justify-center font-semibold font-mono text-sm">
+                            <div className="h-8 flex items-center justify-center font-semibold font-mono">
                               {row.plannedBatches || '—'}
                             </div>
                           ) : (
@@ -647,7 +682,7 @@ export default function ProductionPage({
                               type="number"
                               className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
                               defaultValue={row.plannedBatches ?? 0}
-                              key={`${row.sku.id}-${weekStart}-${planLocked}`}
+                              key={`${row.sku.id}-${weekStart}-${planLocked}-${suggestedInitialized}`}
                               onBlur={e => handlePlanChange(row.sku.id, e.target.value)}
                               onFocus={e => e.target.select()}
                               onKeyDown={e => handlePlanKeyDown(e, row.sku.id)}
@@ -657,26 +692,21 @@ export default function ProductionPage({
                         </td>
 
                         {/* PLAN (g) */}
-                        <td className="px-1.5 py-1 text-right font-mono text-muted-foreground">
-                          {row.outputPerBatch > 0
-                            ? (row.planG > 0 ? <>{row.planG.toFixed(0)} <span className="text-[10px]">{uom}</span></> : '—')
+                        <td className="px-1.5 py-1.5 text-right font-mono text-muted-foreground">
+                          {row.planG > 0
+                            ? <>{fmtG(row.planG)} <span className="text-xs">{uom}</span></>
                             : '—'
                           }
                         </td>
 
-                        {/* AFTER */}
-                        <td className="px-1.5 py-1 text-right font-mono font-medium">
-                          {row.stockAfter.toFixed(0)} <span className="text-muted-foreground text-[10px]">{uom}</span>
+                        {/* COVER AFTER */}
+                        <td className="px-1.5 py-1.5 text-right">
+                          {coverDisplay(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
 
-                        {/* AFTER STATUS */}
-                        <td className="px-1 py-1 text-center text-base">
-                          {row.afterStatusColor === 'green' ? '✅' : row.afterStatusColor === 'amber' ? '⚠️' : '🔴'}
-                        </td>
-
-                        {/* BATCH SIZE */}
-                        <td className="px-1.5 py-1 text-right font-mono text-muted-foreground text-[10px]">
-                          {row.outputPerBatch > 0 ? <>{row.outputPerBatch.toFixed(0)}</> : '—'}
+                        {/* AFTER (g) */}
+                        <td className="px-1.5 py-1.5 text-right font-mono">
+                          {fmtG(row.stockAfter)} <span className="text-xs text-muted-foreground">{uom}</span>
                         </td>
                       </tr>
                     );
@@ -704,32 +734,27 @@ export default function ProductionPage({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full table-fixed text-xs">
+                    <table className="w-full table-fixed text-sm">
                       <colgroup>
                         <col style={{ width: '100px' }} />
                         <col style={{ width: '250px' }} />
                         <col style={{ width: '120px' }} />
                       </colgroup>
                       <thead>
-                        <tr className="bg-muted/50 border-b">
-                          <th className="px-2 py-1.5 text-left text-[10px]">{t('prod.colCode')}</th>
-                          <th className="px-2 py-1.5 text-left text-[10px]">{t('prod.colName')}</th>
-                          <th className="px-2 py-1.5 text-left text-[10px]"></th>
+                        <tr className="bg-muted/50 border-b text-xs">
+                          <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
+                          <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
+                          <th className="px-2 py-1.5 text-left"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {noBomRows.map(row => (
                           <tr key={row.sku.id} className="border-b hover:bg-muted/30">
-                            <td className="px-2 py-1.5 font-mono">{row.sku.skuId}</td>
+                            <td className="px-2 py-1.5 font-mono text-xs">{row.sku.skuId}</td>
                             <td className="px-2 py-1.5 truncate">{row.sku.name}</td>
                             <td className="px-2 py-1.5">
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-6 px-0 text-xs text-primary"
-                                onClick={() => navigate('/bom')}
-                              >
-                                {t('prod.setupBom')}
+                              <Button variant="link" size="sm" className="h-6 px-0 text-xs text-primary" onClick={() => navigate('/bom')}>
+                                {t('prod.setupBom')} →
                               </Button>
                             </td>
                           </tr>
@@ -754,12 +779,12 @@ export default function ProductionPage({
                 </Button>
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full table-fixed text-xs">
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full table-fixed text-sm">
                   <colgroup>
-                    <col style={{ width: '40px' }} />
+                    <col style={{ width: '36px' }} />
                     <col style={{ width: '80px' }} />
-                    <col style={{ width: '160px' }} />
+                    <col style={{ width: '150px' }} />
                     <col style={{ width: '90px' }} />
                     <col style={{ width: '90px' }} />
                     <col style={{ width: '100px' }} />
@@ -767,15 +792,15 @@ export default function ProductionPage({
                     <col style={{ width: '100px' }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
-                    <tr className="bg-muted/50 border-b">
-                      <th className="px-1 py-2 text-center text-[10px] text-muted-foreground">{t('prod.colStatus')}</th>
-                      <th className="px-1.5 py-2 text-left text-[10px]">{t('prod.colCode')}</th>
-                      <th className="px-1.5 py-2 text-left text-[10px]">{t('prod.colName')}</th>
-                      <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colPlanG_exec')}</th>
-                      <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colProduced')}</th>
-                      <th className="px-1.5 py-2 text-right text-[10px]">{t('prod.colRemaining')}</th>
-                      <th className="px-1.5 py-2 text-right text-[10px] text-muted-foreground">{t('prod.colPace')}</th>
-                      <th className="px-1 py-2 text-center text-[10px]">{t('prod.colActions')}</th>
+                    <tr className="bg-muted/50 border-b text-xs">
+                      <th className="px-1 py-2 text-center text-muted-foreground"></th>
+                      <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
+                      <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
+                      <th className="px-1.5 py-2 text-right">{t('prod.colPlanG_exec')}</th>
+                      <th className="px-1.5 py-2 text-right">{t('prod.colProduced')}</th>
+                      <th className="px-1.5 py-2 text-right">{t('prod.colRemaining')}</th>
+                      <th className="px-1.5 py-2 text-right text-muted-foreground">{t('prod.colPace')}</th>
+                      <th className="px-1 py-2 text-center">{t('prod.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -784,22 +809,16 @@ export default function ProductionPage({
                       const remaining = row.planG - row.producedG;
                       const done = remaining <= 0;
                       const partial = row.producedG > 0 && !done;
-                      const notStarted = row.producedG === 0;
                       const daysLeft = getWorkingDaysLeftInWeek();
                       const pace = !done && daysLeft > 0 ? remaining / daysLeft : 0;
 
+                      const dotColor: 'red' | 'amber' | 'green' = done ? 'green' : partial ? 'amber' : 'red';
+
                       return (
                         <tr key={row.sku.id} className="border-b hover:bg-muted/30 transition-colors">
-                          {/* STATUS */}
-                          <td className="px-1 py-1 text-center text-base">
-                            {done ? '✅' : partial ? '🔄' : '⭕'}
-                          </td>
-
-                          {/* CODE */}
-                          <td className="px-1.5 py-1 font-mono truncate text-[11px]">{row.sku.skuId}</td>
-
-                          {/* NAME */}
-                          <td className="px-1.5 py-1 truncate">
+                          <td className="px-1 py-1.5 text-center">{statusDot(dotColor)}</td>
+                          <td className="px-1.5 py-1.5 font-mono text-xs truncate">{row.sku.skuId}</td>
+                          <td className="px-1.5 py-1.5 truncate">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="truncate block">{row.sku.name}</span>
@@ -807,37 +826,23 @@ export default function ProductionPage({
                               <TooltipContent side="top" className="max-w-xs"><p>{row.sku.name}</p></TooltipContent>
                             </Tooltip>
                           </td>
-
-                          {/* PLAN (g) */}
-                          <td className="px-1.5 py-1 text-right font-mono">
-                            {row.planG.toFixed(0)} <span className="text-muted-foreground text-[10px]">{uom}</span>
+                          <td className="px-1.5 py-1.5 text-right font-mono">
+                            {fmtG(row.planG)} <span className="text-xs text-muted-foreground">{uom}</span>
                           </td>
-
-                          {/* PRODUCED (g) */}
-                          <td className="px-1.5 py-1 text-right font-mono">
-                            {row.producedG > 0 ? <>{row.producedG.toFixed(0)} <span className="text-muted-foreground text-[10px]">{uom}</span></> : '—'}
+                          <td className="px-1.5 py-1.5 text-right font-mono">
+                            {row.producedG > 0 ? <>{fmtG(row.producedG)} <span className="text-xs text-muted-foreground">{uom}</span></> : '—'}
                           </td>
-
-                          {/* REMAINING */}
-                          <td className={cn('px-1.5 py-1 text-right font-mono font-bold', done ? 'text-success' : 'text-destructive')}>
+                          <td className={cn('px-1.5 py-1.5 text-right font-mono font-semibold', done ? 'text-success' : 'text-destructive')}>
                             {done
                               ? t('prod.done')
-                              : <>{remaining.toFixed(0)} <span className="text-[10px]">{uom}</span></>
+                              : <>{fmtG(remaining)} <span className="text-xs">{uom}</span></>
                             }
                           </td>
-
-                          {/* PACE */}
-                          <td className="px-1.5 py-1 text-right font-mono text-muted-foreground text-[10px]">
-                            {!done && pace > 0 ? <>{pace.toFixed(0)}{uom}{t('prod.perDay')}</> : '—'}
+                          <td className="px-1.5 py-1.5 text-right font-mono text-muted-foreground">
+                            {!done && pace > 0 ? <>{fmtG(pace)}{uom}{t('prod.perDay')}</> : '—'}
                           </td>
-
-                          {/* ACTIONS */}
-                          <td className="px-1 py-1 text-center">
-                            <Button
-                              size="sm"
-                              className="h-7 px-3 text-[11px]"
-                              onClick={() => openRecordModal(row.sku.id)}
-                            >
+                          <td className="px-1 py-1.5 text-center">
+                            <Button size="sm" className="h-7 px-3 text-xs whitespace-nowrap" onClick={() => openRecordModal(row.sku.id)}>
                               ▶ {t('prod.record')}
                             </Button>
                           </td>
@@ -860,10 +865,10 @@ export default function ProductionPage({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 {weekRecords.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-4 text-center">—</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">—</p>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full table-fixed text-xs">
+                    <table className="w-full table-fixed text-sm">
                       <colgroup>
                         <col style={{ width: '100px' }} />
                         <col style={{ width: '100px' }} />
@@ -872,7 +877,7 @@ export default function ProductionPage({
                         <col style={{ width: '50px' }} />
                       </colgroup>
                       <thead>
-                        <tr className="bg-muted/50 border-b">
+                        <tr className="bg-muted/50 border-b text-xs">
                           <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
@@ -884,17 +889,15 @@ export default function ProductionPage({
                         {weekRecords.map(rec => (
                           <tr key={rec.id} className="border-b hover:bg-muted/30">
                             <td className="px-2 py-1.5">{rec.productionDate}</td>
-                            <td className="px-2 py-1.5 font-mono">{getSkuCode(rec.smSkuId)}</td>
+                            <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
                             <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
                             <td className="px-2 py-1.5 text-right font-mono">
-                              {rec.actualOutputG.toFixed(0)} <span className="text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
+                              {fmtG(rec.actualOutputG)} <span className="text-xs text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
                             </td>
                             <td className="px-1 py-1.5 text-center">
                               {isManagement && (
                                 <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
+                                  size="icon" variant="ghost" className="h-6 w-6"
                                   onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
                                 >
                                   <Trash2 className="w-3 h-3 text-destructive" />
@@ -913,7 +916,7 @@ export default function ProductionPage({
         )}
       </div>
 
-      {/* ═══ RECORD MODAL ═══ */}
+      {/* ═══ RECORD MODAL — SINGLE CONFIRM ═══ */}
       <Dialog open={recordModalOpen} onOpenChange={setRecordModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -926,6 +929,17 @@ export default function ProductionPage({
                 {recordSku ? `${recordSku.skuId} — ${recordSku.name}` : '—'}
               </div>
             </div>
+
+            {/* Running total */}
+            {recordRow && (
+              <div className="rounded-lg bg-muted/50 border p-3 text-sm">
+                <p className="font-medium">
+                  {t('prod.runningTotal')} {fmtG(recordRow.producedG)} {t('prod.gUnit')} {t('prod.of')} {fmtG(recordRow.planG)} {t('prod.gUnit')}
+                  {recordRow.planG > 0 && ` (${((recordRow.producedG / recordRow.planG) * 100).toFixed(0)}%)`}
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-medium text-muted-foreground">{t('prod.dateLabel')}</label>
               <Input type="date" value={recordForm.productionDate} onChange={e => setRecordForm(f => ({ ...f, productionDate: e.target.value }))} />
@@ -943,20 +957,10 @@ export default function ProductionPage({
               <label className="text-xs font-medium text-muted-foreground">{t('prod.notesLabel')}</label>
               <Input value={recordForm.notes} onChange={e => setRecordForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-
-            {/* Running total */}
-            {recordRow && (
-              <div className="rounded-lg bg-muted/50 border p-3 text-sm">
-                <p className="font-medium">
-                  {t('prod.runningTotal')} {recordRow.producedG.toFixed(0)}g {t('prod.of')} {recordRow.planG.toFixed(0)}g
-                  ({recordRow.planG > 0 ? ((recordRow.producedG / recordRow.planG) * 100).toFixed(0) : 0}%)
-                </p>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRecordModalOpen(false)}>{t('btn.cancel')}</Button>
-            <Button onClick={checkStockAndSaveRecord}>{t('prod.record')}</Button>
+            <Button onClick={doSaveRecord}>{t('prod.record')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -981,18 +985,6 @@ export default function ProductionPage({
         description={`${t('prod.deleteConfirm')} "${deleteConfirm?.name}"?`}
         confirmLabel={t('btn.delete')}
         onConfirm={handleDeleteRecordConfirm}
-      />
-
-      {/* Negative stock warning */}
-      <ConfirmDialog
-        open={!!stockWarning}
-        onOpenChange={open => !open && setStockWarning(null)}
-        title={t('prod.stockWarningTitle')}
-        description={stockWarning?.shortages.map(s => `${s.name} (need ${s.need.toFixed(0)}, have ${s.have.toFixed(0)})`).join(', ') || ''}
-        confirmLabel={t('prod.proceedAnyway')}
-        cancelLabel={t('btn.cancel')}
-        variant="warning"
-        onConfirm={doSaveRecord}
       />
     </TooltipProvider>
   );
