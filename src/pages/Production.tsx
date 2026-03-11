@@ -38,6 +38,7 @@ interface ProductionPageProps {
   bomHeaders: BOMHeader[];
   stockBalances: StockBalance[];
   bomLines: BOMLine[];
+  bomSteps: BOMStep[];
   smStockBalances: SMStockBalance[];
   menuBomLines: MenuBomLine[];
   menus: Menu[];
