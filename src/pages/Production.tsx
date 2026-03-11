@@ -940,12 +940,20 @@ export default function ProductionPage({
                             </td>
                             <td className="px-1 py-1.5 text-center">
                               {isManagement && (
-                                <Button
-                                  size="icon" variant="ghost" className="h-6 w-6"
-                                  onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
-                                >
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </Button>
+                                <span className="inline-flex gap-0.5">
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6"
+                                    onClick={() => openEditRecordModal(rec)}
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6"
+                                    onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
+                                </span>
                               )}
                             </td>
                           </tr>
