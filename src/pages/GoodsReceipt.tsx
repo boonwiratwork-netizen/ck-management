@@ -451,7 +451,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className={cn(
                         'border-b last:border-0 transition-colors',
                         hasQty
-                          ? 'bg-green-50 dark:bg-green-950/20 border-l-4 border-l-green-500'
+                          ? 'bg-success/5 border-l-[3px] border-l-success'
                           : 'opacity-40'
                       )}
                     >
