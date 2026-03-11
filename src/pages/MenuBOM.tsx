@@ -428,7 +428,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                 <CardContent className="p-6 flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-heading font-bold">{selectedMenu.menuName}</h3>
-                    <p className="text-[13px] text-muted-foreground mt-0.5">{selectedMenu.menuCode} · {selectedMenu.category}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{selectedMenu.menuCode} · {selectedMenu.category}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[140px]">
