@@ -83,6 +83,7 @@ export function useBomData() {
     const d: any = {};
     if (data.rmSkuId !== undefined) d.rm_sku_id = data.rmSkuId;
     if (data.qtyPerBatch !== undefined) d.qty_per_batch = data.qtyPerBatch;
+    if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     if (data.stepId !== undefined) d.step_id = data.stepId;
     if (data.qtyType !== undefined) d.qty_type = data.qtyType;
     if (data.percentOfInput !== undefined) d.percent_of_input = data.percentOfInput;
