@@ -398,6 +398,7 @@ const Index = () => {
                   bomHeaders={bomData.headers}
                   stockBalances={stockData.stockBalances}
                   bomLines={bomData.lines}
+                  bomSteps={bomData.steps}
                   smStockBalances={smStockData.stockBalances}
                   menuBomLines={menuBomData.lines}
                   menus={menuData.menus}
