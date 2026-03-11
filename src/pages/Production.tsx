@@ -907,7 +907,7 @@ export default function ProductionPage({
                 <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full py-2">
                   <ChevronDown className={cn('w-4 h-4 transition-transform', historyOpen && 'rotate-180')} />
                   {t('prod.historyTitle')} {weekNumber}
-                  <Badge variant="outline" className="text-[10px] ml-1">{weekRecords.length}</Badge>
+                  <Badge variant="outline" className="text-xs ml-1">{weekRecords.length}</Badge>
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
