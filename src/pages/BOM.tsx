@@ -189,6 +189,17 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
   const multiStepData = calcMultiStepData();
 
+  // By-product allocation calculations
+  const selectedByproducts = selectedHeaderId ? getByproductsForHeader(selectedHeaderId) : [];
+  const totalBatchCost = selectedHeader?.bomMode === 'multistep' ? multiStepData.totalCost : simpleTotalCost;
+  const mainProductOutput = selectedHeader?.bomMode === 'multistep' ? multiStepData.finalOutput : outputQty;
+  const totalByproductPct = selectedByproducts.reduce((s, bp) => s + bp.costAllocationPct, 0);
+  const mainProductPct = Math.max(0, 100 - totalByproductPct);
+  const allocatedMainCost = totalBatchCost * (mainProductPct / 100);
+  const allocatedMainCpg = mainProductOutput > 0 ? allocatedMainCost / mainProductOutput : 0;
+  const hasByproducts = selectedByproducts.length > 0;
+  const allocationValid = Math.abs(100 - (mainProductPct + totalByproductPct)) < 0.01;
+
   const getBomCost = (h: BOMHeader) => {
     const hLines = getLinesForHeader(h.id);
     if (h.bomMode === 'simple') {
