@@ -395,6 +395,11 @@ export default function ProductionPage({
 
   const saveGlobalTarget = async (value: number) => {
     setGlobalTarget(value);
+    // Reset suggestions so they recalculate with new target (only if plan not locked)
+    if (!planLocked) {
+      setSuggestedInitialized(false);
+      setPlanBatches({});
+    }
     await supabase.from('global_settings' as any).update({ value: String(value) } as any).eq('key', 'cover_days_target');
   };
 
