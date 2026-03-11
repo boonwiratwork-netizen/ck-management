@@ -194,9 +194,10 @@ export function GoodsReceiptSpreadsheet({
                         onValueChange={v => {
                           onUpdateDraft(draft.tempId, 'skuId', v);
                           if (v) {
-                            const s = rmSkus.find(sk => sk.id === v);
-                            if (s?.supplier1) {
-                              onUpdateDraft(draft.tempId, 'supplierId', s.supplier1);
+                            // Auto-fill supplier from active Price Master
+                            const activePrice = prices.find(p => p.skuId === v && p.isActive);
+                            if (activePrice) {
+                              onUpdateDraft(draft.tempId, 'supplierId', activePrice.supplierId);
                             }
                           }
                         }}
