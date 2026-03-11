@@ -489,23 +489,23 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-[13px] font-mono py-2 px-3">
+                            <TableCell className="text-sm font-mono py-2 px-3">
                               {sku?.skuId ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
+                            <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerServing}</TableCell>
-                            <TableCell className="text-[13px] py-2 px-3">{line.uom}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.effectiveQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                              {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.qtyPerServing}</TableCell>
+                            <TableCell className="text-sm py-2 px-3">{line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.effectiveQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">
+                              {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
+                            <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
                               {(() => {
                                 const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
-                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-primary">—</span>;
                               })()}
                             </TableCell>
                             {canEdit && (
