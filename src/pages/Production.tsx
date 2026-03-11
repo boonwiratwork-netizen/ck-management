@@ -378,8 +378,8 @@ export default function ProductionPage({
   }, [bomRows]);
 
   // ─── Handlers ───
-  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d.toISOString().slice(0, 10)); };
-  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d.toISOString().slice(0, 10)); };
+  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(toLocalDateStr(d)); };
+  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(toLocalDateStr(d)); };
 
   const handlePlanChange = useCallback((skuId: string, val: string) => {
     setPlanBatches(prev => ({ ...prev, [skuId]: Number(val) || 0 }));
