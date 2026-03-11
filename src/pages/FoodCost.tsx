@@ -438,32 +438,22 @@ export default function FoodCostPage({
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">From</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(dateFrom, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateFrom} onSelect={d => { if (d) { setDateFrom(d); setPreset('custom'); } }} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={dateFrom}
+                onChange={d => { if (d) { setDateFrom(d); setPreset('custom'); } }}
+                placeholder="From date"
+                align="start"
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">To</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(dateTo, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateTo} onSelect={d => { if (d) { setDateTo(d); setPreset('custom'); } }} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={dateTo}
+                onChange={d => { if (d) { setDateTo(d); setPreset('custom'); } }}
+                placeholder="To date"
+                align="start"
+              />
             </div>
 
             <div className="space-y-1">

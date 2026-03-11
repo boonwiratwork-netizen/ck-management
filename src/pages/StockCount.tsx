@@ -267,11 +267,11 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Date</label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="h-8 text-xs w-[150px]"
+              <DatePicker
+                value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
+                onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+                defaultToday
+                align="start"
               />
             </div>
 
