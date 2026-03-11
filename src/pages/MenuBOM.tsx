@@ -393,7 +393,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                       } ${!hasBom ? 'bg-primary/5' : ''}`}
                     >
                       <p className="text-sm font-medium flex items-center gap-1.5">
-                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {!hasBom && <StatusDot status="amber" size="sm" />}
                         {m.menuCode} · {m.menuName}
                       </p>
                       <p className="text-xs text-muted-foreground">
