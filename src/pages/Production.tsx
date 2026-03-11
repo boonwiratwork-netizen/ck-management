@@ -543,6 +543,21 @@ export default function ProductionPage({
               <span className="text-sm font-semibold whitespace-nowrap min-w-[220px] text-center">
                 Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
               </span>
+              {(() => {
+                const curMon = getCurrentWeekMonday();
+                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
+                if (weekStart === curMon) return (
+                  <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                    {t('prod.thisWeek')}
+                  </Badge>
+                );
+                if (weekStart === nextMon) return (
+                  <Badge variant="outline" className="text-[10px] text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
+                    {t('prod.nextWeek')}
+                  </Badge>
+                );
+                return null;
+              })()}
               {planLocked && savedWeek === weekNumber && (
                 <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
                   ✓ {t('prod.savedBadge')}
