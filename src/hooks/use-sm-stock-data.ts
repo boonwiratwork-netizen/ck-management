@@ -4,6 +4,7 @@ import { SKU } from '@/types/sku';
 import { ProductionRecord } from '@/types/production';
 import { Delivery } from '@/types/delivery';
 import { BOMHeader, BOMLine, BOMStep } from '@/types/bom';
+import { BomByproduct } from '@/types/byproduct';
 import { Price } from '@/types/price';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
