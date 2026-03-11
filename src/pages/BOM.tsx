@@ -883,14 +883,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
