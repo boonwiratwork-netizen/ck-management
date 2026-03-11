@@ -112,24 +112,24 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                   const sku = skuMap[r.skuId];
                   const supplier = supplierMap[r.supplierId];
                   return (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 text-xs">{r.receiptDate}</td>
-                      <td className="px-4 py-3 text-center text-xs font-mono">{r.weekNumber}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{sku?.name || '—'}</div>
+                    <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
+                      <td className="px-3 py-2 text-sm">{r.receiptDate}</td>
+                      <td className="px-3 py-2 text-center text-sm font-mono">{r.weekNumber}</td>
+                      <td className="px-3 py-2 text-sm">
+                        <div className="font-medium truncate" title={sku?.name || '—'}>{sku?.name || '—'}</div>
                         <div className="text-xs text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
                       </td>
-                      <td className="px-4 py-3">{supplier?.name || '—'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{r.quantityReceived.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-center text-xs">{r.usageUom || '—'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="px-4 py-3 text-right font-mono">{r.standardPrice.toFixed(2)}</td>
-                      <td className={`px-4 py-3 text-right font-mono font-semibold ${
+                      <td className="px-3 py-2 text-sm truncate" title={supplier?.name || '—'}>{supplier?.name || '—'}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono">{r.quantityReceived.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{r.usageUom || '—'}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono">{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono">{r.standardPrice.toFixed(2)}</td>
+                      <td className={`px-3 py-2 text-sm text-right font-mono font-semibold ${
                         r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''
                       }`}>
                         {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground max-w-[120px] truncate">{r.note}</td>
+                      <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>{r.note}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(r)}>
