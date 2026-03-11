@@ -84,20 +84,20 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground">Wk</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">SKU</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Supplier</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Qty</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground">UOM</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actual ฿</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Standard ฿</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Variance</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Note</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+              <tr className="bg-table-header border-b">
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Wk</th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">SKU</th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Supplier</th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Qty</th>
+                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">UOM</th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Actual ฿</th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Standard ฿</th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Variance</th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Note</th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
