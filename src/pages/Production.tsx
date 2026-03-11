@@ -113,6 +113,7 @@ export default function ProductionPage({
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
   const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), batchesProduced: 0, actualOutputG: 0, notes: '' });
+  const [byproductActuals, setByproductActuals] = useState<Record<string, number>>({});
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
