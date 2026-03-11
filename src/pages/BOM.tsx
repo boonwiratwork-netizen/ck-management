@@ -1231,7 +1231,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium flex items-center gap-1.5">
-                                {showNoBomWarning && <span className="text-orange-500">⚠️</span>}
+                                {showNoBomWarning && <StatusDot status="amber" size="sm" />}
                                 {sku?.skuId} · {sku?.name ?? '—'}
                               </p>
                               <p className="text-xs text-muted-foreground">
