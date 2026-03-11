@@ -271,9 +271,9 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalDeliveries')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">{deliveries.length}</p>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('summary.totalDeliveries')}</p>
+          <p className="text-2xl font-heading font-bold mt-1">{deliveries.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
           <div className="flex items-center justify-between">
