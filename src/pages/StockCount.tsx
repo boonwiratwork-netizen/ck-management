@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLanguage } from '@/hooks/use-language';
+import { toLocalDateStr } from '@/lib/utils';
 import { SKU, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -40,7 +41,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession } = stockCountData;
   const { t } = useLanguage();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<string>('RM');
   const [filterStorage, setFilterStorage] = useState<string>('all');
@@ -268,7 +269,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           <div className="flex items-center gap-3 flex-wrap">
             <DatePicker
               value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
-              onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+              onChange={d => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
               label="Date"
               labelPosition="left"

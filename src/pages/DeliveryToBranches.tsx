@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { toLocalDateStr } from '@/lib/utils';
 import { Delivery } from '@/types/delivery';
 import { Branch } from '@/types/branch';
 import { getWeekNumber } from '@/types/goods-receipt';
@@ -41,7 +42,7 @@ interface DraftDeliveryRow {
 function createEmptyDraft(): DraftDeliveryRow {
   return {
     tempId: crypto.randomUUID(),
-    deliveryDate: new Date().toISOString().slice(0, 10),
+    deliveryDate: toLocalDateStr(new Date()),
     branchName: '',
     smSkuId: '',
     qtyDeliveredG: 0,
@@ -63,7 +64,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
 
-  const currentWeek = getWeekNumber(new Date().toISOString().slice(0, 10));
+  const currentWeek = getWeekNumber(toLocalDateStr(new Date()));
   const thisWeekDeliveries = useMemo(
     () => deliveries.filter(d => d.weekNumber === currentWeek),
     [deliveries, currentWeek]
@@ -354,7 +355,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     <td className={tdClass}>
                       <DatePicker
                         value={draft.deliveryDate ? new Date(draft.deliveryDate + 'T00:00:00') : undefined}
-                        onChange={d => handleUpdateDraft(draft.tempId, 'deliveryDate', d ? d.toISOString().slice(0, 10) : '')}
+                        onChange={d => handleUpdateDraft(draft.tempId, 'deliveryDate', d ? toLocalDateStr(d) : '')}
                         defaultToday
                         align="start"
                         className="min-w-[140px]"

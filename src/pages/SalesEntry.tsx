@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateStr } from '@/lib/utils';
 
 const POS_COLUMNS = [
   'Date','Time','Receipt No','INV No','Tray Code','Menu Code','Menu Name',
@@ -67,7 +67,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Manual Entry State ———
   const [manualOpen, setManualOpen] = useState(true);
-  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
+  const [manualDate, setManualDate] = useState(toLocalDateStr(new Date()));
   const [manualBranch, setManualBranch] = useState<string>(
     isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
@@ -446,7 +446,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                 <div className="w-[200px]">
                   <DatePicker
                     value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
-                    onChange={d => setManualDate(d ? d.toISOString().slice(0, 10) : '')}
+                    onChange={d => setManualDate(d ? toLocalDateStr(d) : '')}
                     defaultToday
                     label="Date"
                     required
@@ -588,7 +588,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             )}
             <DatePicker
               value={filterDateFrom ? new Date(filterDateFrom + 'T00:00:00') : undefined}
-              onChange={d => setFilterDateFrom(d ? d.toISOString().slice(0, 10) : '')}
+              onChange={d => setFilterDateFrom(d ? toLocalDateStr(d) : '')}
               placeholder="From date"
               label="From"
               labelPosition="left"
@@ -596,7 +596,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             />
             <DatePicker
               value={filterDateTo ? new Date(filterDateTo + 'T00:00:00') : undefined}
-              onChange={d => setFilterDateTo(d ? d.toISOString().slice(0, 10) : '')}
+              onChange={d => setFilterDateTo(d ? toLocalDateStr(d) : '')}
               placeholder="To date"
               label="To"
               labelPosition="left"

@@ -1,3 +1,5 @@
+import { toLocalDateStr } from '@/lib/utils';
+
 export interface Price {
   id: string;
   skuId: string;       // references SKU.id
@@ -16,6 +18,6 @@ export const EMPTY_PRICE: Omit<Price, 'id' | 'pricePerUsageUom'> = {
   pricePerPurchaseUom: 0,
   vat: false,
   isActive: false,
-  effectiveDate: new Date().toISOString().slice(0, 10),
+  effectiveDate: toLocalDateStr(new Date()),
   note: '',
 };

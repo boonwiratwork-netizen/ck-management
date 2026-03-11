@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateStr } from '@/lib/utils';
 import { format } from 'date-fns';
 import { SKU } from '@/types/sku';
 import { ProductionPlan, ProductionRecord, getISOWeekNumber, getWeekStart, getWeekEnd } from '@/types/production';
@@ -59,7 +59,7 @@ const Dashboard = ({
   const { profile } = useAuth();
   const { t } = useLanguage();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = toLocalDateStr(now);
   const defaultStart = new Date(getWeekStart(todayStr));
   const defaultEnd = new Date(getWeekEnd(getWeekStart(todayStr)));
 
@@ -122,7 +122,7 @@ const Dashboard = ({
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const recentDeliveries = deliveries.filter(
-        d => d.smSkuId === bal.skuId && d.deliveryDate >= thirtyDaysAgo.toISOString().slice(0, 10)
+        d => d.smSkuId === bal.skuId && d.deliveryDate >= toLocalDateStr(thirtyDaysAgo)
       );
       const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0);
       const avgDailyDelivery = totalDelivered30d / 30;

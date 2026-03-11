@@ -11,6 +11,7 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/C
 import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { toLocalDateStr } from '@/lib/utils';
 import { isBomPrice } from '@/lib/bom-price-sync';
 import { useLanguage } from '@/hooks/use-language';
 
@@ -74,7 +75,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         pricePerPurchaseUom: Number(row['Price Per Purchase UOM']) || 0,
         vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
         isActive: row['Active']?.trim().toLowerCase() !== 'false' && row['Active']?.trim() !== '0',
-        effectiveDate: row['Effective Date']?.trim() || new Date().toISOString().slice(0, 10),
+        effectiveDate: row['Effective Date']?.trim() || toLocalDateStr(new Date()),
         note: row['Note']?.trim() || '',
       }, sku);
     });

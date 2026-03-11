@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateStr } from '@/lib/utils';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
@@ -58,17 +58,17 @@ function getSmartWeekStart(): string {
   if (day === 5 || day === 6) {
     const nextMon = new Date(today);
     nextMon.setDate(today.getDate() + (8 - day));
-    return nextMon.toISOString().slice(0, 10);
+    return toLocalDateStr(nextMon);
   }
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(today);
   mon.setDate(today.getDate() + diff);
-  return mon.toISOString().slice(0, 10);
+  return toLocalDateStr(mon);
 }
 
 function getWeekEndDate(ws: string): string {
   const d = new Date(ws); d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 
 function getISOWeekNumber(dateStr: string): number {
@@ -93,7 +93,7 @@ function getCurrentWeekMonday(): string {
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(today);
   mon.setDate(today.getDate() + diff);
-  return mon.toISOString().slice(0, 10);
+  return toLocalDateStr(mon);
 }
 
 /* ─── Number formatting helpers ─── */
@@ -150,7 +150,7 @@ export default function ProductionPage({
   // Record modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
-  const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: 0, notes: '' });
+  const [recordForm, setRecordForm] = useState({ productionDate: toLocalDateStr(new Date()), actualOutputG: 0, notes: '' });
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   // Dialogs
@@ -190,8 +190,8 @@ export default function ProductionPage({
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
     supabase.from('sales_entries').select('menu_code, qty')
-      .gte('sale_date', sevenDaysAgo.toISOString().slice(0, 10))
-      .lte('sale_date', today.toISOString().slice(0, 10))
+      .gte('sale_date', toLocalDateStr(sevenDaysAgo))
+      .lte('sale_date', toLocalDateStr(today))
       .then(({ data }) => {
         if (data) setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty) })));
       });
@@ -378,8 +378,8 @@ export default function ProductionPage({
   }, [bomRows]);
 
   // ─── Handlers ───
-  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d.toISOString().slice(0, 10)); };
-  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d.toISOString().slice(0, 10)); };
+  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(toLocalDateStr(d)); };
+  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(toLocalDateStr(d)); };
 
   const handlePlanChange = useCallback((skuId: string, val: string) => {
     setPlanBatches(prev => ({ ...prev, [skuId]: Number(val) || 0 }));
@@ -439,7 +439,7 @@ export default function ProductionPage({
     const row = rows.find(r => r.sku.id === skuId);
     const remaining = row ? Math.max(0, row.planG - row.producedG) : 0;
     setRecordSkuId(skuId);
-    setRecordForm({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: remaining, notes: '' });
+    setRecordForm({ productionDate: toLocalDateStr(new Date()), actualOutputG: remaining, notes: '' });
     setEditingRecordId(null);
     setRecordModalOpen(true);
   };
@@ -546,7 +546,7 @@ export default function ProductionPage({
               </span>
               {(() => {
                 const curMon = getCurrentWeekMonday();
-                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
+                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return toLocalDateStr(d); })();
                 if (weekStart === curMon) return (
                   <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                     {t('prod.thisWeek')}
@@ -998,7 +998,7 @@ export default function ProductionPage({
 
             <DatePicker
               value={recordForm.productionDate ? new Date(recordForm.productionDate + 'T00:00:00') : undefined}
-              onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }))}
+              onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? toLocalDateStr(d) : toLocalDateStr(new Date()) }))}
               defaultToday
               label="Date"
               required

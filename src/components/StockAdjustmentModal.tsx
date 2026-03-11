@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { toLocalDateStr } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -20,7 +21,7 @@ export function StockAdjustmentModal({ open, onClose, skuName, skuId, usageUom, 
   const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
   const [quantity, setQuantity] = useState(0);
   const [reason, setReason] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toLocalDateStr(new Date()));
 
   const handleSubmit = () => {
     if (quantity <= 0 || !reason.trim()) return;
@@ -58,7 +59,7 @@ export function StockAdjustmentModal({ open, onClose, skuName, skuId, usageUom, 
             </div>
             <DatePicker
               value={date ? new Date(date + 'T00:00:00') : undefined}
-              onChange={d => setDate(d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))}
+              onChange={d => setDate(d ? toLocalDateStr(d) : toLocalDateStr(new Date()))}
               defaultToday
               label="Date"
               required

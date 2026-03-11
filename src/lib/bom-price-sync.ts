@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalDateStr } from '@/lib/utils';
 
 // Well-known supplier ID for BOM-calculated prices
 export const BOM_SUPPLIER_ID = '45cd33bb-82b7-4865-be1e-3c88f085cc72';
@@ -120,7 +121,7 @@ export async function syncBomPrice(skuId: string, costPerGram: number): Promise<
     .eq('is_active', true)
     .maybeSingle();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
 
   if (existing) {
     await supabase.from('prices').update({

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { toLocalDateStr } from '@/lib/utils';
 import { SKU } from '@/types/sku';
 import { MenuBomLine } from '@/types/menu-bom';
 import { ModifierRule } from '@/types/modifier-rule';
@@ -333,7 +334,7 @@ export function useDailyStockCount({
 
     const prevDate = new Date(date);
     prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = prevDate.toISOString().slice(0, 10);
+    const prevDateStr = toLocalDateStr(prevDate);
     
     const { data: prevCounts } = await supabase
       .from('daily_stock_counts')
