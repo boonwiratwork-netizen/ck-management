@@ -172,11 +172,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
-                  <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+                  <p className="text-helper leading-tight text-muted-foreground">by Live to Eat</p>
                 </div>
                 <button
                   onClick={toggleLang}
-                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] font-medium shrink-0 hover:bg-accent transition-colors"
+                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-helper font-medium shrink-0 hover:bg-accent transition-colors"
                 >
                   <span className={lang === 'th' ? 'font-bold text-primary' : 'text-muted-foreground'}>TH</span>
                   <span className="text-muted-foreground">/</span>
@@ -202,7 +202,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 <div className="my-2 mx-3 border-t-2 border-sidebar-border" />
               )}
               <SidebarGroup className="py-1">
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.08em] text-sidebar-section font-semibold px-3 mb-1 flex items-center gap-1.5">
+                <SidebarGroupLabel className="text-helper uppercase tracking-wider text-muted-foreground font-semibold px-3 mb-1 flex items-center gap-1.5">
                   {group.icon && !collapsed && (
                     <group.icon className="w-3 h-3" />
                   )}
@@ -226,7 +226,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             }`}
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                            <span className="text-[13px]">{label}</span>
+                            <span className="text-sm">{label}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
@@ -248,7 +248,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold truncate text-foreground">{profile?.full_name || 'User'}</p>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-helper font-medium bg-primary/10 text-primary">
                   {roleLabels[role || ''] || 'User'}
                 </span>
               </div>
@@ -262,7 +262,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-[10px] text-sidebar-section text-center flex items-center justify-center gap-1">
+            <p className="text-helper text-muted-foreground text-center flex items-center justify-center gap-1">
               Made with <Heart className="w-3 h-3 text-primary fill-primary" /> for Live to Eat
             </p>
           </div>
@@ -270,7 +270,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           <div className="space-y-2">
             <button
               onClick={toggleLang}
-              className="w-8 h-8 mx-auto rounded-full border border-sidebar-border flex items-center justify-center text-[10px] font-bold text-primary hover:bg-accent transition-colors"
+              className="w-8 h-8 mx-auto rounded-full border border-sidebar-border flex items-center justify-center text-helper font-bold text-primary hover:bg-accent transition-colors"
             >
               {lang === 'th' ? 'TH' : 'EN'}
             </button>

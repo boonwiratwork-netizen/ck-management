@@ -113,10 +113,10 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
 function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: string }) {
   const ctx = tabContextMap[tab];
   if (ctx === 'ck' || tab === 'dashboard') {
-    return <span className="text-helper text-muted-foreground">🍳 Central Kitchen</span>;
+    return <span className="text-helper text-muted-foreground">Central Kitchen</span>;
   }
   if (ctx === 'store') {
-    return <span className="text-helper text-muted-foreground">🏪 Store{branchName ? ` — ${branchName}` : ''}</span>;
+    return <span className="text-helper text-muted-foreground">Store{branchName ? ` — ${branchName}` : ''}</span>;
   }
   return null;
 }
@@ -335,7 +335,7 @@ const Index = () => {
               </h1>
             </div>
             {readOnly && (
-              <span className="ml-2 text-[10px] uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
+              <span className="ml-2 text-helper uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
             )}
           </header>
 

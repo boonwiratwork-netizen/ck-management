@@ -96,8 +96,8 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.supplierMaster')}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your suppliers and vendor information</p>
+          <h2 className="page-title">{t('title.supplierMaster')}</h2>
+          <p className="page-subtitle">Manage your suppliers and vendor information</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
@@ -110,22 +110,22 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalSuppliers')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">{suppliers.length}</p>
+        <div className="rounded-lg border bg-card p-4 animate-fade-in">
+          <p className="text-helper font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalSuppliers')}</p>
+          <p className="text-2xl font-bold mt-1">{suppliers.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5 animate-fade-in">
+        <div className="rounded-lg border bg-card p-4 animate-fade-in">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.active')}</p>
+            <p className="text-helper font-medium text-muted-foreground uppercase tracking-wider">{t('status.active')}</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-success/10">
               <Users className="w-4 h-4 text-success" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{activeCount}</p>
+          <p className="text-2xl font-bold mt-1">{activeCount}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status.inactive')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">{suppliers.length - activeCount}</p>
+        <div className="rounded-lg border bg-card p-4 animate-fade-in">
+          <p className="text-helper font-medium text-muted-foreground uppercase tracking-wider">{t('status.inactive')}</p>
+          <p className="text-2xl font-bold mt-1">{suppliers.length - activeCount}</p>
         </div>
       </div>
 

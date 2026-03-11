@@ -27,7 +27,7 @@ export function SummaryCards({ counts, total }: SummaryCardsProps) {
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       <div className="rounded-lg border bg-card p-card-p animate-fade-in card-hover">
         <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">Total SKUs</p>
-        <p className="text-3xl font-bold mt-2 font-mono-num">{total}</p>
+        <p className="text-2xl font-bold mt-2 font-mono-num">{total}</p>
       </div>
       {types.map((type) => {
         const Icon = icons[type];
@@ -39,7 +39,7 @@ export function SummaryCards({ counts, total }: SummaryCardsProps) {
                 <Icon className="w-4 h-4" />
               </span>
             </div>
-            <p className="text-3xl font-bold mt-2 font-mono-num">{counts[type]}</p>
+            <p className="text-2xl font-bold mt-2 font-mono-num">{counts[type]}</p>
             <p className="text-helper text-muted-foreground mt-0.5">{SKU_TYPE_LABELS[type]}</p>
           </div>
         );
