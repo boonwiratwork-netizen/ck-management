@@ -902,9 +902,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           </CardContent>
         </Card>
       )}
+      {renderByproductsSection()}
     </>
   );
-
   // Reusable by-products section for both simple and multi-step BOMs
   const renderByproductsSection = () => {
     if (!selectedHeaderId || !selectedHeader) return null;
