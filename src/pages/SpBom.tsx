@@ -454,8 +454,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-center p-3 rounded-lg bg-muted/50 min-w-[120px]">
-                        <p className="text-[11px] uppercase text-muted-foreground">Batch Yield</p>
-                        <p className="text-lg font-bold font-mono">{currentBatchYieldQty} {currentBatchYieldUom || <span className="text-orange-500 text-xs">⚠️</span>}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Yield</p>
+                        <p className="text-lg font-bold font-mono">{currentBatchYieldQty} {currentBatchYieldUom || <span className="text-primary text-xs">⚠</span>}</p>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[120px]">
                         <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1">
