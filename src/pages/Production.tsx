@@ -312,15 +312,19 @@ export default function ProductionPage({
 
   const { sorted, sortKey, sortDir, handleSort } = useSortableTable(rows, comparators);
 
-  // Custom default sort
+  // Custom default sort — fixed order
   const displayRows = useMemo(() => {
     if (sortKey) return sorted;
     return [...rows].sort((a, b) => {
-      const aValid = a.hasBom && a.hasSalesData;
-      const bValid = b.hasBom && b.hasSalesData;
-      if (aValid && !bValid) return -1;
-      if (!aValid && bValid) return 1;
-      if (!aValid && !bValid) return 0;
+      // Very last: No BOM
+      if (a.hasBom && !b.hasBom) return -1;
+      if (!a.hasBom && b.hasBom) return 1;
+      if (!a.hasBom && !b.hasBom) return 0;
+
+      // Last: No data (no forecast)
+      if (a.hasSalesData && !b.hasSalesData) return -1;
+      if (!a.hasSalesData && b.hasSalesData) return 1;
+      if (!a.hasSalesData && !b.hasSalesData) return 0;
 
       // First: plan > 0 and 0% < progress < 100% (in-progress)
       const aInProg = a.plannedBatches > 0 && a.progress > 0 && a.progress < 100;
@@ -334,7 +338,7 @@ export default function ProductionPage({
       if (aNotStarted && !bNotStarted) return -1;
       if (!aNotStarted && bNotStarted) return 1;
 
-      // Then: plan = 0, by cover days ascending
+      // Then: plan = 0 with valid forecast > 0, by cover days ascending
       if (a.coverAfter === Infinity && b.coverAfter === Infinity) return 0;
       if (a.coverAfter === Infinity) return 1;
       if (b.coverAfter === Infinity) return -1;
