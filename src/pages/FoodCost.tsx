@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { UnitLabel } from '@/components/ui/unit-label';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend } from 'recharts';
 import { cn } from '@/lib/utils';
 import { SKU } from '@/types/sku';
@@ -400,16 +401,23 @@ export default function FoodCostPage({
     toast.success('CSV exported');
   };
 
+  // FC% color helper
+  const getFcPctClass = (pct: number) => {
+    if (pct <= 30) return 'text-success';
+    if (pct <= 35) return 'text-warning';
+    return 'text-destructive';
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-heading font-bold">{t('title.foodCost')}</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t('title.foodCost')}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Analyze standard food cost against revenue</p>
       </div>
 
       {/* Top Controls */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4">
           <div className="flex flex-wrap gap-3 items-end">
             {/* Preset buttons — auto-calculate on click */}
             <div className="space-y-1">
@@ -489,23 +497,29 @@ export default function FoodCostPage({
       {calculated && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.totalRevenue')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">฿{fmt(totalRevenue)}</p></CardContent>
+              <CardContent className="p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('title.totalRevenue')}</p>
+                <p className="text-2xl font-bold font-mono mt-1">฿{fmt(totalRevenue)}</p>
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFoodCost')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">฿{fmt(totalStdCost)}</p></CardContent>
+              <CardContent className="p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('title.stdFoodCost')}</p>
+                <p className="text-2xl font-bold font-mono mt-1">฿{fmt(totalStdCost)}</p>
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.stdFcPct')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">{stdFcPct.toFixed(1)}%</p></CardContent>
+              <CardContent className="p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('title.stdFcPct')}</p>
+                <p className={`text-2xl font-bold font-mono mt-1 ${getFcPctClass(stdFcPct)}`}>{stdFcPct.toFixed(1)}%</p>
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('title.fcStatus')}</CardTitle></CardHeader>
-              <CardContent>
-                <Badge variant={stdFcPct <= 35 ? 'default' : 'destructive'} className={cn("text-sm px-3 py-1", stdFcPct <= 35 ? "bg-emerald-500/15 text-emerald-700 border-emerald-200" : "")}>
+              <CardContent className="p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('title.fcStatus')}</p>
+                <Badge variant={stdFcPct <= 35 ? 'default' : 'destructive'} className={cn("text-sm px-3 py-1 mt-1", stdFcPct <= 35 ? "bg-success/15 text-success border-success/30" : "")}>
                   {stdFcPct <= 35 ? <TrendingDown className="w-4 h-4 mr-1" /> : <TrendingUp className="w-4 h-4 mr-1" />}
                   {stdFcPct.toFixed(1)}%
                 </Badge>
@@ -516,7 +530,7 @@ export default function FoodCostPage({
           {/* Daily Trend Chart */}
           {dailyData.length > 1 && (
             <Card>
-              <CardHeader><CardTitle>{t('title.dailyTrend')}</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-lg font-semibold">{t('title.dailyTrend')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -534,7 +548,7 @@ export default function FoodCostPage({
                       <Legend />
                       <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" opacity={0.3} />
                       <Bar yAxisId="left" dataKey="stdFoodCost" name="Food Cost" fill="hsl(var(--destructive))" opacity={0.5} />
-                      <Line yAxisId="right" type="monotone" dataKey="stdFcPct" name="FC%" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316' }} label={{ position: 'top', fontSize: 10, fill: '#f97316', formatter: (v: number) => `${v.toFixed(1)}%` }} />
+                      <Line yAxisId="right" type="monotone" dataKey="stdFcPct" name="FC%" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--primary))' }} label={{ position: 'top', fontSize: 10, fill: 'hsl(var(--primary))', formatter: (v: number) => `${v.toFixed(1)}%` }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -546,7 +560,7 @@ export default function FoodCostPage({
           {top10Menus.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <TrendingUp className="w-4 h-4 text-destructive" />
                   Top 10 Highest Food Cost Menus
                 </CardTitle>
@@ -554,26 +568,26 @@ export default function FoodCostPage({
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30">
-                       <TableHead>#</TableHead>
-                       <TableHead>{t('col.menuCode')}</TableHead>
-                       <TableHead>{t('col.menuName')}</TableHead>
-                       <TableHead className="text-right">{t('col.qtySold')}</TableHead>
-                       <TableHead className="text-right">{t('col.revenue')}</TableHead>
-                       <TableHead className="text-right">{t('col.stdCost')}</TableHead>
-                       <TableHead className="text-right">{t('col.fcPct')}</TableHead>
+                    <TableRow className="bg-table-header border-b">
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">#</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.menuCode')}</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.menuName')}</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.qtySold')}</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.revenue')}</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.stdCost')}</TableHead>
+                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.fcPct')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {top10Menus.map((m, i) => (
-                      <TableRow key={m.menuCode} className={m.stdFcPct > 40 ? 'bg-destructive/5' : ''}>
-                        <TableCell className="font-mono text-muted-foreground">{i + 1}</TableCell>
-                        <TableCell className="font-mono text-xs">{m.menuCode}</TableCell>
-                        <TableCell>{m.menuName}</TableCell>
-                        <TableCell className="text-right tabular-nums">{m.qtySold}</TableCell>
-                        <TableCell className="text-right tabular-nums">฿{fmt(m.revenue)}</TableCell>
-                        <TableCell className="text-right tabular-nums">฿{fmt(m.stdFoodCost)}</TableCell>
-                        <TableCell className="text-right">
+                      <TableRow key={m.menuCode} className={`border-b border-table-border hover:bg-table-hover transition-colors ${m.stdFcPct > 40 ? 'bg-destructive/5' : ''}`}>
+                        <TableCell className="px-3 py-2 text-sm font-mono text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
+                        <TableCell className="px-3 py-2 text-right">
                           <Badge variant={m.stdFcPct > 40 ? 'destructive' : m.stdFcPct > 35 ? 'secondary' : 'default'} className="text-xs">
                             {m.stdFcPct.toFixed(1)}%
                           </Badge>
@@ -588,30 +602,30 @@ export default function FoodCostPage({
 
           {/* SKU Breakdown */}
           <Card>
-            <CardHeader><CardTitle>SKU Ingredient Breakdown</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-semibold">SKU Ingredient Breakdown</CardTitle></CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                     <TableHead>{t('col.skuCode')}</TableHead>
-                     <TableHead>{t('col.skuName')}</TableHead>
-                     <TableHead>{t('col.type')}</TableHead>
-                     <TableHead className="text-right">{t('col.expectedUsage')}</TableHead>
-                     <TableHead>{t('col.uom')}</TableHead>
-                     <TableHead className="text-right">{t('col.stdUnitPrice')}</TableHead>
-                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
+                  <TableRow className="bg-table-header border-b">
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.skuCode')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.skuName')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.type')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.expectedUsage')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.uom')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.stdUnitPrice')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.stdCost')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {skuBreakdown.map(r => (
-                    <TableRow key={r.skuId}>
-                      <TableCell className="font-mono text-xs">{r.skuCode}</TableCell>
-                      <TableCell>{r.skuName}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{r.type}</Badge></TableCell>
-                      <TableCell className="text-right tabular-nums">{r.expectedUsage.toFixed(2)}</TableCell>
-                      <TableCell>{r.uom}</TableCell>
-                      <TableCell className="text-right tabular-nums">฿{r.stdUnitPrice.toFixed(4)}</TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">฿{fmt(r.stdCost)}</TableCell>
+                    <TableRow key={r.skuId} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                      <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
+                      <TableCell className="px-3 py-2"><Badge variant="outline" className="text-xs">{r.type}</Badge></TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">{r.expectedUsage.toFixed(2)}</TableCell>
+                      <TableCell className="px-3 py-2"><UnitLabel unit={r.uom} /></TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{r.stdUnitPrice.toFixed(4)}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right font-medium">฿{fmt(r.stdCost)}</TableCell>
                     </TableRow>
                   ))}
                   {skuBreakdown.length === 0 && (
@@ -624,34 +638,34 @@ export default function FoodCostPage({
 
           {/* Full Menu Breakdown */}
           <Card>
-            <CardHeader><CardTitle>Menu Breakdown (all)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-semibold">Menu Breakdown (all)</CardTitle></CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                     <TableHead>{t('col.menuCode')}</TableHead>
-                     <TableHead>{t('col.menuName')}</TableHead>
-                     <TableHead className="text-right">{t('col.qtySold')}</TableHead>
-                     <TableHead className="text-right">{t('col.revenue')}</TableHead>
-                     <TableHead className="text-right">{t('col.stdCost')}</TableHead>
-                     <TableHead className="text-right">{t('col.fcPct')}</TableHead>
-                     <TableHead className="text-right">{t('col.costPerServing')}</TableHead>
+                  <TableRow className="bg-table-header border-b">
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.menuCode')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.menuName')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.qtySold')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.revenue')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.stdCost')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.fcPct')}</TableHead>
+                     <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.costPerServing')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {menuBreakdown.map(m => (
-                    <TableRow key={m.menuCode}>
-                      <TableCell className="font-mono text-xs">{m.menuCode}</TableCell>
-                      <TableCell>{m.menuName}</TableCell>
-                      <TableCell className="text-right tabular-nums">{m.qtySold}</TableCell>
-                      <TableCell className="text-right tabular-nums">฿{fmt(m.revenue)}</TableCell>
-                      <TableCell className="text-right tabular-nums">฿{fmt(m.stdFoodCost)}</TableCell>
-                      <TableCell className="text-right">
+                    <TableRow key={m.menuCode} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                      <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
+                      <TableCell className="px-3 py-2 text-right">
                         <Badge variant={m.stdFcPct > 40 ? 'destructive' : m.stdFcPct > 35 ? 'secondary' : 'default'} className="text-xs">
                           {m.stdFcPct.toFixed(1)}%
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">฿{m.costPerServing.toFixed(2)}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{m.costPerServing.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                   {menuBreakdown.length === 0 && (
