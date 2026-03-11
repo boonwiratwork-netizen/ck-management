@@ -336,7 +336,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
           onChange={e => setFormQty(Number(e.target.value))} />
       </TableCell>
-      <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
+      <TableCell className="text-sm text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
       <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYieldPct}
           onChange={e => setFormYieldPct(Number(e.target.value) || 100)} />
