@@ -1335,6 +1335,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         </div>
       </div>
     </div>
+    </>
   );
 };
 
