@@ -127,7 +127,7 @@ function getCoverColor(cover: number, target: number, dailyNeed: number): 'red' 
 }
 
 export default function ProductionPage({
-  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus, bomByproducts,
+  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, isStockDataReady, menuBomLines, menus, bomByproducts,
 }: ProductionPageProps) {
   const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
