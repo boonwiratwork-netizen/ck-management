@@ -323,8 +323,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
   const totalVariance = totalActual - totalStd;
 
-  const thClass = 'text-left px-2 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider whitespace-nowrap';
-  const tdReadOnly = 'px-2 py-2 text-xs';
+  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+  const tdReadOnly = 'px-3 py-2 text-sm';
 
   const savableCount = useMemo(() => {
     let c = 0;
@@ -424,7 +424,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <>
                       {filteredGroupedSuppliers.brand.length > 0 && (
                         <>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Brand Suppliers</div>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Brand Suppliers</div>
                           {filteredGroupedSuppliers.brand.map(s => (
                             <button
                               key={s.id}
@@ -442,7 +442,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       )}
                       {filteredGroupedSuppliers.other.length > 0 && (
                         <>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Other Suppliers</div>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Other Suppliers</div>
                           {filteredGroupedSuppliers.other.map(s => (
                             <button
                               key={s.id}
@@ -518,7 +518,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 <col style={{ width: 100 }} />
               </colgroup>
               <thead className="sticky-thead">
-                <tr className="border-b bg-muted/50">
+                <tr className="bg-table-header border-b">
                   <th className={thClass}>Date</th>
                   <th className={`${thClass} text-center`}>Wk</th>
                   <th className={thClass}>SKU</th>
@@ -558,7 +558,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       className={cn(
                         'border-b last:border-0 transition-colors',
                         hasQty
-                          ? 'bg-green-50 dark:bg-green-950/20 border-l-4 border-l-green-500'
+                          ? 'bg-success/5 border-l-[3px] border-l-success'
                           : 'opacity-40'
                       )}
                     >
@@ -569,7 +569,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate">
-                                <span className={cn("font-mono text-[10px]", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
+                                <span className={cn("font-mono text-xs", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
                                 <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>{row.sku.name}</span>
                               </div>
                             </TooltipTrigger>
@@ -595,7 +595,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           onFocus={e => e.target.select()}
                           className={cn(
                             "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? "border-green-400 font-bold text-green-700 dark:text-green-400" : "border-primary/30"
+                            hasQty ? "border-success font-bold text-success" : "border-primary/30"
                           )}
                           placeholder="0"
                         />
@@ -618,13 +618,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                             className={cn(
                               "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
                               hasQty && !actualMatchesStd
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 focus:border-amber-500"
-                                : "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary"
+                                ? "bg-warning/10 border-warning/40 focus:border-warning"
+                                : "bg-warning/5 border-warning/20 focus:border-primary"
                             )}
                             placeholder="0.00"
                           />
                           {hasQty && actualMatchesStd && (
-                            <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
+                            <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
                           )}
                         </div>
                       </td>
@@ -683,7 +683,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <col style={{ width: 50 }} />
                   </colgroup>
                   <thead>
-                    <tr className="border-b bg-muted/50">
+                     <tr className="bg-table-header border-b">
                       <th className={thClass}>SKU</th>
                       <th className={`${thClass} text-right`}>QTY</th>
                       <th className={`${thClass} text-center`}>UOM</th>
@@ -696,7 +696,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     {adHocRows.map(row => {
                       const sku = skuMap[row.skuId];
                       return (
-                        <tr key={row.tempId} className="border-b last:border-0 bg-blue-50 dark:bg-blue-950/30">
+                        <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
                           <td className="px-1 py-1">
                             <SearchableSelect
                               value={row.skuId}
@@ -725,7 +725,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                               key={`adhoc-actual-${row.tempId}`}
                               onBlur={e => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
                               onFocus={e => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
                               placeholder="0.00"
                             />
                           </td>
@@ -752,9 +752,9 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </div>
             </>
           )}
-          <Button size="sm" variant="outline" onClick={handleAddAdHoc}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add row
-          </Button>
+          <button type="button" onClick={handleAddAdHoc} className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1">
+            <Plus className="w-3.5 h-3.5" /> + Add Row
+          </button>
         </div>
       )}
 
@@ -828,7 +828,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 {isManagement && <col style={{ width: 60 }} />}
               </colgroup>
               <thead className="sticky-thead">
-                <tr className="border-b bg-muted/50">
+                <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('date')}>
                     <SortableHeader label="Date" sortKey="date" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
                   </th>
@@ -859,7 +859,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   return (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                    <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                       <td className={tdReadOnly}>{r.receiptDate}</td>
                       <td className={`${tdReadOnly} font-mono truncate`}>
                         <TooltipProvider>
@@ -912,15 +912,15 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Actual Spend</p>
-              <p className="text-xl font-heading font-bold mt-1">฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-heading font-bold mt-1">฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Std Spend</p>
-              <p className="text-xl font-heading font-bold mt-1">฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-heading font-bold mt-1">฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Variance</p>
-              <p className={`text-xl font-heading font-bold mt-1 ${totalVariance > 0 ? 'text-destructive' : 'text-success'}`}>
+              <p className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? 'text-destructive' : 'text-success'}`}>
                 {totalVariance > 0 ? '+' : ''}฿{totalVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
