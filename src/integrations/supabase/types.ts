@@ -347,6 +347,27 @@ export type Database = {
           },
         ]
       }
+      global_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       goods_receipts: {
         Row: {
           actual_total: number
@@ -899,6 +920,7 @@ export type Database = {
         Row: {
           category: string
           converter: number
+          cover_days_target: number | null
           created_at: string
           id: string
           lead_time: number
@@ -921,6 +943,7 @@ export type Database = {
         Insert: {
           category?: string
           converter?: number
+          cover_days_target?: number | null
           created_at?: string
           id?: string
           lead_time?: number
@@ -943,6 +966,7 @@ export type Database = {
         Update: {
           category?: string
           converter?: number
+          cover_days_target?: number | null
           created_at?: string
           id?: string
           lead_time?: number
@@ -1243,6 +1267,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      weekly_plan_lines: {
+        Row: {
+          created_at: string
+          id: string
+          planned_batches: number
+          sku_id: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          planned_batches?: number
+          sku_id: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          planned_batches?: number
+          sku_id?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_plan_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
