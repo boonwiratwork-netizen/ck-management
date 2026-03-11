@@ -859,7 +859,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   return (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                    <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                       <td className={tdReadOnly}>{r.receiptDate}</td>
                       <td className={`${tdReadOnly} font-mono truncate`}>
                         <TooltipProvider>
