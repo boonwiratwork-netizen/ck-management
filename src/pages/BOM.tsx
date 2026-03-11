@@ -302,7 +302,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
   // Line actions — with auto-continue
   const handleStartAddLine = (stepId?: string) => {
-    setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId, yieldPct: 100 });
+    setLineForm({ rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId, yieldPct: 100 });
     setAddingLine(true);
     setAddingLineStepId(stepId ?? null);
     setEditingLineId(null);
