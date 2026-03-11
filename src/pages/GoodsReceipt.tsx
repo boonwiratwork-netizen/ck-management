@@ -738,7 +738,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   const supplier = supplierMap[r.supplierId];
                   return (
                     <TooltipProvider key={r.id}>
-                      <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                      <tr className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                         <td className={tdReadOnly}>{r.receiptDate}</td>
                         <td className={`${tdReadOnly} text-center font-mono`}>{r.weekNumber}</td>
                         <td className={tdReadOnly}>
