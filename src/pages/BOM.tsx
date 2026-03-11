@@ -705,7 +705,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       <p className="font-medium text-foreground">No ingredients added yet</p>
                       <Button
                         variant="outline"
-                        className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                         onClick={() => handleStartAddLine()}
                       >
                         <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
