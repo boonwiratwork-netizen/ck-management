@@ -23,7 +23,8 @@ interface StockDeduction {
 export function useProductionData(
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
-  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void
+  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void,
+  bomSteps: BOMStep[] = []
 ) {
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [records, setRecords] = useState<ProductionRecord[]>([]);
