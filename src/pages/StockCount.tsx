@@ -268,7 +268,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           <div className="flex items-center gap-3 flex-wrap">
             <DatePicker
               value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
-              onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+              onChange={d => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
               label="Date"
               labelPosition="left"
