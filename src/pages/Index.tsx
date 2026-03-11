@@ -390,7 +390,7 @@ const Index = () => {
               ) : activeTab === 'receipt' ? (
                 <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
               ) : activeTab === 'stock' ? (
-                <RMStockPage skus={skus} stockData={stockData} />
+                <RMStockPage skus={skus} stockData={stockData} bomHeaders={bomData.headers} bomLines={bomData.lines} />
               ) : activeTab === 'production' ? (
                 <ProductionPage
                   productionData={productionData}

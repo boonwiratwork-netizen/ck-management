@@ -173,6 +173,16 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="ck-items-toggle-rm"
+            checked={ckItemsOnly}
+            onCheckedChange={setCkItemsOnly}
+          />
+          <label htmlFor="ck-items-toggle-rm" className="text-xs font-medium cursor-pointer whitespace-nowrap">
+            CK Items Only
+          </label>
+        </div>
       </div>
 
       {/* Table */}

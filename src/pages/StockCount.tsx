@@ -44,7 +44,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [ckItemsOnly, setCkItemsOnly] = useState(false);
+  const [ckItemsOnly, setCkItemsOnly] = useState(true);
 
   // Derive CK RM SKU IDs: RM SKUs that appear as ingredients in BOMs where parent SM SKU is Active
   const ckRmSkuIds = useMemo(() => {
