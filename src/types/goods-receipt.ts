@@ -1,3 +1,5 @@
+import { toLocalDateStr } from '@/lib/utils';
+
 export interface GoodsReceipt {
   id: string;
   receiptDate: string;       // ISO date
