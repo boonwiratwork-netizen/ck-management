@@ -43,6 +43,7 @@ interface ProductionPageProps {
   bomLines: BOMLine[];
   bomSteps: BOMStep[];
   smStockBalances: SMStockBalance[];
+  isStockDataReady: boolean;
   menuBomLines: MenuBomLine[];
   menus: Menu[];
   bomByproducts: BomByproduct[];
