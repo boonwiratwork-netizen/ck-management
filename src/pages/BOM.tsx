@@ -896,7 +896,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               </div>
               <div>
                 <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
-                <p className="text-xl font-bold text-primary font-mono">฿{multiStepData.costPerGram.toFixed(4)}</p>
+                <p className="text-xl font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : multiStepData.costPerGram).toFixed(4)}</p>
+                {hasByproducts && <p className="text-[10px] text-muted-foreground mt-0.5">after by-product allocation</p>}
               </div>
             </div>
           </CardContent>
