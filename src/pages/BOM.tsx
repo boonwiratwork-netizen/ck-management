@@ -1238,7 +1238,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                                 {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>
                               {isByproductSku && (
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                   By-product of {getSkuCode(parentHeader!.smSkuId)}
                                 </p>
                               )}
