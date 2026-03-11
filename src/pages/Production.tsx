@@ -924,7 +924,7 @@ export default function ProductionPage({
                         <col style={{ width: '50px' }} />
                       </colgroup>
                       <thead>
-                        <tr className="bg-muted/50 border-b text-xs">
+                        <tr className="bg-table-header border-b text-xs">
                           <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
                           <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
