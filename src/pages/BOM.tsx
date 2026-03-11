@@ -710,7 +710,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               {selectedLines.filter(l => !l.stepId).map(line => {
                 const rmSku = getSkuById(line.rmSkuId);
                 const cost = getActiveCost(line.rmSkuId);
-                const effQty = line.qtyPerBatch; // Simple BOM: no per-line yield stored yet
+                const lineYieldPct = Math.round((line.yieldPercent ?? 1.0) * 100);
+                const effQty = calcEffQty(line.qtyPerBatch, lineYieldPct);
                 const lineCost = effQty * cost;
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
@@ -723,7 +724,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     </TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
                     <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">100%</TableCell>
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                       {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}
