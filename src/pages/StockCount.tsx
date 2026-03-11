@@ -40,7 +40,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession } = stockCountData;
   const { t } = useLanguage();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<string>('RM');
   const [filterStorage, setFilterStorage] = useState<string>('all');
