@@ -414,7 +414,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       } ${!hasBom ? 'bg-primary/5' : ''}`}
                     >
                       <p className="text-sm font-medium flex items-center gap-1.5">
-                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {!hasBom && <StatusDot status="amber" size="sm" />}
                         {s.skuId} · {s.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
