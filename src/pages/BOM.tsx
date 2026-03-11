@@ -1225,7 +1225,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       return (
                         <div
                           key={h.id}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-primary/5' : ''}`}
                           onClick={() => trySelectHeader(h.id)}
                         >
                           <div className="flex items-center justify-between">
