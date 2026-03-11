@@ -432,7 +432,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[140px]">
-                      <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                         <DollarSign className="w-3 h-3" /> Total Cost/Serving
                       </p>
                       <p className="text-xl font-bold text-primary font-mono">฿{totalCost.toFixed(2)}</p>
