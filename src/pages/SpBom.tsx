@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, Minimize2, Upload } from 'lucide-react';
+import { StatusDot } from '@/components/ui/status-dot';
 import { toast } from 'sonner';
 import { syncBomPrice } from '@/lib/bom-price-sync';
 
@@ -328,31 +329,31 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           triggerClassName="h-8 text-xs w-full"
         />
       </TableCell>
-      <TableCell className="text-[13px] text-muted-foreground truncate overflow-hidden py-1 px-2">
+      <TableCell className="text-sm text-muted-foreground truncate overflow-hidden py-1 px-2">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
           onChange={e => setFormQty(Number(e.target.value))} />
       </TableCell>
-      <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
+      <TableCell className="text-sm text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
       <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYieldPct}
           onChange={e => setFormYieldPct(Number(e.target.value) || 100)} />
       </TableCell>
-      <TableCell className="text-[13px] text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
-      <TableCell className="text-[13px] text-right font-mono py-1 px-2">
+      <TableCell className="text-sm text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
+      <TableCell className="text-sm text-right font-mono py-1 px-2">
         {formSkuId ? (() => {
           const c = getActiveCost(formSkuId);
-          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-orange-500">—</span>;
+          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
-      <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
-        {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-orange-500">—</span> : '—'}
+      <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
+        {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
       </TableCell>
       <TableCell className="py-1 px-2">
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-success" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
@@ -392,7 +393,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
               <div className="flex items-center justify-end mt-1.5">
                 <button
                   onClick={() => setSortAsc(!sortAsc)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                 >
                   Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                 </button>
@@ -410,10 +411,10 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       onClick={() => { setSelectedSpId(s.id); setEditingYield(false); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedSpId === s.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                      } ${!hasBom ? 'bg-primary/5' : ''}`}
                     >
                       <p className="text-sm font-medium flex items-center gap-1.5">
-                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {!hasBom && <StatusDot status="amber" size="sm" />}
                         {s.skuId} · {s.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -449,15 +450,15 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-xl font-heading font-bold">{selectedSp.name}</h3>
-                      <p className="text-[13px] text-muted-foreground mt-0.5">{selectedSp.skuId} · SP BOM</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{selectedSp.skuId} · SP BOM</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-center p-3 rounded-lg bg-muted/50 min-w-[120px]">
-                        <p className="text-[11px] uppercase text-muted-foreground">Batch Yield</p>
-                        <p className="text-lg font-bold font-mono">{currentBatchYieldQty} {currentBatchYieldUom || <span className="text-orange-500 text-xs">⚠️</span>}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Yield</p>
+                        <p className="text-lg font-bold font-mono">{currentBatchYieldQty} {currentBatchYieldUom || <span className="text-primary text-xs">⚠</span>}</p>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[120px]">
-                        <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                           <DollarSign className="w-3 h-3" /> Cost/Unit
                         </p>
                         <p className="text-lg font-bold text-primary font-mono">฿{totalCostPerUnit.toFixed(4)}</p>
@@ -481,7 +482,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <span className="text-muted-foreground font-medium">1 batch produces</span>
                       <Input type="number" min={0.01} step="any" value={yieldQty || ''} onChange={e => setYieldQty(Number(e.target.value))} className="h-8 w-20 text-sm" />
                       <span className="text-sm text-muted-foreground font-medium">{currentBatchYieldUom || '—'}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-success" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingYield(false)}><X className="w-3.5 h-3.5" /></Button>
                     </div>
                   )}
@@ -494,15 +495,15 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                         <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2">{t('col.name')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.qtyPerBatch')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 60 }}>{t('col.uom')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 70 }}>{t('col.yieldPct')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.effQty')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.costUnit')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.lineCost')}</TableHead>
-                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground px-2" style={{ width: 70 }}></TableHead>}
+                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2">{t('col.name')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.qtyPerBatch')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2" style={{ width: 60 }}>{t('col.uom')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2" style={{ width: 70 }}>{t('col.yieldPct')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2" style={{ width: 80 }}>{t('col.effQty')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.costUnit')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2" style={{ width: 90 }}>{t('col.lineCost')}</TableHead>
+                        {canEdit && <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -517,7 +518,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                               {canEdit && (
                                 <Button
                                   variant="outline"
-                                  className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                                 className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                                   onClick={startAddLine}
                                 >
                                   <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
@@ -535,23 +536,23 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-[13px] font-mono py-1 px-2">
+                            <TableCell className="text-sm font-mono py-1 px-2">
                               {sku?.skuId ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] truncate overflow-hidden py-1 px-2" title={sku?.name ?? '—'}>
+                            <TableCell className="text-sm truncate overflow-hidden py-1 px-2" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
-                            <TableCell className="text-[13px] text-muted-foreground py-1 px-2">{sku?.usageUom ?? line.uom}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">100%</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">{effQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-1 px-2">
-                              {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground py-1 px-2">{sku?.usageUom ?? line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">100%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">{effQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2">
+                              {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono font-medium py-1 px-2">
+                            <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
                               {(() => {
                                 const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
-                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-primary">—</span>;
                               })()}
                             </TableCell>
                             {canEdit && (
@@ -575,9 +576,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   {/* Add button at bottom */}
                   {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId && (
                     <div className="p-4 pt-2">
-                      <Button
+                       <Button
                         variant="outline"
-                        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                         onClick={startAddLine}
                       >
                         <Plus className="w-4 h-4" /> {t('btn.addIngredient')}

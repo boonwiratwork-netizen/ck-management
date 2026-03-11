@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Edit2, Check, X, Search, UtensilsCrossed, DollarSign, Maximize2, Minimize2, Upload } from 'lucide-react';
+import { StatusDot } from '@/components/ui/status-dot';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -323,15 +324,15 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
       <TableCell className="text-xs text-right font-mono">
         {formSkuId ? (() => {
           const c = getActiveCost(formSkuId);
-          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-orange-500">—</span>;
+        return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
-        {formSkuId && previewCost > 0 ? `฿${previewCost.toFixed(2)}` : formSkuId ? <span className="text-orange-500">—</span> : '—'}
+        {formSkuId && previewCost > 0 ? `฿${previewCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-success" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
@@ -371,7 +372,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
               <div className="flex items-center justify-end mt-1.5">
                 <button
                   onClick={() => setSortAsc(!sortAsc)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                 >
                   Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                 </button>
@@ -389,10 +390,10 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                       onClick={() => { setSelectedMenuId(m.id); cancelEdit(); }}
                       className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
                         selectedMenuId === m.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      } ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                      } ${!hasBom ? 'bg-primary/5' : ''}`}
                     >
                       <p className="text-sm font-medium flex items-center gap-1.5">
-                        {!hasBom && <span className="text-orange-500">⚠️</span>}
+                        {!hasBom && <StatusDot status="amber" size="sm" />}
                         {m.menuCode} · {m.menuName}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -427,11 +428,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                 <CardContent className="p-6 flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-heading font-bold">{selectedMenu.menuName}</h3>
-                    <p className="text-[13px] text-muted-foreground mt-0.5">{selectedMenu.menuCode} · {selectedMenu.category}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{selectedMenu.menuCode} · {selectedMenu.category}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[140px]">
-                      <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                         <DollarSign className="w-3 h-3" /> Total Cost/Serving
                       </p>
                       <p className="text-xl font-bold text-primary font-mono">฿{totalCost.toFixed(2)}</p>
@@ -449,15 +450,15 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                         <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground">{t('col.name')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qtyPerServing')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
-                        <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
-                        {canEdit && <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>}
+                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.name')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qtyPerServing')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
+                        {canEdit && <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -472,7 +473,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                               {canEdit && (
                                 <Button
                                   variant="outline"
-                                  className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                                 className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                                   onClick={startAddLine}
                                 >
                                   <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
@@ -488,23 +489,23 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-[13px] font-mono py-2 px-3">
+                            <TableCell className="text-sm font-mono py-2 px-3">
                               {sku?.skuId ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
+                            <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? '—'}>
                               {sku?.name ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerServing}</TableCell>
-                            <TableCell className="text-[13px] py-2 px-3">{line.uom}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.effectiveQty.toFixed(2)}</TableCell>
-                            <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                              {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.qtyPerServing}</TableCell>
+                            <TableCell className="text-sm py-2 px-3">{line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.effectiveQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3">
+                              {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
+                            <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
                               {(() => {
                                 const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
-                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-orange-500">—</span>;
+                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-primary">—</span>;
                               })()}
                             </TableCell>
                             {canEdit && (
@@ -530,7 +531,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                     <div className="p-4 pt-2">
                       <Button
                         variant="outline"
-                        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                         onClick={startAddLine}
                       >
                         <Plus className="w-4 h-4" /> {t('btn.addIngredient')}

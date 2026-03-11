@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical, Search, AlertTriangle, Info } from 'lucide-react';
+import { StatusDot } from '@/components/ui/status-dot';
 import { toast } from 'sonner';
 import { syncBomPrice, cascadeBomCost, computeBomCostFromDb, syncByproductPrices } from '@/lib/bom-price-sync';
 import { useLanguage } from '@/hooks/use-language';
@@ -609,7 +610,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       <TableCell className="text-xs text-right font-mono">
         {lineForm.rmSkuId ? (() => {
           const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>;
+          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
@@ -619,12 +620,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             : lineForm.qtyPerBatch;
           const effQty = isMultiStep ? qty : calcEffQty(qty, lineForm.yieldPct);
           const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-orange-500">—</span>;
+          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveLine}><Check className="w-3.5 h-3.5 text-success" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelLineEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
@@ -636,15 +637,15 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   // Common table headers for simple BOM
   const simpleTableHeaders = (
     <TableRow>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground">{t('col.name')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
-      <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.name')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}>{t('col.uom')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.yieldPct')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 90 }}>{t('col.effQty')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
+      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>
     </TableRow>
   );
 
@@ -655,8 +656,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-heading font-bold">{getSkuName(selectedHeader!.smSkuId)}</h3>
-              <p className="text-[13px] text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Simple BOM</p>
+              <h3 className="text-lg font-heading font-semibold">{getSkuName(selectedHeader!.smSkuId)}</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Simple BOM</p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={handleEditHeader}>
@@ -668,22 +669,22 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mt-4">
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Batch Size</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Size</p>
               <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()}g</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Yield</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
               <p className="text-lg font-bold font-mono">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Output</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
               <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-primary/10">
-              <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
+            <div className="text-center p-4 rounded-lg bg-primary/10">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
               <p className="text-lg font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : simpleCostPerGram).toFixed(4)}</p>
-              {hasByproducts && <p className="text-[10px] text-muted-foreground mt-0.5">after by-product allocation</p>}
+              {hasByproducts && <p className="text-xs text-muted-foreground mt-0.5">after by-product allocation</p>}
             </div>
           </div>
         </CardContent>
@@ -704,7 +705,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       <p className="font-medium text-foreground">No ingredients added yet</p>
                       <Button
                         variant="outline"
-                        className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                         onClick={() => handleStartAddLine()}
                       >
                         <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
@@ -722,21 +723,21 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
                   <TableRow key={line.id} className="h-9">
-                    <TableCell className="text-[13px] font-mono py-2 px-3">
+                    <TableCell className="text-sm font-mono py-2 px-3">
                       {rmSku?.skuId ?? '—'}
                     </TableCell>
-                    <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
+                    <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                       {rmSku?.name ?? '—'}
                     </TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
-                    <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                      {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
+                    <TableCell className="text-sm py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">
+                      {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>}
                     </TableCell>
-                    <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                      {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                    <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
+                      {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-primary">—</span>}
                     </TableCell>
                     <TableCell className="py-2 px-3">
                       <div className="flex gap-1">
@@ -759,7 +760,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <div className="p-4 pt-2">
               <Button
                 variant="outline"
-                className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                 onClick={() => handleStartAddLine()}
               >
                  <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
@@ -784,8 +785,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-heading font-bold">{getSkuName(selectedHeader!.smSkuId)}</h3>
-              <p className="text-[13px] text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
+              <h3 className="text-lg font-heading font-semibold">{getSkuName(selectedHeader!.smSkuId)}</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={handleEditHeader}>
@@ -882,14 +883,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground">Name</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
-                          <TableHead className="text-[11px] uppercase text-muted-foreground" style={{ width: 70 }}></TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>SKU</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 90 }}>Qty Type</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>Qty</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}>UOM</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>Cost/unit</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>Line Cost</TableHead>
+                          <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -900,24 +901,24 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           }
                           return (
                             <TableRow key={ing.id} className="h-9">
-                              <TableCell className="text-[13px] font-mono py-2 px-3">
+                            <TableCell className="text-sm font-mono py-2 px-3">
                                 {rmSku?.skuId ?? '—'}
                               </TableCell>
-                              <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
+                              <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                                 {rmSku?.name ?? '—'}
                               </TableCell>
-                              <TableCell className="text-[13px] py-2 px-3">
-                                <Badge variant="outline" className="text-[10px]">
+                              <TableCell className="text-sm py-2 px-3">
+                                <Badge variant="outline" className="text-xs">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">{ing.resolvedQty.toFixed(0)}g</TableCell>
-                              <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                                {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-orange-500">—</span>}
+                              <TableCell className="text-sm text-right font-mono py-2 px-3">{ing.resolvedQty.toFixed(0)}g</TableCell>
+                              <TableCell className="text-sm py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                              <TableCell className="text-sm text-right font-mono py-2 px-3">
+                                {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-primary">—</span>}
                               </TableCell>
-                              <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                                {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
+                                {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-primary">—</span>}
                               </TableCell>
                               <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
@@ -941,7 +942,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <div className="px-4 mt-3">
                   <Button
                     variant="outline"
-                    className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                    className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
                     onClick={() => handleStartAddLine(sd.step.id)}
                     disabled={addingLine && addingLineStepId === sd.step.id}
                   >
@@ -956,7 +957,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
       <Button
         variant="outline"
-        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20 py-6 text-base"
+        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent py-6 text-base"
         onClick={handleAddStep}
       >
         <Plus className="w-5 h-5" /> Add Step
@@ -967,17 +968,17 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <CardContent className="pt-4">
             <div className="grid grid-cols-3 gap-6 text-center">
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Total Ingredient Cost</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Ingredient Cost</p>
                 <p className="text-xl font-bold font-mono">฿{multiStepData.totalCost.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Final Output</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Final Output</p>
                 <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)}g</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
                 <p className="text-xl font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : multiStepData.costPerGram).toFixed(4)}</p>
-                {hasByproducts && <p className="text-[10px] text-muted-foreground mt-0.5">after by-product allocation</p>}
+                {hasByproducts && <p className="text-xs text-muted-foreground mt-0.5">after by-product allocation</p>}
               </div>
             </div>
           </CardContent>
@@ -999,7 +1000,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <Button
               size="sm"
               variant="outline"
-              className="border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+              className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
               onClick={handleAddByproduct}
             >
               <Plus className="w-3.5 h-3.5" /> Add By-product
@@ -1021,7 +1022,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/20">
                       {/* Type badge */}
                       <button
-                        className={`text-[10px] px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
+                        className={`text-xs px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
                         onClick={() => handleByproductFieldChange(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
                       >
                         {bp.tracksInventory ? 'SKU' : 'Text'}
@@ -1058,7 +1059,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           placeholder="g"
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">g</span>
+                      <span className="text-xs text-muted-foreground shrink-0">g</span>
 
                       {/* Alloc % */}
                       <div className="shrink-0 w-16">
@@ -1071,7 +1072,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           className="h-8 w-full text-xs text-right font-mono"
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">%</span>
+                      <span className="text-xs text-muted-foreground shrink-0">%</span>
 
                       {/* Cost ฿ read-only */}
                       <div className="shrink-0 w-20 text-right">
@@ -1094,7 +1095,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     </div>
                     {/* Conflict warning below affected row */}
                     {hasConflict && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-orange-600 mt-1 ml-2">
+                      <div className="flex items-center gap-1.5 text-xs text-primary mt-1 ml-2">
                         <AlertTriangle className="w-3 h-3" />
                         {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
                       </div>
@@ -1117,7 +1118,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
               </div>
               {!allocationValid && (
-                <p className="text-[10px] text-destructive font-medium flex items-center gap-1">
+                <p className="text-xs text-destructive font-medium flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
                 </p>
               )}
@@ -1129,14 +1130,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <div className="border-t pt-3 flex items-center justify-between">
               <div>
                 {byproductsSavedMsg && (
-                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                  <span className="text-xs text-success font-medium flex items-center gap-1">
                     <Check className="w-3.5 h-3.5" /> By-products saved ✓
                   </span>
                 )}
               </div>
               <Button
                 onClick={handleSaveByproducts}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 disabled={!byproductsDirty}
               >
                 Save By-products
@@ -1156,7 +1157,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         <p className="text-sm text-muted-foreground">You have unsaved by-product changes. Save before leaving?</p>
         <div className="flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={confirmDiscardByproducts}>Discard</Button>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={confirmSaveAndNav}>Save & Continue</Button>
+          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={confirmSaveAndNav}>Save & Continue</Button>
         </div>
       </div>
     </div>
@@ -1200,7 +1201,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <div className="flex items-center justify-end mt-1.5">
                   <button
                     onClick={() => setSortAsc(!sortAsc)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                   >
                     Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                   </button>
@@ -1224,20 +1225,20 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       return (
                         <div
                           key={h.id}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-primary/5' : ''}`}
                           onClick={() => trySelectHeader(h.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium flex items-center gap-1.5">
-                                {showNoBomWarning && <span className="text-orange-500">⚠️</span>}
+                                {showNoBomWarning && <StatusDot status="amber" size="sm" />}
                                 {sku?.skuId} · {sku?.name ?? '—'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>
                               {isByproductSku && (
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                   By-product of {getSkuCode(parentHeader!.smSkuId)}
                                 </p>
                               )}
