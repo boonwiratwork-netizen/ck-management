@@ -745,7 +745,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate">
-                                <span className="font-mono text-[10px] text-muted-foreground">{sku?.skuId}</span>
+                                <span className="font-mono text-xs text-muted-foreground">{sku?.skuId}</span>
                                 <span className="ml-1 font-medium">{sku?.name || '—'}</span>
                               </div>
                             </TooltipTrigger>
