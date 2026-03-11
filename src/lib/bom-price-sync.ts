@@ -7,7 +7,7 @@ export const BOM_PRICE_NOTE = 'Auto-calculated from BOM — do not edit manually
 
 /**
  * Compute costPerGram for a BOM header by fetching fresh data from DB.
- * Does NOT depend on React state — reads directly from Supabase.
+ * Now accounts for by-product cost allocation.
  */
 export async function computeBomCostFromDb(headerId: string): Promise<{ costPerGram: number; smSkuId: string }> {
   const { data: header } = await supabase
@@ -26,14 +26,23 @@ export async function computeBomCostFromDb(headerId: string): Promise<{ costPerG
   activePrices?.forEach(p => priceMap.set(p.sku_id, p.price_per_usage_uom));
   const getCost = (skuId: string) => priceMap.get(skuId) ?? 0;
 
+  // Fetch by-products
+  const { data: byproductsRaw } = await supabase
+    .from('bom_byproducts' as any)
+    .select('*')
+    .eq('bom_header_id', headerId);
+  const byproducts = (byproductsRaw || []) as any[];
+
+  let totalCost = 0;
+  let mainOutput = 0;
+
   if (header.bom_mode === 'simple') {
     const { data: dbLines } = await supabase
       .from('bom_lines')
       .select('*')
       .eq('bom_header_id', headerId);
-    const outputQty = header.batch_size * header.yield_percent;
-    const totalCost = (dbLines || []).reduce((s, l) => s + l.qty_per_batch * getCost(l.rm_sku_id), 0);
-    return { costPerGram: outputQty > 0 ? totalCost / outputQty : 0, smSkuId: header.sm_sku_id };
+    mainOutput = header.batch_size * header.yield_percent;
+    totalCost = (dbLines || []).reduce((s, l) => s + l.qty_per_batch * getCost(l.rm_sku_id), 0);
   } else {
     // Multi-step
     const { data: dbSteps } = await supabase
@@ -48,7 +57,6 @@ export async function computeBomCostFromDb(headerId: string): Promise<{ costPerG
     const steps = dbSteps || [];
     const lines = dbLines || [];
 
-    let totalCost = 0;
     let prevOutput = 0;
     steps.forEach((step, idx) => {
       const sLines = lines.filter(l => l.step_id === step.id);
@@ -68,17 +76,42 @@ export async function computeBomCostFromDb(headerId: string): Promise<{ costPerG
         return s + qty * getCost(l.rm_sku_id);
       }, 0);
     });
-    return { costPerGram: prevOutput > 0 ? totalCost / prevOutput : 0, smSkuId: header.sm_sku_id };
+    mainOutput = prevOutput;
+  }
+
+  // Apply by-product allocation
+  const totalByproductPct = byproducts.reduce((s, bp) => s + (bp.cost_allocation_pct || 0), 0);
+  const mainPct = Math.max(0, 100 - totalByproductPct);
+  const allocatedMainCost = totalCost * (mainPct / 100);
+  const mainCostPerGram = mainOutput > 0 ? allocatedMainCost / mainOutput : 0;
+
+  return { costPerGram: mainCostPerGram, smSkuId: header.sm_sku_id };
+}
+
+/**
+ * Sync by-product prices to the prices table for inventory-tracked by-products.
+ */
+export async function syncByproductPrices(headerId: string, totalBatchCost: number): Promise<void> {
+  const { data: byproductsRaw } = await supabase
+    .from('bom_byproducts' as any)
+    .select('*')
+    .eq('bom_header_id', headerId);
+  const byproducts = (byproductsRaw || []) as any[];
+
+  for (const bp of byproducts) {
+    if (bp.tracks_inventory && bp.sku_id && bp.output_qty > 0) {
+      const allocatedCost = totalBatchCost * (bp.cost_allocation_pct / 100);
+      const costPerGram = allocatedCost / bp.output_qty;
+      await syncBomPrice(bp.sku_id, costPerGram);
+    }
   }
 }
 
 /**
  * Upsert the active price record for an SM or SP SKU
  * based on BOM cost calculation.
- * Returns the cost per gram that was saved.
  */
 export async function syncBomPrice(skuId: string, costPerGram: number): Promise<number> {
-  // Check if an active BOM price already exists for this SKU
   const { data: existing } = await supabase
     .from('prices')
     .select('id')
@@ -90,7 +123,6 @@ export async function syncBomPrice(skuId: string, costPerGram: number): Promise<
   const today = new Date().toISOString().slice(0, 10);
 
   if (existing) {
-    // Update existing
     await supabase.from('prices').update({
       price_per_purchase_uom: 0,
       price_per_usage_uom: costPerGram,
@@ -98,12 +130,10 @@ export async function syncBomPrice(skuId: string, costPerGram: number): Promise<
       note: BOM_PRICE_NOTE,
     }).eq('id', existing.id);
   } else {
-    // Deactivate any old BOM prices for this SKU
     await supabase.from('prices').update({ is_active: false })
       .eq('sku_id', skuId)
       .eq('supplier_id', BOM_SUPPLIER_ID);
 
-    // Insert new active price
     await supabase.from('prices').insert({
       sku_id: skuId,
       supplier_id: BOM_SUPPLIER_ID,
@@ -122,7 +152,6 @@ export async function syncBomPrice(skuId: string, costPerGram: number): Promise<
 /**
  * After an SM SKU's BOM price is synced, cascade the updated cost
  * to all Menu BOMs and SP BOMs that reference this SM SKU as an ingredient.
- * Returns { menuBomCount, spBomCount } of affected rows.
  */
 export async function cascadeBomCost(smSkuId: string, newCostPerGram: number): Promise<{ menuBomCount: number; spBomCount: number }> {
   let menuBomCount = 0;
@@ -156,7 +185,6 @@ export async function cascadeBomCost(smSkuId: string, newCostPerGram: number): P
     }
     spBomCount = spLines.length;
 
-    // Re-fetch ALL active prices fresh from DB (includes the just-synced SM price)
     const { data: freshPrices } = await supabase
       .from('prices')
       .select('sku_id, price_per_usage_uom')
@@ -164,7 +192,6 @@ export async function cascadeBomCost(smSkuId: string, newCostPerGram: number): P
     const priceMap = new Map<string, number>();
     freshPrices?.forEach(p => priceMap.set(p.sku_id, p.price_per_usage_uom));
 
-    // Recalculate each SP BOM from fresh prices
     for (const spSkuId of spSkuIds) {
       const { data: allSpLines } = await supabase
         .from('sp_bom')
@@ -179,7 +206,6 @@ export async function cascadeBomCost(smSkuId: string, newCostPerGram: number): P
         }, 0);
         const spCostPerUnit = batchYield > 0 ? totalBatchCost / batchYield : 0;
 
-        // Update each SP BOM line's cost_per_unit
         for (const l of allSpLines) {
           const lineCost = batchYield > 0 ? (l.qty_per_batch * (priceMap.get(l.ingredient_sku_id) ?? 0)) / batchYield : 0;
           await supabase.from('sp_bom').update({ cost_per_unit: lineCost }).eq('id', l.id);
