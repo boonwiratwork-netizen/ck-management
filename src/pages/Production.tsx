@@ -516,7 +516,7 @@ export default function ProductionPage({
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
     return (
       <span className="inline-flex items-center gap-1">
-        {statusDot(color, 'w-2 h-2')}
+        <StatusDot status={color} size="sm" />
         <span>{fmtDays(cover)}</span>
         <span className="text-xs text-muted-foreground">{t('prod.days')}</span>
       </span>
