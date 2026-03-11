@@ -90,9 +90,10 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
         if (search && !row.sku.name.toLowerCase().includes(search.toLowerCase()) && !row.sku.skuId.toLowerCase().includes(search.toLowerCase())) return false;
         if (filterCategory !== 'all' && row.sku.category !== filterCategory) return false;
         if (filterStorage !== 'all' && row.sku.storageCondition !== filterStorage) return false;
+        if (ckItemsOnly && !ckRmSkuIds.has(row.sku.id)) return false;
         return true;
       });
-  }, [rmSkus, stockBalances, getStdUnitPrice, getLastReceiptDate, search, filterCategory, filterStorage]);
+  }, [rmSkus, stockBalances, getStdUnitPrice, getLastReceiptDate, search, filterCategory, filterStorage, ckItemsOnly, ckRmSkuIds]);
 
   const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
   const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
