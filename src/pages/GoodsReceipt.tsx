@@ -489,7 +489,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           onFocus={e => e.target.select()}
                           className={cn(
                             "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? "border-green-400 font-bold text-green-700 dark:text-green-400" : "border-primary/30"
+                            hasQty ? "border-success font-bold text-success" : "border-primary/30"
                           )}
                           placeholder="0"
                         />
