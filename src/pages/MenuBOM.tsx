@@ -332,7 +332,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}><Check className="w-3.5 h-3.5 text-success" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
