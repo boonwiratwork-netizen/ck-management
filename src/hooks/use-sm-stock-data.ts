@@ -23,7 +23,8 @@ export function useSmStockData(
   deliveries: Delivery[],
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
-  prices: Price[]
+  prices: Price[],
+  bomSteps: BOMStep[] = []
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
