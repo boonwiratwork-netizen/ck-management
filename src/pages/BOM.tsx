@@ -1099,21 +1099,30 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
                       const isSelected = selectedHeaderId === h.id;
                       const hasBom = hLines.length > 0;
+                      // Check if this SKU is a by-product of another BOM
+                      const parentHeader = getByproductParentHeader(h.smSkuId);
+                      const isByproductSku = !!parentHeader;
+                      const showNoBomWarning = !hasBom && !isByproductSku;
                       return (
                         <div
                           key={h.id}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${!hasBom ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
+                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-orange-50/60 dark:bg-orange-950/10' : ''}`}
                           onClick={() => { setSelectedHeaderId(h.id); setEditingHeader(false); setAddingLine(false); setEditingLineId(null); }}
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium flex items-center gap-1.5">
-                                {!hasBom && <span className="text-orange-500">⚠️</span>}
+                                {showNoBomWarning && <span className="text-orange-500">⚠️</span>}
                                 {sku?.skuId} · {sku?.name ?? '—'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>
+                              {isByproductSku && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  By-product of {getSkuCode(parentHeader!.smSkuId)}
+                                </p>
+                              )}
                             </div>
                             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={e => { e.stopPropagation(); handleDeleteHeader(h.id); }}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
