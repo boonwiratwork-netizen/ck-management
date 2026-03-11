@@ -602,7 +602,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       </td>
                       <td className={`${tdReadOnly} text-center text-muted-foreground`}>{row.sku.purchaseUom}</td>
                       <td className="px-1 py-1">
-                        <div className="relative">
+                        <div className="flex items-center gap-1">
                           <input
                             type="number"
                             min={0}
@@ -616,7 +616,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                             }}
                             onFocus={e => e.target.select()}
                             className={cn(
-                              "h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md outline-none",
+                              "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
                               hasQty && !actualMatchesStd
                                 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 focus:border-amber-500"
                                 : "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary"
@@ -624,7 +624,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                             placeholder="0.00"
                           />
                           {hasQty && actualMatchesStd && (
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground bg-muted/80 px-1 rounded">= STD</span>
+                            <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
                           )}
                         </div>
                       </td>
