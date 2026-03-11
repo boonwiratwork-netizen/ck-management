@@ -1157,7 +1157,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         <p className="text-sm text-muted-foreground">You have unsaved by-product changes. Save before leaving?</p>
         <div className="flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={confirmDiscardByproducts}>Discard</Button>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={confirmSaveAndNav}>Save & Continue</Button>
+          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={confirmSaveAndNav}>Save & Continue</Button>
         </div>
       </div>
     </div>
