@@ -35,6 +35,14 @@ interface BOMPageProps {
     getStepsForHeader: (headerId: string) => BOMStep[];
     getLinesForStep: (stepId: string) => BOMLine[];
   };
+  byproductData: {
+    byproducts: BomByproduct[];
+    getByproductsForHeader: (headerId: string) => BomByproduct[];
+    addByproduct: (data: Omit<BomByproduct, 'id'>) => void | Promise<void>;
+    updateByproduct: (id: string, data: Partial<Omit<BomByproduct, 'id' | 'bomHeaderId'>>) => void | Promise<void>;
+    deleteByproduct: (id: string) => void | Promise<void>;
+    bulkUpdateAllocations: (updates: { id: string; costAllocationPct: number }[]) => void | Promise<void>;
+  };
   skus: SKU[];
   prices: Price[];
   readOnly?: boolean;
