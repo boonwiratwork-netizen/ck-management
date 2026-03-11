@@ -444,11 +444,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
               <div className="flex items-end gap-2 flex-wrap">
                 {/* Date */}
                 <div className="w-[200px]">
-                  <label className="text-xs text-muted-foreground">Date</label>
                   <DatePicker
                     value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
                     onChange={d => setManualDate(d ? d.toISOString().slice(0, 10) : '')}
                     defaultToday
+                    label="Date"
+                    required
+                    labelPosition="above"
                     align="start"
                   />
                 </div>
