@@ -447,7 +447,7 @@ const Index = () => {
                   readOnly={!isManagement}
                 />
               ) : activeTab === 'sales-entry' ? (
-                <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} />
+                <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} menus={menuData.menus} />
               ) : activeTab === 'branch-receipt' ? (
                 <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} />
               ) : activeTab === 'daily-stock-count' ? (
