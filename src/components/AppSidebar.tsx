@@ -176,7 +176,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 </div>
                 <button
                   onClick={toggleLang}
-                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] font-medium shrink-0 hover:bg-accent transition-colors"
+                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-helper font-medium shrink-0 hover:bg-accent transition-colors"
                 >
                   <span className={lang === 'th' ? 'font-bold text-primary' : 'text-muted-foreground'}>TH</span>
                   <span className="text-muted-foreground">/</span>
