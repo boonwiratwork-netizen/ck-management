@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment, useRef, useCallback } from 'react';
+import { useState, useMemo, Fragment, useRef, useCallback, useEffect } from 'react';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
 import { BOMHeader, BOMLine, BOMStep, EMPTY_BOM_HEADER, BOMMode, IngredientQtyType } from '@/types/bom';
