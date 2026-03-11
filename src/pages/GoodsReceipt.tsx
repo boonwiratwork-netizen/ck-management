@@ -290,15 +290,15 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
       {/* Header controls */}
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Date</label>
-          <DatePicker
-            value={receiptDate}
-            onChange={d => d && setReceiptDate(d)}
-            defaultToday
-            align="start"
-          />
-        </div>
+        <DatePicker
+          value={receiptDate}
+          onChange={d => d && setReceiptDate(d)}
+          defaultToday
+          label="Date"
+          required
+          labelPosition="above"
+          align="start"
+        />
         {/* FIX 3: Searchable grouped supplier dropdown */}
         <div className="relative" ref={supplierDropdownRef}>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Supplier</label>

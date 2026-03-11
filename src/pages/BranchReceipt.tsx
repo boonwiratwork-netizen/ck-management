@@ -14,10 +14,9 @@ import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Save, Plus, Trash2, CheckCircle, Search } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Save, Plus, Trash2, CheckCircle, Search } from 'lucide-react';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -369,20 +368,15 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
       {/* Header controls */}
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Date</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn('w-[160px] justify-start text-left font-normal', !receiptDate && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(receiptDate, 'PPP')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={receiptDate} onSelect={d => d && setReceiptDate(d)} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-        </div>
+        <DatePicker
+          value={receiptDate}
+          onChange={d => d && setReceiptDate(d)}
+          defaultToday
+          label="Date"
+          required
+          labelPosition="above"
+          align="start"
+        />
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
           <Select value={branchId || '_none'} onValueChange={v => handleBranchChange(v === '_none' ? '' : v)} disabled={isStoreManager}>
@@ -769,34 +763,22 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       <div className="space-y-4 pt-4 border-t">
         <h3 className="text-lg font-heading font-semibold">Receipt History</h3>
         <div className="flex flex-wrap gap-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">From</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal text-xs', !historyDateFrom && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {historyDateFrom ? format(historyDateFrom, 'PP') : 'Start'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={historyDateFrom} onSelect={setHistoryDateFrom} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">To</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal text-xs', !historyDateTo && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {historyDateTo ? format(historyDateTo, 'PP') : 'End'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={historyDateTo} onSelect={setHistoryDateTo} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <DatePicker
+            value={historyDateFrom}
+            onChange={setHistoryDateFrom}
+            placeholder="Start"
+            label="From"
+            labelPosition="left"
+            align="start"
+          />
+          <DatePicker
+            value={historyDateTo}
+            onChange={setHistoryDateTo}
+            placeholder="End"
+            label="To"
+            labelPosition="left"
+            align="start"
+          />
           {isManagement && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>

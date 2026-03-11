@@ -21,6 +21,9 @@ export interface DatePickerProps {
   align?: "start" | "center" | "end";
   disabled?: boolean;
   className?: string;
+  label?: string;
+  labelPosition?: "above" | "left";
+  required?: boolean;
 }
 
 function DatePicker({
@@ -33,17 +36,21 @@ function DatePicker({
   align = "start",
   disabled = false,
   className,
+  label,
+  labelPosition = "above",
+  required = false,
 }: DatePickerProps) {
   const initialized = React.useRef(false);
 
   React.useEffect(() => {
     if (defaultToday && !initialized.current && value === undefined) {
       initialized.current = true;
-      onChange(new Date());
+      const now = new Date();
+      onChange(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
+  const trigger = (
     <Popover>
       <PopoverTrigger asChild>
         <Button
@@ -67,7 +74,11 @@ function DatePicker({
         <Calendar
           mode="single"
           selected={value}
-          onSelect={onChange}
+          onSelect={(day) => {
+            if (!day) { onChange(undefined); return; }
+            const normalized = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+            onChange(normalized);
+          }}
           disabled={(date) => {
             if (minDate && date < minDate) return true;
             if (maxDate && date > maxDate) return true;
@@ -78,6 +89,30 @@ function DatePicker({
         />
       </PopoverContent>
     </Popover>
+  );
+
+  if (!label) return trigger;
+
+  const labelEl = (
+    <label className="text-sm text-muted-foreground whitespace-nowrap">
+      {label}{required && <span className="text-destructive ml-0.5">*</span>}
+    </label>
+  );
+
+  if (labelPosition === "left") {
+    return (
+      <div className="flex items-center gap-2">
+        {labelEl}
+        {trigger}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {labelEl}
+      {trigger}
+    </div>
   );
 }
 
