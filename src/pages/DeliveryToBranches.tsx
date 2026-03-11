@@ -313,9 +313,18 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: 110 }} />
+              <col style={{ width: 50 }} />
+              <col style={{ width: 150 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 100 }} />
+            </colgroup>
             <thead>
-              <tr className="border-b bg-muted/50 sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
+              <tr className="bg-table-header border-b sticky top-0 z-10">
                 <th className={`${thClass} cursor-pointer select-none hover:bg-muted/50`} onClick={() => handleDelSort('date')}>
                   <span className="inline-flex items-center">{t('col.date')}<DelSortIcon col="date" /></span>
                 </th>
