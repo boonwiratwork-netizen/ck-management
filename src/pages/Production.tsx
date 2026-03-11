@@ -775,7 +775,8 @@ export default function ProductionPage({
                 <CollapsibleTrigger asChild>
                   <button className="flex items-center gap-2 text-sm font-medium text-warning hover:text-foreground transition-colors w-full py-2">
                     <ChevronDown className={cn('w-4 h-4 transition-transform', noBomOpen && 'rotate-180')} />
-                    ⚠️ {noBomRows.length} {t('prod.noBomItems')}
+                    <StatusDot status="amber" size="sm" className="mr-1" />
+                    {noBomRows.length} {t('prod.noBomItems')}
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
