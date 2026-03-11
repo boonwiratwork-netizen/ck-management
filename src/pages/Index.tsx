@@ -335,7 +335,7 @@ const Index = () => {
               </h1>
             </div>
             {readOnly && (
-              <span className="ml-2 text-[10px] uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
+              <span className="ml-2 text-helper uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">View Only</span>
             )}
           </header>
 
