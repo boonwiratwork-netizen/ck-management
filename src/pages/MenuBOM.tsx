@@ -324,7 +324,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
       <TableCell className="text-xs text-right font-mono">
         {formSkuId ? (() => {
           const c = getActiveCost(formSkuId);
-          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-orange-500">—</span>;
+        return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
