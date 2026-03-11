@@ -448,6 +448,21 @@ export default function ProductionPage({
     if (!recordSkuId) return;
     if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
 
+    const outputPerBatch = getOutputPerBatch(recordSkuId);
+    const batchesProduced = outputPerBatch > 0 ? Math.ceil(recordForm.actualOutputG / outputPerBatch) : 0;
+
+    if (editingRecordId) {
+      await updateRecord(editingRecordId, {
+        productionDate: recordForm.productionDate,
+        actualOutputG: recordForm.actualOutputG,
+        batchesProduced,
+      });
+      toast.success(t('prod.recordUpdated'));
+      setRecordModalOpen(false);
+      setEditingRecordId(null);
+      return;
+    }
+
     let plan = productionData.plans.find(p => p.smSkuId === recordSkuId && p.weekStartDate === weekStart);
     let planId = plan?.id;
 
@@ -458,9 +473,6 @@ export default function ProductionPage({
       planId = typeof result === 'string' ? result : '';
     }
     if (!planId) { toast.error('Failed to create plan'); return; }
-
-    const outputPerBatch = getOutputPerBatch(recordSkuId);
-    const batchesProduced = outputPerBatch > 0 ? Math.ceil(recordForm.actualOutputG / outputPerBatch) : 0;
 
     await addRecord({
       ...EMPTY_PRODUCTION_RECORD,
