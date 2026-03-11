@@ -675,7 +675,7 @@ export default function ProductionPage({
                       >
                         {/* STATUS DOT — reflects coverAfter if plan entered, else coverNow */}
                         <td className="px-1 py-1.5 text-center">
-                          {statusDot(hasPlanned ? row.coverAfterColor : row.coverNowColor)}
+                          <StatusDot status={hasPlanned ? row.coverAfterColor : row.coverNowColor} />
                         </td>
 
                         {/* CODE */}
