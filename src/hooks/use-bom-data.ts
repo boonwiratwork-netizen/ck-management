@@ -9,7 +9,8 @@ const toHeader = (r: any): BOMHeader => ({
 });
 const toLine = (r: any): BOMLine => ({
   id: r.id, bomHeaderId: r.bom_header_id, rmSkuId: r.rm_sku_id,
-  qtyPerBatch: r.qty_per_batch, stepId: r.step_id ?? undefined,
+  qtyPerBatch: r.qty_per_batch, yieldPercent: r.yield_percent ?? 1.0,
+  stepId: r.step_id ?? undefined,
   qtyType: r.qty_type ?? undefined, percentOfInput: r.percent_of_input ?? undefined,
 });
 const toStep = (r: any): BOMStep => ({
@@ -70,7 +71,8 @@ export function useBomData() {
   const addLine = useCallback(async (data: Omit<BOMLine, 'id'>) => {
     const { data: row, error } = await supabase.from('bom_lines').insert({
       bom_header_id: data.bomHeaderId, rm_sku_id: data.rmSkuId,
-      qty_per_batch: data.qtyPerBatch, step_id: data.stepId ?? null,
+      qty_per_batch: data.qtyPerBatch, yield_percent: data.yieldPercent ?? 1.0,
+      step_id: data.stepId ?? null,
       qty_type: data.qtyType ?? null, percent_of_input: data.percentOfInput ?? null,
     }).select().single();
     if (error) { toast.error('Failed to add BOM line: ' + error.message); return; }
@@ -81,6 +83,7 @@ export function useBomData() {
     const d: any = {};
     if (data.rmSkuId !== undefined) d.rm_sku_id = data.rmSkuId;
     if (data.qtyPerBatch !== undefined) d.qty_per_batch = data.qtyPerBatch;
+    if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     if (data.stepId !== undefined) d.step_id = data.stepId;
     if (data.qtyType !== undefined) d.qty_type = data.qtyType;
     if (data.percentOfInput !== undefined) d.percent_of_input = data.percentOfInput;

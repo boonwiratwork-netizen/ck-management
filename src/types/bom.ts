@@ -17,6 +17,7 @@ export interface BOMLine {
   bomHeaderId: string;
   rmSkuId: string;
   qtyPerBatch: number;     // in usage UOM
+  yieldPercent: number;    // 0–1 decimal, e.g. 0.35 = 35%
   // For multi-step: which step this ingredient belongs to
   stepId?: string;
   qtyType?: IngredientQtyType;
@@ -42,6 +43,7 @@ export const EMPTY_BOM_HEADER: Omit<BOMHeader, 'id'> = {
 export const EMPTY_BOM_LINE: Omit<BOMLine, 'id' | 'bomHeaderId'> = {
   rmSkuId: '',
   qtyPerBatch: 0,
+  yieldPercent: 1.0,
 };
 
 export const EMPTY_BOM_STEP: Omit<BOMStep, 'id' | 'bomHeaderId'> = {

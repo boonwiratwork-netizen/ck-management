@@ -101,7 +101,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [headerForm, setHeaderForm] = useState(EMPTY_BOM_HEADER);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'> & { yieldPct: number }>({
-    rmSkuId: '', qtyPerBatch: 0, yieldPct: 100,
+    rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, yieldPct: 100,
   });
   const [addingLine, setAddingLine] = useState(false);
   const [addingLineStepId, setAddingLineStepId] = useState<string | null>(null);
@@ -140,7 +140,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const simpleTotalCost = selectedHeader?.bomMode === 'simple'
     ? selectedLines.reduce((sum, l) => {
         const cost = getActiveCost(l.rmSkuId);
-        return sum + l.qtyPerBatch * cost;
+        const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
+        const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
+        return sum + effQty * cost;
       }, 0) : 0;
   const simpleCostPerGram = outputQty > 0 ? simpleTotalCost / outputQty : 0;
 
@@ -208,7 +210,11 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     const hLines = getLinesForHeader(h.id);
     if (h.bomMode === 'simple') {
       const hOutput = h.batchSize * h.yieldPercent;
-      const hCost = hLines.reduce((s, l) => s + l.qtyPerBatch * getActiveCost(l.rmSkuId), 0);
+      const hCost = hLines.reduce((s, l) => {
+        const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
+        const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
+        return s + effQty * getActiveCost(l.rmSkuId);
+      }, 0);
       return { cost: hCost, output: hOutput, costPerGram: hOutput > 0 ? hCost / hOutput : 0 };
     } else {
       const hSteps = getStepsForHeader(h.id);
@@ -302,7 +308,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
   // Line actions — with auto-continue
   const handleStartAddLine = (stepId?: string) => {
-    setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId, yieldPct: 100 });
+    setLineForm({ rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId, yieldPct: 100 });
     setAddingLine(true);
     setAddingLineStepId(stepId ?? null);
     setEditingLineId(null);
@@ -311,12 +317,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const handleSaveLine = async () => {
     if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
     if (addingLine) {
-      await addLine({ ...lineForm, bomHeaderId: selectedHeaderId });
+      await addLine({ ...lineForm, yieldPercent: lineForm.yieldPct / 100, bomHeaderId: selectedHeaderId });
       // Auto-continue: open new empty row
       const stepId = addingLineStepId;
-      setLineForm({ rmSkuId: '', qtyPerBatch: 0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId: stepId ?? undefined, yieldPct: 100 });
+      setLineForm({ rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, qtyType: stepId ? 'fixed' : undefined, percentOfInput: 0, stepId: stepId ?? undefined, yieldPct: 100 });
     } else if (editingLineId) {
-      await updateLine(editingLineId, lineForm);
+      await updateLine(editingLineId, { ...lineForm, yieldPercent: lineForm.yieldPct / 100 });
       setEditingLineId(null);
       setAddingLine(false);
     }
@@ -324,13 +330,15 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const handleEditLine = (line: BOMLine) => {
+    const yieldPctDisplay = Math.round((line.yieldPercent ?? 1.0) * 100);
     setLineForm({
       rmSkuId: line.rmSkuId,
       qtyPerBatch: line.qtyPerBatch,
+      yieldPercent: line.yieldPercent ?? 1.0,
       stepId: line.stepId,
       qtyType: line.qtyType,
       percentOfInput: line.percentOfInput,
-      yieldPct: 100,
+      yieldPct: yieldPctDisplay,
     });
     setEditingLineId(line.id);
     setAddingLine(false);
@@ -574,16 +582,24 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <span className="text-xs text-muted-foreground">%</span>
           </div>
         ) : (
-          <Input type="number" className="h-8 w-24 text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
+          <Input type="number" className="h-8 w-full max-w-[80px] text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
             onChange={e => setLineForm(f => ({ ...f, qtyPerBatch: Number(e.target.value) }))} />
         )}
       </TableCell>
       <TableCell className="text-xs">{lineForm.rmSkuId ? getSkuById(lineForm.rmSkuId)?.usageUom : '—'}</TableCell>
       {!isMultiStep && (
         <>
-          <TableCell>
-            <Input type="number" className="h-8 w-16 text-xs text-right font-mono" value={lineForm.yieldPct}
-              onChange={e => setLineForm(f => ({ ...f, yieldPct: Number(e.target.value) || 100 }))} />
+          <TableCell className="overflow-hidden">
+            <Input type="number" className="h-8 w-full max-w-[64px] text-xs text-right font-mono" value={lineForm.yieldPct}
+              onChange={e => {
+                const v = Number(e.target.value);
+                setLineForm(f => ({ ...f, yieldPct: v || 0 }));
+              }}
+              onBlur={e => {
+                let v = Number(e.target.value);
+                if (v < 0.01 || v > 100 || isNaN(v)) v = 100;
+                setLineForm(f => ({ ...f, yieldPct: v }));
+              }} />
           </TableCell>
           <TableCell className="text-xs text-right font-mono">
             {lineForm.rmSkuId ? calcEffQty(lineForm.qtyPerBatch, lineForm.yieldPct).toFixed(2) : '—'}
@@ -700,7 +716,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               {selectedLines.filter(l => !l.stepId).map(line => {
                 const rmSku = getSkuById(line.rmSkuId);
                 const cost = getActiveCost(line.rmSkuId);
-                const effQty = line.qtyPerBatch; // Simple BOM: no per-line yield stored yet
+                const lineYieldPct = Math.round((line.yieldPercent ?? 1.0) * 100);
+                const effQty = calcEffQty(line.qtyPerBatch, lineYieldPct);
                 const lineCost = effQty * cost;
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
@@ -713,7 +730,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     </TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
                     <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">100%</TableCell>
+                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
                     <TableCell className="text-[13px] text-right font-mono py-2 px-3">
                       {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}

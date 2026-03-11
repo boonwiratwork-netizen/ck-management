@@ -116,6 +116,7 @@ export type Database = {
           qty_type: string | null
           rm_sku_id: string
           step_id: string | null
+          yield_percent: number
         }
         Insert: {
           bom_header_id: string
@@ -126,6 +127,7 @@ export type Database = {
           qty_type?: string | null
           rm_sku_id: string
           step_id?: string | null
+          yield_percent?: number
         }
         Update: {
           bom_header_id?: string
@@ -136,6 +138,7 @@ export type Database = {
           qty_type?: string | null
           rm_sku_id?: string
           step_id?: string | null
+          yield_percent?: number
         }
         Relationships: [
           {
