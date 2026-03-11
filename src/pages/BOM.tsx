@@ -101,7 +101,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [headerForm, setHeaderForm] = useState(EMPTY_BOM_HEADER);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'> & { yieldPct: number }>({
-    rmSkuId: '', qtyPerBatch: 0, yieldPct: 100,
+    rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, yieldPct: 100,
   });
   const [addingLine, setAddingLine] = useState(false);
   const [addingLineStepId, setAddingLineStepId] = useState<string | null>(null);
