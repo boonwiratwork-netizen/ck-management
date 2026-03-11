@@ -139,5 +139,5 @@ export function useSmStockData(
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
   }, [productionRecords]);
 
-  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks };
+  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady };
 }
