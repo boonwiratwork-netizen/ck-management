@@ -190,8 +190,8 @@ export default function ProductionPage({
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
     supabase.from('sales_entries').select('menu_code, qty')
-      .gte('sale_date', sevenDaysAgo.toISOString().slice(0, 10))
-      .lte('sale_date', today.toISOString().slice(0, 10))
+      .gte('sale_date', toLocalDateStr(sevenDaysAgo))
+      .lte('sale_date', toLocalDateStr(today))
       .then(({ data }) => {
         if (data) setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty) })));
       });
