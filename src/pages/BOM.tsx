@@ -723,21 +723,21 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
                 return (
                   <TableRow key={line.id} className="h-9">
-                    <TableCell className="text-[13px] font-mono py-2 px-3">
+                    <TableCell className="text-sm font-mono py-2 px-3">
                       {rmSku?.skuId ?? '—'}
                     </TableCell>
-                    <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
+                    <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                       {rmSku?.name ?? '—'}
                     </TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
-                    <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
-                    <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                      {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>}
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
+                    <TableCell className="text-sm py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{lineYieldPct}%</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">{effQty.toFixed(2)}</TableCell>
+                    <TableCell className="text-sm text-right font-mono py-2 px-3">
+                      {cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>}
                     </TableCell>
-                    <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                      {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                    <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
+                      {cost > 0 ? `฿${lineCost.toFixed(2)}` : <span className="text-primary">—</span>}
                     </TableCell>
                     <TableCell className="py-2 px-3">
                       <div className="flex gap-1">
