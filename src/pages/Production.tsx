@@ -552,7 +552,7 @@ export default function ProductionPage({
                   </Badge>
                 );
                 if (weekStart === nextMon) return (
-                  <Badge variant="outline" className="text-[10px] text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
+                  <Badge variant="outline" className="text-xs text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
                     {t('prod.nextWeek')}
                   </Badge>
                 );
