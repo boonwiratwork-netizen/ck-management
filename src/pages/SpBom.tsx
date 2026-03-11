@@ -482,7 +482,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <span className="text-muted-foreground font-medium">1 batch produces</span>
                       <Input type="number" min={0.01} step="any" value={yieldQty || ''} onChange={e => setYieldQty(Number(e.target.value))} className="h-8 w-20 text-sm" />
                       <span className="text-sm text-muted-foreground font-medium">{currentBatchYieldUom || '—'}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-green-600" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-success" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingYield(false)}><X className="w-3.5 h-3.5" /></Button>
                     </div>
                   )}
