@@ -77,6 +77,8 @@ interface PlanRow {
   sku: SKU;
   hasBom: boolean;
   forecastWeek: number;
+  indirectDemand: number;
+  indirectParentCount: number;
   perDay: number;
   hasSalesData: boolean;
   stockNow: number;
@@ -89,7 +91,7 @@ interface PlanRow {
   target: number;
   status: 'green' | 'amber' | 'red';
   producedG: number;
-  progress: number; // percentage
+  progress: number;
 }
 
 export default function ProductionPage({
