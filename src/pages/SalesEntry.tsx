@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { useSalesEntryData, SalesEntry } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
+import { Menu } from '@/types/menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,11 +12,13 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
-import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 const POS_COLUMNS = [
   'Date','Time','Receipt No','INV No','Tray Code','Menu Code','Menu Name',
@@ -29,9 +32,10 @@ const EXPECTED_COL_COUNT = 29;
 
 interface SalesEntryPageProps {
   branches: Branch[];
+  menus: Menu[];
 }
 
-export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
+export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
@@ -58,6 +62,91 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
   const [historySearch, setHistorySearch] = useState('');
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  // ——— Manual Entry State ———
+  const [manualOpen, setManualOpen] = useState(true);
+  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
+  const [manualBranch, setManualBranch] = useState<string>(
+    isStoreManager && profile?.branch_id ? profile.branch_id : ''
+  );
+  const [manualMenuSearch, setManualMenuSearch] = useState('');
+  const [manualMenuId, setManualMenuId] = useState('');
+  const [manualQty, setManualQty] = useState(1);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualSuccess, setManualSuccess] = useState(false);
+  const [menuDropdownOpen, setMenuDropdownOpen] = useState(false);
+  const menuInputRef = useRef<HTMLInputElement>(null);
+  const menuDropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedMenu = useMemo(() => menus.find(m => m.id === manualMenuId), [menus, manualMenuId]);
+  const manualUnitPrice = selectedMenu?.sellingPrice ?? 0;
+  const manualNetAmount = manualQty * manualUnitPrice;
+  const hasNoPrice = manualMenuId && manualUnitPrice <= 0;
+
+  const filteredMenus = useMemo(() => {
+    const q = manualMenuSearch.toLowerCase().trim();
+    if (!q) return menus.filter(m => m.status === 'Active').slice(0, 20);
+    return menus.filter(m =>
+      m.status === 'Active' &&
+      (m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q))
+    ).slice(0, 20);
+  }, [menus, manualMenuSearch]);
+
+  // Close menu dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuDropdownRef.current && !menuDropdownRef.current.contains(e.target as Node) &&
+          menuInputRef.current && !menuInputRef.current.contains(e.target as Node)) {
+        setMenuDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelectMenu = useCallback((menu: Menu) => {
+    setManualMenuId(menu.id);
+    setManualMenuSearch(`${menu.menuCode} · ${menu.menuName}`);
+    setMenuDropdownOpen(false);
+  }, []);
+
+  const handleManualAdd = useCallback(async () => {
+    if (!manualBranch) { toast.error('Select a branch'); return; }
+    if (!manualMenuId || !selectedMenu) { toast.error('Select a menu'); return; }
+    if (manualUnitPrice <= 0) return;
+
+    setManualSaving(true);
+    const row = {
+      branch_id: manualBranch,
+      sale_date: manualDate,
+      receipt_no: `MANUAL-${Date.now()}`,
+      menu_code: selectedMenu.menuCode,
+      menu_name: selectedMenu.menuName,
+      order_type: 'Manual',
+      qty: manualQty,
+      unit_price: manualUnitPrice,
+      net_amount: manualNetAmount,
+      channel: 'Manual',
+    };
+    const { error } = await supabase.from('sales_entries').insert(row);
+    if (error) { toast.error('Failed: ' + error.message); setManualSaving(false); return; }
+
+    // Success flash
+    setManualSuccess(true);
+    setTimeout(() => setManualSuccess(false), 1500);
+
+    // Clear menu & qty, keep date & branch
+    setManualMenuId('');
+    setManualMenuSearch('');
+    setManualQty(1);
+    setManualSaving(false);
+
+    // Refresh entries
+    fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
+
+    // Auto-focus menu input
+    setTimeout(() => menuInputRef.current?.focus(), 100);
+  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, fetchEntries, filterBranch]);
 
   // Column count validation
   const columnCounts = useMemo(() => {
@@ -334,6 +423,139 @@ export default function SalesEntryPage({ branches }: SalesEntryPageProps) {
             )}
           </Button>
         </CardContent>
+      </Card>
+
+      {/* SECTION 1.5: MANUAL ENTRY */}
+      <Card>
+        <Collapsible open={manualOpen} onOpenChange={setManualOpen}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Plus className="w-5 h-5" />
+                Manual Entry
+                <ChevronDown className={cn('w-4 h-4 ml-auto transition-transform', manualOpen && 'rotate-180')} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <div className="flex items-end gap-2 flex-wrap">
+                {/* Date */}
+                <div className="w-36">
+                  <label className="text-xs text-muted-foreground">Date</label>
+                  <Input
+                    type="date"
+                    value={manualDate}
+                    onChange={e => setManualDate(e.target.value)}
+                    tabIndex={1}
+                  />
+                </div>
+
+                {/* Branch */}
+                <div className="w-48">
+                  <label className="text-xs text-muted-foreground">Branch</label>
+                  <Select value={manualBranch} onValueChange={setManualBranch}>
+                    <SelectTrigger tabIndex={2}>
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableBranches.map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Menu — searchable with absolute dropdown */}
+                <div className="w-64 relative">
+                  <label className="text-xs text-muted-foreground">Menu</label>
+                  <Input
+                    ref={menuInputRef}
+                    placeholder="Search code or name..."
+                    value={manualMenuSearch}
+                    onChange={e => {
+                      setManualMenuSearch(e.target.value);
+                      setManualMenuId('');
+                      setMenuDropdownOpen(true);
+                    }}
+                    onFocus={() => setMenuDropdownOpen(true)}
+                    tabIndex={3}
+                    autoComplete="off"
+                  />
+                  {menuDropdownOpen && (
+                    <div
+                      ref={menuDropdownRef}
+                      className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-popover border rounded-md shadow-lg"
+                    >
+                      {filteredMenus.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No menus found</div>
+                      ) : (
+                        filteredMenus.map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                            onMouseDown={e => { e.preventDefault(); handleSelectMenu(m); }}
+                          >
+                            <span className="font-mono text-xs text-muted-foreground">{m.menuCode}</span>
+                            <span className="truncate">{m.menuName}</span>
+                            <span className="ml-auto text-xs text-muted-foreground">฿{m.sellingPrice.toFixed(0)}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Qty */}
+                <div className="w-20">
+                  <label className="text-xs text-muted-foreground">Qty</label>
+                  <Input
+                    type="number"
+                    value={manualQty}
+                    onChange={e => setManualQty(Number(e.target.value) || 0)}
+                    onFocus={e => e.target.select()}
+                    min={1}
+                    tabIndex={4}
+                  />
+                </div>
+
+                {/* Unit Price — read-only */}
+                <div className="w-24">
+                  <label className="text-xs text-muted-foreground">Unit Price</label>
+                  <div className={cn(
+                    'h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm tabular-nums',
+                    hasNoPrice && 'text-destructive border-destructive/50'
+                  )}>
+                    {!manualMenuId ? '—' : hasNoPrice ? 'No price' : `฿${manualUnitPrice.toFixed(2)}`}
+                  </div>
+                </div>
+
+                {/* Net Amount — read-only */}
+                <div className="w-28">
+                  <label className="text-xs text-muted-foreground">Net Amount</label>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm font-medium tabular-nums">
+                    {manualMenuId ? `฿${manualNetAmount.toFixed(2)}` : '—'}
+                  </div>
+                </div>
+
+                {/* Add button */}
+                <Button
+                  onClick={handleManualAdd}
+                  disabled={manualSaving || !manualMenuId || !manualBranch || !!hasNoPrice}
+                  className="h-10"
+                  tabIndex={5}
+                >
+                  {manualSuccess ? (
+                    <CheckCircle2 className="w-4 h-4 text-success animate-in fade-in zoom-in" />
+                  ) : (
+                    <><Plus className="w-4 h-4" /> Add</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* SECTION 2: SALES HISTORY */}

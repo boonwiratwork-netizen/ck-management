@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { SKU } from '@/types/sku';
+import { BOMStep } from '@/types/bom';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { ProductionPlan, ProductionRecord, PlanStatus, EMPTY_PRODUCTION_RECORD } from '@/types/production';
 import { StockBalance } from '@/types/stock';
@@ -37,6 +38,7 @@ interface ProductionPageProps {
   bomHeaders: BOMHeader[];
   stockBalances: StockBalance[];
   bomLines: BOMLine[];
+  bomSteps: BOMStep[];
   smStockBalances: SMStockBalance[];
   menuBomLines: MenuBomLine[];
   menus: Menu[];
@@ -75,6 +77,8 @@ interface PlanRow {
   sku: SKU;
   hasBom: boolean;
   forecastWeek: number;
+  indirectDemand: number;
+  indirectParentCount: number;
   perDay: number;
   hasSalesData: boolean;
   stockNow: number;
@@ -87,11 +91,11 @@ interface PlanRow {
   target: number;
   status: 'green' | 'amber' | 'red';
   producedG: number;
-  progress: number; // percentage
+  progress: number;
 }
 
 export default function ProductionPage({
-  productionData, skus, bomHeaders, stockBalances, bomLines, smStockBalances, menuBomLines, menus,
+  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus,
 }: ProductionPageProps) {
   const { addRecord, deleteRecord, getOutputPerBatch, records } = productionData;
 
@@ -161,8 +165,8 @@ export default function ProductionPage({
       });
   }, [weekStart]);
 
-  // Forecast
-  const forecast = useMemo(() => {
+  // Direct forecast from menu_bom
+  const directForecast = useMemo(() => {
     const menuCodeToId = new Map(menus.map(m => [m.menuCode, m.id]));
     const smSkuIds = new Set(smSkus.map(s => s.id));
     const usage: Record<string, number> = {};
@@ -175,6 +179,66 @@ export default function ProductionPage({
     });
     return usage;
   }, [salesData, menus, menuBomLines, smSkus]);
+
+  // Indirect forecast: SM used as ingredient in other SM BOMs
+  const { totalForecast, indirectDemandMap, indirectParentMap } = useMemo(() => {
+    const smSkuIds = new Set(smSkus.map(s => s.id));
+    // Build parent→child map: which SM SKUs use which SM SKUs as ingredients
+    // parentSmId → [{ childSmId, qtyPerBatch }]
+    const parentChildMap = new Map<string, { childSmId: string; qtyPerBatch: number }[]>();
+    // childSmId → parent count
+    const childParentCount: Record<string, number> = {};
+
+    bomHeaders.forEach(header => {
+      if (!smSkuIds.has(header.smSkuId)) return;
+      const lines = bomLines.filter(l => l.bomHeaderId === header.id);
+      lines.forEach(line => {
+        if (smSkuIds.has(line.rmSkuId)) {
+          const existing = parentChildMap.get(header.smSkuId) || [];
+          existing.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
+          parentChildMap.set(header.smSkuId, existing);
+          childParentCount[line.rmSkuId] = (childParentCount[line.rmSkuId] || 0) + 1;
+        }
+      });
+    });
+
+    // Calculate indirect demand: for each parent SM with direct forecast,
+    // compute how much of child SM is needed
+    const indirect: Record<string, number> = {};
+    const visited = new Set<string>();
+
+    const computeIndirect = (parentId: string, parentWeeklyForecast: number, depth: number) => {
+      if (depth > 3 || visited.has(parentId)) return; // max depth 3, circular ref protection
+      visited.add(parentId);
+      const children = parentChildMap.get(parentId) || [];
+      const outputPerBatch = getOutputPerBatch(parentId);
+      if (outputPerBatch <= 0) { visited.delete(parentId); return; }
+      const batchesNeeded = parentWeeklyForecast / outputPerBatch;
+      children.forEach(({ childSmId, qtyPerBatch }) => {
+        const childDemand = batchesNeeded * qtyPerBatch;
+        indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
+        // Recurse for deeper nesting
+        computeIndirect(childSmId, childDemand, depth + 1);
+      });
+      visited.delete(parentId);
+    };
+
+    // Process each SM that has direct forecast
+    smSkus.forEach(sku => {
+      const direct = directForecast[sku.id] || 0;
+      if (direct > 0) {
+        computeIndirect(sku.id, direct, 0);
+      }
+    });
+
+    // Total = direct + indirect
+    const total: Record<string, number> = {};
+    smSkus.forEach(sku => {
+      total[sku.id] = (directForecast[sku.id] || 0) + (indirect[sku.id] || 0);
+    });
+
+    return { totalForecast: total, indirectDemandMap: indirect, indirectParentMap: childParentCount };
+  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch]);
 
   // Production records for selected week per SKU
   const weekRecordsBySku = useMemo(() => {
@@ -198,7 +262,9 @@ export default function ProductionPage({
   const rows = useMemo((): PlanRow[] => {
     return smSkus.map(sku => {
       const hasBom = bomHeaders.some(h => h.smSkuId === sku.id);
-      const forecastWeek = forecast[sku.id] || 0;
+      const forecastWeek = totalForecast[sku.id] || 0;
+      const indirectDemand = indirectDemandMap[sku.id] || 0;
+      const indirectParentCount = indirectParentMap[sku.id] || 0;
       const perDay = forecastWeek / 7;
       const hasSalesData = forecastWeek > 0;
       const stockNow = smStockBalances.find(b => b.skuId === sku.id)?.currentStock ?? 0;
@@ -218,14 +284,13 @@ export default function ProductionPage({
       } else if (plannedBatches > 0 && progress < 100) {
         status = coverAfter >= target ? 'green' : 'amber';
       } else {
-        // plan = 0, coverage only
         if (stockAfter <= 0) status = 'red';
         else if (coverAfter < target) status = coverAfter <= 0 ? 'red' : 'amber';
       }
 
-      return { sku, hasBom, forecastWeek, perDay, hasSalesData, stockNow, coverNow, plannedBatches, outputPerBatch, planG, stockAfter, coverAfter, target, status, producedG, progress };
+      return { sku, hasBom, forecastWeek, indirectDemand, indirectParentCount, perDay, hasSalesData, stockNow, coverNow, plannedBatches, outputPerBatch, planG, stockAfter, coverAfter, target, status, producedG, progress };
     });
-  }, [smSkus, bomHeaders, forecast, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
+  }, [smSkus, bomHeaders, totalForecast, indirectDemandMap, indirectParentMap, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
 
   // Sort comparators
   const comparators = useMemo(() => ({
@@ -247,15 +312,19 @@ export default function ProductionPage({
 
   const { sorted, sortKey, sortDir, handleSort } = useSortableTable(rows, comparators);
 
-  // Custom default sort
+  // Custom default sort — fixed order
   const displayRows = useMemo(() => {
     if (sortKey) return sorted;
     return [...rows].sort((a, b) => {
-      const aValid = a.hasBom && a.hasSalesData;
-      const bValid = b.hasBom && b.hasSalesData;
-      if (aValid && !bValid) return -1;
-      if (!aValid && bValid) return 1;
-      if (!aValid && !bValid) return 0;
+      // Very last: No BOM
+      if (a.hasBom && !b.hasBom) return -1;
+      if (!a.hasBom && b.hasBom) return 1;
+      if (!a.hasBom && !b.hasBom) return 0;
+
+      // Last: No data (no forecast)
+      if (a.hasSalesData && !b.hasSalesData) return -1;
+      if (!a.hasSalesData && b.hasSalesData) return 1;
+      if (!a.hasSalesData && !b.hasSalesData) return 0;
 
       // First: plan > 0 and 0% < progress < 100% (in-progress)
       const aInProg = a.plannedBatches > 0 && a.progress > 0 && a.progress < 100;
@@ -269,7 +338,7 @@ export default function ProductionPage({
       if (aNotStarted && !bNotStarted) return -1;
       if (!aNotStarted && bNotStarted) return 1;
 
-      // Then: plan = 0, by cover days ascending
+      // Then: plan = 0 with valid forecast > 0, by cover days ascending
       if (a.coverAfter === Infinity && b.coverAfter === Infinity) return 0;
       if (a.coverAfter === Infinity) return 1;
       if (b.coverAfter === Infinity) return -1;
@@ -405,8 +474,10 @@ export default function ProductionPage({
   };
 
   // Summary
-  const onTargetCount = displayRows.filter(r => r.hasBom && r.hasSalesData && r.coverAfter >= r.target).length;
-  const totalValidCount = displayRows.filter(r => r.hasBom && r.hasSalesData).length;
+  // On-target badge: only rows with BOM AND forecast > 0
+  const validRows = displayRows.filter(r => r.hasBom && r.hasSalesData && r.forecastWeek > 0);
+  const onTargetCount = validRows.filter(r => r.coverAfter >= r.target).length;
+  const totalValidCount = validRows.length;
   const allOnTarget = onTargetCount === totalValidCount && totalValidCount > 0;
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -571,7 +642,20 @@ export default function ProductionPage({
                         ? <span className="text-muted-foreground italic">No BOM</span>
                         : !row.hasSalesData
                           ? <span className="text-muted-foreground italic">No data</span>
-                          : <>{row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-xs">{uom}</span></>}
+                          : <>
+                              {row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-xs">{uom}</span>
+                              {row.indirectParentCount > 0 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="ml-1 text-primary cursor-help">ⓘ</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p>Includes indirect demand from {row.indirectParentCount} parent SM(s)</p>
+                                    <p className="text-xs text-muted-foreground">Indirect: {row.indirectDemand.toFixed(0)} {uom}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </>}
                     </td>
 
                     {/* /Day */}
