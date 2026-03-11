@@ -518,7 +518,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 <col style={{ width: 100 }} />
               </colgroup>
               <thead className="sticky-thead">
-                <tr className="border-b bg-muted/50">
+                <tr className="bg-table-header border-b">
                   <th className={thClass}>Date</th>
                   <th className={`${thClass} text-center`}>Wk</th>
                   <th className={thClass}>SKU</th>
