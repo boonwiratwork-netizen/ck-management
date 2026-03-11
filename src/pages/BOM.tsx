@@ -968,17 +968,17 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <CardContent className="pt-4">
             <div className="grid grid-cols-3 gap-6 text-center">
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Total Ingredient Cost</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Ingredient Cost</p>
                 <p className="text-xl font-bold font-mono">฿{multiStepData.totalCost.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Final Output</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Final Output</p>
                 <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)}g</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost per Gram</p>
                 <p className="text-xl font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : multiStepData.costPerGram).toFixed(4)}</p>
-                {hasByproducts && <p className="text-[10px] text-muted-foreground mt-0.5">after by-product allocation</p>}
+                {hasByproducts && <p className="text-xs text-muted-foreground mt-0.5">after by-product allocation</p>}
               </div>
             </div>
           </CardContent>
