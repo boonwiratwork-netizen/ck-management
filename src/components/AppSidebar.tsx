@@ -248,7 +248,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold truncate text-foreground">{profile?.full_name || 'User'}</p>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-helper font-medium bg-primary/10 text-primary">
                   {roleLabels[role || ''] || 'User'}
                 </span>
               </div>
