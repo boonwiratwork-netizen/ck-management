@@ -138,6 +138,16 @@ export function useProductionData(
     return row.id;
   }, [plans, bomHeaders, bomLines, addStockAdjustment]);
 
+  const updateRecord = useCallback(async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
+    const { error } = await supabase.from('production_records').update({
+      production_date: data.productionDate,
+      actual_output_g: data.actualOutputG,
+      batches_produced: data.batchesProduced,
+    }).eq('id', id);
+    if (error) { toast.error('Failed to update record: ' + error.message); return; }
+    setRecords(prev => prev.map(r => r.id === id ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: data.batchesProduced } : r));
+  }, []);
+
   const deleteRecord = useCallback(async (id: string) => {
     const { error } = await supabase.from('production_records').delete().eq('id', id);
     if (error) { toast.error('Failed to delete record: ' + error.message); return; }
@@ -147,5 +157,5 @@ export function useProductionData(
   const getRecordsForPlan = useCallback((planId: string) => records.filter(r => r.planId === planId), [records]);
   const getTotalProducedForPlan = useCallback((planId: string) => records.filter(r => r.planId === planId).reduce((s, r) => s + r.actualOutputG, 0), [records]);
 
-  return { plans, records, addPlan, updatePlan, deletePlan, addRecord, deleteRecord, getRecordsForPlan, getTotalProducedForPlan, getOutputPerBatch };
+  return { plans, records, addPlan, updatePlan, deletePlan, addRecord, updateRecord, deleteRecord, getRecordsForPlan, getTotalProducedForPlan, getOutputPerBatch };
 }

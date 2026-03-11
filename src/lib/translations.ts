@@ -356,6 +356,10 @@ const translations: Record<string, Record<Lang, string>> = {
   'prod.perDay': { th: '/วัน', en: '/day' },
   'prod.deleteRecord': { th: 'ลบบันทึกการผลิต', en: 'Delete Production Record' },
   'prod.deleteConfirm': { th: 'คุณแน่ใจหรือไม่ว่าต้องการลบ', en: 'Are you sure you want to delete' },
+  'prod.thisWeek': { th: 'สัปดาห์นี้', en: 'This week' },
+  'prod.nextWeek': { th: 'สัปดาห์หน้า', en: 'Next week' },
+  'prod.editRecordTitle': { th: 'แก้ไขบันทึกผลผลิต', en: 'Edit Production Record' },
+  'prod.recordUpdated': { th: 'อัปเดตบันทึกแล้ว', en: 'Record updated' },
   'prod.stockWarningTitle': { th: '⚠ สต๊อกจะติดลบ', en: '⚠ Negative Stock Warning' },
   'prod.proceedAnyway': { th: 'ดำเนินการต่อ', en: 'Proceed Anyway' },
 

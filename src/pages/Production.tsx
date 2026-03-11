@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,7 @@ interface ProductionPageProps {
     updatePlan: (id: string, data: Partial<{ smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }>) => void | Promise<void>;
     deletePlan: (id: string) => void | Promise<void>;
     addRecord: (data: Omit<ProductionRecord, 'id' | 'smSkuId'>) => string | undefined | Promise<string | undefined>;
+    updateRecord: (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => void | Promise<void>;
     deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
@@ -83,6 +84,15 @@ function getWorkingDaysLeftInWeek(): number {
   return 6 - day; // Mon=5…Fri=1
 }
 
+function getCurrentWeekMonday(): string {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + diff);
+  return mon.toISOString().slice(0, 10);
+}
+
 /* ─── Number formatting helpers ─── */
 const fmtG = (v: number) => Math.round(v).toLocaleString();
 const fmtDays = (v: number) => v.toFixed(1);
@@ -118,7 +128,7 @@ function getCoverColor(cover: number, target: number, dailyNeed: number): 'red' 
 export default function ProductionPage({
   productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus, bomByproducts,
 }: ProductionPageProps) {
-  const { addRecord, deleteRecord, getOutputPerBatch, records } = productionData;
+  const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
   const { isManagement } = useAuth();
   const navigate = useNavigate();
@@ -138,6 +148,7 @@ export default function ProductionPage({
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
   const [recordForm, setRecordForm] = useState({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: 0, notes: '' });
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   // Dialogs
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -308,8 +319,6 @@ export default function ProductionPage({
         const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
 
         const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
-        // Status dot: if no plan entered yet, use coverNow; else coverAfter
-        const coverAfterColor = getCoverColor(plannedBatches > 0 ? coverAfter : coverNow, target, dailyNeed);
 
         return {
           sku, hasBom, forecastWeek, dailyNeed, stockNow, target,
@@ -386,6 +395,11 @@ export default function ProductionPage({
 
   const saveGlobalTarget = async (value: number) => {
     setGlobalTarget(value);
+    // Reset suggestions so they recalculate with new target (only if plan not locked)
+    if (!planLocked) {
+      setSuggestedInitialized(false);
+      setPlanBatches({});
+    }
     await supabase.from('global_settings' as any).update({ value: String(value) } as any).eq('key', 'cover_days_target');
   };
 
@@ -423,6 +437,14 @@ export default function ProductionPage({
     const remaining = row ? Math.max(0, row.planG - row.producedG) : 0;
     setRecordSkuId(skuId);
     setRecordForm({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: remaining, notes: '' });
+    setEditingRecordId(null);
+    setRecordModalOpen(true);
+  };
+
+  const openEditRecordModal = (record: ProductionRecord) => {
+    setRecordSkuId(record.smSkuId);
+    setRecordForm({ productionDate: record.productionDate, actualOutputG: record.actualOutputG, notes: '' });
+    setEditingRecordId(record.id);
     setRecordModalOpen(true);
   };
 
@@ -430,6 +452,21 @@ export default function ProductionPage({
   const doSaveRecord = async () => {
     if (!recordSkuId) return;
     if (recordForm.actualOutputG <= 0) { toast.error('Enter actual output'); return; }
+
+    const outputPerBatch = getOutputPerBatch(recordSkuId);
+    const batchesProduced = outputPerBatch > 0 ? Math.ceil(recordForm.actualOutputG / outputPerBatch) : 0;
+
+    if (editingRecordId) {
+      await updateRecord(editingRecordId, {
+        productionDate: recordForm.productionDate,
+        actualOutputG: recordForm.actualOutputG,
+        batchesProduced,
+      });
+      toast.success(t('prod.recordUpdated'));
+      setRecordModalOpen(false);
+      setEditingRecordId(null);
+      return;
+    }
 
     let plan = productionData.plans.find(p => p.smSkuId === recordSkuId && p.weekStartDate === weekStart);
     let planId = plan?.id;
@@ -441,9 +478,6 @@ export default function ProductionPage({
       planId = typeof result === 'string' ? result : '';
     }
     if (!planId) { toast.error('Failed to create plan'); return; }
-
-    const outputPerBatch = getOutputPerBatch(recordSkuId);
-    const batchesProduced = outputPerBatch > 0 ? Math.ceil(recordForm.actualOutputG / outputPerBatch) : 0;
 
     await addRecord({
       ...EMPTY_PRODUCTION_RECORD,
@@ -514,6 +548,21 @@ export default function ProductionPage({
               <span className="text-sm font-semibold whitespace-nowrap min-w-[220px] text-center">
                 Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
               </span>
+              {(() => {
+                const curMon = getCurrentWeekMonday();
+                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
+                if (weekStart === curMon) return (
+                  <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                    {t('prod.thisWeek')}
+                  </Badge>
+                );
+                if (weekStart === nextMon) return (
+                  <Badge variant="outline" className="text-[10px] text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
+                    {t('prod.nextWeek')}
+                  </Badge>
+                );
+                return null;
+              })()}
               {planLocked && savedWeek === weekNumber && (
                 <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
                   ✓ {t('prod.savedBadge')}
@@ -682,7 +731,7 @@ export default function ProductionPage({
                               type="number"
                               className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
                               defaultValue={row.plannedBatches ?? 0}
-                              key={`${row.sku.id}-${weekStart}-${planLocked}-${suggestedInitialized}`}
+                              key={`${row.sku.id}-${weekStart}-${planLocked}-${suggestedInitialized}-${globalTarget}`}
                               onBlur={e => handlePlanChange(row.sku.id, e.target.value)}
                               onFocus={e => e.target.select()}
                               onKeyDown={e => handlePlanKeyDown(e, row.sku.id)}
@@ -896,12 +945,20 @@ export default function ProductionPage({
                             </td>
                             <td className="px-1 py-1.5 text-center">
                               {isManagement && (
-                                <Button
-                                  size="icon" variant="ghost" className="h-6 w-6"
-                                  onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
-                                >
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </Button>
+                                <span className="inline-flex gap-0.5">
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6"
+                                    onClick={() => openEditRecordModal(rec)}
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon" variant="ghost" className="h-6 w-6"
+                                    onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -920,7 +977,7 @@ export default function ProductionPage({
       <Dialog open={recordModalOpen} onOpenChange={setRecordModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('prod.recordTitle')}</DialogTitle>
+            <DialogTitle>{editingRecordId ? t('prod.editRecordTitle') : t('prod.recordTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
