@@ -402,7 +402,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
               {filteredSaved.map(d => {
                 const sku = skuMap[d.smSkuId];
                 return (
-                  <tr key={d.id} className="border-b last:border-0 bg-background hover:bg-muted/30 transition-colors">
+                  <tr key={d.id} className="border-b border-table-border last:border-0 bg-background hover:bg-table-hover transition-colors">
                     <td className={tdReadOnly}>{d.deliveryDate}</td>
                     <td className={`${tdReadOnly} text-center font-mono`}>{d.weekNumber}</td>
                     <td className={tdReadOnly}>{d.branchName}</td>
