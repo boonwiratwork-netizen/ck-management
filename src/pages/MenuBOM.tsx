@@ -372,7 +372,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
               <div className="flex items-center justify-end mt-1.5">
                 <button
                   onClick={() => setSortAsc(!sortAsc)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                 >
                   Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                 </button>
