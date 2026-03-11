@@ -957,7 +957,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
       <Button
         variant="outline"
-        className="w-full border-dashed border-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20 py-6 text-base"
+        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent py-6 text-base"
         onClick={handleAddStep}
       >
         <Plus className="w-5 h-5" /> Add Step
