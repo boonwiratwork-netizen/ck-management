@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
+import { StatusDot } from '@/components/ui/status-dot';
 import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
@@ -306,7 +307,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const previewRows = parsedRows.slice(0, 3);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* SECTION 1: PASTE SALES DATA */}
       <Card>
         <CardHeader>
@@ -336,7 +337,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
           {/* Column header reference */}
           <div className="overflow-x-auto">
-            <div className="flex gap-0 text-[10px] text-muted-foreground font-mono border rounded-t-md bg-muted/30 min-w-max">
+            <div className="flex gap-0 text-xs text-muted-foreground font-mono border rounded-t-md bg-muted/50 min-w-max">
               {POS_COLUMNS.map((col, i) => (
                 <div key={i} className={`px-2 py-1 border-r last:border-r-0 whitespace-nowrap ${[0,2,5,6,7,8,9,13,15].includes(i) ? 'bg-primary/10 font-semibold text-foreground' : ''}`}>
                   {i + 1}. {col}
@@ -361,40 +362,40 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                 <span className="text-muted-foreground font-medium">{parsedRows.length} rows detected</span>
                 {hasValidColumns ? (
                   <span className="text-success flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> ✓ {avgColCount} columns detected
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {avgColCount} columns detected
                   </span>
                 ) : (
                   <span className="text-warning flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> ⚠️ Expected {EXPECTED_COL_COUNT} columns, got {avgColCount}
+                    <StatusDot status="amber" size="sm" /> Expected {EXPECTED_COL_COUNT} columns, got {avgColCount}
                   </span>
                 )}
               </div>
 
               {/* Preview first 3 rows */}
               {previewRows.length > 0 && (
-                <div className="rounded-md border bg-muted/30 p-3">
+                <div className="rounded-md border bg-muted/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground mb-2">Preview (first {previewRows.length} rows):</p>
                   <div className="overflow-x-auto">
-                    <table className="text-[11px] font-mono">
+                    <table className="text-xs font-mono">
                       <thead>
                         <tr>
-                          <th className="px-1.5 py-1 text-left text-muted-foreground">Date</th>
-                          <th className="px-1.5 py-1 text-left text-muted-foreground">Receipt</th>
-                          <th className="px-1.5 py-1 text-left text-muted-foreground">Menu Code</th>
-                          <th className="px-1.5 py-1 text-left text-muted-foreground">Menu Name</th>
-                          <th className="px-1.5 py-1 text-right text-muted-foreground">Qty</th>
-                          <th className="px-1.5 py-1 text-right text-muted-foreground">Net Amount</th>
+                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Receipt</th>
+                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Menu Code</th>
+                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Menu Name</th>
+                          <th className="px-2 py-1 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Qty</th>
+                          <th className="px-2 py-1 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Net Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         {previewRows.map((r, i) => (
                           <tr key={i}>
-                            <td className="px-1.5 py-0.5">{r[0]}</td>
-                            <td className="px-1.5 py-0.5">{r[2]}</td>
-                            <td className="px-1.5 py-0.5">{r[5]}</td>
-                            <td className="px-1.5 py-0.5 max-w-[150px] truncate">{r[6]}</td>
-                            <td className="px-1.5 py-0.5 text-right">{r[8]}</td>
-                            <td className="px-1.5 py-0.5 text-right">{r[13]}</td>
+                            <td className="px-2 py-0.5 text-sm">{r[0]}</td>
+                            <td className="px-2 py-0.5 text-sm">{r[2]}</td>
+                            <td className="px-2 py-0.5 text-sm">{r[5]}</td>
+                            <td className="px-2 py-0.5 text-sm max-w-[150px] truncate">{r[6]}</td>
+                            <td className="px-2 py-0.5 text-sm font-mono text-right">{r[8]}</td>
+                            <td className="px-2 py-0.5 text-sm font-mono text-right">{r[13]}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -429,8 +430,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       <Card>
         <Collapsible open={manualOpen} onOpenChange={setManualOpen}>
           <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
-              <CardTitle className="flex items-center gap-2 text-base">
+            <CardHeader className="cursor-pointer hover:bg-accent transition-colors">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <Plus className="w-5 h-5" />
                 Manual Entry
                 <ChevronDown className={cn('w-4 h-4 ml-auto transition-transform', manualOpen && 'rotate-180')} />
@@ -613,41 +614,41 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
               <div className="overflow-auto max-h-[70vh]">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-table-header sticky top-0 z-10" style={{ backgroundColor: 'hsl(var(--table-header))' }}>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
+                    <tr className="border-b bg-table-header sticky top-0 z-10">
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
                         <span className="inline-flex items-center">{t('col.date')}<SeSortIcon col="saleDate" /></span>
                       </th>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
                         <span className="inline-flex items-center">{t('col.menuCode')}<SeSortIcon col="menuCode" /></span>
                       </th>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
                         <span className="inline-flex items-center">{t('col.menuName')}<SeSortIcon col="menuName" /></span>
                       </th>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
                         <span className="inline-flex items-center">{t('col.orderType')}<SeSortIcon col="orderType" /></span>
                       </th>
-                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
                         <span className="inline-flex items-center justify-end">{t('col.qty')}<SeSortIcon col="qty" /></span>
                       </th>
-                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
                         <span className="inline-flex items-center justify-end">{t('col.unitPrice')}<SeSortIcon col="unitPrice" /></span>
                       </th>
-                      <th className="text-right px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
                         <span className="inline-flex items-center justify-end">{t('col.netAmount')}<SeSortIcon col="netAmount" /></span>
                       </th>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
                         <span className="inline-flex items-center">{t('col.channel')}<SeSortIcon col="channel" /></span>
                       </th>
-                      <th className="text-left px-4 py-3 table-header cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
+                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
                         <span className="inline-flex items-center">{t('col.branch')}<SeSortIcon col="branch" /></span>
                       </th>
-                      {isManagement && <th className="w-10 px-4 py-3 table-header" />}
+                      {isManagement && <th className="w-10 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground" />}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredEntries.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="px-4">
+                        <td colSpan={10} className="px-3">
                           <EmptyState
                             icon={ShoppingCart}
                             title={entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
@@ -656,18 +657,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                         </td>
                       </tr>
                     ) : filteredEntries.map((e, idx) => (
-                      <tr key={e.id} className={`border-b border-table-border last:border-0 table-row-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                        <td className="px-4 py-3 whitespace-nowrap">{e.saleDate}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{e.menuCode}</td>
-                        <td className="px-4 py-3 max-w-[200px] truncate">{e.menuName}</td>
-                        <td className="px-4 py-3">{e.orderType}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{e.qty}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{e.unitPrice.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums font-medium">{e.netAmount.toFixed(2)}</td>
-                        <td className="px-4 py-3">{e.channel}</td>
-                        <td className="px-4 py-3">{branchMap[e.branchId] || '-'}</td>
+                      <tr key={e.id} className={`border-b border-table-border last:border-0 hover:bg-table-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <td className="px-3 py-2 text-sm whitespace-nowrap">{e.saleDate}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{e.menuCode}</td>
+                        <td className="px-3 py-2 text-sm max-w-[200px] truncate" title={e.menuName}>{e.menuName}</td>
+                        <td className="px-3 py-2 text-sm">{e.orderType}</td>
+                        <td className="px-3 py-2 text-sm font-mono text-right">{e.qty}</td>
+                        <td className="px-3 py-2 text-sm font-mono text-right">{e.unitPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm font-mono text-right font-medium">{e.netAmount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm">{e.channel}</td>
+                        <td className="px-3 py-2 text-sm">{branchMap[e.branchId] || '-'}</td>
                         {isManagement && (
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -692,7 +693,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           {entries.length > 0 && (
             <div className="flex gap-6 text-sm pt-2 border-t">
               <span>{t('common.totalQty')}: <strong>{totalQty.toLocaleString()}</strong></span>
-              <span>{t('common.totalRevenue')}: <strong>฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+              <span>{t('common.totalRevenue')}: <strong className="font-mono">฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
               <span className="text-muted-foreground">{filteredEntries.length} rows</span>
             </div>
           )}
