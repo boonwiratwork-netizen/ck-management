@@ -80,6 +80,35 @@ export function useSmStockData(
   const getBomCostPerGram = useCallback((skuId: string): number => {
     const bomHeader = bomHeaders.find(h => h.smSkuId === skuId);
     if (!bomHeader) return 0;
+
+    if (bomHeader.bomMode === 'multistep') {
+      const steps = bomSteps.filter(s => s.bomHeaderId === bomHeader.id).sort((a, b) => a.stepNumber - b.stepNumber);
+      const allLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
+      if (steps.length === 0) return 0;
+
+      let totalCost = 0;
+      let prevOutput = 0;
+      steps.forEach((step, idx) => {
+        const sLines = allLines.filter(l => l.stepId === step.id);
+        const inputQty = idx === 0 ? sLines.reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
+        const addedQty = idx === 0 ? 0 : sLines.reduce((s, l) => {
+          if (l.qtyType === 'percent' && l.percentOfInput) return s + l.percentOfInput * inputQty;
+          return s + l.qtyPerBatch;
+        }, 0);
+        const effectiveInput = idx === 0 ? inputQty : inputQty + addedQty;
+        prevOutput = effectiveInput * step.yieldPercent;
+
+        totalCost += sLines.reduce((s, l) => {
+          let qty = l.qtyPerBatch;
+          if (l.qtyType === 'percent' && l.percentOfInput) qty = l.percentOfInput * inputQty;
+          const ap = prices.find(p => p.skuId === l.rmSkuId && p.isActive);
+          return s + qty * (ap?.pricePerUsageUom ?? 0);
+        }, 0);
+      });
+      return prevOutput > 0 ? totalCost / prevOutput : 0;
+    }
+
+    // Simple BOM
     const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
     const batchCost = bLines.reduce((s, line) => {
       const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
@@ -87,7 +116,7 @@ export function useSmStockData(
     }, 0);
     const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
     return outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
-  }, [bomHeaders, bomLines, prices]);
+  }, [bomHeaders, bomLines, bomSteps, prices]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
     const recs = productionRecords.filter(r => r.smSkuId === skuId);
