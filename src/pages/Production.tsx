@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { SKU } from '@/types/sku';
 import { BOMStep } from '@/types/bom';
+import { BomByproduct } from '@/types/byproduct';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { ProductionPlan, ProductionRecord, PlanStatus, EMPTY_PRODUCTION_RECORD } from '@/types/production';
 import { StockBalance } from '@/types/stock';
