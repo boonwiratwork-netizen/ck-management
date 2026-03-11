@@ -43,6 +43,7 @@ export const EMPTY_BOM_HEADER: Omit<BOMHeader, 'id'> = {
 export const EMPTY_BOM_LINE: Omit<BOMLine, 'id' | 'bomHeaderId'> = {
   rmSkuId: '',
   qtyPerBatch: 0,
+  yieldPercent: 1.0,
 };
 
 export const EMPTY_BOM_STEP: Omit<BOMStep, 'id' | 'bomHeaderId'> = {
