@@ -700,7 +700,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <col style={{ width: 60 }} />
               </colgroup>
               <thead className="sticky-thead">
-                <tr className="border-b bg-muted/50">
+                <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('date')}>
                     <SortableHeader label="Date" sortKey="date" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
                   </th>
