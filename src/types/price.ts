@@ -1,3 +1,5 @@
+import { toLocalDateStr } from '@/lib/utils';
+
 export interface Price {
   id: string;
   skuId: string;       // references SKU.id

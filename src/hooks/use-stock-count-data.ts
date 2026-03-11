@@ -5,6 +5,7 @@ import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { SKU } from '@/types/sku';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { toLocalDateStr } from '@/lib/utils';
 
 const toSession = (r: any): StockCountSession => ({
   id: r.id, date: r.count_date, note: r.note, status: r.status,

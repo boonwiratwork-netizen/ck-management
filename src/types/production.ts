@@ -1,3 +1,5 @@
+import { toLocalDateStr } from '@/lib/utils';
+
 export type PlanStatus = 'Planned' | 'In Progress' | 'Done';
 
 export interface ProductionPlan {

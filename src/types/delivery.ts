@@ -1,3 +1,5 @@
+import { toLocalDateStr } from '@/lib/utils';
+
 export interface Delivery {
   id: string;
   deliveryDate: string;       // ISO date
