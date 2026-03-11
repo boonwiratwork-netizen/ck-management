@@ -998,7 +998,7 @@ export default function ProductionPage({
 
             <DatePicker
               value={recordForm.productionDate ? new Date(recordForm.productionDate + 'T00:00:00') : undefined}
-              onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }))}
+              onChange={d => setRecordForm(f => ({ ...f, productionDate: d ? toLocalDateStr(d) : toLocalDateStr(new Date()) }))}
               defaultToday
               label="Date"
               required

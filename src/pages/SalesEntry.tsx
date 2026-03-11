@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateStr } from '@/lib/utils';
 
 const POS_COLUMNS = [
   'Date','Time','Receipt No','INV No','Tray Code','Menu Code','Menu Name',

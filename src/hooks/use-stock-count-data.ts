@@ -120,7 +120,7 @@ export function useStockCountData({
       for (const line of sessionLines) {
         if (line.variance === 0 || line.physicalQty === null) continue;
         const reverseAdj: Omit<StockAdjustment, 'id'> = {
-          skuId: line.skuId, date: new Date().toISOString().slice(0, 10),
+          skuId: line.skuId, date: toLocalDateStr(new Date()),
           quantity: -line.variance,
           reason: `Reversed: Stock Count ${session.date}`,
         };

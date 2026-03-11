@@ -354,7 +354,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                     <td className={tdClass}>
                       <DatePicker
                         value={draft.deliveryDate ? new Date(draft.deliveryDate + 'T00:00:00') : undefined}
-                        onChange={d => handleUpdateDraft(draft.tempId, 'deliveryDate', d ? d.toISOString().slice(0, 10) : '')}
+                        onChange={d => handleUpdateDraft(draft.tempId, 'deliveryDate', d ? toLocalDateStr(d) : '')}
                         defaultToday
                         align="start"
                         className="min-w-[140px]"

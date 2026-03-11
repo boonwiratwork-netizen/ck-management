@@ -9,7 +9,7 @@ export interface Delivery {
 }
 
 export const EMPTY_DELIVERY: Omit<Delivery, 'id' | 'weekNumber'> = {
-  deliveryDate: new Date().toISOString().slice(0, 10),
+  deliveryDate: toLocalDateStr(new Date()),
   branchName: '',
   smSkuId: '',
   qtyDeliveredG: 0,

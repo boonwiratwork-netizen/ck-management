@@ -58,7 +58,7 @@ export function StockAdjustmentModal({ open, onClose, skuName, skuId, usageUom, 
             </div>
             <DatePicker
               value={date ? new Date(date + 'T00:00:00') : undefined}
-              onChange={d => setDate(d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))}
+              onChange={d => setDate(d ? toLocalDateStr(d) : toLocalDateStr(new Date()))}
               defaultToday
               label="Date"
               required

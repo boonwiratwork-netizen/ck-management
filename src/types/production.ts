@@ -39,14 +39,14 @@ export function getWeekStart(dateStr: string): string {
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const mon = new Date(d.setDate(diff));
-  return mon.toISOString().slice(0, 10);
+  return toLocalDateStr(mon);
 }
 
 /** Get Sunday of the week for a given date */
 export function getWeekEnd(startDate: string): string {
   const d = new Date(startDate);
   d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 
 /** ISO week number */
