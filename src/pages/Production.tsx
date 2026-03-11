@@ -439,7 +439,7 @@ export default function ProductionPage({
     const row = rows.find(r => r.sku.id === skuId);
     const remaining = row ? Math.max(0, row.planG - row.producedG) : 0;
     setRecordSkuId(skuId);
-    setRecordForm({ productionDate: new Date().toISOString().slice(0, 10), actualOutputG: remaining, notes: '' });
+    setRecordForm({ productionDate: toLocalDateStr(new Date()), actualOutputG: remaining, notes: '' });
     setEditingRecordId(null);
     setRecordModalOpen(true);
   };
