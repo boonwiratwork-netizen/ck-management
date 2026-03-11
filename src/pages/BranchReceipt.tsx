@@ -368,20 +368,15 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
       {/* Header controls */}
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Date</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn('w-[160px] justify-start text-left font-normal', !receiptDate && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(receiptDate, 'PPP')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={receiptDate} onSelect={d => d && setReceiptDate(d)} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-        </div>
+        <DatePicker
+          value={receiptDate}
+          onChange={d => d && setReceiptDate(d)}
+          defaultToday
+          label="Date"
+          required
+          labelPosition="above"
+          align="start"
+        />
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
           <Select value={branchId || '_none'} onValueChange={v => handleBranchChange(v === '_none' ? '' : v)} disabled={isStoreManager}>
