@@ -5,6 +5,7 @@ import { useModifierRuleData } from '@/hooks/use-modifier-rule-data';
 import { useSkuData } from '@/hooks/use-sku-data';
 import { useSupplierData } from '@/hooks/use-supplier-data';
 import { usePriceData } from '@/hooks/use-price-data';
+import { useByproductData } from '@/hooks/use-byproduct-data';
 import { useBomData } from '@/hooks/use-bom-data';
 import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { useStockData } from '@/hooks/use-stock-data';
