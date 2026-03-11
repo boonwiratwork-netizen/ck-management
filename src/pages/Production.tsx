@@ -637,7 +637,7 @@ export default function ProductionPage({
                   <col style={{ width: '90px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
-                  <tr className="bg-muted/50 border-b text-xs">
+                  <tr className="bg-table-header border-b text-xs">
                     <th className="px-1 py-2 text-center text-muted-foreground"></th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
