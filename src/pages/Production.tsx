@@ -97,7 +97,7 @@ interface PlanRow {
 }
 
 export default function ProductionPage({
-  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus,
+  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus, bomByproducts,
 }: ProductionPageProps) {
   const { addRecord, deleteRecord, getOutputPerBatch, records } = productionData;
 
