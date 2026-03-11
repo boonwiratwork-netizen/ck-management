@@ -28,7 +28,7 @@ export const EMPTY_PRODUCTION_PLAN: Omit<ProductionPlan, 'id' | 'numBatches' | '
 
 export const EMPTY_PRODUCTION_RECORD: Omit<ProductionRecord, 'id' | 'smSkuId'> = {
   planId: '',
-  productionDate: new Date().toISOString().slice(0, 10),
+  productionDate: toLocalDateStr(new Date()),
   batchesProduced: 0,
   actualOutputG: 0,
 };
