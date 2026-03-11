@@ -404,6 +404,7 @@ const Index = () => {
                   smStockBalances={smStockData.stockBalances}
                   menuBomLines={menuBomData.lines}
                   menus={menuData.menus}
+                  bomByproducts={byproductData.byproducts}
                 />
               ) : activeTab === 'smstock' ? (
                 <SMStockPage skus={skus} smStockData={smStockData} />
