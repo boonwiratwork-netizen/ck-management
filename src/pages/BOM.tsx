@@ -87,13 +87,14 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
   );
 }
 
-const BOMPage = ({ bomData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
+const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
   const { t } = useLanguage();
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
     addStep, updateStep, deleteStep, getStepsForHeader, getLinesForStep,
   } = bomData;
+  const { byproducts, getByproductsForHeader, addByproduct, updateByproduct, deleteByproduct, bulkUpdateAllocations } = byproductData;
 
   const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
   const [editingHeader, setEditingHeader] = useState(false);
