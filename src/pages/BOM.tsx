@@ -235,11 +235,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const syncCurrentBomPrice = useCallback(async (headerId?: string) => {
     const hId = headerId || selectedHeaderId;
     if (!hId) return;
-    // Fetch fresh data from DB — not React state
     const { costPerGram, smSkuId } = await computeBomCostFromDb(hId);
     if (costPerGram > 0 && smSkuId) {
       const skuName = getSkuCode(smSkuId) || getSkuName(smSkuId);
       await syncBomPrice(smSkuId, costPerGram);
+      // Also sync by-product prices
+      await syncByproductPrices(hId, totalBatchCost);
       const { menuBomCount, spBomCount } = await cascadeBomCost(smSkuId, costPerGram);
       let msg = `BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`;
       if (menuBomCount > 0 || spBomCount > 0) {
@@ -248,7 +249,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       toast.success(msg);
       onPricesRefresh?.();
     }
-  }, [selectedHeaderId, onPricesRefresh]);
+  }, [selectedHeaderId, onPricesRefresh, totalBatchCost]);
 
   // Header actions
   const handleAddHeader = () => {
