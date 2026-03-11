@@ -624,7 +624,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                             placeholder="0.00"
                           />
                           {hasQty && actualMatchesStd && (
-                            <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
+                            <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
                           )}
                         </div>
                       </td>
