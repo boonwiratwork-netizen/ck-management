@@ -41,7 +41,7 @@ function DatePicker({
       initialized.current = true;
       onChange(new Date());
     }
-  }, [defaultToday, value, onChange]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Popover>
