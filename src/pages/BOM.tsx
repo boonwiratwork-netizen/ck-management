@@ -610,7 +610,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       <TableCell className="text-xs text-right font-mono">
         {lineForm.rmSkuId ? (() => {
           const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-orange-500">—</span>;
+          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
