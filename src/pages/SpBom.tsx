@@ -329,7 +329,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           triggerClassName="h-8 text-xs w-full"
         />
       </TableCell>
-      <TableCell className="text-[13px] text-muted-foreground truncate overflow-hidden py-1 px-2">
+      <TableCell className="text-sm text-muted-foreground truncate overflow-hidden py-1 px-2">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell className="py-1 px-2">
