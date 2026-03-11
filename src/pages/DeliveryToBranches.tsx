@@ -275,14 +275,14 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('summary.totalDeliveries')}</p>
           <p className="text-2xl font-heading font-bold mt-1">{deliveries.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Week (W{currentWeek})</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Week (W{currentWeek})</p>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
               <Truck className="w-4 h-4 text-primary" />
             </span>
           </div>
-          <p className="text-3xl font-heading font-bold mt-1">{thisWeekDeliveries.length}</p>
+          <p className="text-2xl font-heading font-bold mt-1">{thisWeekDeliveries.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-5">
           <div className="flex items-center justify-between">
