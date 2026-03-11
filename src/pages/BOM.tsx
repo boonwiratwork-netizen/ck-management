@@ -901,24 +901,24 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           }
                           return (
                             <TableRow key={ing.id} className="h-9">
-                              <TableCell className="text-[13px] font-mono py-2 px-3">
+                            <TableCell className="text-sm font-mono py-2 px-3">
                                 {rmSku?.skuId ?? '—'}
                               </TableCell>
-                              <TableCell className="text-[13px] truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
+                              <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? '—'}>
                                 {rmSku?.name ?? '—'}
                               </TableCell>
-                              <TableCell className="text-[13px] py-2 px-3">
-                                <Badge variant="outline" className="text-[10px]">
+                              <TableCell className="text-sm py-2 px-3">
+                                <Badge variant="outline" className="text-xs">
                                   {ing.qtyType === 'percent' ? `${((ing.percentOfInput || 0) * 100).toFixed(1)}%` : 'Fixed'}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">{ing.resolvedQty.toFixed(0)}g</TableCell>
-                              <TableCell className="text-[13px] py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
-                              <TableCell className="text-[13px] text-right font-mono py-2 px-3">
-                                {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-orange-500">—</span>}
+                              <TableCell className="text-sm text-right font-mono py-2 px-3">{ing.resolvedQty.toFixed(0)}g</TableCell>
+                              <TableCell className="text-sm py-2 px-3">{rmSku?.usageUom ?? '—'}</TableCell>
+                              <TableCell className="text-sm text-right font-mono py-2 px-3">
+                                {getActiveCost(ing.rmSkuId) > 0 ? `฿${getActiveCost(ing.rmSkuId).toFixed(4)}` : <span className="text-primary">—</span>}
                               </TableCell>
-                              <TableCell className="text-[13px] text-right font-mono font-medium py-2 px-3">
-                                {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-orange-500">—</span>}
+                              <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
+                                {ing.lineCost > 0 ? `฿${ing.lineCost.toFixed(2)}` : <span className="text-primary">—</span>}
                               </TableCell>
                               <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
