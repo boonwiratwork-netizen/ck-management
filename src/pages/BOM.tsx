@@ -669,22 +669,22 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mt-4">
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Batch Size</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Size</p>
               <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()}g</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Yield</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
               <p className="text-lg font-bold font-mono">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-[11px] uppercase text-muted-foreground">Output</p>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
               <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-primary/10">
-              <p className="text-[11px] uppercase text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
+            <div className="text-center p-4 rounded-lg bg-primary/10">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
               <p className="text-lg font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : simpleCostPerGram).toFixed(4)}</p>
-              {hasByproducts && <p className="text-[10px] text-muted-foreground mt-0.5">after by-product allocation</p>}
+              {hasByproducts && <p className="text-xs text-muted-foreground mt-0.5">after by-product allocation</p>}
             </div>
           </div>
         </CardContent>
