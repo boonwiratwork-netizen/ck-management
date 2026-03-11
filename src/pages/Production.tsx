@@ -58,7 +58,7 @@ function getSmartWeekStart(): string {
   if (day === 5 || day === 6) {
     const nextMon = new Date(today);
     nextMon.setDate(today.getDate() + (8 - day));
-    return nextMon.toISOString().slice(0, 10);
+    return toLocalDateStr(nextMon);
   }
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(today);
