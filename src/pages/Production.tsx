@@ -559,7 +559,7 @@ export default function ProductionPage({
                 return null;
               })()}
               {planLocked && savedWeek === weekNumber && (
-                <Badge variant="outline" className="text-[10px] text-success border-success/30 bg-success/5 whitespace-nowrap">
+                <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                   ✓ {t('prod.savedBadge')}
                 </Badge>
               )}
