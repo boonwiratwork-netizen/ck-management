@@ -347,7 +347,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
             <tbody>
               {drafts.map((draft, idx) => {
                 const weekNum = draft.deliveryDate ? getWeekNumber(draft.deliveryDate) : '';
-                const rowBg = draft.isNew ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-yellow-50 dark:bg-yellow-950/30';
+                const rowBg = draft.isNew ? 'bg-accent/50' : 'bg-warning/5';
                 return (
                   <tr key={draft.tempId} className={`border-b last:border-0 transition-colors ${rowBg}`}>
                     <td className={tdClass}>
