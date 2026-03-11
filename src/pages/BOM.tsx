@@ -576,7 +576,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <span className="text-xs text-muted-foreground">%</span>
           </div>
         ) : (
-          <Input type="number" className="h-8 w-24 text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
+          <Input type="number" className="h-8 w-full max-w-[80px] text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
             onChange={e => setLineForm(f => ({ ...f, qtyPerBatch: Number(e.target.value) }))} />
         )}
       </TableCell>
