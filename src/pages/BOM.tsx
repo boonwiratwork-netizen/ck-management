@@ -140,7 +140,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const simpleTotalCost = selectedHeader?.bomMode === 'simple'
     ? selectedLines.reduce((sum, l) => {
         const cost = getActiveCost(l.rmSkuId);
-        return sum + l.qtyPerBatch * cost;
+        const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
+        const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
+        return sum + effQty * cost;
       }, 0) : 0;
   const simpleCostPerGram = outputQty > 0 ? simpleTotalCost / outputQty : 0;
 
