@@ -386,12 +386,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     setDraggedStepId(null);
   };
 
-  // By-product actions
+  // By-product actions — mark dirty on any change
   const handleAddByproduct = async () => {
     if (!selectedHeaderId) return;
-    // Calculate default allocation
-    const existing = getByproductsForHeader(selectedHeaderId);
-    const totalOutput = mainProductOutput + existing.reduce((s, bp) => s + bp.outputQty, 0);
     await addByproduct({
       bomHeaderId: selectedHeaderId,
       skuId: null,
@@ -400,16 +397,23 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       costAllocationPct: 0,
       tracksInventory: false,
     });
+    setByproductsDirty(true);
   };
 
   const handleByproductOutputChange = async (bpId: string, newOutputQty: number) => {
     await updateByproduct(bpId, { outputQty: newOutputQty });
-    // Auto-rebalance allocations
     await autoRebalanceAllocations(bpId, undefined, newOutputQty);
+    setByproductsDirty(true);
   };
 
   const handleByproductPctChange = async (bpId: string, newPct: number) => {
     await updateByproduct(bpId, { costAllocationPct: newPct });
+    setByproductsDirty(true);
+  };
+
+  const handleByproductFieldChange = async (bpId: string, data: Partial<Omit<BomByproduct, 'id' | 'bomHeaderId'>>) => {
+    await updateByproduct(bpId, data);
+    setByproductsDirty(true);
   };
 
   const autoRebalanceAllocations = async (changedId?: string, changedPct?: number, changedOutput?: number) => {
@@ -417,7 +421,6 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     const bps = getByproductsForHeader(selectedHeaderId);
     if (bps.length === 0) return;
     
-    // Recalculate default allocations based on output proportions
     const totalBpOutput = bps.reduce((s, bp) => {
       const out = bp.id === changedId && changedOutput !== undefined ? changedOutput : bp.outputQty;
       return s + out;
@@ -438,8 +441,65 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
   const handleDeleteByproduct = async (bpId: string) => {
     await deleteByproduct(bpId);
-    await syncCurrentBomPrice();
+    setByproductsDirty(true);
   };
+
+  const handleSaveByproducts = async () => {
+    await syncCurrentBomPrice();
+    setByproductsDirty(false);
+    setByproductsSavedMsg(true);
+    setTimeout(() => setByproductsSavedMsg(false), 3000);
+  };
+
+  // Navigation guard for unsaved by-product changes
+  const trySelectHeader = (id: string) => {
+    if (byproductsDirty && id !== selectedHeaderId) {
+      setPendingNavHeaderId(id);
+      setShowUnsavedDialog(true);
+    } else {
+      setSelectedHeaderId(id);
+      setEditingHeader(false);
+      setAddingLine(false);
+      setEditingLineId(null);
+      setByproductsDirty(false);
+      setByproductsSavedMsg(false);
+    }
+  };
+
+  const confirmDiscardByproducts = () => {
+    setByproductsDirty(false);
+    setShowUnsavedDialog(false);
+    if (pendingNavHeaderId) {
+      setSelectedHeaderId(pendingNavHeaderId);
+      setEditingHeader(false);
+      setAddingLine(false);
+      setEditingLineId(null);
+      setPendingNavHeaderId(null);
+    }
+  };
+
+  const confirmSaveAndNav = async () => {
+    await handleSaveByproducts();
+    setShowUnsavedDialog(false);
+    if (pendingNavHeaderId) {
+      setSelectedHeaderId(pendingNavHeaderId);
+      setEditingHeader(false);
+      setAddingLine(false);
+      setEditingLineId(null);
+      setPendingNavHeaderId(null);
+    }
+  };
+
+  // Browser beforeunload guard
+  useEffect(() => {
+    if (!byproductsDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [byproductsDirty]);
 
   // Check if an SM SKU has its own BOM (for conflict warning)
   const skuHasOwnBom = (skuId: string | null): boolean => {
