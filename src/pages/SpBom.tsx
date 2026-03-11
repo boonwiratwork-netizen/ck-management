@@ -450,7 +450,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-xl font-heading font-bold">{selectedSp.name}</h3>
-                      <p className="text-[13px] text-muted-foreground mt-0.5">{selectedSp.skuId} · SP BOM</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{selectedSp.skuId} · SP BOM</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-center p-3 rounded-lg bg-muted/50 min-w-[120px]">
