@@ -334,7 +334,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <div className="max-h-60 overflow-y-auto py-1">
                 {filteredGroupedSuppliers.ck.length > 0 && (
                   <>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">CK Suppliers</div>
+                    <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">CK Suppliers</div>
                     {filteredGroupedSuppliers.ck.map(s => (
                       <button
                         key={s.id}
