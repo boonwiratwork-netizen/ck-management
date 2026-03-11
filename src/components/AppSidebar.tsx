@@ -172,7 +172,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold leading-tight truncate text-foreground">CK Manager</p>
-                  <p className="text-[10px] leading-tight text-sidebar-muted">by Live to Eat</p>
+                  <p className="text-helper leading-tight text-muted-foreground">by Live to Eat</p>
                 </div>
                 <button
                   onClick={toggleLang}
