@@ -130,7 +130,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                         {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
                       </td>
                       <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>{r.note}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(r)}>
                             <Pencil className="w-3.5 h-3.5" />
