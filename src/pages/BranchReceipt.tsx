@@ -752,9 +752,9 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </div>
             </>
           )}
-          <Button size="sm" variant="outline" onClick={handleAddAdHoc}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add row
-          </Button>
+          <button type="button" onClick={handleAddAdHoc} className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1">
+            <Plus className="w-3.5 h-3.5" /> + Add Row
+          </button>
         </div>
       )}
 
