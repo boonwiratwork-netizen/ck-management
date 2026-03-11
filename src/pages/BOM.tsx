@@ -620,7 +620,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             : lineForm.qtyPerBatch;
           const effQty = isMultiStep ? qty : calcEffQty(qty, lineForm.yieldPct);
           const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-orange-500">—</span>;
+          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-primary">—</span>;
         })() : '—'}
       </TableCell>
       <TableCell>
