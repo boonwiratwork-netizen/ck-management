@@ -63,12 +63,12 @@ function getSmartWeekStart(): string {
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(today);
   mon.setDate(today.getDate() + diff);
-  return mon.toISOString().slice(0, 10);
+  return toLocalDateStr(mon);
 }
 
 function getWeekEndDate(ws: string): string {
   const d = new Date(ws); d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 
 function getISOWeekNumber(dateStr: string): number {
