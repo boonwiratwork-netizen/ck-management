@@ -96,8 +96,8 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.supplierMaster')}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your suppliers and vendor information</p>
+          <h2 className="page-title">{t('title.supplierMaster')}</h2>
+          <p className="page-subtitle">Manage your suppliers and vendor information</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
