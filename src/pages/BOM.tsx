@@ -2,6 +2,7 @@ import { useState, useMemo, Fragment, useRef, useCallback } from 'react';
 import { SKU } from '@/types/sku';
 import { Price } from '@/types/price';
 import { BOMHeader, BOMLine, BOMStep, EMPTY_BOM_HEADER, BOMMode, IngredientQtyType } from '@/types/bom';
+import { BomByproduct, EMPTY_BYPRODUCT } from '@/types/byproduct';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
