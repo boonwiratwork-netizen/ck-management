@@ -43,6 +43,7 @@ interface ProductionPageProps {
   smStockBalances: SMStockBalance[];
   menuBomLines: MenuBomLine[];
   menus: Menu[];
+  bomByproducts: BomByproduct[];
 }
 
 function getSmartWeekStart(): string {
