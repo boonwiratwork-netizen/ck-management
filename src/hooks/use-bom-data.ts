@@ -71,7 +71,8 @@ export function useBomData() {
   const addLine = useCallback(async (data: Omit<BOMLine, 'id'>) => {
     const { data: row, error } = await supabase.from('bom_lines').insert({
       bom_header_id: data.bomHeaderId, rm_sku_id: data.rmSkuId,
-      qty_per_batch: data.qtyPerBatch, step_id: data.stepId ?? null,
+      qty_per_batch: data.qtyPerBatch, yield_percent: data.yieldPercent ?? 1.0,
+      step_id: data.stepId ?? null,
       qty_type: data.qtyType ?? null, percent_of_input: data.percentOfInput ?? null,
     }).select().single();
     if (error) { toast.error('Failed to add BOM line: ' + error.message); return; }
