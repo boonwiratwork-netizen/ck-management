@@ -668,7 +668,7 @@ export default function ProductionPage({
                       <tr
                         key={row.sku.id}
                         className={cn(
-                          'border-b hover:bg-muted/30 transition-colors',
+                          'border-b hover:bg-table-hover transition-colors',
                           isSufficient && 'opacity-60',
                           borderClass,
                         )}
