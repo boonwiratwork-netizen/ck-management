@@ -725,7 +725,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                               key={`adhoc-actual-${row.tempId}`}
                               onBlur={e => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
                               onFocus={e => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
                               placeholder="0.00"
                             />
                           </td>
