@@ -611,7 +611,7 @@ export default function ProductionPage({
             </div>
 
             {mode === 'planning' && !planLocked && (
-              <Button onClick={handleSavePlan} disabled={saving} size="sm" className="h-8">
+              <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
                 <Save className="w-3.5 h-3.5 mr-1" />
                 {saving ? t('prod.saving') : t('prod.savePlan')}
               </Button>
