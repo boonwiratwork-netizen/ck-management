@@ -248,9 +248,9 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
 
   const hasUnsaved = drafts.some(d => d.isEditing);
 
-  const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
+  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground';
   const tdClass = 'px-1.5 py-1';
-  const tdReadOnly = 'px-3 py-2.5 text-xs';
+  const tdReadOnly = 'px-3 py-2 text-sm';
 
   return (
     <div className="space-y-6">
