@@ -3,6 +3,7 @@ import { GoodsReceipt, getWeekNumber } from '@/types/goods-receipt';
 import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { Price } from '@/types/price';
+import { BOMLine } from '@/types/bom';
 import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -16,7 +17,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Save, Plus, Trash2, Pencil, Check, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Save, Plus, Trash2, Pencil, Check, CheckCircle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -28,6 +29,7 @@ interface Props {
   skus: SKU[];
   suppliers: Supplier[];
   prices: Price[];
+  bomLines?: BOMLine[];
 }
 
 interface RowEdit {
@@ -45,7 +47,7 @@ interface AdHocRow {
   note: string;
 }
 
-export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices }: Props) {
+export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices, bomLines = [] }: Props) {
   const { receipts, addReceipt, deleteReceipt } = receiptData;
   const { t } = useLanguage();
 
@@ -56,6 +58,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSupplierId, setPendingSupplierId] = useState<string>('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
 
   // History filters
   const [histSearch, setHistSearch] = useState('');
@@ -69,7 +74,47 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s])), [suppliers]);
   const activeSuppliers = useMemo(() => suppliers.filter(s => s.status === 'Active'), [suppliers]);
 
-  // Pre-loaded SKUs for selected supplier from active Price Master
+  // BOM ingredient SKU IDs — SKUs that appear in any bom_lines
+  const bomIngredientSkuIds = useMemo(() => {
+    return new Set(bomLines.map(l => l.rmSkuId));
+  }, [bomLines]);
+
+  // CK supplier IDs — suppliers with at least one SKU in BOM ingredients in active prices
+  const ckSupplierIds = useMemo(() => {
+    const ids = new Set<string>();
+    prices.filter(p => p.isActive && bomIngredientSkuIds.has(p.skuId)).forEach(p => ids.add(p.supplierId));
+    return ids;
+  }, [prices, bomIngredientSkuIds]);
+
+  // Grouped suppliers for searchable dropdown
+  const groupedSuppliers = useMemo(() => {
+    const ckGroup = activeSuppliers.filter(s => ckSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const otherGroup = activeSuppliers.filter(s => !ckSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    return { ck: ckGroup, other: otherGroup };
+  }, [activeSuppliers, ckSupplierIds]);
+
+  // Filter suppliers by search
+  const filteredGroupedSuppliers = useMemo(() => {
+    const q = supplierSearch.toLowerCase();
+    if (!q) return groupedSuppliers;
+    return {
+      ck: groupedSuppliers.ck.filter(s => s.name.toLowerCase().includes(q)),
+      other: groupedSuppliers.other.filter(s => s.name.toLowerCase().includes(q)),
+    };
+  }, [groupedSuppliers, supplierSearch]);
+
+  // Close supplier dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (supplierDropdownRef.current && !supplierDropdownRef.current.contains(e.target as Node)) {
+        setSupplierDropdownOpen(false);
+      }
+    };
+    if (supplierDropdownOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [supplierDropdownOpen]);
+
+  // Pre-loaded SKUs for selected supplier from active Price Master, filtered to BOM ingredients
   const preloadedRows = useMemo(() => {
     if (!supplierId) return [];
     const activePrices = prices.filter(p => p.supplierId === supplierId && p.isActive);
@@ -77,11 +122,13 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       .map(p => {
         const sku = skuMap[p.skuId];
         if (!sku || sku.type !== 'RM') return null;
+        // FIX 2: Only include SKUs that are BOM ingredients
+        if (!bomIngredientSkuIds.has(p.skuId)) return null;
         return { priceId: p.id, skuId: p.skuId, sku, stdUnitPrice: p.pricePerUsageUom };
       })
       .filter(Boolean)
       .sort((a, b) => a!.sku.skuId.localeCompare(b!.sku.skuId)) as { priceId: string; skuId: string; sku: SKU; stdUnitPrice: number }[];
-  }, [supplierId, prices, skuMap]);
+  }, [supplierId, prices, skuMap, bomIngredientSkuIds]);
 
   const selectedSupplier = supplierMap[supplierId];
 
@@ -100,6 +147,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
       setAdHocRows([]);
       setSavedCount(null);
     }
+    setSupplierDropdownOpen(false);
+    setSupplierSearch('');
   }, [supplierId, hasAnyQty]);
 
   const confirmSupplierChange = useCallback(() => {
@@ -256,15 +305,75 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
             </PopoverContent>
           </Popover>
         </div>
-        <div>
+        {/* FIX 3: Searchable grouped supplier dropdown */}
+        <div className="relative" ref={supplierDropdownRef}>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Supplier</label>
-          <Select value={supplierId || '_none'} onValueChange={v => handleSupplierChange(v === '_none' ? '' : v)}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-            <SelectContent className="max-h-60">
-              <SelectItem value="_none">— Select supplier —</SelectItem>
-              {activeSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <button
+            type="button"
+            onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
+            className={cn(
+              'flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors',
+              !supplierId && 'text-muted-foreground'
+            )}
+          >
+            <span className="truncate">{selectedSupplier?.name || '— Select supplier —'}</span>
+            <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
+          </button>
+          {supplierDropdownOpen && (
+            <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
+              <div className="p-2 border-b">
+                <input
+                  type="text"
+                  value={supplierSearch}
+                  onChange={e => setSupplierSearch(e.target.value)}
+                  placeholder="Search supplier..."
+                  className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto py-1">
+                {filteredGroupedSuppliers.ck.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">CK Suppliers</div>
+                    {filteredGroupedSuppliers.ck.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleSupplierChange(s.id)}
+                        className={cn(
+                          'w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors',
+                          s.id === supplierId && 'bg-accent font-medium'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {filteredGroupedSuppliers.other.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Other Suppliers</div>
+                    {filteredGroupedSuppliers.other.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleSupplierChange(s.id)}
+                        className={cn(
+                          'w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors',
+                          s.id === supplierId && 'bg-accent font-medium'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
+                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -309,7 +418,16 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                   <th className={thClass}>Supplier</th>
                   <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>QTY</th>
                   <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Actual ฿</th>
+                  <th className={`${thClass} text-right`}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">Actual ฿</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p>Verify actual price paid</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
                   <th className={`${thClass} text-right`}>Unit ฿</th>
                   <th className={`${thClass} text-right`}>Std ฿</th>
                   <th className={`${thClass} text-right`}>Std Tot</th>
@@ -325,13 +443,16 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                   const unitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
                   const variance = actualTotal - stdTotal;
                   const hasQty = edit.qty > 0;
+                  const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
 
                   return (
                     <tr
                       key={row.skuId}
                       className={cn(
                         'border-b last:border-0 transition-colors',
-                        hasQty ? 'border-l-2 border-l-success' : 'opacity-50'
+                        hasQty
+                          ? 'bg-green-50 dark:bg-green-950/20 border-l-4 border-l-green-500'
+                          : 'opacity-40'
                       )}
                     >
                       <td className={`${tdReadOnly} text-muted-foreground`}>{dateStr}</td>
@@ -341,8 +462,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate">
-                                <span className="font-mono text-[10px] text-muted-foreground">{row.sku.skuId}</span>
-                                <span className="ml-1">{row.sku.name}</span>
+                                <span className={cn("font-mono text-[10px]", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
+                                <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>{row.sku.name}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent side="top"><p className="font-medium">{row.sku.skuId} — {row.sku.name}</p></TooltipContent>
@@ -366,27 +487,40 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                             });
                           }}
                           onFocus={e => e.target.select()}
-                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none"
+                          className={cn(
+                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
+                            hasQty ? "border-green-400 font-bold text-green-700 dark:text-green-400" : "border-primary/30"
+                          )}
                           placeholder="0"
                         />
                       </td>
                       <td className={`${tdReadOnly} text-center text-muted-foreground`}>{row.sku.purchaseUom}</td>
                       <td className="px-1 py-1">
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          defaultValue={actualTotal || ''}
-                          key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? 'manual' : 'auto'}-${savedCount}`}
-                          tabIndex={-1}
-                          onBlur={e => {
-                            const val = Number(e.target.value) || 0;
-                            updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
-                          }}
-                          onFocus={e => e.target.select()}
-                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                          placeholder="0.00"
-                        />
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={0}
+                            step="any"
+                            defaultValue={actualTotal || ''}
+                            key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? 'manual' : 'auto'}-${savedCount}`}
+                            tabIndex={-1}
+                            onBlur={e => {
+                              const val = Number(e.target.value) || 0;
+                              updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
+                            }}
+                            onFocus={e => e.target.select()}
+                            className={cn(
+                              "h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md outline-none",
+                              hasQty && !actualMatchesStd
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 focus:border-amber-500"
+                                : "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary"
+                            )}
+                            placeholder="0.00"
+                          />
+                          {hasQty && actualMatchesStd && (
+                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground bg-muted/80 px-1 rounded">= STD</span>
+                          )}
+                        </div>
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                         {unitPrice > 0 ? unitPrice.toFixed(2) : '—'}
@@ -397,9 +531,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                         {stdTotal > 0 ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                       </td>
-                      <td className={`${tdReadOnly} text-right font-mono font-semibold ${
+                      <td className={cn(
+                        `${tdReadOnly} text-right font-mono`,
+                        hasQty && variance !== 0 ? 'font-bold' : 'font-semibold',
                         variance < 0 ? 'text-success' : variance > 0 ? 'text-destructive' : 'text-muted-foreground'
-                      }`}>
+                      )}>
                         {hasQty ? (
                           <>{variance > 0 ? '+' : ''}{variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                         ) : '—'}
@@ -483,7 +619,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices 
                               key={`adhoc-actual-${row.tempId}`}
                               onBlur={e => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
                               onFocus={e => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary outline-none"
                               placeholder="0.00"
                             />
                           </td>
