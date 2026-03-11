@@ -402,6 +402,7 @@ const Index = () => {
                   bomLines={bomData.lines}
                   bomSteps={bomData.steps}
                   smStockBalances={smStockData.stockBalances}
+                  isStockDataReady={smStockData.isStockDataReady}
                   menuBomLines={menuBomData.lines}
                   menus={menuData.menus}
                   bomByproducts={byproductData.byproducts}
