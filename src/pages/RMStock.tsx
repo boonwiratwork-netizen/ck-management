@@ -3,10 +3,12 @@ import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
 import { StockBalance, StockAdjustment } from '@/types/stock';
+import { BOMHeader, BOMLine } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
 import { Pencil, SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { toast } from 'sonner';
@@ -22,20 +24,38 @@ interface Props {
     getLastReceiptDate: (skuId: string) => string | null;
     openingStocks: Record<string, number>;
   };
+  bomHeaders: BOMHeader[];
+  bomLines: BOMLine[];
 }
 
-export default function RMStockPage({ skus, stockData }: Props) {
+export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: Props) {
   const { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks } = stockData;
   const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStorage, setFilterStorage] = useState<string>('all');
+  const [ckItemsOnly, setCkItemsOnly] = useState(true);
   const [adjustModal, setAdjustModal] = useState<{ skuId: string; skuName: string; usageUom: string; currentStock: number } | null>(null);
   const [editingOpening, setEditingOpening] = useState<string | null>(null);
   const [openingValue, setOpeningValue] = useState('');
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
+
+  // Derive CK RM SKU IDs: RM SKUs that appear as ingredients in BOMs where parent SM SKU is Active
+  const ckRmSkuIds = useMemo(() => {
+    const activeSmSkuIds = new Set(
+      skus.filter(s => s.type === 'SM' && s.status === 'Active').map(s => s.id)
+    );
+    const activeHeaderIds = new Set(
+      bomHeaders.filter(h => activeSmSkuIds.has(h.smSkuId)).map(h => h.id)
+    );
+    const rmIds = new Set<string>();
+    bomLines.forEach(l => {
+      if (activeHeaderIds.has(l.bomHeaderId)) rmIds.add(l.rmSkuId);
+    });
+    return rmIds;
+  }, [skus, bomHeaders, bomLines]);
 
   type RMRow = { sku: SKU; balance: any; stdUnit: number; lastDate: string | null; currentStock: number; opening: number; stockValue: number; healthStatus: 'red' | 'yellow' | 'green' };
 
