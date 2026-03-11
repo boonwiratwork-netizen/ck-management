@@ -333,9 +333,9 @@ export default function ProductionPage({
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [smSkus, bomHeaders, totalForecast, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
 
-  // Initialize suggested batches (only once when no saved plan exists)
+  // Initialize suggested batches (only once when no saved plan exists AND stock data is ready)
   useEffect(() => {
-    if (suggestedInitialized || planLocked) return;
+    if (suggestedInitialized || planLocked || !isStockDataReady) return;
     // If planBatches is empty and rows have suggestions, pre-fill
     const hasSaved = Object.keys(planBatches).length > 0;
     if (!hasSaved && rows.length > 0) {
@@ -350,7 +350,7 @@ export default function ProductionPage({
       }
       setSuggestedInitialized(true);
     }
-  }, [rows, planLocked, suggestedInitialized, planBatches]);
+  }, [rows, planLocked, suggestedInitialized, planBatches, isStockDataReady]);
 
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);
