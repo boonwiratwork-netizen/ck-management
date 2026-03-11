@@ -63,7 +63,7 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
 
-  const currentWeek = getWeekNumber(new Date().toISOString().slice(0, 10));
+  const currentWeek = getWeekNumber(toLocalDateStr(new Date()));
   const thisWeekDeliveries = useMemo(
     () => deliveries.filter(d => d.weekNumber === currentWeek),
     [deliveries, currentWeek]
