@@ -696,7 +696,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     {adHocRows.map(row => {
                       const sku = skuMap[row.skuId];
                       return (
-                        <tr key={row.tempId} className="border-b last:border-0 bg-blue-50 dark:bg-blue-950/30">
+                        <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
                           <td className="px-1 py-1">
                             <SearchableSelect
                               value={row.skuId}
