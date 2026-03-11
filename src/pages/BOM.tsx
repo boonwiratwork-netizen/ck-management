@@ -785,8 +785,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-heading font-bold">{getSkuName(selectedHeader!.smSkuId)}</h3>
-              <p className="text-[13px] text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
+              <h3 className="text-lg font-heading font-semibold">{getSkuName(selectedHeader!.smSkuId)}</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{getSkuCode(selectedHeader!.smSkuId)} · {selectedHeader!.productionType} · Multi-step BOM</p>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={handleEditHeader}>
