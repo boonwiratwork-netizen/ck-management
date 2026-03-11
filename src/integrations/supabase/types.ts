@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      bom_byproducts: {
+        Row: {
+          bom_header_id: string
+          cost_allocation_pct: number
+          created_at: string
+          id: string
+          name: string
+          output_qty: number
+          sku_id: string | null
+          tracks_inventory: boolean
+          updated_at: string
+        }
+        Insert: {
+          bom_header_id: string
+          cost_allocation_pct?: number
+          created_at?: string
+          id?: string
+          name?: string
+          output_qty?: number
+          sku_id?: string | null
+          tracks_inventory?: boolean
+          updated_at?: string
+        }
+        Update: {
+          bom_header_id?: string
+          cost_allocation_pct?: number
+          created_at?: string
+          id?: string
+          name?: string
+          output_qty?: number
+          sku_id?: string | null
+          tracks_inventory?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_byproducts_bom_header_id_fkey"
+            columns: ["bom_header_id"]
+            isOneToOne: false
+            referencedRelation: "bom_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_byproducts_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bom_headers: {
         Row: {
           batch_size: number
