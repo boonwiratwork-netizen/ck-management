@@ -319,8 +319,6 @@ export default function ProductionPage({
         const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
 
         const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
-        // Status dot: if no plan entered yet, use coverNow; else coverAfter
-        const coverAfterColor = getCoverColor(plannedBatches > 0 ? coverAfter : coverNow, target, dailyNeed);
 
         return {
           sku, hasBom, forecastWeek, dailyNeed, stockNow, target,
