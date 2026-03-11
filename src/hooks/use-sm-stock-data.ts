@@ -30,22 +30,26 @@ export function useSmStockData(
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
+  const [isStockDataReady, setIsStockDataReady] = useState(false);
 
   useEffect(() => {
-    supabase.from('stock_opening_balances').select('*')
-      .then(({ data }) => {
-        if (data) {
-          const map: Record<string, number> = {};
-          data.forEach((r: any) => { map[r.sku_id] = r.quantity; });
-          setOpeningStocksState(map);
-        }
-      });
-    supabase.from('stock_adjustments').select('*').eq('stock_type', 'SM').order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setAdjustments(data.map((r: any) => ({
+    setIsStockDataReady(false);
+    Promise.all([
+      supabase.from('stock_opening_balances').select('*'),
+      supabase.from('stock_adjustments').select('*').eq('stock_type', 'SM').order('created_at', { ascending: false }),
+    ]).then(([obRes, adjRes]) => {
+      if (obRes.data) {
+        const map: Record<string, number> = {};
+        obRes.data.forEach((r: any) => { map[r.sku_id] = r.quantity; });
+        setOpeningStocksState(map);
+      }
+      if (adjRes.data) {
+        setAdjustments(adjRes.data.map((r: any) => ({
           id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason,
         })));
-      });
+      }
+      setIsStockDataReady(true);
+    });
   }, []);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
@@ -135,5 +139,5 @@ export function useSmStockData(
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
   }, [productionRecords]);
 
-  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks };
+  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady };
 }

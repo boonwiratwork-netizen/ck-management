@@ -43,6 +43,7 @@ interface ProductionPageProps {
   bomLines: BOMLine[];
   bomSteps: BOMStep[];
   smStockBalances: SMStockBalance[];
+  isStockDataReady: boolean;
   menuBomLines: MenuBomLine[];
   menus: Menu[];
   bomByproducts: BomByproduct[];
@@ -126,7 +127,7 @@ function getCoverColor(cover: number, target: number, dailyNeed: number): 'red' 
 }
 
 export default function ProductionPage({
-  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, menuBomLines, menus, bomByproducts,
+  productionData, skus, bomHeaders, stockBalances, bomLines, bomSteps, smStockBalances, isStockDataReady, menuBomLines, menus, bomByproducts,
 }: ProductionPageProps) {
   const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
@@ -332,9 +333,9 @@ export default function ProductionPage({
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [smSkus, bomHeaders, totalForecast, smStockBalances, planBatches, skuTargets, globalTarget, getOutputPerBatch, weekRecordsBySku]);
 
-  // Initialize suggested batches (only once when no saved plan exists)
+  // Initialize suggested batches (only once when no saved plan exists AND stock data is ready)
   useEffect(() => {
-    if (suggestedInitialized || planLocked) return;
+    if (suggestedInitialized || planLocked || !isStockDataReady) return;
     // If planBatches is empty and rows have suggestions, pre-fill
     const hasSaved = Object.keys(planBatches).length > 0;
     if (!hasSaved && rows.length > 0) {
@@ -349,7 +350,7 @@ export default function ProductionPage({
       }
       setSuggestedInitialized(true);
     }
-  }, [rows, planLocked, suggestedInitialized, planBatches]);
+  }, [rows, planLocked, suggestedInitialized, planBatches, isStockDataReady]);
 
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);
@@ -610,7 +611,7 @@ export default function ProductionPage({
             </div>
 
             {mode === 'planning' && !planLocked && (
-              <Button onClick={handleSavePlan} disabled={saving} size="sm" className="h-8">
+              <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
                 <Save className="w-3.5 h-3.5 mr-1" />
                 {saving ? t('prod.saving') : t('prod.savePlan')}
               </Button>
@@ -721,7 +722,9 @@ export default function ProductionPage({
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
-                          {planLocked ? (
+                          {!isStockDataReady && !planLocked ? (
+                            <div className="h-8 flex items-center justify-center text-muted-foreground font-mono text-sm">...</div>
+                          ) : planLocked ? (
                             <div className="h-8 flex items-center justify-center font-semibold font-mono">
                               {row.plannedBatches || '—'}
                             </div>
