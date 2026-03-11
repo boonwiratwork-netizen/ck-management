@@ -12,9 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, ClipboardList, FlaskConical, DollarSign, ArrowRight, Maximize2, Minimize2, GripVertical, Search, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { syncBomPrice, cascadeBomCost, computeBomCostFromDb } from '@/lib/bom-price-sync';
+import { syncBomPrice, cascadeBomCost, computeBomCostFromDb, syncByproductPrices } from '@/lib/bom-price-sync';
 import { useLanguage } from '@/hooks/use-language';
 
 interface BOMPageProps {
