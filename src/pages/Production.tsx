@@ -722,7 +722,9 @@ export default function ProductionPage({
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
-                          {planLocked ? (
+                          {!isStockDataReady && !planLocked ? (
+                            <div className="h-8 flex items-center justify-center text-muted-foreground font-mono text-sm">...</div>
+                          ) : planLocked ? (
                             <div className="h-8 flex items-center justify-center font-semibold font-mono">
                               {row.plannedBatches || '—'}
                             </div>
