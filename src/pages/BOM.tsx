@@ -694,10 +694,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           )}
         </CardContent>
       </Card>
+      {renderByproductsSection()}
     </>
   );
-
-  // Render multi-step BOM
   const renderMultiStepBOM = () => (
     <>
       <Card>
