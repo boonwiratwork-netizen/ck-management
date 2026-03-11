@@ -642,7 +642,20 @@ export default function ProductionPage({
                         ? <span className="text-muted-foreground italic">No BOM</span>
                         : !row.hasSalesData
                           ? <span className="text-muted-foreground italic">No data</span>
-                          : <>{row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-xs">{uom}</span></>}
+                          : <>
+                              {row.forecastWeek.toFixed(0)} <span className="text-muted-foreground text-xs">{uom}</span>
+                              {row.indirectParentCount > 0 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="ml-1 text-primary cursor-help">ⓘ</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p>Includes indirect demand from {row.indirectParentCount} parent SM(s)</p>
+                                    <p className="text-xs text-muted-foreground">Indirect: {row.indirectDemand.toFixed(0)} {uom}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </>}
                     </td>
 
                     {/* /Day */}
