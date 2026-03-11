@@ -1072,7 +1072,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                           className="h-8 w-full text-xs text-right font-mono"
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">%</span>
+                      <span className="text-xs text-muted-foreground shrink-0">%</span>
 
                       {/* Cost ฿ read-only */}
                       <div className="shrink-0 w-20 text-right">
