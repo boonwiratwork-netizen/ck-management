@@ -7,6 +7,7 @@ import { StockCountSession, StockCountLine } from '@/types/stock-count';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
@@ -267,11 +268,11 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Date</label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="h-8 text-xs w-[150px]"
+              <DatePicker
+                value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
+                onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+                defaultToday
+                align="start"
               />
             </div>
 

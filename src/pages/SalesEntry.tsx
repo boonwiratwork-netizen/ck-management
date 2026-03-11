@@ -6,6 +6,7 @@ import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -442,13 +443,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             <CardContent className="pt-0">
               <div className="flex items-end gap-2 flex-wrap">
                 {/* Date */}
-                <div className="w-36">
+                <div className="w-[200px]">
                   <label className="text-xs text-muted-foreground">Date</label>
-                  <Input
-                    type="date"
-                    value={manualDate}
-                    onChange={e => setManualDate(e.target.value)}
-                    tabIndex={1}
+                  <DatePicker
+                    value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
+                    onChange={d => setManualDate(d ? d.toISOString().slice(0, 10) : '')}
+                    defaultToday
+                    align="start"
                   />
                 </div>
 
@@ -585,11 +586,21 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             )}
             <div>
               <label className="text-xs text-muted-foreground">From</label>
-              <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-40" />
+              <DatePicker
+                value={filterDateFrom ? new Date(filterDateFrom + 'T00:00:00') : undefined}
+                onChange={d => setFilterDateFrom(d ? d.toISOString().slice(0, 10) : '')}
+                placeholder="From date"
+                align="start"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">To</label>
-              <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-40" />
+              <DatePicker
+                value={filterDateTo ? new Date(filterDateTo + 'T00:00:00') : undefined}
+                onChange={d => setFilterDateTo(d ? d.toISOString().slice(0, 10) : '')}
+                placeholder="To date"
+                align="start"
+              />
             </div>
             <Button variant="outline" onClick={handleApplyFilter}>{t('btn.apply')}</Button>
           </div>

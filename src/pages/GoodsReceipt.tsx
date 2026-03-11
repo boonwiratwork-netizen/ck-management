@@ -11,13 +11,12 @@ import { SearchInput } from '@/components/SearchInput';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Save, Plus, Trash2, Pencil, Check, CheckCircle, Search } from 'lucide-react';
+import { Save, Plus, Trash2, Pencil, Check, CheckCircle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -293,17 +292,12 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Date</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn('w-[160px] justify-start text-left font-normal', !receiptDate && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(receiptDate, 'PPP')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={receiptDate} onSelect={d => d && setReceiptDate(d)} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            value={receiptDate}
+            onChange={d => d && setReceiptDate(d)}
+            defaultToday
+            align="start"
+          />
         </div>
         {/* FIX 3: Searchable grouped supplier dropdown */}
         <div className="relative" ref={supplierDropdownRef}>

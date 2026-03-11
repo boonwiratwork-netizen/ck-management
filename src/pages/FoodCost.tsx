@@ -3,13 +3,12 @@ import { useLanguage } from '@/hooks/use-language';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { CalendarIcon, Calculator, TrendingDown, TrendingUp, Download } from 'lucide-react';
+import { Calculator, TrendingDown, TrendingUp, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UnitLabel } from '@/components/ui/unit-label';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend } from 'recharts';
@@ -439,32 +438,22 @@ export default function FoodCostPage({
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">From</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(dateFrom, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateFrom} onSelect={d => { if (d) { setDateFrom(d); setPreset('custom'); } }} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={dateFrom}
+                onChange={d => { if (d) { setDateFrom(d); setPreset('custom'); } }}
+                placeholder="From date"
+                align="start"
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">To</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(dateTo, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateTo} onSelect={d => { if (d) { setDateTo(d); setPreset('custom'); } }} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={dateTo}
+                onChange={d => { if (d) { setDateTo(d); setPreset('custom'); } }}
+                placeholder="To date"
+                align="start"
+              />
             </div>
 
             <div className="space-y-1">

@@ -8,6 +8,7 @@ import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { Save, Truck, TrendingUp, Plus, Copy, Check, X, Trash2, Pencil, Search, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
@@ -351,7 +352,13 @@ export default function DeliveryToBranchesPage({ deliveryData, skus, activeBranc
                 return (
                   <tr key={draft.tempId} className={`border-b last:border-0 transition-colors ${rowBg}`}>
                     <td className={tdClass}>
-                      <Input type="date" value={draft.deliveryDate} onChange={e => handleUpdateDraft(draft.tempId, 'deliveryDate', e.target.value)} className="h-8 text-xs w-[130px]" />
+                      <DatePicker
+                        value={draft.deliveryDate ? new Date(draft.deliveryDate + 'T00:00:00') : undefined}
+                        onChange={d => handleUpdateDraft(draft.tempId, 'deliveryDate', d ? d.toISOString().slice(0, 10) : '')}
+                        defaultToday
+                        align="start"
+                        className="min-w-[140px]"
+                      />
                     </td>
                     <td className={`${tdClass} text-center text-xs font-mono text-muted-foreground`}>{weekNum}</td>
                     <td className={tdClass}>

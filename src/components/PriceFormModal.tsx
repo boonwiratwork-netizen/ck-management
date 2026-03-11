@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -238,11 +239,11 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
               {/* Effective Date */}
               <div>
                 <Label>Effective Date *</Label>
-                <Input
-                  type="date"
-                  required
-                  value={form.effectiveDate}
-                  onChange={e => update('effectiveDate', e.target.value)}
+                <DatePicker
+                  value={form.effectiveDate ? new Date(form.effectiveDate + 'T00:00:00') : undefined}
+                  onChange={d => update('effectiveDate', d ? d.toISOString().slice(0, 10) : '')}
+                  defaultToday
+                  align="start"
                 />
               </div>
 

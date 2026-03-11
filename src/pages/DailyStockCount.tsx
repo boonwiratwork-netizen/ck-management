@@ -9,6 +9,7 @@ import { SpBomLine } from '@/types/sp-bom';
 import { Menu } from '@/types/menu';
 import { Branch } from '@/types/branch';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -167,11 +168,11 @@ export default function DailyStockCountPage({
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label className="text-xs text-muted-foreground label-required">Date</label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="w-44"
+              <DatePicker
+                value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
+                onChange={d => setSelectedDate(d ? d.toISOString().slice(0, 10) : today)}
+                defaultToday
+                align="start"
               />
             </div>
             <div>

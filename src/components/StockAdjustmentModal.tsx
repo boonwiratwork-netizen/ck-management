@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface Props {
   open: boolean;
@@ -57,7 +58,12 @@ export function StockAdjustmentModal({ open, onClose, skuName, skuId, usageUom, 
             </div>
             <div>
               <Label>Date</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <DatePicker
+                value={date ? new Date(date + 'T00:00:00') : undefined}
+                onChange={d => setDate(d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))}
+                defaultToday
+                align="start"
+              />
             </div>
           </div>
           <div>
