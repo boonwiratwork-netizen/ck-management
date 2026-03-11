@@ -474,8 +474,10 @@ export default function ProductionPage({
   };
 
   // Summary
-  const onTargetCount = displayRows.filter(r => r.hasBom && r.hasSalesData && r.coverAfter >= r.target).length;
-  const totalValidCount = displayRows.filter(r => r.hasBom && r.hasSalesData).length;
+  // On-target badge: only rows with BOM AND forecast > 0
+  const validRows = displayRows.filter(r => r.hasBom && r.hasSalesData && r.forecastWeek > 0);
+  const onTargetCount = validRows.filter(r => r.coverAfter >= r.target).length;
+  const totalValidCount = validRows.length;
   const allOnTarget = onTargetCount === totalValidCount && totalValidCount > 0;
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
