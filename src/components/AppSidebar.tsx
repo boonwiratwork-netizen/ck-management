@@ -202,7 +202,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 <div className="my-2 mx-3 border-t-2 border-sidebar-border" />
               )}
               <SidebarGroup className="py-1">
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.08em] text-sidebar-section font-semibold px-3 mb-1 flex items-center gap-1.5">
+                <SidebarGroupLabel className="text-helper uppercase tracking-wider text-muted-foreground font-semibold px-3 mb-1 flex items-center gap-1.5">
                   {group.icon && !collapsed && (
                     <group.icon className="w-3 h-3" />
                   )}
