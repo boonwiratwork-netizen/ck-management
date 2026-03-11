@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ProductionPlan, ProductionRecord, PlanStatus, getWeekStart, getWeekEnd, getISOWeekNumber } from '@/types/production';
-import { BOMHeader, BOMLine } from '@/types/bom';
+import { BOMHeader, BOMLine, BOMStep } from '@/types/bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
