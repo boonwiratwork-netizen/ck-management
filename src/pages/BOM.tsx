@@ -583,9 +583,17 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       <TableCell className="text-xs">{lineForm.rmSkuId ? getSkuById(lineForm.rmSkuId)?.usageUom : '—'}</TableCell>
       {!isMultiStep && (
         <>
-          <TableCell>
-            <Input type="number" className="h-8 w-16 text-xs text-right font-mono" value={lineForm.yieldPct}
-              onChange={e => setLineForm(f => ({ ...f, yieldPct: Number(e.target.value) || 100 }))} />
+          <TableCell className="overflow-hidden">
+            <Input type="number" className="h-8 w-full max-w-[64px] text-xs text-right font-mono" value={lineForm.yieldPct}
+              onChange={e => {
+                const v = Number(e.target.value);
+                setLineForm(f => ({ ...f, yieldPct: v || 0 }));
+              }}
+              onBlur={e => {
+                let v = Number(e.target.value);
+                if (v < 0.01 || v > 100 || isNaN(v)) v = 100;
+                setLineForm(f => ({ ...f, yieldPct: v }));
+              }} />
           </TableCell>
           <TableCell className="text-xs text-right font-mono">
             {lineForm.rmSkuId ? calcEffQty(lineForm.qtyPerBatch, lineForm.yieldPct).toFixed(2) : '—'}
