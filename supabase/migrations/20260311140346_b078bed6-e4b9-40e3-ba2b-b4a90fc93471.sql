@@ -1,0 +1,1 @@
+ALTER TABLE public.bom_lines ADD COLUMN yield_percent numeric NOT NULL DEFAULT 1.0;
