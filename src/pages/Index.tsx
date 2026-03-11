@@ -127,11 +127,12 @@ const Index = () => {
   const supplierData = useSupplierData();
   const priceData = usePriceData();
   const bomData = useBomData();
+  const byproductData = useByproductData();
   const receiptData = useGoodsReceiptData();
   const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps);
   const deliveryData = useDeliveryData();
-  const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps);
+  const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps, byproductData.byproducts);
   const branchData = useBranchData();
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
