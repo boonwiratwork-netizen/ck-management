@@ -1130,7 +1130,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <div className="border-t pt-3 flex items-center justify-between">
               <div>
                 {byproductsSavedMsg && (
-                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                  <span className="text-xs text-success font-medium flex items-center gap-1">
                     <Check className="w-3.5 h-3.5" /> By-products saved ✓
                   </span>
                 )}
