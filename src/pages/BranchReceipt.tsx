@@ -569,7 +569,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate">
-                                <span className={cn("font-mono text-[10px]", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
+                                <span className={cn("font-mono text-xs", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
                                 <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>{row.sku.name}</span>
                               </div>
                             </TooltipTrigger>
