@@ -4,6 +4,7 @@ import { SKU } from '@/types/sku';
 import { Supplier } from '@/types/supplier';
 import { BOMHeader } from '@/types/bom';
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalDateStr } from '@/lib/utils';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';

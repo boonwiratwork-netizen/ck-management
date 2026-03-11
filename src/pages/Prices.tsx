@@ -11,6 +11,7 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/C
 import { Button } from '@/components/ui/button';
 import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { toLocalDateStr } from '@/lib/utils';
 import { isBomPrice } from '@/lib/bom-price-sync';
 import { useLanguage } from '@/hooks/use-language';
 
