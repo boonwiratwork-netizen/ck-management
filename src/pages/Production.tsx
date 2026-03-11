@@ -972,7 +972,7 @@ export default function ProductionPage({
       <Dialog open={recordModalOpen} onOpenChange={setRecordModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('prod.recordTitle')}</DialogTitle>
+            <DialogTitle>{editingRecordId ? t('prod.editRecordTitle') : t('prod.recordTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
