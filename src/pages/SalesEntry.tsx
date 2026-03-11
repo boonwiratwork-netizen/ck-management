@@ -446,7 +446,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                 <div className="w-[200px]">
                   <DatePicker
                     value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
-                    onChange={d => setManualDate(d ? d.toISOString().slice(0, 10) : '')}
+                    onChange={d => setManualDate(d ? toLocalDateStr(d) : '')}
                     defaultToday
                     label="Date"
                     required
