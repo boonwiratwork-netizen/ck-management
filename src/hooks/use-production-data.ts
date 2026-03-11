@@ -42,8 +42,27 @@ export function useProductionData(
   const getOutputPerBatch = useCallback((smSkuId: string): number => {
     const header = bomHeaders.find(h => h.smSkuId === smSkuId);
     if (!header) return 0;
+
+    if (header.bomMode === 'multistep') {
+      const steps = bomSteps.filter(s => s.bomHeaderId === header.id).sort((a, b) => a.stepNumber - b.stepNumber);
+      if (steps.length === 0) return header.batchSize * header.yieldPercent;
+      const lines = bomLines.filter(l => l.bomHeaderId === header.id);
+      let prevOutput = 0;
+      steps.forEach((step, idx) => {
+        const sLines = lines.filter(l => l.stepId === step.id);
+        const inputQty = idx === 0 ? sLines.reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
+        const addedQty = idx === 0 ? 0 : sLines.reduce((s, l) => {
+          if (l.qtyType === 'percent' && l.percentOfInput) return s + l.percentOfInput * inputQty;
+          return s + l.qtyPerBatch;
+        }, 0);
+        const effectiveInput = idx === 0 ? inputQty : inputQty + addedQty;
+        prevOutput = effectiveInput * step.yieldPercent;
+      });
+      return prevOutput;
+    }
+
     return header.batchSize * header.yieldPercent;
-  }, [bomHeaders]);
+  }, [bomHeaders, bomSteps, bomLines]);
 
   const addPlan = useCallback(async (data: { smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }): Promise<string> => {
     const weekStart = getWeekStart(data.weekDate);
