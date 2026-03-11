@@ -596,7 +596,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             />
             <DatePicker
               value={filterDateTo ? new Date(filterDateTo + 'T00:00:00') : undefined}
-              onChange={d => setFilterDateTo(d ? d.toISOString().slice(0, 10) : '')}
+              onChange={d => setFilterDateTo(d ? toLocalDateStr(d) : '')}
               placeholder="To date"
               label="To"
               labelPosition="left"
