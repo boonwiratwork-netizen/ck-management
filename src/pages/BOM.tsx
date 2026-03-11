@@ -210,7 +210,11 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     const hLines = getLinesForHeader(h.id);
     if (h.bomMode === 'simple') {
       const hOutput = h.batchSize * h.yieldPercent;
-      const hCost = hLines.reduce((s, l) => s + l.qtyPerBatch * getActiveCost(l.rmSkuId), 0);
+      const hCost = hLines.reduce((s, l) => {
+        const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
+        const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
+        return s + effQty * getActiveCost(l.rmSkuId);
+      }, 0);
       return { cost: hCost, output: hOutput, costPerGram: hOutput > 0 ? hCost / hOutput : 0 };
     } else {
       const hSteps = getStepsForHeader(h.id);
