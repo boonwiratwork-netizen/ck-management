@@ -1022,7 +1022,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/20">
                       {/* Type badge */}
                       <button
-                        className={`text-[10px] px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
+                        className={`text-xs px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
                         onClick={() => handleByproductFieldChange(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
                       >
                         {bp.tracksInventory ? 'SKU' : 'Text'}
