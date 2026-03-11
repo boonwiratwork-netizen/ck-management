@@ -122,7 +122,7 @@ const Dashboard = ({
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const recentDeliveries = deliveries.filter(
-        d => d.smSkuId === bal.skuId && d.deliveryDate >= thirtyDaysAgo.toISOString().slice(0, 10)
+        d => d.smSkuId === bal.skuId && d.deliveryDate >= toLocalDateStr(thirtyDaysAgo)
       );
       const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0);
       const avgDailyDelivery = totalDelivered30d / 30;

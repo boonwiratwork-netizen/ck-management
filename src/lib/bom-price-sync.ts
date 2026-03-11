@@ -121,7 +121,7 @@ export async function syncBomPrice(skuId: string, costPerGram: number): Promise<
     .eq('is_active', true)
     .maybeSingle();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
 
   if (existing) {
     await supabase.from('prices').update({

@@ -17,7 +17,7 @@ export interface GoodsReceipt {
 }
 
 export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'> = {
-  receiptDate: new Date().toISOString().slice(0, 10),
+  receiptDate: toLocalDateStr(new Date()),
   skuId: '',
   supplierId: '',
   quantityReceived: 0,

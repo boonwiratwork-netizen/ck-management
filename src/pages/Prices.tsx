@@ -74,7 +74,7 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         pricePerPurchaseUom: Number(row['Price Per Purchase UOM']) || 0,
         vat: row['VAT']?.trim().toLowerCase() === 'true' || row['VAT']?.trim() === '1',
         isActive: row['Active']?.trim().toLowerCase() !== 'false' && row['Active']?.trim() !== '0',
-        effectiveDate: row['Effective Date']?.trim() || new Date().toISOString().slice(0, 10),
+        effectiveDate: row['Effective Date']?.trim() || toLocalDateStr(new Date()),
         note: row['Note']?.trim() || '',
       }, sku);
     });

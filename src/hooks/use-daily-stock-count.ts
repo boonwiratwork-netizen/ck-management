@@ -334,7 +334,7 @@ export function useDailyStockCount({
 
     const prevDate = new Date(date);
     prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = prevDate.toISOString().slice(0, 10);
+    const prevDateStr = toLocalDateStr(prevDate);
     
     const { data: prevCounts } = await supabase
       .from('daily_stock_counts')

@@ -239,7 +239,7 @@ export function PriceFormModal({ open, onClose, onSubmit, editing, skus, activeS
               {/* Effective Date */}
               <DatePicker
                 value={form.effectiveDate ? new Date(form.effectiveDate + 'T00:00:00') : undefined}
-                onChange={d => update('effectiveDate', d ? d.toISOString().slice(0, 10) : '')}
+                onChange={d => update('effectiveDate', d ? toLocalDateStr(d) : '')}
                 defaultToday
                 label="Effective Date"
                 required
