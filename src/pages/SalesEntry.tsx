@@ -443,13 +443,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             <CardContent className="pt-0">
               <div className="flex items-end gap-2 flex-wrap">
                 {/* Date */}
-                <div className="w-36">
+                <div className="w-[200px]">
                   <label className="text-xs text-muted-foreground">Date</label>
-                  <Input
-                    type="date"
-                    value={manualDate}
-                    onChange={e => setManualDate(e.target.value)}
-                    tabIndex={1}
+                  <DatePicker
+                    value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
+                    onChange={d => setManualDate(d ? d.toISOString().slice(0, 10) : '')}
+                    defaultToday
+                    align="start"
                   />
                 </div>
 
