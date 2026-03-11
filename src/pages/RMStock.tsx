@@ -11,6 +11,8 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Switch } from '@/components/ui/switch';
 import { Pencil, SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
+import { StatusDot } from '@/components/ui/status-dot';
+import { UnitLabel } from '@/components/ui/unit-label';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
 
@@ -104,37 +106,31 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     toast.success('Opening stock set');
   };
 
-  const statusDot = (status: 'red' | 'yellow' | 'green') => {
-    const colors = {
-      red: 'bg-destructive',
-      yellow: 'bg-warning',
-      green: 'bg-success',
-    };
-    return <span className={`inline-block w-2.5 h-2.5 rounded-full ${colors[status]}`} />;
-  };
+  const mapHealth = (status: 'red' | 'yellow' | 'green'): 'red' | 'amber' | 'green' =>
+    status === 'yellow' ? 'amber' : status;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.rmStock')}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t('title.rmStock')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Auto-calculated raw material stock balances</p>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.rmSkus')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">{rmSkus.length}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.rmSkus')}</p>
+          <p className="text-2xl font-bold mt-1">{rmSkus.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.totalStockValue')}</p>
-          <p className="text-3xl font-heading font-bold mt-1">฿{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.totalStockValue')}</p>
+          <p className="text-2xl font-bold mt-1 font-mono">฿{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
         </div>
-        <div className="rounded-lg border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('summary.outOfStock')}</p>
-          <p className="text-3xl font-heading font-bold mt-1 text-destructive">
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.outOfStock')}</p>
+          <p className="text-2xl font-bold mt-1 text-destructive">
             {filteredRows.filter(r => r.healthStatus === 'red').length}
           </p>
         </div>
@@ -189,33 +185,33 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
       <div className="rounded-lg border overflow-auto max-h-[70vh]">
         <Table>
           <TableHeader className="sticky-thead">
-            <TableRow>
+            <TableRow className="bg-table-header border-b">
               <TableHead className="w-8"></TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
                 <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                 <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
                 <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
                 <SortableHeader label={t('col.opening')} sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('received')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('received')}>
                 <SortableHeader label={t('col.received')} sortKey="received" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead className="text-right">{t('col.adjustments')}</TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.adjustments')}</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
                 <SortableHeader label={t('col.currentStock')} sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead>{t('col.uom')}</TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('stockValue')}>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.uom')}</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('stockValue')}>
                 <SortableHeader label={t('col.stockValue')} sortKey="stockValue" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </TableHead>
-              <TableHead>{t('col.lastReceipt')}</TableHead>
-              <TableHead className="text-right">{t('col.daysLeft')}</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.lastReceipt')}</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.daysLeft')}</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
@@ -231,13 +227,12 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
               sortedRows.map(row => {
                 const netAdj = (row.balance?.adjustments ?? []).reduce((s, a) => s + a.quantity, 0);
                 return (
-                  <TableRow key={row.sku.id}>
-                    <TableCell>{statusDot(row.healthStatus)}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.sku.skuId}</TableCell>
-                    <TableCell className="font-medium">{row.sku.name}</TableCell>
-                    
-                    <TableCell>{row.sku.storageCondition}</TableCell>
-                    <TableCell className="text-right">
+                  <TableRow key={row.sku.id} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                    <TableCell className="px-3 py-2"><StatusDot status={mapHealth(row.healthStatus)} /></TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">{row.sku.skuId}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm font-medium">{row.sku.name}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm">{row.sku.storageCondition}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">
                       {editingOpening === row.sku.id ? (
                         <div className="flex items-center gap-1 justify-end">
                           <Input
@@ -253,23 +248,23 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                         </div>
                       ) : (
                         <span
-                          className="cursor-pointer hover:underline"
+                          className="cursor-pointer hover:underline text-sm font-mono"
                           onClick={() => { setEditingOpening(row.sku.id); setOpeningValue(String(row.opening)); }}
                         >
                           {row.opening.toLocaleString()}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">{(row.balance?.totalReceived ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className={`text-right ${netAdj > 0 ? 'text-success' : netAdj < 0 ? 'text-destructive' : ''}`}>
+                    <TableCell className="px-3 py-2 text-sm font-mono text-right">{(row.balance?.totalReceived ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className={`px-3 py-2 text-sm font-mono text-right ${netAdj > 0 ? 'text-success' : netAdj < 0 ? 'text-destructive' : ''}`}>
                       {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() : '—'}
                     </TableCell>
-                    <TableCell className="text-right font-semibold">{row.currentStock.toLocaleString()}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{row.sku.usageUom}</TableCell>
-                    <TableCell className="text-right">฿{row.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-xs">{row.lastDate ?? '—'}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">0</TableCell>
-                    <TableCell>
+                    <TableCell className="px-3 py-2 text-sm font-mono text-right font-semibold">{row.currentStock.toLocaleString()}</TableCell>
+                    <TableCell className="px-3 py-2"><UnitLabel unit={row.sku.usageUom} /></TableCell>
+                    <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{row.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm">{row.lastDate ?? '—'}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm font-mono text-right text-muted-foreground">0</TableCell>
+                    <TableCell className="px-3 py-2">
                       <Button
                         size="icon"
                         variant="ghost"

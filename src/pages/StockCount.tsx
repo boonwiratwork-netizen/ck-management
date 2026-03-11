@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { UnitLabel } from '@/components/ui/unit-label';
 import { Plus, ClipboardCheck, Lock, Trash2, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,7 +47,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [ckItemsOnly, setCkItemsOnly] = useState(true);
 
-  // Derive CK RM SKU IDs: RM SKUs that appear as ingredients in BOMs where parent SM SKU is Active
+  // Derive CK RM SKU IDs
   const ckRmSkuIds = useMemo(() => {
     const activeSmSkuIds = new Set(
       skus.filter(s => s.type === 'SM' && s.status === 'Active').map(s => s.id)
@@ -61,7 +62,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     return rmIds;
   }, [skus, bomHeaders, bomLines]);
 
-  // Find session for selected date
   const sessionForDate = useMemo(() => {
     return sessions.find(s => s.date === selectedDate) ?? null;
   }, [sessions, selectedDate]);
@@ -121,7 +121,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     return sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0);
   }, [sessionLines]);
 
-  // Sessions available as dropdown options (for browsing)
   const sessionOptions = useMemo(() => {
     return sessions.map(s => {
       const sLines = getLinesForSession(s.id);
@@ -157,13 +156,13 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     toast.success('Session deleted and adjustments reversed');
   };
 
-  const thClass = 'text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider';
+  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground';
 
   const renderCountTable = () => (
     <div className="rounded-lg border overflow-auto max-h-[60vh]">
       <table className="w-full text-sm">
         <thead className="sticky-thead">
-          <tr className="border-b bg-muted/50">
+          <tr className="border-b bg-table-header">
             <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('skuId')}>
               <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
             </th>
@@ -173,12 +172,12 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
             <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('storage')}>
               <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
             </th>
-            <th className={`${thClass} text-right bg-muted/50 cursor-pointer hover:bg-muted/70`} onClick={() => scHandleSort('systemQty')}>
+            <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('systemQty')}>
               <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
             </th>
             <th className={`${thClass} text-right`}>
               <div>Physical Qty</div>
-              <div className="text-[9px] font-normal text-muted-foreground">(Usage UOM)</div>
+              <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
             </th>
             <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('variance')}>
               <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
@@ -200,13 +199,13 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
               if (!sku) return null;
               const hasVariance = line.physicalQty !== null && line.variance !== 0;
               return (
-                <tr key={line.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                <tr key={line.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                   <td className="px-3 py-2 font-mono text-xs">{sku.skuId}</td>
-                  <td className="px-3 py-2 text-xs font-medium">{sku.name}</td>
-                  <td className="px-3 py-2 text-xs">{sku.storageCondition}</td>
-                  <td className="px-3 py-2 text-right bg-muted/30 font-mono text-xs">
+                  <td className="px-3 py-2 text-sm font-medium">{sku.name}</td>
+                  <td className="px-3 py-2 text-sm">{sku.storageCondition}</td>
+                  <td className="px-3 py-2 text-right font-mono text-sm">
                     {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    <span className="ml-0.5 text-[9px] text-muted-foreground">{sku.usageUom}</span>
+                    <UnitLabel unit={sku.usageUom} />
                   </td>
                   <td className="px-1.5 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -223,10 +222,10 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
                         }}
                         className="h-8 text-xs text-right w-[80px] font-mono"
                       />
-                      <span className="text-[10px] text-muted-foreground w-6 text-left">{sku.usageUom}</span>
+                      <UnitLabel unit={sku.usageUom} className="w-6 text-left" />
                     </div>
                   </td>
-                  <td className={`px-3 py-2 text-right font-mono text-xs font-medium ${
+                  <td className={`px-3 py-2 text-right font-mono text-sm font-medium ${
                     !hasVariance ? 'text-muted-foreground' :
                     line.variance > 0 ? 'text-success' : 'text-destructive'
                   }`}>
@@ -258,13 +257,13 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="page-title">{t('title.stockCount')}</h2>
-        <p className="page-subtitle">Physical inventory counts and variance adjustments</p>
+        <h2 className="text-2xl font-bold tracking-tight">{t('title.stockCount')}</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
       </div>
 
       {/* Top control bar */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Date</label>
@@ -295,7 +294,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
             )}
 
             {sessionForDate && (
-              <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
+              <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-xs px-2 py-0.5">
                 {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
               </Badge>
             )}
@@ -332,7 +331,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
         </Card>
       ) : (
         <>
-          {/* Tabs for RM / SM / SP / PK */}
+          {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <TabsList>
@@ -375,29 +374,29 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           </Tabs>
 
           {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.totalSkus')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.totalSkus')}</p>
                 <p className="text-2xl font-bold mt-1">{summary.total}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.counted')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.counted')}</p>
                 <p className="text-2xl font-bold mt-1">{summary.counted}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.withVariance')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.withVariance')}</p>
                 <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('summary.varianceValue')}</p>
-                <p className={`text-2xl font-bold mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.varianceValue')}</p>
+                <p className={`text-2xl font-bold font-mono mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
                   ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </CardContent>
@@ -437,22 +436,22 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
               <div className="rounded-lg border overflow-auto max-h-[300px]">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">System</TableHead>
-                      <TableHead className="text-right">Physical</TableHead>
-                      <TableHead className="text-right">Adjustment</TableHead>
+                    <TableRow className="bg-table-header border-b">
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">SKU</TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">System</TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">Physical</TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">Adjustment</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {varianceLines.map(line => {
                       const sku = skuMap[line.skuId];
                       return (
-                        <TableRow key={line.id}>
-                          <TableCell className="text-xs font-medium">{sku?.name ?? line.skuId}</TableCell>
-                          <TableCell className="text-right font-mono text-xs">{line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right font-mono text-xs">{line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className={`text-right font-mono text-xs font-medium ${line.variance > 0 ? 'text-success' : 'text-destructive'}`}>
+                        <TableRow key={line.id} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                          <TableCell className="px-3 py-2 text-sm font-medium">{sku?.name ?? line.skuId}</TableCell>
+                          <TableCell className="px-3 py-2 text-sm font-mono text-right">{line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="px-3 py-2 text-sm font-mono text-right">{line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className={`px-3 py-2 text-sm font-mono text-right font-medium ${line.variance > 0 ? 'text-success' : 'text-destructive'}`}>
                             {(line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </TableCell>
                         </TableRow>
