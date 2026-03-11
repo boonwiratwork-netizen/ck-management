@@ -20,7 +20,7 @@ export function StockAdjustmentModal({ open, onClose, skuName, skuId, usageUom, 
   const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
   const [quantity, setQuantity] = useState(0);
   const [reason, setReason] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toLocalDateStr(new Date()));
 
   const handleSubmit = () => {
     if (quantity <= 0 || !reason.trim()) return;
