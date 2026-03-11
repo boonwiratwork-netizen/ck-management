@@ -796,7 +796,7 @@ export default function ProductionPage({
                       </thead>
                       <tbody>
                         {noBomRows.map(row => (
-                          <tr key={row.sku.id} className="border-b hover:bg-muted/30">
+                          <tr key={row.sku.id} className="border-b hover:bg-table-hover">
                             <td className="px-2 py-1.5 font-mono text-xs">{row.sku.skuId}</td>
                             <td className="px-2 py-1.5 truncate">{row.sku.name}</td>
                             <td className="px-2 py-1.5">
