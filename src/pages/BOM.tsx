@@ -108,6 +108,10 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [fullscreen, setFullscreen] = useState(false);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
   const [listSearch, setListSearch] = useState('');
+  const [byproductsDirty, setByproductsDirty] = useState(false);
+  const [byproductsSavedMsg, setByproductsSavedMsg] = useState(false);
+  const [pendingNavHeaderId, setPendingNavHeaderId] = useState<string | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
   const ingredientSkus = useMemo(() => skus.filter(s => s.type === 'RM' || s.type === 'SM'), [skus]);
