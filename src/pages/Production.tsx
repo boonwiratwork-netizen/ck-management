@@ -862,8 +862,8 @@ export default function ProductionPage({
                       const dotColor: 'red' | 'amber' | 'green' = done ? 'green' : partial ? 'amber' : 'red';
 
                       return (
-                        <tr key={row.sku.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="px-1 py-1.5 text-center">{statusDot(dotColor)}</td>
+                        <tr key={row.sku.id} className="border-b hover:bg-table-hover transition-colors">
+                          <td className="px-1 py-1.5 text-center"><StatusDot status={dotColor} /></td>
                           <td className="px-1.5 py-1.5 font-mono text-xs truncate">{row.sku.skuId}</td>
                           <td className="px-1.5 py-1.5 truncate">
                             <Tooltip>
