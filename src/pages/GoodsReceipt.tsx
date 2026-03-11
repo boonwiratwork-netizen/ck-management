@@ -512,8 +512,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             className={cn(
                               "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
                               hasQty && !actualMatchesStd
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 focus:border-amber-500"
-                                : "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30 focus:border-primary"
+                                ? "bg-warning/10 border-warning/40 focus:border-warning"
+                                : "bg-warning/5 border-warning/20 focus:border-primary"
                             )}
                             placeholder="0.00"
                           />
