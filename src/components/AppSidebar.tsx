@@ -226,7 +226,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             }`}
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                            <span className="text-[13px]">{label}</span>
+                            <span className="text-sm">{label}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
