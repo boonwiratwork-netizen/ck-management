@@ -192,9 +192,35 @@ export default function TransferRequestPage() {
           </div>
 
           {/* SKU Sheet */}
-          <div>
-            <p className="text-sm font-semibold">SM Items for {branchName}</p>
-            <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Adjust quantities as needed.</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-sm font-semibold">SM Items for {branchName}</p>
+              <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Adjust quantities as needed.</p>
+            </div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setSortMode('code')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  sortMode === 'code'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-input text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                Sort by Code
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode('priority')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  sortMode === 'priority'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-input text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                Sort by Priority
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
