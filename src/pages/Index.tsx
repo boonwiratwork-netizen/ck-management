@@ -457,6 +457,8 @@ const Index = () => {
                 <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} menus={menuData.menus} />
               ) : activeTab === 'branch-receipt' ? (
                 <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} menus={menuData.menus} menuBomLines={menuBomData.lines} />
+              ) : activeTab === 'transfer-request' ? (
+                <TransferRequestPage />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}
