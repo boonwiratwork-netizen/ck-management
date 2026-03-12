@@ -147,9 +147,9 @@ export default function TransferRequestPage() {
           <h2 className={typography.pageTitle}>Transfer Request</h2>
           <p className="text-sm text-muted-foreground">Request SM ingredients from Central Kitchen</p>
         </div>
-        {isStoreManager && (
-          <Button onClick={() => setFormOpen(!formOpen)} className="h-9">
-            {formOpen ? <><X className="w-4 h-4 mr-1" /> Close</> : <><Plus className="w-4 h-4 mr-1" /> New TR</>}
+        {isStoreManager && !formOpen && (
+          <Button onClick={() => setFormOpen(true)} className="h-9">
+            <Plus className="w-4 h-4 mr-1" /> New TR
           </Button>
         )}
       </div>
