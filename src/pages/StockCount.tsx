@@ -337,7 +337,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
               <TabsList>
                 <TabsTrigger value="RM" className="text-xs">RM ({tabCounts.RM})</TabsTrigger>
                 <TabsTrigger value="SM" className="text-xs">SM ({tabCounts.SM})</TabsTrigger>
-                <TabsTrigger value="SP" className="text-xs">SP ({tabCounts.SP})</TabsTrigger>
                 <TabsTrigger value="PK" className="text-xs">PK ({tabCounts.PK})</TabsTrigger>
               </TabsList>
 
