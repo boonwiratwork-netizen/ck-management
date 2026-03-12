@@ -16,12 +16,13 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Save, Plus, Trash2, CheckCircle, Search } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap } from 'lucide-react';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getWeekNumber } from '@/types/goods-receipt';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Menu {
   id: string;
@@ -42,6 +43,26 @@ interface MenuBomLine {
   yieldPct: number;
   effectiveQty: number;
   costPerServing: number;
+}
+
+interface PendingTO {
+  id: string;
+  toNumber: string;
+  deliveryDate: string;
+  branchId: string;
+  itemCount: number;
+  lines: TOLine[];
+}
+
+interface TOLine {
+  id: string;
+  skuId: string;
+  plannedQty: number;
+  actualQty: number;
+  uom: string;
+  unitCost: number;
+  lineValue: number;
+  notes: string;
 }
 
 interface Props {
@@ -68,14 +89,27 @@ interface AdHocRow {
   note: string;
 }
 
+// CK receipt line from TO
+interface CKLineEdit {
+  toLineId: string;
+  skuId: string;
+  plannedQty: number;
+  receivedQty: number;
+  uom: string;
+  unitCost: number;
+  note: string;
+}
+
 function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEdit {
   return prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: '' };
 }
 
+const CK_SUPPLIER_ID = '__central_kitchen__';
+
 export default function BranchReceiptPage({ skus, prices, branches, suppliers = [], menus = [], menuBomLines = [] }: Props) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
-  const { receipts, saveReceipts, deleteReceipt } = useBranchReceiptData();
+  const { receipts, saveReceipts, deleteReceipt, fetchReceipts } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(
@@ -90,6 +124,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
+
+  // TO integration state
+  const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
+  const [selectedTOId, setSelectedTOId] = useState<string>('');
+  const [ckLines, setCkLines] = useState<CKLineEdit[]>([]);
 
   // History filters
   const [historyDateFrom, setHistoryDateFrom] = useState<Date | undefined>(undefined);
@@ -112,7 +151,57 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const selectedBranch = branchMap[branchId];
-  const selectedSupplier = supplierMap[supplierId];
+  const selectedSupplier = supplierId === CK_SUPPLIER_ID ? null : supplierMap[supplierId];
+  const isCKSupplier = supplierId === CK_SUPPLIER_ID;
+
+  // Fetch pending TOs for this branch
+  const fetchPendingTOs = useCallback(async () => {
+    if (!branchId) { setPendingTOs([]); return; }
+    const { data, error } = await supabase
+      .from('transfer_orders')
+      .select('id, to_number, delivery_date, branch_id, transfer_order_lines(id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes)')
+      .eq('branch_id', branchId)
+      .eq('status', 'Sent');
+    if (error) { setPendingTOs([]); return; }
+    const tos: PendingTO[] = (data || []).map((to: any) => ({
+      id: to.id,
+      toNumber: to.to_number,
+      deliveryDate: to.delivery_date,
+      branchId: to.branch_id,
+      itemCount: (to.transfer_order_lines || []).length,
+      lines: (to.transfer_order_lines || []).map((l: any) => ({
+        id: l.id,
+        skuId: l.sku_id,
+        plannedQty: Number(l.planned_qty),
+        actualQty: Number(l.actual_qty),
+        uom: l.uom,
+        unitCost: Number(l.unit_cost),
+        lineValue: Number(l.line_value),
+        notes: l.notes || '',
+      })),
+    }));
+    setPendingTOs(tos);
+  }, [branchId]);
+
+  useEffect(() => { fetchPendingTOs(); }, [fetchPendingTOs]);
+
+  const pendingTOCount = pendingTOs.length;
+
+  // When TO selected, populate CK lines
+  useEffect(() => {
+    if (!selectedTOId) { setCkLines([]); return; }
+    const to = pendingTOs.find(t => t.id === selectedTOId);
+    if (!to) { setCkLines([]); return; }
+    setCkLines(to.lines.map(l => ({
+      toLineId: l.id,
+      skuId: l.skuId,
+      plannedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
+      receivedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
+      uom: l.uom,
+      unitCost: l.unitCost,
+      note: '',
+    })));
+  }, [selectedTOId, pendingTOs]);
 
   // Get RM SKU IDs relevant to the selected branch's brand
   const brandRmSkuIds = useMemo(() => {
@@ -134,7 +223,6 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const groupedSuppliers = useMemo(() => {
     const active = suppliers.filter(s => s.status === 'Active');
     if (!branchId) {
-      // Before branch selected: flat sorted
       return { brand: active.sort((a, b) => a.name.localeCompare(b.name)), other: [] as Supplier[] };
     }
     const brandGroup = active.filter(s => brandSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
@@ -163,10 +251,9 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     return () => document.removeEventListener('mousedown', handler);
   }, [supplierDropdownOpen]);
 
-  // Pre-loaded SKUs: Branch → Brand → Active Menus → Menu BOM ingredients → filter to supplier's active prices
+  // Pre-loaded SKUs for external supplier
   const preloadedRows = useMemo(() => {
-    if (!branchId || !supplierId || !selectedBranch) return [];
-
+    if (!branchId || !supplierId || !selectedBranch || isCKSupplier) return [];
     const activePrices = prices.filter(p => p.supplierId === supplierId && p.isActive && brandRmSkuIds.has(p.skuId));
     return activePrices
       .map(p => {
@@ -176,11 +263,12 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       })
       .filter(Boolean)
       .sort((a, b) => a!.sku.skuId.localeCompare(b!.sku.skuId)) as { priceId: string; skuId: string; sku: SKU; stdUnitPrice: number }[];
-  }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap]);
+  }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap, isCKSupplier]);
 
   const hasAnyQty = useMemo(() => {
+    if (isCKSupplier) return ckLines.some(l => l.receivedQty > 0);
     return Object.values(rowEdits).some(e => e.qty > 0) || adHocRows.some(r => r.qty > 0);
-  }, [rowEdits, adHocRows]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines]);
 
   const handleSupplierChange = useCallback((newId: string) => {
     if (newId === supplierId) return;
@@ -192,6 +280,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       setRowEdits({});
       setAdHocRows([]);
       setSavedCount(null);
+      setSelectedTOId('');
+      setCkLines([]);
     }
     setSupplierDropdownOpen(false);
     setSupplierSearch('');
@@ -202,6 +292,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     setRowEdits({});
     setAdHocRows([]);
     setSavedCount(null);
+    setSelectedTOId('');
+    setCkLines([]);
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
@@ -211,6 +303,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     setRowEdits({});
     setAdHocRows([]);
     setSavedCount(null);
+    setSelectedTOId('');
+    setCkLines([]);
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit => rowEdits[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: '' };
@@ -227,12 +321,78 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     return active?.pricePerUsageUom ?? 0;
   }, [prices]);
 
-  // Save all
+  const updateCkLine = useCallback((toLineId: string, updates: Partial<CKLineEdit>) => {
+    setCkLines(prev => prev.map(l => l.toLineId === toLineId ? { ...l, ...updates } : l));
+  }, []);
+
+  // Save all — handles both external and CK receipts
   const handleSaveAll = useCallback(async () => {
     if (!branchId) { toast.error('Please select a branch'); return; }
 
-    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
+    if (isCKSupplier) {
+      // CK receipt from TO
+      if (!selectedTOId) { toast.error('Please select a Transfer Order'); return; }
+      const linesToSave = ckLines.filter(l => l.receivedQty > 0);
+      if (linesToSave.length === 0) { toast.error('No items with quantity to save'); return; }
 
+      const rows: Omit<BranchReceipt, 'id' | 'createdAt'>[] = linesToSave.map(l => {
+        const sku = skuMap[l.skuId];
+        const stdTotal = l.receivedQty * l.unitCost;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: l.skuId,
+          supplierName: 'Central Kitchen',
+          qtyReceived: l.receivedQty,
+          uom: sku?.usageUom || l.uom || 'น.',
+          actualUnitPrice: 0,
+          actualTotal: 0,
+          stdUnitPrice: l.unitCost,
+          stdTotal,
+          priceVariance: 0 - stdTotal,
+          notes: l.note,
+          transferOrderId: selectedTOId,
+        };
+      });
+
+      const count = await saveReceipts(rows);
+      if (count) {
+        // Update TO status based on received vs planned
+        const selectedTO = pendingTOs.find(t => t.id === selectedTOId);
+        let allReceived = true;
+        let anyPartial = false;
+        for (const toLine of (selectedTO?.lines || [])) {
+          const ckLine = ckLines.find(l => l.toLineId === toLine.id);
+          const received = ckLine?.receivedQty || 0;
+          const planned = toLine.plannedQty;
+          if (received < planned) {
+            allReceived = false;
+            if (received > 0) anyPartial = true;
+          }
+        }
+
+        const newStatus = allReceived ? 'Received' : anyPartial ? 'Partially Received' : 'Received';
+        await supabase.from('transfer_orders').update({ status: newStatus }).eq('id', selectedTOId);
+
+        // Update TR status if linked
+        if (selectedTO) {
+          const { data: toData } = await supabase.from('transfer_orders').select('tr_id').eq('id', selectedTOId).single();
+          if (toData?.tr_id) {
+            await supabase.from('transfer_requests').update({ status: 'Fulfilled' }).eq('id', toData.tr_id);
+          }
+        }
+
+        setSavedCount(count);
+        setSelectedTOId('');
+        setCkLines([]);
+        await fetchPendingTOs();
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      return;
+    }
+
+    // External supplier receipt (existing logic)
+    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
       if (edit && edit.qty > 0) {
@@ -240,20 +400,15 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         rowsToSave.push({ skuId: row.skuId, qty: edit.qty, actualTotal, note: edit.note, stdUnitPrice: row.stdUnitPrice });
       }
     }
-
     for (const r of adHocRows) {
       if (r.skuId && r.qty > 0) {
         const stdUnit = getStdUnitPrice(r.skuId);
         rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
       }
     }
+    if (rowsToSave.length === 0) { toast.error('No rows with quantity to save'); return; }
 
-    if (rowsToSave.length === 0) {
-      toast.error('No rows with quantity to save');
-      return;
-    }
-
-    const rows = rowsToSave.map(r => {
+    const rows: Omit<BranchReceipt, 'id' | 'createdAt'>[] = rowsToSave.map(r => {
       const sku = skuMap[r.skuId];
       const actualUnitPrice = r.qty > 0 ? r.actualTotal / r.qty : 0;
       const stdTotal = r.qty * r.stdUnitPrice;
@@ -271,6 +426,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         stdTotal,
         priceVariance,
         notes: r.note,
+        transferOrderId: null,
       };
     });
 
@@ -281,7 +437,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       setAdHocRows([]);
       setTimeout(() => setSavedCount(null), 4000);
     }
-  }, [branchId, preloadedRows, rowEdits, adHocRows, dateStr, skuMap, selectedSupplier, getStdUnitPrice, saveReceipts]);
+  }, [branchId, isCKSupplier, selectedTOId, ckLines, preloadedRows, rowEdits, adHocRows, dateStr, skuMap, selectedSupplier, getStdUnitPrice, saveReceipts, pendingTOs, fetchPendingTOs]);
 
   // Ad-hoc
   const handleAddAdHoc = useCallback(() => {
@@ -307,6 +463,18 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     });
   }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
+  // TO number lookup for history
+  const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const toIds = [...new Set(receipts.filter(r => r.transferOrderId).map(r => r.transferOrderId!))];
+    if (toIds.length === 0) { setToNumberMap({}); return; }
+    supabase.from('transfer_orders').select('id, to_number').in('id', toIds).then(({ data }) => {
+      const m: Record<string, string> = {};
+      (data || []).forEach(to => { m[to.id] = to.to_number; });
+      setToNumberMap(m);
+    });
+  }, [receipts]);
+
   const historyComparators = useMemo(() => ({
     date: (a: BranchReceipt, b: BranchReceipt) => a.receiptDate.localeCompare(b.receiptDate),
     sku: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
@@ -326,6 +494,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const tdReadOnly = 'px-3 py-2 text-sm';
 
   const savableCount = useMemo(() => {
+    if (isCKSupplier) return ckLines.filter(l => l.receivedQty > 0).length;
     let c = 0;
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
@@ -335,7 +504,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows]);
+  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines]);
 
   const SaveButton = () => (
     <div className="flex items-center gap-2">
@@ -352,9 +521,12 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   const bothSelected = branchId && supplierId;
 
-  // Supplier dropdown group labels
-  const brandGroupLabel = branchId ? 'Brand Suppliers' : '';
-  const showGroups = branchId && (groupedSuppliers.brand.length > 0 || groupedSuppliers.other.length > 0);
+  // CK supplier selected check: need TO as well
+  const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
+  const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
+
+  // Does CK search match?
+  const ckMatchesSearch = 'central kitchen'.includes(supplierSearch.toLowerCase());
 
   return (
     <div className="space-y-6">
@@ -363,8 +535,18 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           <h2 className="text-2xl font-heading font-bold">{t('title.branchReceipt')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Record external purchases received at the branch</p>
         </div>
-        {bothSelected && <SaveButton />}
+        {(bothSelected || showCKSheet) && <SaveButton />}
       </div>
+
+      {/* Pending TO Banner */}
+      {branchId && pendingTOCount > 0 && (
+        <div className="bg-primary/5 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3">
+          <Truck className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-sm font-semibold text-primary">
+            {pendingTOCount} delivery from Central Kitchen is on the way — select Central Kitchen below to receive
+          </span>
+        </div>
+      )}
 
       {/* Header controls */}
       <div className="flex flex-wrap items-end gap-3">
@@ -398,7 +580,14 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 !supplierId && 'text-muted-foreground'
               )}
             >
-              <span className="truncate">{selectedSupplier?.name || '— Select supplier —'}</span>
+              <span className="truncate flex items-center gap-1.5">
+                {isCKSupplier ? (
+                  <>
+                    <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                    Central Kitchen
+                  </>
+                ) : selectedSupplier?.name || '— Select supplier —'}
+              </span>
               <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
             </button>
             {supplierDropdownOpen && (
@@ -414,6 +603,28 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   />
                 </div>
                 <div className="max-h-60 overflow-y-auto py-1">
+                  {/* CK option pinned at top */}
+                  {pendingTOCount > 0 && ckMatchesSearch && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between',
+                          supplierId === CK_SUPPLIER_ID && 'bg-accent font-medium'
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="font-medium">Central Kitchen</span>
+                        </span>
+                        <span className="bg-primary/10 text-primary text-xs rounded-full px-1.5 py-0.5 font-medium">
+                          {pendingTOCount} pending
+                        </span>
+                      </button>
+                      <div className="border-b my-1" />
+                    </>
+                  )}
                   {branchId ? (
                     <>
                       {filteredGroupedSuppliers.brand.length > 0 && (
@@ -468,7 +679,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       </button>
                     ))
                   )}
-                  {filteredGroupedSuppliers.brand.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
+                  {filteredGroupedSuppliers.brand.length === 0 && filteredGroupedSuppliers.other.length === 0 && pendingTOCount === 0 && (
                     <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
                   )}
                 </div>
@@ -478,22 +689,156 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         )}
       </div>
 
+      {/* TO selector when CK supplier selected */}
+      {isCKSupplier && branchId && (
+        <div className="flex items-end gap-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Transfer Order</label>
+            <Select value={selectedTOId || '_none'} onValueChange={v => setSelectedTOId(v === '_none' ? '' : v)}>
+              <SelectTrigger className="w-[320px]"><SelectValue placeholder="— Select TO —" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Select TO —</SelectItem>
+                {pendingTOs.map(to => (
+                  <SelectItem key={to.id} value={to.id}>
+                    {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {/* Row count info */}
-      {bothSelected && selectedBranch && selectedSupplier && (
+      {bothSelected && !isCKSupplier && selectedBranch && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{preloadedRows.length}</span> items for <span className="font-semibold text-foreground">{selectedBranch.branchName}</span> from <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
         </p>
       )}
 
       {/* Keyboard hints */}
-      {bothSelected && (
+      {(showExternalSheet || showCKSheet) && (
         <div className="kbd-hint">
           <kbd>Tab</kbd> — move to next item's QTY · Click — edit price or note · <kbd>Enter</kbd> — save row · <kbd>Esc</kbd> — cancel
         </div>
       )}
 
-      {/* Pre-loaded sheet */}
-      {bothSelected && preloadedRows.length > 0 && (
+      {/* CK Receipt sheet from TO */}
+      {showCKSheet && (
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b bg-primary/5">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Truck className="w-4 h-4 text-primary" />
+              Receiving from Central Kitchen — {pendingTOs.find(t => t.id === selectedTOId)?.toNumber}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Adjust quantities if short-received</p>
+          </div>
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 120 }} />
+              </colgroup>
+              <thead className="sticky-thead">
+                <tr className="bg-table-header border-b">
+                  <th className={thClass}>SKU Code</th>
+                  <th className={thClass}>SKU Name</th>
+                  <th className={`${thClass} text-right`}>Planned</th>
+                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>Received</th>
+                  <th className={`${thClass} text-center`}>UOM</th>
+                  <th className={`${thClass} text-right`}>Cost/Unit</th>
+                  <th className={`${thClass} text-right`}>Line Value</th>
+                  <th className={thClass}>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ckLines.map(line => {
+                  const sku = skuMap[line.skuId];
+                  const lineValue = line.receivedQty * line.unitCost;
+                  const hasQty = line.receivedQty > 0;
+                  const isShort = line.receivedQty < line.plannedQty && line.receivedQty > 0;
+                  return (
+                    <tr
+                      key={line.toLineId}
+                      className={cn(
+                        'border-b last:border-0 transition-colors',
+                        hasQty ? 'bg-success/5 border-l-[3px] border-l-success' : 'opacity-40'
+                      )}
+                    >
+                      <td className={`${tdReadOnly} font-mono text-xs`}>{sku?.skuId || '—'}</td>
+                      <td className={tdReadOnly}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate" title={sku?.name}>{sku?.name || '—'}</span>
+                            </TooltipTrigger>
+                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
+                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                        {line.plannedQty.toLocaleString()}
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          defaultValue={line.receivedQty || ''}
+                          key={`ck-qty-${line.toLineId}-${savedCount}`}
+                          onBlur={e => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
+                          onFocus={e => e.target.select()}
+                          className={cn(
+                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
+                            hasQty ? (isShort ? "border-warning font-bold text-warning" : "border-success font-bold text-success") : "border-primary/30"
+                          )}
+                          placeholder="0"
+                        />
+                      </td>
+                      <td className={`${tdReadOnly} text-center text-muted-foreground text-xs`}>{sku?.usageUom || line.uom}</td>
+                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                        {line.unitCost > 0 ? line.unitCost.toFixed(4) : '—'}
+                      </td>
+                      <td className={`${tdReadOnly} text-right font-mono`}>
+                        {lineValue > 0 ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          type="text"
+                          defaultValue={line.note}
+                          key={`ck-note-${line.toLineId}-${savedCount}`}
+                          tabIndex={-1}
+                          onBlur={e => updateCkLine(line.toLineId, { note: e.target.value })}
+                          className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                          placeholder="Note"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t bg-muted/30">
+                  <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>Total Value:</td>
+                  <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
+                    ฿{ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pre-loaded sheet (external supplier) */}
+      {showExternalSheet && (
         <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
@@ -660,8 +1005,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         </div>
       )}
 
-      {/* Ad-hoc rows */}
-      {bothSelected && (
+      {/* Ad-hoc rows (external supplier only) */}
+      {bothSelected && !isCKSupplier && (
         <div className="space-y-2">
           {adHocRows.length > 0 && (
             <>
@@ -753,7 +1098,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       )}
 
       {/* Bottom Save */}
-      {bothSelected && savableCount > 0 && (
+      {(showExternalSheet || showCKSheet) && savableCount > 0 && (
         <div className="flex justify-end">
           <SaveButton />
         </div>
@@ -799,15 +1144,16 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               <colgroup>
                 <col style={{ width: 100 }} />
                 <col style={{ width: 120 }} />
-                <col style={{ width: 160 }} />
+                <col style={{ width: 140 }} />
                 <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
                 <col style={{ width: 70 }} />
                 <col style={{ width: 60 }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 110 }} />
                 <col style={{ width: 100 }} />
-                {isManagement && <col style={{ width: 120 }} />}
-                {isManagement && <col style={{ width: 60 }} />}
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                {isManagement && <col style={{ width: 110 }} />}
+                {isManagement && <col style={{ width: 50 }} />}
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
@@ -821,6 +1167,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('supplier')}>
                     <SortableHeader label="Supplier" sortKey="supplier" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
                   </th>
+                  <th className={thClass}>TO Ref</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort('qty')}>
                     <SortableHeader label="Qty" sortKey="qty" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
                   </th>
@@ -840,6 +1187,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 {displayHistory.map(r => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
+                  const isCK = !!r.transferOrderId;
+                  const toNum = r.transferOrderId ? toNumberMap[r.transferOrderId] : null;
                   return (
                     <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                       <td className={tdReadOnly}>{r.receiptDate}</td>
@@ -863,7 +1212,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           </Tooltip>
                         </TooltipProvider>
                       </td>
-                      <td className={`${tdReadOnly} truncate`}>{r.supplierName || '—'}</td>
+                      <td className={`${tdReadOnly} truncate`}>
+                        {isCK ? (
+                          <span className="flex items-center gap-1">
+                            Central Kitchen
+                            <span className="bg-primary/10 text-primary text-xs rounded px-1 font-medium shrink-0">CK</span>
+                          </span>
+                        ) : (r.supplierName || '—')}
+                      </td>
+                      <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>
+                        {toNum || '—'}
+                      </td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
                       <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>฿{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -883,7 +1242,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   );
                 })}
                 {filteredHistory.length === 0 && (
-                  <tr><td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">No receipts found</td></tr>
+                  <tr><td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">No receipts found</td></tr>
                 )}
               </tbody>
             </table>
