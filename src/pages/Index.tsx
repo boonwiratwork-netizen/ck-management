@@ -461,6 +461,11 @@ const Index = () => {
                 <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} menus={menuData.menus} menuBomLines={menuBomData.lines} />
               ) : activeTab === 'transfer-request' ? (
                 <TransferRequestPage />
+              ) : activeTab === 'transfer-order' ? (
+                <TransferOrderPage
+                  getBomCostPerGram={smStockData.getBomCostPerGram}
+                  refreshSmStock={smStockData.refreshToDelivered}
+                />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}

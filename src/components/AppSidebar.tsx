@@ -248,6 +248,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
                             <span className="text-sm">{label}</span>
+                            {item.key === 'transfer-order' && pendingTRCount > 0 && (isManagement || isCkManager) && !collapsed && (
+                              <span className="bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium ml-auto">
+                                {pendingTRCount}
+                              </span>
+                            )}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
