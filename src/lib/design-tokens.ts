@@ -167,29 +167,229 @@ export const buttons = {
 } as const;
 
 // ─── TABLE STANDARDS ────────────────────────────────────────────────────────
+
+/*
+ * ═══════════════════════════════════════════════
+ * TABLE DESIGN PLAYBOOK — CK Manager Design System
+ * Single source of truth for all table UI.
+ * Every prompt touching a table must reference
+ * this object and follow these principles.
+ * ═══════════════════════════════════════════════
+ *
+ * SECTION 1 — STRUCTURE
+ * ─────────────────────
+ * Always use table-fixed with colgroup:
+ *   <table className={table.base}>
+ *   <colgroup> with explicit <col width="Xpx">
+ *   for every column. Never rely on auto-sizing.
+ *
+ * One flex column per table:
+ *   Exactly one column uses width="auto" in
+ *   colgroup — the primary name/description column.
+ *   This absorbs all remaining space.
+ *   Never have two auto-width columns.
+ *
+ * Column width by content role:
+ *   Icon/status dot:          24-28px
+ *   Code (SKU, doc number):   72-80px
+ *   Short label (UOM, TYPE):  48-60px
+ *   Numeric QTY:              65-80px
+ *   Numeric wide (input):     85-95px
+ *   Amount/value:             90-100px
+ *   Date:                     88px
+ *   Status badge:             90-105px
+ *   Action icons:             40-48px
+ *   Name/description:         auto (flex)
+ *
+ * SECTION 2 — DENSITY VARIANTS
+ * ─────────────────────────────
+ * Sparse tables (under 8 columns):
+ *   Use standard cells: table.dataCell,
+ *   table.dataCellMono, table.truncatedCell
+ *   Padding: px-3 py-2
+ *
+ * Dense tables (8 or more columns):
+ *   Use compact cells: table.dataCellCompact,
+ *   table.dataCellCompactMono,
+ *   table.truncatedCellCompact
+ *   Padding: px-2 py-1
+ *   Headers may wrap to 2 lines —
+ *   never whitespace-nowrap on header cells
+ *
+ * SECTION 3 — HEADER ROW
+ * ──────────────────────
+ * Always: <tr className={table.headerRow}>
+ * Non-sortable: table.headerCell (left-aligned)
+ *   or table.headerCellNumeric (right-aligned)
+ *   or table.headerCellCenter (centered)
+ * Sortable: table.headerCellSortable (inactive)
+ *   or table.headerCellSortableActive (active)
+ * Sort icon: ChevronUp/ChevronDown w-3 h-3
+ *   inline after header text, from lucide-react
+ * Default sort must always be defined —
+ *   never leave a table in an unsorted state
+ *
+ * SECTION 4 — DATA ROWS
+ * ──────────────────────
+ * Standard: <tr className={table.dataRow}>
+ * Selected: <tr className={table.dataRowSelected}>
+ * Locked/read-only: <tr className={table.dataRowLocked}>
+ * No zebra striping — ever
+ * No vertical borders between cells — ever
+ *
+ * SECTION 5 — CELL CONTENT RULES
+ * ────────────────────────────────
+ * Numbers: font-mono text-right
+ *   Zero or empty: show "—" in text-muted-foreground
+ *   Negative: text-destructive
+ *   Currency: ฿ prefix, 2 decimal places
+ *   Quantities: 0 decimal places
+ *
+ * Name cells: always truncate with title tooltip
+ *   <td className={table.truncatedCell}
+ *       title={fullValue}>
+ *
+ * Code cells (SKU CODE, TR/TO numbers):
+ *   font-mono, never truncate
+ *
+ * Status dots: use <StatusDot> component
+ *   Color semantics (universal):
+ *   red   = critical (at or below zero)
+ *   amber = low (below ROP)
+ *   green = sufficient (at or above parstock)
+ *   gray  = no data
+ *   Always leftmost or second column only
+ *
+ * Status badges: use table.badge.base plus
+ *   the appropriate status key from table.badge
+ *   Never hardcode badge colors outside this object
+ *
+ * Action cells: icon buttons only, no text labels
+ *   Icon size w-4 h-4, button padding p-1.5
+ *   Default: text-muted-foreground
+ *            hover:text-foreground
+ *   Destructive: hover:text-destructive
+ *   Always add title= tooltip
+ *
+ * UOM anchor column (one per table maximum):
+ *   text-sm font-medium text-primary bg-orange-50
+ *   Use only when UOM needs to be the visual
+ *   anchor for staff reading across the row
+ *
+ * SECTION 6 — INPUT CELLS
+ * ────────────────────────
+ * Always defaultValue + onBlur
+ * Never value + onChange
+ * Editable numeric: table.inputCell (amber bg)
+ * Editable text: table.inputCellText
+ * Validation error: table.inputCellError
+ * Read-only display: table.readOnlyCell
+ *
+ * SECTION 7 — FOOTER ROWS
+ * ────────────────────────
+ * Always use <tfoot> inside the table —
+ * never a separate div outside the table.
+ * This keeps summary columns aligned with
+ * data columns automatically.
+ * First summary row: <tr className={table.footerRow}>
+ * Label cell: table.footerCell
+ * Numeric total: table.footerCellMono
+ *
+ * SECTION 8 — EMPTY STATE
+ * ────────────────────────
+ * Every table must have an empty state.
+ * <tr><td colSpan={n} className={table.emptyState}>
+ *   No [items] found.
+ * </td></tr>
+ * Format: "No X found." — sentence case with period
+ * Never: "No data", "Empty", "N/A"
+ * Show only after fetch completes — not during load
+ *
+ * SECTION 9 — LOADING STATE
+ * ──────────────────────────
+ * Always use <SkeletonTable> component for
+ * initial page load — never plain text "Loading..."
+ * Show 5 skeleton rows matching actual column count
+ * Skeleton cells use table.skeletonCell variants
+ * On refresh/re-fetch: keep existing data visible,
+ * do not replace with skeleton
+ *
+ * SECTION 10 — COLUMN PRIORITY UNDER PRESSURE
+ * ─────────────────────────────────────────────
+ * When table risks overflow, trim in this order:
+ * 1. Optional context columns (ROP, PARSTOCK)
+ * 2. Wider numeric columns before narrower
+ * 3. Name column minimum: 120px
+ * 4. Code and unit columns: never below minimum
+ * 5. Action columns: never shrink
+ * ═══════════════════════════════════════════════
+ */
+
 export const table = {
-  /** Wrapper for tables */
+  // ─── Layout ───────────────────────────────────
   wrapper: 'rounded-lg border overflow-hidden',
-  /** Table element */
   base: 'w-full table-fixed text-sm',
-  /** Header row */
+
+  // ─── Header ───────────────────────────────────
   headerRow: 'bg-table-header border-b',
-  /** Header cell */
   headerCell: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground',
-  /** Data row */
+  headerCellNumeric: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right',
+  headerCellCenter: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-center',
+  headerCellSortable: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors',
+  headerCellSortableActive: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-foreground cursor-pointer select-none',
+
+  // ─── Data rows ────────────────────────────────
   dataRow: 'border-b border-table-border hover:bg-table-hover transition-colors',
-  /** Data cell */
+  dataRowSelected: 'border-b border-table-border bg-primary/5 border-l-2 border-l-primary',
+  dataRowLocked: 'border-b border-table-border bg-muted/20',
+
+  // ─── Cells — standard (sparse tables <8 cols) ─
   dataCell: 'px-3 py-2 text-sm',
-  /** Data cell for numbers — right-aligned mono */
   dataCellMono: 'px-3 py-2 text-sm font-mono text-right',
-  /** Truncated text cell with tooltip */
+  dataCellCenter: 'px-3 py-2 text-sm text-center',
   truncatedCell: 'px-3 py-2 text-sm truncate',
-  /**
-   * Filled/entered row highlight
-   * 3px green left border + light green bg + reduced opacity for unfilled
-   */
+
+  // ─── Cells — compact (dense tables 8+ cols) ───
+  dataCellCompact: 'px-2 py-1 text-xs',
+  dataCellCompactMono: 'px-2 py-1 text-xs font-mono text-right',
+  dataCellCompactCenter: 'px-2 py-1 text-xs text-center',
+  truncatedCellCompact: 'px-2 py-1 text-xs truncate',
+
+  // ─── Input cells ──────────────────────────────
+  inputCell: 'bg-amber-50 border border-input rounded px-2 py-1 text-sm font-mono text-right w-full h-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+  inputCellText: 'bg-background border border-input rounded px-2 py-1 text-sm text-left w-full h-8',
+  inputCellError: 'bg-amber-50 border border-destructive ring-1 ring-destructive rounded px-2 py-1 text-sm font-mono text-right w-full h-8',
+  readOnlyCell: 'bg-muted/30 border border-transparent rounded px-2 py-1 text-sm font-mono text-right w-full h-8 cursor-default',
+
+  // ─── Special row states ───────────────────────
   filledRow: 'border-l-[3px] border-l-success bg-success/5',
   unfilledRow: 'opacity-40',
+
+  // ─── Footer / summary rows ────────────────────
+  footerRow: 'border-t-2 border-border bg-muted/20',
+  footerCell: 'px-3 py-2 text-sm font-medium text-foreground',
+  footerCellMono: 'px-3 py-2 text-sm font-mono font-semibold text-right text-foreground',
+
+  // ─── Empty state ──────────────────────────────
+  emptyState: 'text-center text-sm text-muted-foreground py-12',
+
+  // ─── Loading skeleton ─────────────────────────
+  skeletonCell: 'h-4 bg-muted animate-pulse rounded',
+  skeletonCellName: 'h-4 bg-muted animate-pulse rounded w-[60%]',
+  skeletonCellNumeric: 'h-4 bg-muted animate-pulse rounded w-[50%] ml-auto',
+
+  // ─── Status badges ────────────────────────────
+  badge: {
+    base: 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+    draft:             'bg-muted text-muted-foreground',
+    submitted:         'bg-amber-100 text-amber-700',
+    acknowledged:      'bg-blue-100 text-blue-700',
+    sent:              'bg-amber-100 text-amber-700',
+    fulfilled:         'bg-green-100 text-green-700',
+    received:          'bg-green-100 text-green-700',
+    partiallyReceived: 'bg-blue-100 text-blue-700',
+    cancelled:         'bg-red-100 text-red-700',
+  },
 } as const;
 
 // ─── WORDING STANDARDS (Thai) ───────────────────────────────────────────────
