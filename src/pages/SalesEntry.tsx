@@ -276,12 +276,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      processRawText(text);
+      setPendingFileText(text);
     };
     reader.readAsText(file);
-    // Reset input so same file can be re-uploaded
     e.target.value = '';
-  }, [processRawText]);
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -291,10 +290,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      processRawText(text);
+      setPendingFileText(text);
     };
     reader.readAsText(file);
-  }, [processRawText]);
+  }, []);
+
+  // Process pending file text once profile and branch are available
+  useEffect(() => {
+    if (pendingFileText && selectedProfile && selectedBranch) {
+      processRawText(pendingFileText);
+      setPendingFileText(null);
+    }
+  }, [pendingFileText, selectedProfile, selectedBranch, processRawText]);
 
   const newRows = useMemo(() => parsedRows.filter(r => !r.isDuplicate), [parsedRows]);
   const skipRows = useMemo(() => parsedRows.filter(r => r.isDuplicate), [parsedRows]);
