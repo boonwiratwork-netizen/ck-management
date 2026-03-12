@@ -41,6 +41,7 @@ import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
 import BranchReceiptPage from '@/pages/BranchReceipt';
+import TransferRequestPage from '@/pages/TransferRequest';
 import FoodCostPage from '@/pages/FoodCost';
 import StoreOverview from '@/pages/StoreOverview';
 import SkuCategoriesPage from '@/pages/SkuCategories';
