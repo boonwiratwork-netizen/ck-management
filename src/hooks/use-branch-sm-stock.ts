@@ -14,25 +14,68 @@ export interface BranchSmStockEntry {
   status: BranchSmStockStatus;
 }
 
+export interface BranchSmSkuInfo {
+  skuId: string;
+  skuCode: string;
+  skuName: string;
+  uom: string;
+}
+
 export function useBranchSmStock(branchId: string | null) {
   const [smStock, setSmStock] = useState<Record<string, BranchSmStockEntry>>({});
+  const [smSkuList, setSmSkuList] = useState<BranchSmSkuInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
   const calculate = useCallback(async () => {
-    if (!branchId) { setSmStock({}); return; }
+    if (!branchId) { setSmStock({}); setSmSkuList([]); return; }
     setLoading(true);
 
     try {
-      // 1. Get active SM SKUs
+      // 1. Get branch brand_name
+      const { data: branch } = await supabase
+        .from('branches')
+        .select('brand_name')
+        .eq('id', branchId)
+        .single();
+      if (!branch) { setSmStock({}); setSmSkuList([]); setLoading(false); return; }
+
+      // 2. Get active menus for this brand
+      const { data: menus } = await supabase
+        .from('menus')
+        .select('id')
+        .eq('brand_name', branch.brand_name)
+        .eq('status', 'Active');
+      const menuIds = (menus || []).map(m => m.id);
+      if (menuIds.length === 0) { setSmStock({}); setSmSkuList([]); setLoading(false); return; }
+
+      // 3. Get distinct SM sku_ids from menu_bom for those menus
+      const { data: bomEntries } = await supabase
+        .from('menu_bom')
+        .select('sku_id')
+        .in('menu_id', menuIds);
+      const bomSkuIds = [...new Set((bomEntries || []).map(b => b.sku_id))];
+      if (bomSkuIds.length === 0) { setSmStock({}); setSmSkuList([]); setLoading(false); return; }
+
+      // 4. Filter to active SM SKUs only
       const { data: smSkus } = await supabase
         .from('skus')
-        .select('id')
+        .select('id, sku_id, name, usage_uom')
         .eq('type', 'SM')
-        .eq('status', 'Active');
-      const skuIds = (smSkus || []).map(s => s.id);
-      if (skuIds.length === 0) { setSmStock({}); setLoading(false); return; }
+        .eq('status', 'Active')
+        .in('id', bomSkuIds);
+      const skuRecords = smSkus || [];
+      const skuIds = skuRecords.map(s => s.id);
+      if (skuIds.length === 0) { setSmStock({}); setSmSkuList([]); setLoading(false); return; }
 
-      // 2. Get last 7 days of submitted daily_stock_counts for this branch
+      // Build SKU info list
+      setSmSkuList(skuRecords.map(s => ({
+        skuId: s.id,
+        skuCode: s.sku_id,
+        skuName: s.name,
+        uom: s.usage_uom,
+      })));
+
+      // 5. Get last 7 days of submitted daily_stock_counts for this branch
       const today = new Date();
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -47,7 +90,7 @@ export function useBranchSmStock(branchId: string | null) {
         .in('sku_id', skuIds)
         .order('count_date', { ascending: false });
 
-      // 3. Get CK lead time
+      // 6. Get CK lead time
       const { data: ckSupplier } = await supabase
         .from('suppliers')
         .select('lead_time')
@@ -56,14 +99,14 @@ export function useBranchSmStock(branchId: string | null) {
         .maybeSingle();
       const leadTime = ckSupplier?.lead_time ?? 1;
 
-      // 4. Group by SKU
+      // 7. Group by SKU
       const grouped: Record<string, typeof counts> = {};
       for (const row of counts || []) {
         if (!grouped[row.sku_id]) grouped[row.sku_id] = [];
         grouped[row.sku_id]!.push(row);
       }
 
-      // 5. Calculate per SKU
+      // 8. Calculate per SKU
       const result: Record<string, BranchSmStockEntry> = {};
 
       for (const skuId of skuIds) {
@@ -119,6 +162,7 @@ export function useBranchSmStock(branchId: string | null) {
       setSmStock(result);
     } catch {
       setSmStock({});
+      setSmSkuList([]);
     } finally {
       setLoading(false);
     }
@@ -126,5 +170,5 @@ export function useBranchSmStock(branchId: string | null) {
 
   useEffect(() => { calculate(); }, [calculate]);
 
-  return { smStock, loading, refresh: calculate };
+  return { smStock, smSkuList, loading, refresh: calculate };
 }
