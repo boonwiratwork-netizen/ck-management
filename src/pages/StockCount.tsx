@@ -115,7 +115,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const tabCounts = useMemo(() => ({
     RM: sessionLines.filter(l => l.type === 'RM').length,
     SM: sessionLines.filter(l => l.type === 'SM').length,
-    SP: sessionLines.filter(l => l.type === 'SP').length,
     PK: sessionLines.filter(l => l.type === 'PK').length,
   }), [sessionLines]);
 
