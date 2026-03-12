@@ -105,7 +105,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     return !editableCk.includes(tab);
   }
   if (role === 'store_manager') {
-    const editableStore: TabKey[] = ['sales-entry', 'branch-receipt', 'daily-stock-count'];
+    const editableStore: TabKey[] = ['sales-entry', 'branch-receipt', 'daily-stock-count', 'transfer-request'];
     return !editableStore.includes(tab);
   }
   return true;
