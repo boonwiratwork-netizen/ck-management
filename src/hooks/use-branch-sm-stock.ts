@@ -19,6 +19,7 @@ export interface BranchSmSkuInfo {
   skuCode: string;
   skuName: string;
   uom: string;
+  packSize: number;
 }
 
 export function useBranchSmStock(branchId: string | null) {
