@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
-import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, parseData } from '@/hooks/use-sales-entry-data';
+import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, parseData, ParseSource } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
@@ -235,7 +235,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
 
   // ——— Parse + duplicate check ———
-  const processRawText = useCallback(async (text: string) => {
+  const processRawText = useCallback(async (text: string, source: ParseSource = 'paste') => {
     if (!text || text.trim() === '') {
       setParsedRows([]);
       return;
@@ -244,7 +244,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       setParsedRows([]);
       return;
     }
-    const raw = parseData(text, selectedProfile, selectedBranch);
+    const raw = parseData(text, selectedProfile, selectedBranch, source);
     if (raw.length === 0) {
       setParsedRows([]);
       toast.warning('No valid rows found in pasted data');
@@ -257,7 +257,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       setShowSkipped(false);
     } catch (err) {
       console.error('checkDuplicates failed', err);
-      // Still show rows as all-new on error
       setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
     } finally {
       setChecking(false);
@@ -266,7 +265,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   const handlePaste = useCallback((text: string) => {
     setPastedText(text);
-    processRawText(text);
+    processRawText(text, 'paste');
   }, [processRawText]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,7 +297,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   // Process pending file text once profile and branch are available
   useEffect(() => {
     if (pendingFileText && selectedProfile && selectedBranch) {
-      processRawText(pendingFileText);
+      processRawText(pendingFileText, 'csv');
       setPendingFileText(null);
     }
   }, [pendingFileText, selectedProfile, selectedBranch, processRawText]);
