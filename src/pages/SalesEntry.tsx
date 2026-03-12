@@ -66,6 +66,15 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ——— Manage Transactions state ———
+  const [mgmtOpen, setMgmtOpen] = useState(false);
+  const [mgmtBranch, setMgmtBranch] = useState('');
+  const [mgmtDate, setMgmtDate] = useState<Date | undefined>(undefined);
+  const [mgmtTransactions, setMgmtTransactions] = useState<SalesEntry[]>([]);
+  const [mgmtLoading, setMgmtLoading] = useState(false);
+  const [mgmtSelectedIds, setMgmtSelectedIds] = useState<Set<string>>(new Set());
+  const [mgmtDeleteType, setMgmtDeleteType] = useState<'selected' | 'all' | null>(null);
+
   // Auto-select first profile
   useEffect(() => {
     if (profiles.length > 0 && !selectedProfileId) {
