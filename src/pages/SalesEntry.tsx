@@ -215,7 +215,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Parse + duplicate check ———
   const processRawText = useCallback(async (text: string) => {
-    if (!text.trim() || !selectedProfile || !selectedBranch) {
+    if (!text || text.trim() === '') {
+      setParsedRows([]);
+      return;
+    }
+    if (!selectedProfile || !selectedBranch) {
       setParsedRows([]);
       return;
     }
@@ -226,10 +230,17 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       return;
     }
     setChecking(true);
-    const withDups = await checkDuplicates(selectedBranch, raw);
-    setParsedRows(withDups);
-    setChecking(false);
-    setShowSkipped(false);
+    try {
+      const withDups = await checkDuplicates(selectedBranch, raw);
+      setParsedRows(withDups);
+      setShowSkipped(false);
+    } catch (err) {
+      console.error('checkDuplicates failed', err);
+      // Still show rows as all-new on error
+      setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
+    } finally {
+      setChecking(false);
+    }
   }, [selectedProfile, selectedBranch, checkDuplicates]);
 
   const handlePaste = useCallback((text: string) => {
