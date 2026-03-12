@@ -222,7 +222,7 @@ export default function TransferRequestPage() {
             <DatePicker
               value={requiredDate}
               onChange={setRequiredDate}
-              label="Required Date"
+              label={t('tr.requiredDate')}
               required
               labelPosition="above"
               minDate={tomorrow}
