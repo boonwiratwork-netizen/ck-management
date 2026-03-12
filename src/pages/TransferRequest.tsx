@@ -488,7 +488,7 @@ export default function TransferRequestPage() {
           <DatePicker
             value={filterFrom}
             onChange={setFilterFrom}
-            label="From"
+            label={t('common.from')}
             labelPosition="above"
             placeholder="From"
           />
