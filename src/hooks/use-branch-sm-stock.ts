@@ -19,6 +19,7 @@ export interface BranchSmSkuInfo {
   skuCode: string;
   skuName: string;
   uom: string;
+  packSize: number;
 }
 
 export function useBranchSmStock(branchId: string | null) {
@@ -59,7 +60,7 @@ export function useBranchSmStock(branchId: string | null) {
       // 4. Filter to active SM SKUs only
       const { data: smSkus } = await supabase
         .from('skus')
-        .select('id, sku_id, name, usage_uom')
+        .select('id, sku_id, name, usage_uom, pack_size')
         .eq('type', 'SM')
         .eq('status', 'Active')
         .in('id', bomSkuIds);
@@ -73,6 +74,7 @@ export function useBranchSmStock(branchId: string | null) {
         skuCode: s.sku_id,
         skuName: s.name,
         uom: s.usage_uom,
+        packSize: Number(s.pack_size) || 1,
       })));
 
       // 5. Get last 7 days of submitted daily_stock_counts for this branch

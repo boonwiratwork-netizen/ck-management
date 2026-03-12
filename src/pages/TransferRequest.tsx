@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTransferRequest, TRHistoryRow, TRDetailLine } from '@/hooks/use-transfer-request';
 import { useBranchData } from '@/hooks/use-branch-data';
-import { BranchSmStockStatus } from '@/hooks/use-branch-sm-stock';
+import { useBranchSmStock, BranchSmStockStatus } from '@/hooks/use-branch-sm-stock';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,10 @@ import { UnitLabel } from '@/components/ui/unit-label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { typography, table as tableTokens, formatNumber } from '@/lib/design-tokens';
 import { toLocalDateStr } from '@/lib/utils';
-import { Plus, Eye, Printer, Ban } from 'lucide-react';
+import { Plus, Eye, Printer, Ban, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const stockStatusToDot: Record<BranchSmStockStatus, StatusDotStatus> = {
@@ -32,21 +33,26 @@ const trStatusBadge: Record<string, string> = {
 };
 
 export default function TransferRequestPage() {
-  const { profile, role, isManagement, isStoreManager, isAreaManager, isCkManager, brandAssignments } = useAuth();
+  const { profile, role, isManagement, isStoreManager, isAreaManager, isCkManager, brandAssignments, user } = useAuth();
   const branchId = profile?.branch_id || null;
   const { branches } = useBranchData();
 
-  // Get profile ID from profiles
+  // Management can select any branch for TR creation
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+
+  // Determine effective branch for TR form
+  const effectiveBranchId = isManagement ? selectedBranchId : branchId;
+
+  // Profile ID
   const [profileId, setProfileId] = useState<string | null>(null);
-  // Lazy load profile id
-  useState(() => {
-    if (profile && branchId) {
+  useEffect(() => {
+    if (user) {
       import('@/integrations/supabase/client').then(({ supabase }) => {
-        supabase.from('profiles').select('id').eq('branch_id', branchId).limit(1).maybeSingle()
+        supabase.from('profiles').select('id').eq('user_id', user.id).maybeSingle()
           .then(({ data }) => { if (data) setProfileId(data.id); });
       });
     }
-  });
+  }, [user]);
 
   const {
     lines, updateLineQty, isLoading,
@@ -55,7 +61,9 @@ export default function TransferRequestPage() {
     submitTR, canSubmit, itemsToOrder,
     history, historyLoading, fetchHistory,
     fetchTRDetail, cancelTR,
-  } = useTransferRequest(isStoreManager ? branchId : null, profileId);
+  } = useTransferRequest(effectiveBranchId || null, profileId);
+
+  const canCreateTR = isStoreManager || isManagement;
 
   const [formOpen, setFormOpen] = useState(false);
   const [sortMode, setSortMode] = useState<'code' | 'priority'>('code');
@@ -89,9 +97,10 @@ export default function TransferRequestPage() {
   const [filterTo, setFilterTo] = useState<Date | undefined>(undefined);
 
   const branchName = useMemo(() => {
-    if (!branchId) return '';
-    return branches.find(b => b.id === branchId)?.branchName || '';
-  }, [branchId, branches]);
+    const bid = effectiveBranchId;
+    if (!bid) return '';
+    return branches.find(b => b.id === bid)?.branchName || '';
+  }, [effectiveBranchId, branches]);
 
   // Filter branches for area manager
   const visibleBranches = useMemo(() => {
@@ -99,6 +108,8 @@ export default function TransferRequestPage() {
     if (isAreaManager) return branches.filter(b => brandAssignments.includes(b.brandName));
     return branches;
   }, [branches, isManagement, isAreaManager, brandAssignments]);
+
+  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
 
   const tomorrow = useMemo(() => {
     const d = new Date();
@@ -136,8 +147,11 @@ export default function TransferRequestPage() {
     });
   }, [fetchHistory, filterBranch, filterStatus, filterFrom, filterTo]);
 
-  // Tab key navigation for REQUEST QTY inputs
+  // Tab key navigation for REQUEST BATCH inputs
   const qtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
+
+  // Track local batch inputs for TOTAL UOM display
+  const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
 
   return (
     <div className="space-y-6">
@@ -147,7 +161,7 @@ export default function TransferRequestPage() {
           <h2 className={typography.pageTitle}>Transfer Request</h2>
           <p className="text-sm text-muted-foreground">Request SM ingredients from Central Kitchen</p>
         </div>
-        {isStoreManager && !formOpen && (
+        {canCreateTR && !formOpen && (
           <Button onClick={() => setFormOpen(true)} className="h-9">
             <Plus className="w-4 h-4 mr-1" /> New TR
           </Button>
@@ -155,16 +169,32 @@ export default function TransferRequestPage() {
       </div>
 
       {/* ─── TR Creation Form ─── */}
-      {isStoreManager && formOpen && (
+      {canCreateTR && formOpen && (
         <div className="rounded-lg border bg-card p-6 space-y-4">
           {/* Metadata row */}
           <div className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">Branch</label>
-              <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
-                {branchName || 'Not assigned'}
+            {isManagement ? (
+              <div className="flex flex-col gap-1 min-w-[200px]">
+                <label className="text-sm text-muted-foreground">Branch <span className="text-destructive">*</span></label>
+                <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                  <SelectTrigger className="h-10 w-[240px]">
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeBranches.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.branchName} — {b.brandName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-muted-foreground">Branch</label>
+                <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
+                  {branchName || 'Not assigned'}
+                </div>
+              </div>
+            )}
             <DatePicker
               value={requiredDate}
               onChange={setRequiredDate}
@@ -185,143 +215,182 @@ export default function TransferRequestPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+              <Button onClick={handleSubmit} disabled={!canSubmit || submitting || (isManagement && !selectedBranchId)}>
                 {submitting ? 'Submitting...' : 'Submit TR'}
               </Button>
             </div>
           </div>
 
           {/* SKU Sheet */}
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-sm font-semibold">SM Items for {branchName}</p>
-              <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Adjust quantities as needed.</p>
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setSortMode('code')}
-                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  sortMode === 'code'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-input text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                Sort by Code
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortMode('priority')}
-                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  sortMode === 'priority'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-input text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                Sort by Priority
-              </button>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">Loading SM items...</div>
-          ) : lines.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">No SM SKUs found for this branch's menus.</div>
-          ) : (
+          {effectiveBranchId && (
             <>
-              <div className={tableTokens.wrapper}>
-                <table className={tableTokens.base}>
-                  <colgroup>
-                    <col style={{ width: 40 }} />
-                    <col style={{ width: 100 }} />
-                    <col />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 110 }} />
-                    <col style={{ width: 110 }} />
-                    <col style={{ width: 60 }} />
-                  </colgroup>
-                  <thead>
-                    <tr className={tableTokens.headerRow}>
-                      <th className={`${tableTokens.headerCell} text-center`}></th>
-                      <th className={tableTokens.headerCell}>SKU CODE</th>
-                      <th className={tableTokens.headerCell}>SKU NAME</th>
-                      <th className={`${tableTokens.headerCell} text-right`}>STOCK NOW</th>
-                      <th className={`${tableTokens.headerCell} text-right`}>ROP</th>
-                      <th className={`${tableTokens.headerCell} text-right`}>PARSTOCK</th>
-                      <th className={`${tableTokens.headerCell} text-right`}>SUGGESTED</th>
-                      <th className={`${tableTokens.headerCell} text-right`}>REQUEST QTY</th>
-                      <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedLines.map((line, idx) => {
-                      const isSufficient = line.status === 'sufficient';
-                      const isNoData = line.status === 'no-data';
-                      const dotStatus: StatusDotStatus | undefined = isNoData ? undefined : stockStatusToDot[line.status];
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-sm font-semibold">SM Items for {branchName}</p>
+                  <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Enter batch quantity to request.</p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('code')}
+                    className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                      sortMode === 'code'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border border-input text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Sort by Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('priority')}
+                    className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                      sortMode === 'priority'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border border-input text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Sort by Priority
+                  </button>
+                </div>
+              </div>
 
-                      return (
-                        <tr
-                          key={line.skuId}
-                          className={`${tableTokens.dataRow} ${isSufficient ? 'opacity-60' : ''}`}
-                        >
-                          <td className={`${tableTokens.dataCell} text-center`}>
-                            {dotStatus ? (
-                              <StatusDot status={dotStatus} size="sm" />
-                            ) : (
-                              <span className="inline-block w-2 h-2 rounded-full bg-muted" />
-                            )}
-                          </td>
-                          <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                          <td className={`${tableTokens.truncatedCell}`} title={line.skuName}>{line.skuName}</td>
-                          <td className={tableTokens.dataCellMono}>{formatNumber(line.stockOnHand, 0)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-primary font-medium`}>
-                             {isNoData ? '—' : formatNumber(line.suggestedQty, 0)}
-                          </td>
-                          <td className={`${tableTokens.dataCell} text-right`}>
-                            <input
-                              ref={el => { if (el) qtyInputRefs.current[line.skuId] = el; }}
-                              type="number"
-                              inputMode="numeric"
-                              min={0}
-                              step={1}
-                              defaultValue={line.requestedQty ? Math.round(line.requestedQty) : ''}
-                              onBlur={e => updateLineQty(line.skuId, Number(e.target.value) || 0)}
-                              onKeyDown={e => {
-                                if (e.key === 'Tab') {
-                                  e.preventDefault();
-                                  const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                  if (nextIdx >= 0 && nextIdx < sortedLines.length) {
-                                    const nextSkuId = sortedLines[nextIdx].skuId;
-                                    qtyInputRefs.current[nextSkuId]?.focus();
-                                    qtyInputRefs.current[nextSkuId]?.select();
-                                  }
-                                }
-                              }}
-                              className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-ring focus:ring-0 focus:outline-none"
-                            />
-                          </td>
-                          <td className={`${tableTokens.dataCell} text-center`}>
-                            <UnitLabel unit={line.uom} />
-                          </td>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">Loading SM items...</div>
+              ) : lines.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">No SM SKUs found for this branch's menus.</div>
+              ) : (
+                <>
+                  <div className={tableTokens.wrapper}>
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col style={{ width: 28 }} />
+                        <col style={{ width: 75 }} />
+                        <col />
+                        <col style={{ width: 95 }} />
+                        <col style={{ width: 70 }} />
+                        <col style={{ width: 55 }} />
+                        <col style={{ width: 75 }} />
+                        <col style={{ width: 85 }} />
+                        <col style={{ width: 85 }} />
+                        <col style={{ width: 70 }} />
+                        <col style={{ width: 55 }} />
+                      </colgroup>
+                      <thead>
+                        <tr className={tableTokens.headerRow}>
+                          <th className={`${tableTokens.headerCell} text-center`}></th>
+                          <th className={tableTokens.headerCell}>SKU CODE</th>
+                          <th className={tableTokens.headerCell}>SKU NAME</th>
+                          <th className={tableTokens.headerCell}>BATCH SIZE</th>
+                          <th className={`${tableTokens.headerCell} text-right`}>STOCK NOW</th>
+                          <th className={`${tableTokens.headerCell} text-right`}>ROP</th>
+                          <th className={`${tableTokens.headerCell} text-right`}>PARSTOCK</th>
+                          <th className={`${tableTokens.headerCell} text-right`}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-0.5 cursor-help">
+                                    SUGGESTED
+                                    <Info className="w-3 h-3 opacity-50" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Rounded up to nearest batch size</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </th>
+                          <th className={`${tableTokens.headerCell} text-right`}>REQUEST (BATCH)</th>
+                          <th className={`${tableTokens.headerCell} text-right`}>TOTAL (UOM)</th>
+                          <th className={`${tableTokens.headerCell} text-center`}>UNIT</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-end gap-4">
-                <span className="text-sm text-muted-foreground">
-                  Items to order: <span className="font-semibold text-foreground">{itemsToOrder}</span>
-                </span>
-                <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
-                  {submitting ? 'Submitting...' : 'Submit TR'}
-                </Button>
-              </div>
+                      </thead>
+                      <tbody>
+                        {sortedLines.map((line, idx) => {
+                          const isSufficient = line.status === 'sufficient';
+                          const isNoData = line.status === 'no-data';
+                          const dotStatus: StatusDotStatus | undefined = isNoData ? undefined : stockStatusToDot[line.status];
+                          const batchVal = batchInputs[line.skuId] ?? 0;
+                          const totalUom = batchVal > 0 ? batchVal * line.packSize : 0;
+
+                          return (
+                            <tr
+                              key={line.skuId}
+                              className={`${tableTokens.dataRow} ${isSufficient ? 'opacity-60' : ''}`}
+                            >
+                              <td className={`${tableTokens.dataCell} text-center`}>
+                                {dotStatus ? (
+                                  <StatusDot status={dotStatus} size="sm" />
+                                ) : (
+                                  <span className="inline-block w-2 h-2 rounded-full bg-muted" />
+                                )}
+                              </td>
+                              <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
+                              <td className={`${tableTokens.truncatedCell}`} title={line.skuName}>{line.skuName}</td>
+                              <td className={`${tableTokens.dataCell} text-xs text-muted-foreground truncate`} title={`${formatNumber(line.packSize, 0)} ${line.uom}/แพ็ค`}>
+                                {formatNumber(line.packSize, 0)} {line.uom}/แพ็ค
+                              </td>
+                              <td className={tableTokens.dataCellMono}>{formatNumber(line.stockOnHand, 0)}</td>
+                              <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
+                              <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
+                              <td className={`${tableTokens.dataCellMono} ${line.suggestedBatches > 0 ? 'text-primary' : 'text-muted-foreground'} font-medium`}>
+                                {isNoData ? '—' : line.suggestedBatches}
+                              </td>
+                              <td className={`${tableTokens.dataCell} text-right`}>
+                                <input
+                                  ref={el => { if (el) qtyInputRefs.current[line.skuId] = el; }}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  step={1}
+                                  defaultValue=""
+                                  placeholder="0"
+                                  onBlur={e => {
+                                    const v = Math.max(0, Math.round(Number(e.target.value) || 0));
+                                    setBatchInputs(prev => ({ ...prev, [line.skuId]: v }));
+                                    updateLineQty(line.skuId, v);
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Tab') {
+                                      e.preventDefault();
+                                      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                      if (nextIdx >= 0 && nextIdx < sortedLines.length) {
+                                        const nextSkuId = sortedLines[nextIdx].skuId;
+                                        qtyInputRefs.current[nextSkuId]?.focus();
+                                        qtyInputRefs.current[nextSkuId]?.select();
+                                      }
+                                    }
+                                  }}
+                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-ring focus:ring-0 focus:outline-none"
+                                />
+                              </td>
+                              <td className={`${tableTokens.dataCellMono} ${totalUom > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {totalUom > 0 ? formatNumber(totalUom, 0) : '—'}
+                              </td>
+                              <td className={`${tableTokens.dataCell} text-center text-sm font-medium text-primary bg-primary/5`}>
+                                {line.uom}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-end gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      Items to order: <span className="font-semibold text-foreground">{itemsToOrder}</span>
+                    </span>
+                    <Button onClick={handleSubmit} disabled={!canSubmit || submitting || (isManagement && !selectedBranchId)}>
+                      {submitting ? 'Submitting...' : 'Submit TR'}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
+          )}
+
+          {isManagement && !selectedBranchId && (
+            <div className="text-center py-8 text-muted-foreground text-sm">Select a branch above to load SM items.</div>
           )}
         </div>
       )}
@@ -414,7 +483,7 @@ export default function TransferRequestPage() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetail(tr)} title="View">
                         <Eye className="w-4 h-4" />
                       </Button>
-                      {isManagement && tr.status !== 'Cancelled' && tr.status !== 'Fulfilled' && (
+                      {(isManagement || isStoreManager) && tr.status !== 'Cancelled' && tr.status !== 'Fulfilled' && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => cancelTR(tr.id)} title="Cancel">
                           <Ban className="w-4 h-4" />
                         </Button>
@@ -495,10 +564,10 @@ export default function TransferRequestPage() {
                         <tr key={l.id} className={tableTokens.dataRow}>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
                           <td className={tableTokens.truncatedCell} title={l.skuName}>{l.skuName}</td>
-                          <td className={tableTokens.dataCellMono}>{formatNumber(l.stockOnHand, 1)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(l.suggestedQty, 1)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(l.rop, 1)}</td>
-                          <td className={`${tableTokens.dataCellMono} font-medium`}>{formatNumber(l.requestedQty, 1)}</td>
+                          <td className={tableTokens.dataCellMono}>{formatNumber(l.stockOnHand, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(l.suggestedQty, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(l.rop, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} font-medium`}>{formatNumber(l.requestedQty, 0)}</td>
                           <td className={`${tableTokens.dataCell} text-center`}>
                             <UnitLabel unit={l.uom} />
                           </td>

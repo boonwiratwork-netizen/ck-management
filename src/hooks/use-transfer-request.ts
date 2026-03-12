@@ -9,8 +9,10 @@ export interface TRLine {
   skuCode: string;
   skuName: string;
   uom: string;
+  packSize: number;
   requestedQty: number;
   suggestedQty: number;
+  suggestedBatches: number;
   stockOnHand: number;
   avgDailyUsage: number;
   peakDailyUsage: number;
@@ -70,13 +72,16 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         stockOnHand: 0, avgDailyUsage: 0, peakDailyUsage: 0,
         rop: 0, parstock: 0, suggestedOrder: 0, status: 'no-data' as BranchSmStockStatus,
       };
+      const ps = sku.packSize || 1;
       return {
         skuId: sku.skuId,
         skuCode: sku.skuCode,
         skuName: sku.skuName,
         uom: sku.uom,
-        requestedQty: stock.suggestedOrder,
+        packSize: ps,
+        requestedQty: 0, // No pre-fill — empty by default
         suggestedQty: stock.suggestedOrder,
+        suggestedBatches: stock.suggestedOrder > 0 ? Math.ceil(stock.suggestedOrder / ps) : 0,
         stockOnHand: stock.stockOnHand,
         avgDailyUsage: stock.avgDailyUsage,
         peakDailyUsage: stock.peakDailyUsage,
@@ -90,8 +95,13 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     setLines(newLines);
   }, [smStock, smSkuList]);
 
-  const updateLineQty = useCallback((skuId: string, qty: number) => {
-    setLines(prev => prev.map(l => l.skuId === skuId ? { ...l, requestedQty: Math.max(0, qty) } : l));
+  // Update line by batches — stores requestedQty in grams (batches × packSize)
+  const updateLineQty = useCallback((skuId: string, batches: number) => {
+    setLines(prev => prev.map(l => {
+      if (l.skuId !== skuId) return l;
+      const b = Math.max(0, Math.round(batches));
+      return { ...l, requestedQty: b * l.packSize };
+    }));
   }, []);
 
   const itemsToOrder = useMemo(() => lines.filter(l => l.requestedQty > 0).length, [lines]);
@@ -107,7 +117,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
 
     try {
       const now = new Date();
-      // Call next_doc_number via RPC
       const { data: trNumber, error: rpcError } = await supabase
         .rpc('next_doc_number', {
           p_type: 'TR',
@@ -116,7 +125,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         });
       if (rpcError || !trNumber) return { error: rpcError?.message || 'Failed to generate TR number' };
 
-      // Insert TR header
       const { data: trRow, error: trError } = await supabase
         .from('transfer_requests')
         .insert({
@@ -132,7 +140,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         .single();
       if (trError || !trRow) return { error: trError?.message || 'Failed to create TR' };
 
-      // Insert TR lines (only lines with qty > 0)
       const lineInserts = lines
         .filter(l => l.requestedQty > 0)
         .map(l => ({
@@ -154,7 +161,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         .insert(lineInserts);
       if (linesError) return { error: linesError.message };
 
-      // Reset form
       setRequiredDate(undefined);
       setNotes('');
       refreshStock();
@@ -187,7 +193,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     const { data, error } = await query;
     if (error) { toast.error('Failed to load TR history'); setHistoryLoading(false); return; }
 
-    // Get line counts
     const trIds = (data || []).map(d => d.id);
     let lineCounts: Record<string, number> = {};
     if (trIds.length > 0) {
@@ -200,7 +205,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       }
     }
 
-    // Get branch names
     const branchIds = [...new Set((data || []).map(d => d.branch_id))];
     let branchNames: Record<string, string> = {};
     if (branchIds.length > 0) {
@@ -230,7 +234,6 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-  // Fetch TR detail lines
   const fetchTRDetail = useCallback(async (trId: string): Promise<TRDetailLine[]> => {
     const { data, error } = await supabase
       .from('transfer_request_lines')

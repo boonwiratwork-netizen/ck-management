@@ -57,7 +57,7 @@ function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "min-w-[200px] justify-start text-left font-normal",
+            "h-10 min-w-[200px] justify-start text-left font-normal",
             "border-input focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
             !value && "text-muted-foreground",
             className,

@@ -146,7 +146,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { lang, toggleLang, t } = useLanguage();
   const [pendingTRCount, setPendingTRCount] = useState(0);
 
-  // Fetch pending TR count for badge
+  // Fetch pending TR count for badge (only 'Submitted' status)
   useEffect(() => {
     if (!isManagement && !isCkManager) return;
     const fetchCount = () => {
@@ -157,8 +157,18 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         .then(({ count }) => setPendingTRCount(count || 0));
     };
     fetchCount();
-    const interval = setInterval(fetchCount, 60000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchCount, 30000); // 30s for faster clearing
+    // Listen for realtime changes on transfer_requests to refresh badge immediately
+    const channel = supabase
+      .channel('tr-badge-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transfer_requests' }, () => {
+        fetchCount();
+      })
+      .subscribe();
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [isManagement, isCkManager]);
 
   // Build groups based on role

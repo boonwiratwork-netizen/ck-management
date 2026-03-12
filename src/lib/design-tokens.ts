@@ -72,6 +72,12 @@ export const statusDotSizes = {
   md: 'w-2.5 h-2.5',
 } as const;
 
+// ─── FORM CONTROLS ──────────────────────────────────────────────────────────
+export const formControl = {
+  /** Universal height for all interactive form controls (Input, Select, DatePicker) */
+  height: 'h-10',
+} as const;
+
 // ─── SPACING ────────────────────────────────────────────────────────────────
 export const spacing = {
   /** Standard table row height */
