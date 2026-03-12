@@ -102,6 +102,7 @@ const storeGroup: NavGroup = {
     { key: 'modifier-rules', labelKey: 'nav.modifierRules', icon: ListFilter },
     { key: 'sales-entry', labelKey: 'nav.salesEntry', icon: ShoppingCart },
     { key: 'branch-receipt', labelKey: 'nav.branchReceipt', icon: ClipboardList },
+    { key: 'transfer-request', labelKey: 'nav.transferRequest', icon: ArrowUpFromLine },
     { key: 'daily-stock-count', labelKey: 'nav.dailyStockCount', icon: ClipboardCheck },
     { key: 'food-cost', labelKey: 'nav.foodCost', icon: PieChart },
   ],
