@@ -64,6 +64,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [checking, setChecking] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ——— Manage Transactions state ———
