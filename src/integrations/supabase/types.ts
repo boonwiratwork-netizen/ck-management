@@ -207,6 +207,7 @@ export type Database = {
           std_total: number
           std_unit_price: number
           supplier_name: string
+          transfer_order_id: string | null
           uom: string
         }
         Insert: {
@@ -223,6 +224,7 @@ export type Database = {
           std_total?: number
           std_unit_price?: number
           supplier_name?: string
+          transfer_order_id?: string | null
           uom?: string
         }
         Update: {
@@ -239,6 +241,7 @@ export type Database = {
           std_total?: number
           std_unit_price?: number
           supplier_name?: string
+          transfer_order_id?: string | null
           uom?: string
         }
         Relationships: [
@@ -254,6 +257,13 @@ export type Database = {
             columns: ["sku_id"]
             isOneToOne: false
             referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_receipts_transfer_order_id_fkey"
+            columns: ["transfer_order_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -400,6 +410,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      document_sequences: {
+        Row: {
+          doc_type: string
+          id: string
+          last_seq: number
+          month: number
+          year: number
+        }
+        Insert: {
+          doc_type: string
+          id?: string
+          last_seq?: number
+          month: number
+          year: number
+        }
+        Update: {
+          doc_type?: string
+          id?: string
+          last_seq?: number
+          month?: number
+          year?: number
+        }
+        Relationships: []
       }
       global_settings: {
         Row: {
@@ -1247,6 +1281,7 @@ export type Database = {
           created_at: string
           credit_terms: string
           id: string
+          is_central_kitchen: boolean
           lead_time: number
           moq: number
           moq_unit: string
@@ -1260,6 +1295,7 @@ export type Database = {
           created_at?: string
           credit_terms?: string
           id?: string
+          is_central_kitchen?: boolean
           lead_time?: number
           moq?: number
           moq_unit?: string
@@ -1273,6 +1309,7 @@ export type Database = {
           created_at?: string
           credit_terms?: string
           id?: string
+          is_central_kitchen?: boolean
           lead_time?: number
           moq?: number
           moq_unit?: string
@@ -1282,6 +1319,251 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      transfer_order_lines: {
+        Row: {
+          actual_qty: number
+          created_at: string
+          id: string
+          line_value: number
+          notes: string
+          planned_qty: number
+          sku_id: string
+          to_id: string
+          tr_line_id: string | null
+          unit_cost: number
+          uom: string
+        }
+        Insert: {
+          actual_qty?: number
+          created_at?: string
+          id?: string
+          line_value?: number
+          notes?: string
+          planned_qty?: number
+          sku_id: string
+          to_id: string
+          tr_line_id?: string | null
+          unit_cost?: number
+          uom?: string
+        }
+        Update: {
+          actual_qty?: number
+          created_at?: string
+          id?: string
+          line_value?: number
+          notes?: string
+          planned_qty?: number
+          sku_id?: string
+          to_id?: string
+          tr_line_id?: string | null
+          unit_cost?: number
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_order_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_order_lines_to_id_fkey"
+            columns: ["to_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_order_lines_tr_line_id_fkey"
+            columns: ["tr_line_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_request_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_orders: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          delivery_date: string
+          id: string
+          notes: string
+          status: string
+          to_number: string
+          total_value: number
+          tr_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string
+          id?: string
+          notes?: string
+          status?: string
+          to_number: string
+          total_value?: number
+          tr_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string
+          id?: string
+          notes?: string
+          status?: string
+          to_number?: string
+          total_value?: number
+          tr_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_orders_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_orders_tr_id_fkey"
+            columns: ["tr_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_request_lines: {
+        Row: {
+          avg_daily_usage: number
+          created_at: string
+          id: string
+          notes: string
+          parstock: number
+          peak_daily_usage: number
+          requested_qty: number
+          rop: number
+          sku_id: string
+          stock_on_hand: number
+          suggested_qty: number
+          tr_id: string
+          uom: string
+        }
+        Insert: {
+          avg_daily_usage?: number
+          created_at?: string
+          id?: string
+          notes?: string
+          parstock?: number
+          peak_daily_usage?: number
+          requested_qty?: number
+          rop?: number
+          sku_id: string
+          stock_on_hand?: number
+          suggested_qty?: number
+          tr_id: string
+          uom?: string
+        }
+        Update: {
+          avg_daily_usage?: number
+          created_at?: string
+          id?: string
+          notes?: string
+          parstock?: number
+          peak_daily_usage?: number
+          requested_qty?: number
+          rop?: number
+          sku_id?: string
+          stock_on_hand?: number
+          suggested_qty?: number
+          tr_id?: string
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_request_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_request_lines_tr_id_fkey"
+            columns: ["tr_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_requests: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          notes: string
+          requested_by: string | null
+          requested_date: string
+          required_date: string
+          status: string
+          tr_number: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          notes?: string
+          requested_by?: string | null
+          requested_date?: string
+          required_date: string
+          status?: string
+          tr_number: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          requested_by?: string | null
+          requested_date?: string
+          required_date?: string
+          status?: string
+          tr_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_brand_assignments: {
         Row: {
@@ -1368,6 +1650,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      next_doc_number: {
+        Args: { p_month: number; p_type: string; p_year: number }
+        Returns: string
       }
     }
     Enums: {
