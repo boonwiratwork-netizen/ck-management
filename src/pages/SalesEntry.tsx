@@ -427,7 +427,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           )}
 
           {/* Preview section */}
-          {parsedRows.length > 0 && !checking && (
+          {parsedRows.length > 0 && (
             <div className="space-y-3">
               {/* Summary banner */}
               <div className="flex items-center gap-2 text-sm">
