@@ -60,7 +60,7 @@ export function useBranchSmStock(branchId: string | null) {
       // 4. Filter to active SM SKUs only
       const { data: smSkus } = await supabase
         .from('skus')
-        .select('id, sku_id, name, usage_uom')
+        .select('id, sku_id, name, usage_uom, pack_size')
         .eq('type', 'SM')
         .eq('status', 'Active')
         .in('id', bomSkuIds);
