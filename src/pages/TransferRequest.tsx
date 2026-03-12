@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { typography, table as tableTokens, formatNumber } from '@/lib/design-tokens';
 import { toLocalDateStr } from '@/lib/utils';
-import { Plus, X, Eye, Printer, Ban } from 'lucide-react';
+import { Plus, Eye, Printer, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 
 const stockStatusToDot: Record<BranchSmStockStatus, StatusDotStatus> = {
