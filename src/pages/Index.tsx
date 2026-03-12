@@ -64,6 +64,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   smstock: { title: 'SM Stock', subtitle: 'Semi-finished goods inventory' },
   stockcount: { title: 'Stock Count', subtitle: 'Verify your physical inventory' },
   delivery: { title: 'Delivery to Branches', subtitle: 'Track what leaves the kitchen' },
+  'transfer-order': { title: 'Transfer Order', subtitle: 'Create and send SM deliveries to branches' },
   branches: { title: 'Branches', subtitle: 'Manage your restaurant locations' },
   users: { title: 'User Management', subtitle: 'Team access and permissions' },
   store: { title: 'Store Overview', subtitle: 'Branch operations at a glance' },
