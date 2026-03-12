@@ -275,11 +275,11 @@ export default function TransferRequestPage() {
                           </td>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
                           <td className={`${tableTokens.truncatedCell}`} title={line.skuName}>{line.skuName}</td>
-                          <td className={tableTokens.dataCellMono}>{formatNumber(line.stockOnHand, 1)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.rop, 1)}</td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.parstock, 1)}</td>
+                          <td className={tableTokens.dataCellMono}>{formatNumber(line.stockOnHand, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
                           <td className={`${tableTokens.dataCellMono} text-primary font-medium`}>
-                            {isNoData ? '—' : formatNumber(line.suggestedQty, 1)}
+                             {isNoData ? '—' : formatNumber(line.suggestedQty, 0)}
                           </td>
                           <td className={`${tableTokens.dataCell} text-right`}>
                             <input
