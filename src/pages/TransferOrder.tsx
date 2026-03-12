@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { useTransferOrder, TOLine, PendingTR, TOHistoryRow } from '@/hooks/use-transfer-order';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useSkuData } from '@/hooks/use-sku-data';
@@ -48,6 +49,7 @@ export default function TransferOrderPage({
   getBomCostPerGram: (skuId: string) => number;
   refreshSmStock?: () => void;
 }) {
+  const { t } = useLanguage();
   const { role, isManagement, isCkManager, isAreaManager, user, profile } = useAuth();
   const { branches } = useBranchData();
   const { skus } = useSkuData();
@@ -207,7 +209,7 @@ export default function TransferOrderPage({
     const sku = smSkus.find(s => s.id === skuId);
     if (!sku) return;
     if (formState.lines.some(l => l.skuId === skuId)) {
-      toast.error('Item already in list');
+      toast.error(t('to.itemAlreadyAdded'));
       return;
     }
     const newLine = await addTOLine(formState.toId, skuId, sku.skuId, sku.name, sku.usageUom);
@@ -215,7 +217,7 @@ export default function TransferOrderPage({
       setFormState(prev => prev ? { ...prev, lines: [...prev.lines, newLine] } : prev);
     }
     setSkuSearchOpen(false);
-  }, [formState, smSkus, addTOLine]);
+  }, [formState, smSkus, addTOLine, t]);
 
   // ─── Delete line ───
   const handleDeleteLine = useCallback(async (lineId: string) => {
@@ -230,7 +232,7 @@ export default function TransferOrderPage({
     if (!formState) return;
     const invalidLines = formState.lines.filter(l => l.actualQty < 0);
     if (invalidLines.length > 0) {
-      toast.error('All quantities must be >= 0');
+      toast.error(t('to.qtyError'));
       return;
     }
     setFormSending(true);
@@ -240,11 +242,11 @@ export default function TransferOrderPage({
       toast.error(result.error);
       return;
     }
-    toast.success(`${formState.toNumber} sent successfully`);
+    toast.success(`${formState.toNumber} ${t('to.sentSuccess')}`);
     setFormState(null);
     fetchHistory();
     refreshSmStock?.();
-  }, [formState, sendTO, fetchHistory, refreshSmStock]);
+  }, [formState, sendTO, fetchHistory, refreshSmStock, t]);
 
   // ─── Cancel form ───
   const handleCancelForm = useCallback(() => {
@@ -314,11 +316,11 @@ export default function TransferOrderPage({
       toast.error(result.error);
       return;
     }
-    toast.success(`${detailTO.toNumber} sent successfully`);
+    toast.success(`${detailTO.toNumber} ${t('to.sentSuccess')}`);
     setDetailOpen(false);
     fetchHistory();
     refreshSmStock?.();
-  }, [detailTO, detailLines, sendTO, fetchHistory, refreshSmStock]);
+  }, [detailTO, detailLines, sendTO, fetchHistory, refreshSmStock, t]);
 
   const totalFormValue = useMemo(
     () => formState?.lines.reduce((s, l) => s + l.actualQty * l.unitCost, 0) ?? 0,
@@ -340,12 +342,12 @@ export default function TransferOrderPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={typography.pageTitle}>Transfer Order</h2>
-          <p className="text-sm text-muted-foreground">Create and send SM deliveries to branches</p>
+          <h2 className={typography.pageTitle}>{t('to.pageTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('to.pageSubtitle')}</p>
         </div>
         {canEdit && !formState && !standaloneOpen && (
           <Button onClick={() => setStandaloneOpen(true)} className="h-9">
-            <Plus className="w-4 h-4 mr-1" /> New TO
+            <Plus className="w-4 h-4 mr-1" /> {t('to.newTO')}
           </Button>
         )}
       </div>
@@ -356,7 +358,7 @@ export default function TransferOrderPage({
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold text-primary">
-              {pendingTRs.length} Transfer Request{pendingTRs.length > 1 ? 's' : ''} Awaiting Fulfillment
+              {t('to.pendingTRs').replace('{n}', String(pendingTRs.length))}
             </span>
           </div>
           <div className={tableTokens.wrapper}>
@@ -370,11 +372,11 @@ export default function TransferOrderPage({
               </colgroup>
               <thead>
                 <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>TR NUMBER</th>
-                  <th className={tableTokens.headerCell}>BRANCH</th>
-                  <th className={tableTokens.headerCell}>REQUIRED DATE</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>ITEMS</th>
-                  <th className={`${tableTokens.headerCell} text-center`}>ACTION</th>
+                  <th className={tableTokens.headerCell}>{t('tr.colTrNumber')}</th>
+                  <th className={tableTokens.headerCell}>{t('col.branch')}</th>
+                  <th className={tableTokens.headerCell}>{t('tr.colRequiredDate')}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t('tr.colItems')}</th>
+                  <th className={`${tableTokens.headerCell} text-center`}>{t('col.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -388,7 +390,7 @@ export default function TransferOrderPage({
                     <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
                     <td className={`${tableTokens.dataCell} text-center`}>
                       <Button size="sm" className="h-7 text-xs" onClick={() => handleCreateFromTR(tr)}>
-                        Create TO
+                        {t('to.createTO')}
                       </Button>
                     </td>
                   </tr>
@@ -402,10 +404,10 @@ export default function TransferOrderPage({
       {/* ─── Standalone TO creation form ─── */}
       {canEdit && standaloneOpen && !formState && (
         <div className="rounded-lg border bg-card p-6 space-y-4">
-          <h3 className={typography.sectionTitle}>New Transfer Order</h3>
+          <h3 className={typography.sectionTitle}>{t('to.newFormTitle')}</h3>
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm text-muted-foreground">Branch *</label>
+              <label className="text-sm text-muted-foreground">{t('to.branchRequired')}</label>
               <SearchableSelect
                 value={standaloneBranch}
                 onValueChange={setStandaloneBranch}
@@ -417,24 +419,24 @@ export default function TransferOrderPage({
             <DatePicker
               value={standaloneDate}
               onChange={setStandaloneDate}
-              label="Delivery Date"
+              label={t('to.deliveryDate')}
               required
               labelPosition="above"
               defaultToday
             />
             <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
-              <label className="text-sm text-muted-foreground">Notes</label>
+              <label className="text-sm text-muted-foreground">{t('col.notes')}</label>
               <Input
                 value={standaloneNotes}
                 onChange={e => setStandaloneNotes(e.target.value)}
-                placeholder="Optional notes..."
+                placeholder={t('tr.notesPlaceholder')}
                 className="h-10"
               />
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setStandaloneOpen(false)}>Cancel</Button>
               <Button onClick={handleCreateStandalone} disabled={!standaloneBranch || !standaloneDate}>
-                Create TO
+                {t('to.createTO')}
               </Button>
             </div>
           </div>
@@ -447,13 +449,13 @@ export default function TransferOrderPage({
           {/* TO metadata */}
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">TO Number</label>
+              <label className="text-sm text-muted-foreground">{t('to.colToNumber')}</label>
               <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm font-mono min-w-[160px] flex items-center">
                 {formState.toNumber}
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">Branch</label>
+              <label className="text-sm text-muted-foreground">{t('col.branch')}</label>
               <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
                 {formState.branchName}
               </div>
@@ -463,22 +465,22 @@ export default function TransferOrderPage({
               onChange={d => {
                 if (d) setFormState(prev => prev ? { ...prev, deliveryDate: toLocalDateStr(d) } : prev);
               }}
-              label="Delivery Date"
+              label={t('to.deliveryDate')}
               required
               labelPosition="above"
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">TR Reference</label>
+              <label className="text-sm text-muted-foreground">{t('to.colTrRef')}</label>
               <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm font-mono min-w-[140px] flex items-center">
                 {formState.trNumber || '—'}
               </div>
             </div>
             <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-              <label className="text-sm text-muted-foreground">Notes</label>
+              <label className="text-sm text-muted-foreground">{t('col.notes')}</label>
               <Input
                 value={formState.notes}
                 onChange={e => setFormState(prev => prev ? { ...prev, notes: e.target.value } : prev)}
-                placeholder="Optional notes..."
+                placeholder={t('tr.notesPlaceholder')}
                 className="h-10"
               />
             </div>
@@ -486,11 +488,11 @@ export default function TransferOrderPage({
               <Button variant="ghost" onClick={handleCancelForm}>Cancel</Button>
               <Button variant="outline" onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
                 <Save className="w-4 h-4 mr-1" />
-                Save Draft
+                {t('to.saveDraft')}
               </Button>
               <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
                 <Send className="w-4 h-4 mr-1" />
-                {formSending ? 'Sending...' : 'Send TO'}
+                {formSending ? t('to.sending') : t('to.sendTO')}
               </Button>
             </div>
           </div>
@@ -498,9 +500,9 @@ export default function TransferOrderPage({
           {/* SKU Sheet */}
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-sm font-semibold">Items for {formState.branchName}</p>
+              <p className="text-sm font-semibold">{t('to.itemsFor').replace('{branch}', formState.branchName)}</p>
               <p className="text-xs text-muted-foreground">
-                {formState.trId ? 'Pre-loaded from TR. Adjust quantities as needed.' : 'Add items to deliver.'}
+                {formState.trId ? t('to.preloadedHint') : t('to.addItemsHint')}
               </p>
             </div>
           </div>
@@ -520,14 +522,14 @@ export default function TransferOrderPage({
               </colgroup>
               <thead>
                 <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>SKU CODE</th>
-                  <th className={tableTokens.headerCell}>SKU NAME</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>REQUESTED</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>ACTUAL QTY</th>
+                  <th className={tableTokens.headerCell}>{t('tr.colSkuCode')}</th>
+                  <th className={tableTokens.headerCell}>{t('tr.colSkuName')}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t('tr.colRequested')}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t('to.colActualQty')}</th>
                   <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>COST/G</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>LINE VALUE</th>
-                  <th className={tableTokens.headerCell}>NOTE</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t('to.colCostPerG')}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t('to.colLineValue')}</th>
+                  <th className={tableTokens.headerCell}>{t('col.note')}</th>
                   <th className={tableTokens.headerCell}></th>
                 </tr>
               </thead>
@@ -630,7 +632,7 @@ export default function TransferOrderPage({
                   onClick={() => setSkuSearchOpen(true)}
                   className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
                 >
-                  <Plus className="w-4 h-4" /> Add Item
+                  <Plus className="w-4 h-4" /> {t('to.addItem')}
                 </button>
               )}
               {skuSearchOpen && (
@@ -642,11 +644,11 @@ export default function TransferOrderPage({
           {/* Footer */}
           <div className="flex items-center justify-end gap-4">
             <span className="text-sm">
-              Total Value: <span className="font-mono font-semibold">฿{formatNumber(totalFormValue, 2)}</span>
+              {t('to.totalValue')} <span className="font-mono font-semibold">฿{formatNumber(totalFormValue, 2)}</span>
             </span>
             <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
               <Send className="w-4 h-4 mr-1" />
-              {formSending ? 'Sending...' : 'Send TO'}
+              {formSending ? t('to.sending') : t('to.sendTO')}
             </Button>
           </div>
         </div>
@@ -654,12 +656,12 @@ export default function TransferOrderPage({
 
       {/* ─── SECTION C: TO History ─── */}
       <div className="space-y-3">
-        <h3 className={typography.sectionTitle}>TO History</h3>
+        <h3 className={typography.sectionTitle}>{t('to.history')}</h3>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-muted-foreground">Branch</label>
+            <label className="text-sm text-muted-foreground">{t('col.branch')}</label>
             <Select value={filterBranch || '__all__'} onValueChange={v => setFilterBranch(v === '__all__' ? '' : v)}>
               <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="All branches" /></SelectTrigger>
               <SelectContent>
@@ -669,7 +671,7 @@ export default function TransferOrderPage({
             </Select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-muted-foreground">Status</label>
+            <label className="text-sm text-muted-foreground">{t('col.status')}</label>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -681,7 +683,7 @@ export default function TransferOrderPage({
           </div>
           <DatePicker value={filterFrom} onChange={setFilterFrom} label="From" labelPosition="above" placeholder="From" />
           <DatePicker value={filterTo} onChange={setFilterTo} label="To" labelPosition="above" placeholder="To" />
-          <Button variant="outline" className="h-9" onClick={handleFilterApply}>Filter</Button>
+          <Button variant="outline" className="h-9" onClick={handleFilterApply}>{t('btn.filter')}</Button>
         </div>
 
         {/* History table */}
@@ -701,28 +703,28 @@ export default function TransferOrderPage({
               <tr className={tableTokens.headerRow}>
                 <th className={thSortable} onClick={() => handleSort('toNumber')}>
                   <span className={`inline-flex items-center ${sortKey === 'toNumber' ? 'text-foreground' : ''}`}>
-                    TO NUMBER<SortIcon col="toNumber" />
+                    {t('to.colToNumber')}<SortIcon col="toNumber" />
                   </span>
                 </th>
                 <th className={thSortable} onClick={() => handleSort('date')}>
                   <span className={`inline-flex items-center ${sortKey === 'date' ? 'text-foreground' : ''}`}>
-                    DATE<SortIcon col="date" />
+                    {t('col.date')}<SortIcon col="date" />
                   </span>
                 </th>
                 <th className={thSortable} onClick={() => handleSort('branch')}>
                   <span className={`inline-flex items-center ${sortKey === 'branch' ? 'text-foreground' : ''}`}>
-                    BRANCH<SortIcon col="branch" />
+                    {t('col.branch')}<SortIcon col="branch" />
                   </span>
                 </th>
-                <th className={tableTokens.headerCell}>TR REF</th>
-                <th className={`${tableTokens.headerCell} text-right`}>ITEMS</th>
-                <th className={`${tableTokens.headerCell} text-right`}>TOTAL VALUE</th>
+                <th className={tableTokens.headerCell}>{t('to.colTrRef')}</th>
+                <th className={`${tableTokens.headerCell} text-right`}>{t('tr.colItems')}</th>
+                <th className={`${tableTokens.headerCell} text-right`}>{t('to.totalValue')}</th>
                 <th className={thSortable} onClick={() => handleSort('status')}>
                   <span className={`inline-flex items-center ${sortKey === 'status' ? 'text-foreground' : ''}`}>
-                    STATUS<SortIcon col="status" />
+                    {t('col.status')}<SortIcon col="status" />
                   </span>
                 </th>
-                <th className={`${tableTokens.headerCell} text-center`}>ACTIONS</th>
+                <th className={`${tableTokens.headerCell} text-center`}>{t('col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -735,7 +737,7 @@ export default function TransferOrderPage({
                   </tr>
                 ))
               ) : sortedHistory.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">No transfer orders found.</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">{t('to.noResults')}</td></tr>
               ) : sortedHistory.map(to => (
                 <tr key={to.id} className={tableTokens.dataRow}>
                   <td
@@ -791,25 +793,25 @@ export default function TransferOrderPage({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Branch: </span>
+                  <span className="text-muted-foreground">{t('tr.detailBranch')} </span>
                   <span className="font-medium">{detailTO.branchName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Delivery Date: </span>
+                  <span className="text-muted-foreground">{t('to.detailDeliveryDate')} </span>
                   <span>{detailTO.deliveryDate}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">TR Reference: </span>
+                  <span className="text-muted-foreground">{t('to.detailTrRef')} </span>
                   <span className="font-mono">{detailTO.trRef}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Total Value: </span>
+                  <span className="text-muted-foreground">{t('to.detailTotalValue')} </span>
                   <span className="font-mono font-semibold">฿{formatNumber(detailTO.totalValue, 2)}</span>
                 </div>
               </div>
 
               {detailLoading ? (
-                <div className="text-center py-6 text-muted-foreground text-sm">Loading lines...</div>
+                <div className="text-center py-6 text-muted-foreground text-sm">{t('tr.loadingLines')}</div>
               ) : (
                 <div className={tableTokens.wrapper}>
                   <table className={tableTokens.base}>
@@ -823,12 +825,12 @@ export default function TransferOrderPage({
                     </colgroup>
                     <thead>
                       <tr className={tableTokens.headerRow}>
-                        <th className={tableTokens.headerCell}>SKU CODE</th>
-                        <th className={tableTokens.headerCell}>SKU NAME</th>
-                        <th className={`${tableTokens.headerCell} text-right`}>REQUESTED</th>
-                        <th className={`${tableTokens.headerCell} text-right`}>ACTUAL</th>
+                        <th className={tableTokens.headerCell}>{t('tr.colSkuCode')}</th>
+                        <th className={tableTokens.headerCell}>{t('tr.colSkuName')}</th>
+                        <th className={`${tableTokens.headerCell} text-right`}>{t('tr.colRequested')}</th>
+                        <th className={`${tableTokens.headerCell} text-right`}>{t('to.colActual')}</th>
                         <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
-                        <th className={`${tableTokens.headerCell} text-right`}>LINE VALUE</th>
+                        <th className={`${tableTokens.headerCell} text-right`}>{t('to.colLineValue')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -851,11 +853,11 @@ export default function TransferOrderPage({
                 {canEdit && detailTO.status === 'Draft' && (
                   <Button onClick={handleSendFromDetail} disabled={formSending}>
                     <Send className="w-4 h-4 mr-1" />
-                    {formSending ? 'Sending...' : 'Send TO'}
+                    {formSending ? t('to.sending') : t('to.sendTO')}
                   </Button>
                 )}
                 <Button variant="outline" onClick={() => window.print()}>
-                  <Printer className="w-4 h-4 mr-1" /> Print
+                  <Printer className="w-4 h-4 mr-1" /> {t('btn.print')}
                 </Button>
               </div>
             </div>
