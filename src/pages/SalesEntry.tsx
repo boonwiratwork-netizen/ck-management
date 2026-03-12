@@ -215,7 +215,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Parse + duplicate check ———
   const processRawText = useCallback(async (text: string) => {
-    if (!text.trim() || !selectedProfile || !selectedBranch) {
+    if (!text || text.trim() === '') {
+      setParsedRows([]);
+      return;
+    }
+    if (!selectedProfile || !selectedBranch) {
       setParsedRows([]);
       return;
     }
@@ -226,10 +230,17 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       return;
     }
     setChecking(true);
-    const withDups = await checkDuplicates(selectedBranch, raw);
-    setParsedRows(withDups);
-    setChecking(false);
-    setShowSkipped(false);
+    try {
+      const withDups = await checkDuplicates(selectedBranch, raw);
+      setParsedRows(withDups);
+      setShowSkipped(false);
+    } catch (err) {
+      console.error('checkDuplicates failed', err);
+      // Still show rows as all-new on error
+      setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
+    } finally {
+      setChecking(false);
+    }
   }, [selectedProfile, selectedBranch, checkDuplicates]);
 
   const handlePaste = useCallback((text: string) => {
@@ -416,7 +427,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           )}
 
           {/* Preview section */}
-          {parsedRows.length > 0 && !checking && (
+          {parsedRows.length > 0 && (
             <div className="space-y-3">
               {/* Summary banner */}
               <div className="flex items-center gap-2 text-sm">
@@ -520,7 +531,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
               {/* Import button */}
               <Button
                 onClick={handleImport}
-                disabled={importing || newRows.length === 0 || !selectedBranch}
+                disabled={importing || checking || newRows.length === 0 || !selectedBranch}
                 className={cn(newRows.length === 0 && 'opacity-50')}
               >
                 {importing ? (
