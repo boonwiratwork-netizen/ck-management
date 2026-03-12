@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
-import { UnitLabel } from '@/components/ui/unit-label';
 import { ClipboardCheck, Loader2, Lock, Unlock, CheckCircle2, ChevronDown, ChevronUp, PartyPopper, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +29,11 @@ interface DailyStockCountPageProps {
   menus: Menu[];
   branches: Branch[];
 }
+
+type SortKey = 'skuCode' | 'skuName' | 'type';
+type SortDir = 'asc' | 'desc';
+
+const TYPE_ORDER: Record<string, number> = { SM: 0, RM: 1, PK: 2 };
 
 export default function DailyStockCountPage({
   skus, menuBomLines, modifierRules, spBomLines, menus, branches,
@@ -45,6 +49,21 @@ export default function DailyStockCountPage({
   const [showUnused, setShowUnused] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+
+  // Sort state — default: TYPE column, SM→RM→PK
+  const [sortKey, setSortKey] = useState<SortKey>('type');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSortKey(prev => {
+      if (prev === key) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        return key;
+      }
+      setSortDir('asc');
+      return key;
+    });
+  }, []);
 
   const {
     rows, loading, generating,
@@ -110,15 +129,32 @@ export default function DailyStockCountPage({
     }
   };
 
+  // Comparator helper
+  const compareRows = useCallback((a: DailyStockCountRow, b: DailyStockCountRow): number => {
+    const skuA = skuMap.get(a.skuId);
+    const skuB = skuMap.get(b.skuId);
+    if (!skuA || !skuB) return 0;
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    if (sortKey === 'type') {
+      const ta = TYPE_ORDER[skuA.type] ?? 9;
+      const tb = TYPE_ORDER[skuB.type] ?? 9;
+      if (ta !== tb) return (ta - tb) * dir;
+      return skuA.skuId.localeCompare(skuB.skuId);
+    }
+    if (sortKey === 'skuCode') {
+      return skuA.skuId.localeCompare(skuB.skuId) * dir;
+    }
+    if (sortKey === 'skuName') {
+      return skuA.name.localeCompare(skuB.name) * dir;
+    }
+    return 0;
+  }, [skuMap, sortKey, sortDir]);
+
   // Sort and separate active vs unused rows
   const { activeRows, unusedRows } = useMemo(() => {
-    const sorted = [...rows].sort((a, b) => {
-      const skuA = skuMap.get(a.skuId);
-      const skuB = skuMap.get(b.skuId);
-      if (!skuA || !skuB) return 0;
-      if (skuA.type !== skuB.type) return skuA.type < skuB.type ? -1 : 1;
-      return skuA.skuId.localeCompare(skuB.skuId);
-    });
+    const sorted = [...rows].sort(compareRows);
 
     const active: typeof sorted = [];
     const unused: typeof sorted = [];
@@ -131,7 +167,7 @@ export default function DailyStockCountPage({
     });
 
     return { activeRows: active, unusedRows: unused };
-  }, [rows, skuMap]);
+  }, [rows, compareRows]);
 
   const hasAnyPhysicalCount = rows.some(r => r.physicalCount !== null);
 
@@ -153,6 +189,23 @@ export default function DailyStockCountPage({
   };
 
   const thClass = 'px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+
+  // Sortable header helper
+  const renderSortableHeader = (key: SortKey, label: string, extraClass = '') => {
+    const isActive = sortKey === key;
+    const Icon = isActive ? (sortDir === 'asc' ? ChevronUp : ChevronDown) : null;
+    return (
+      <span
+        className={`inline-flex items-center cursor-pointer select-none ${isActive ? 'text-foreground' : 'text-muted-foreground'} ${extraClass}`}
+        onClick={() => handleSort(key)}
+      >
+        {label}
+        {Icon && <Icon className="w-3 h-3 ml-0.5" />}
+      </span>
+    );
+  };
+
+  const fmt0 = (n: number) => Math.round(n).toLocaleString();
 
   return (
     <div className="space-y-4">
@@ -231,7 +284,7 @@ export default function DailyStockCountPage({
 
       {/* Count sheet table */}
       {loading ? (
-        <SkeletonTable columns={10} rows={12} />
+        <SkeletonTable columns={12} rows={12} />
       ) : rows.length > 0 ? (
         <>
           <Card>
@@ -242,70 +295,73 @@ export default function DailyStockCountPage({
                     <kbd>Tab</kbd> / <kbd>Enter</kbd> to advance to next row · Physical Count auto-selects on focus
                   </p>
                 </div>
-                <Table className="text-xs">
-                  <TableHeader className="sticky-thead">
-                    <TableRow className="bg-table-header border-b">
-                      <TableHead className={thClass}>{t('col.skuCode')}</TableHead>
-                      <TableHead className={thClass}>{t('col.skuName')}</TableHead>
-                      <TableHead className={thClass}>{t('col.type')}</TableHead>
-                      <TableHead className={`text-right ${thClass}`}>{t('col.opening')}</TableHead>
-                      <TableHead className={`text-right ${thClass}`}>{t('col.fromCk')}</TableHead>
-                      <TableHead className={`text-right ${thClass}`}>
+                <table className="w-full table-fixed text-xs">
+                  <colgroup>
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 150 }} />
+                    <col style={{ width: 50 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 80 }} />
+                  </colgroup>
+                  <thead className="sticky-thead">
+                    <tr className="bg-table-header border-b">
+                      <th className={thClass}>{renderSortableHeader('skuCode', t('col.skuCode'))}</th>
+                      <th className={thClass}>{renderSortableHeader('skuName', t('col.skuName'))}</th>
+                      <th className={thClass}>{renderSortableHeader('type', t('col.type'))}</th>
+                      <th className={thClass}>UNIT</th>
+                      <th className={`text-right ${thClass}`}>{t('col.opening')}</th>
+                      <th className={`text-right ${thClass}`}>{t('col.fromCk')}</th>
+                      <th className={`text-right ${thClass}`}>
                         <div>{t('col.extRecv')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Purch.)</div>
-                      </TableHead>
-                      <TableHead className={`text-right ${thClass}`}>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
                         <div>{t('col.expUsage')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </TableHead>
-                      <TableHead className={`text-right ${thClass}`}>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
                         <div>{t('col.waste')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </TableHead>
-                      <TableHead className={`text-right ${thClass}`}>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
                         <div>{t('col.calcBalance')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </TableHead>
-                      <TableHead className={`text-right ${thClass}`}>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
                         <div>{t('col.physical')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </TableHead>
-                      <TableHead className={`text-right ${thClass}`}>{t('col.variance')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                      </th>
+                      <th className={`text-right ${thClass}`}>{t('col.variance')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {activeRows.map((row, idx) => {
                       const sku = skuMap.get(row.skuId);
                       if (!sku) return null;
                       const varClass = getVarianceClass(row.variance, row.physicalCount, row.calculatedBalance);
 
                       return (
-                        <TableRow key={row.id} className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                          <TableCell className="font-mono text-xs px-2 py-1">{sku.skuId}</TableCell>
-                          <TableCell className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>{sku.name}</TableCell>
-                          <TableCell className="px-2 py-1">
+                        <tr key={row.id} className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                          <td className="font-mono text-xs px-2 py-1">{sku.skuId}</td>
+                          <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>{sku.name}</td>
+                          <td className="px-2 py-1">
                             <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                               sku.type === 'RM' ? 'badge-rm' : sku.type === 'SM' ? 'badge-sm' : sku.type === 'SP' ? 'badge-sp' : 'badge-pk'
                             }`}>
                               {sku.type}
                             </span>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm px-2 py-1">{row.openingBalance.toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm px-2 py-1">{row.receivedFromCk.toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm px-2 py-1">
-                            {row.receivedExternal.toFixed(2)}
-                            <UnitLabel unit={sku.purchaseUom} />
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm px-2 py-1">
-                            {row.expectedUsage.toFixed(2)}
-                            <UnitLabel unit={sku.usageUom} />
-                          </TableCell>
+                          </td>
+                          <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedFromCk)}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedExternal)}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
-                              <span className="text-sm font-mono">
-                                {row.waste.toFixed(2)}
-                                <UnitLabel unit={sku.usageUom} />
-                              </span>
+                              <span className="text-sm font-mono">{fmt0(row.waste)}</span>
                             ) : (
                               <Input
                                 type="number"
@@ -322,15 +378,11 @@ export default function DailyStockCountPage({
                               />
                             )}
                           </td>
-                          <TableCell className="text-right font-mono text-sm font-medium px-2 py-1">
-                            {row.calculatedBalance.toFixed(2)}
-                            <UnitLabel unit={sku.usageUom} />
-                          </TableCell>
+                          <td className="text-right font-mono text-sm font-medium px-2 py-1">{fmt0(row.calculatedBalance)}</td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
                               <span className="text-sm font-mono">
-                                {row.physicalCount !== null ? row.physicalCount.toFixed(2) : '—'}
-                                <UnitLabel unit={sku.usageUom} />
+                                {row.physicalCount !== null ? fmt0(row.physicalCount) : '—'}
                               </span>
                             ) : (
                               <Input
@@ -350,14 +402,14 @@ export default function DailyStockCountPage({
                               />
                             )}
                           </td>
-                          <TableCell className={`text-right font-mono text-sm font-medium px-2 py-1 ${varClass}`}>
-                            {row.physicalCount !== null ? row.variance.toFixed(2) : '—'}
-                          </TableCell>
-                        </TableRow>
+                          <td className={`text-right font-mono text-sm font-medium px-2 py-1 ${varClass}`}>
+                            {row.physicalCount !== null ? fmt0(row.variance) : '—'}
+                          </td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

@@ -135,8 +135,10 @@ export function useBranchSmStock(branchId: string | null) {
         const avgDailyUsage = usages.reduce((a, b) => a + b, 0) / 7;
         const peakDailyUsage = Math.max(...usages);
 
-        // ROP formula
-        const blended = avgDailyUsage * 0.7 + peakDailyUsage * 0.3;
+        // ROP formula — use blended only when ≥3 data points
+        const blended = usages.length >= 3
+          ? avgDailyUsage * 0.7 + peakDailyUsage * 0.3
+          : avgDailyUsage;
         const rop = blended * leadTime;
         const parstock = blended * (leadTime + leadTime);
         const suggestedOrder = Math.max(0, parstock - stockOnHand);
