@@ -740,6 +740,39 @@ export type Database = {
           },
         ]
       }
+      pos_mapping_profiles: {
+        Row: {
+          created_at: string | null
+          date_format: string | null
+          has_header_row: boolean | null
+          id: string
+          mappings: Json
+          name: string
+          separator: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_format?: string | null
+          has_header_row?: boolean | null
+          id?: string
+          mappings: Json
+          name: string
+          separator?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_format?: string | null
+          has_header_row?: boolean | null
+          id?: string
+          mappings?: Json
+          name?: string
+          separator?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       prices: {
         Row: {
           created_at: string
