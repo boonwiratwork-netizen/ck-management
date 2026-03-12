@@ -575,6 +575,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
               {/* New rows preview table */}
               {newRows.length > 0 ? (
+                <>
                 <div className={tableTokens.wrapper}>
                   <div className="overflow-auto max-h-[50vh]">
                     <table className={tableTokens.base}>
@@ -614,6 +615,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </table>
                   </div>
                 </div>
+                {/* Import preview summary */}
+                <div className="flex gap-6 text-sm text-muted-foreground pt-2 border-t">
+                  <span>Total Qty: <span className="font-semibold text-foreground">{newRows.reduce((s, r) => s + r.qty, 0).toLocaleString()}</span></span>
+                  <span>Total Revenue: <span className="font-semibold font-mono text-foreground">฿{newRows.reduce((s, r) => s + r.netAmount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                  <span>{newRows.length} rows to import</span>
+                </div>
+                </>
               ) : (
                 <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
                   All rows already imported.
