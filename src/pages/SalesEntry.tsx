@@ -235,7 +235,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
 
   // ——— Parse + duplicate check ———
-  const processRawText = useCallback(async (text: string) => {
+  const processRawText = useCallback(async (text: string, source: ParseSource = 'paste') => {
     if (!text || text.trim() === '') {
       setParsedRows([]);
       return;
@@ -244,7 +244,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       setParsedRows([]);
       return;
     }
-    const raw = parseData(text, selectedProfile, selectedBranch);
+    const raw = parseData(text, selectedProfile, selectedBranch, source);
     if (raw.length === 0) {
       setParsedRows([]);
       toast.warning('No valid rows found in pasted data');
@@ -257,7 +257,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       setShowSkipped(false);
     } catch (err) {
       console.error('checkDuplicates failed', err);
-      // Still show rows as all-new on error
       setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
     } finally {
       setChecking(false);
