@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
-import { useSalesEntryData, SalesEntry } from '@/hooks/use-sales-entry-data';
+import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, parseData } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
@@ -13,24 +13,16 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SearchInput } from '@/components/SearchInput';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
-import { StatusDot } from '@/components/ui/status-dot';
-import { Upload, Trash2, ClipboardPaste, CheckCircle2, AlertTriangle, ChevronDown, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown, Plus } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { POSProfileModal } from '@/components/POSProfileModal';
+import { Upload, Trash2, ClipboardPaste, CheckCircle2, ChevronDown, ChevronRight, Loader2, ShoppingCart, ArrowUp, ArrowDown, ArrowUpDown, Plus, Pencil, FileUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { cn, toLocalDateStr } from '@/lib/utils';
-
-const POS_COLUMNS = [
-  'Date','Time','Receipt No','INV No','Tray Code','Menu Code','Menu Name',
-  'Order Type','Qty','Unit Price','Before Discount','Discount','Discount%',
-  'Net Amount','Tax Type','Channel','Table','Customer','Phone','Payment',
-  'Record Method','Custom Payment','Note','Promo Type','Group','Category',
-  'Opened By','Closed By','Branch',
-];
-
-const EXPECTED_COL_COUNT = 29;
+import { table as tableTokens } from '@/lib/design-tokens';
 
 interface SalesEntryPageProps {
   branches: Branch[];
@@ -40,7 +32,7 @@ interface SalesEntryPageProps {
 export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
-  const { entries, loading, fetchEntries, bulkInsert, deleteEntry } = useSalesEntryData();
+  const { entries, loading, fetchEntries, bulkInsert, deleteEntry, profiles, saveProfile, deleteProfile, checkDuplicates } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {
     if (isManagement) return branches.filter(b => b.status === 'Active');
@@ -48,22 +40,32 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     return branches.filter(b => b.status === 'Active');
   }, [branches, isManagement, isStoreManager, profile]);
 
+  // ——— Import section state ———
   const [selectedBranch, setSelectedBranch] = useState<string>(
     isStoreManager && profile?.branch_id ? profile.branch_id : ''
   );
-
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<POSMappingProfile | null>(null);
   const [pastedText, setPastedText] = useState('');
-  const [parsedRows, setParsedRows] = useState<string[][]>([]);
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedRows?: string[][] } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [filterBranch, setFilterBranch] = useState<string>('__all__');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [historySearch, setHistorySearch] = useState('');
+  // Auto-select first profile
+  useEffect(() => {
+    if (profiles.length > 0 && !selectedProfileId) {
+      setSelectedProfileId(profiles[0].id);
+    }
+  }, [profiles, selectedProfileId]);
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const selectedProfile = useMemo(
+    () => profiles.find(p => p.id === selectedProfileId) || null,
+    [profiles, selectedProfileId]
+  );
 
   // ——— Manual Entry State ———
   const [manualOpen, setManualOpen] = useState(true);
@@ -94,7 +96,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     ).slice(0, 20);
   }, [menus, manualMenuSearch]);
 
-  // Close menu dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuDropdownRef.current && !menuDropdownRef.current.contains(e.target as Node) &&
@@ -133,138 +134,30 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     const { error } = await supabase.from('sales_entries').insert(row);
     if (error) { toast.error('Failed: ' + error.message); setManualSaving(false); return; }
 
-    // Success flash
     setManualSuccess(true);
     setTimeout(() => setManualSuccess(false), 1500);
-
-    // Clear menu & qty, keep date & branch
     setManualMenuId('');
     setManualMenuSearch('');
     setManualQty(1);
     setManualSaving(false);
-
-    // Refresh entries
     fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
-
-    // Auto-focus menu input
     setTimeout(() => menuInputRef.current?.focus(), 100);
-  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, fetchEntries, filterBranch]);
+  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, fetchEntries]);
 
-  // Column count validation
-  const columnCounts = useMemo(() => {
-    if (parsedRows.length === 0) return [];
-    return parsedRows.map(r => r.length);
-  }, [parsedRows]);
+  // ——— History state ———
+  const [filterBranch, setFilterBranch] = useState<string>('__all__');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
-  const hasValidColumns = useMemo(() => {
-    if (parsedRows.length === 0) return true;
-    return parsedRows.every(r => r.length >= EXPECTED_COL_COUNT - 2 && r.length <= EXPECTED_COL_COUNT + 2);
-  }, [parsedRows]);
-
-  const avgColCount = useMemo(() => {
-    if (columnCounts.length === 0) return 0;
-    return Math.round(columnCounts.reduce((a, b) => a + b, 0) / columnCounts.length);
-  }, [columnCounts]);
-
-  // Parse pasted text
-  const handlePasteChange = useCallback((text: string) => {
-    setPastedText(text);
-    setImportResult(null);
-    if (!text.trim()) { setParsedRows([]); return; }
-    const lines = text.trim().split('\n');
-    const rows = lines.map(line => line.split('\t'));
-    const filtered = rows.filter(r => {
-      if (r.length < 5) return false;
-      if (r[0]?.trim().toLowerCase() === 'date' || r[0]?.trim() === POS_COLUMNS[0]) return false;
-      return true;
-    });
-    setParsedRows(filtered);
-  }, []);
-
-  const handleImport = useCallback(async () => {
-    if (!selectedBranch) { toast.error('Please select a branch'); return; }
-    if (parsedRows.length === 0) { toast.error('No data to import'); return; }
-
-    setImporting(true);
-    const mapped: Omit<SalesEntry, 'id' | 'branchId'>[] = [];
-
-    for (const cols of parsedRows) {
-      const dateStr = cols[0]?.trim() || '';
-      const receiptNo = cols[2]?.trim() || '';
-      const menuCode = cols[5]?.trim() || '';
-      const menuName = cols[6]?.trim() || '';
-      const orderType = cols[7]?.trim() || '';
-      const qty = Number(cols[8]?.trim()) || 0;
-      const unitPrice = Number(cols[9]?.trim()) || 0;
-      const netAmount = Number(cols[13]?.trim()) || 0;
-      const channel = cols[15]?.trim() || '';
-
-      let saleDate = '';
-      if (dateStr) {
-        const parts = dateStr.split(/[\/\-\.]/);
-        if (parts.length === 3) {
-          const [d, m, y] = parts;
-          const year = y.length === 2 ? '20' + y : y;
-          saleDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        } else {
-          saleDate = dateStr;
-        }
-      }
-
-      if (!receiptNo && !menuCode) continue;
-      mapped.push({ saleDate, receiptNo, menuCode, menuName, orderType, qty, unitPrice, netAmount, channel });
-    }
-
-    if (mapped.length === 0) { toast.error('No valid rows found'); setImporting(false); return; }
-
-    const totalImportRevenue = mapped.reduce((s, r) => s + r.netAmount, 0);
-    const result = await bulkInsert(selectedBranch, mapped);
-    if (result) {
-      setImportResult({ inserted: result.inserted, skipped: result.skipped });
-      const revStr = `฿${totalImportRevenue.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      if (result.inserted > 0) {
-        const parts = [`${result.inserted} rows imported`, revStr + ' total revenue'];
-        if (result.skipped > 0) parts.push(`${result.skipped} duplicates skipped`);
-        toast.success(parts.join(' · '));
-      } else if (result.skipped > 0) {
-        toast.warning(`${result.skipped} duplicate rows skipped`);
-      }
-      setPastedText('');
-      setParsedRows([]);
-      fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
-    }
-    setImporting(false);
-  }, [selectedBranch, parsedRows, bulkInsert, fetchEntries, filterBranch]);
-
-  const handleApplyFilter = useCallback(() => {
-    const filters: { branchId?: string; dateFrom?: string; dateTo?: string } = {};
-    if (filterBranch !== '__all__') filters.branchId = filterBranch;
-    if (filterDateFrom) filters.dateFrom = filterDateFrom;
-    if (filterDateTo) filters.dateTo = filterDateTo;
-    fetchEntries(filters);
-  }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
-
-  const totalQty = useMemo(() => entries.reduce((s, e) => s + e.qty, 0), [entries]);
-  const totalRevenue = useMemo(() => entries.reduce((s, e) => s + e.netAmount, 0), [entries]);
-
-  const branchMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    branches.forEach(b => { m[b.id] = b.branchName; });
-    return m;
-  }, [branches]);
-
-  // Sorting
   type SESortKey = 'saleDate' | 'menuCode' | 'menuName' | 'orderType' | 'qty' | 'unitPrice' | 'netAmount' | 'channel' | 'branch';
   const [seSortKey, setSeSortKey] = useState<SESortKey>('saleDate');
   const [seSortDir, setSeSortDir] = useState<'asc' | 'desc'>('desc');
 
   const handleSeSort = (key: SESortKey) => {
-    if (seSortKey === key) {
-      setSeSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSeSortKey(key);
-      setSeSortDir('asc');
-    }
+    if (seSortKey === key) setSeSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSeSortKey(key); setSeSortDir('asc'); }
   };
 
   const SeSortIcon = ({ col }: { col: SESortKey }) => {
@@ -274,7 +167,12 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       : <ArrowDown className="w-3 h-3 ml-1 text-primary" />;
   };
 
-  // Filter history with search
+  const branchMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    branches.forEach(b => { m[b.id] = b.branchName; });
+    return m;
+  }, [branches]);
+
   const filteredEntries = useMemo(() => {
     let list = entries;
     if (historySearch) {
@@ -304,28 +202,156 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     return list;
   }, [entries, historySearch, seSortKey, seSortDir, branchMap]);
 
-  // Preview first 3 rows
-  const previewRows = parsedRows.slice(0, 3);
+  const totalQty = useMemo(() => entries.reduce((s, e) => s + e.qty, 0), [entries]);
+  const totalRevenue = useMemo(() => entries.reduce((s, e) => s + e.netAmount, 0), [entries]);
+
+  const handleApplyFilter = useCallback(() => {
+    const filters: { branchId?: string; dateFrom?: string; dateTo?: string } = {};
+    if (filterBranch !== '__all__') filters.branchId = filterBranch;
+    if (filterDateFrom) filters.dateFrom = filterDateFrom;
+    if (filterDateTo) filters.dateTo = filterDateTo;
+    fetchEntries(filters);
+  }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
+
+  // ——— Parse + duplicate check ———
+  const processRawText = useCallback(async (text: string) => {
+    if (!text.trim() || !selectedProfile || !selectedBranch) {
+      setParsedRows([]);
+      return;
+    }
+    const raw = parseData(text, selectedProfile, selectedBranch);
+    if (raw.length === 0) {
+      setParsedRows([]);
+      toast.warning('No valid rows found in pasted data');
+      return;
+    }
+    setChecking(true);
+    const withDups = await checkDuplicates(selectedBranch, raw);
+    setParsedRows(withDups);
+    setChecking(false);
+    setShowSkipped(false);
+  }, [selectedProfile, selectedBranch, checkDuplicates]);
+
+  const handlePaste = useCallback((text: string) => {
+    setPastedText(text);
+    processRawText(text);
+  }, [processRawText]);
+
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      processRawText(text);
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be re-uploaded
+    e.target.value = '';
+  }, [processRawText]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.name.endsWith('.csv')) { toast.error('Please drop a .csv file'); return; }
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      processRawText(text);
+    };
+    reader.readAsText(file);
+  }, [processRawText]);
+
+  const newRows = useMemo(() => parsedRows.filter(r => !r.isDuplicate), [parsedRows]);
+  const skipRows = useMemo(() => parsedRows.filter(r => r.isDuplicate), [parsedRows]);
+
+  const handleImport = useCallback(async () => {
+    if (!selectedBranch || newRows.length === 0) return;
+    setImporting(true);
+    const result = await bulkInsert(selectedBranch, newRows);
+    if (result) {
+      const totalRev = newRows.reduce((s, r) => s + r.netAmount, 0);
+      const revStr = `฿${totalRev.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      toast.success(`${result.inserted} rows imported · ${revStr} total revenue`);
+      setPastedText('');
+      setParsedRows([]);
+      setUploadedFileName('');
+      fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
+    }
+    setImporting(false);
+  }, [selectedBranch, newRows, bulkInsert, fetchEntries, filterBranch]);
+
+  // Profile dropdown handler
+  const handleProfileChange = (val: string) => {
+    if (val === '__new__') {
+      setEditingProfile(null);
+      setProfileModalOpen(true);
+    } else {
+      setSelectedProfileId(val);
+    }
+  };
+
+  const handleEditProfile = () => {
+    if (selectedProfile) {
+      setEditingProfile(selectedProfile);
+      setProfileModalOpen(true);
+    }
+  };
+
+  const handleProfileSave = async (p: Omit<POSMappingProfile, 'id'> & { id?: string }) => {
+    const success = await saveProfile(p);
+    if (success && !p.id) {
+      // After creating new profile, wait for profiles to refresh then select the newest
+      setTimeout(() => {
+        // The fetchProfiles inside saveProfile already updated profiles
+        // We'll select by name match
+      }, 100);
+    }
+    return success;
+  };
 
   return (
     <div className="space-y-4">
-      {/* SECTION 1: PASTE SALES DATA */}
+      {/* ═══ SECTION 1: IMPORT SALES DATA ═══ */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardPaste className="w-5 h-5" />
-            {t('title.pasteSalesData')}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Copy rows from your POS export and paste them below. Expected: {EXPECTED_COL_COUNT} tab-separated columns.
-          </p>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <h2 className="text-lg font-semibold">Import Sales Data</h2>
+            <div className="flex items-center gap-2">
+              <Select value={selectedProfileId} onValueChange={handleProfileChange}>
+                <SelectTrigger className="h-10 w-52">
+                  <SelectValue placeholder="Select POS Profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__">+ New Profile</SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedProfile && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10" onClick={handleEditProfile}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit profile</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Branch selector */}
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium whitespace-nowrap label-required">Branch</label>
             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-64 h-10">
                 <SelectValue placeholder="Select branch" />
               </SelectTrigger>
               <SelectContent>
@@ -336,98 +362,179 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             </Select>
           </div>
 
-          {/* Column header reference */}
-          <div className="overflow-x-auto">
-            <div className="flex gap-0 text-xs text-muted-foreground font-mono border rounded-t-md bg-muted/50 min-w-max">
-              {POS_COLUMNS.map((col, i) => (
-                <div key={i} className={`px-2 py-1 border-r last:border-r-0 whitespace-nowrap ${[0,2,5,6,7,8,9,13,15].includes(i) ? 'bg-primary/10 font-semibold text-foreground' : ''}`}>
-                  {i + 1}. {col}
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Input Tabs */}
+          <Tabs defaultValue="paste">
+            <TabsList>
+              <TabsTrigger value="paste" className="gap-1.5">
+                <ClipboardPaste className="w-4 h-4" /> Paste
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="gap-1.5">
+                <FileUp className="w-4 h-4" /> Upload CSV
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Paste area */}
-          <Textarea
-            placeholder="Paste POS data here (Ctrl+V)... Each row should have 29 tab-separated columns."
-            value={pastedText}
-            onChange={e => handlePasteChange(e.target.value)}
-            rows={8}
-            className="font-mono text-xs"
-          />
+            <TabsContent value="paste">
+              <Textarea
+                placeholder="Paste POS data here (Ctrl+V)..."
+                value={pastedText}
+                onChange={e => handlePaste(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+              />
+            </TabsContent>
 
-          {/* Paste feedback */}
-          {parsedRows.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-muted-foreground font-medium">{parsedRows.length} rows detected</span>
-                {hasValidColumns ? (
-                  <span className="text-success flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {avgColCount} columns detected
-                  </span>
-                ) : (
-                  <span className="text-warning flex items-center gap-1">
-                    <StatusDot status="amber" size="sm" /> Expected {EXPECTED_COL_COUNT} columns, got {avgColCount}
-                  </span>
+            <TabsContent value="upload">
+              <div
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-muted/20 hover:bg-muted/40 transition cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Drop CSV file here or click to browse
+                </p>
+                {uploadedFileName && (
+                  <p className="text-sm font-medium text-foreground mt-2">{uploadedFileName}</p>
                 )}
               </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+            </TabsContent>
+          </Tabs>
 
-              {/* Preview first 3 rows */}
-              {previewRows.length > 0 && (
-                <div className="rounded-md border bg-muted/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Preview (first {previewRows.length} rows):</p>
-                  <div className="overflow-x-auto">
-                    <table className="text-xs font-mono">
+          {/* Checking indicator */}
+          {checking && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" /> Checking for duplicates...
+            </div>
+          )}
+
+          {/* Preview section */}
+          {parsedRows.length > 0 && !checking && (
+            <div className="space-y-3">
+              {/* Summary banner */}
+              <div className="flex items-center gap-2 text-sm">
+                <span>Found {parsedRows.length} rows</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-green-600 font-semibold">{newRows.length} new</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{skipRows.length} already imported</span>
+              </div>
+
+              {/* Skipped rows collapsible */}
+              {skipRows.length > 0 && (
+                <Collapsible open={showSkipped} onOpenChange={setShowSkipped}>
+                  <CollapsibleTrigger className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                    {showSkipped ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    Show {skipRows.length} skipped rows
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className={cn(tableTokens.wrapper, 'mt-2')}>
+                      <table className={tableTokens.base}>
+                        <colgroup>
+                          <col width="88px" />
+                          <col width="80px" />
+                          <col width="80px" />
+                          <col width="auto" />
+                          <col width="65px" />
+                        </colgroup>
+                        <thead>
+                          <tr className={tableTokens.headerRow}>
+                            <th className={tableTokens.headerCell}>Date</th>
+                            <th className={tableTokens.headerCell}>Receipt</th>
+                            <th className={tableTokens.headerCell}>Menu Code</th>
+                            <th className={tableTokens.headerCell}>Menu Name</th>
+                            <th className={tableTokens.headerCellNumeric}>Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {skipRows.map((r, i) => (
+                            <tr key={i} className={cn(tableTokens.dataRow, 'opacity-50')}>
+                              <td className={tableTokens.dataCell}>{r.saleDate}</td>
+                              <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.receiptNo}</td>
+                              <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.menuCode}</td>
+                              <td className={tableTokens.truncatedCell} title={r.menuName}>{r.menuName}</td>
+                              <td className={tableTokens.dataCellMono}>{r.qty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* New rows preview table */}
+              {newRows.length > 0 ? (
+                <div className={tableTokens.wrapper}>
+                  <div className="overflow-auto max-h-[50vh]">
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col width="88px" />
+                        <col width="80px" />
+                        <col width="80px" />
+                        <col width="auto" />
+                        <col width="65px" />
+                        <col width="95px" />
+                        <col width="80px" />
+                      </colgroup>
                       <thead>
-                        <tr>
-                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
-                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Receipt</th>
-                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Menu Code</th>
-                          <th className="px-2 py-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Menu Name</th>
-                          <th className="px-2 py-1 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Qty</th>
-                          <th className="px-2 py-1 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Net Amount</th>
+                        <tr className={tableTokens.headerRow}>
+                          <th className={tableTokens.headerCell}>Date</th>
+                          <th className={tableTokens.headerCell}>Receipt</th>
+                          <th className={tableTokens.headerCell}>Menu Code</th>
+                          <th className={tableTokens.headerCell}>Menu Name</th>
+                          <th className={tableTokens.headerCellNumeric}>Qty</th>
+                          <th className={tableTokens.headerCellNumeric}>Net Amount</th>
+                          <th className={tableTokens.headerCell}>Channel</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {previewRows.map((r, i) => (
-                          <tr key={i}>
-                            <td className="px-2 py-0.5 text-sm">{r[0]}</td>
-                            <td className="px-2 py-0.5 text-sm">{r[2]}</td>
-                            <td className="px-2 py-0.5 text-sm">{r[5]}</td>
-                            <td className="px-2 py-0.5 text-sm max-w-[150px] truncate">{r[6]}</td>
-                            <td className="px-2 py-0.5 text-sm font-mono text-right">{r[8]}</td>
-                            <td className="px-2 py-0.5 text-sm font-mono text-right">{r[13]}</td>
+                        {newRows.map((r, i) => (
+                          <tr key={i} className={tableTokens.dataRow}>
+                            <td className={tableTokens.dataCell}>{r.saleDate}</td>
+                            <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.receiptNo}</td>
+                            <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.menuCode}</td>
+                            <td className={tableTokens.truncatedCell} title={r.menuName}>{r.menuName}</td>
+                            <td className={tableTokens.dataCellMono}>{r.qty}</td>
+                            <td className={tableTokens.dataCellMono}>{r.netAmount.toFixed(2)}</td>
+                            <td className={tableTokens.dataCell}>{r.channel}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
+              ) : (
+                <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                  All rows already imported.
+                </div>
               )}
+
+              {/* Import button */}
+              <Button
+                onClick={handleImport}
+                disabled={importing || newRows.length === 0 || !selectedBranch}
+                className={cn(newRows.length === 0 && 'opacity-50')}
+              >
+                {importing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> Import {newRows.length} rows</>
+                )}
+              </Button>
             </div>
           )}
-
-          {/* Import result summary */}
-          {importResult && (
-            <div className="rounded-lg border bg-success/5 border-success/20 p-3 space-y-2">
-              <p className="text-sm font-medium text-success flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                {importResult.inserted} rows imported{importResult.skipped > 0 && `, ${importResult.skipped} duplicates skipped`}
-              </p>
-            </div>
-          )}
-
-          <Button onClick={handleImport} disabled={importing || parsedRows.length === 0 || !selectedBranch || !hasValidColumns}>
-            {importing ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> {t('btn.import')}...</>
-            ) : (
-              <><Upload className="w-4 h-4" /> {t('btn.importPastedData')} ({parsedRows.length} rows)</>
-            )}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* SECTION 1.5: MANUAL ENTRY */}
+      {/* ═══ SECTION 1.5: MANUAL ENTRY — UNCHANGED ═══ */}
       <Card>
         <Collapsible open={manualOpen} onOpenChange={setManualOpen}>
           <CollapsibleTrigger asChild>
@@ -442,7 +549,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           <CollapsibleContent>
             <CardContent className="pt-0">
               <div className="flex items-end gap-2 flex-wrap">
-                {/* Date */}
                 <div className="w-[200px]">
                   <DatePicker
                     value={manualDate ? new Date(manualDate + 'T00:00:00') : undefined}
@@ -454,8 +560,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     align="start"
                   />
                 </div>
-
-                {/* Branch */}
                 <div className="w-48">
                   <label className="text-xs text-muted-foreground">Branch</label>
                   <Select value={manualBranch} onValueChange={setManualBranch}>
@@ -469,8 +573,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Menu — searchable with absolute dropdown */}
                 <div className="w-64 relative">
                   <label className="text-xs text-muted-foreground">Menu</label>
                   <Input
@@ -510,8 +612,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </div>
                   )}
                 </div>
-
-                {/* Qty */}
                 <div className="w-20">
                   <label className="text-xs text-muted-foreground">Qty</label>
                   <Input
@@ -523,8 +623,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     tabIndex={4}
                   />
                 </div>
-
-                {/* Unit Price — read-only */}
                 <div className="w-24">
                   <label className="text-xs text-muted-foreground">Unit Price</label>
                   <div className={cn(
@@ -534,16 +632,12 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     {!manualMenuId ? '—' : hasNoPrice ? 'No price' : `฿${manualUnitPrice.toFixed(2)}`}
                   </div>
                 </div>
-
-                {/* Net Amount — read-only */}
                 <div className="w-28">
                   <label className="text-xs text-muted-foreground">Net Amount</label>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm font-medium tabular-nums">
                     {manualMenuId ? `฿${manualNetAmount.toFixed(2)}` : '—'}
                   </div>
                 </div>
-
-                {/* Add button */}
                 <Button
                   onClick={handleManualAdd}
                   disabled={manualSaving || !manualMenuId || !manualBranch || !!hasNoPrice}
@@ -562,13 +656,12 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
         </Collapsible>
       </Card>
 
-      {/* SECTION 2: SALES HISTORY */}
+      {/* ═══ SECTION 2: SALES HISTORY — UNCHANGED ═══ */}
       <Card>
         <CardHeader>
           <CardTitle>{t('title.salesHistory')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Filters */}
           <div className="flex flex-wrap items-end gap-3">
             {isManagement && (
               <div>
@@ -605,7 +698,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             <Button variant="outline" onClick={handleApplyFilter}>{t('btn.apply')}</Button>
           </div>
 
-          {/* Search within results */}
           {entries.length > 0 && (
             <SearchInput
               value={historySearch}
@@ -617,7 +709,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             />
           )}
 
-          {/* Table */}
           {loading ? (
             <SkeletonTable columns={9} rows={8} />
           ) : (
@@ -667,8 +758,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                           />
                         </td>
                       </tr>
-                    ) : filteredEntries.map((e, idx) => (
-                      <tr key={e.id} className={`border-b border-table-border last:border-0 hover:bg-table-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                    ) : filteredEntries.map((e) => (
+                      <tr key={e.id} className={tableTokens.dataRow}>
                         <td className="px-3 py-2 text-sm whitespace-nowrap">{e.saleDate}</td>
                         <td className="px-3 py-2 font-mono text-xs">{e.menuCode}</td>
                         <td className="px-3 py-2 text-sm max-w-[200px] truncate" title={e.menuName}>{e.menuName}</td>
@@ -700,7 +791,6 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             </div>
           )}
 
-          {/* Summary */}
           {entries.length > 0 && (
             <div className="flex gap-6 text-sm pt-2 border-t">
               <span>{t('common.totalQty')}: <strong>{totalQty.toLocaleString()}</strong></span>
@@ -718,6 +808,14 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
         description={`Delete "${deleteConfirm?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={() => { if (deleteConfirm) { deleteEntry(deleteConfirm.id); setDeleteConfirm(null); toast.success('Entry deleted'); } }}
+      />
+
+      <POSProfileModal
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        profile={editingProfile}
+        onSave={handleProfileSave}
+        onDelete={deleteProfile}
       />
     </div>
   );
