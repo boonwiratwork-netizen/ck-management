@@ -17,6 +17,7 @@ export interface BranchReceipt {
   priceVariance: number;
   notes: string;
   createdAt: string;
+  transferOrderId: string | null;
 }
 
 const toLocal = (row: any): BranchReceipt => ({
@@ -34,6 +35,7 @@ const toLocal = (row: any): BranchReceipt => ({
   priceVariance: row.price_variance,
   notes: row.notes,
   createdAt: row.created_at,
+  transferOrderId: row.transfer_order_id,
 });
 
 export function useBranchReceiptData() {
@@ -67,6 +69,7 @@ export function useBranchReceiptData() {
       std_total: r.stdTotal,
       price_variance: r.priceVariance,
       notes: r.notes,
+      transfer_order_id: r.transferOrderId || null,
     }));
     const { error } = await supabase.from('branch_receipts').insert(inserts);
     if (error) { toast.error('Failed to save receipts: ' + error.message); return 0; }

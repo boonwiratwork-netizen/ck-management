@@ -85,16 +85,18 @@ export function useDailyStockCount({
       extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
     });
 
-    const { data: dlData } = await supabase
-      .from('deliveries')
-      .select('sm_sku_id, qty_delivered_g')
-      .eq('branch_name', branchName)
-      .eq('delivery_date', date);
+    // FROM CK: read from transfer_order_lines (migrated from deliveries table)
+    const { data: toLineData } = await supabase
+      .from('transfer_order_lines')
+      .select('sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)')
+      .eq('transfer_orders.branch_id', branchId)
+      .eq('transfer_orders.delivery_date', date)
+      .in('transfer_orders.status', ['Sent', 'Received', 'Partially Received']);
     
     const ckBySku: Record<string, number> = {};
-    (dlData || []).forEach(d => {
-      // qty_delivered_g is already in grams — use directly, no conversion needed
-      ckBySku[d.sm_sku_id] = (ckBySku[d.sm_sku_id] || 0) + Number(d.qty_delivered_g);
+    (toLineData || []).forEach((d: any) => {
+      const qty = Number(d.actual_qty) > 0 ? Number(d.actual_qty) : Number(d.planned_qty);
+      ckBySku[d.sku_id] = (ckBySku[d.sku_id] || 0) + qty;
     });
 
     return { extBySku, ckBySku };
