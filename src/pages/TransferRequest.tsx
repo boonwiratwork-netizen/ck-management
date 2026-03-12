@@ -196,7 +196,7 @@ export default function TransferRequestPage() {
             {isManagement ? (
               <div className="flex flex-col gap-1 min-w-[200px]">
                 <label className="text-sm text-muted-foreground">
-                  Branch <span className="text-destructive">*</span>
+                  {t("tr.newBranch")} <span className="text-destructive">*</span>
                 </label>
                 <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
                   <SelectTrigger className="h-10 w-[240px]">
