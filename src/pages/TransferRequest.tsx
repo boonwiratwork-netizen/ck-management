@@ -200,7 +200,7 @@ export default function TransferRequestPage() {
                 </label>
                 <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
                   <SelectTrigger className="h-10 w-[240px]">
-                    <SelectValue placeholder="Select branch" />
+                    <SelectValue placeholder={t('tr.selectBranch')} />
                   </SelectTrigger>
                   <SelectContent>
                     {activeBranches.map((b) => (
