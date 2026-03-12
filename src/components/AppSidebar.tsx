@@ -44,6 +44,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   'sp-bom': 'store',
   'modifier-rules': 'store',
   'sales-entry': 'store',
+  'transfer-request': 'store',
   'branch-receipt': 'store',
   'daily-stock-count': 'store',
   'food-cost': 'store',
