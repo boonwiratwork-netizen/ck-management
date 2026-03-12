@@ -32,6 +32,7 @@ import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
+import TransferOrderPage from '@/pages/TransferOrder';
 import BranchesPage from '@/pages/Branches';
 import UserManagementPage from '@/pages/UserManagement';
 import MenuMasterPage from '@/pages/MenuMaster';
