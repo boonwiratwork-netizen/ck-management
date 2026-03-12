@@ -314,6 +314,78 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     setImporting(false);
   }, [selectedBranch, newRows, bulkInsert, fetchEntries, filterBranch]);
 
+  // ——— Manage Transactions handlers ———
+  const loadMgmtTransactions = useCallback(async () => {
+    if (!mgmtBranch || !mgmtDate) return;
+    setMgmtLoading(true);
+    setMgmtSelectedIds(new Set());
+    const dateStr = toLocalDateStr(mgmtDate);
+    const { data, error } = await supabase
+      .from('sales_entries')
+      .select('*')
+      .eq('branch_id', mgmtBranch)
+      .eq('sale_date', dateStr)
+      .order('receipt_no');
+    if (error) { toast.error('Failed to load: ' + error.message); }
+    setMgmtTransactions((data || []).map(d => ({
+      id: d.id,
+      branchId: d.branch_id,
+      saleDate: d.sale_date,
+      receiptNo: d.receipt_no,
+      menuCode: d.menu_code,
+      menuName: d.menu_name,
+      orderType: d.order_type,
+      qty: d.qty,
+      unitPrice: d.unit_price,
+      netAmount: d.net_amount,
+      channel: d.channel,
+    })));
+    setMgmtLoading(false);
+  }, [mgmtBranch, mgmtDate]);
+
+  const handleMgmtDelete = useCallback(async () => {
+    const idsToDelete = mgmtDeleteType === 'all'
+      ? mgmtTransactions.map(t => t.id)
+      : Array.from(mgmtSelectedIds);
+    if (idsToDelete.length === 0) return;
+    const { error } = await supabase.from('sales_entries').delete().in('id', idsToDelete);
+    if (error) { toast.error('Delete failed: ' + error.message); return; }
+    toast.success(`${idsToDelete.length} transactions deleted successfully`);
+    setMgmtDeleteType(null);
+    setMgmtSelectedIds(new Set());
+    loadMgmtTransactions();
+    fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
+  }, [mgmtDeleteType, mgmtTransactions, mgmtSelectedIds, loadMgmtTransactions, fetchEntries, filterBranch]);
+
+  const mgmtAllSelected = mgmtTransactions.length > 0 && mgmtSelectedIds.size === mgmtTransactions.length;
+  const mgmtSomeSelected = mgmtSelectedIds.size > 0 && mgmtSelectedIds.size < mgmtTransactions.length;
+  const mgmtSelectedSum = useMemo(() =>
+    mgmtTransactions.filter(t => mgmtSelectedIds.has(t.id)).reduce((s, t) => s + t.netAmount, 0),
+    [mgmtTransactions, mgmtSelectedIds]
+  );
+  const mgmtTotalSum = useMemo(() =>
+    mgmtTransactions.reduce((s, t) => s + t.netAmount, 0),
+    [mgmtTransactions]
+  );
+  const mgmtDateStr = mgmtDate ? toLocalDateStr(mgmtDate) : '';
+  const mgmtBranchName = branchMap[mgmtBranch] || '';
+
+  const toggleMgmtRow = useCallback((id: string) => {
+    setMgmtSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleMgmtAll = useCallback(() => {
+    if (mgmtAllSelected) {
+      setMgmtSelectedIds(new Set());
+    } else {
+      setMgmtSelectedIds(new Set(mgmtTransactions.map(t => t.id)));
+    }
+  }, [mgmtAllSelected, mgmtTransactions]);
+
   // Profile dropdown handler
   const handleProfileChange = (val: string) => {
     if (val === '__new__') {
