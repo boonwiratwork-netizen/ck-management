@@ -20,7 +20,7 @@ import { useAuth, AppRole } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'transfer-request' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
 
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
