@@ -264,32 +264,32 @@ export default function TransferRequestPage() {
                   <div className={tableTokens.wrapper}>
                     <table className={tableTokens.base}>
                       <colgroup>
-                        <col style={{ width: 28 }} />
-                        <col style={{ width: 75 }} />
+                        <col style={{ width: 26 }} />
+                        <col style={{ width: 76 }} />
                         <col />
-                        <col style={{ width: 95 }} />
-                        <col style={{ width: 70 }} />
-                        <col style={{ width: 55 }} />
-                        <col style={{ width: 75 }} />
-                        <col style={{ width: 85 }} />
-                        <col style={{ width: 85 }} />
-                        <col style={{ width: 70 }} />
-                        <col style={{ width: 55 }} />
+                        <col style={{ width: 110 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 60 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 52 }} />
                       </colgroup>
                       <thead>
                         <tr className={tableTokens.headerRow}>
-                          <th className={`${tableTokens.headerCell} text-center`}></th>
+                          <th className={tableTokens.headerCellCenter}></th>
                           <th className={tableTokens.headerCell}>SKU CODE</th>
                           <th className={tableTokens.headerCell}>SKU NAME</th>
                           <th className={tableTokens.headerCell}>BATCH SIZE</th>
-                          <th className={`${tableTokens.headerCell} text-right`}>STOCK NOW</th>
-                          <th className={`${tableTokens.headerCell} text-right`}>ROP</th>
-                          <th className={`${tableTokens.headerCell} text-right`}>PARSTOCK</th>
-                          <th className={`${tableTokens.headerCell} text-right`}>
+                          <th className={tableTokens.headerCellNumeric}>STOCK NOW</th>
+                          <th className={tableTokens.headerCellNumeric}>ROP</th>
+                          <th className={tableTokens.headerCellNumeric}>PARSTOCK</th>
+                          <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="inline-flex items-center gap-0.5 cursor-help">
+                                  <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
                                     SUGGESTED
                                     <Info className="w-3 h-3 opacity-50" />
                                   </span>
@@ -300,9 +300,9 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={`${tableTokens.headerCell} text-right`}>REQUEST (BATCH)</th>
-                          <th className={`${tableTokens.headerCell} text-right`}>TOTAL (UOM)</th>
-                          <th className={`${tableTokens.headerCell} text-center`}>UNIT</th>
+                          <th className={tableTokens.headerCellNumeric}>REQUEST (BATCH)</th>
+                          <th className={tableTokens.headerCellNumeric}>TOTAL (UOM)</th>
+                          <th className={tableTokens.headerCellCenter}>UNIT</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -312,31 +312,32 @@ export default function TransferRequestPage() {
                           const dotStatus: StatusDotStatus | undefined = isNoData ? undefined : stockStatusToDot[line.status];
                           const batchVal = batchInputs[line.skuId] ?? 0;
                           const totalUom = batchVal > 0 ? batchVal * line.packSize : 0;
+                          const batchSizeLabel = `${formatNumber(line.packSize, 0)} ${line.uom}/แพ็ค`;
 
                           return (
                             <tr
                               key={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? 'opacity-60' : ''}`}
                             >
-                              <td className={`${tableTokens.dataCell} text-center`}>
+                              <td className={tableTokens.dataCellCompactCenter}>
                                 {dotStatus ? (
                                   <StatusDot status={dotStatus} size="sm" />
                                 ) : (
                                   <span className="inline-block w-2 h-2 rounded-full bg-muted" />
                                 )}
                               </td>
-                              <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                              <td className={`${tableTokens.truncatedCell}`} title={line.skuName}>{line.skuName}</td>
-                              <td className={`${tableTokens.dataCell} text-xs text-muted-foreground truncate`} title={`${formatNumber(line.packSize, 0)} ${line.uom}/แพ็ค`}>
-                                {formatNumber(line.packSize, 0)} {line.uom}/แพ็ค
+                              <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
+                              <td className={tableTokens.truncatedCellCompact} title={line.skuName}>{line.skuName}</td>
+                              <td className={tableTokens.dataCellCompact} title={batchSizeLabel}>
+                                <span className="whitespace-nowrap truncate block">{batchSizeLabel}</span>
                               </td>
-                              <td className={tableTokens.dataCellMono}>{formatNumber(line.stockOnHand, 0)}</td>
-                              <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
-                              <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
-                              <td className={`${tableTokens.dataCellMono} ${line.suggestedBatches > 0 ? 'text-primary' : 'text-muted-foreground'} font-medium`}>
+                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(line.stockOnHand, 0)}</td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
+                              <td className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? 'text-primary' : 'text-muted-foreground'} font-medium`}>
                                 {isNoData ? '—' : line.suggestedBatches}
                               </td>
-                              <td className={`${tableTokens.dataCell} text-right`}>
+                              <td className={`${tableTokens.dataCellCompact} text-right`}>
                                 <input
                                   ref={el => { if (el) qtyInputRefs.current[line.skuId] = el; }}
                                   type="number"
@@ -361,13 +362,13 @@ export default function TransferRequestPage() {
                                       }
                                     }
                                   }}
-                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-ring focus:ring-0 focus:outline-none"
+                                  className={tableTokens.inputCell}
                                 />
                               </td>
-                              <td className={`${tableTokens.dataCellMono} ${totalUom > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              <td className={`${tableTokens.dataCellCompactMono} ${totalUom > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                                 {totalUom > 0 ? formatNumber(totalUom, 0) : '—'}
                               </td>
-                              <td className={`${tableTokens.dataCell} text-center text-sm font-medium text-primary bg-primary/5`}>
+                              <td className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}>
                                 {line.uom}
                               </td>
                             </tr>
