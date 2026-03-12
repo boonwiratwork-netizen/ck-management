@@ -103,7 +103,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
   if (role === 'management') return false;
   if (role === 'area_manager') return true;
   if (role === 'ck_manager') {
-    const editableCk: TabKey[] = ['receipt', 'production', 'delivery', 'stock', 'smstock', 'stockcount'];
+    const editableCk: TabKey[] = ['receipt', 'production', 'delivery', 'transfer-order', 'stock', 'smstock', 'stockcount'];
     return !editableCk.includes(tab);
   }
   if (role === 'store_manager') {
