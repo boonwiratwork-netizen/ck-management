@@ -58,6 +58,24 @@ export default function TransferRequestPage() {
   } = useTransferRequest(isStoreManager ? branchId : null, profileId);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<'code' | 'priority'>('code');
+
+  const statusOrder: Record<string, number> = { critical: 0, low: 1, sufficient: 2, 'no-data': 3 };
+
+  const sortedLines = useMemo(() => {
+    const arr = [...lines];
+    if (sortMode === 'priority') {
+      arr.sort((a, b) => {
+        const sa = statusOrder[a.status] ?? 9;
+        const sb = statusOrder[b.status] ?? 9;
+        if (sa !== sb) return sa - sb;
+        return a.skuCode.localeCompare(b.skuCode);
+      });
+    } else {
+      arr.sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+    }
+    return arr;
+  }, [lines, sortMode]);
   const [submitting, setSubmitting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTR, setDetailTR] = useState<TRHistoryRow | null>(null);
