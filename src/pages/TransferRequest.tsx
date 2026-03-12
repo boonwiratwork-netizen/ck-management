@@ -16,6 +16,7 @@ import { typography, table as tableTokens, formatNumber } from '@/lib/design-tok
 import { toLocalDateStr } from '@/lib/utils';
 import { Plus, Eye, Printer, Ban, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/use-language';
 
 const stockStatusToDot: Record<BranchSmStockStatus, StatusDotStatus> = {
   critical: 'red',
@@ -33,6 +34,7 @@ const trStatusBadge: Record<string, string> = {
 };
 
 export default function TransferRequestPage() {
+  const { t } = useLanguage();
   const { profile, role, isManagement, isStoreManager, isAreaManager, isCkManager, brandAssignments, user } = useAuth();
   const branchId = profile?.branch_id || null;
   const { branches } = useBranchData();
@@ -158,12 +160,12 @@ export default function TransferRequestPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={typography.pageTitle}>Transfer Request</h2>
-          <p className="text-sm text-muted-foreground">Request SM ingredients from Central Kitchen</p>
+          <h2 className={typography.pageTitle}>{t('tr.pageTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('tr.pageSubtitle')}</p>
         </div>
         {canCreateTR && !formOpen && (
           <Button onClick={() => setFormOpen(true)} className="h-9">
-            <Plus className="w-4 h-4 mr-1" /> New TR
+            <Plus className="w-4 h-4 mr-1" /> {t('tr.newTR')}
           </Button>
         )}
       </div>
@@ -216,7 +218,7 @@ export default function TransferRequestPage() {
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
               <Button onClick={handleSubmit} disabled={!canSubmit || submitting || (isManagement && !selectedBranchId)}>
-                {submitting ? 'Submitting...' : 'Submit TR'}
+                {submitting ? t('tr.submitting') : t('tr.submitTR')}
               </Button>
             </div>
           </div>
@@ -226,8 +228,8 @@ export default function TransferRequestPage() {
             <>
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-sm font-semibold">SM Items for {branchName}</p>
-                  <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Enter batch quantity to request.</p>
+                  <p className="text-sm font-semibold">{t('tr.smItemsFor').replace('{branch}', branchName)}</p>
+                  <p className="text-xs text-muted-foreground">{t('tr.smItemsHint')}
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -239,7 +241,7 @@ export default function TransferRequestPage() {
                         : 'border border-input text-muted-foreground hover:bg-accent'
                     }`}
                   >
-                    Sort by Code
+                    {t('tr.sortByCode')}
                   </button>
                   <button
                     type="button"
@@ -250,7 +252,7 @@ export default function TransferRequestPage() {
                         : 'border border-input text-muted-foreground hover:bg-accent'
                     }`}
                   >
-                    Sort by Priority
+                    {t('tr.sortByPriority')}
                   </button>
                 </div>
               </div>
@@ -279,30 +281,30 @@ export default function TransferRequestPage() {
                       <thead>
                         <tr className={tableTokens.headerRow}>
                           <th className={tableTokens.headerCellCenter}></th>
-                          <th className={tableTokens.headerCell}>SKU CODE</th>
-                          <th className={tableTokens.headerCell}>SKU NAME</th>
-                          <th className={tableTokens.headerCell}>BATCH SIZE</th>
-                          <th className={tableTokens.headerCellNumeric}>STOCK NOW</th>
-                          <th className={tableTokens.headerCellNumeric}>ROP</th>
-                          <th className={tableTokens.headerCellNumeric}>PARSTOCK</th>
+                          <th className={tableTokens.headerCell}>{t('tr.colSkuCode')}</th>
+                          <th className={tableTokens.headerCell}>{t('tr.colSkuName')}</th>
+                          <th className={tableTokens.headerCell}>{t('tr.colBatchSize')}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t('tr.colStockNow')}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t('tr.colRop')}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t('tr.colParstock')}</th>
                           <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
-                                    SUGGESTED
+                                    {t('tr.colSuggested')}
                                     <Info className="w-3 h-3 opacity-50" />
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p className="text-xs">Rounded up to nearest batch size</p>
+                                  <p className="text-xs">{t('tr.roundedUpHint')}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={tableTokens.headerCellNumeric}>REQUEST (BATCH)</th>
-                          <th className={tableTokens.headerCellNumeric}>TOTAL (UOM)</th>
-                          <th className={tableTokens.headerCellCenter}>UNIT</th>
+                          <th className={tableTokens.headerCellNumeric}>{t('tr.colRequestBatch')}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t('tr.colTotalUom')}</th>
+                          <th className={tableTokens.headerCellCenter}>{t('tr.colUnit')}</th>
                         </tr>
                       </thead>
                       <tbody>
