@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { typography, table as tableTokens, formatNumber } from '@/lib/design-tokens';
 import { toLocalDateStr } from '@/lib/utils';
-import { Plus, X, Eye, Printer, Ban } from 'lucide-react';
+import { Plus, Eye, Printer, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 
 const stockStatusToDot: Record<BranchSmStockStatus, StatusDotStatus> = {
@@ -58,6 +58,24 @@ export default function TransferRequestPage() {
   } = useTransferRequest(isStoreManager ? branchId : null, profileId);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<'code' | 'priority'>('code');
+
+  const statusOrder: Record<string, number> = { critical: 0, low: 1, sufficient: 2, 'no-data': 3 };
+
+  const sortedLines = useMemo(() => {
+    const arr = [...lines];
+    if (sortMode === 'priority') {
+      arr.sort((a, b) => {
+        const sa = statusOrder[a.status] ?? 9;
+        const sb = statusOrder[b.status] ?? 9;
+        if (sa !== sb) return sa - sb;
+        return a.skuCode.localeCompare(b.skuCode);
+      });
+    } else {
+      arr.sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+    }
+    return arr;
+  }, [lines, sortMode]);
   const [submitting, setSubmitting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTR, setDetailTR] = useState<TRHistoryRow | null>(null);
@@ -129,9 +147,9 @@ export default function TransferRequestPage() {
           <h2 className={typography.pageTitle}>Transfer Request</h2>
           <p className="text-sm text-muted-foreground">Request SM ingredients from Central Kitchen</p>
         </div>
-        {isStoreManager && (
-          <Button onClick={() => setFormOpen(!formOpen)} className="h-9">
-            {formOpen ? <><X className="w-4 h-4 mr-1" /> Close</> : <><Plus className="w-4 h-4 mr-1" /> New TR</>}
+        {isStoreManager && !formOpen && (
+          <Button onClick={() => setFormOpen(true)} className="h-9">
+            <Plus className="w-4 h-4 mr-1" /> New TR
           </Button>
         )}
       </div>
@@ -174,9 +192,35 @@ export default function TransferRequestPage() {
           </div>
 
           {/* SKU Sheet */}
-          <div>
-            <p className="text-sm font-semibold">SM Items for {branchName}</p>
-            <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Adjust quantities as needed.</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-sm font-semibold">SM Items for {branchName}</p>
+              <p className="text-xs text-muted-foreground">Pre-loaded from active menus. Adjust quantities as needed.</p>
+            </div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setSortMode('code')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  sortMode === 'code'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-input text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                Sort by Code
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode('priority')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  sortMode === 'priority'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-input text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                Sort by Priority
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -212,10 +256,10 @@ export default function TransferRequestPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((line, idx) => {
+                    {sortedLines.map((line, idx) => {
                       const isSufficient = line.status === 'sufficient';
                       const isNoData = line.status === 'no-data';
-                      const dotStatus = isNoData ? undefined : stockStatusToDot[line.status];
+                      const dotStatus: StatusDotStatus | undefined = isNoData ? undefined : stockStatusToDot[line.status];
 
                       return (
                         <tr
@@ -224,9 +268,9 @@ export default function TransferRequestPage() {
                         >
                           <td className={`${tableTokens.dataCell} text-center`}>
                             {dotStatus ? (
-                              <StatusDot status={dotStatus} />
+                              <StatusDot status={dotStatus} size="sm" />
                             ) : (
-                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-muted" />
+                              <span className="inline-block w-2 h-2 rounded-full bg-muted" />
                             )}
                           </td>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
@@ -249,8 +293,8 @@ export default function TransferRequestPage() {
                                 if (e.key === 'Tab') {
                                   e.preventDefault();
                                   const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                  if (nextIdx >= 0 && nextIdx < lines.length) {
-                                    const nextSkuId = lines[nextIdx].skuId;
+                                  if (nextIdx >= 0 && nextIdx < sortedLines.length) {
+                                    const nextSkuId = sortedLines[nextIdx].skuId;
                                     qtyInputRefs.current[nextSkuId]?.focus();
                                     qtyInputRefs.current[nextSkuId]?.select();
                                   }
