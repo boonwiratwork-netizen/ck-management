@@ -256,10 +256,10 @@ export default function TransferRequestPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((line, idx) => {
+                    {sortedLines.map((line, idx) => {
                       const isSufficient = line.status === 'sufficient';
                       const isNoData = line.status === 'no-data';
-                      const dotStatus = isNoData ? undefined : stockStatusToDot[line.status];
+                      const dotStatus: StatusDotStatus | undefined = isNoData ? undefined : stockStatusToDot[line.status];
 
                       return (
                         <tr
@@ -268,9 +268,9 @@ export default function TransferRequestPage() {
                         >
                           <td className={`${tableTokens.dataCell} text-center`}>
                             {dotStatus ? (
-                              <StatusDot status={dotStatus} />
+                              <StatusDot status={dotStatus} size="sm" />
                             ) : (
-                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-muted" />
+                              <span className="inline-block w-2 h-2 rounded-full bg-muted" />
                             )}
                           </td>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
