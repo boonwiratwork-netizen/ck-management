@@ -74,6 +74,7 @@ export function useBranchSmStock(branchId: string | null) {
         skuCode: s.sku_id,
         skuName: s.name,
         uom: s.usage_uom,
+        packSize: Number(s.pack_size) || 1,
       })));
 
       // 5. Get last 7 days of submitted daily_stock_counts for this branch
