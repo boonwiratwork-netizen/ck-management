@@ -531,7 +531,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
               {/* Import button */}
               <Button
                 onClick={handleImport}
-                disabled={importing || newRows.length === 0 || !selectedBranch}
+                disabled={importing || checking || newRows.length === 0 || !selectedBranch}
                 className={cn(newRows.length === 0 && 'opacity-50')}
               >
                 {importing ? (
