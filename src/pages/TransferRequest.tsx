@@ -285,9 +285,10 @@ export default function TransferRequestPage() {
                             <input
                               ref={el => { if (el) qtyInputRefs.current[line.skuId] = el; }}
                               type="number"
-                              inputMode="decimal"
+                              inputMode="numeric"
                               min={0}
-                              defaultValue={line.requestedQty || ''}
+                              step={1}
+                              defaultValue={line.requestedQty ? Math.round(line.requestedQty) : ''}
                               onBlur={e => updateLineQty(line.skuId, Number(e.target.value) || 0)}
                               onKeyDown={e => {
                                 if (e.key === 'Tab') {
