@@ -64,6 +64,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [checking, setChecking] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ——— Manage Transactions state ———
@@ -275,12 +276,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      processRawText(text);
+      setPendingFileText(text);
     };
     reader.readAsText(file);
-    // Reset input so same file can be re-uploaded
     e.target.value = '';
-  }, [processRawText]);
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -290,10 +290,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      processRawText(text);
+      setPendingFileText(text);
     };
     reader.readAsText(file);
-  }, [processRawText]);
+  }, []);
+
+  // Process pending file text once profile and branch are available
+  useEffect(() => {
+    if (pendingFileText && selectedProfile && selectedBranch) {
+      processRawText(pendingFileText);
+      setPendingFileText(null);
+    }
+  }, [pendingFileText, selectedProfile, selectedBranch, processRawText]);
 
   const newRows = useMemo(() => parsedRows.filter(r => !r.isDuplicate), [parsedRows]);
   const skipRows = useMemo(() => parsedRows.filter(r => r.isDuplicate), [parsedRows]);
@@ -453,7 +461,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           {/* Branch selector */}
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium whitespace-nowrap label-required">Branch</label>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <Select value={selectedBranch} onValueChange={v => { setSelectedBranch(v); setPendingFileText(null); }}>
               <SelectTrigger className="w-64 h-10">
                 <SelectValue placeholder="Select branch" />
               </SelectTrigger>
