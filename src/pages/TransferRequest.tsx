@@ -215,7 +215,7 @@ export default function TransferRequestPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted-foreground">{t("col.branch")}</label>
                 <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
-                  {branchName || "Not assigned"}
+                  {branchName || t('tr.notAssigned')}
                 </div>
               </div>
             )}
