@@ -14,13 +14,13 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart,
+  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart, ArrowUpFromLine,
 } from 'lucide-react';
 import { useAuth, AppRole } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'transfer-request' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
 
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
@@ -44,6 +44,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   'sp-bom': 'store',
   'modifier-rules': 'store',
   'sales-entry': 'store',
+  'transfer-request': 'store',
   'branch-receipt': 'store',
   'daily-stock-count': 'store',
   'food-cost': 'store',
@@ -101,6 +102,7 @@ const storeGroup: NavGroup = {
     { key: 'modifier-rules', labelKey: 'nav.modifierRules', icon: ListFilter },
     { key: 'sales-entry', labelKey: 'nav.salesEntry', icon: ShoppingCart },
     { key: 'branch-receipt', labelKey: 'nav.branchReceipt', icon: ClipboardList },
+    { key: 'transfer-request', labelKey: 'nav.transferRequest', icon: ArrowUpFromLine },
     { key: 'daily-stock-count', labelKey: 'nav.dailyStockCount', icon: ClipboardCheck },
     { key: 'food-cost', labelKey: 'nav.foodCost', icon: PieChart },
   ],

@@ -41,6 +41,7 @@ import ModifierRulesPage from '@/pages/ModifierRules';
 import SalesEntryPage from '@/pages/SalesEntry';
 import DailyStockCountPage from '@/pages/DailyStockCount';
 import BranchReceiptPage from '@/pages/BranchReceipt';
+import TransferRequestPage from '@/pages/TransferRequest';
 import FoodCostPage from '@/pages/FoodCost';
 import StoreOverview from '@/pages/StoreOverview';
 import SkuCategoriesPage from '@/pages/SkuCategories';
@@ -72,6 +73,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'modifier-rules': { title: 'Modifier Rules', subtitle: 'Auto-adjust ingredients for menu options' },
   'sales-entry': { title: 'Sales Entry', subtitle: 'Record daily sales data' },
   'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
+  'transfer-request': { title: 'Transfer Request', subtitle: 'Request SM ingredients from Central Kitchen' },
   'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
   'sku-categories': { title: 'SKU Categories', subtitle: 'Manage ingredient categories' },
@@ -104,7 +106,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     return !editableCk.includes(tab);
   }
   if (role === 'store_manager') {
-    const editableStore: TabKey[] = ['sales-entry', 'branch-receipt', 'daily-stock-count'];
+    const editableStore: TabKey[] = ['sales-entry', 'branch-receipt', 'daily-stock-count', 'transfer-request'];
     return !editableStore.includes(tab);
   }
   return true;
@@ -455,6 +457,8 @@ const Index = () => {
                 <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} menus={menuData.menus} />
               ) : activeTab === 'branch-receipt' ? (
                 <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} menus={menuData.menus} menuBomLines={menuBomData.lines} />
+              ) : activeTab === 'transfer-request' ? (
+                <TransferRequestPage />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}
