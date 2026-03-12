@@ -254,7 +254,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold leading-tight truncate text-foreground">Supply Chain Management</p>
+                  <p className="text-sm font-bold leading-tight truncate text-foreground">Supply Chain App</p>
                   <p className="text-helper leading-tight text-muted-foreground">by Live to Eat</p>
                 </div>
                 <button
