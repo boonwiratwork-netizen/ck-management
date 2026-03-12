@@ -229,7 +229,7 @@ export default function TransferRequestPage() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-sm font-semibold">{t('tr.smItemsFor').replace('{branch}', branchName)}</p>
-                  <p className="text-xs text-muted-foreground">{t('tr.smItemsHint')}
+                  <p className="text-xs text-muted-foreground">{t('tr.smItemsHint')}</p>
                 </div>
                 <div className="flex gap-1">
                   <button
