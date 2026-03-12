@@ -72,6 +72,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'modifier-rules': { title: 'Modifier Rules', subtitle: 'Auto-adjust ingredients for menu options' },
   'sales-entry': { title: 'Sales Entry', subtitle: 'Record daily sales data' },
   'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
+  'transfer-request': { title: 'Transfer Request', subtitle: 'Request SM ingredients from Central Kitchen' },
   'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
   'sku-categories': { title: 'SKU Categories', subtitle: 'Manage ingredient categories' },
