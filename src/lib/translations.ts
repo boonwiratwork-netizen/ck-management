@@ -15,6 +15,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.goodsReceipt': { th: 'รับของเข้า', en: 'Goods Receipt' },
   'nav.production': { th: 'การผลิต', en: 'Production' },
   'nav.delivery': { th: 'ส่งของ', en: 'Delivery' },
+  'nav.transferOrder': { th: 'ใบโอนสินค้า', en: 'Transfer Order' },
   'nav.rmStock': { th: 'สต๊อกวัตถุดิบ', en: 'RM Stock' },
   'nav.smStock': { th: 'สต๊อกกึ่งสำเร็จ', en: 'SM Stock' },
   'nav.stockCount': { th: 'นับสต๊อก', en: 'Stock Count' },

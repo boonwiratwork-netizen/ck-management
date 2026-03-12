@@ -14,13 +14,15 @@ import {
 import {
   ChefHat, LayoutDashboard, Package, Users, DollarSign,
   FlaskConical, ClipboardList, Warehouse, Factory, BoxesIcon,
-  Truck, Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart, ArrowUpFromLine,
+  Store, ClipboardCheck, Settings, LogOut, UtensilsCrossed, BookOpen, Sparkles, ListFilter, ShoppingCart, PieChart, Heart, ArrowUpFromLine, ArrowRightLeft,
 } from 'lucide-react';
 import { useAuth, AppRole } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 
-export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'transfer-request' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
+export type TabKey = 'dashboard' | 'sku' | 'supplier' | 'price' | 'bom' | 'receipt' | 'stock' | 'production' | 'smstock' | 'stockcount' | 'delivery' | 'transfer-order' | 'branches' | 'users' | 'store' | 'menu-master' | 'menu-bom' | 'sp-bom' | 'modifier-rules' | 'sales-entry' | 'branch-receipt' | 'transfer-request' | 'daily-stock-count' | 'food-cost' | 'sku-categories';
 
 export type TabContext = 'ck' | 'store' | 'management' | 'overview';
 
@@ -36,6 +38,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   smstock: 'ck',
   stockcount: 'ck',
   delivery: 'ck',
+  'transfer-order': 'ck',
   branches: 'management',
   users: 'management',
   store: 'store',
@@ -83,7 +86,7 @@ const ckGroup: NavGroup = {
     { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
     { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
     { key: 'production', labelKey: 'nav.production', icon: Factory },
-    { key: 'delivery', labelKey: 'nav.delivery', icon: Truck },
+    { key: 'transfer-order', labelKey: 'nav.transferOrder', icon: ArrowRightLeft },
     { key: 'stock', labelKey: 'nav.rmStock', icon: Warehouse },
     { key: 'smstock', labelKey: 'nav.smStock', icon: BoxesIcon },
     { key: 'stockcount', labelKey: 'nav.stockCount', icon: ClipboardCheck },
@@ -139,8 +142,24 @@ export function getDefaultTab(role: AppRole | null): TabKey {
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { profile, role, isManagement, signOut } = useAuth();
+  const { profile, role, isManagement, signOut, isCkManager } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
+  const [pendingTRCount, setPendingTRCount] = useState(0);
+
+  // Fetch pending TR count for badge
+  useEffect(() => {
+    if (!isManagement && !isCkManager) return;
+    const fetchCount = () => {
+      supabase
+        .from('transfer_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'Submitted')
+        .then(({ count }) => setPendingTRCount(count || 0));
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, [isManagement, isCkManager]);
 
   // Build groups based on role
   const allGroups: NavGroup[] = [];
@@ -229,6 +248,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                           >
                             <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
                             <span className="text-sm">{label}</span>
+                            {item.key === 'transfer-order' && pendingTRCount > 0 && (isManagement || isCkManager) && !collapsed && (
+                              <span className="bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium ml-auto">
+                                {pendingTRCount}
+                              </span>
+                            )}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );

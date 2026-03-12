@@ -32,6 +32,7 @@ import ProductionPage from '@/pages/Production';
 import SMStockPage from '@/pages/SMStock';
 import StockCountPage from '@/pages/StockCount';
 import DeliveryToBranchesPage from '@/pages/DeliveryToBranches';
+import TransferOrderPage from '@/pages/TransferOrder';
 import BranchesPage from '@/pages/Branches';
 import UserManagementPage from '@/pages/UserManagement';
 import MenuMasterPage from '@/pages/MenuMaster';
@@ -64,6 +65,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   smstock: { title: 'SM Stock', subtitle: 'Semi-finished goods inventory' },
   stockcount: { title: 'Stock Count', subtitle: 'Verify your physical inventory' },
   delivery: { title: 'Delivery to Branches', subtitle: 'Track what leaves the kitchen' },
+  'transfer-order': { title: 'Transfer Order', subtitle: 'Create and send SM deliveries to branches' },
   branches: { title: 'Branches', subtitle: 'Manage your restaurant locations' },
   users: { title: 'User Management', subtitle: 'Team access and permissions' },
   store: { title: 'Store Overview', subtitle: 'Branch operations at a glance' },
@@ -102,7 +104,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
   if (role === 'management') return false;
   if (role === 'area_manager') return true;
   if (role === 'ck_manager') {
-    const editableCk: TabKey[] = ['receipt', 'production', 'delivery', 'stock', 'smstock', 'stockcount'];
+    const editableCk: TabKey[] = ['receipt', 'production', 'delivery', 'transfer-order', 'stock', 'smstock', 'stockcount'];
     return !editableCk.includes(tab);
   }
   if (role === 'store_manager') {
@@ -459,6 +461,11 @@ const Index = () => {
                 <BranchReceiptPage skus={skus} prices={priceData.prices} branches={isAreaManager ? areaManagerBranches : branchData.branches} suppliers={supplierData.suppliers} menus={menuData.menus} menuBomLines={menuBomData.lines} />
               ) : activeTab === 'transfer-request' ? (
                 <TransferRequestPage />
+              ) : activeTab === 'transfer-order' ? (
+                <TransferOrderPage
+                  getBomCostPerGram={smStockData.getBomCostPerGram}
+                  refreshSmStock={smStockData.refreshToDelivered}
+                />
               ) : activeTab === 'daily-stock-count' ? (
                 <DailyStockCountPage
                   skus={skus}

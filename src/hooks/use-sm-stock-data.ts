@@ -31,13 +31,23 @@ export function useSmStockData(
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [isStockDataReady, setIsStockDataReady] = useState(false);
+  // TO-based delivered quantities per SKU
+  const [toDelivered, setToDelivered] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setIsStockDataReady(false);
     Promise.all([
       supabase.from('stock_opening_balances').select('*'),
       supabase.from('stock_adjustments').select('*').eq('stock_type', 'SM').order('created_at', { ascending: false }),
-    ]).then(([obRes, adjRes]) => {
+      // Fetch TO lines with their parent TO status
+      supabase
+        .from('transfer_order_lines')
+        .select('sku_id, planned_qty, actual_qty, to_id'),
+      supabase
+        .from('transfer_orders')
+        .select('id, status')
+        .in('status', ['Sent', 'Received']),
+    ]).then(([obRes, adjRes, toLineRes, toRes]) => {
       if (obRes.data) {
         const map: Record<string, number> = {};
         obRes.data.forEach((r: any) => { map[r.sku_id] = r.quantity; });
@@ -48,6 +58,23 @@ export function useSmStockData(
           id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason,
         })));
       }
+
+      // Calculate TO-based delivered quantities
+      const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
+      const toStatusMap: Record<string, string> = {};
+      for (const t of toRes.data || []) {
+        toStatusMap[t.id] = t.status;
+      }
+
+      const delivered: Record<string, number> = {};
+      for (const line of toLineRes.data || []) {
+        if (!validToIds.has(line.to_id)) continue;
+        const qty = (line.actual_qty > 0) ? line.actual_qty
+          : (toStatusMap[line.to_id] === 'Sent' ? line.planned_qty : 0);
+        delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
+      }
+      setToDelivered(delivered);
+
       setIsStockDataReady(true);
     });
   }, []);
@@ -58,13 +85,14 @@ export function useSmStockData(
     return smSkus.map(sku => {
       const opening = openingStocks[sku.id] ?? 0;
       const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
-      const totalDelivered = deliveries.filter(d => d.smSkuId === sku.id).reduce((sum, d) => sum + d.qtyDeliveredG, 0);
+      // Use TO-based delivery instead of deliveries table
+      const totalDelivered = toDelivered[sku.id] ?? 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
       return { skuId: sku.id, openingStock: opening, totalProduced, totalDelivered, adjustments: skuAdjustments, currentStock };
     });
-  }, [smSkus, productionRecords, deliveries, openingStocks, adjustments]);
+  }, [smSkus, productionRecords, toDelivered, openingStocks, adjustments]);
 
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase.from('stock_opening_balances').upsert(
@@ -115,7 +143,6 @@ export function useSmStockData(
       });
       mainOutput = prevOutput;
     } else {
-      // Simple BOM
       const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
       totalCost = bLines.reduce((s, line) => {
         const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
@@ -124,7 +151,6 @@ export function useSmStockData(
       mainOutput = bomHeader.batchSize * bomHeader.yieldPercent;
     }
 
-    // Apply by-product allocation
     const headerByproducts = bomByproducts.filter(bp => bp.bomHeaderId === bomHeader.id);
     const totalByproductPct = headerByproducts.reduce((s, bp) => s + bp.costAllocationPct, 0);
     const mainPct = Math.max(0, 100 - totalByproductPct);
@@ -139,5 +165,24 @@ export function useSmStockData(
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
   }, [productionRecords]);
 
-  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady };
+  // Refresh TO delivered data (call after sending a TO)
+  const refreshToDelivered = useCallback(async () => {
+    const [toLineRes, toRes] = await Promise.all([
+      supabase.from('transfer_order_lines').select('sku_id, planned_qty, actual_qty, to_id'),
+      supabase.from('transfer_orders').select('id, status').in('status', ['Sent', 'Received']),
+    ]);
+    const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
+    const toStatusMap: Record<string, string> = {};
+    for (const t of toRes.data || []) toStatusMap[t.id] = t.status;
+    const delivered: Record<string, number> = {};
+    for (const line of toLineRes.data || []) {
+      if (!validToIds.has(line.to_id)) continue;
+      const qty = (line.actual_qty > 0) ? line.actual_qty
+        : (toStatusMap[line.to_id] === 'Sent' ? line.planned_qty : 0);
+      delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
+    }
+    setToDelivered(delivered);
+  }, []);
+
+  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered };
 }
