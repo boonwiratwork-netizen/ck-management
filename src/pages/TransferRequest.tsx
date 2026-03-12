@@ -200,7 +200,7 @@ export default function TransferRequestPage() {
                 </label>
                 <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
                   <SelectTrigger className="h-10 w-[240px]">
-                    <SelectValue placeholder="Select branch" />
+                    <SelectValue placeholder={t('tr.selectBranch')} />
                   </SelectTrigger>
                   <SelectContent>
                     {activeBranches.map((b) => (
@@ -215,14 +215,14 @@ export default function TransferRequestPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted-foreground">{t("col.branch")}</label>
                 <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
-                  {branchName || "Not assigned"}
+                  {branchName || t('tr.notAssigned')}
                 </div>
               </div>
             )}
             <DatePicker
               value={requiredDate}
               onChange={setRequiredDate}
-              label="Required Date"
+              label={t('tr.requiredDate')}
               required
               labelPosition="above"
               minDate={tomorrow}
@@ -488,11 +488,11 @@ export default function TransferRequestPage() {
           <DatePicker
             value={filterFrom}
             onChange={setFilterFrom}
-            label="From"
+            label={t('common.from')}
             labelPosition="above"
             placeholder="From"
           />
-          <DatePicker value={filterTo} onChange={setFilterTo} label="To" labelPosition="above" placeholder="To" />
+          <DatePicker value={filterTo} onChange={setFilterTo} label={t('common.to')} labelPosition="above" placeholder="To" />
           <Button variant="outline" className="h-9" onClick={handleFilterApply}>
             {t("btn.filter")}
           </Button>
