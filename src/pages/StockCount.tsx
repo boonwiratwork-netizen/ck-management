@@ -368,7 +368,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
 
             <TabsContent value="RM" className="mt-3">{renderCountTable()}</TabsContent>
             <TabsContent value="SM" className="mt-3">{renderCountTable()}</TabsContent>
-            <TabsContent value="SP" className="mt-3">{renderCountTable()}</TabsContent>
             <TabsContent value="PK" className="mt-3">{renderCountTable()}</TabsContent>
           </Tabs>
 
