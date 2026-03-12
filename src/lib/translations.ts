@@ -400,7 +400,7 @@ const translations: Record<string, Record<Lang, string>> = {
   },
   "tr.loadingItems": { th: "กำลังโหลดรายการ SM...", en: "Loading SM items..." },
   "tr.noSmSkus": { th: "ไม่พบ SM SKU สำหรับเมนูของสาขานี้", en: "No SM SKUs found for this branch menus." },
-  "tr.selectBranchHint": { th: "เลือกสาขาด้านบนเพื่อโหลดรายการ SM", en: "Select a branch above to load SM items." },
+  "tr.selectBranchHint": { th: "เลือกสาขาด้านบนเพื่อโหลดรายการวัตถุดิบ", en: "Select a branch above to load items." },
   "tr.itemsToOrder": { th: "รายการที่ต้องการ:", en: "Items to order:" },
   "tr.roundedUpHint": { th: "ปัดขึ้นเป็นแบทช์ที่ใกล้ที่สุด", en: "Rounded up to nearest batch size" },
   "tr.colSkuCode": { th: "รหัส SKU", en: "SKU CODE" },
