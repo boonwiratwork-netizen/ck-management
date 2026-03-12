@@ -25,6 +25,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.modifierRules': { th: 'กฎตัวเลือก', en: 'Modifier Rules' },
   'nav.salesEntry': { th: 'บันทึกยอดขาย', en: 'Sales Entry' },
   'nav.branchReceipt': { th: 'รับของสาขา', en: 'Branch Receipt' },
+  'nav.transferRequest': { th: 'ใบขอเบิก', en: 'Transfer Request' },
   'nav.dailyStockCount': { th: 'นับสต๊อกรายวัน', en: 'Daily Stock Count' },
   'nav.foodCost': { th: 'ต้นทุนอาหาร', en: 'Food Cost' },
   'nav.branches': { th: 'สาขา', en: 'Branches' },
