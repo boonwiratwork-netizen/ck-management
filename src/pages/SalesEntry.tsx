@@ -266,7 +266,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   const handlePaste = useCallback((text: string) => {
     setPastedText(text);
-    processRawText(text);
+    processRawText(text, 'paste');
   }, [processRawText]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
