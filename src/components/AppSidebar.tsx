@@ -142,8 +142,24 @@ export function getDefaultTab(role: AppRole | null): TabKey {
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { profile, role, isManagement, signOut } = useAuth();
+  const { profile, role, isManagement, signOut, isCkManager } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
+  const [pendingTRCount, setPendingTRCount] = useState(0);
+
+  // Fetch pending TR count for badge
+  useEffect(() => {
+    if (!isManagement && !isCkManager) return;
+    const fetchCount = () => {
+      supabase
+        .from('transfer_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'Submitted')
+        .then(({ count }) => setPendingTRCount(count || 0));
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, [isManagement, isCkManager]);
 
   // Build groups based on role
   const allGroups: NavGroup[] = [];
