@@ -912,7 +912,181 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
         </CardContent>
       </Card>
 
-      <ConfirmDialog
+      {/* ═══ SECTION 3: MANAGE TRANSACTIONS (Management only) ═══ */}
+      {isManagement && (
+        <Card className="border-l-4 border-l-destructive">
+          <Collapsible open={mgmtOpen} onOpenChange={setMgmtOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent transition-colors">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                    <Trash2 className="w-5 h-5 text-destructive" />
+                    Manage Transactions
+                    <ChevronDown className={cn('w-4 h-4 ml-auto transition-transform', mgmtOpen && 'rotate-180')} />
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">View and delete transaction records by date and branch</p>
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-4">
+                {/* Filters */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Branch</label>
+                    <Select value={mgmtBranch} onValueChange={setMgmtBranch}>
+                      <SelectTrigger className="w-48 h-10">
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.filter(b => b.status === 'Active').map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DatePicker
+                    value={mgmtDate}
+                    onChange={setMgmtDate}
+                    placeholder="Select date"
+                    label="Date"
+                    labelPosition="above"
+                    required
+                    align="start"
+                  />
+                  <div className="self-end">
+                    <Button
+                      onClick={loadMgmtTransactions}
+                      disabled={!mgmtBranch || !mgmtDate || mgmtLoading}
+                    >
+                      {mgmtLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : 'Load Transactions'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Transactions table */}
+                {mgmtTransactions.length > 0 || mgmtLoading ? (
+                  <div className="space-y-3">
+                    <div className={tableTokens.wrapper}>
+                      <table className={tableTokens.base}>
+                        <colgroup>
+                          <col width="36px" />
+                          <col width="88px" />
+                          <col width="80px" />
+                          <col width="auto" />
+                          <col width="60px" />
+                          <col width="90px" />
+                          <col width="80px" />
+                        </colgroup>
+                        <thead>
+                          <tr className={tableTokens.headerRow}>
+                            <th className={cn(tableTokens.headerCellCenter, 'px-1')}>
+                              <Checkbox
+                                checked={mgmtAllSelected ? true : mgmtSomeSelected ? 'indeterminate' : false}
+                                onCheckedChange={toggleMgmtAll}
+                              />
+                            </th>
+                            <th className={tableTokens.headerCell}>Receipt</th>
+                            <th className={tableTokens.headerCell}>Menu Code</th>
+                            <th className={tableTokens.headerCell}>Menu Name</th>
+                            <th className={tableTokens.headerCellNumeric}>Qty</th>
+                            <th className={tableTokens.headerCellNumeric}>Net Amount</th>
+                            <th className={tableTokens.headerCell}>Channel</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mgmtLoading ? (
+                            <tr><td colSpan={7} className={tableTokens.emptyState}><Loader2 className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                          ) : mgmtTransactions.map(t => (
+                            <tr
+                              key={t.id}
+                              className={mgmtSelectedIds.has(t.id) ? tableTokens.dataRowSelected : tableTokens.dataRow}
+                            >
+                              <td className={cn(tableTokens.dataCellCenter, 'px-1')}>
+                                <Checkbox
+                                  checked={mgmtSelectedIds.has(t.id)}
+                                  onCheckedChange={() => toggleMgmtRow(t.id)}
+                                />
+                              </td>
+                              <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{t.receiptNo}</td>
+                              <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{t.menuCode}</td>
+                              <td className={tableTokens.truncatedCell} title={t.menuName}>{t.menuName}</td>
+                              <td className={tableTokens.dataCellMono}>{t.qty}</td>
+                              <td className={tableTokens.dataCellMono}>{t.netAmount.toFixed(2)}</td>
+                              <td className={tableTokens.dataCell}>{t.channel}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="text-sm text-muted-foreground">
+                      {mgmtSelectedIds.size > 0 ? (
+                        <span><span className="font-semibold text-foreground">{mgmtSelectedIds.size}</span> selected · <span className="font-semibold font-mono text-foreground">฿{mgmtSelectedSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> selected</span>
+                      ) : (
+                        <span><span className="font-semibold text-foreground">{mgmtTransactions.length}</span> transactions · Total: <span className="font-semibold font-mono text-foreground">฿{mgmtTotalSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                      )}
+                    </div>
+
+                    {/* Delete buttons */}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="destructive"
+                        disabled={mgmtSelectedIds.size === 0}
+                        onClick={() => setMgmtDeleteType('selected')}
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete Selected ({mgmtSelectedIds.size})
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={mgmtTransactions.length === 0}
+                        onClick={() => setMgmtDeleteType('all')}
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete All for {mgmtDateStr} · {mgmtBranchName}
+                      </Button>
+                    </div>
+                  </div>
+                ) : mgmtBranch && mgmtDate && !mgmtLoading && (
+                  <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                    No transactions found for this date and branch.
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
+
+      {/* Manage Transactions delete confirmation */}
+      <AlertDialog open={!!mgmtDeleteType} onOpenChange={open => !open && setMgmtDeleteType(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {mgmtDeleteType === 'all'
+                ? `Delete ALL transactions for ${mgmtDateStr}?`
+                : `Delete ${mgmtSelectedIds.size} transactions?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {mgmtDeleteType === 'all'
+                ? `This will permanently delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} on ${mgmtDateStr}. This cannot be undone. Re-upload correct data after deleting.`
+                : `This will permanently delete ${mgmtSelectedIds.size} selected transactions for ${mgmtBranchName} on ${mgmtDateStr}. You can re-upload correct data after.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMgmtDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {mgmtDeleteType === 'all'
+                ? `Delete All ${mgmtTransactions.length} transactions`
+                : `Delete ${mgmtSelectedIds.size} transactions`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
         open={!!deleteConfirm}
         onOpenChange={open => !open && setDeleteConfirm(null)}
         title="Delete Sales Entry"
