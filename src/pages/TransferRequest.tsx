@@ -335,7 +335,7 @@ export default function TransferRequestPage() {
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>{formatNumber(line.rop, 0)}</td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>{formatNumber(line.parstock, 0)}</td>
                               <td className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? 'text-primary' : 'text-muted-foreground'} font-medium`}>
-                                {isNoData ? '—' : line.suggestedBatches}
+                                {isNoData ? '—' : (line.suggestedBatches <= 0 ? 0 : line.suggestedBatches)}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} text-right`}>
                                 <input
