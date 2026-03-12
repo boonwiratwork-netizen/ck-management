@@ -111,24 +111,71 @@ function splitCSV(line: string): string[] {
   return result;
 }
 
+// Generic split by separator character
+function splitBySep(line: string, sep: string): string[] {
+  if (sep === ',') return splitCSV(line);
+  return line.split(sep);
+}
+
+// Auto-detect separator from first non-empty line
+function detectSeparator(firstLine: string): 'tab' | 'comma' | 'semicolon' {
+  const tabs = (firstLine.match(/\t/g) || []).length;
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semis = (firstLine.match(/;/g) || []).length;
+  if (tabs >= commas && tabs >= semis) return 'tab';
+  if (commas >= semis) return 'comma';
+  return 'semicolon';
+}
+
+const SEP_CHAR: Record<string, string> = { tab: '\t', comma: ',', semicolon: ';' };
+
+// Auto-detect whether first row is a header
+function detectHeaderRow(firstLine: string, sep: string, mappings: Record<string, number>): boolean {
+  const cols = splitBySep(firstLine, sep);
+  // Check qty column — if it's non-numeric text, it's likely a header
+  const qtyIdx = mappings.qty;
+  if (qtyIdx !== undefined && qtyIdx < cols.length) {
+    const val = cols[qtyIdx].replace(/["']/g, '').trim();
+    if (val && isNaN(Number(val))) return true;
+  }
+  // Check if multiple columns contain Thai or clearly non-numeric header text
+  let textCols = 0;
+  for (const col of cols) {
+    const v = col.replace(/["']/g, '').trim();
+    if (v && isNaN(Number(v)) && /[\u0E00-\u0E7F]|date|receipt|menu|qty|price|amount|channel|order/i.test(v)) {
+      textCols++;
+    }
+  }
+  return textCols >= 3;
+}
+
+export type ParseSource = 'paste' | 'csv';
+
 export function parseData(
   rawText: string,
   profile: POSMappingProfile,
-  _branchId: string
+  _branchId: string,
+  source: ParseSource = 'paste'
 ): ParsedRow[] {
   const lines = rawText.split('\n').filter(l => l.trim());
-  const startIdx = profile.hasHeaderRow ? 1 : 0;
+  if (lines.length === 0) return [];
+
+  // Determine separator and header row
+  let separator = profile.separator;
+  let hasHeader = profile.hasHeaderRow;
+
+  if (source === 'csv') {
+    separator = detectSeparator(lines[0]);
+    const sepChar = SEP_CHAR[separator] || '\t';
+    hasHeader = detectHeaderRow(lines[0], sepChar, profile.mappings);
+  }
+
+  const sepChar = SEP_CHAR[separator] || '\t';
+  const startIdx = hasHeader ? 1 : 0;
   const rows: ParsedRow[] = [];
 
   for (let i = startIdx; i < lines.length; i++) {
-    let cols: string[];
-    if (profile.separator === 'comma') {
-      cols = splitCSV(lines[i]);
-    } else if (profile.separator === 'semicolon') {
-      cols = lines[i].split(';');
-    } else {
-      cols = lines[i].split('\t');
-    }
+    const cols = splitBySep(lines[i], sepChar);
 
     const m = profile.mappings;
     const menuCode = (cols[m.menu_code] ?? '').trim();

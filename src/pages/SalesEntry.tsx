@@ -298,7 +298,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   // Process pending file text once profile and branch are available
   useEffect(() => {
     if (pendingFileText && selectedProfile && selectedBranch) {
-      processRawText(pendingFileText);
+      processRawText(pendingFileText, 'csv');
       setPendingFileText(null);
     }
   }, [pendingFileText, selectedProfile, selectedBranch, processRawText]);
