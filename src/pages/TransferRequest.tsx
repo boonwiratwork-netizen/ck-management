@@ -293,8 +293,8 @@ export default function TransferRequestPage() {
                                 if (e.key === 'Tab') {
                                   e.preventDefault();
                                   const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                  if (nextIdx >= 0 && nextIdx < lines.length) {
-                                    const nextSkuId = lines[nextIdx].skuId;
+                                  if (nextIdx >= 0 && nextIdx < sortedLines.length) {
+                                    const nextSkuId = sortedLines[nextIdx].skuId;
                                     qtyInputRefs.current[nextSkuId]?.focus();
                                     qtyInputRefs.current[nextSkuId]?.select();
                                   }
