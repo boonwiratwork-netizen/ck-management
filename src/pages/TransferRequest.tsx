@@ -492,7 +492,7 @@ export default function TransferRequestPage() {
             labelPosition="above"
             placeholder="From"
           />
-          <DatePicker value={filterTo} onChange={setFilterTo} label="To" labelPosition="above" placeholder="To" />
+          <DatePicker value={filterTo} onChange={setFilterTo} label={t('common.to')} labelPosition="above" placeholder="To" />
           <Button variant="outline" className="h-9" onClick={handleFilterApply}>
             {t("btn.filter")}
           </Button>
