@@ -49,8 +49,26 @@ export function useStockCountData({
     if (error) { toast.error('Failed to create session: ' + error.message); return ''; }
 
     const id = sessionRow.id;
-    // Include all 4 types: RM, SM, SP, PK
-    const activeSkus = skus.filter(s => s.status === 'Active' && ['RM', 'SM', 'SP', 'PK'].includes(s.type));
+
+    // Fetch BOM header SKU IDs (SM with BOM) and BOM line RM SKU IDs (CK ingredients)
+    const [bomHeaderRes, bomLineRes] = await Promise.all([
+      supabase.from('bom_headers').select('sm_sku_id'),
+      supabase.from('bom_lines').select('rm_sku_id'),
+    ]);
+    const smWithBom = new Set((bomHeaderRes.data || []).map((h: any) => h.sm_sku_id));
+    const rmInBom = new Set((bomLineRes.data || []).map((l: any) => l.rm_sku_id));
+
+    // RM: only CK ingredients (appear in bom_lines)
+    // SM: only SKUs with a BOM header
+    // PK: all active
+    // SP: excluded
+    const activeSkus = skus.filter(s => {
+      if (s.status !== 'Active') return false;
+      if (s.type === 'RM') return rmInBom.has(s.id);
+      if (s.type === 'SM') return smWithBom.has(s.id);
+      if (s.type === 'PK') return true;
+      return false; // SP and others excluded
+    });
 
     const newLines = activeSkus.map(sku => {
       let systemQty = 0;

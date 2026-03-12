@@ -316,25 +316,38 @@ export default function DailyStockCountPage({
                       <th className={thClass}>{renderSortableHeader('skuName', t('col.skuName'))}</th>
                       <th className={thClass}>{renderSortableHeader('type', t('col.type'))}</th>
                       <th className={thClass}>UNIT</th>
-                      <th className={`text-right ${thClass}`}>{t('col.opening')}</th>
-                      <th className={`text-right ${thClass}`}>{t('col.fromCk')}</th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t('col.opening')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t('col.fromCk')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.extRecv')}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.expUsage')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.waste')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.calcBalance')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.physical')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
-                      <th className={`text-right ${thClass}`}>{t('col.variance')}</th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t('col.variance')}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -357,7 +370,7 @@ export default function DailyStockCountPage({
                           <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedFromCk)}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedExternal)}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedExternal * getConverter(row.skuId))}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (

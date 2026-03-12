@@ -115,7 +115,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
   const tabCounts = useMemo(() => ({
     RM: sessionLines.filter(l => l.type === 'RM').length,
     SM: sessionLines.filter(l => l.type === 'SM').length,
-    SP: sessionLines.filter(l => l.type === 'SP').length,
     PK: sessionLines.filter(l => l.type === 'PK').length,
   }), [sessionLines]);
 
@@ -338,7 +337,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
               <TabsList>
                 <TabsTrigger value="RM" className="text-xs">RM ({tabCounts.RM})</TabsTrigger>
                 <TabsTrigger value="SM" className="text-xs">SM ({tabCounts.SM})</TabsTrigger>
-                <TabsTrigger value="SP" className="text-xs">SP ({tabCounts.SP})</TabsTrigger>
                 <TabsTrigger value="PK" className="text-xs">PK ({tabCounts.PK})</TabsTrigger>
               </TabsList>
 
@@ -370,7 +368,6 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
 
             <TabsContent value="RM" className="mt-3">{renderCountTable()}</TabsContent>
             <TabsContent value="SM" className="mt-3">{renderCountTable()}</TabsContent>
-            <TabsContent value="SP" className="mt-3">{renderCountTable()}</TabsContent>
             <TabsContent value="PK" className="mt-3">{renderCountTable()}</TabsContent>
           </Tabs>
 
