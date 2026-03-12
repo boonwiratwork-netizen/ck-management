@@ -86,7 +86,7 @@ const ckGroup: NavGroup = {
     { key: 'bom', labelKey: 'nav.bom', icon: FlaskConical },
     { key: 'receipt', labelKey: 'nav.goodsReceipt', icon: ClipboardList },
     { key: 'production', labelKey: 'nav.production', icon: Factory },
-    { key: 'delivery', labelKey: 'nav.delivery', icon: Truck },
+    { key: 'transfer-order', labelKey: 'nav.transferOrder', icon: ArrowRightLeft },
     { key: 'stock', labelKey: 'nav.rmStock', icon: Warehouse },
     { key: 'smstock', labelKey: 'nav.smStock', icon: BoxesIcon },
     { key: 'stockcount', labelKey: 'nav.stockCount', icon: ClipboardCheck },
