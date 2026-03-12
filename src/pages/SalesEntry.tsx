@@ -461,7 +461,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           {/* Branch selector */}
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium whitespace-nowrap label-required">Branch</label>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <Select value={selectedBranch} onValueChange={v => { setSelectedBranch(v); setPendingFileText(null); }}>
               <SelectTrigger className="w-64 h-10">
                 <SelectValue placeholder="Select branch" />
               </SelectTrigger>
