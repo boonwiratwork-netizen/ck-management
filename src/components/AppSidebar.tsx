@@ -38,6 +38,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   smstock: 'ck',
   stockcount: 'ck',
   delivery: 'ck',
+  'transfer-order': 'ck',
   branches: 'management',
   users: 'management',
   store: 'store',
