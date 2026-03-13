@@ -253,7 +253,8 @@ export function useSalesEntryData() {
       .from('sales_entries')
       .select('sale_date,receipt_no,menu_code,menu_name')
       .eq('branch_id', branchId)
-      .in('sale_date', dates);
+      .in('sale_date', dates)
+      .limit(5000);
 
     const existingSet = new Set(
       (existing || []).map(e => `${e.sale_date}|${e.receipt_no}|${e.menu_code}|${e.menu_name}`)
