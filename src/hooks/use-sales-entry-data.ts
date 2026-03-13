@@ -275,10 +275,7 @@ export function useSalesEntryData() {
 
     const markedHistorical = historicalRows.map((r) => ({
       ...r,
-      isDuplicate:
-        r.receiptNo && r.receiptNo.trim() !== ""
-          ? existingSet.has(`${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`)
-          : false,
+      isDuplicate: existingSet.has(`${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`),
     }));
 
     const markedToday = todayRows.map((r) => ({ ...r, isDuplicate: false }));
