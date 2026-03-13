@@ -60,9 +60,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [editingProfile, setEditingProfile] = useState<POSMappingProfile | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [skippedNoCodeRows, setSkippedNoCodeRows] = useState<SkippedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [showSkippedNoCode, setShowSkippedNoCode] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
