@@ -337,7 +337,6 @@ export function useSalesEntryData() {
       .select("branch_id,sale_date,receipt_no,menu_code,menu_name")
       .eq("branch_id", branchId)
       .in("sale_date", dates)
-      .in("receipt_no", receipts)
       .limit(5000);
 
     if (existingError) {
