@@ -271,7 +271,18 @@ export function useSalesEntryData() {
   }, []);
 
   const bulkInsert = useCallback(async (branchId: string, rows: Omit<SalesEntry, 'id' | 'branchId'>[]) => {
-    const insertRows = rows.map(r => ({
+    // 1. Deduplicate within batch by composite key
+    const deduped = Array.from(
+      new Map(
+        rows.map(r => [
+          `${branchId}|${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`,
+          r,
+        ])
+      ).values()
+    );
+    const intraDupes = rows.length - deduped.length;
+
+    const insertRows = deduped.map(r => ({
       branch_id: branchId,
       sale_date: r.saleDate,
       receipt_no: r.receiptNo,
@@ -284,28 +295,30 @@ export function useSalesEntryData() {
       channel: r.channel,
     }));
 
-    let inserted = 0;
     const chunkSize = 500;
     try {
       for (let i = 0; i < insertRows.length; i += chunkSize) {
         const chunk = insertRows.slice(i, i + chunkSize);
-        const { data, error } = await supabase
+        // 2. Use upsert with ignoreDuplicates — ON CONFLICT DO NOTHING
+        const { error } = await supabase
           .from('sales_entries')
-          .insert(chunk)
-          .select();
+          .upsert(chunk, {
+            onConflict: 'branch_id,sale_date,receipt_no,menu_code,menu_name',
+            ignoreDuplicates: true,
+          });
         if (error) {
           console.error('Sales import error:', error);
           toast.error('Import error: ' + error.message);
-          return { inserted, skipped: rows.length - inserted };
+          return { inserted: 0, skipped: rows.length };
         }
-        inserted += (data?.length || 0);
       }
     } catch (err) {
       console.error('Sales import exception:', err);
       toast.error('Import failed unexpectedly');
-      return { inserted, skipped: rows.length - inserted };
+      return { inserted: 0, skipped: rows.length };
     }
-    return { inserted, skipped: rows.length - inserted };
+    // 3. Count = deduped length (DB dupes handled silently)
+    return { inserted: deduped.length, skipped: intraDupes };
   }, []);
 
   const saveProfile = useCallback(async (profile: Omit<POSMappingProfile, 'id'> & { id?: string }) => {
