@@ -296,6 +296,11 @@ export function useSalesEntryData() {
     }));
 
     const chunkSize = 500;
+    const dedupedRows = insertRows;
+    console.log('IMPORT DEBUG rows sample:', JSON.stringify(dedupedRows.slice(0, 3), null, 2));
+    console.log('IMPORT DEBUG total rows:', dedupedRows.length);
+    console.log('IMPORT DEBUG branch_id:', dedupedRows[0]?.branch_id);
+
     try {
       for (let i = 0; i < insertRows.length; i += chunkSize) {
         const chunk = insertRows.slice(i, i + chunkSize);
