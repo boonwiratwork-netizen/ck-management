@@ -240,13 +240,16 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const processRawText = useCallback(async (text: string, source: ParseSource = 'paste') => {
     if (!text || text.trim() === '') {
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       return;
     }
     if (!selectedProfile || !selectedBranch) {
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       return;
     }
-    const raw = parseData(text, selectedProfile, selectedBranch, source);
+    const { rows: raw, skippedRows: skipped } = parseData(text, selectedProfile, selectedBranch, source);
+    setSkippedNoCodeRows(skipped);
     if (raw.length === 0) {
       setParsedRows([]);
       toast.warning('No valid rows found in pasted data');
@@ -257,6 +260,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       const withDups = await checkDuplicates(selectedBranch, raw);
       setParsedRows(withDups);
       setShowSkipped(false);
+      setShowSkippedNoCode(false);
     } catch (err) {
       console.error('checkDuplicates failed', err);
       setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
