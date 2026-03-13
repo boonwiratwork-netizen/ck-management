@@ -587,6 +587,45 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                 </Collapsible>
               )}
 
+              {/* Skipped rows — no menu code */}
+              {skippedNoCodeRows.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3">
+                  <Collapsible open={showSkippedNoCode} onOpenChange={setShowSkippedNoCode}>
+                    <CollapsibleTrigger className="flex items-center gap-1 text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 transition-colors cursor-pointer w-full">
+                      {showSkippedNoCode ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      {skippedNoCodeRows.length} rows skipped — no menu code. Add these manually.
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className={cn(tableTokens.wrapper, 'mt-2')}>
+                        <table className={tableTokens.base}>
+                          <colgroup>
+                            <col width="88px" />
+                            <col width="100px" />
+                            <col width="auto" />
+                          </colgroup>
+                          <thead>
+                            <tr className={tableTokens.headerRow}>
+                              <th className={tableTokens.headerCell}>Date</th>
+                              <th className={tableTokens.headerCell}>Receipt No</th>
+                              <th className={tableTokens.headerCell}>Menu Name</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {skippedNoCodeRows.map((r, i) => (
+                              <tr key={i} className={tableTokens.dataRow}>
+                                <td className={tableTokens.dataCell}>{r.saleDate}</td>
+                                <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.receiptNo}</td>
+                                <td className={tableTokens.truncatedCell} title={r.menuName}>{r.menuName}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
+
               {/* New rows preview table */}
               {newRows.length > 0 ? (
                 <>
