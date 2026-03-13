@@ -151,16 +151,28 @@ function detectHeaderRow(firstLine: string, sep: string, mappings: Record<string
   return textCols >= 3;
 }
 
+export interface SkippedRow {
+  saleDate: string;
+  receiptNo: string;
+  menuName: string;
+  skipReason: "no_menu_code";
+}
+
 export type ParseSource = "paste" | "csv";
+
+export interface ParseDataResult {
+  rows: ParsedRow[];
+  skippedRows: SkippedRow[];
+}
 
 export function parseData(
   rawText: string,
   profile: POSMappingProfile,
   _branchId: string,
   source: ParseSource = "paste",
-): ParsedRow[] {
+): ParseDataResult {
   const lines = rawText.split("\n").filter((l) => l.trim());
-  if (lines.length === 0) return [];
+  if (lines.length === 0) return { rows: [], skippedRows: [] };
 
   // Determine separator and header row
   let separator = profile.separator;
@@ -175,13 +187,13 @@ export function parseData(
   const sepChar = SEP_CHAR[separator] || "\t";
   const startIdx = hasHeader ? 1 : 0;
   const rows: ParsedRow[] = [];
+  const skippedRows: SkippedRow[] = [];
 
   for (let i = startIdx; i < lines.length; i++) {
     const cols = splitBySep(lines[i], sepChar);
 
     const m = profile.mappings;
     const menuCode = (cols[m.menu_code] ?? "").trim();
-    if (!menuCode) continue;
 
     const qtyRaw = Number((cols[m.qty] ?? "").trim());
     if (!qtyRaw || isNaN(qtyRaw)) continue;
@@ -189,6 +201,16 @@ export function parseData(
     const dateRaw = (cols[m.date] ?? "").trim();
     const saleDate = parseDateStr(dateRaw, profile.dateFormat);
     if (!saleDate) continue;
+
+    if (!menuCode) {
+      skippedRows.push({
+        saleDate,
+        receiptNo: m.receipt_no !== undefined ? (cols[m.receipt_no] ?? "").trim() : "",
+        menuName: m.menu_name !== undefined ? (cols[m.menu_name] ?? "").trim() : "",
+        skipReason: "no_menu_code",
+      });
+      continue;
+    }
 
     rows.push({
       saleDate,
@@ -203,7 +225,7 @@ export function parseData(
     });
   }
 
-  return rows;
+  return { rows, skippedRows };
 }
 
 export function useSalesEntryData() {

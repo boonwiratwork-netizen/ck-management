@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
-import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, parseData, ParseSource } from '@/hooks/use-sales-entry-data';
+import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, SkippedRow, parseData, ParseSource } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
