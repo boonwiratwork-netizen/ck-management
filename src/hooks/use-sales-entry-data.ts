@@ -197,8 +197,8 @@ export function parseData(
       menuName: m.menu_name !== undefined ? (cols[m.menu_name] ?? "").trim() : "",
       orderType: m.order_type !== undefined ? (cols[m.order_type] ?? "").trim() : "",
       qty: qtyRaw,
-      unitPrice: m.unit_price !== undefined ? Number((cols[m.unit_price] ?? "").trim()) || 0 : 0,
-      netAmount: m.net_amount !== undefined ? Number((cols[m.net_amount] ?? "").trim()) || 0 : 0,
+      unitPrice: m.unit_price !== undefined ? Number((cols[m.unit_price] ?? "").replace(/,/g, "").trim()) || 0 : 0,
+      netAmount: m.net_amount !== undefined ? Number((cols[m.net_amount] ?? "").replace(/,/g, "").trim()) || 0 : 0,
       channel: m.channel !== undefined ? (cols[m.channel] ?? "").trim() : "",
     });
   }
@@ -328,9 +328,7 @@ export function useSalesEntryData() {
 
     // 3) Build key set from existing rows and keep only new rows
     const existingSet = new Set(
-      (existingRows || []).map(
-        (r) => `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`,
-      ),
+      (existingRows || []).map((r) => `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`),
     );
 
     const newRows = insertRows.filter(
