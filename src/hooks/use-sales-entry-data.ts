@@ -245,21 +245,32 @@ export function useSalesEntryData() {
 
   const fetchEntries = useCallback(async (filters?: { branchId?: string; dateFrom?: string; dateTo?: string }) => {
     setLoading(true);
-    let q = supabase
-      .from("sales_entries")
-      .select("*")
-      .order("sale_date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (filters?.branchId) q = q.eq("branch_id", filters.branchId);
-    if (filters?.dateFrom) q = q.gte("sale_date", filters.dateFrom);
-    if (filters?.dateTo) q = q.lte("sale_date", filters.dateTo);
-    const { data, error } = await q.range(0, 9999);
-    if (error) {
-      toast.error("Failed to load sales");
-      setLoading(false);
-      return;
+    const PAGE_SIZE = 1000;
+    let allData: any[] = [];
+    let from = 0;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let q = supabase
+        .from("sales_entries")
+        .select("*")
+        .order("sale_date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (filters?.branchId) q = q.eq("branch_id", filters.branchId);
+      if (filters?.dateFrom) q = q.gte("sale_date", filters.dateFrom);
+      if (filters?.dateTo) q = q.lte("sale_date", filters.dateTo);
+      const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+      if (error) {
+        toast.error("Failed to load sales");
+        setLoading(false);
+        return;
+      }
+      allData = allData.concat(data || []);
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
-    setEntries((data || []).map(toLocal));
+
+    setEntries(allData.map(toLocal));
     setLoading(false);
   }, []);
 
