@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.sales_entries_dedup;
