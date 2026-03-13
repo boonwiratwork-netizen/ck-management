@@ -284,13 +284,13 @@ export function useSalesEntryData() {
   }, []);
 
   const bulkInsert = useCallback(async (branchId: string, rows: Omit<SalesEntry, "id" | "branchId">[]) => {
-    // 1. Deduplicate within batch by composite key
-    const deduped = Array.from(
+    // 1) Deduplicate within current import batch by composite key
+    const dedupedRows = Array.from(
       new Map(rows.map((r) => [`${branchId}|${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`, r])).values(),
     );
-    const intraDupes = rows.length - deduped.length;
+    const intraBatchSkipped = rows.length - dedupedRows.length;
 
-    const insertRows = deduped.map((r) => ({
+    const insertRows = dedupedRows.map((r) => ({
       branch_id: branchId,
       sale_date: r.saleDate,
       receipt_no: r.receiptNo,
@@ -303,33 +303,68 @@ export function useSalesEntryData() {
       channel: r.channel,
     }));
 
-    const chunkSize = 500;
-    const dedupedRows = insertRows;
-    console.log("IMPORT DEBUG rows sample:", JSON.stringify(dedupedRows.slice(0, 3), null, 2));
-    console.log("IMPORT DEBUG total rows:", dedupedRows.length);
-    console.log("IMPORT DEBUG branch_id:", dedupedRows[0]?.branch_id);
-
-    try {
-      for (let i = 0; i < insertRows.length; i += chunkSize) {
-        const chunk = insertRows.slice(i, i + chunkSize);
-        // 2. Use upsert with ignoreDuplicates — ON CONFLICT DO NOTHING
-        const { error } = await supabase.from("sales_entries").upsert(chunk, {
-          onConflict: "branch_id,sale_date,receipt_no,menu_code,menu_name",
-          ignoreDuplicates: true,
-        });
-        if (error) {
-          console.error("Sales import error:", error);
-          toast.error("Import error: " + error.message);
-          return { inserted: 0, skipped: rows.length };
-        }
-      }
-    } catch (err) {
-      console.error("Sales import exception:", err);
-      toast.error("Import failed unexpectedly");
-      return { inserted: 0, skipped: rows.length };
+    if (insertRows.length === 0) {
+      toast.info(`All ${rows.length} rows already imported`);
+      return null;
     }
-    // 3. Count = deduped length (DB dupes handled silently)
-    return { inserted: deduped.length, skipped: intraDupes };
+
+    // 2) Fetch existing rows for this branch/date/receipt scope
+    const dates = [...new Set(insertRows.map((r) => r.sale_date))];
+    const receipts = [...new Set(insertRows.map((r) => r.receipt_no))];
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("sales_entries")
+      .select("branch_id,sale_date,receipt_no,menu_code,menu_name")
+      .eq("branch_id", branchId)
+      .in("sale_date", dates)
+      .in("receipt_no", receipts)
+      .limit(5000);
+
+    if (existingError) {
+      console.error("Failed to check existing sales entries:", existingError);
+      toast.error("Import error: " + existingError.message);
+      return null;
+    }
+
+    // 3) Build key set from existing rows and keep only new rows
+    const existingSet = new Set(
+      (existingRows || []).map(
+        (r) => `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`,
+      ),
+    );
+
+    const newRows = insertRows.filter(
+      (r) => !existingSet.has(`${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`),
+    );
+
+    const existingSkipped = insertRows.length - newRows.length;
+    const skipped = intraBatchSkipped + existingSkipped;
+
+    if (newRows.length === 0) {
+      toast.info(`All ${rows.length} rows already imported`);
+      return null;
+    }
+
+    // 4) Plain insert in small chunks
+    const chunkSize = 50;
+    let inserted = 0;
+
+    for (let i = 0; i < newRows.length; i += chunkSize) {
+      const chunk = newRows.slice(i, i + chunkSize);
+      const { error } = await supabase.from("sales_entries").insert(chunk);
+
+      if (error) {
+        console.error("Sales import error:", error);
+        toast.error("Import error: " + error.message);
+        return null;
+      }
+
+      inserted += chunk.length;
+    }
+
+    // 5) Explicit import result message
+    toast.success(`${inserted} rows imported, ${skipped} rows skipped (already exist)`);
+    return { inserted, skipped };
   }, []);
 
   const saveProfile = useCallback(
