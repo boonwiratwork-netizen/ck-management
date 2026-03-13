@@ -3,6 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 
+// After the ParsedRow interface, add:
+export interface SkippedRow {
+  saleDate: string;
+  receiptNo: string;
+  menuName: string;
+  skipReason: "no_menu_code";
+}
+
 export interface SalesEntry {
   id: string;
   branchId: string;
@@ -151,26 +159,14 @@ function detectHeaderRow(firstLine: string, sep: string, mappings: Record<string
   return textCols >= 3;
 }
 
-export interface SkippedRow {
-  saleDate: string;
-  receiptNo: string;
-  menuName: string;
-  skipReason: "no_menu_code";
-}
-
 export type ParseSource = "paste" | "csv";
-
-export interface ParseDataResult {
-  rows: ParsedRow[];
-  skippedRows: SkippedRow[];
-}
 
 export function parseData(
   rawText: string,
   profile: POSMappingProfile,
   _branchId: string,
   source: ParseSource = "paste",
-): ParseDataResult {
+): { rows: ParsedRow[]; skippedRows: SkippedRow[] } {
   const lines = rawText.split("\n").filter((l) => l.trim());
   if (lines.length === 0) return { rows: [], skippedRows: [] };
 
@@ -194,6 +190,18 @@ export function parseData(
 
     const m = profile.mappings;
     const menuCode = (cols[m.menu_code] ?? "").trim();
+    if (!menuCode) {
+      const netAmt = m.net_amount !== undefined ? Number((cols[m.net_amount] ?? "").replace(/,/g, "").trim()) || 0 : 0;
+      if (netAmt > 0) {
+        skippedRows.push({
+          saleDate: parseDateStr((cols[m.date] ?? "").trim(), profile.dateFormat) ?? "",
+          receiptNo: m.receipt_no !== undefined ? (cols[m.receipt_no] ?? "").trim() : "",
+          menuName: m.menu_name !== undefined ? (cols[m.menu_name] ?? "").trim() : "",
+          skipReason: "no_menu_code",
+        });
+      }
+      continue;
+    }
 
     const qtyRaw = Number((cols[m.qty] ?? "").trim());
     if (!qtyRaw || isNaN(qtyRaw)) continue;
@@ -201,16 +209,6 @@ export function parseData(
     const dateRaw = (cols[m.date] ?? "").trim();
     const saleDate = parseDateStr(dateRaw, profile.dateFormat);
     if (!saleDate) continue;
-
-    if (!menuCode) {
-      skippedRows.push({
-        saleDate,
-        receiptNo: m.receipt_no !== undefined ? (cols[m.receipt_no] ?? "").trim() : "",
-        menuName: m.menu_name !== undefined ? (cols[m.menu_name] ?? "").trim() : "",
-        skipReason: "no_menu_code",
-      });
-      continue;
-    }
 
     rows.push({
       saleDate,
