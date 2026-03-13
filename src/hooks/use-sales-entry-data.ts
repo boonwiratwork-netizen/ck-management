@@ -253,7 +253,7 @@ export function useSalesEntryData() {
     if (filters?.branchId) q = q.eq("branch_id", filters.branchId);
     if (filters?.dateFrom) q = q.gte("sale_date", filters.dateFrom);
     if (filters?.dateTo) q = q.lte("sale_date", filters.dateTo);
-    const { data, error } = await q.limit(2000);
+    const { data, error } = await q.range(0, 9999);
     if (error) {
       toast.error("Failed to load sales");
       setLoading(false);
