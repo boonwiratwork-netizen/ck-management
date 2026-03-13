@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
-import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, parseData, ParseSource } from '@/hooks/use-sales-entry-data';
+import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, SkippedRow, parseData, ParseSource } from '@/hooks/use-sales-entry-data';
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
@@ -60,9 +60,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [editingProfile, setEditingProfile] = useState<POSMappingProfile | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [skippedNoCodeRows, setSkippedNoCodeRows] = useState<SkippedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [showSkippedNoCode, setShowSkippedNoCode] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -238,13 +240,16 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const processRawText = useCallback(async (text: string, source: ParseSource = 'paste') => {
     if (!text || text.trim() === '') {
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       return;
     }
     if (!selectedProfile || !selectedBranch) {
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       return;
     }
-    const raw = parseData(text, selectedProfile, selectedBranch, source);
+    const { rows: raw, skippedRows: skipped } = parseData(text, selectedProfile, selectedBranch, source);
+    setSkippedNoCodeRows(skipped);
     if (raw.length === 0) {
       setParsedRows([]);
       toast.warning('No valid rows found in pasted data');
@@ -255,6 +260,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       const withDups = await checkDuplicates(selectedBranch, raw);
       setParsedRows(withDups);
       setShowSkipped(false);
+      setShowSkippedNoCode(false);
     } catch (err) {
       console.error('checkDuplicates failed', err);
       setParsedRows(raw.map(r => ({ ...r, isDuplicate: false })));
@@ -315,6 +321,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       toast.success(`${result.inserted} rows imported · ${revStr} total revenue`);
       setPastedText('');
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       setUploadedFileName('');
       fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
     }
@@ -578,6 +585,45 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
+              )}
+
+              {/* Skipped rows — no menu code */}
+              {skippedNoCodeRows.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3">
+                  <Collapsible open={showSkippedNoCode} onOpenChange={setShowSkippedNoCode}>
+                    <CollapsibleTrigger className="flex items-center gap-1 text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 transition-colors cursor-pointer w-full">
+                      {showSkippedNoCode ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      {skippedNoCodeRows.length} rows skipped — no menu code. Add these manually.
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className={cn(tableTokens.wrapper, 'mt-2')}>
+                        <table className={tableTokens.base}>
+                          <colgroup>
+                            <col width="88px" />
+                            <col width="100px" />
+                            <col width="auto" />
+                          </colgroup>
+                          <thead>
+                            <tr className={tableTokens.headerRow}>
+                              <th className={tableTokens.headerCell}>Date</th>
+                              <th className={tableTokens.headerCell}>Receipt No</th>
+                              <th className={tableTokens.headerCell}>Menu Name</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {skippedNoCodeRows.map((r, i) => (
+                              <tr key={i} className={tableTokens.dataRow}>
+                                <td className={tableTokens.dataCell}>{r.saleDate}</td>
+                                <td className={cn(tableTokens.dataCell, 'font-mono text-xs')}>{r.receiptNo}</td>
+                                <td className={tableTokens.truncatedCell} title={r.menuName}>{r.menuName}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
               )}
 
               {/* New rows preview table */}
