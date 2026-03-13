@@ -321,6 +321,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       toast.success(`${result.inserted} rows imported · ${revStr} total revenue`);
       setPastedText('');
       setParsedRows([]);
+      setSkippedNoCodeRows([]);
       setUploadedFileName('');
       fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
     }
