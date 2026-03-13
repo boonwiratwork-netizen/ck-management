@@ -285,17 +285,24 @@ export function useSalesEntryData() {
 
     let inserted = 0;
     const chunkSize = 500;
-    for (let i = 0; i < insertRows.length; i += chunkSize) {
-      const chunk = insertRows.slice(i, i + chunkSize);
-      const { data, error } = await supabase
-        .from('sales_entries')
-        .upsert(chunk, { onConflict: 'branch_id,sale_date,receipt_no,menu_code,menu_name', ignoreDuplicates: true })
-        .select();
-      if (error) {
-        toast.error('Import error: ' + error.message);
-        return { inserted, skipped: rows.length - inserted };
+    try {
+      for (let i = 0; i < insertRows.length; i += chunkSize) {
+        const chunk = insertRows.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from('sales_entries')
+          .insert(chunk)
+          .select();
+        if (error) {
+          console.error('Sales import error:', error);
+          toast.error('Import error: ' + error.message);
+          return { inserted, skipped: rows.length - inserted };
+        }
+        inserted += (data?.length || 0);
       }
-      inserted += (data?.length || 0);
+    } catch (err) {
+      console.error('Sales import exception:', err);
+      toast.error('Import failed unexpectedly');
+      return { inserted, skipped: rows.length - inserted };
     }
     return { inserted, skipped: rows.length - inserted };
   }, []);
