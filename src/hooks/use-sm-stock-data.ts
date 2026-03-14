@@ -167,10 +167,21 @@ export function useSmStockData(
   }, [bomHeaders, bomLines, bomSteps, prices, bomByproducts]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
-    const recs = productionRecords.filter(r => r.smSkuId === skuId);
+    const recs = localProductionRecords.filter(r => r.smSkuId === skuId);
     if (recs.length === 0) return null;
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
-  }, [productionRecords]);
+  }, [localProductionRecords]);
+
+  // Re-fetch production records from DB for immediate stock update
+  const refreshProductionRecords = useCallback(async () => {
+    const { data } = await supabase.from('production_records').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setLocalProductionRecords(data.map((r: any) => ({
+        id: r.id, planId: r.plan_id, productionDate: r.production_date,
+        smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputG: r.actual_output_g,
+      })));
+    }
+  }, []);
 
   // Refresh TO delivered data (call after sending a TO)
   const refreshToDelivered = useCallback(async () => {
