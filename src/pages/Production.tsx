@@ -375,7 +375,7 @@ export default function ProductionPage({
 
   // Recording rows: ALL active SM SKUs, sorted by status then code
   const recordingRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    return [...rows].filter(r => r.hasBom).sort((a, b) => {
       const getStatus = (r: PlanRow) => {
         if (r.producedG === 0) return 0; // red — not started
         if (r.planG > 0 && r.producedG >= r.planG) return 2; // green — done
