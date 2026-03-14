@@ -148,6 +148,9 @@ export default function ProductionPage({
   const [savedWeek, setSavedWeek] = useState<number | null>(null);
   const [suggestedInitialized, setSuggestedInitialized] = useState(false);
 
+  // 2A — showUnplanned state
+  const [showUnplanned, setShowUnplanned] = useState(false);
+
   // Record modal
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [recordSkuId, setRecordSkuId] = useState<string | null>(null);
@@ -207,11 +210,12 @@ export default function ProductionPage({
       });
   }, []);
 
-  // Fetch saved plan for week
+  // Fetch saved plan for week — 2A: reset showUnplanned
   useEffect(() => {
     setPlanLocked(false);
     setSavedWeek(null);
     setSuggestedInitialized(false);
+    setShowUnplanned(false);
     supabase.from('weekly_plan_lines' as any).select('*').eq('week_start', weekStart)
       .then(({ data }: any) => {
         const map: Record<string, number> = {};
@@ -363,21 +367,35 @@ export default function ProductionPage({
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);
 
-  // Recording rows: ALL active SM SKUs with BOM, sorted by status then code
+  // 2C — Plan-aware displayed rows for Planning table
+  const displayedBomRows = useMemo(() => {
+    if (!planLocked) return bomRows;
+    return bomRows.filter(r =>
+      (planBatches[r.sku.id] ?? 0) > 0 ||
+      (weekRecordsBySku[r.sku.id] ?? 0) > 0
+    );
+  }, [bomRows, planLocked, planBatches, weekRecordsBySku]);
+
+  // 1E — Recording rows: stable sort by SKU code only, with plan-aware filtering
   const recordingRows = useMemo(() => {
-    return [...rows].filter(r => r.hasBom).sort((a, b) => {
-      const getStatus = (r: PlanRow) => {
-        if (r.producedG === 0) return 0;
-        if (r.planG > 0 && r.producedG >= r.planG) return 2;
-        if (r.producedG > 0) return 1;
-        return 0;
-      };
-      const statusA = getStatus(a);
-      const statusB = getStatus(b);
-      if (statusA !== statusB) return statusA - statusB;
-      return a.sku.skuId.localeCompare(b.sku.skuId);
-    });
-  }, [rows]);
+    const inScope = (r: PlanRow) =>
+      !planLocked ||
+      (planBatches[r.sku.id] ?? 0) > 0 ||
+      (weekRecordsBySku[r.sku.id] ?? 0) > 0;
+    return [...rows]
+      .filter(r => r.hasBom && inScope(r))
+      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+  }, [rows, planLocked, planBatches, weekRecordsBySku]);
+
+  // 2B — Unplanned rows for expandable section
+  const unplannedRows = useMemo(() => {
+    if (!planLocked) return [];
+    return [...rows]
+      .filter(r => r.hasBom &&
+        (planBatches[r.sku.id] ?? 0) === 0 &&
+        (weekRecordsBySku[r.sku.id] ?? 0) === 0)
+      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+  }, [rows, planLocked, planBatches, weekRecordsBySku]);
 
   // ─── Handlers ───
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(toLocalDateStr(d)); };
@@ -390,10 +408,11 @@ export default function ProductionPage({
   const handlePlanKeyDown = (e: React.KeyboardEvent, skuId: string) => {
     if (e.key === 'Tab') {
       e.preventDefault();
-      const idx = bomRows.findIndex(r => r.sku.id === skuId);
+      const currentRows = planLocked ? displayedBomRows : bomRows;
+      const idx = currentRows.findIndex(r => r.sku.id === skuId);
       const next = e.shiftKey ? idx - 1 : idx + 1;
-      if (next >= 0 && next < bomRows.length) {
-        planInputRefs.current[bomRows[next].sku.id]?.focus();
+      if (next >= 0 && next < currentRows.length) {
+        planInputRefs.current[currentRows[next].sku.id]?.focus();
       }
     }
   };
@@ -583,7 +602,7 @@ export default function ProductionPage({
               />
             </div>
 
-            {/* FIX 1 — Mode toggle in page header */}
+            {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
                 className={mode === 'planning' ? buttons.modeToggleActive : buttons.modeToggleInactive}
@@ -621,11 +640,11 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
-                {/* FIX 3 — Planning colgroup (10 cols) */}
+                {/* 1A — Planning colgroup (10 cols), Name=220px */}
                 <colgroup>
                   <col style={{ width: '28px' }} />
                   <col style={{ width: '72px' }} />
-                  <col />
+                  <col style={{ width: '220px' }} />
                   <col style={{ width: '48px' }} />
                   <col style={{ width: '68px' }} />
                   <col style={{ width: '85px' }} />
@@ -639,7 +658,8 @@ export default function ProductionPage({
                     <th className={table.headerCellCenter}></th>
                     <th className={table.headerCell}>{t('prod.colCode')}</th>
                     <th className={table.headerCell}>{t('prod.colName')}</th>
-                    <th className={table.headerCell}>UOM</th>
+                    {/* 1C — UOM header centered */}
+                    <th className={table.headerCellCenter}>UOM</th>
                     <th className={table.headerCellNumeric}>g/batch</th>
                     <th className={table.headerCellNumeric}>{t('prod.colStockNow')}</th>
                     <th className={table.headerCellNumeric}>COVER DAY NOW</th>
@@ -649,7 +669,8 @@ export default function ProductionPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {bomRows.map((row) => {
+                  {/* 2C — Use displayedBomRows instead of bomRows */}
+                  {displayedBomRows.map((row) => {
                     const isSufficient = row.produceTarget === 0;
 
                     // FIX 6 — Status dot: use coverAfterColor only when CK manager explicitly entered a value
@@ -662,13 +683,17 @@ export default function ProductionPage({
                         : table.productionRowInProgress
                       : '';
 
+                    // 2C — Ad-hoc produced row (weekRecordsBySku > 0 but not planned)
+                    const isAdHoc = planLocked && (planBatches[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
+
                     return (
                       <tr
                         key={row.sku.id}
                         className={cn(
                           table.dataRow,
-                          isSufficient && 'opacity-60',
-                          borderClass,
+                          isAdHoc ? table.dataRowLocked : '',
+                          isSufficient && !isAdHoc && 'opacity-60',
+                          !isAdHoc && borderClass,
                         )}
                       >
                         {/* STATUS DOT */}
@@ -683,14 +708,21 @@ export default function ProductionPage({
                         <td className={table.truncatedCellCompact}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="truncate block">{row.sku.name}</span>
+                              <span className="truncate block">
+                                {row.sku.name}
+                                {isAdHoc && (
+                                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 font-normal text-muted-foreground">Ad-hoc</Badge>
+                                )}
+                              </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs"><p>{row.sku.name}</p></TooltipContent>
                           </Tooltip>
                         </td>
 
-                        {/* UOM — FIX 3 */}
-                        <td className={cn(table.dataCellCompact, 'text-xs font-medium text-primary')}>{row.sku.usageUom || 'g'}</td>
+                        {/* 1C — UOM centered */}
+                        <td className={table.dataCellCompactCenter}>
+                          <span className="text-xs font-medium text-primary">{row.sku.usageUom || 'g'}</span>
+                        </td>
 
                         {/* g/BATCH */}
                         <td className={table.dataCellCompactMono}>
@@ -702,14 +734,16 @@ export default function ProductionPage({
                           {fmtG(row.stockNow)}
                         </td>
 
-                        {/* COVER DAY NOW — FIX 2 simplified */}
+                        {/* COVER DAY NOW */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
-                          {!isStockDataReady && !planLocked ? (
+                          {isAdHoc ? (
+                            <div className="h-8 flex items-center justify-center font-mono text-muted-foreground">—</div>
+                          ) : !isStockDataReady && !planLocked ? (
                             <div className="h-8 flex items-center justify-center text-muted-foreground font-mono text-sm">...</div>
                           ) : planLocked ? (
                             <div className="h-8 flex items-center justify-center font-semibold font-mono">
@@ -735,7 +769,7 @@ export default function ProductionPage({
                           {row.planG > 0 ? fmtG(row.planG) : '—'}
                         </td>
 
-                        {/* COVER DAY AFTER — FIX 2 simplified */}
+                        {/* COVER DAY AFTER */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
@@ -743,7 +777,7 @@ export default function ProductionPage({
                     );
                   })}
 
-                  {bomRows.length === 0 && (
+                  {displayedBomRows.length === 0 && (
                     <tr>
                       <td colSpan={10} className={table.emptyState}>
                         No active SM SKUs with BOM found.
@@ -805,24 +839,25 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
-                {/* FIX 3 — Recording colgroup (9 cols with UOM) */}
+                {/* 1A, 1B — Recording colgroup (9 cols), Name=220px, Actions=100px */}
                 <colgroup>
                   <col style={{ width: '28px' }} />
                   <col style={{ width: '72px' }} />
-                  <col />
+                  <col style={{ width: '220px' }} />
                   <col style={{ width: '48px' }} />
                   <col style={{ width: '85px' }} />
                   <col style={{ width: '85px' }} />
                   <col style={{ width: '100px' }} />
                   <col style={{ width: '140px' }} />
-                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '100px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className={table.headerRow}>
                     <th className={table.headerCellCenter}></th>
                     <th className={table.headerCell}>{t('prod.colCode')}</th>
                     <th className={table.headerCell}>{t('prod.colName')}</th>
-                    <th className={table.headerCell}>UOM</th>
+                    {/* 1C — UOM header centered */}
+                    <th className={table.headerCellCenter}>UOM</th>
                     <th className={table.headerCellNumeric}>{t('prod.colPlanG_exec')}</th>
                     <th className={table.headerCellNumeric}>{t('prod.colProduced')}</th>
                     <th className={table.headerCellNumeric}>{t('prod.colRemaining')}</th>
@@ -831,7 +866,21 @@ export default function ProductionPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {recordingRows.length === 0 ? (
+                  {/* 2D — Empty state when no plan saved */}
+                  {mode === 'recording' && !planLocked && recordingRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          No plan saved for this week yet.
+                        </p>
+                        <Button variant="outline" size="sm"
+                          onClick={() => handleModeSwitch('planning')}>
+                          <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
+                          Go to Planning
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : recordingRows.length === 0 ? (
                     <tr>
                       <td colSpan={9} className={table.emptyState}>
                         No active SM SKUs found.
@@ -842,18 +891,22 @@ export default function ProductionPage({
                       const hasPlan = row.planG > 0;
                       const remaining = hasPlan ? row.planG - row.producedG : 0;
                       const done = hasPlan && remaining <= 0;
-                      const progressPct = hasPlan ? Math.min(100, Math.round((row.producedG / row.planG) * 100)) : 0;
+
+                      // GROUP 3 — Ad-hoc batch completion styling
+                      const isAdHocDone = !hasPlan && row.producedG > 0;
+                      const progressPct = isAdHocDone ? 100 : (hasPlan ? Math.min(100, Math.round((row.producedG / row.planG) * 100)) : 0);
 
                       const dotColor: 'red' | 'amber' | 'green' =
-                        done ? 'green'
-                        : row.producedG > 0 && row.producedG < row.planG ? 'amber'
+                        (done || isAdHocDone) ? 'green'
+                        : row.producedG > 0 ? 'amber'
                         : 'red';
 
-                      const productionRowClass = done
-                        ? table.productionRowDone
-                        : row.producedG > 0
-                          ? table.productionRowInProgress
-                          : table.productionRowNotStarted;
+                      const productionRowClass =
+                        (done || isAdHocDone)
+                          ? table.productionRowDone
+                          : row.producedG > 0
+                            ? table.productionRowInProgress
+                            : table.productionRowNotStarted;
 
                       return (
                         <tr key={row.sku.id} className={cn(table.dataRow, productionRowClass)}>
@@ -867,8 +920,10 @@ export default function ProductionPage({
                               <TooltipContent side="top" className="max-w-xs"><p>{row.sku.name}</p></TooltipContent>
                             </Tooltip>
                           </td>
-                          {/* UOM — FIX 3 */}
-                          <td className={cn(table.dataCellCompact, 'text-xs font-medium text-primary')}>{row.sku.usageUom || 'g'}</td>
+                          {/* 1C — UOM centered */}
+                          <td className={table.dataCellCompactCenter}>
+                            <span className="text-xs font-medium text-primary">{row.sku.usageUom || 'g'}</span>
+                          </td>
                           {/* Plan g — pure number */}
                           <td className={table.dataCellCompactMono}>
                             {hasPlan ? fmtG(row.planG) : <span className="text-muted-foreground">—</span>}
@@ -877,41 +932,36 @@ export default function ProductionPage({
                           <td className={table.dataCellCompactMono}>
                             {row.producedG > 0 ? fmtG(row.producedG) : <span className="text-muted-foreground">—</span>}
                           </td>
-                          {/* Remaining — FIX 4: pure number or "Done" */}
+                          {/* Remaining — GROUP 3 updated */}
                           <td className={table.dataCellCompactMono}>
-                            {done
+                            {(done || isAdHocDone)
                               ? <span className="text-success font-semibold">Done</span>
-                              : hasPlan
+                              : hasPlan && remaining > 0
                                 ? <span className="text-destructive font-semibold">{fmtG(remaining)}</span>
                                 : <span className="text-muted-foreground">—</span>
                             }
                           </td>
-                          {/* Progress */}
+                          {/* Progress — 1D: no label, GROUP 3: ad-hoc shows full green */}
                           <td className={table.dataCellCompact}>
-                            {hasPlan ? (
-                              <div className="space-y-0.5">
-                                <div className={cn(progressBar.track, progressBar.trackCompact)}>
-                                  <div
-                                    className={cn(
-                                      'h-full rounded-full',
-                                      progressPct === 0
-                                        ? progressBar.fillNotStarted
-                                        : progressPct >= 100
-                                          ? progressBar.fillComplete
-                                          : progressBar.fillInProgress
-                                    )}
-                                    style={{ width: `${progressPct}%` }}
-                                  />
-                                </div>
-                                <div className={progressBar.label}>
-                                  {fmtG(row.producedG)} / {fmtG(row.planG)}
-                                </div>
+                            {(hasPlan || isAdHocDone) ? (
+                              <div className={cn(progressBar.track, progressBar.trackCompact)}>
+                                <div
+                                  className={cn(
+                                    'h-full rounded-full',
+                                    progressPct === 0
+                                      ? progressBar.fillNotStarted
+                                      : progressPct >= 100
+                                        ? progressBar.fillComplete
+                                        : progressBar.fillInProgress
+                                  )}
+                                  style={{ width: `${progressPct}%` }}
+                                />
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </td>
-                          {/* Action — FIX 5: outline style */}
+                          {/* Action — outline style */}
                           <td className={table.dataCellCompactCenter}>
                             <Button
                               size="sm"
@@ -930,6 +980,66 @@ export default function ProductionPage({
                 </tbody>
               </table>
             </div>
+
+            {/* 2E — Expandable unplanned section */}
+            {planLocked && unplannedRows.length > 0 && (
+              <Collapsible open={showUnplanned} onOpenChange={setShowUnplanned}>
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2">
+                    <ChevronDown className={cn('w-4 h-4 transition-transform', showUnplanned && 'rotate-180')} />
+                    <StatusDot status="amber" size="sm" />
+                    {unplannedRows.length} unplanned SKUs — tap to add ad-hoc batch
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className={table.wrapper}>
+                    <table className={table.base}>
+                      <colgroup>
+                        <col style={{ width: '28px' }} />
+                        <col style={{ width: '72px' }} />
+                        <col style={{ width: '220px' }} />
+                        <col style={{ width: '48px' }} />
+                        <col style={{ width: '85px' }} />
+                        <col style={{ width: '85px' }} />
+                        <col style={{ width: '100px' }} />
+                        <col style={{ width: '140px' }} />
+                        <col style={{ width: '100px' }} />
+                      </colgroup>
+                      <tbody>
+                        {unplannedRows.map(row => (
+                          <tr key={row.sku.id} className={table.dataRowLocked}>
+                            <td className={table.dataCellCompactCenter}>
+                              <StatusDot status="amber" size="sm" />
+                            </td>
+                            <td className={cn(table.dataCellCompact, 'font-mono')}>
+                              {row.sku.skuId}
+                            </td>
+                            <td className={table.truncatedCellCompact} title={row.sku.name}>
+                              {row.sku.name}
+                            </td>
+                            <td className={table.dataCellCompactCenter}>
+                              <span className="text-xs font-medium text-primary">{row.sku.usageUom || 'g'}</span>
+                            </td>
+                            <td className={table.dataCellCompactMono}>—</td>
+                            <td className={table.dataCellCompactMono}>—</td>
+                            <td className={table.dataCellCompactMono}>—</td>
+                            <td className={table.dataCellCompact}>—</td>
+                            <td className={table.dataCellCompactCenter}>
+                              <Button size="sm" variant="outline"
+                                className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                                onClick={() => openRecordModal(row.sku.id)}>
+                                <PlayCircle className="w-3 h-3 mr-1" />
+                                {t('prod.record')}
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </>
         )}
 
