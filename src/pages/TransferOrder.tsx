@@ -644,8 +644,8 @@ export default function TransferOrderPage({
                     value=""
                     onValueChange={handleAddItem}
                     options={smSkus
-                      .filter(s => !formState.lines.some(l => l.skuId === s.id))
-                      .map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                       .filter(s => bomSkuIds.has(s.id) && !formState.lines.some(l => l.skuId === s.id))
+                       .map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
                     placeholder="Search SM SKU..."
                     triggerClassName="h-9"
                   />
