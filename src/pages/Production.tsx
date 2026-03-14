@@ -839,6 +839,7 @@ export default function ProductionPage({
                   <col style={{ width: '120px' }} />
                   <col style={{ width: '100px' }} />
                   <col style={{ width: '90px' }} />
+                  <col style={{ width: '110px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b text-xs">
@@ -849,17 +850,14 @@ export default function ProductionPage({
                     <th className="px-1.5 py-2 text-right">{t('prod.colProduced')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colRemaining')}</th>
                     <th className="px-1.5 py-2 text-center">Progress</th>
-                    <th className="px-1.5 py-2 text-center">
-                      <div className="flex items-center justify-end">
-                        <ModeToggle />
-                      </div>
-                    </th>
+                    <th className="px-1.5 py-2 text-center"></th>
+                    <th className="px-1.5 py-2"><div className="flex justify-end"><ModeToggle /></div></th>
                   </tr>
                 </thead>
                 <tbody>
                   {recordingRows.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={9} className="py-12 text-center text-muted-foreground">
                         No active SM SKUs found.
                       </td>
                     </tr>
