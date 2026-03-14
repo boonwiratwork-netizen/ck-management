@@ -164,6 +164,12 @@ export const buttons = {
   ghost: 'text-primary hover:text-primary/80 text-sm transition-colors',
   /** Dashed "add row" button */
   dashedAdd: 'w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors',
+
+  // Segmented mode toggle — for embedded table header use
+  // Use with plain <button> elements or ToggleGroup from @/components/ui/toggle
+  modeToggleWrapper: 'flex rounded-md overflow-hidden border border-border',
+  modeToggleActive: 'px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors',
+  modeToggleInactive: 'px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:bg-muted transition-colors',
 } as const;
 
 // ─── TABLE STANDARDS ────────────────────────────────────────────────────────
