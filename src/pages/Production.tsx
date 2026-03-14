@@ -49,6 +49,7 @@ interface ProductionPageProps {
   menuBomLines: MenuBomLine[];
   menus: Menu[];
   bomByproducts: BomByproduct[];
+  refreshProductionRecords?: () => Promise<void>;
 }
 
 /* ─── Week helpers ─── */
