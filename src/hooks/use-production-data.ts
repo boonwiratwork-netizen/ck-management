@@ -114,24 +114,25 @@ export function useProductionData(
 
   const addRecord = useCallback(async (data: Omit<ProductionRecord, 'id' | 'smSkuId'> & { smSkuId?: string }): Promise<string | undefined> => {
     const plan = plans.find(p => p.id === data.planId);
-    if (!plan) return;
+    const smSkuId = plan?.smSkuId ?? data.smSkuId;
+    if (!smSkuId) { toast.error('Failed to find SKU for record'); return; }
 
     const { data: row, error } = await supabase.from('production_records').insert({
       plan_id: data.planId, production_date: data.productionDate,
-      sm_sku_id: plan.smSkuId, batches_produced: data.batchesProduced, actual_output_g: data.actualOutputG,
+      sm_sku_id: smSkuId, batches_produced: data.batchesProduced, actual_output_g: data.actualOutputG,
     }).select().single();
     if (error) { toast.error('Failed to add record: ' + error.message); return; }
     setRecords(prev => [toRecord(row), ...prev]);
 
     // Auto-deduct RM stock
-    const bomHeader = bomHeaders.find(h => h.smSkuId === plan.smSkuId);
+    const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
     if (bomHeader) {
       const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
       bLines.forEach(line => {
         addStockAdjustment({
           skuId: line.rmSkuId, date: data.productionDate,
           quantity: -(line.qtyPerBatch * data.batchesProduced),
-          reason: `Production: ${data.batchesProduced} batches of ${plan.smSkuId}`,
+          reason: `Production: ${data.batchesProduced} batches of ${smSkuId}`,
         });
       });
     }
