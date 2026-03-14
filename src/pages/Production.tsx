@@ -636,7 +636,7 @@ export default function ProductionPage({
                   <col style={{ width: '78px' }} />
                   <col style={{ width: '108px' }} />
                   <col style={{ width: '88px' }} />
-                  <col style={{ width: '110px' }} />
+                  <col style={{ width: '140px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className={table.headerRow}>
