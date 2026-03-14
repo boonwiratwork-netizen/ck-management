@@ -873,8 +873,8 @@ export default function TransferOrderPage({
               )}
 
               <div className="flex justify-end gap-2 print:hidden">
-                {canEdit && detailTO.status === 'Draft' && (
-                  <Button onClick={handleSendFromDetail} disabled={formSending}>
+                 {canEdit && detailTO.status === 'Draft' && detailLines.some(l => l.actualQty > 0) && (
+                   <Button onClick={handleSendFromDetail} disabled={formSending}>
                     <Send className="w-4 h-4 mr-1" />
                     {formSending ? t('to.sending') : t('to.sendTO')}
                   </Button>
