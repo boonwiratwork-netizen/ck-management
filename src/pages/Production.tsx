@@ -651,6 +651,7 @@ export default function ProductionPage({
                   <col style={{ width: '80px' }} />
                   <col style={{ width: '100px' }} />
                   <col style={{ width: '90px' }} />
+                  <col style={{ width: '110px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b text-xs">
@@ -663,12 +664,8 @@ export default function ProductionPage({
                     <th className="px-1.5 py-2 text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">{t('prod.colPlanBatch')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colPlanG')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colCoverAfter')}</th>
-                    <th className="px-1.5 py-2 text-right">
-                      <div className="flex items-center justify-between">
-                        <span>{t('prod.colAfter')}</span>
-                        <ModeToggle />
-                      </div>
-                    </th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colAfter')}</th>
+                    <th className="px-1.5 py-2"><div className="flex justify-end"><ModeToggle /></div></th>
                   </tr>
                 </thead>
                 <tbody>
