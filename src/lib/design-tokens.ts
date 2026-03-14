@@ -403,6 +403,47 @@ export const table = {
   },
 } as const;
 
+// ─── PROGRESS BAR ────────────────────────────────────────────────────────────
+// Use with the existing Progress component from @radix-ui/react-progress
+// For compact table use (h-2) and standard use (h-4)
+export const progressBar = {
+  // Outer track
+  track: 'relative w-full overflow-hidden rounded-full bg-muted',
+  trackCompact: 'h-2',      // for table rows
+  trackStandard: 'h-4',     // for cards/modals
+
+  // Fill variants — apply to ProgressPrimitive.Indicator or inner div
+  // Color reflects production status
+  fillNotStarted: 'bg-destructive transition-all',   // 0% — red
+  fillInProgress: 'bg-warning transition-all',        // 1-99% — amber
+  fillComplete: 'bg-success transition-all',          // 100% — green
+
+  // Label below progress bar
+  label: 'text-xs text-muted-foreground mt-0.5 font-mono',
+} as const;
+
+// ─── COVER DAYS DISPLAY ──────────────────────────────────────────────────────
+// Reusable pattern for showing cover days with direction vs target.
+// Used in Production planning, SM Stock, Daily Stock Count.
+// Format: "X.X วัน ↓ need Y" or "X.X วัน ↑ need Y"
+export const coverDisplay = {
+  // Wrapper for the inline cover display
+  wrapper: 'inline-flex items-baseline gap-1 font-mono text-xs',
+
+  // Value + unit
+  value: 'font-semibold',
+  unit: 'text-muted-foreground',
+
+  // Direction arrow + target — shows deviation from target
+  arrow: 'text-xs',
+  target: 'text-xs text-muted-foreground',
+
+  // Color variants — apply to wrapper or value
+  red: 'text-destructive',
+  amber: 'text-warning',
+  green: 'text-success',
+} as const;
+
 // ─── WORDING STANDARDS (Thai) ───────────────────────────────────────────────
 export const wording = {
   /** Stock quantity unit */
