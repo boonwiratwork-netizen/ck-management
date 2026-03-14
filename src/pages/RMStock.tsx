@@ -230,23 +230,23 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
       </div>
 
       {/* Table */}
-      <div className={cn(table.wrapper, 'overflow-auto max-h-[70vh]')}>
+      <div className={cn(table.wrapper, 'overflow-x-auto overflow-y-auto max-h-[70vh]')}>
         <table className={table.base}>
           <colgroup>
             <col style={{ width: '28px' }} />
-            <col style={{ width: '72px' }} />
-            <col style={{ width: 'auto' }} />
-            <col style={{ width: '85px' }} />
-            <col style={{ width: '48px' }} />
-            <col style={{ width: '90px' }} />
-            <col style={{ width: '90px' }} />
             <col style={{ width: '80px' }} />
-            <col style={{ width: '85px' }} />
+            <col style={{ width: '200px' }} />
+            <col style={{ width: '90px' }} />
+            <col style={{ width: '48px' }} />
+            <col style={{ width: '95px' }} />
+            <col style={{ width: '95px' }} />
+            <col style={{ width: '75px' }} />
+            <col style={{ width: '95px' }} />
             <col style={{ width: '40px' }} />
           </colgroup>
           <thead className="sticky top-0 z-[5]">
             <tr className={table.headerRow}>
-              <th className={table.headerCell}></th>
+              <th className={table.headerCellCenter}></th>
               <th className={table.headerCellSortable} onClick={() => handleSort('skuId')}>
                 <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               </th>
