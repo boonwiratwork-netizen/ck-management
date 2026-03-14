@@ -940,17 +940,6 @@ export default function TransferOrderPage({
                             <Ban className="w-4 h-4" />
                           </Button>
                         )}
-                        {canEdit && to.status === "Draft" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => cancelTO(to.id)}
-                            title="Delete draft"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
                       </div>
                     </td>
                   </tr>
