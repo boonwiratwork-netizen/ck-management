@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { typography, table as tableTokens, formatNumber, fmtCurrency } from '@/lib/design-tokens';
 import { toLocalDateStr } from '@/lib/utils';
 import {
-  Zap, Plus, Eye, Printer, Ban, Trash2, Send, Save, ChevronUp, ChevronDown, ArrowUpDown,
+  Zap, Plus, Eye, Printer, Ban, Trash2, Send, Save, ChevronUp, ChevronDown, ArrowUpDown, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
