@@ -490,13 +490,14 @@ export default function ProductionPage({
     }
     if (!planId) { toast.error('Failed to create plan'); return; }
 
-    await addRecord({
+    await (addRecord as (data: Omit<ProductionRecord, 'id' | 'smSkuId'> & { smSkuId?: string }) => Promise<string | undefined>)({
+      ...EMPTY_PRODUCTION_RECORD,
       planId,
       smSkuId: recordSkuId,
       productionDate: recordForm.productionDate,
       batchesProduced,
       actualOutputG: recordForm.actualOutputG,
-    } as any);
+    });
     // Immediately refresh SM stock to reflect the new record
     if (refreshProductionRecords) refreshProductionRecords();
     toast.success(t('prod.recordSaved'));
