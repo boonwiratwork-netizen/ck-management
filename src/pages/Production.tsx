@@ -490,7 +490,7 @@ export default function ProductionPage({
     }
     if (!planId) { toast.error('Failed to create plan'); return; }
 
-    await (addRecord as (data: Omit<ProductionRecord, 'id' | 'smSkuId'> & { smSkuId?: string }) => Promise<string | undefined>)({
+    await addRecord({
       ...EMPTY_PRODUCTION_RECORD,
       planId,
       smSkuId: recordSkuId,
