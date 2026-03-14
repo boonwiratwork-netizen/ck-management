@@ -497,6 +497,8 @@ export default function ProductionPage({
       batchesProduced,
       actualOutputG: recordForm.actualOutputG,
     });
+    // Immediately refresh SM stock to reflect the new record
+    if (refreshProductionRecords) refreshProductionRecords();
     toast.success(t('prod.recordSaved'));
     setRecordModalOpen(false);
   };
