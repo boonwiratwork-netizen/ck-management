@@ -923,6 +923,7 @@ export default function ProductionPage({
                               ▶ {t('prod.record')}
                             </Button>
                           </td>
+                          <td />
                         </tr>
                       );
                     })
@@ -930,70 +931,70 @@ export default function ProductionPage({
                 </tbody>
               </table>
             </div>
-
-            {/* ═══ PRODUCTION HISTORY — always visible ═══ */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">{t('prod.historyTitle')} · Week {weekNumber}</h3>
-                <Badge variant="outline" className="text-xs">{weekRecords.length}</Badge>
-              </div>
-              {weekRecords.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
-              ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full table-fixed text-sm">
-                    <colgroup>
-                      <col style={{ width: '100px' }} />
-                      <col style={{ width: '100px' }} />
-                      <col />
-                      <col style={{ width: '120px' }} />
-                      <col style={{ width: '60px' }} />
-                    </colgroup>
-                    <thead>
-                      <tr className="bg-table-header border-b text-xs">
-                        <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
-                        <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
-                        <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
-                        <th className="px-2 py-1.5 text-right">{t('prod.colProduced')}</th>
-                        <th className="px-2 py-1.5"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {weekRecords.map(rec => (
-                        <tr key={rec.id} className="border-b hover:bg-table-hover">
-                          <td className="px-2 py-1.5">{rec.productionDate}</td>
-                          <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
-                          <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
-                          <td className="px-2 py-1.5 text-right font-mono">
-                            {fmtG(rec.actualOutputG)} <span className="text-xs text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
-                          </td>
-                          <td className="px-1 py-1.5 text-center">
-                            {isManagement && (
-                              <span className="inline-flex gap-0.5">
-                                <Button
-                                  size="icon" variant="ghost" className="h-6 w-6"
-                                  onClick={() => openEditRecordModal(rec)}
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="h-6 w-6"
-                                  onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
-                                >
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </Button>
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
           </>
         )}
+
+        {/* ═══ PRODUCTION HISTORY — always visible ═══ */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">{t('prod.historyTitle')} · Week {weekNumber}</h3>
+            <Badge variant="outline" className="text-xs">{weekRecords.length}</Badge>
+          </div>
+          {weekRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '100px' }} />
+                  <col />
+                  <col style={{ width: '120px' }} />
+                  <col style={{ width: '60px' }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-table-header border-b text-xs">
+                    <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
+                    <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
+                    <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
+                    <th className="px-2 py-1.5 text-right">{t('prod.colProduced')}</th>
+                    <th className="px-2 py-1.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekRecords.map(rec => (
+                    <tr key={rec.id} className="border-b hover:bg-table-hover">
+                      <td className="px-2 py-1.5">{rec.productionDate}</td>
+                      <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
+                      <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">
+                        {fmtG(rec.actualOutputG)} <span className="text-xs text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
+                      </td>
+                      <td className="px-1 py-1.5 text-center">
+                        {isManagement && (
+                          <span className="inline-flex gap-0.5">
+                            <Button
+                              size="icon" variant="ghost" className="h-6 w-6"
+                              onClick={() => openEditRecordModal(rec)}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="icon" variant="ghost" className="h-6 w-6"
+                              onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
+                            >
+                              <Trash2 className="w-3 h-3 text-destructive" />
+                            </Button>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ═══ RECORD MODAL — SINGLE CONFIRM ═══ */}
