@@ -770,7 +770,7 @@ export default function ProductionPage({
 
                   {bomRows.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={11} className="py-12 text-center text-muted-foreground">
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
