@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { StatusDot } from '@/components/ui/status-dot';
+import { UnitLabel } from '@/components/ui/unit-label';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
 import { table } from '@/lib/design-tokens';
@@ -82,9 +83,14 @@ export default function SMStockPage({ skus, smStockData }: Props) {
     coverDay: (a: SMRow, b: SMRow) => {
       const aUsage = smDailyUsage[a.sku.id] || 0;
       const bUsage = smDailyUsage[b.sku.id] || 0;
-      const aCd = aUsage > 0 ? a.currentStock / aUsage : Infinity;
-      const bCd = bUsage > 0 ? b.currentStock / bUsage : Infinity;
+      const aCd = (aUsage > 0 && a.currentStock > 0) ? a.currentStock / aUsage : Infinity;
+      const bCd = (bUsage > 0 && b.currentStock > 0) ? b.currentStock / bUsage : Infinity;
       return aCd - bCd;
+    },
+    avgWeek: (a: SMRow, b: SMRow) => {
+      const aUsage = smDailyUsage[a.sku.id] || 0;
+      const bUsage = smDailyUsage[b.sku.id] || 0;
+      return (aUsage * 7) - (bUsage * 7);
     },
   }), [smDailyUsage]);
 
@@ -114,7 +120,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
     const groups: Record<string, number[]> = { Chilled: [], Frozen: [], Ambient: [] };
     filteredRows.forEach(row => {
       const dailyUsage = smDailyUsage[row.sku.id] || 0;
-      if (dailyUsage > 0) {
+      if (dailyUsage > 0 && row.currentStock > 0) {
         const cd = row.currentStock / dailyUsage;
         const storage = row.sku.storageCondition;
         if (groups[storage]) groups[storage].push(cd);
@@ -149,13 +155,16 @@ export default function SMStockPage({ skus, smStockData }: Props) {
           <p className="text-2xl font-bold mt-1 font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">COVER DAY BY STORAGE</p>
-          <div className="mt-1 space-y-0.5">
-            {(['Chilled', 'Frozen', 'Ambient'] as const).map(storage => (
-              <div key={storage} className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{storage}</span>
-                <span className="text-sm font-mono">
-                  {coverDayByStorage[storage] === '—' ? '—' : `${coverDayByStorage[storage]} วัน`}
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">COVER DAY BY STORAGE</p>
+          <div className="space-y-1">
+            {(['Chilled', 'Frozen', 'Ambient'] as const).map(s => (
+              <div key={s} className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">{s}</span>
+                <span className="text-sm font-mono font-semibold">
+                  {coverDayByStorage[s]}
+                  {coverDayByStorage[s] !== '—' && (
+                    <span className="text-xs text-muted-foreground ml-1">วัน</span>
+                  )}
                 </span>
               </div>
             ))}
@@ -201,6 +210,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
             <col style={{ width: '90px' }} />
             <col style={{ width: '90px' }} />
             <col style={{ width: '80px' }} />
+            <col style={{ width: '85px' }} />
             <col style={{ width: '40px' }} />
           </colgroup>
           <thead className="sticky top-0 z-[5]">
@@ -223,13 +233,16 @@ export default function SMStockPage({ skus, smStockData }: Props) {
               <th className={table.headerCellNumeric} onClick={() => handleSort('coverDay')} style={{ cursor: 'pointer' }}>
                 <SortableHeader label={t('col.daysLeft')} sortKey="coverDay" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </th>
+              <th className={table.headerCellNumeric} onClick={() => handleSort('avgWeek')} style={{ cursor: 'pointer' }}>
+                <SortableHeader label="Avg/Week" sortKey="avgWeek" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </th>
               <th className={table.headerCell}></th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={9} className={table.emptyState}>
+                <td colSpan={10} className={table.emptyState}>
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No SM SKUs found.
                 </td>
@@ -237,7 +250,8 @@ export default function SMStockPage({ skus, smStockData }: Props) {
             ) : (
               sortedRows.map(row => {
                 const dailyUsage = smDailyUsage[row.sku.id] || 0;
-                const coverDay = dailyUsage > 0 ? row.currentStock / dailyUsage : null;
+                const coverDay = (dailyUsage > 0 && row.currentStock > 0) ? row.currentStock / dailyUsage : null;
+                const avgWeek = dailyUsage * 7;
                 return (
                   <tr key={row.sku.id} className={table.dataRow}>
                     <td className={table.dataCellCenter}><StatusDot status={row.healthStatus} /></td>
@@ -248,6 +262,13 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                     <td className={table.dataCellMono}>{row.stockValue > 0 ? `฿${Math.round(row.stockValue).toLocaleString()}` : '—'}</td>
                     <td className={table.dataCell}>{row.lastDate ?? '—'}</td>
                     <td className={cn(table.dataCellMono, 'text-muted-foreground')}>{coverDay !== null ? coverDay.toFixed(1) : '—'}</td>
+                    <td className={table.dataCellMono}>
+                      {avgWeek > 0 ? (
+                        <>{Math.round(avgWeek).toLocaleString()} <UnitLabel unit={row.sku.usageUom || ''} /></>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className={table.dataCellCenter}>
                       <Button
                         size="icon"

@@ -94,9 +94,14 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     coverDay: (a: RMRow, b: RMRow) => {
       const aUsage = rmDailyUsage[a.sku.id] || 0;
       const bUsage = rmDailyUsage[b.sku.id] || 0;
-      const aCd = aUsage > 0 ? a.currentStock / aUsage : Infinity;
-      const bCd = bUsage > 0 ? b.currentStock / bUsage : Infinity;
+      const aCd = (aUsage > 0 && a.currentStock > 0) ? a.currentStock / aUsage : Infinity;
+      const bCd = (bUsage > 0 && b.currentStock > 0) ? b.currentStock / bUsage : Infinity;
       return aCd - bCd;
+    },
+    avgWeek: (a: RMRow, b: RMRow) => {
+      const aUsage = rmDailyUsage[a.sku.id] || 0;
+      const bUsage = rmDailyUsage[b.sku.id] || 0;
+      return (aUsage * 7) - (bUsage * 7);
     },
   }), [rmDailyUsage]);
 
@@ -123,6 +128,25 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
   const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
   const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
 
+  const coverDayByStorage = useMemo(() => {
+    const groups: Record<string, number[]> = { Chilled: [], Frozen: [], Ambient: [] };
+    filteredRows.forEach(row => {
+      const dailyUsage = rmDailyUsage[row.sku.id] || 0;
+      if (dailyUsage > 0 && row.currentStock > 0) {
+        const cd = row.currentStock / dailyUsage;
+        const storage = row.sku.storageCondition;
+        if (groups[storage]) groups[storage].push(cd);
+      }
+    });
+    const avg = (arr: number[]) =>
+      arr.length > 0 ? (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1) : '—';
+    return {
+      Chilled: avg(groups.Chilled),
+      Frozen: avg(groups.Frozen),
+      Ambient: avg(groups.Ambient),
+    };
+  }, [filteredRows, rmDailyUsage]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -143,10 +167,20 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
           <p className="text-2xl font-bold mt-1 font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.outOfStock')}</p>
-          <p className="text-2xl font-bold mt-1 text-destructive">
-            {filteredRows.filter(r => r.healthStatus === 'red').length}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Cover Day By Storage</p>
+          <div className="space-y-1">
+            {(['Chilled', 'Frozen', 'Ambient'] as const).map(s => (
+              <div key={s} className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">{s}</span>
+                <span className="text-sm font-mono font-semibold">
+                  {coverDayByStorage[s]}
+                  {coverDayByStorage[s] !== '—' && (
+                    <span className="text-xs text-muted-foreground ml-1">วัน</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -207,6 +241,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
             <col style={{ width: '90px' }} />
             <col style={{ width: '90px' }} />
             <col style={{ width: '80px' }} />
+            <col style={{ width: '85px' }} />
             <col style={{ width: '40px' }} />
           </colgroup>
           <thead className="sticky top-0 z-[5]">
@@ -229,13 +264,16 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
               <th className={table.headerCellNumeric} onClick={() => handleSort('coverDay')} style={{ cursor: 'pointer' }}>
                 <SortableHeader label={t('col.daysLeft')} sortKey="coverDay" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </th>
+              <th className={table.headerCellNumeric} onClick={() => handleSort('avgWeek')} style={{ cursor: 'pointer' }}>
+                <SortableHeader label="Avg/Week" sortKey="avgWeek" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </th>
               <th className={table.headerCell}></th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={9} className={table.emptyState}>
+                <td colSpan={10} className={table.emptyState}>
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No RM SKUs found.
                 </td>
@@ -243,7 +281,8 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
             ) : (
               sortedRows.map(row => {
                 const dailyUsage = rmDailyUsage[row.sku.id] || 0;
-                const coverDay = dailyUsage > 0 ? row.currentStock / dailyUsage : null;
+                const coverDay = (dailyUsage > 0 && row.currentStock > 0) ? row.currentStock / dailyUsage : null;
+                const avgWeek = dailyUsage * 7;
                 return (
                   <tr key={row.sku.id} className={table.dataRow}>
                     <td className={table.dataCellCenter}><StatusDot status={row.healthStatus} /></td>
@@ -254,6 +293,13 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                     <td className={table.dataCellMono}>{row.stockValue > 0 ? `฿${Math.round(row.stockValue).toLocaleString()}` : '—'}</td>
                     <td className={table.dataCell}>{row.lastDate ?? '—'}</td>
                     <td className={cn(table.dataCellMono, 'text-muted-foreground')}>{coverDay !== null ? coverDay.toFixed(1) : '—'}</td>
+                    <td className={table.dataCellMono}>
+                      {avgWeek > 0 ? (
+                        <>{Math.round(avgWeek).toLocaleString()} <UnitLabel unit={row.sku.usageUom} /></>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className={table.dataCellCenter}>
                       <Button
                         size="icon"
