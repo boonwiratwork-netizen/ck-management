@@ -92,6 +92,16 @@ export default function TransferOrderPage({
   const [skuSearchOpen, setSkuSearchOpen] = useState(false);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM' && s.status === 'Active'), [skus]);
+
+  // BOM-filtered SKU IDs
+  const [bomSkuIds, setBomSkuIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.from('bom_headers').select('sm_sku_id').then(({ data }) => {
+        if (data) setBomSkuIds(new Set(data.map((r: any) => r.sm_sku_id)));
+      });
+    });
+  }, []);
   const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
 
   const isUrgent = (dateStr: string) => {
@@ -226,6 +236,19 @@ export default function TransferOrderPage({
       setFormState(prev => prev ? { ...prev, lines: prev.lines.filter(l => l.id !== lineId) } : prev);
     }
   }, [deleteTOLine]);
+
+  // ─── Save Draft ───
+  const handleSaveDraft = useCallback(async () => {
+    if (!formState) return;
+    setFormSaving(true);
+    for (const l of formState.lines) {
+      if (l.actualQty > 0) {
+        await updateTOLine(l.id, l.actualQty, l.note);
+      }
+    }
+    setFormSaving(false);
+    toast.success('Draft saved');
+  }, [formState, updateTOLine]);
 
   // ─── Send TO ───
   const handleSend = useCallback(async () => {
@@ -486,10 +509,10 @@ export default function TransferOrderPage({
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={handleCancelForm}>Cancel</Button>
-              <Button variant="outline" onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
-                <Save className="w-4 h-4 mr-1" />
-                {t('to.saveDraft')}
-              </Button>
+              <Button variant="outline" onClick={handleSaveDraft} disabled={formSaving}>
+                 <Save className="w-4 h-4 mr-1" />
+                 {formSaving ? 'Saving...' : t('to.saveDraft')}
+               </Button>
               <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
                 <Send className="w-4 h-4 mr-1" />
                 {formSending ? t('to.sending') : t('to.sendTO')}
@@ -621,8 +644,8 @@ export default function TransferOrderPage({
                     value=""
                     onValueChange={handleAddItem}
                     options={smSkus
-                      .filter(s => !formState.lines.some(l => l.skuId === s.id))
-                      .map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                       .filter(s => bomSkuIds.has(s.id) && !formState.lines.some(l => l.skuId === s.id))
+                       .map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
                     placeholder="Search SM SKU..."
                     triggerClassName="h-9"
                   />
@@ -850,8 +873,8 @@ export default function TransferOrderPage({
               )}
 
               <div className="flex justify-end gap-2 print:hidden">
-                {canEdit && detailTO.status === 'Draft' && (
-                  <Button onClick={handleSendFromDetail} disabled={formSending}>
+                 {canEdit && detailTO.status === 'Draft' && detailLines.some(l => l.actualQty > 0) && (
+                   <Button onClick={handleSendFromDetail} disabled={formSending}>
                     <Send className="w-4 h-4 mr-1" />
                     {formSending ? t('to.sending') : t('to.sendTO')}
                   </Button>
