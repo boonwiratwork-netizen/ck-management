@@ -164,6 +164,12 @@ export const buttons = {
   ghost: 'text-primary hover:text-primary/80 text-sm transition-colors',
   /** Dashed "add row" button */
   dashedAdd: 'w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors',
+
+  // Segmented mode toggle — for embedded table header use
+  // Use with plain <button> elements or ToggleGroup from @/components/ui/toggle
+  modeToggleWrapper: 'flex rounded-md overflow-hidden border border-border',
+  modeToggleActive: 'px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors',
+  modeToggleInactive: 'px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:bg-muted transition-colors',
 } as const;
 
 // ─── TABLE STANDARDS ────────────────────────────────────────────────────────
@@ -365,6 +371,11 @@ export const table = {
   filledRow: 'border-l-[3px] border-l-success bg-success/5',
   unfilledRow: 'opacity-40',
 
+  // Production execution row states
+  productionRowDone: 'border-l-[3px] border-l-success bg-success/5',
+  productionRowInProgress: 'border-l-[3px] border-l-warning',
+  productionRowNotStarted: 'border-l-[3px] border-l-destructive/30',
+
   // ─── Footer / summary rows ────────────────────
   footerRow: 'border-t-2 border-border bg-muted/20',
   footerCell: 'px-3 py-2 text-sm font-medium text-foreground',
@@ -390,6 +401,47 @@ export const table = {
     partiallyReceived: 'bg-blue-100 text-blue-700',
     cancelled:         'bg-red-100 text-red-700',
   },
+} as const;
+
+// ─── PROGRESS BAR ────────────────────────────────────────────────────────────
+// Use with the existing Progress component from @radix-ui/react-progress
+// For compact table use (h-2) and standard use (h-4)
+export const progressBar = {
+  // Outer track
+  track: 'relative w-full overflow-hidden rounded-full bg-muted',
+  trackCompact: 'h-2',      // for table rows
+  trackStandard: 'h-4',     // for cards/modals
+
+  // Fill variants — apply to ProgressPrimitive.Indicator or inner div
+  // Color reflects production status
+  fillNotStarted: 'bg-destructive transition-all',   // 0% — red
+  fillInProgress: 'bg-warning transition-all',        // 1-99% — amber
+  fillComplete: 'bg-success transition-all',          // 100% — green
+
+  // Label below progress bar
+  label: 'text-xs text-muted-foreground mt-0.5 font-mono',
+} as const;
+
+// ─── COVER DAYS DISPLAY ──────────────────────────────────────────────────────
+// Reusable pattern for showing cover days with direction vs target.
+// Used in Production planning, SM Stock, Daily Stock Count.
+// Format: "X.X วัน ↓ need Y" or "X.X วัน ↑ need Y"
+export const coverDisplay = {
+  // Wrapper for the inline cover display
+  wrapper: 'inline-flex items-baseline gap-1 font-mono text-xs',
+
+  // Value + unit
+  value: 'font-semibold',
+  unit: 'text-muted-foreground',
+
+  // Direction arrow + target — shows deviation from target
+  arrow: 'text-xs',
+  target: 'text-xs text-muted-foreground',
+
+  // Color variants — apply to wrapper or value
+  red: 'text-destructive',
+  amber: 'text-warning',
+  green: 'text-success',
 } as const;
 
 // ─── WORDING STANDARDS (Thai) ───────────────────────────────────────────────
