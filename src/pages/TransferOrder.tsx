@@ -509,10 +509,10 @@ export default function TransferOrderPage({
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={handleCancelForm}>Cancel</Button>
-              <Button variant="outline" onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
-                <Save className="w-4 h-4 mr-1" />
-                {t('to.saveDraft')}
-              </Button>
+              <Button variant="outline" onClick={handleSaveDraft} disabled={formSaving}>
+                 <Save className="w-4 h-4 mr-1" />
+                 {formSaving ? 'Saving...' : t('to.saveDraft')}
+               </Button>
               <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
                 <Send className="w-4 h-4 mr-1" />
                 {formSending ? t('to.sending') : t('to.sendTO')}
