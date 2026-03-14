@@ -33,6 +33,13 @@ export function useSmStockData(
   const [isStockDataReady, setIsStockDataReady] = useState(false);
   // TO-based delivered quantities per SKU
   const [toDelivered, setToDelivered] = useState<Record<string, number>>({});
+  // Local production records for immediate refresh after addRecord
+  const [localProductionRecords, setLocalProductionRecords] = useState<ProductionRecord[]>(productionRecords);
+
+  // Sync from prop when it changes
+  useEffect(() => {
+    setLocalProductionRecords(productionRecords);
+  }, [productionRecords]);
 
   useEffect(() => {
     setIsStockDataReady(false);
