@@ -91,7 +91,7 @@ export function useSmStockData(
   const stockBalances = useMemo((): SMStockBalance[] => {
     return smSkus.map(sku => {
       const opening = openingStocks[sku.id] ?? 0;
-      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
+      const totalProduced = localProductionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
       // Use TO-based delivery instead of deliveries table
       const totalDelivered = toDelivered[sku.id] ?? 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
@@ -99,7 +99,7 @@ export function useSmStockData(
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
       return { skuId: sku.id, openingStock: opening, totalProduced, totalDelivered, adjustments: skuAdjustments, currentStock };
     });
-  }, [smSkus, productionRecords, toDelivered, openingStocks, adjustments]);
+  }, [smSkus, localProductionRecords, toDelivered, openingStocks, adjustments]);
 
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase.from('stock_opening_balances').upsert(
