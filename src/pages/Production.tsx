@@ -340,19 +340,26 @@ export default function ProductionPage({
     if (suggestedInitialized || planLocked || !isStockDataReady) return;
     // If planBatches is empty and rows have suggestions, pre-fill
     const hasSaved = Object.keys(planBatches).length > 0;
-    if (!hasSaved && rows.length > 0) {
+    if (!hasSaved && smSkus.length > 0) {
       const suggested: Record<string, number> = {};
-      rows.forEach(r => {
-        if (r.hasBom && r.suggestedBatches > 0) {
-          suggested[r.sku.id] = r.suggestedBatches;
-        }
+      smSkus.forEach(sku => {
+        const hasBom = bomHeaders.some(h => h.smSkuId === sku.id);
+        if (!hasBom) return;
+        const forecastWeek = totalForecast[sku.id] || 0;
+        const dailyNeed = forecastWeek / 7;
+        const stockNow = smStockBalances.find(b => b.skuId === sku.id)?.currentStock ?? 0;
+        const target = skuTargets[sku.id] ?? globalTarget;
+        const outputPerBatch = getOutputPerBatch(sku.id);
+        const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
+        const sb = (outputPerBatch > 0 && produceTarget > 0) ? Math.ceil(produceTarget / outputPerBatch) : 0;
+        if (sb > 0) suggested[sku.id] = sb;
       });
       if (Object.keys(suggested).length > 0) {
         setPlanBatches(suggested);
       }
       setSuggestedInitialized(true);
     }
-  }, [rows, planLocked, suggestedInitialized, planBatches, isStockDataReady]);
+  }, [smSkus, bomHeaders, totalForecast, smStockBalances, skuTargets, globalTarget, getOutputPerBatch, planLocked, suggestedInitialized, planBatches, isStockDataReady]);
 
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);

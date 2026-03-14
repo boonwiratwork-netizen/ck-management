@@ -202,5 +202,5 @@ export function useSmStockData(
     setToDelivered(delivered);
   }, []);
 
-  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered };
+  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered, refreshProductionRecords };
 }
