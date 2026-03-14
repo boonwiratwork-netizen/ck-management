@@ -124,6 +124,11 @@ export function useProductionData(
     if (error) { toast.error('Failed to add record: ' + error.message); return; }
     setRecords(prev => [toRecord(row), ...prev]);
 
+    // Immediately refresh SM stock so it reflects the new record
+    if (refreshProductionRecords) {
+      refreshProductionRecords();
+    }
+
     // Auto-deduct RM stock
     const bomHeader = bomHeaders.find(h => h.smSkuId === plan.smSkuId);
     if (bomHeader) {
@@ -137,7 +142,7 @@ export function useProductionData(
       });
     }
     return row.id;
-  }, [plans, bomHeaders, bomLines, addStockAdjustment]);
+  }, [plans, bomHeaders, bomLines, addStockAdjustment, refreshProductionRecords]);
 
   const updateRecord = useCallback(async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
     const { error } = await supabase.from('production_records').update({
