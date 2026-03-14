@@ -409,7 +409,7 @@ export const table = {
 export const progressBar = {
   // Outer track
   track: 'relative w-full overflow-hidden rounded-full bg-muted',
-  trackCompact: 'h-2',      // for table rows
+  trackCompact: 'h-3',      // for table rows
   trackStandard: 'h-4',     // for cards/modals
 
   // Fill variants — apply to ProgressPrimitive.Indicator or inner div
