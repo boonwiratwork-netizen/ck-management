@@ -797,6 +797,11 @@ export default function TransferOrderPage({
                   </td>
                   <td className={`${tableTokens.dataCell} text-center`}>
                     <div className="flex items-center justify-center gap-1">
+                      {canEdit && to.status === 'Draft' && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditDraft(to)} title="Edit draft">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetail(to)} title="View">
                         <Eye className="w-4 h-4" />
                       </Button>
