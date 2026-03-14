@@ -319,6 +319,22 @@ export default function TransferOrderPage({
     return list;
   }, [toHistory, sortKey, sortDir]);
 
+  // ─── Edit Draft TO ───
+  const handleEditDraft = useCallback(async (to: TOHistoryRow) => {
+    const lines = await fetchTODetail(to.id);
+    setFormState({
+      toId: to.id,
+      toNumber: to.toNumber,
+      branchId: to.branchId,
+      branchName: to.branchName,
+      deliveryDate: to.deliveryDate,
+      notes: '',
+      trId: to.trRef !== '—' ? undefined : undefined,
+      trNumber: to.trRef !== '—' ? to.trRef : undefined,
+      lines,
+    });
+  }, [fetchTODetail]);
+
   // ─── View TO detail ───
   const handleViewDetail = useCallback(async (to: TOHistoryRow) => {
     setDetailTO(to);
