@@ -18,14 +18,14 @@ import { UnitLabel } from '@/components/ui/unit-label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn, toLocalDateStr } from '@/lib/utils';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
-import { table, buttons, progressBar, coverDisplay } from '@/lib/design-tokens';
+import { table, buttons, progressBar } from '@/lib/design-tokens';
 
 interface ProductionPageProps {
   productionData: {
@@ -513,38 +513,18 @@ export default function ProductionPage({
   const recordSku = recordSkuId ? skus.find(s => s.id === recordSkuId) : null;
   const recordRow = recordSkuId ? rows.find(r => r.sku.id === recordSkuId) : null;
 
-  // Cover days display with coverDisplay tokens
-  const coverDisplayFn = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number, target: number) => {
+  // FIX 2 — Simplified cover display: StatusDot + days + UnitLabel
+  const coverDisplayFn = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
-    const direction = cover >= target ? '↑' : '↓';
-    const colorClass = color === 'red' ? coverDisplay.red : color === 'amber' ? coverDisplay.amber : coverDisplay.green;
+    const colorClass = color === 'red' ? 'text-destructive' : color === 'amber' ? 'text-warning' : 'text-success';
     return (
-      <span className={cn(coverDisplay.wrapper, colorClass)}>
-        <span className={coverDisplay.value}>{fmtDays(cover)}</span>
-        <span className={coverDisplay.unit}>วัน</span>
-        <span className={coverDisplay.arrow}>{direction}</span>
-        <span className={coverDisplay.target}>need {target}</span>
+      <span className="inline-flex items-center gap-1">
+        <StatusDot status={color} size="sm" />
+        <span className={cn('font-mono', colorClass)}>{fmtDays(cover)}</span>
+        <UnitLabel unit="วัน" />
       </span>
     );
   };
-
-  // Mode toggle component with design tokens
-  const ModeToggle = () => (
-    <div className={buttons.modeToggleWrapper}>
-      <button
-        className={mode === 'planning' ? buttons.modeToggleActive : buttons.modeToggleInactive}
-        onClick={() => handleModeSwitch('planning')}
-      >
-        📋 Plan
-      </button>
-      <button
-        className={mode === 'recording' ? buttons.modeToggleActive : buttons.modeToggleInactive}
-        onClick={() => handleModeSwitch('recording')}
-      >
-        ▶ Record
-      </button>
-    </div>
-  );
 
   return (
     <TooltipProvider>
@@ -592,7 +572,7 @@ export default function ProductionPage({
             </Button>
           </div>
 
-          {/* Right: target + save */}
+          {/* Right: target + mode toggle + save */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <label className="text-xs text-muted-foreground whitespace-nowrap">{t('prod.targetCoverDays')}</label>
@@ -604,6 +584,24 @@ export default function ProductionPage({
                 onBlur={e => saveGlobalTarget(Number(e.target.value) || 7)}
                 onFocus={e => e.target.select()}
               />
+            </div>
+
+            {/* FIX 1 — Mode toggle in page header */}
+            <div className={buttons.modeToggleWrapper}>
+              <button
+                className={mode === 'planning' ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                onClick={() => handleModeSwitch('planning')}
+              >
+                <CalendarDays className="w-3.5 h-3.5 mr-1 inline-block" />
+                Plan
+              </button>
+              <button
+                className={mode === 'recording' ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                onClick={() => handleModeSwitch('recording')}
+              >
+                <PlayCircle className="w-3.5 h-3.5 mr-1 inline-block" />
+                Record
+              </button>
             </div>
 
             {mode === 'planning' && !planLocked && (
@@ -625,18 +623,18 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
+                {/* FIX 3 — Planning colgroup (10 cols, no toggle col) */}
                 <colgroup>
                   <col style={{ width: '28px' }} />
-                  <col style={{ width: '76px' }} />
-                  <col />
                   <col style={{ width: '72px' }} />
-                  <col style={{ width: '88px' }} />
-                  <col style={{ width: '108px' }} />
+                  <col />
+                  <col style={{ width: '68px' }} />
+                  <col style={{ width: '85px' }} />
+                  <col style={{ width: '90px' }} />
                   <col style={{ width: '85px' }} />
                   <col style={{ width: '78px' }} />
-                  <col style={{ width: '108px' }} />
-                  <col style={{ width: '88px' }} />
-                  <col style={{ width: '140px' }} />
+                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '85px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className={table.headerRow}>
@@ -650,7 +648,6 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>{t('prod.colPlanG')}</th>
                     <th className={table.headerCellNumeric}>{t('prod.colCoverAfter')}</th>
                     <th className={table.headerCellNumeric}>{t('prod.colAfter')}</th>
-                    <th className={table.headerCell}><div className="flex justify-end"><ModeToggle /></div></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -658,6 +655,9 @@ export default function ProductionPage({
                     const uom = row.sku.usageUom || 'g';
                     const isSufficient = row.produceTarget === 0;
                     const hasPlanned = row.plannedBatches > 0;
+
+                    // FIX 4 — Status dot logic: use coverNowColor when no plan, coverAfterColor when planned
+                    const dotColor = hasPlanned ? row.coverAfterColor : row.coverNowColor;
 
                     const borderClass = hasPlanned
                       ? row.coverAfterColor === 'green'
@@ -674,9 +674,9 @@ export default function ProductionPage({
                           borderClass,
                         )}
                       >
-                        {/* STATUS DOT */}
+                        {/* STATUS DOT — FIX 4 */}
                         <td className={table.dataCellCompactCenter}>
-                          <StatusDot status={hasPlanned ? row.coverAfterColor : row.coverNowColor} />
+                          <StatusDot status={dotColor} />
                         </td>
 
                         {/* CODE */}
@@ -702,9 +702,9 @@ export default function ProductionPage({
                           {fmtG(row.stockNow)} <UnitLabel unit={uom} />
                         </td>
 
-                        {/* COVER NOW */}
+                        {/* COVER NOW — FIX 2 simplified */}
                         <td className={table.dataCellCompactMono}>
-                          {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed, row.target)}
+                          {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
@@ -738,23 +738,22 @@ export default function ProductionPage({
                           }
                         </td>
 
-                        {/* COVER AFTER */}
+                        {/* COVER AFTER — FIX 2 simplified */}
                         <td className={table.dataCellCompactMono}>
-                          {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed, row.target)}
+                          {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
 
                         {/* STOCK AFTER */}
                         <td className={table.dataCellCompactMono}>
                           {fmtG(row.stockAfter)} <UnitLabel unit={uom} />
                         </td>
-                        <td />
                       </tr>
                     );
                   })}
 
                   {bomRows.length === 0 && (
                     <tr>
-                      <td colSpan={11} className={table.emptyState}>
+                      <td colSpan={10} className={table.emptyState}>
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
@@ -814,16 +813,16 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
+                {/* FIX 3 — Recording colgroup (8 cols, no toggle col) */}
                 <colgroup>
                   <col style={{ width: '28px' }} />
-                  <col style={{ width: '76px' }} />
+                  <col style={{ width: '72px' }} />
                   <col />
                   <col style={{ width: '85px' }} />
                   <col style={{ width: '85px' }} />
-                  <col style={{ width: '118px' }} />
-                  <col style={{ width: '148px' }} />
-                  <col style={{ width: '85px' }} />
-                  <col style={{ width: '140px' }} />
+                  <col style={{ width: '115px' }} />
+                  <col style={{ width: '145px' }} />
+                  <col style={{ width: '80px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className={table.headerRow}>
@@ -835,13 +834,12 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>{t('prod.colRemaining')}</th>
                     <th className={table.headerCellCenter}>Progress</th>
                     <th className={table.headerCellCenter}>{t('prod.colActions')}</th>
-                    <th className={table.headerCell}><div className="flex justify-end"><ModeToggle /></div></th>
                   </tr>
                 </thead>
                 <tbody>
                   {recordingRows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={table.emptyState}>
+                      <td colSpan={8} className={table.emptyState}>
                         No active SM SKUs found.
                       </td>
                     </tr>
@@ -889,11 +887,11 @@ export default function ProductionPage({
                             {done
                               ? 'Done ✓'
                               : hasPlan
-                                ? <>{fmtG(remaining)} <span className="text-xs text-muted-foreground">น. left</span></>
+                                ? <>{fmtG(remaining)} <UnitLabel unit="left" /></>
                                 : <span className="text-muted-foreground">—</span>
                             }
                           </td>
-                          {/* Progress — with progressBar tokens */}
+                          {/* Progress */}
                           <td className={table.dataCellCompact}>
                             {hasPlan ? (
                               <div className="space-y-0.5">
@@ -921,10 +919,10 @@ export default function ProductionPage({
                           {/* Action */}
                           <td className={table.dataCellCompactCenter}>
                             <Button size="sm" className="h-7 px-3 text-xs whitespace-nowrap" onClick={() => openRecordModal(row.sku.id)}>
-                              ▶ {t('prod.record')}
+                              <PlayCircle className="w-3.5 h-3.5 mr-1" />
+                              {t('prod.record')}
                             </Button>
                           </td>
-                          <td />
                         </tr>
                       );
                     })
@@ -946,12 +944,13 @@ export default function ProductionPage({
           ) : (
             <div className={table.wrapper}>
               <table className={table.base}>
+                {/* FIX 3 — History colgroup */}
                 <colgroup>
                   <col style={{ width: '90px' }} />
-                  <col style={{ width: '76px' }} />
+                  <col style={{ width: '72px' }} />
                   <col />
                   <col style={{ width: '110px' }} />
-                  <col style={{ width: '60px' }} />
+                  <col style={{ width: '56px' }} />
                 </colgroup>
                 <thead>
                   <tr className={table.headerRow}>
@@ -967,7 +966,7 @@ export default function ProductionPage({
                     <tr key={rec.id} className={table.dataRow}>
                       <td className={table.dataCellCompact}>{rec.productionDate}</td>
                       <td className={cn(table.dataCellCompact, 'font-mono')}>{getSkuCode(rec.smSkuId)}</td>
-                      <td className={table.truncatedCellCompact}>{getSkuName(rec.smSkuId)}</td>
+                      <td className={table.truncatedCellCompact} title={getSkuName(rec.smSkuId)}>{getSkuName(rec.smSkuId)}</td>
                       <td className={table.dataCellCompactMono}>
                         {fmtG(rec.actualOutputG)} <UnitLabel unit={getSkuUom(rec.smSkuId)} />
                       </td>
@@ -977,12 +976,14 @@ export default function ProductionPage({
                             <Button
                               size="icon" variant="ghost" className="h-6 w-6"
                               onClick={() => openEditRecordModal(rec)}
+                              title="Edit"
                             >
                               <Pencil className="w-3 h-3" />
                             </Button>
                             <Button
                               size="icon" variant="ghost" className="h-6 w-6"
                               onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
+                              title="Delete"
                             >
                               <Trash2 className="w-3 h-3 text-destructive" />
                             </Button>
