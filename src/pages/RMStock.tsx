@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from '@/types/sku';
 import { useSortableTable } from '@/hooks/use-sortable-table';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -7,14 +7,15 @@ import { BOMHeader, BOMLine } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Pencil, SlidersHorizontal, Search, Package } from 'lucide-react';
+import { SlidersHorizontal, Search, Package } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
 import { StatusDot } from '@/components/ui/status-dot';
 import { UnitLabel } from '@/components/ui/unit-label';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { table, formatNumber } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 interface Props {
   skus: SKU[];
@@ -31,7 +32,7 @@ interface Props {
 }
 
 export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: Props) {
-  const { stockBalances, setOpeningStock, addAdjustment, getStdUnitPrice, getLastReceiptDate, openingStocks } = stockData;
+  const { stockBalances, addAdjustment, getStdUnitPrice, getLastReceiptDate } = stockData;
   const { t } = useLanguage();
 
   const [search, setSearch] = useState('');
@@ -39,12 +40,35 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [ckItemsOnly, setCkItemsOnly] = useState(true);
   const [adjustModal, setAdjustModal] = useState<{ skuId: string; skuName: string; usageUom: string; currentStock: number } | null>(null);
-  const [editingOpening, setEditingOpening] = useState<string | null>(null);
-  const [openingValue, setOpeningValue] = useState('');
+
+  const [rmDailyUsage, setRmDailyUsage] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase
+        .from('production_records')
+        .select('sm_sku_id, batches_produced')
+        .gte('production_date', sevenDaysAgo.toISOString().split('T')[0])
+        .then(({ data }) => {
+          if (!data) return;
+          const usage: Record<string, number> = {};
+          data.forEach((rec: any) => {
+            const header = bomHeaders.find(h => h.smSkuId === rec.sm_sku_id);
+            if (!header) return;
+            bomLines.filter(l => l.bomHeaderId === header.id).forEach(line => {
+              usage[line.rmSkuId] = (usage[line.rmSkuId] || 0) +
+                (rec.batches_produced * line.qtyPerBatch) / 7;
+            });
+          });
+          setRmDailyUsage(usage);
+        });
+    });
+  }, [bomHeaders, bomLines]);
 
   const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
 
-  // Derive CK RM SKU IDs: RM SKUs that appear as ingredients in BOMs where parent SM SKU is Active
   const ckRmSkuIds = useMemo(() => {
     const activeSmSkuIds = new Set(
       skus.filter(s => s.type === 'SM' && s.status === 'Active').map(s => s.id)
@@ -59,18 +83,22 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     return rmIds;
   }, [skus, bomHeaders, bomLines]);
 
-  type RMRow = { sku: SKU; balance: any; stdUnit: number; lastDate: string | null; currentStock: number; opening: number; stockValue: number; healthStatus: 'red' | 'yellow' | 'green' };
+  type RMRow = { sku: SKU; balance: any; stdUnit: number; lastDate: string | null; currentStock: number; stockValue: number; healthStatus: 'red' | 'green' };
 
   const rmComparators = useMemo(() => ({
     skuId: (a: RMRow, b: RMRow) => a.sku.skuId.localeCompare(b.sku.skuId),
     name: (a: RMRow, b: RMRow) => a.sku.name.localeCompare(b.sku.name),
     category: (a: RMRow, b: RMRow) => a.sku.category.localeCompare(b.sku.category),
-    storage: (a: RMRow, b: RMRow) => a.sku.storageCondition.localeCompare(b.sku.storageCondition),
-    opening: (a: RMRow, b: RMRow) => a.opening - b.opening,
-    received: (a: RMRow, b: RMRow) => (a.balance?.totalReceived ?? 0) - (b.balance?.totalReceived ?? 0),
     currentStock: (a: RMRow, b: RMRow) => a.currentStock - b.currentStock,
     stockValue: (a: RMRow, b: RMRow) => a.stockValue - b.stockValue,
-  }), []);
+    coverDay: (a: RMRow, b: RMRow) => {
+      const aUsage = rmDailyUsage[a.sku.id] || 0;
+      const bUsage = rmDailyUsage[b.sku.id] || 0;
+      const aCd = aUsage > 0 ? a.currentStock / aUsage : Infinity;
+      const bCd = bUsage > 0 ? b.currentStock / bUsage : Infinity;
+      return aCd - bCd;
+    },
+  }), [rmDailyUsage]);
 
   const filteredRows = useMemo(() => {
     return rmSkus
@@ -79,14 +107,9 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
         const stdUnit = getStdUnitPrice(sku.id);
         const lastDate = getLastReceiptDate(sku.id);
         const currentStock = balance?.currentStock ?? 0;
-        const opening = balance?.openingStock ?? 0;
         const stockValue = currentStock * stdUnit;
-
-        let healthStatus: 'red' | 'yellow' | 'green' = 'green';
-        if (currentStock <= 0) healthStatus = 'red';
-        else if (opening > 0 && currentStock < opening * 0.2) healthStatus = 'yellow';
-
-        return { sku, balance, stdUnit, lastDate, currentStock, opening, stockValue, healthStatus };
+        const healthStatus: 'red' | 'green' = currentStock <= 0 ? 'red' : 'green';
+        return { sku, balance, stdUnit, lastDate, currentStock, stockValue, healthStatus };
       })
       .filter(row => {
         if (search && !row.sku.name.toLowerCase().includes(search.toLowerCase()) && !row.sku.skuId.toLowerCase().includes(search.toLowerCase())) return false;
@@ -99,15 +122,6 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
 
   const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
   const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
-
-  const handleOpeningSubmit = (skuId: string) => {
-    setOpeningStock(skuId, Number(openingValue) || 0);
-    setEditingOpening(null);
-    toast.success('Opening stock set');
-  };
-
-  const mapHealth = (status: 'red' | 'yellow' | 'green'): 'red' | 'amber' | 'green' =>
-    status === 'yellow' ? 'amber' : status;
 
   return (
     <div className="space-y-4">
@@ -126,7 +140,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.totalStockValue')}</p>
-          <p className="text-2xl font-bold mt-1 font-mono">฿{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-bold mt-1 font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.outOfStock')}</p>
@@ -182,89 +196,65 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-auto max-h-[70vh]">
-        <Table>
-          <TableHeader className="sticky-thead">
-            <TableRow className="bg-table-header border-b">
-              <TableHead className="w-8"></TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('skuId')}>
+      <div className={cn(table.wrapper, 'overflow-auto max-h-[70vh]')}>
+        <table className={table.base}>
+          <colgroup>
+            <col style={{ width: '28px' }} />
+            <col style={{ width: '72px' }} />
+            <col style={{ width: 'auto' }} />
+            <col style={{ width: '85px' }} />
+            <col style={{ width: '48px' }} />
+            <col style={{ width: '90px' }} />
+            <col style={{ width: '90px' }} />
+            <col style={{ width: '80px' }} />
+            <col style={{ width: '40px' }} />
+          </colgroup>
+          <thead className="sticky top-0 z-[5]">
+            <tr className={table.headerRow}>
+              <th className={table.headerCell}></th>
+              <th className={table.headerCellSortable} onClick={() => handleSort('skuId')}>
                 <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+              </th>
+              <th className={table.headerCellSortable} onClick={() => handleSort('name')}>
                 <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer hover:bg-muted/50" onClick={() => handleSort('storage')}>
-                <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('opening')}>
-                <SortableHeader label={t('col.opening')} sortKey="opening" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('received')}>
-                <SortableHeader label={t('col.received')} sortKey="received" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.adjustments')}</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('currentStock')}>
+              </th>
+              <th className={table.headerCellNumeric} onClick={() => handleSort('currentStock')} style={{ cursor: 'pointer' }}>
                 <SortableHeader label={t('col.currentStock')} sortKey="currentStock" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.uom')}</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('stockValue')}>
+              </th>
+              <th className={table.headerCellCenter}>{t('col.uom')}</th>
+              <th className={table.headerCellNumeric} onClick={() => handleSort('stockValue')} style={{ cursor: 'pointer' }}>
                 <SortableHeader label={t('col.stockValue')} sortKey="stockValue" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.lastReceipt')}</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">{t('col.daysLeft')}</TableHead>
-              <TableHead className="w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+              </th>
+              <th className={table.headerCell}>{t('col.lastReceipt')}</th>
+              <th className={table.headerCellNumeric} onClick={() => handleSort('coverDay')} style={{ cursor: 'pointer' }}>
+                <SortableHeader label={t('col.daysLeft')} sortKey="coverDay" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
+              </th>
+              <th className={table.headerCell}></th>
+            </tr>
+          </thead>
+          <tbody>
             {filteredRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={13} className="text-center py-10 text-muted-foreground">
+              <tr>
+                <td colSpan={9} className={table.emptyState}>
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  No RM SKUs found
-                </TableCell>
-              </TableRow>
+                  No RM SKUs found.
+                </td>
+              </tr>
             ) : (
               sortedRows.map(row => {
-                const netAdj = (row.balance?.adjustments ?? []).reduce((s, a) => s + a.quantity, 0);
+                const dailyUsage = rmDailyUsage[row.sku.id] || 0;
+                const coverDay = dailyUsage > 0 ? row.currentStock / dailyUsage : null;
                 return (
-                  <TableRow key={row.sku.id} className="border-b border-table-border hover:bg-table-hover transition-colors">
-                    <TableCell className="px-3 py-2"><StatusDot status={mapHealth(row.healthStatus)} /></TableCell>
-                    <TableCell className="px-3 py-2 font-mono text-xs">{row.sku.skuId}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-medium">{row.sku.name}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm">{row.sku.storageCondition}</TableCell>
-                    <TableCell className="px-3 py-2 text-right">
-                      {editingOpening === row.sku.id ? (
-                        <div className="flex items-center gap-1 justify-end">
-                          <Input
-                            type="number"
-                            className="w-24 h-7 text-xs text-right"
-                            value={openingValue}
-                            onChange={e => setOpeningValue(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleOpeningSubmit(row.sku.id)}
-                            autoFocus
-                          />
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpeningSubmit(row.sku.id)}>✓</Button>
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingOpening(null)}>✗</Button>
-                        </div>
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:underline text-sm font-mono"
-                          onClick={() => { setEditingOpening(row.sku.id); setOpeningValue(String(row.opening)); }}
-                        >
-                          {row.opening.toLocaleString()}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-mono text-right">{(row.balance?.totalReceived ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className={`px-3 py-2 text-sm font-mono text-right ${netAdj > 0 ? 'text-success' : netAdj < 0 ? 'text-destructive' : ''}`}>
-                      {netAdj !== 0 ? (netAdj > 0 ? '+' : '') + netAdj.toLocaleString() : '—'}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-mono text-right font-semibold">{row.currentStock.toLocaleString()}</TableCell>
-                    <TableCell className="px-3 py-2"><UnitLabel unit={row.sku.usageUom} /></TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{row.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm">{row.lastDate ?? '—'}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-mono text-right text-muted-foreground">0</TableCell>
-                    <TableCell className="px-3 py-2">
+                  <tr key={row.sku.id} className={table.dataRow}>
+                    <td className={table.dataCellCenter}><StatusDot status={row.healthStatus} /></td>
+                    <td className={cn(table.dataCell, 'font-mono text-xs')}>{row.sku.skuId}</td>
+                    <td className={table.truncatedCell} title={row.sku.name}>{row.sku.name}</td>
+                    <td className={table.dataCellMono}>{row.currentStock > 0 ? Math.round(row.currentStock).toLocaleString() : '—'}</td>
+                    <td className={cn(table.dataCellCenter, 'text-xs font-medium text-primary')}>{row.sku.usageUom}</td>
+                    <td className={table.dataCellMono}>{row.stockValue > 0 ? `฿${Math.round(row.stockValue).toLocaleString()}` : '—'}</td>
+                    <td className={table.dataCell}>{row.lastDate ?? '—'}</td>
+                    <td className={cn(table.dataCellMono, 'text-muted-foreground')}>{coverDay !== null ? coverDay.toFixed(1) : '—'}</td>
+                    <td className={table.dataCellCenter}>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -278,13 +268,13 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                       >
                         <SlidersHorizontal className="w-3.5 h-3.5" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 );
               })
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {adjustModal && (

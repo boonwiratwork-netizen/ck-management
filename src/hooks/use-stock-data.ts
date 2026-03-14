@@ -39,7 +39,7 @@ export function useStockData(
       const opening = openingStocks[sku.id] ?? 0;
       const totalReceived = receipts
         .filter(r => r.skuId === sku.id)
-        .reduce((sum, r) => sum + r.quantityReceived, 0);
+        .reduce((sum, r) => sum + (r.quantityReceived * (sku.converter ?? 1)), 0);
       const totalConsumed = 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
