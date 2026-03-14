@@ -92,6 +92,16 @@ export default function TransferOrderPage({
   const [skuSearchOpen, setSkuSearchOpen] = useState(false);
 
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM' && s.status === 'Active'), [skus]);
+
+  // BOM-filtered SKU IDs
+  const [bomSkuIds, setBomSkuIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.from('bom_headers').select('sm_sku_id').then(({ data }) => {
+        if (data) setBomSkuIds(new Set(data.map((r: any) => r.sm_sku_id)));
+      });
+    });
+  }, []);
   const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
 
   const isUrgent = (dateStr: string) => {
