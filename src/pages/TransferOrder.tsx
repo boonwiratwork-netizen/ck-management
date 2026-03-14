@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { typography, table as tableTokens, formatNumber, fmtCurrency } from '@/lib/design-tokens';
 import { toLocalDateStr } from '@/lib/utils';
 import {
-  Zap, Plus, Eye, Printer, Ban, Trash2, Send, Save, ChevronUp, ChevronDown, ArrowUpDown,
+  Zap, Plus, Eye, Printer, Ban, Trash2, Send, Save, ChevronUp, ChevronDown, ArrowUpDown, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -318,6 +318,22 @@ export default function TransferOrderPage({
     });
     return list;
   }, [toHistory, sortKey, sortDir]);
+
+  // ─── Edit Draft TO ───
+  const handleEditDraft = useCallback(async (to: TOHistoryRow) => {
+    const lines = await fetchTODetail(to.id);
+    setFormState({
+      toId: to.id,
+      toNumber: to.toNumber,
+      branchId: to.branchId,
+      branchName: to.branchName,
+      deliveryDate: to.deliveryDate,
+      notes: '',
+      trId: to.trRef !== '—' ? undefined : undefined,
+      trNumber: to.trRef !== '—' ? to.trRef : undefined,
+      lines,
+    });
+  }, [fetchTODetail]);
 
   // ─── View TO detail ───
   const handleViewDetail = useCallback(async (to: TOHistoryRow) => {
@@ -781,6 +797,11 @@ export default function TransferOrderPage({
                   </td>
                   <td className={`${tableTokens.dataCell} text-center`}>
                     <div className="flex items-center justify-center gap-1">
+                      {canEdit && to.status === 'Draft' && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditDraft(to)} title="Edit draft">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetail(to)} title="View">
                         <Eye className="w-4 h-4" />
                       </Button>
