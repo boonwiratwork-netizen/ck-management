@@ -763,6 +763,7 @@ export default function ProductionPage({
                         <td className="px-1.5 py-1.5 text-right font-mono">
                           {fmtG(row.stockAfter)} <span className="text-xs text-muted-foreground">{uom}</span>
                         </td>
+                        <td />
                       </tr>
                     );
                   })}
