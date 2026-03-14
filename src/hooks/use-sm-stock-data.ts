@@ -33,6 +33,13 @@ export function useSmStockData(
   const [isStockDataReady, setIsStockDataReady] = useState(false);
   // TO-based delivered quantities per SKU
   const [toDelivered, setToDelivered] = useState<Record<string, number>>({});
+  // Local production records for immediate refresh after addRecord
+  const [localProductionRecords, setLocalProductionRecords] = useState<ProductionRecord[]>(productionRecords);
+
+  // Sync from prop when it changes
+  useEffect(() => {
+    setLocalProductionRecords(productionRecords);
+  }, [productionRecords]);
 
   useEffect(() => {
     setIsStockDataReady(false);
@@ -84,7 +91,7 @@ export function useSmStockData(
   const stockBalances = useMemo((): SMStockBalance[] => {
     return smSkus.map(sku => {
       const opening = openingStocks[sku.id] ?? 0;
-      const totalProduced = productionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
+      const totalProduced = localProductionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
       // Use TO-based delivery instead of deliveries table
       const totalDelivered = toDelivered[sku.id] ?? 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
@@ -92,7 +99,7 @@ export function useSmStockData(
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
       return { skuId: sku.id, openingStock: opening, totalProduced, totalDelivered, adjustments: skuAdjustments, currentStock };
     });
-  }, [smSkus, productionRecords, toDelivered, openingStocks, adjustments]);
+  }, [smSkus, localProductionRecords, toDelivered, openingStocks, adjustments]);
 
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase.from('stock_opening_balances').upsert(
@@ -160,10 +167,21 @@ export function useSmStockData(
   }, [bomHeaders, bomLines, bomSteps, prices, bomByproducts]);
 
   const getLastProductionDate = useCallback((skuId: string): string | null => {
-    const recs = productionRecords.filter(r => r.smSkuId === skuId);
+    const recs = localProductionRecords.filter(r => r.smSkuId === skuId);
     if (recs.length === 0) return null;
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
-  }, [productionRecords]);
+  }, [localProductionRecords]);
+
+  // Re-fetch production records from DB for immediate stock update
+  const refreshProductionRecords = useCallback(async () => {
+    const { data } = await supabase.from('production_records').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setLocalProductionRecords(data.map((r: any) => ({
+        id: r.id, planId: r.plan_id, productionDate: r.production_date,
+        smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputG: r.actual_output_g,
+      })));
+    }
+  }, []);
 
   // Refresh TO delivered data (call after sending a TO)
   const refreshToDelivered = useCallback(async () => {
@@ -184,5 +202,5 @@ export function useSmStockData(
     setToDelivered(delivered);
   }, []);
 
-  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered };
+  return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered, refreshProductionRecords };
 }
