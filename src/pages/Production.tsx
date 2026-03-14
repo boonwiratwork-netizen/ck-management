@@ -81,13 +81,6 @@ function getISOWeekNumber(dateStr: string): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-function getWorkingDaysLeftInWeek(): number {
-  const today = new Date();
-  const day = today.getDay();
-  if (day === 0 || day === 6) return 5;
-  return 6 - day; // Mon=5…Fri=1
-}
-
 function getCurrentWeekMonday(): string {
   const today = new Date();
   const day = today.getDay();
@@ -95,6 +88,12 @@ function getCurrentWeekMonday(): string {
   const mon = new Date(today);
   mon.setDate(today.getDate() + diff);
   return toLocalDateStr(mon);
+}
+
+function getNextWeekMonday(): string {
+  const d = new Date(getCurrentWeekMonday());
+  d.setDate(d.getDate() + 7);
+  return toLocalDateStr(d);
 }
 
 /* ─── Number formatting helpers ─── */
@@ -109,8 +108,8 @@ interface PlanRow {
   dailyNeed: number;
   stockNow: number;
   target: number;
-  coverNow: number;      // stock / daily need
-  produceTarget: number;  // (dailyNeed * target) - stockNow, min 0
+  coverNow: number;
+  produceTarget: number;
   suggestedBatches: number;
   plannedBatches: number;
   outputPerBatch: number;
@@ -143,7 +142,7 @@ export default function ProductionPage({
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
   const [salesData, setSalesData] = useState<{ menuCode: string; qty: number }[]>([]);
   const [saving, setSaving] = useState(false);
-  const [mode, setMode] = useState<'planning' | 'execution'>('planning');
+  const [mode, setMode] = useState<'planning' | 'recording'>('planning');
   const [planLocked, setPlanLocked] = useState(false);
   const [savedWeek, setSavedWeek] = useState<number | null>(null);
   const [suggestedInitialized, setSuggestedInitialized] = useState(false);
@@ -159,7 +158,6 @@ export default function ProductionPage({
   const [criticalWarning, setCriticalWarning] = useState<number | null>(null);
 
   // Collapsibles
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [noBomOpen, setNoBomOpen] = useState(false);
 
   const planInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -167,6 +165,16 @@ export default function ProductionPage({
   const smSkus = useMemo(() => skus.filter(s => s.type === 'SM' && s.status === 'Active'), [skus]);
   const weekEnd = getWeekEndDate(weekStart);
   const weekNumber = getISOWeekNumber(weekStart);
+
+  // ─── Mode toggle with week defaulting ───
+  const handleModeSwitch = (newMode: 'planning' | 'recording') => {
+    setMode(newMode);
+    if (newMode === 'planning') {
+      setWeekStart(getNextWeekMonday());
+    } else {
+      setWeekStart(getCurrentWeekMonday());
+    }
+  };
 
   // ─── Data fetching ───
   useEffect(() => {
@@ -365,25 +373,21 @@ export default function ProductionPage({
   const bomRows = useMemo(() => rows.filter(r => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter(r => !r.hasBom), [rows]);
 
-  // Execution rows: only planned > 0, sorted by status then SKU code
-  const execRows = useMemo(() => {
-    const planned = bomRows.filter(r => r.plannedBatches > 0);
-    return planned.sort((a, b) => {
-      const remA = a.planG - a.producedG;
-      const remB = b.planG - b.producedG;
-      const doneA = remA <= 0;
-      const doneB = remB <= 0;
-      const partialA = a.producedG > 0 && !doneA;
-      const partialB = b.producedG > 0 && !doneB;
-      const notStartedA = a.producedG === 0 && !doneA;
-      const notStartedB = b.producedG === 0 && !doneB;
-      // Red (not started) first, amber (partial) second, green (done) last
-      const orderA = notStartedA ? 0 : partialA ? 1 : 2;
-      const orderB = notStartedB ? 0 : partialB ? 1 : 2;
-      if (orderA !== orderB) return orderA - orderB;
+  // Recording rows: ALL active SM SKUs, sorted by status then code
+  const recordingRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const getStatus = (r: PlanRow) => {
+        if (r.producedG === 0) return 0; // red — not started
+        if (r.planG > 0 && r.producedG >= r.planG) return 2; // green — done
+        if (r.producedG > 0) return 1; // amber — in progress
+        return 0; // red
+      };
+      const statusA = getStatus(a);
+      const statusB = getStatus(b);
+      if (statusA !== statusB) return statusA - statusB;
       return a.sku.skuId.localeCompare(b.sku.skuId);
     });
-  }, [bomRows]);
+  }, [rows]);
 
   // ─── Handlers ───
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(toLocalDateStr(d)); };
@@ -520,20 +524,42 @@ export default function ProductionPage({
   const recordSku = recordSkuId ? skus.find(s => s.id === recordSkuId) : null;
   const recordRow = recordSkuId ? rows.find(r => r.sku.id === recordSkuId) : null;
 
-  // Status dot — using StatusDot component
-  // (kept as thin wrapper for cover display helper below)
-
   // Cover days display with dot
-  const coverDisplay = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
+  const coverDisplayFn = (cover: number, color: 'red' | 'amber' | 'green', dailyNeed: number) => {
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
+    const colorClass = color === 'red' ? 'text-destructive' : color === 'amber' ? 'text-warning' : 'text-success';
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className={cn('inline-flex items-center gap-1 font-mono', colorClass)}>
         <StatusDot status={color} size="sm" />
         <span>{fmtDays(cover)}</span>
         <span className="text-xs text-muted-foreground">{t('prod.days')}</span>
       </span>
     );
   };
+
+  // Mode toggle component for embedding in table header
+  const ModeToggle = () => (
+    <div className="inline-flex items-center gap-0">
+      <button
+        className={cn(
+          'px-3 py-1.5 text-xs font-medium transition-colors rounded-l-md border',
+          mode === 'planning' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted'
+        )}
+        onClick={() => handleModeSwitch('planning')}
+      >
+        📋 Plan
+      </button>
+      <button
+        className={cn(
+          'px-3 py-1.5 text-xs font-medium transition-colors rounded-r-md border border-l-0',
+          mode === 'recording' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted'
+        )}
+        onClick={() => handleModeSwitch('recording')}
+      >
+        ▶ Record
+      </button>
+    </div>
+  );
 
   return (
     <TooltipProvider>
@@ -557,7 +583,7 @@ export default function ProductionPage({
               </span>
               {(() => {
                 const curMon = getCurrentWeekMonday();
-                const nextMon = (() => { const d = new Date(curMon); d.setDate(d.getDate() + 7); return toLocalDateStr(d); })();
+                const nextMon = getNextWeekMonday();
                 if (weekStart === curMon) return (
                   <Badge variant="outline" className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
                     {t('prod.thisWeek')}
@@ -581,7 +607,7 @@ export default function ProductionPage({
             </Button>
           </div>
 
-          {/* Right: target + mode toggle + save */}
+          {/* Right: target + save */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <label className="text-xs text-muted-foreground whitespace-nowrap">{t('prod.targetCoverDays')}</label>
@@ -593,27 +619,6 @@ export default function ProductionPage({
                 onBlur={e => saveGlobalTarget(Number(e.target.value) || 7)}
                 onFocus={e => e.target.select()}
               />
-            </div>
-
-            <div className="flex rounded-md overflow-hidden border">
-              <button
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium transition-colors',
-                  mode === 'planning' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
-                )}
-                onClick={() => setMode('planning')}
-              >
-                {t('prod.modePlanning')}
-              </button>
-              <button
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium transition-colors',
-                  mode === 'execution' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
-                )}
-                onClick={() => setMode('execution')}
-              >
-                {t('prod.modeExecution')}
-              </button>
             </div>
 
             {mode === 'planning' && !planLocked && (
@@ -636,16 +641,15 @@ export default function ProductionPage({
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full table-fixed text-sm">
                 <colgroup>
-                  <col style={{ width: '36px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '150px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '90px' }} />
-                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '28px' }} />
+                  <col style={{ width: '76px' }} />
+                  <col />
                   <col style={{ width: '80px' }} />
                   <col style={{ width: '90px' }} />
-                  <col style={{ width: '90px' }} />
-                  <col style={{ width: '90px' }} />
+                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '88px' }} />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '100px' }} />
                   <col style={{ width: '90px' }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
@@ -653,14 +657,18 @@ export default function ProductionPage({
                     <th className="px-1 py-2 text-center text-muted-foreground"></th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
                     <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
-                    <th className="px-1.5 py-2 text-right">{t('prod.colBatchSize')}</th>
-                    <th className="px-1.5 py-2 text-right">{t('prod.colNeedWk')}</th>
+                    <th className="px-1.5 py-2 text-right">g/batch</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colStockNow')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colCoverNow')}</th>
                     <th className="px-1.5 py-2 text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">{t('prod.colPlanBatch')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colPlanG')}</th>
                     <th className="px-1.5 py-2 text-right">{t('prod.colCoverAfter')}</th>
-                    <th className="px-1.5 py-2 text-right">{t('prod.colAfter')}</th>
+                    <th className="px-1.5 py-2 text-right">
+                      <div className="flex items-center justify-between">
+                        <span>{t('prod.colAfter')}</span>
+                        <ModeToggle />
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -708,14 +716,6 @@ export default function ProductionPage({
                           {row.outputPerBatch > 0 ? fmtG(row.outputPerBatch) : '—'}
                         </td>
 
-                        {/* NEED/WK */}
-                        <td className="px-1.5 py-1.5 text-right font-mono">
-                          {row.forecastWeek > 0
-                            ? <>{fmtG(row.forecastWeek)} <span className="text-xs text-muted-foreground">{uom}</span></>
-                            : <span className="text-muted-foreground">—</span>
-                          }
-                        </td>
-
                         {/* STOCK NOW */}
                         <td className="px-1.5 py-1.5 text-right font-mono">
                           {fmtG(row.stockNow)} <span className="text-xs text-muted-foreground">{uom}</span>
@@ -723,7 +723,7 @@ export default function ProductionPage({
 
                         {/* COVER NOW */}
                         <td className="px-1.5 py-1.5 text-right">
-                          {coverDisplay(row.coverNow, row.coverNowColor, row.dailyNeed)}
+                          {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
@@ -759,10 +759,10 @@ export default function ProductionPage({
 
                         {/* COVER AFTER */}
                         <td className="px-1.5 py-1.5 text-right">
-                          {coverDisplay(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
+                          {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
 
-                        {/* AFTER (g) */}
+                        {/* STOCK AFTER */}
                         <td className="px-1.5 py-1.5 text-right font-mono">
                           {fmtG(row.stockAfter)} <span className="text-xs text-muted-foreground">{uom}</span>
                         </td>
@@ -772,7 +772,7 @@ export default function ProductionPage({
 
                   {bomRows.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={10} className="py-12 text-center text-muted-foreground">
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
@@ -827,51 +827,57 @@ export default function ProductionPage({
           </>
         )}
 
-        {/* ═══ EXECUTION MODE ═══ */}
-        {mode === 'execution' && (
+        {/* ═══ RECORDING MODE ═══ */}
+        {mode === 'recording' && (
           <>
-            {execRows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-muted-foreground mb-4">{t('prod.noPlanYet')}</p>
-                <Button variant="outline" onClick={() => setMode('planning')}>
-                  {t('prod.switchToPlanning')}
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full table-fixed text-sm">
-                  <colgroup>
-                    <col style={{ width: '36px' }} />
-                    <col style={{ width: '80px' }} />
-                    <col style={{ width: '150px' }} />
-                    <col style={{ width: '90px' }} />
-                    <col style={{ width: '90px' }} />
-                    <col style={{ width: '100px' }} />
-                    <col style={{ width: '90px' }} />
-                    <col style={{ width: '100px' }} />
-                  </colgroup>
-                  <thead className="sticky top-0 z-[5]">
-                    <tr className="bg-table-header border-b text-xs">
-                      <th className="px-1 py-2 text-center text-muted-foreground"></th>
-                      <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
-                      <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
-                      <th className="px-1.5 py-2 text-right">{t('prod.colPlanG_exec')}</th>
-                      <th className="px-1.5 py-2 text-right">{t('prod.colProduced')}</th>
-                      <th className="px-1.5 py-2 text-right">{t('prod.colRemaining')}</th>
-                      <th className="px-1.5 py-2 text-right text-muted-foreground">{t('prod.colPace')}</th>
-                      <th className="px-1 py-2 text-center">{t('prod.colActions')}</th>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col style={{ width: '28px' }} />
+                  <col style={{ width: '76px' }} />
+                  <col />
+                  <col style={{ width: '88px' }} />
+                  <col style={{ width: '88px' }} />
+                  <col style={{ width: '120px' }} />
+                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '90px' }} />
+                </colgroup>
+                <thead className="sticky top-0 z-[5]">
+                  <tr className="bg-table-header border-b text-xs">
+                    <th className="px-1 py-2 text-center text-muted-foreground"></th>
+                    <th className="px-1.5 py-2 text-left">{t('prod.colCode')}</th>
+                    <th className="px-1.5 py-2 text-left">{t('prod.colName')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colPlanG_exec')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colProduced')}</th>
+                    <th className="px-1.5 py-2 text-right">{t('prod.colRemaining')}</th>
+                    <th className="px-1.5 py-2 text-center">Progress</th>
+                    <th className="px-1.5 py-2 text-center">
+                      <div className="flex items-center justify-end">
+                        <ModeToggle />
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recordingRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        No active SM SKUs found.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {execRows.map(row => {
+                  ) : (
+                    recordingRows.map(row => {
                       const uom = row.sku.usageUom || 'g';
-                      const remaining = row.planG - row.producedG;
-                      const done = remaining <= 0;
-                      const partial = row.producedG > 0 && !done;
-                      const daysLeft = getWorkingDaysLeftInWeek();
-                      const pace = !done && daysLeft > 0 ? remaining / daysLeft : 0;
+                      const hasPlan = row.planG > 0;
+                      const remaining = hasPlan ? row.planG - row.producedG : 0;
+                      const done = hasPlan && remaining <= 0;
+                      const progressPct = hasPlan ? Math.min(100, Math.round((row.producedG / row.planG) * 100)) : 0;
 
-                      const dotColor: 'red' | 'amber' | 'green' = done ? 'green' : partial ? 'amber' : 'red';
+                      // Status dot logic per spec
+                      const dotColor: 'red' | 'amber' | 'green' =
+                        done ? 'green'
+                        : row.producedG > 0 && row.producedG < row.planG ? 'amber'
+                        : 'red'; // producedG === 0 or no plan
 
                       return (
                         <tr key={row.sku.id} className="border-b hover:bg-table-hover transition-colors">
@@ -885,21 +891,37 @@ export default function ProductionPage({
                               <TooltipContent side="top" className="max-w-xs"><p>{row.sku.name}</p></TooltipContent>
                             </Tooltip>
                           </td>
+                          {/* Plan g */}
                           <td className="px-1.5 py-1.5 text-right font-mono">
-                            {fmtG(row.planG)} <span className="text-xs text-muted-foreground">{uom}</span>
+                            {hasPlan ? <>{fmtG(row.planG)} <span className="text-xs text-muted-foreground">{uom}</span></> : <span className="text-muted-foreground">—</span>}
                           </td>
+                          {/* Produced */}
                           <td className="px-1.5 py-1.5 text-right font-mono">
-                            {row.producedG > 0 ? <>{fmtG(row.producedG)} <span className="text-xs text-muted-foreground">{uom}</span></> : '—'}
+                            {row.producedG > 0 ? <>{fmtG(row.producedG)} <span className="text-xs text-muted-foreground">{uom}</span></> : <span className="text-muted-foreground">—</span>}
                           </td>
-                          <td className={cn('px-1.5 py-1.5 text-right font-mono font-semibold', done ? 'text-success' : 'text-destructive')}>
+                          {/* Remaining */}
+                          <td className={cn('px-1.5 py-1.5 text-right font-mono text-sm', done ? 'text-success font-semibold' : '')}>
                             {done
-                              ? t('prod.done')
-                              : <>{fmtG(remaining)} <span className="text-xs">{uom}</span></>
+                              ? 'Done ✓'
+                              : hasPlan
+                                ? <>{fmtG(remaining)} <span className="text-xs text-muted-foreground">น. left</span></>
+                                : <span className="text-muted-foreground">—</span>
                             }
                           </td>
-                          <td className="px-1.5 py-1.5 text-right font-mono text-muted-foreground">
-                            {!done && pace > 0 ? <>{fmtG(pace)}{uom}{t('prod.perDay')}</> : '—'}
+                          {/* Progress — plain placeholder div */}
+                          <td className="px-1.5 py-1.5">
+                            {hasPlan ? (
+                              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-foreground/30"
+                                  style={{ width: `${progressPct}%` }}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
                           </td>
+                          {/* Action */}
                           <td className="px-1 py-1.5 text-center">
                             <Button size="sm" className="h-7 px-3 text-xs whitespace-nowrap" onClick={() => openRecordModal(row.sku.id)}>
                               ▶ {t('prod.record')}
@@ -907,78 +929,73 @@ export default function ProductionPage({
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-            {/* PRODUCTION HISTORY */}
-            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-              <CollapsibleTrigger asChild>
-                <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full py-2">
-                  <ChevronDown className={cn('w-4 h-4 transition-transform', historyOpen && 'rotate-180')} />
-                  {t('prod.historyTitle')} {weekNumber}
-                  <Badge variant="outline" className="text-xs ml-1">{weekRecords.length}</Badge>
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {weekRecords.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">—</p>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full table-fixed text-sm">
-                      <colgroup>
-                        <col style={{ width: '100px' }} />
-                        <col style={{ width: '100px' }} />
-                        <col style={{ width: '200px' }} />
-                        <col style={{ width: '120px' }} />
-                        <col style={{ width: '50px' }} />
-                      </colgroup>
-                      <thead>
-                        <tr className="bg-table-header border-b text-xs">
-                          <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
-                          <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
-                          <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
-                          <th className="px-2 py-1.5 text-right">{t('prod.colProduced')}</th>
-                          <th className="px-2 py-1.5"></th>
+            {/* ═══ PRODUCTION HISTORY — always visible ═══ */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold">{t('prod.historyTitle')} · Week {weekNumber}</h3>
+                <Badge variant="outline" className="text-xs">{weekRecords.length}</Badge>
+              </div>
+              {weekRecords.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full table-fixed text-sm">
+                    <colgroup>
+                      <col style={{ width: '100px' }} />
+                      <col style={{ width: '100px' }} />
+                      <col />
+                      <col style={{ width: '120px' }} />
+                      <col style={{ width: '60px' }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-table-header border-b text-xs">
+                        <th className="px-2 py-1.5 text-left">{t('prod.dateLabel')}</th>
+                        <th className="px-2 py-1.5 text-left">{t('prod.colCode')}</th>
+                        <th className="px-2 py-1.5 text-left">{t('prod.colName')}</th>
+                        <th className="px-2 py-1.5 text-right">{t('prod.colProduced')}</th>
+                        <th className="px-2 py-1.5"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weekRecords.map(rec => (
+                        <tr key={rec.id} className="border-b hover:bg-table-hover">
+                          <td className="px-2 py-1.5">{rec.productionDate}</td>
+                          <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
+                          <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            {fmtG(rec.actualOutputG)} <span className="text-xs text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
+                          </td>
+                          <td className="px-1 py-1.5 text-center">
+                            {isManagement && (
+                              <span className="inline-flex gap-0.5">
+                                <Button
+                                  size="icon" variant="ghost" className="h-6 w-6"
+                                  onClick={() => openEditRecordModal(rec)}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="icon" variant="ghost" className="h-6 w-6"
+                                  onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
+                                >
+                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                </Button>
+                              </span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {weekRecords.map(rec => (
-                          <tr key={rec.id} className="border-b hover:bg-table-hover">
-                            <td className="px-2 py-1.5">{rec.productionDate}</td>
-                            <td className="px-2 py-1.5 font-mono text-xs">{getSkuCode(rec.smSkuId)}</td>
-                            <td className="px-2 py-1.5 truncate">{getSkuName(rec.smSkuId)}</td>
-                            <td className="px-2 py-1.5 text-right font-mono">
-                              {fmtG(rec.actualOutputG)} <span className="text-xs text-muted-foreground">{getSkuUom(rec.smSkuId)}</span>
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isManagement && (
-                                <span className="inline-flex gap-0.5">
-                                  <Button
-                                    size="icon" variant="ghost" className="h-6 w-6"
-                                    onClick={() => openEditRecordModal(rec)}
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    size="icon" variant="ghost" className="h-6 w-6"
-                                    onClick={() => setDeleteConfirm({ id: rec.id, name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}` })}
-                                  >
-                                    <Trash2 className="w-3 h-3 text-destructive" />
-                                  </Button>
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -995,6 +1012,9 @@ export default function ProductionPage({
               <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm">
                 {recordSku ? `${recordSku.skuId} — ${recordSku.name}` : '—'}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Recording for Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
+              </p>
             </div>
 
             {/* Running total */}
