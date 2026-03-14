@@ -237,6 +237,19 @@ export default function TransferOrderPage({
     }
   }, [deleteTOLine]);
 
+  // ─── Save Draft ───
+  const handleSaveDraft = useCallback(async () => {
+    if (!formState) return;
+    setFormSaving(true);
+    for (const l of formState.lines) {
+      if (l.actualQty > 0) {
+        await updateTOLine(l.id, l.actualQty, l.note);
+      }
+    }
+    setFormSaving(false);
+    toast.success('Draft saved');
+  }, [formState, updateTOLine]);
+
   // ─── Send TO ───
   const handleSend = useCallback(async () => {
     if (!formState) return;
