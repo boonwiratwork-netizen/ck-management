@@ -493,6 +493,7 @@ export default function ProductionPage({
     await addRecord({
       ...EMPTY_PRODUCTION_RECORD,
       planId,
+      smSkuId: recordSkuId,
       productionDate: recordForm.productionDate,
       batchesProduced,
       actualOutputG: recordForm.actualOutputG,
