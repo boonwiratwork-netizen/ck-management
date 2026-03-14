@@ -292,6 +292,7 @@ export default function TransferOrderPage({
     });
     setFormSaving(false);
     toast.success("Draft saved");
+    fetchHistory();
   }, [formState, updateTOLine]);
 
   // ─── Send TO ───
