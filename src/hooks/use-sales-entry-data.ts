@@ -255,7 +255,8 @@ export function useSalesEntryData() {
         .from("sales_entries")
         .select("*")
         .order("sale_date", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
       if (filters?.branchId) q = q.eq("branch_id", filters.branchId);
       if (filters?.dateFrom) q = q.gte("sale_date", filters.dateFrom);
       if (filters?.dateTo) q = q.lte("sale_date", filters.dateTo);
