@@ -24,7 +24,8 @@ export function useProductionData(
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
   addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void,
-  bomSteps: BOMStep[] = []
+  bomSteps: BOMStep[] = [],
+  refreshProductionRecords?: () => Promise<void>
 ) {
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [records, setRecords] = useState<ProductionRecord[]>([]);
