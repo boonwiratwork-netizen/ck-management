@@ -371,6 +371,11 @@ export const table = {
   filledRow: 'border-l-[3px] border-l-success bg-success/5',
   unfilledRow: 'opacity-40',
 
+  // Production execution row states
+  productionRowDone: 'border-l-[3px] border-l-success bg-success/5',
+  productionRowInProgress: 'border-l-[3px] border-l-warning',
+  productionRowNotStarted: 'border-l-[3px] border-l-destructive/30',
+
   // ─── Footer / summary rows ────────────────────
   footerRow: 'border-t-2 border-border bg-muted/20',
   footerCell: 'px-3 py-2 text-sm font-medium text-foreground',
