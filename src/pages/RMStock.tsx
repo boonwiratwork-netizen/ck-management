@@ -357,6 +357,18 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
           }}
         />
       )}
+
+      {stockCardSku && (
+        <StockCard
+          skuId={stockCardSku.skuId}
+          skuType={stockCardSku.skuType}
+          sku={stockCardSku.sku}
+          skus={skus}
+          currentStock={stockCardSku.currentStock}
+          stockValue={stockCardSku.stockValue}
+          onClose={() => setStockCardSku(null)}
+        />
+      )}
     </div>
   );
 }

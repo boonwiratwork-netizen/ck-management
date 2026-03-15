@@ -326,6 +326,18 @@ export default function SMStockPage({ skus, smStockData }: Props) {
           }}
         />
       )}
+
+      {stockCardSku && (
+        <StockCard
+          skuId={stockCardSku.skuId}
+          skuType={stockCardSku.skuType}
+          sku={stockCardSku.sku}
+          skus={skus}
+          currentStock={stockCardSku.currentStock}
+          stockValue={stockCardSku.stockValue}
+          onClose={() => setStockCardSku(null)}
+        />
+      )}
     </div>
   );
 }
