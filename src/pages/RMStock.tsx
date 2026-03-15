@@ -245,6 +245,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
             <col style={{ width: '75px' }} />
             <col style={{ width: '95px' }} />
             <col style={{ width: '40px' }} />
+            <col style={{ width: '40px' }} />
           </colgroup>
           <thead className="sticky top-0 z-[5]">
             <tr className={table.headerRow}>
