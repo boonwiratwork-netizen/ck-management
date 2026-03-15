@@ -240,9 +240,10 @@ export default function StoreStockPage({
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
-      const eu = Number(row.expected_usage);
-      if (dc > 0 && eu > 0) {
-        const cd = dc / eu;
+      const rowKey = row.branch_id + '|' + row.sku_id;
+      const avgDU = avgUsageMap.get(rowKey) || 0;
+      if (dc > 0 && avgDU > 0) {
+        const cd = dc / avgDU;
         const sc = sku.storageCondition || 'Ambient';
         if (groups[sc]) groups[sc].push(cd);
       }
@@ -253,7 +254,7 @@ export default function StoreStockPage({
       Frozen: avg(groups.Frozen),
       Ambient: avg(groups.Ambient),
     };
-  }, [filteredRows, skuMap]);
+  }, [filteredRows, skuMap, avgUsageMap]);
 
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === 'all';
