@@ -1,28 +1,26 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useLanguage } from '@/hooks/use-language';
-import { useSortableTable } from '@/hooks/use-sortable-table';
-import { SortableHeader } from '@/components/SortableHeader';
-import { useAuth } from '@/hooks/use-auth';
-import { useBranchReceiptData, BranchReceipt } from '@/hooks/use-branch-receipt-data';
-import { SKU } from '@/types/sku';
-import { Price } from '@/types/price';
-import { Branch } from '@/types/branch';
-import { Supplier } from '@/types/supplier';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Save, Plus, Trash2, CheckCircle, ChevronsUpDown, Truck, Zap } from 'lucide-react';
-import { SearchableSelect } from '@/components/SearchableSelect';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { getWeekNumber } from '@/types/goods-receipt';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useLanguage } from "@/hooks/use-language";
+import { useSortableTable } from "@/hooks/use-sortable-table";
+import { SortableHeader } from "@/components/SortableHeader";
+import { useAuth } from "@/hooks/use-auth";
+import { useBranchReceiptData, BranchReceipt } from "@/hooks/use-branch-receipt-data";
+import { SKU } from "@/types/sku";
+import { Price } from "@/types/price";
+import { Branch } from "@/types/branch";
+import { Supplier } from "@/types/supplier";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { getWeekNumber } from "@/types/goods-receipt";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Menu {
   id: string;
@@ -101,52 +99,57 @@ interface CKLineEdit {
 }
 
 function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEdit {
-  return prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: '' };
+  return prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
 }
 
-const CK_SUPPLIER_ID = '__central_kitchen__';
+const CK_SUPPLIER_ID = "__central_kitchen__";
 
-export default function BranchReceiptPage({ skus, prices, branches, suppliers = [], menus = [], menuBomLines = [] }: Props) {
+export default function BranchReceiptPage({
+  skus,
+  prices,
+  branches,
+  suppliers = [],
+  menus = [],
+  menuBomLines = [],
+}: Props) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
   const { receipts, saveReceipts, deleteReceipt, fetchReceipts } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
-  const [branchId, setBranchId] = useState<string>(
-    isStoreManager && profile?.branch_id ? profile.branch_id : ''
-  );
-  const [supplierId, setSupplierId] = useState<string>('');
+  const [branchId, setBranchId] = useState<string>(isStoreManager && profile?.branch_id ? profile.branch_id : "");
+  const [supplierId, setSupplierId] = useState<string>("");
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingSupplierId, setPendingSupplierId] = useState<string>('');
-  const [supplierSearch, setSupplierSearch] = useState('');
+  const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
+  const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
 
   // TO integration state
   const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
-  const [selectedTOId, setSelectedTOId] = useState<string>('');
+  const [selectedTOId, setSelectedTOId] = useState<string>("");
   const [ckLines, setCkLines] = useState<CKLineEdit[]>([]);
 
   // History filters
   const [historyDateFrom, setHistoryDateFrom] = useState<Date | undefined>(undefined);
   const [historyDateTo, setHistoryDateTo] = useState<Date | undefined>(undefined);
-  const [historyBranch, setHistoryBranch] = useState<string>('all');
+  const [historyBranch, setHistoryBranch] = useState<string>("all");
 
-  const dateStr = format(receiptDate, 'yyyy-MM-dd');
+  const dateStr = format(receiptDate, "yyyy-MM-dd");
   const weekNum = getWeekNumber(dateStr);
 
-  const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM' && s.status === 'Active'), [skus]);
-  const skuMap = useMemo(() => Object.fromEntries(skus.map(s => [s.id, s])), [skus]);
-  const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s])), [suppliers]);
-  const branchMap = useMemo(() => Object.fromEntries(branches.map(b => [b.id, b])), [branches]);
+  const rmSkus = useMemo(() => skus.filter((s) => s.type === "RM" && s.status === "Active"), [skus]);
+  const skuMap = useMemo(() => Object.fromEntries(skus.map((s) => [s.id, s])), [skus]);
+  const supplierMap = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
+  const branchMap = useMemo(() => Object.fromEntries(branches.map((b) => [b.id, b])), [branches]);
 
-  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
+  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
   const availableBranches = useMemo(() => {
     if (isManagement) return activeBranches;
-    if (isStoreManager && profile?.branch_id) return activeBranches.filter(b => b.id === profile.branch_id);
+    if (isStoreManager && profile?.branch_id) return activeBranches.filter((b) => b.id === profile.branch_id);
     return activeBranches;
   }, [isManagement, isStoreManager, profile, activeBranches]);
 
@@ -156,13 +159,21 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
 
   // Fetch pending TOs for this branch
   const fetchPendingTOs = useCallback(async () => {
-    if (!branchId) { setPendingTOs([]); return; }
+    if (!branchId) {
+      setPendingTOs([]);
+      return;
+    }
     const { data, error } = await supabase
-      .from('transfer_orders')
-      .select('id, to_number, delivery_date, branch_id, transfer_order_lines(id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes)')
-      .eq('branch_id', branchId)
-      .eq('status', 'Sent');
-    if (error) { setPendingTOs([]); return; }
+      .from("transfer_orders")
+      .select(
+        "id, to_number, delivery_date, branch_id, transfer_order_lines(id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes)",
+      )
+      .eq("branch_id", branchId)
+      .eq("status", "Sent");
+    if (error) {
+      setPendingTOs([]);
+      return;
+    }
     const tos: PendingTO[] = (data || []).map((to: any) => ({
       id: to.id,
       toNumber: to.to_number,
@@ -177,56 +188,66 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         uom: l.uom,
         unitCost: Number(l.unit_cost),
         lineValue: Number(l.line_value),
-        notes: l.notes || '',
+        notes: l.notes || "",
       })),
     }));
     setPendingTOs(tos);
   }, [branchId]);
 
-  useEffect(() => { fetchPendingTOs(); }, [fetchPendingTOs]);
+  useEffect(() => {
+    fetchPendingTOs();
+  }, [fetchPendingTOs]);
 
   const pendingTOCount = pendingTOs.length;
 
   // When TO selected, populate CK lines
   useEffect(() => {
-    if (!selectedTOId) { setCkLines([]); return; }
-    const to = pendingTOs.find(t => t.id === selectedTOId);
-    if (!to) { setCkLines([]); return; }
-    setCkLines(to.lines.map(l => ({
-      toLineId: l.id,
-      skuId: l.skuId,
-      plannedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
-      receivedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
-      uom: l.uom,
-      unitCost: l.unitCost,
-      note: '',
-    })));
+    if (!selectedTOId) {
+      setCkLines([]);
+      return;
+    }
+    const to = pendingTOs.find((t) => t.id === selectedTOId);
+    if (!to) {
+      setCkLines([]);
+      return;
+    }
+    setCkLines(
+      to.lines.map((l) => ({
+        toLineId: l.id,
+        skuId: l.skuId,
+        plannedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
+        receivedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
+        uom: l.uom,
+        unitCost: l.unitCost,
+        note: "",
+      })),
+    );
   }, [selectedTOId, pendingTOs]);
 
   // Get RM SKU IDs relevant to the selected branch's brand
   const brandRmSkuIds = useMemo(() => {
     if (!branchId || !selectedBranch) return new Set<string>();
     const brandName = selectedBranch.brandName;
-    const brandMenus = menus.filter(m => m.brandName === brandName && m.status === 'Active');
-    const menuIds = new Set(brandMenus.map(m => m.id));
-    return new Set(menuBomLines.filter(l => menuIds.has(l.menuId)).map(l => l.skuId));
+    const brandMenus = menus.filter((m) => m.brandName === brandName && m.status === "Active");
+    const menuIds = new Set(brandMenus.map((m) => m.id));
+    return new Set(menuBomLines.filter((l) => menuIds.has(l.menuId)).map((l) => l.skuId));
   }, [branchId, selectedBranch, menus, menuBomLines]);
 
   // Brand supplier IDs — suppliers with active prices for brand's RM SKUs
   const brandSupplierIds = useMemo(() => {
     const ids = new Set<string>();
-    prices.filter(p => p.isActive && brandRmSkuIds.has(p.skuId)).forEach(p => ids.add(p.supplierId));
+    prices.filter((p) => p.isActive && brandRmSkuIds.has(p.skuId)).forEach((p) => ids.add(p.supplierId));
     return ids;
   }, [prices, brandRmSkuIds]);
 
   // Grouped suppliers for searchable dropdown
   const groupedSuppliers = useMemo(() => {
-    const active = suppliers.filter(s => s.status === 'Active');
+    const active = suppliers.filter((s) => s.status === "Active");
     if (!branchId) {
       return { brand: active.sort((a, b) => a.name.localeCompare(b.name)), other: [] as Supplier[] };
     }
-    const brandGroup = active.filter(s => brandSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
-    const otherGroup = active.filter(s => !brandSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const brandGroup = active.filter((s) => brandSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const otherGroup = active.filter((s) => !brandSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
     return { brand: brandGroup, other: otherGroup };
   }, [suppliers, branchId, brandSupplierIds]);
 
@@ -235,8 +256,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
     const q = supplierSearch.toLowerCase();
     if (!q) return groupedSuppliers;
     return {
-      brand: groupedSuppliers.brand.filter(s => s.name.toLowerCase().includes(q)),
-      other: groupedSuppliers.other.filter(s => s.name.toLowerCase().includes(q)),
+      brand: groupedSuppliers.brand.filter((s) => s.name.toLowerCase().includes(q)),
+      other: groupedSuppliers.other.filter((s) => s.name.toLowerCase().includes(q)),
     };
   }, [groupedSuppliers, supplierSearch]);
 
@@ -247,109 +268,130 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         setSupplierDropdownOpen(false);
       }
     };
-    if (supplierDropdownOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    if (supplierDropdownOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [supplierDropdownOpen]);
 
   // Pre-loaded SKUs for external supplier
   const preloadedRows = useMemo(() => {
     if (!branchId || !supplierId || !selectedBranch || isCKSupplier) return [];
-    const activePrices = prices.filter(p => p.supplierId === supplierId && p.isActive && brandRmSkuIds.has(p.skuId));
+    const activePrices = prices.filter((p) => p.supplierId === supplierId && p.isActive && brandRmSkuIds.has(p.skuId));
     return activePrices
-      .map(p => {
+      .map((p) => {
         const sku = skuMap[p.skuId];
-        if (!sku || sku.type !== 'RM') return null;
+        if (!sku || sku.type !== "RM") return null;
         return { priceId: p.id, skuId: p.skuId, sku, stdUnitPrice: p.pricePerUsageUom };
       })
       .filter(Boolean)
-      .sort((a, b) => a!.sku.skuId.localeCompare(b!.sku.skuId)) as { priceId: string; skuId: string; sku: SKU; stdUnitPrice: number }[];
+      .sort((a, b) => a!.sku.skuId.localeCompare(b!.sku.skuId)) as {
+      priceId: string;
+      skuId: string;
+      sku: SKU;
+      stdUnitPrice: number;
+    }[];
   }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap, isCKSupplier]);
 
   const hasAnyQty = useMemo(() => {
-    if (isCKSupplier) return ckLines.some(l => l.receivedQty > 0);
-    return Object.values(rowEdits).some(e => e.qty > 0) || adHocRows.some(r => r.qty > 0);
+    if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
+    return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
   }, [rowEdits, adHocRows, isCKSupplier, ckLines]);
 
-  const handleSupplierChange = useCallback((newId: string) => {
-    if (newId === supplierId) return;
-    if (hasAnyQty) {
-      setPendingSupplierId(newId);
-      setConfirmOpen(true);
-    } else {
-      setSupplierId(newId);
-      setRowEdits({});
-      setAdHocRows([]);
-      setSavedCount(null);
-      setSelectedTOId('');
-      setCkLines([]);
-    }
-    setSupplierDropdownOpen(false);
-    setSupplierSearch('');
-  }, [supplierId, hasAnyQty]);
+  const handleSupplierChange = useCallback(
+    (newId: string) => {
+      if (newId === supplierId) return;
+      if (hasAnyQty) {
+        setPendingSupplierId(newId);
+        setConfirmOpen(true);
+      } else {
+        setSupplierId(newId);
+        setRowEdits({});
+        setAdHocRows([]);
+        setSavedCount(null);
+        setSelectedTOId("");
+        setCkLines([]);
+      }
+      setSupplierDropdownOpen(false);
+      setSupplierSearch("");
+    },
+    [supplierId, hasAnyQty],
+  );
 
   const confirmSupplierChange = useCallback(() => {
     setSupplierId(pendingSupplierId);
     setRowEdits({});
     setAdHocRows([]);
     setSavedCount(null);
-    setSelectedTOId('');
+    setSelectedTOId("");
     setCkLines([]);
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
   const handleBranchChange = useCallback((newId: string) => {
     setBranchId(newId);
-    setSupplierId('');
+    setSupplierId("");
     setRowEdits({});
     setAdHocRows([]);
     setSavedCount(null);
-    setSelectedTOId('');
+    setSelectedTOId("");
     setCkLines([]);
   }, []);
 
-  const getRowEdit = (skuId: string): RowEdit => rowEdits[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: '' };
+  const getRowEdit = (skuId: string): RowEdit =>
+    rowEdits[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
 
   const updateRowEdit = useCallback((skuId: string, updates: Partial<RowEdit>) => {
-    setRowEdits(prev => ({
+    setRowEdits((prev) => ({
       ...prev,
       [skuId]: { ...getRowEditFromPrev(prev, skuId), ...updates },
     }));
   }, []);
 
-  const getStdUnitPrice = useCallback((skuId: string): number => {
-    const active = prices.find(p => p.skuId === skuId && p.isActive);
-    return active?.pricePerUsageUom ?? 0;
-  }, [prices]);
+  const getStdUnitPrice = useCallback(
+    (skuId: string): number => {
+      const active = prices.find((p) => p.skuId === skuId && p.isActive);
+      return active?.pricePerUsageUom ?? 0;
+    },
+    [prices],
+  );
 
   const updateCkLine = useCallback((toLineId: string, updates: Partial<CKLineEdit>) => {
-    setCkLines(prev => prev.map(l => l.toLineId === toLineId ? { ...l, ...updates } : l));
+    setCkLines((prev) => prev.map((l) => (l.toLineId === toLineId ? { ...l, ...updates } : l)));
   }, []);
 
   // Save all — handles both external and CK receipts
   const handleSaveAll = useCallback(async () => {
-    if (!branchId) { toast.error('Please select a branch'); return; }
+    if (!branchId) {
+      toast.error("Please select a branch");
+      return;
+    }
 
     if (isCKSupplier) {
       // CK receipt from TO
-      if (!selectedTOId) { toast.error('Please select a Transfer Order'); return; }
-      const linesToSave = ckLines.filter(l => l.receivedQty > 0);
-      if (linesToSave.length === 0) { toast.error('No items with quantity to save'); return; }
+      if (!selectedTOId) {
+        toast.error("Please select a Transfer Order");
+        return;
+      }
+      const linesToSave = ckLines.filter((l) => l.receivedQty > 0);
+      if (linesToSave.length === 0) {
+        toast.error("No items with quantity to save");
+        return;
+      }
 
-      const rows: Omit<BranchReceipt, 'id' | 'createdAt'>[] = linesToSave.map(l => {
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = linesToSave.map((l) => {
         const sku = skuMap[l.skuId];
         const stdTotal = l.receivedQty * l.unitCost;
         return {
           branchId,
           receiptDate: dateStr,
           skuId: l.skuId,
-          supplierName: 'Central Kitchen',
+          supplierName: "Central Kitchen",
           qtyReceived: l.receivedQty,
-          uom: sku?.usageUom || l.uom || 'น.',
-          actualUnitPrice: l.unitCost,
-          actualTotal: l.receivedQty * l.unitCost,
+          uom: sku?.usageUom || l.uom || "น.",
+          actualUnitPrice: 0,
+          actualTotal: 0,
           stdUnitPrice: l.unitCost,
           stdTotal,
-          priceVariance: 0,
+          priceVariance: 0 - stdTotal,
           notes: l.note,
           transferOrderId: selectedTOId,
         };
@@ -358,11 +400,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       const count = await saveReceipts(rows);
       if (count) {
         // Update TO status based on received vs planned
-        const selectedTO = pendingTOs.find(t => t.id === selectedTOId);
+        const selectedTO = pendingTOs.find((t) => t.id === selectedTOId);
         let allReceived = true;
         let anyPartial = false;
-        for (const toLine of (selectedTO?.lines || [])) {
-          const ckLine = ckLines.find(l => l.toLineId === toLine.id);
+        for (const toLine of selectedTO?.lines || []) {
+          const ckLine = ckLines.find((l) => l.toLineId === toLine.id);
           const received = ckLine?.receivedQty || 0;
           const planned = toLine.plannedQty;
           if (received < planned) {
@@ -371,19 +413,23 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           }
         }
 
-        const newStatus = allReceived ? 'Received' : anyPartial ? 'Partially Received' : 'Received';
-        await supabase.from('transfer_orders').update({ status: newStatus }).eq('id', selectedTOId);
+        const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
+        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
 
         // Update TR status if linked
         if (selectedTO) {
-          const { data: toData } = await supabase.from('transfer_orders').select('tr_id').eq('id', selectedTOId).single();
+          const { data: toData } = await supabase
+            .from("transfer_orders")
+            .select("tr_id")
+            .eq("id", selectedTOId)
+            .single();
           if (toData?.tr_id) {
-            await supabase.from('transfer_requests').update({ status: 'Fulfilled' }).eq('id', toData.tr_id);
+            await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
           }
         }
 
         setSavedCount(count);
-        setSelectedTOId('');
+        setSelectedTOId("");
         setCkLines([]);
         await fetchPendingTOs();
         setTimeout(() => setSavedCount(null), 4000);
@@ -397,18 +443,33 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       const edit = rowEdits[row.skuId];
       if (edit && edit.qty > 0) {
         const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : row.stdUnitPrice * edit.qty;
-        rowsToSave.push({ skuId: row.skuId, qty: edit.qty, actualTotal, note: edit.note, stdUnitPrice: row.stdUnitPrice });
+        rowsToSave.push({
+          skuId: row.skuId,
+          qty: edit.qty,
+          actualTotal,
+          note: edit.note,
+          stdUnitPrice: row.stdUnitPrice,
+        });
       }
     }
     for (const r of adHocRows) {
       if (r.skuId && r.qty > 0) {
         const stdUnit = getStdUnitPrice(r.skuId);
-        rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
+        rowsToSave.push({
+          skuId: r.skuId,
+          qty: r.qty,
+          actualTotal: r.actualTotal,
+          note: r.note,
+          stdUnitPrice: stdUnit,
+        });
       }
     }
-    if (rowsToSave.length === 0) { toast.error('No rows with quantity to save'); return; }
+    if (rowsToSave.length === 0) {
+      toast.error("No rows with quantity to save");
+      return;
+    }
 
-    const rows: Omit<BranchReceipt, 'id' | 'createdAt'>[] = rowsToSave.map(r => {
+    const rows: Omit<BranchReceipt, "id" | "createdAt">[] = rowsToSave.map((r) => {
       const sku = skuMap[r.skuId];
       const actualUnitPrice = r.qty > 0 ? r.actualTotal / r.qty : 0;
       const stdTotal = r.qty * r.stdUnitPrice;
@@ -417,9 +478,9 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         branchId,
         receiptDate: dateStr,
         skuId: r.skuId,
-        supplierName: selectedSupplier?.name || '',
+        supplierName: selectedSupplier?.name || "",
         qtyReceived: r.qty,
-        uom: sku?.purchaseUom || '',
+        uom: sku?.purchaseUom || "",
         actualUnitPrice,
         actualTotal: r.actualTotal,
         stdUnitPrice: r.stdUnitPrice,
@@ -437,28 +498,43 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       setAdHocRows([]);
       setTimeout(() => setSavedCount(null), 4000);
     }
-  }, [branchId, isCKSupplier, selectedTOId, ckLines, preloadedRows, rowEdits, adHocRows, dateStr, skuMap, selectedSupplier, getStdUnitPrice, saveReceipts, pendingTOs, fetchPendingTOs]);
+  }, [
+    branchId,
+    isCKSupplier,
+    selectedTOId,
+    ckLines,
+    preloadedRows,
+    rowEdits,
+    adHocRows,
+    dateStr,
+    skuMap,
+    selectedSupplier,
+    getStdUnitPrice,
+    saveReceipts,
+    pendingTOs,
+    fetchPendingTOs,
+  ]);
 
   // Ad-hoc
   const handleAddAdHoc = useCallback(() => {
-    setAdHocRows(prev => [...prev, { tempId: crypto.randomUUID(), skuId: '', qty: 0, actualTotal: 0, note: '' }]);
+    setAdHocRows((prev) => [...prev, { tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
   }, []);
 
   const updateAdHoc = useCallback((tempId: string, updates: Partial<AdHocRow>) => {
-    setAdHocRows(prev => prev.map(r => r.tempId === tempId ? { ...r, ...updates } : r));
+    setAdHocRows((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, ...updates } : r)));
   }, []);
 
   const deleteAdHoc = useCallback((tempId: string) => {
-    setAdHocRows(prev => prev.filter(r => r.tempId !== tempId));
+    setAdHocRows((prev) => prev.filter((r) => r.tempId !== tempId));
   }, []);
 
   // History
   const filteredHistory = useMemo(() => {
-    return receipts.filter(r => {
-      if (historyBranch !== 'all' && r.branchId !== historyBranch) return false;
+    return receipts.filter((r) => {
+      if (historyBranch !== "all" && r.branchId !== historyBranch) return false;
       if (isStoreManager && profile?.branch_id && r.branchId !== profile.branch_id) return false;
-      if (historyDateFrom && r.receiptDate < format(historyDateFrom, 'yyyy-MM-dd')) return false;
-      if (historyDateTo && r.receiptDate > format(historyDateTo, 'yyyy-MM-dd')) return false;
+      if (historyDateFrom && r.receiptDate < format(historyDateFrom, "yyyy-MM-dd")) return false;
+      if (historyDateTo && r.receiptDate > format(historyDateTo, "yyyy-MM-dd")) return false;
       return true;
     });
   }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
@@ -466,35 +542,56 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   // TO number lookup for history
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
   useEffect(() => {
-    const toIds = [...new Set(receipts.filter(r => r.transferOrderId).map(r => r.transferOrderId!))];
-    if (toIds.length === 0) { setToNumberMap({}); return; }
-    supabase.from('transfer_orders').select('id, to_number').in('id', toIds).then(({ data }) => {
-      const m: Record<string, string> = {};
-      (data || []).forEach(to => { m[to.id] = to.to_number; });
-      setToNumberMap(m);
-    });
+    const toIds = [...new Set(receipts.filter((r) => r.transferOrderId).map((r) => r.transferOrderId!))];
+    if (toIds.length === 0) {
+      setToNumberMap({});
+      return;
+    }
+    supabase
+      .from("transfer_orders")
+      .select("id, to_number")
+      .in("id", toIds)
+      .then(({ data }) => {
+        const m: Record<string, string> = {};
+        (data || []).forEach((to) => {
+          m[to.id] = to.to_number;
+        });
+        setToNumberMap(m);
+      });
   }, [receipts]);
 
-  const historyComparators = useMemo(() => ({
-    date: (a: BranchReceipt, b: BranchReceipt) => a.receiptDate.localeCompare(b.receiptDate),
-    sku: (a: BranchReceipt, b: BranchReceipt) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
-    supplier: (a: BranchReceipt, b: BranchReceipt) => a.supplierName.localeCompare(b.supplierName),
-    qty: (a: BranchReceipt, b: BranchReceipt) => a.qtyReceived - b.qtyReceived,
-    actualTotal: (a: BranchReceipt, b: BranchReceipt) => a.actualTotal - b.actualTotal,
-    variance: (a: BranchReceipt, b: BranchReceipt) => a.priceVariance - b.priceVariance,
-  }), [skuMap]);
+  const historyComparators = useMemo(
+    () => ({
+      date: (a: BranchReceipt, b: BranchReceipt) => a.receiptDate.localeCompare(b.receiptDate),
+      sku: (a: BranchReceipt, b: BranchReceipt) =>
+        (skuMap[a.skuId]?.skuId || "").localeCompare(skuMap[b.skuId]?.skuId || ""),
+      supplier: (a: BranchReceipt, b: BranchReceipt) => a.supplierName.localeCompare(b.supplierName),
+      qty: (a: BranchReceipt, b: BranchReceipt) => a.qtyReceived - b.qtyReceived,
+      actualTotal: (a: BranchReceipt, b: BranchReceipt) => a.actualTotal - b.actualTotal,
+      variance: (a: BranchReceipt, b: BranchReceipt) => a.priceVariance - b.priceVariance,
+    }),
+    [skuMap],
+  );
 
-  const { sorted: sortedHistory, sortKey: hSortKey, sortDir: hSortDir, handleSort: hHandleSort } = useSortableTable(filteredHistory, historyComparators);
-  const displayHistory = hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  const {
+    sorted: sortedHistory,
+    sortKey: hSortKey,
+    sortDir: hSortDir,
+    handleSort: hHandleSort,
+  } = useSortableTable(filteredHistory, historyComparators);
+  const displayHistory = hSortKey
+    ? sortedHistory
+    : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
   const totalVariance = totalActual - totalStd;
 
-  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-  const tdReadOnly = 'px-3 py-2 text-sm';
+  const thClass =
+    "text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap";
+  const tdReadOnly = "px-3 py-2 text-sm";
 
   const savableCount = useMemo(() => {
-    if (isCKSupplier) return ckLines.filter(l => l.receivedQty > 0).length;
+    if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
     let c = 0;
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
@@ -526,13 +623,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
   const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
 
   // Does CK search match?
-  const ckMatchesSearch = 'central kitchen'.includes(supplierSearch.toLowerCase());
+  const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold">{t('title.branchReceipt')}</h2>
+          <h2 className="text-2xl font-heading font-bold">{t("title.branchReceipt")}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Record external purchases received at the branch</p>
         </div>
         {(bothSelected || showCKSheet) && <SaveButton />}
@@ -552,7 +649,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       <div className="flex flex-wrap items-end gap-3">
         <DatePicker
           value={receiptDate}
-          onChange={d => d && setReceiptDate(d)}
+          onChange={(d) => d && setReceiptDate(d)}
           defaultToday
           label="Date"
           required
@@ -561,11 +658,21 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
         />
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
-          <Select value={branchId || '_none'} onValueChange={v => handleBranchChange(v === '_none' ? '' : v)} disabled={isStoreManager}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select branch" /></SelectTrigger>
+          <Select
+            value={branchId || "_none"}
+            onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
+            disabled={isStoreManager}
+          >
+            <SelectTrigger className="w-[200px] h-10">
+              <SelectValue placeholder="Select branch" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">— Select branch —</SelectItem>
-              {availableBranches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+              {availableBranches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.branchName}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -576,8 +683,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               type="button"
               onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
               className={cn(
-                'flex items-center justify-between w-[240px] h-10 px-3 py-2 text-sm border border-input rounded-md bg-background hover:bg-accent/50 transition-colors',
-                !supplierId && 'text-muted-foreground'
+                "flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors",
+                !supplierId && "text-muted-foreground",
               )}
             >
               <span className="truncate flex items-center gap-1.5">
@@ -586,9 +693,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                     Central Kitchen
                   </>
-                ) : selectedSupplier?.name || '— Select supplier —'}
+                ) : (
+                  selectedSupplier?.name || "— Select supplier —"
+                )}
               </span>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
             </button>
             {supplierDropdownOpen && (
               <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
@@ -596,7 +705,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   <input
                     type="text"
                     value={supplierSearch}
-                    onChange={e => setSupplierSearch(e.target.value)}
+                    onChange={(e) => setSupplierSearch(e.target.value)}
                     placeholder="Search supplier..."
                     className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
                     autoFocus
@@ -610,8 +719,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         type="button"
                         onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
                         className={cn(
-                          'w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between',
-                          supplierId === CK_SUPPLIER_ID && 'bg-accent font-medium'
+                          "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                          supplierId === CK_SUPPLIER_ID && "bg-accent font-medium",
                         )}
                       >
                         <span className="flex items-center gap-1.5">
@@ -629,15 +738,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <>
                       {filteredGroupedSuppliers.brand.length > 0 && (
                         <>
-                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Brand Suppliers</div>
-                          {filteredGroupedSuppliers.brand.map(s => (
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Brand Suppliers
+                          </div>
+                          {filteredGroupedSuppliers.brand.map((s) => (
                             <button
                               key={s.id}
                               type="button"
                               onClick={() => handleSupplierChange(s.id)}
                               className={cn(
-                                'w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors',
-                                s.id === supplierId && 'bg-accent font-medium'
+                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                                s.id === supplierId && "bg-accent font-medium",
                               )}
                             >
                               {s.name}
@@ -647,15 +758,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       )}
                       {filteredGroupedSuppliers.other.length > 0 && (
                         <>
-                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Other Suppliers</div>
-                          {filteredGroupedSuppliers.other.map(s => (
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Other Suppliers
+                          </div>
+                          {filteredGroupedSuppliers.other.map((s) => (
                             <button
                               key={s.id}
                               type="button"
                               onClick={() => handleSupplierChange(s.id)}
                               className={cn(
-                                'w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors',
-                                s.id === supplierId && 'bg-accent font-medium'
+                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                                s.id === supplierId && "bg-accent font-medium",
                               )}
                             >
                               {s.name}
@@ -665,23 +778,25 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                       )}
                     </>
                   ) : (
-                    filteredGroupedSuppliers.brand.map(s => (
+                    filteredGroupedSuppliers.brand.map((s) => (
                       <button
                         key={s.id}
                         type="button"
                         onClick={() => handleSupplierChange(s.id)}
                         className={cn(
-                          'w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors',
-                          s.id === supplierId && 'bg-accent font-medium'
+                          "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                          s.id === supplierId && "bg-accent font-medium",
                         )}
                       >
                         {s.name}
                       </button>
                     ))
                   )}
-                  {filteredGroupedSuppliers.brand.length === 0 && filteredGroupedSuppliers.other.length === 0 && pendingTOCount === 0 && (
-                    <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
-                  )}
+                  {filteredGroupedSuppliers.brand.length === 0 &&
+                    filteredGroupedSuppliers.other.length === 0 &&
+                    pendingTOCount === 0 && (
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
+                    )}
                 </div>
               </div>
             )}
@@ -693,12 +808,16 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       {isCKSupplier && branchId && (
         <div className="flex items-end gap-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Transfer Order</label>
-            <Select value={selectedTOId || '_none'} onValueChange={v => setSelectedTOId(v === '_none' ? '' : v)}>
-              <SelectTrigger className="w-[320px]"><SelectValue placeholder="— Select TO —" /></SelectTrigger>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+              Transfer Order
+            </label>
+            <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
+              <SelectTrigger className="w-[320px]">
+                <SelectValue placeholder="— Select TO —" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Select TO —</SelectItem>
-                {pendingTOs.map(to => (
+                {pendingTOs.map((to) => (
                   <SelectItem key={to.id} value={to.id}>
                     {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
                   </SelectItem>
@@ -712,14 +831,17 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
       {/* Row count info */}
       {bothSelected && !isCKSupplier && selectedBranch && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{preloadedRows.length}</span> items for <span className="font-semibold text-foreground">{selectedBranch.branchName}</span> from <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
+          <span className="font-semibold text-foreground">{preloadedRows.length}</span> items for{" "}
+          <span className="font-semibold text-foreground">{selectedBranch.branchName}</span> from{" "}
+          <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
         </p>
       )}
 
       {/* Keyboard hints */}
       {(showExternalSheet || showCKSheet) && (
         <div className="kbd-hint">
-          <kbd>Tab</kbd> — move to next item's QTY · Click — edit price or note · <kbd>Enter</kbd> — save row · <kbd>Esc</kbd> — cancel
+          <kbd>Tab</kbd> — move to next item's QTY · Click — edit price or note · <kbd>Enter</kbd> — save row ·{" "}
+          <kbd>Esc</kbd> — cancel
         </div>
       )}
 
@@ -729,7 +851,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           <div className="px-4 py-3 border-b bg-primary/5">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Truck className="w-4 h-4 text-primary" />
-              Receiving from Central Kitchen — {pendingTOs.find(t => t.id === selectedTOId)?.toNumber}
+              Receiving from Central Kitchen — {pendingTOs.find((t) => t.id === selectedTOId)?.toNumber}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">Adjust quantities if short-received</p>
           </div>
@@ -758,7 +880,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                 </tr>
               </thead>
               <tbody>
-                {ckLines.map(line => {
+                {ckLines.map((line) => {
                   const sku = skuMap[line.skuId];
                   const lineValue = line.receivedQty * line.unitCost;
                   const hasQty = line.receivedQty > 0;
@@ -767,18 +889,24 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <tr
                       key={line.toLineId}
                       className={cn(
-                        'border-b last:border-0 transition-colors',
-                        hasQty ? 'bg-success/5 border-l-[3px] border-l-success' : 'opacity-40'
+                        "border-b last:border-0 transition-colors",
+                        hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
                       )}
                     >
-                      <td className={`${tdReadOnly} font-mono text-xs`}>{sku?.skuId || '—'}</td>
+                      <td className={`${tdReadOnly} font-mono text-xs`}>{sku?.skuId || "—"}</td>
                       <td className={tdReadOnly}>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="block truncate" title={sku?.name}>{sku?.name || '—'}</span>
+                              <span className="block truncate" title={sku?.name}>
+                                {sku?.name || "—"}
+                              </span>
                             </TooltipTrigger>
-                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                            {sku?.name && (
+                              <TooltipContent side="top">
+                                <p>{sku.name}</p>
+                              </TooltipContent>
+                            )}
                           </Tooltip>
                         </TooltipProvider>
                       </td>
@@ -790,23 +918,31 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           type="number"
                           min={0}
                           step="any"
-                          defaultValue={line.receivedQty || ''}
+                          defaultValue={line.receivedQty || ""}
                           key={`ck-qty-${line.toLineId}-${savedCount}`}
-                          onBlur={e => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
-                          onFocus={e => e.target.select()}
+                          onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
+                          onFocus={(e) => e.target.select()}
                           className={cn(
                             "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? (isShort ? "border-warning font-bold text-warning" : "border-success font-bold text-success") : "border-primary/30"
+                            hasQty
+                              ? isShort
+                                ? "border-warning font-bold text-warning"
+                                : "border-success font-bold text-success"
+                              : "border-primary/30",
                           )}
                           placeholder="0"
                         />
                       </td>
-                      <td className={`${tdReadOnly} text-center text-muted-foreground text-xs`}>{sku?.usageUom || line.uom}</td>
+                      <td className={`${tdReadOnly} text-center text-muted-foreground text-xs`}>
+                        {sku?.usageUom || line.uom}
+                      </td>
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {line.unitCost > 0 ? line.unitCost.toFixed(4) : '—'}
+                        {line.unitCost > 0 ? line.unitCost.toFixed(4) : "—"}
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono`}>
-                        {lineValue > 0 ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                        {lineValue > 0
+                          ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : "—"}
                       </td>
                       <td className="px-1 py-1">
                         <input
@@ -814,7 +950,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           defaultValue={line.note}
                           key={`ck-note-${line.toLineId}-${savedCount}`}
                           tabIndex={-1}
-                          onBlur={e => updateCkLine(line.toLineId, { note: e.target.value })}
+                          onBlur={(e) => updateCkLine(line.toLineId, { note: e.target.value })}
                           className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
                           placeholder="Note"
                         />
@@ -825,9 +961,14 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </tbody>
               <tfoot>
                 <tr className="border-t bg-muted/30">
-                  <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>Total Value:</td>
+                  <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>
+                    Total Value:
+                  </td>
                   <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
-                    ฿{ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ฿
+                    {ckLines
+                      .reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                      .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td />
                 </tr>
@@ -870,7 +1011,9 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         <TooltipTrigger asChild>
                           <span className="cursor-help border-b border-dashed border-muted-foreground">Actual ฿</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top"><p>Verify actual price paid</p></TooltipContent>
+                        <TooltipContent side="top">
+                          <p>Verify actual price paid</p>
+                        </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </th>
@@ -895,10 +1038,8 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <tr
                       key={row.skuId}
                       className={cn(
-                        'border-b last:border-0 transition-colors',
-                        hasQty
-                          ? 'bg-success/5 border-l-[3px] border-l-success'
-                          : 'opacity-40'
+                        "border-b last:border-0 transition-colors",
+                        hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
                       )}
                     >
                       <td className={`${tdReadOnly} text-muted-foreground`}>{dateStr}</td>
@@ -908,11 +1049,24 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate">
-                                <span className={cn("font-mono text-xs", hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>{row.sku.skuId}</span>
-                                <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>{row.sku.name}</span>
+                                <span
+                                  className={cn(
+                                    "font-mono text-xs",
+                                    hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground",
+                                  )}
+                                >
+                                  {row.sku.skuId}
+                                </span>
+                                <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>
+                                  {row.sku.name}
+                                </span>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="top"><p className="font-medium">{row.sku.skuId} — {row.sku.name}</p></TooltipContent>
+                            <TooltipContent side="top">
+                              <p className="font-medium">
+                                {row.sku.skuId} — {row.sku.name}
+                              </p>
+                            </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </td>
@@ -922,19 +1076,21 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           type="number"
                           min={0}
                           step="any"
-                          defaultValue={edit.qty || ''}
+                          defaultValue={edit.qty || ""}
                           key={`qty-${row.skuId}-${savedCount}`}
-                          onBlur={e => {
+                          onBlur={(e) => {
                             const val = Number(e.target.value) || 0;
                             updateRowEdit(row.skuId, {
                               qty: val,
-                              ...(!rowEdits[row.skuId]?.actualManuallyEdited ? { actualTotal: row.stdUnitPrice * val } : {}),
+                              ...(!rowEdits[row.skuId]?.actualManuallyEdited
+                                ? { actualTotal: row.stdUnitPrice * val }
+                                : {}),
                             });
                           }}
-                          onFocus={e => e.target.select()}
+                          onFocus={(e) => e.target.select()}
                           className={cn(
                             "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? "border-success font-bold text-success" : "border-primary/30"
+                            hasQty ? "border-success font-bold text-success" : "border-primary/30",
                           )}
                           placeholder="0"
                         />
@@ -946,44 +1102,55 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                             type="number"
                             min={0}
                             step="any"
-                            defaultValue={actualTotal || ''}
-                            key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? 'manual' : 'auto'}-${savedCount}`}
+                            defaultValue={actualTotal || ""}
+                            key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
                             tabIndex={-1}
-                            onBlur={e => {
+                            onBlur={(e) => {
                               const val = Number(e.target.value) || 0;
                               updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
                             }}
-                            onFocus={e => e.target.select()}
+                            onFocus={(e) => e.target.select()}
                             className={cn(
                               "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
                               hasQty && !actualMatchesStd
                                 ? "bg-warning/10 border-warning/40 focus:border-warning"
-                                : "bg-warning/5 border-warning/20 focus:border-primary"
+                                : "bg-warning/5 border-warning/20 focus:border-primary",
                             )}
                             placeholder="0.00"
                           />
                           {hasQty && actualMatchesStd && (
-                            <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">= STD</span>
+                            <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                              = STD
+                            </span>
                           )}
                         </div>
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {unitPrice > 0 ? unitPrice.toFixed(2) : '—'}
+                        {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : '—'}
+                        {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {stdTotal > 0 ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                        {stdTotal > 0
+                          ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : "—"}
                       </td>
-                      <td className={cn(
-                        `${tdReadOnly} text-right font-mono`,
-                        hasQty && variance !== 0 ? 'font-bold' : 'font-semibold',
-                        variance < 0 ? 'text-success' : variance > 0 ? 'text-destructive' : 'text-muted-foreground'
-                      )}>
+                      <td
+                        className={cn(
+                          `${tdReadOnly} text-right font-mono`,
+                          hasQty && variance !== 0 ? "font-bold" : "font-semibold",
+                          variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
+                        )}
+                      >
                         {hasQty ? (
-                          <>{variance > 0 ? '+' : ''}{variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
-                        ) : '—'}
+                          <>
+                            {variance > 0 ? "+" : ""}
+                            {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-1 py-1">
                         <input
@@ -991,7 +1158,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                           defaultValue={edit.note}
                           key={`note-${row.skuId}-${savedCount}`}
                           tabIndex={-1}
-                          onBlur={e => updateRowEdit(row.skuId, { note: e.target.value })}
+                          onBlur={(e) => updateRowEdit(row.skuId, { note: e.target.value })}
                           className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
                           placeholder="Note"
                         />
@@ -1022,7 +1189,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     <col style={{ width: 50 }} />
                   </colgroup>
                   <thead>
-                     <tr className="bg-table-header border-b">
+                    <tr className="bg-table-header border-b">
                       <th className={thClass}>SKU</th>
                       <th className={`${thClass} text-right`}>QTY</th>
                       <th className={`${thClass} text-center`}>UOM</th>
@@ -1032,38 +1199,48 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                     </tr>
                   </thead>
                   <tbody>
-                    {adHocRows.map(row => {
+                    {adHocRows.map((row) => {
                       const sku = skuMap[row.skuId];
                       return (
                         <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
                           <td className="px-1 py-1">
                             <SearchableSelect
                               value={row.skuId}
-                              onValueChange={v => updateAdHoc(row.tempId, { skuId: v })}
-                              options={rmSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                              onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                              options={rmSkus.map((s) => ({
+                                value: s.id,
+                                label: `${s.skuId} — ${s.name}`,
+                                sublabel: s.skuId,
+                              }))}
                               placeholder="Select SKU"
                               triggerClassName="h-8 text-xs truncate"
                             />
                           </td>
                           <td className="px-1 py-1">
                             <input
-                              type="number" min={0} step="any"
-                              defaultValue={row.qty || ''}
+                              type="number"
+                              min={0}
+                              step="any"
+                              defaultValue={row.qty || ""}
                               key={`adhoc-qty-${row.tempId}`}
-                              onBlur={e => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
-                              onFocus={e => e.target.select()}
+                              onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                              onFocus={(e) => e.target.select()}
                               className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
                               placeholder="0"
                             />
                           </td>
-                          <td className={`${tdReadOnly} text-center text-muted-foreground`}>{sku?.purchaseUom || '—'}</td>
+                          <td className={`${tdReadOnly} text-center text-muted-foreground`}>
+                            {sku?.purchaseUom || "—"}
+                          </td>
                           <td className="px-1 py-1">
                             <input
-                              type="number" min={0} step="any"
-                              defaultValue={row.actualTotal || ''}
+                              type="number"
+                              min={0}
+                              step="any"
+                              defaultValue={row.actualTotal || ""}
                               key={`adhoc-actual-${row.tempId}`}
-                              onBlur={e => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
-                              onFocus={e => e.target.select()}
+                              onBlur={(e) => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
+                              onFocus={(e) => e.target.select()}
                               className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
                               placeholder="0.00"
                             />
@@ -1073,13 +1250,18 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                               type="text"
                               defaultValue={row.note}
                               key={`adhoc-note-${row.tempId}`}
-                              onBlur={e => updateAdHoc(row.tempId, { note: e.target.value })}
+                              onBlur={(e) => updateAdHoc(row.tempId, { note: e.target.value })}
                               className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
                               placeholder="Note"
                             />
                           </td>
                           <td className="px-1 py-1 text-center">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteAdHoc(row.tempId)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => deleteAdHoc(row.tempId)}
+                            >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </td>
@@ -1091,7 +1273,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </div>
             </>
           )}
-          <button type="button" onClick={handleAddAdHoc} className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1">
+          <button
+            type="button"
+            onClick={handleAddAdHoc}
+            className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+          >
             <Plus className="w-3.5 h-3.5" /> + Add Row
           </button>
         </div>
@@ -1128,10 +1314,16 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>
               <Select value={historyBranch} onValueChange={setHistoryBranch}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
-                  {activeBranches.map(b => <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>)}
+                  {activeBranches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.branchName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1157,48 +1349,94 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('date')}>
-                    <SortableHeader label="Date" sortKey="date" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
+                    <SortableHeader
+                      label="Date"
+                      sortKey="date"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                    />
                   </th>
-                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('sku')}>
-                    <SortableHeader label="SKU" sortKey="sku" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("sku")}>
+                    <SortableHeader
+                      label="SKU"
+                      sortKey="sku"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                    />
                   </th>
                   <th className={thClass}>SKU Name</th>
-                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort('supplier')}>
-                    <SortableHeader label="Supplier" sortKey="supplier" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} />
+                  <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("supplier")}>
+                    <SortableHeader
+                      label="Supplier"
+                      sortKey="supplier"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                    />
                   </th>
                   <th className={thClass}>TO Ref</th>
-                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort('qty')}>
-                    <SortableHeader label="Qty" sortKey="qty" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("qty")}>
+                    <SortableHeader
+                      label="Qty"
+                      sortKey="qty"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                      className="justify-end"
+                    />
                   </th>
                   <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort('actualTotal')}>
-                    <SortableHeader label="Actual ฿" sortKey="actualTotal" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
+                    <SortableHeader
+                      label="Actual ฿"
+                      sortKey="actualTotal"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                      className="justify-end"
+                    />
                   </th>
                   <th className={`${thClass} text-right`}>Std ฿</th>
-                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort('variance')}>
-                    <SortableHeader label="Variance" sortKey="variance" activeSortKey={hSortKey} sortDir={hSortDir} onSort={hHandleSort} className="justify-end" />
+                  <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
+                    <SortableHeader
+                      label="Variance"
+                      sortKey="variance"
+                      activeSortKey={hSortKey}
+                      sortDir={hSortDir}
+                      onSort={hHandleSort}
+                      className="justify-end"
+                    />
                   </th>
                   {isManagement && <th className={thClass}>Branch</th>}
                   {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
               <tbody>
-                {displayHistory.map(r => {
+                {displayHistory.map((r) => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   const isCK = !!r.transferOrderId;
                   const toNum = r.transferOrderId ? toNumberMap[r.transferOrderId] : null;
                   return (
-                    <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
+                    <tr
+                      key={r.id}
+                      className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors"
+                    >
                       <td className={tdReadOnly}>{r.receiptDate}</td>
                       <td className={`${tdReadOnly} font-mono truncate`}>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="block truncate">{sku?.skuId || '—'}</span>
+                              <span className="block truncate">{sku?.skuId || "—"}</span>
                             </TooltipTrigger>
-                            {sku?.skuId && <TooltipContent side="top"><p>{sku.skuId}</p></TooltipContent>}
+                            {sku?.skuId && (
+                              <TooltipContent side="top">
+                                <p>{sku.skuId}</p>
+                              </TooltipContent>
+                            )}
                           </Tooltip>
                         </TooltipProvider>
                       </td>
@@ -1206,9 +1444,13 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="block truncate">{sku?.name || '—'}</span>
+                              <span className="block truncate">{sku?.name || "—"}</span>
                             </TooltipTrigger>
-                            {sku?.name && <TooltipContent side="top"><p>{sku.name}</p></TooltipContent>}
+                            {sku?.name && (
+                              <TooltipContent side="top">
+                                <p>{sku.name}</p>
+                              </TooltipContent>
+                            )}
                           </Tooltip>
                         </TooltipProvider>
                       </td>
@@ -1216,24 +1458,48 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                         {isCK ? (
                           <span className="flex items-center gap-1">
                             Central Kitchen
-                            <span className="bg-primary/10 text-primary text-xs rounded px-1 font-medium shrink-0">CK</span>
+                            <span className="bg-primary/10 text-primary text-xs rounded px-1 font-medium shrink-0">
+                              CK
+                            </span>
                           </span>
-                        ) : (r.supplierName || '—')}
+                        ) : (
+                          r.supplierName || "—"
+                        )}
                       </td>
-                      <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>
-                        {toNum || '—'}
-                      </td>
+                      <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>{toNum || "—"}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
                       <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
-                      <td className={`${tdReadOnly} text-right font-mono`}>฿{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className={`${tdReadOnly} text-right font-mono`}>฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className={`${tdReadOnly} text-right font-mono font-semibold ${r.priceVariance > 0 ? 'text-destructive' : 'text-success'}`}>
-                        {r.priceVariance > 0 ? '+' : ''}฿{r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <td className={`${tdReadOnly} text-right font-mono`}>
+                        ฿
+                        {r.actualTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </td>
-                      {isManagement && <td className={tdReadOnly}>{branch?.branchName || '—'}</td>}
+                      <td className={`${tdReadOnly} text-right font-mono`}>
+                        ฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td
+                        className={`${tdReadOnly} text-right font-mono font-semibold ${r.priceVariance > 0 ? "text-destructive" : "text-success"}`}
+                      >
+                        {r.priceVariance > 0 ? "+" : ""}฿
+                        {r.priceVariance.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      {isManagement && <td className={tdReadOnly}>{branch?.branchName || "—"}</td>}
                       {isManagement && (
                         <td className={`${tdReadOnly} text-center`}>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { deleteReceipt(r.id); toast.success('Deleted'); }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => {
+                              deleteReceipt(r.id);
+                              toast.success("Deleted");
+                            }}
+                          >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </td>
@@ -1242,7 +1508,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   );
                 })}
                 {filteredHistory.length === 0 && (
-                  <tr><td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">No receipts found</td></tr>
+                  <tr>
+                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                      No receipts found
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -1253,16 +1523,23 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Actual Spend</p>
-              <p className="text-2xl font-heading font-bold mt-1">฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-heading font-bold mt-1">
+                ฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Std Spend</p>
-              <p className="text-2xl font-heading font-bold mt-1">฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-heading font-bold mt-1">
+                ฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Variance</p>
-              <p className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? 'text-destructive' : 'text-success'}`}>
-                {totalVariance > 0 ? '+' : ''}฿{totalVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <p
+                className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? "text-destructive" : "text-success"}`}
+              >
+                {totalVariance > 0 ? "+" : ""}฿
+                {totalVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
