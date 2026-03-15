@@ -1,25 +1,35 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useLanguage } from '@/hooks/use-language';
-import { toLocalDateStr } from '@/lib/utils';
-import { useDailyStockCount, DailyStockCountRow } from '@/hooks/use-daily-stock-count';
-import { useAuth } from '@/hooks/use-auth';
-import { SKU } from '@/types/sku';
-import { MenuBomLine } from '@/types/menu-bom';
-import { ModifierRule } from '@/types/modifier-rule';
-import { SpBomLine } from '@/types/sp-bom';
-import { Menu } from '@/types/menu';
-import { Branch } from '@/types/branch';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { SkeletonTable } from '@/components/SkeletonTable';
-import { EmptyState } from '@/components/EmptyState';
-import { ClipboardCheck, Loader2, Lock, Unlock, CheckCircle2, ChevronDown, ChevronUp, PartyPopper, ClipboardList } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useLanguage } from "@/hooks/use-language";
+import { toLocalDateStr } from "@/lib/utils";
+import { useDailyStockCount, DailyStockCountRow } from "@/hooks/use-daily-stock-count";
+import { useAuth } from "@/hooks/use-auth";
+import { SKU } from "@/types/sku";
+import { MenuBomLine } from "@/types/menu-bom";
+import { ModifierRule } from "@/types/modifier-rule";
+import { SpBomLine } from "@/types/sp-bom";
+import { Menu } from "@/types/menu";
+import { Branch } from "@/types/branch";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/SkeletonTable";
+import { EmptyState } from "@/components/EmptyState";
+import {
+  ClipboardCheck,
+  Loader2,
+  Lock,
+  Unlock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  PartyPopper,
+  ClipboardList,
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface DailyStockCountPageProps {
   skus: SKU[];
@@ -30,13 +40,18 @@ interface DailyStockCountPageProps {
   branches: Branch[];
 }
 
-type SortKey = 'skuCode' | 'skuName' | 'type';
-type SortDir = 'asc' | 'desc';
+type SortKey = "skuCode" | "skuName" | "type";
+type SortDir = "asc" | "desc";
 
 const TYPE_ORDER: Record<string, number> = { SM: 0, RM: 1, PK: 2 };
 
 export default function DailyStockCountPage({
-  skus, menuBomLines, modifierRules, spBomLines, menus, branches,
+  skus,
+  menuBomLines,
+  modifierRules,
+  spBomLines,
+  menus,
+  branches,
 }: DailyStockCountPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
@@ -44,37 +59,43 @@ export default function DailyStockCountPage({
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isStoreManager && profile?.branch_id ? profile.branch_id : ''
+    isStoreManager && profile?.branch_id ? profile.branch_id : "",
   );
   const [showUnused, setShowUnused] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   // Sort state — default: TYPE column, SM→RM→PK
-  const [sortKey, setSortKey] = useState<SortKey>('type');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [sortKey, setSortKey] = useState<SortKey>("type");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const handleSort = useCallback((key: SortKey) => {
-    setSortKey(prev => {
+    setSortKey((prev) => {
       if (prev === key) {
-        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
         return key;
       }
-      setSortDir('asc');
+      setSortDir("asc");
       return key;
     });
   }, []);
 
   const {
-    rows, loading, generating,
-    loadSheet, generateSheet, updatePhysicalCount, updateWaste,
-    submitSheet, unlockSheet,
+    rows,
+    loading,
+    generating,
+    loadSheet,
+    generateSheet,
+    updatePhysicalCount,
+    updateWaste,
+    submitSheet,
+    unlockSheet,
   } = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
 
   const availableBranches = useMemo(() => {
-    if (isManagement) return branches.filter(b => b.status === 'Active');
-    if (isStoreManager && profile?.branch_id) return branches.filter(b => b.id === profile.branch_id);
-    return branches.filter(b => b.status === 'Active');
+    if (isManagement) return branches.filter((b) => b.status === "Active");
+    if (isStoreManager && profile?.branch_id) return branches.filter((b) => b.id === profile.branch_id);
+    return branches.filter((b) => b.status === "Active");
   }, [branches, isManagement, isStoreManager, profile]);
 
   useEffect(() => {
@@ -85,18 +106,20 @@ export default function DailyStockCountPage({
 
   const skuMap = useMemo(() => {
     const m = new Map<string, SKU>();
-    skus.forEach(s => m.set(s.id, s));
+    skus.forEach((s) => m.set(s.id, s));
     return m;
   }, [skus]);
 
   // Get converter for a SKU (only when purchase != usage UOM)
-  const getConverter = useCallback((skuId: string): number => {
-    const sku = skuMap.get(skuId);
-    if (!sku) return 1;
-    if (sku.purchaseUom === sku.usageUom) return 1;
-    return sku.converter || 1;
-  }, [skuMap]);
-
+  const getConverter = useCallback(
+    (skuId: string): number => {
+      const sku = skuMap.get(skuId);
+      if (!sku) return 1;
+      if (sku.purchaseUom === sku.usageUom) return 1;
+      return sku.converter || 1;
+    },
+    [skuMap],
+  );
 
   const isSubmitted = rows.length > 0 && rows[0]?.isSubmitted;
 
@@ -117,40 +140,43 @@ export default function DailyStockCountPage({
 
   // Variance color based on percentage thresholds
   const getVarianceClass = (variance: number, physicalCount: number | null, calculatedBalance: number) => {
-    if (physicalCount === null) return 'var-neutral';
-    if (variance === 0) return 'var-neutral';
+    if (physicalCount === null) return "var-neutral";
+    if (variance === 0) return "var-neutral";
     const pct = calculatedBalance !== 0 ? (variance / calculatedBalance) * 100 : 0;
     if (variance < 0) {
-      if (Math.abs(pct) >= 10) return 'var-great';
-      return 'var-good';
+      if (Math.abs(pct) >= 10) return "var-great";
+      return "var-good";
     } else {
-      if (pct >= 10) return 'var-major-loss';
-      return 'var-minor-loss';
+      if (pct >= 10) return "var-major-loss";
+      return "var-minor-loss";
     }
   };
 
   // Comparator helper
-  const compareRows = useCallback((a: DailyStockCountRow, b: DailyStockCountRow): number => {
-    const skuA = skuMap.get(a.skuId);
-    const skuB = skuMap.get(b.skuId);
-    if (!skuA || !skuB) return 0;
+  const compareRows = useCallback(
+    (a: DailyStockCountRow, b: DailyStockCountRow): number => {
+      const skuA = skuMap.get(a.skuId);
+      const skuB = skuMap.get(b.skuId);
+      if (!skuA || !skuB) return 0;
 
-    const dir = sortDir === 'asc' ? 1 : -1;
+      const dir = sortDir === "asc" ? 1 : -1;
 
-    if (sortKey === 'type') {
-      const ta = TYPE_ORDER[skuA.type] ?? 9;
-      const tb = TYPE_ORDER[skuB.type] ?? 9;
-      if (ta !== tb) return (ta - tb) * dir;
-      return skuA.skuId.localeCompare(skuB.skuId);
-    }
-    if (sortKey === 'skuCode') {
-      return skuA.skuId.localeCompare(skuB.skuId) * dir;
-    }
-    if (sortKey === 'skuName') {
-      return skuA.name.localeCompare(skuB.name) * dir;
-    }
-    return 0;
-  }, [skuMap, sortKey, sortDir]);
+      if (sortKey === "type") {
+        const ta = TYPE_ORDER[skuA.type] ?? 9;
+        const tb = TYPE_ORDER[skuB.type] ?? 9;
+        if (ta !== tb) return (ta - tb) * dir;
+        return skuA.skuId.localeCompare(skuB.skuId);
+      }
+      if (sortKey === "skuCode") {
+        return skuA.skuId.localeCompare(skuB.skuId) * dir;
+      }
+      if (sortKey === "skuName") {
+        return skuA.name.localeCompare(skuB.name) * dir;
+      }
+      return 0;
+    },
+    [skuMap, sortKey, sortDir],
+  );
 
   // Sort and separate active vs unused rows
   const { activeRows, unusedRows } = useMemo(() => {
@@ -159,9 +185,13 @@ export default function DailyStockCountPage({
     const active: typeof sorted = [];
     const unused: typeof sorted = [];
 
-    sorted.forEach(row => {
-      const isUnused = row.openingBalance === 0 && row.receivedFromCk === 0 && 
-        row.receivedExternal === 0 && row.expectedUsage === 0 && row.physicalCount === null;
+    sorted.forEach((row) => {
+      const isUnused =
+        row.openingBalance === 0 &&
+        row.receivedFromCk === 0 &&
+        row.receivedExternal === 0 &&
+        row.expectedUsage === 0 &&
+        row.physicalCount === null;
       if (isUnused) unused.push(row);
       else active.push(row);
     });
@@ -169,11 +199,11 @@ export default function DailyStockCountPage({
     return { activeRows: active, unusedRows: unused };
   }, [rows, compareRows]);
 
-  const hasAnyPhysicalCount = rows.some(r => r.physicalCount !== null);
+  const hasAnyPhysicalCount = rows.some((r) => r.physicalCount !== null);
 
   // Auto-advance to next row's physical count on Enter
   const handlePhysicalCountKeyDown = (e: React.KeyboardEvent, rowId: string, index: number) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
+    if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       const nextRow = activeRows[index + 1];
       if (nextRow) {
@@ -188,15 +218,15 @@ export default function DailyStockCountPage({
     else physicalCountRefs.current.delete(id);
   };
 
-  const thClass = 'px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+  const thClass = "px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap";
 
   // Sortable header helper
-  const renderSortableHeader = (key: SortKey, label: string, extraClass = '') => {
+  const renderSortableHeader = (key: SortKey, label: string, extraClass = "") => {
     const isActive = sortKey === key;
-    const Icon = isActive ? (sortDir === 'asc' ? ChevronUp : ChevronDown) : null;
+    const Icon = isActive ? (sortDir === "asc" ? ChevronUp : ChevronDown) : null;
     return (
       <span
-        className={`inline-flex items-center cursor-pointer select-none ${isActive ? 'text-foreground' : 'text-muted-foreground'} ${extraClass}`}
+        className={`inline-flex items-center cursor-pointer select-none ${isActive ? "text-foreground" : "text-muted-foreground"} ${extraClass}`}
         onClick={() => handleSort(key)}
       >
         {label}
@@ -210,7 +240,7 @@ export default function DailyStockCountPage({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t('title.dailyStockCount')}</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           Generate and manage daily stock count sheets for each branch
         </p>
@@ -221,8 +251,8 @@ export default function DailyStockCountPage({
         <CardContent className="p-4">
           <div className="flex flex-wrap items-end gap-4">
             <DatePicker
-              value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
-              onChange={d => setSelectedDate(d ? toLocalDateStr(d) : today)}
+              value={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+              onChange={(d) => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
               label="Date"
               required
@@ -236,21 +266,24 @@ export default function DailyStockCountPage({
                   <SelectValue placeholder="Select branch" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableBranches.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+                  {availableBranches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.branchName}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              onClick={handleGenerate}
-              disabled={!selectedBranch || generating}
-            >
+            <Button onClick={handleGenerate} disabled={!selectedBranch || generating}>
               {generating ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> {t('btn.generate')}...</>
-            ) : (
-              <><ClipboardCheck className="w-4 h-4" /> {t('btn.generateCountSheet')}</>
-            )}
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> {t("btn.generate")}...
+                </>
+              ) : (
+                <>
+                  <ClipboardCheck className="w-4 h-4" /> {t("btn.generateCountSheet")}
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -261,14 +294,14 @@ export default function DailyStockCountPage({
         <div className="flex items-center justify-between bg-success/5 border border-success/20 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="w-5 h-5" />
-            <span className="font-medium">{t('status.submitted')}</span>
+            <span className="font-medium">{t("status.submitted")}</span>
             <span className="text-sm opacity-80">
-              — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ''}
+              — {rows[0]?.submittedAt ? new Date(rows[0].submittedAt).toLocaleString() : ""}
             </span>
           </div>
           {isManagement && (
             <Button variant="outline" size="sm" onClick={handleUnlock}>
-              <Unlock className="w-4 h-4" /> {t('btn.unlock')}
+              <Unlock className="w-4 h-4" /> {t("btn.unlock")}
             </Button>
           )}
         </div>
@@ -311,36 +344,36 @@ export default function DailyStockCountPage({
                   </colgroup>
                   <thead className="sticky-thead">
                     <tr className="bg-table-header border-b">
-                      <th className={thClass}>{renderSortableHeader('skuCode', t('col.skuCode'))}</th>
-                      <th className={thClass}>{renderSortableHeader('skuName', t('col.skuName'))}</th>
-                      <th className={thClass}>{renderSortableHeader('type', t('col.type'))}</th>
+                      <th className={thClass}>{renderSortableHeader("skuCode", t("col.skuCode"))}</th>
+                      <th className={thClass}>{renderSortableHeader("skuName", t("col.skuName"))}</th>
+                      <th className={thClass}>{renderSortableHeader("type", t("col.type"))}</th>
                       <th className={thClass}>UNIT</th>
                       <th className={`text-right ${thClass}`}>
-                        <div>{t('col.opening')}</div>
+                        <div>{t("col.opening")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>EXT. RECV</div>
-                        <div className="text-xs font-normal text-muted-foreground">RM, auto-converted</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t('col.expUsage')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t('col.waste')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t('col.calcBalance')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t('col.physical')}</div>
+                        <div>RECEIVED</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>{t('col.variance')}</div>
+                        <div>{t("col.expUsage")}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t("col.waste")}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t("col.calcBalance")}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t("col.physical")}</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                      </th>
+                      <th className={`text-right ${thClass}`}>
+                        <div>{t("col.variance")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                     </tr>
@@ -352,23 +385,37 @@ export default function DailyStockCountPage({
                       const varClass = getVarianceClass(row.variance, row.physicalCount, row.calculatedBalance);
 
                       return (
-                        <tr key={row.id} className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
+                        <tr
+                          key={row.id}
+                          className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
+                        >
                           <td className="font-mono text-xs px-2 py-1">{sku.skuId}</td>
-                          <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>{sku.name}</td>
+                          <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>
+                            {sku.name}
+                          </td>
                           <td className="px-2 py-1">
-                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                              sku.type === 'RM' ? 'badge-rm' : sku.type === 'SM' ? 'badge-sm' : sku.type === 'SP' ? 'badge-sp' : 'badge-pk'
-                            }`}>
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                                sku.type === "RM"
+                                  ? "badge-rm"
+                                  : sku.type === "SM"
+                                    ? "badge-sm"
+                                    : sku.type === "SP"
+                                      ? "badge-sp"
+                                      : "badge-pk"
+                              }`}
+                            >
                               {sku.type}
                             </span>
                           </td>
                           <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">
-                            {row.receivedExternal > 0
-                              ? fmt0(row.receivedExternal * getConverter(row.skuId))
-                              : <span className="text-muted-foreground">—</span>
-                            }
+                            {row.receivedExternal > 0 ? (
+                              fmt0(row.receivedExternal * getConverter(row.skuId))
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
                           <td className="px-1.5 py-1 text-right">
@@ -379,9 +426,9 @@ export default function DailyStockCountPage({
                                 type="number"
                                 min={0}
                                 step="any"
-                                defaultValue={row.waste || ''}
+                                defaultValue={row.waste || ""}
                                 key={`waste-${row.id}-${row.waste}`}
-                                onBlur={e => {
+                                onBlur={(e) => {
                                   const val = Number(e.target.value) || 0;
                                   if (val !== row.waste) updateWaste(row.id, val);
                                 }}
@@ -390,11 +437,13 @@ export default function DailyStockCountPage({
                               />
                             )}
                           </td>
-                          <td className="text-right font-mono text-sm font-medium px-2 py-1">{fmt0(row.calculatedBalance)}</td>
+                          <td className="text-right font-mono text-sm font-medium px-2 py-1">
+                            {fmt0(row.calculatedBalance)}
+                          </td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
                               <span className="text-sm font-mono">
-                                {row.physicalCount !== null ? fmt0(row.physicalCount) : '—'}
+                                {row.physicalCount !== null ? fmt0(row.physicalCount) : "—"}
                               </span>
                             ) : (
                               <Input
@@ -402,20 +451,20 @@ export default function DailyStockCountPage({
                                 type="number"
                                 min={0}
                                 step="any"
-                                defaultValue={row.physicalCount !== null ? row.physicalCount : ''}
+                                defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
                                 key={`phys-${row.id}-${row.physicalCount}`}
-                                onBlur={e => {
-                                  const val = e.target.value === '' ? null : Number(e.target.value);
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
                                   if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
                                 }}
-                                onKeyDown={e => handlePhysicalCountKeyDown(e, row.id, idx)}
+                                onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
                                 className="h-8 text-xs text-right w-[80px] font-mono"
                                 placeholder="—"
                               />
                             )}
                           </td>
                           <td className={`text-right font-mono text-sm font-medium px-2 py-1 ${varClass}`}>
-                            {row.physicalCount !== null ? fmt0(row.variance) : '—'}
+                            {row.physicalCount !== null ? fmt0(row.variance) : "—"}
                           </td>
                         </tr>
                       );
@@ -434,7 +483,7 @@ export default function DailyStockCountPage({
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {showUnused ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showUnused ? 'Hide' : 'Show'} unused SKUs ({unusedRows.length})
+              {showUnused ? "Hide" : "Show"} unused SKUs ({unusedRows.length})
             </button>
           )}
 
@@ -452,28 +501,35 @@ export default function DailyStockCountPage({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {unusedRows.map(row => {
+                      {unusedRows.map((row) => {
                         const sku = skuMap.get(row.skuId);
                         if (!sku) return null;
-                        
+
                         return (
-                          <TableRow key={row.id} className="border-b border-table-border text-muted-foreground hover:bg-table-hover transition-colors">
+                          <TableRow
+                            key={row.id}
+                            className="border-b border-table-border text-muted-foreground hover:bg-table-hover transition-colors"
+                          >
                             <TableCell className="px-2 py-1 font-mono text-xs">{sku.skuId}</TableCell>
                             <TableCell className="px-2 py-1 text-sm">{sku.name}</TableCell>
                             <TableCell className="px-2 py-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                sku.type === 'RM' ? 'badge-rm' : 'badge-sm'
-                              }`}>{sku.type}</span>
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  sku.type === "RM" ? "badge-rm" : "badge-sm"
+                                }`}
+                              >
+                                {sku.type}
+                              </span>
                             </TableCell>
                             <TableCell className="text-right w-28 px-2 py-1">
                               {!isSubmitted && (
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  defaultValue={row.physicalCount !== null ? row.physicalCount : ''}
+                                  defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
                                   key={`phys-unused-${row.id}-${row.physicalCount}`}
-                                  onBlur={e => {
-                                    const val = e.target.value === '' ? null : Number(e.target.value);
+                                  onBlur={(e) => {
+                                    const val = e.target.value === "" ? null : Number(e.target.value);
                                     if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
                                   }}
                                   className="h-8 w-24 text-sm"
@@ -502,8 +558,8 @@ export default function DailyStockCountPage({
       {/* Submit button */}
       {rows.length > 0 && !isSubmitted && (
         <div className="flex justify-end">
-           <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
-            <Lock className="w-4 h-4" /> {t('btn.submitCount')}
+          <Button onClick={handleSubmit} disabled={!hasAnyPhysicalCount} className="gap-2">
+            <Lock className="w-4 h-4" /> {t("btn.submitCount")}
           </Button>
         </div>
       )}
