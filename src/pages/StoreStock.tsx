@@ -341,7 +341,6 @@ export default function StoreStockPage({
                 <th className={table.headerCellNumeric}>Cover Day</th>
                 <th className={table.headerCellNumeric}>Avg/Week</th>
                 <th className={table.headerCell} />
-                <th className={table.headerCell} />
               </tr>
             </thead>
             <tbody>
