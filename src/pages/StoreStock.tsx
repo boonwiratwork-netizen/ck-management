@@ -69,6 +69,7 @@ export default function StoreStockPage({
     skuType: "RM" | "SM";
     sku: SKU;
     currentStock: number;
+    branchId: string;
   } | null>(null);
 
   // Store Manager with no branch
@@ -438,6 +439,7 @@ export default function StoreStockPage({
                             skuType: sku.type as "RM" | "SM",
                             sku,
                             currentStock: dc,
+                            branchId: row.branch_id,
                           })
                         }
                       >
@@ -475,6 +477,8 @@ export default function StoreStockPage({
           currentStock={stockCard.currentStock}
           stockValue={0}
           disableMismatchCheck
+          context="branch"
+          branchId={stockCard.branchId}
           onClose={() => setStockCard(null)}
         />
       )}
