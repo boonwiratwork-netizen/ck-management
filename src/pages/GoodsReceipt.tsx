@@ -909,8 +909,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           </td>
                           <td className={`${tdReadOnly} text-right font-mono`}>
                             {r.standardPrice.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
                             })}
                           </td>
                           <td
