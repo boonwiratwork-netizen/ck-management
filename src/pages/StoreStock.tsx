@@ -95,7 +95,17 @@ export default function StoreStockPage({
       query = query.eq("branch_id", selectedBranch);
     }
 
-    const { data } = await query;
+    const [{ data }, { data: pricesData }] = await Promise.all([
+      query,
+      supabase.from("prices").select("sku_id, price_per_usage_uom").eq("is_active", true),
+    ]);
+
+    // Build price lookup
+    const pm: Record<string, number> = {};
+    (pricesData || []).forEach((p: any) => {
+      pm[p.sku_id] = Number(p.price_per_usage_uom);
+    });
+    setPriceMap(pm);
 
     // Dedup: keep most recent per branch+sku
     const latestByKey = new Map<string, CountRow>();
