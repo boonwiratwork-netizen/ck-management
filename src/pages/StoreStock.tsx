@@ -235,6 +235,14 @@ export default function StoreStockPage({
 
   return (
     <div className="space-y-4">
+      {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Store Stock</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Branch-level stock balances from daily count sheets
+        </p>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
