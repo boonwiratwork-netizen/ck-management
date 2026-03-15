@@ -919,7 +919,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             }`}
                           >
                             {r.priceVariance > 0 ? "+" : ""}
-                            {r.priceVariance.toFixed(2)}
+                            {r.priceVariance.toFixed(0)}
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate`}>{r.note}</td>
                           <td className={`${tdReadOnly} text-center`}>
