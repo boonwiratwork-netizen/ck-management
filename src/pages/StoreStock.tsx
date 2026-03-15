@@ -100,8 +100,42 @@ export default function StoreStockPage({
     });
 
     setRows(Array.from(latestByKey.values()));
+
+    // Fetch 7-day usage history for avg daily usage
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    let usageQuery = supabase
+      .from('daily_stock_counts')
+      .select('branch_id, sku_id, expected_usage')
+      .eq('is_submitted', true)
+      .gte('count_date', sevenDaysAgoStr);
+
+    if (isStoreManager && profile?.branch_id) {
+      usageQuery = usageQuery.eq('branch_id', profile.branch_id);
+    } else if (selectedBranch !== 'all') {
+      usageQuery = usageQuery.eq('branch_id', selectedBranch);
+    }
+
+    const { data: usageData } = await usageQuery;
+
+    const usageGroups = new Map<string, number[]>();
+    (usageData || []).forEach((r: any) => {
+      const key = r.branch_id + '|' + r.sku_id;
+      const arr = usageGroups.get(key) || [];
+      arr.push(Number(r.expected_usage));
+      usageGroups.set(key, arr);
+    });
+
+    const newAvgMap = new Map<string, number>();
+    usageGroups.forEach((values, key) => {
+      const avg = values.reduce((s, v) => s + v, 0) / values.length;
+      newAvgMap.set(key, avg);
+    });
+    setAvgUsageMap(newAvgMap);
+
     setLoading(false);
-  }, [noBranch, isStoreManager, profile?.branch_id, selectedBranch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
