@@ -15,6 +15,7 @@ interface StockCardProps {
   currentStock: number;
   stockValue: number;
   onClose: () => void;
+  disableMismatchCheck?: boolean;
 }
 
 interface Movement {
@@ -97,7 +98,7 @@ const TYPE_BADGE_STYLES: Record<TypeBadgeKey, string> = {
   StockCount: "bg-violet-500/15 text-violet-600",
 };
 
-export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue, onClose }: StockCardProps) {
+export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue, onClose, disableMismatchCheck }: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -405,7 +406,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
                 </tbody>
               </table>
 
-              {hasMismatch && hasMovements && (
+              {hasMismatch && hasMovements && !disableMismatchCheck && (
                 <div className="flex items-center gap-2 mt-3 text-xs text-warning">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>Balance mismatch — some movements may be missing</span>
