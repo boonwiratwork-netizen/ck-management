@@ -400,6 +400,16 @@ export default function StoreStockPage({
                       )}
                     </td>
                     <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
+                    <td className={table.dataCellMono}>
+                      {(() => {
+                        const price = priceMap[row.sku_id] ?? 0;
+                        const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+                        const stockValue = price * count;
+                        return stockValue > 0
+                          ? '฿' + Math.round(stockValue).toLocaleString()
+                          : <span className="text-muted-foreground">—</span>;
+                      })()}
+                    </td>
                     <td className={table.dataCell}>{row.count_date}</td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
