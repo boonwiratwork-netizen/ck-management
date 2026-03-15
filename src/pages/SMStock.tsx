@@ -37,6 +37,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [adjustModal, setAdjustModal] = useState<{ skuId: string; skuName: string; usageUom: string; currentStock: number } | null>(null);
+  const [stockCardSku, setStockCardSku] = useState<{ skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number; stockValue: number } | null>(null);
 
   const [smDailyUsage, setSmDailyUsage] = useState<Record<string, number>>({});
 
