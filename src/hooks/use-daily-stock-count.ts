@@ -240,8 +240,24 @@ export function useDailyStockCount({
     setLoading(false);
     if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
     const data = sheetResult.data || [];
+
+    // Fetch previous day's data for self-healing opening balance
+    const prevDate = new Date(date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = toLocalDateStr(prevDate);
+    const { data: prevCounts } = await supabase
+      .from('daily_stock_counts')
+      .select('sku_id, physical_count, calculated_balance')
+      .eq('branch_id', branchId)
+      .eq('count_date', prevDateStr);
+    const prevOpening: Record<string, number> = {};
+    (prevCounts || []).forEach(p => {
+      prevOpening[p.sku_id] = p.physical_count !== null
+        ? Number(p.physical_count)
+        : Number(p.calculated_balance);
+    });
     
-    // Patch rows with live receipt data AND live expected usage from current BOM
+    // Patch rows with live receipt data, live expected usage, AND corrected opening balance
     const patched = data.map(r => {
       const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
       const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
@@ -249,13 +265,15 @@ export function useDailyStockCount({
       const waste = Number(r.waste ?? 0);
       // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
       const extConv = getSkuConverter(r.sku_id);
-      const calcBalance = Number(r.opening_balance) + ck + (ext * extConv) - expUsage - waste;
+      const opening = prevOpening[r.sku_id] ?? Number(r.opening_balance);
+      const calcBalance = opening + ck + (ext * extConv) - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
-      return { ...r, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
+      return { ...r, opening_balance: opening, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
     });
     
     // Update DB in background for any changed rows
     const updates = patched.filter((p, i) => 
+      p.opening_balance !== Number(data[i].opening_balance) ||
       p.received_external !== Number(data[i].received_external) ||
       p.received_from_ck !== Number(data[i].received_from_ck) ||
       p.expected_usage !== Number(data[i].expected_usage)
@@ -263,6 +281,7 @@ export function useDailyStockCount({
     if (updates.length > 0) {
       for (const u of updates) {
         supabase.from('daily_stock_counts').update({
+          opening_balance: u.opening_balance,
           received_external: u.received_external,
           received_from_ck: u.received_from_ck,
           expected_usage: u.expected_usage,
