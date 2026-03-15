@@ -1337,7 +1337,7 @@ export default function BranchReceiptPage({
                 <col style={{ width: 110 }} /> {/* DATE */}
                 <col style={{ width: 90 }} /> {/* SKU ID */}
                 <col /> {/* SKU NAME — auto/flex */}
-                <col style={{ width: 120 }} /> {/* SUPPLIER */}
+                <col style={{ width: 140 }} /> {/* SUPPLIER */}
                 <col style={{ width: 140 }} /> {/* TO REF */}
                 <col style={{ width: 70 }} /> {/* QTY */}
                 <col style={{ width: 70 }} /> {/* UOM */}
