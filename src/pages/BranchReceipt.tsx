@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle, ChevronsUpDown, Truck, Zap } from 'lucide-react';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
