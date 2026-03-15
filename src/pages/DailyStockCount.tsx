@@ -284,7 +284,7 @@ export default function DailyStockCountPage({
 
       {/* Count sheet table */}
       {loading ? (
-        <SkeletonTable columns={12} rows={12} />
+        <SkeletonTable columns={11} rows={12} />
       ) : rows.length > 0 ? (
         <>
           <Card>
@@ -302,7 +302,6 @@ export default function DailyStockCountPage({
                     <col style={{ width: 50 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 80 }} />
-                    <col style={{ width: 80 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 80 }} />
@@ -319,10 +318,6 @@ export default function DailyStockCountPage({
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.opening')}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>FROM CK</div>
-                        <div className="text-xs font-normal text-muted-foreground">SM via TO</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>EXT. RECV</div>
@@ -369,12 +364,6 @@ export default function DailyStockCountPage({
                           </td>
                           <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">
-                            {row.receivedFromCk > 0
-                              ? fmt0(row.receivedFromCk)
-                              : <span className="text-muted-foreground">—</span>
-                            }
-                          </td>
                           <td className="text-right font-mono text-sm px-2 py-1">
                             {row.receivedExternal > 0
                               ? fmt0(row.receivedExternal * getConverter(row.skuId))

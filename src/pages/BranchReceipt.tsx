@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle, ChevronsUpDown, Truck, Zap } from 'lucide-react';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -345,11 +345,11 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
           supplierName: 'Central Kitchen',
           qtyReceived: l.receivedQty,
           uom: sku?.usageUom || l.uom || 'น.',
-          actualUnitPrice: 0,
-          actualTotal: 0,
+          actualUnitPrice: l.unitCost,
+          actualTotal: l.receivedQty * l.unitCost,
           stdUnitPrice: l.unitCost,
           stdTotal,
-          priceVariance: 0 - stdTotal,
+          priceVariance: 0,
           notes: l.note,
           transferOrderId: selectedTOId,
         };
@@ -576,7 +576,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
               type="button"
               onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
               className={cn(
-                'flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors',
+                'flex items-center justify-between w-[240px] h-10 px-3 py-2 text-sm border border-input rounded-md bg-background hover:bg-accent/50 transition-colors',
                 !supplierId && 'text-muted-foreground'
               )}
             >
@@ -588,7 +588,7 @@ export default function BranchReceiptPage({ skus, prices, branches, suppliers = 
                   </>
                 ) : selectedSupplier?.name || '— Select supplier —'}
               </span>
-              <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </button>
             {supplierDropdownOpen && (
               <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
