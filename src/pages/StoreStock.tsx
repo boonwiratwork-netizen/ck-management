@@ -239,7 +239,7 @@ export default function StoreStockPage({
 
   // No branch assigned
   if (noBranch) {
-    return <EmptyState icon={Package} message="No branch assigned to your account. Contact your manager." />;
+    return <EmptyState icon={Package} title="No branch assigned to your account. Contact your manager." />;
   }
 
   return (
