@@ -15,6 +15,7 @@ interface StockCardProps {
   currentStock: number;
   stockValue: number;
   onClose: () => void;
+  disableMismatchCheck?: boolean;
 }
 
 interface Movement {
