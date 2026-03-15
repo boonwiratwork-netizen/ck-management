@@ -77,7 +77,8 @@ export function useDailyStockCount({
       .from('branch_receipts')
       .select('sku_id, qty_received')
       .eq('branch_id', branchId)
-      .eq('receipt_date', date);
+      .eq('receipt_date', date)
+      .is('transfer_order_id', null);
     
     const extBySku: Record<string, number> = {};
     (brData || []).forEach(r => {
