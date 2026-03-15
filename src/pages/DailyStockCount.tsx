@@ -350,7 +350,7 @@ export default function DailyStockCountPage({
                       <th className={thClass}>UNIT</th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.opening")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>RECEIVED</div>
@@ -358,15 +358,15 @@ export default function DailyStockCountPage({
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.expUsage")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.waste")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.calcBalance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.physical")}</div>
@@ -374,7 +374,7 @@ export default function DailyStockCountPage({
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.variance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                     </tr>
                   </thead>
