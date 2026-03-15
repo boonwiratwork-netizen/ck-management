@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
 import { StatusDot } from "@/components/ui/status-dot";
 import { StockCard } from "@/components/StockCard";
-import { StockAdjustmentModal } from "@/components/StockAdjustmentModal";
+
 import { SearchInput } from "@/components/SearchInput";
 import { SkeletonTable } from "@/components/SkeletonTable";
 import { EmptyState } from "@/components/EmptyState";
