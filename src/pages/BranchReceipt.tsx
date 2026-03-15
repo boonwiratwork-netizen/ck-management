@@ -1311,10 +1311,10 @@ export default function BranchReceiptPage({
             align="start"
           />
           {isManagement && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch</label>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Branch</label>
               <Select value={historyBranch} onValueChange={setHistoryBranch}>
-                <SelectTrigger className="w-[180px] h-10">
+                <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
