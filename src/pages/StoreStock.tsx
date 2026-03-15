@@ -57,13 +57,6 @@ export default function StoreStockPage({
   const [search, setSearch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"All" | "SM" | "RM">("All");
-  const [adjustModal, setAdjustModal] = useState<{
-    skuId: string;
-    skuName: string;
-    usageUom: string;
-    currentStock: number;
-    skuType: string;
-  } | null>(null);
   const [stockCard, setStockCard] = useState<{
     skuId: string;
     skuType: "RM" | "SM";
