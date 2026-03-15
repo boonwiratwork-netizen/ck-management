@@ -393,7 +393,7 @@ export default function StoreStockPage({
               <col style={{ width: "95px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-[5]">
               <tr className={table.headerRow}>
                 <th className={table.headerCell} />
                 <th className={table.headerCell}>SKU ID</th>
