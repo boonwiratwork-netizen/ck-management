@@ -478,6 +478,11 @@ const Index = () => {
                   menus={menuData.menus}
                   branches={isAreaManager ? areaManagerBranches : branchData.branches}
                 />
+              ) : activeTab === 'store-stock' ? (
+                <StoreStockPage
+                  skus={skus}
+                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                />
               ) : activeTab === 'food-cost' ? (
                 <FoodCostPage
                   skus={skus}
