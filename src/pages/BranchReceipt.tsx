@@ -1334,16 +1334,16 @@ export default function BranchReceiptPage({
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 100 }} /> {/* DATE */}
-                <col style={{ width: 80 }} /> {/* SKU ID */}
+                <col style={{ width: 95 }} /> {/* DATE */}
+                <col style={{ width: 90 }} /> {/* SKU ID */}
                 <col /> {/* SKU NAME — auto/flex */}
                 <col style={{ width: 120 }} /> {/* SUPPLIER */}
-                <col style={{ width: 80 }} /> {/* TO REF */}
+                <col style={{ width: 100 }} /> {/* TO REF */}
                 <col style={{ width: 70 }} /> {/* QTY */}
-                <col style={{ width: 60 }} /> {/* UOM */}
+                <col style={{ width: 70 }} /> {/* UOM */}
                 <col style={{ width: 100 }} /> {/* ACTUAL ฿ */}
                 <col style={{ width: 100 }} /> {/* STD ฿ */}
-                <col style={{ width: 90 }} /> {/* VARIANCE */}
+                <col style={{ width: 100 }} /> {/* VARIANCE */}
                 {isManagement && <col style={{ width: 110 }} />} {/* BRANCH */}
                 {isManagement && <col style={{ width: 50 }} />} {/* DELETE */}
               </colgroup>
