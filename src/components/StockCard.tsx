@@ -278,7 +278,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
         if (!open) onClose();
       }}
     >
-      <SheetContent side="right" className="w-[620px] p-0 flex flex-col">
+      <SheetContent side="right" className="w-[800px] p-0 flex flex-col">
         <SheetHeader className="px-5 pt-5 pb-0 space-y-0">
           <SheetTitle className="sr-only">Stock Card</SheetTitle>
           {/* Line 1 */}
