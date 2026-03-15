@@ -385,7 +385,7 @@ export default function StoreStockPage({
                       {sku.name}
                     </td>
                     {showBranchCol && (
-                      <td className={table.truncatedCell} title={branch?.branchName || ""}>
+                      <td className={cn(table.truncatedCell, "text-center")} title={branch?.branchName || ""}>
                         {branch?.branchName || "—"}
                       </td>
                     )}
