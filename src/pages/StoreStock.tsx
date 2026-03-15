@@ -338,8 +338,8 @@ export default function StoreStockPage({
           <EmptyState icon={Package} title="No SKUs match your search." />
         )
       ) : (
-        <div className={table.wrapper}>
-          <table className={table.base}>
+        <div className="rounded-lg border overflow-auto">
+          <table className="w-full table-fixed text-sm">
             <colgroup>
               <col style={{ width: "28px" }} />
               <col style={{ width: "72px" }} />
