@@ -302,7 +302,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                 />
               </th>
               <th
-                className={table.headerCellNumeric}
+                className={cn(table.headerCellNumeric, "font-semibold")}
                 onClick={() => handleSort("currentStock")}
                 style={{ cursor: "pointer" }}
               >
