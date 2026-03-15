@@ -477,6 +477,8 @@ export default function StoreStockPage({
           currentStock={stockCard.currentStock}
           stockValue={0}
           disableMismatchCheck
+          context="branch"
+          branchId={stockCard.branchId}
           onClose={() => setStockCard(null)}
         />
       )}
