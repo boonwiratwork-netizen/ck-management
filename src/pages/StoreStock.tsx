@@ -1,25 +1,25 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { SKU } from '@/types/sku';
-import { Branch } from '@/types/branch';
-import { BOMHeader, BOMLine } from '@/types/bom';
-import { Menu } from '@/types/menu';
-import { MenuBomLine } from '@/types/menu-bom';
-import { SpBomLine } from '@/types/sp-bom';
-import { useAuth } from '@/hooks/use-auth';
-import { supabase } from '@/integrations/supabase/client';
-import { table } from '@/lib/design-tokens';
-import { StatusDot } from '@/components/ui/status-dot';
-import { StockCard } from '@/components/StockCard';
-import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
-import { SearchInput } from '@/components/SearchInput';
-import { SkeletonTable } from '@/components/SkeletonTable';
-import { EmptyState } from '@/components/EmptyState';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { SlidersHorizontal, History, Package } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { SKU } from "@/types/sku";
+import { Branch } from "@/types/branch";
+import { BOMHeader, BOMLine } from "@/types/bom";
+import { Menu } from "@/types/menu";
+import { MenuBomLine } from "@/types/menu-bom";
+import { SpBomLine } from "@/types/sp-bom";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { table } from "@/lib/design-tokens";
+import { StatusDot } from "@/components/ui/status-dot";
+import { StockCard } from "@/components/StockCard";
+import { StockAdjustmentModal } from "@/components/StockAdjustmentModal";
+import { SearchInput } from "@/components/SearchInput";
+import { SkeletonTable } from "@/components/SkeletonTable";
+import { EmptyState } from "@/components/EmptyState";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { SlidersHorizontal, History, Package } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   skus: SKU[];
@@ -43,21 +43,33 @@ interface CountRow {
 }
 
 export default function StoreStockPage({
-  skus, branches, bomHeaders, bomLines, menus, menuBomLines, spBomLines,
+  skus,
+  branches,
+  bomHeaders,
+  bomLines,
+  menus,
+  menuBomLines,
+  spBomLines,
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
   const [rows, setRows] = useState<CountRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<'All' | 'SM' | 'RM'>('All');
+  const [search, setSearch] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"All" | "SM" | "RM">("All");
   const [adjustModal, setAdjustModal] = useState<{
-    skuId: string; skuName: string; usageUom: string; currentStock: number; skuType: string;
+    skuId: string;
+    skuName: string;
+    usageUom: string;
+    currentStock: number;
+    skuType: string;
   } | null>(null);
   const [stockCard, setStockCard] = useState<{
-    skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number;
+    skuId: string;
+    skuType: "RM" | "SM";
+    sku: SKU;
+    currentStock: number;
   } | null>(null);
-  const [avgUsageMap, setAvgUsageMap] = useState<Map<string, number>>(new Map());
 
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
@@ -71,20 +83,23 @@ export default function StoreStockPage({
 
   // Fetch data
   const fetchData = useCallback(async () => {
-    if (noBranch) { setLoading(false); return; }
+    if (noBranch) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     let query = supabase
-      .from('daily_stock_counts')
-      .select('id, branch_id, sku_id, count_date, physical_count, calculated_balance, expected_usage, is_submitted')
-      .eq('is_submitted', true)
-      .order('count_date', { ascending: false })
+      .from("daily_stock_counts")
+      .select("id, branch_id, sku_id, count_date, physical_count, calculated_balance, expected_usage, is_submitted")
+      .eq("is_submitted", true)
+      .order("count_date", { ascending: false })
       .limit(5000);
 
     if (isStoreManager && profile?.branch_id) {
-      query = query.eq('branch_id', profile.branch_id);
-    } else if (selectedBranch !== 'all') {
-      query = query.eq('branch_id', selectedBranch);
+      query = query.eq("branch_id", profile.branch_id);
+    } else if (selectedBranch !== "all") {
+      query = query.eq("branch_id", selectedBranch);
     }
 
     const { data } = await query;
@@ -92,7 +107,7 @@ export default function StoreStockPage({
     // Dedup: keep most recent per branch+sku
     const latestByKey = new Map<string, CountRow>();
     (data || []).forEach((row: any) => {
-      const key = row.branch_id + '|' + row.sku_id;
+      const key = row.branch_id + "|" + row.sku_id;
       const existing = latestByKey.get(key);
       if (!existing || row.count_date > existing.count_date) {
         latestByKey.set(key, row as CountRow);
@@ -100,62 +115,28 @@ export default function StoreStockPage({
     });
 
     setRows(Array.from(latestByKey.values()));
-
-    // Fetch 7-day usage history for avg daily usage
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
-
-    let usageQuery = supabase
-      .from('daily_stock_counts')
-      .select('branch_id, sku_id, expected_usage')
-      .eq('is_submitted', true)
-      .gte('count_date', sevenDaysAgoStr);
-
-    if (isStoreManager && profile?.branch_id) {
-      usageQuery = usageQuery.eq('branch_id', profile.branch_id);
-    } else if (selectedBranch !== 'all') {
-      usageQuery = usageQuery.eq('branch_id', selectedBranch);
-    }
-
-    const { data: usageData } = await usageQuery;
-
-    const usageGroups = new Map<string, number[]>();
-    (usageData || []).forEach((r: any) => {
-      const key = r.branch_id + '|' + r.sku_id;
-      const arr = usageGroups.get(key) || [];
-      arr.push(Number(r.expected_usage));
-      usageGroups.set(key, arr);
-    });
-
-    const newAvgMap = new Map<string, number>();
-    usageGroups.forEach((values, key) => {
-      const avg = values.reduce((s, v) => s + v, 0) / values.length;
-      newAvgMap.set(key, avg);
-    });
-    setAvgUsageMap(newAvgMap);
-
     setLoading(false);
   }, [noBranch, isStoreManager, profile?.branch_id, selectedBranch]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Relevant SKU filter based on branch brand menus
   const { relevantSmIds, relevantRmIds } = useMemo(() => {
-    const viewBranches = selectedBranch === 'all'
-      ? branches.filter(b => b.status === 'Active')
-      : branches.filter(b => b.id === selectedBranch);
-    const brandNames = new Set(viewBranches.map(b => b.brandName));
+    const viewBranches =
+      selectedBranch === "all"
+        ? branches.filter((b) => b.status === "Active")
+        : branches.filter((b) => b.id === selectedBranch);
+    const brandNames = new Set(viewBranches.map((b) => b.brandName));
 
     // Active menu IDs for these brands
     const brandMenuIds = new Set(
-      menus
-        .filter(m => brandNames.has(m.brandName) && m.status === 'Active')
-        .map(m => m.id)
+      menus.filter((m) => brandNames.has(m.brandName) && m.status === "Active").map((m) => m.id),
     );
 
     // Menu BOM lines for these menus
-    const relevantMBL = menuBomLines.filter(l => brandMenuIds.has(l.menuId));
+    const relevantMBL = menuBomLines.filter((l) => brandMenuIds.has(l.menuId));
 
     // SM SKUs directly in menu_bom
     const smIds = new Set<string>();
@@ -163,19 +144,15 @@ export default function StoreStockPage({
     const directRmIds = new Set<string>();
 
     for (const l of relevantMBL) {
-      const sku = skus.find(s => s.id === l.skuId);
+      const sku = skus.find((s) => s.id === l.skuId);
       if (!sku) continue;
-      if (sku.type === 'SM') smIds.add(l.skuId);
-      else if (sku.type === 'SP') spIds.add(l.skuId);
-      else if (sku.type === 'RM') directRmIds.add(l.skuId);
+      if (sku.type === "SM") smIds.add(l.skuId);
+      else if (sku.type === "SP") spIds.add(l.skuId);
+      else if (sku.type === "RM") directRmIds.add(l.skuId);
     }
 
     // RM via SP BOM ingredients
-    const spRmIds = new Set(
-      spBomLines
-        .filter(l => spIds.has(l.spSkuId))
-        .map(l => l.ingredientSkuId)
-    );
+    const spRmIds = new Set(spBomLines.filter((l) => spIds.has(l.spSkuId)).map((l) => l.ingredientSkuId));
 
     const rmIds = new Set([...directRmIds, ...spRmIds]);
 
@@ -185,33 +162,33 @@ export default function StoreStockPage({
   // SKU lookup
   const skuMap = useMemo(() => {
     const m = new Map<string, SKU>();
-    skus.forEach(s => m.set(s.id, s));
+    skus.forEach((s) => m.set(s.id, s));
     return m;
   }, [skus]);
 
   // Branch lookup
   const branchMap = useMemo(() => {
     const m = new Map<string, Branch>();
-    branches.forEach(b => m.set(b.id, b));
+    branches.forEach((b) => m.set(b.id, b));
     return m;
   }, [branches]);
 
-  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
+  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
 
   // Filter & sort rows
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
     return rows
-      .filter(row => {
+      .filter((row) => {
         const sku = skuMap.get(row.sku_id);
         if (!sku) return false;
         // Only SM/RM
-        if (sku.type !== 'SM' && sku.type !== 'RM') return false;
+        if (sku.type !== "SM" && sku.type !== "RM") return false;
         // Relevant filter
-        if (sku.type === 'SM' && !relevantSmIds.has(sku.id)) return false;
-        if (sku.type === 'RM' && !relevantRmIds.has(sku.id)) return false;
+        if (sku.type === "SM" && !relevantSmIds.has(sku.id)) return false;
+        if (sku.type === "RM" && !relevantRmIds.has(sku.id)) return false;
         // Type filter
-        if (typeFilter !== 'All' && sku.type !== typeFilter) return false;
+        if (typeFilter !== "All" && sku.type !== typeFilter) return false;
         // Search
         if (q && !sku.skuId.toLowerCase().includes(q) && !sku.name.toLowerCase().includes(q)) return false;
         return true;
@@ -220,7 +197,7 @@ export default function StoreStockPage({
         const sa = skuMap.get(a.sku_id)!;
         const sb = skuMap.get(b.sku_id)!;
         // SM first
-        if (sa.type !== sb.type) return sa.type === 'SM' ? -1 : 1;
+        if (sa.type !== sb.type) return sa.type === "SM" ? -1 : 1;
         return sa.skuId.localeCompare(sb.skuId);
       });
   }, [rows, skuMap, relevantSmIds, relevantRmIds, search, typeFilter]);
@@ -231,7 +208,7 @@ export default function StoreStockPage({
 
   // Summary cards
   const totalSkus = filteredRows.length;
-  const outOfStock = filteredRows.filter(r => getDisplayCount(r) <= 0).length;
+  const outOfStock = filteredRows.filter((r) => getDisplayCount(r) <= 0).length;
 
   // Cover Day By Storage
   const coverByStorage = useMemo(() => {
@@ -240,37 +217,39 @@ export default function StoreStockPage({
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
-      const rowKey = row.branch_id + '|' + row.sku_id;
-      const avgDU = avgUsageMap.get(rowKey) || 0;
-      if (dc > 0 && avgDU > 0) {
-        const cd = dc / avgDU;
-        const sc = sku.storageCondition || 'Ambient';
+      const eu = Number(row.expected_usage);
+      if (dc > 0 && eu > 0) {
+        const cd = dc / eu;
+        const sc = sku.storageCondition || "Ambient";
         if (groups[sc]) groups[sc].push(cd);
       }
     }
-    const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
     return {
       Chilled: avg(groups.Chilled),
       Frozen: avg(groups.Frozen),
       Ambient: avg(groups.Ambient),
     };
-  }, [filteredRows, skuMap, avgUsageMap]);
+  }, [filteredRows, skuMap]);
 
   // All branches mode
-  const showBranchCol = (isManagement || isAreaManager) && selectedBranch === 'all';
+  const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
 
   // Adjust handler
   const handleAdjustSubmit = async (data: { skuId: string; date: string; quantity: number; reason: string }) => {
     const sku = skuMap.get(data.skuId);
-    const { error } = await supabase.from('stock_adjustments').insert({
+    const { error } = await supabase.from("stock_adjustments").insert({
       sku_id: data.skuId,
       adjustment_date: data.date,
       quantity: data.quantity,
       reason: data.reason,
-      stock_type: sku?.type === 'SM' ? 'SM' : 'RM',
+      stock_type: sku?.type === "SM" ? "SM" : "RM",
     });
-    if (error) { toast.error('Failed to adjust: ' + error.message); return; }
-    toast.success('Stock adjusted. Balance updates after next Daily Stock Count.');
+    if (error) {
+      toast.error("Failed to adjust: " + error.message);
+      return;
+    }
+    toast.success("Stock adjusted. Balance updates after next Daily Stock Count.");
     setAdjustModal(null);
   };
 
@@ -283,22 +262,37 @@ export default function StoreStockPage({
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total SKUs</p>
-          <p className="text-2xl font-bold font-mono">{totalSkus.toLocaleString()}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Out of Stock</p>
-          <p className="text-2xl font-bold font-mono text-destructive">{outOfStock.toLocaleString()}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Cover Day By Storage</p>
-          <div className="mt-1 space-y-0.5 text-sm font-mono">
-            <div className="flex justify-between"><span className="text-muted-foreground text-xs">Chilled</span><span>{coverByStorage.Chilled !== null ? coverByStorage.Chilled.toFixed(1) + ' วัน' : '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground text-xs">Frozen</span><span>{coverByStorage.Frozen !== null ? coverByStorage.Frozen.toFixed(1) + ' วัน' : '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground text-xs">Ambient</span><span>{coverByStorage.Ambient !== null ? coverByStorage.Ambient.toFixed(1) + ' วัน' : '—'}</span></div>
-          </div>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total SKUs</p>
+            <p className="text-2xl font-bold font-mono">{totalSkus.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Out of Stock</p>
+            <p className="text-2xl font-bold font-mono text-destructive">{outOfStock.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cover Day By Storage</p>
+            <div className="mt-1 space-y-0.5 text-sm font-mono">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-xs">Chilled</span>
+                <span>{coverByStorage.Chilled !== null ? coverByStorage.Chilled.toFixed(1) + " วัน" : "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-xs">Frozen</span>
+                <span>{coverByStorage.Frozen !== null ? coverByStorage.Frozen.toFixed(1) + " วัน" : "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-xs">Ambient</span>
+                <span>{coverByStorage.Ambient !== null ? coverByStorage.Ambient.toFixed(1) + " วัน" : "—"}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -306,17 +300,23 @@ export default function StoreStockPage({
         <SearchInput value={search} onChange={setSearch} placeholder="Search SKU ID or name…" className="w-64" />
         {(isManagement || isAreaManager) && (
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-48 h-10"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48 h-10">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Branches</SelectItem>
-              {activeBranches.map(b => (
-                <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+              {activeBranches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.branchName}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
-        <Select value={typeFilter} onValueChange={v => setTypeFilter(v as any)}>
-          <SelectTrigger className="w-28 h-10"><SelectValue /></SelectTrigger>
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+          <SelectTrigger className="w-28 h-10">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All</SelectItem>
             <SelectItem value="SM">SM</SelectItem>
@@ -329,9 +329,14 @@ export default function StoreStockPage({
       {loading ? (
         <SkeletonTable columns={showBranchCol ? 11 : 10} rows={8} />
       ) : filteredRows.length === 0 ? (
-        rows.length === 0
-          ? <EmptyState icon={Package} title="No count sheets submitted yet for this branch. Submit a Daily Stock Count to see stock here." />
-          : <EmptyState icon={Package} title="No SKUs match your search." />
+        rows.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="No count sheets submitted yet for this branch. Submit a Daily Stock Count to see stock here."
+          />
+        ) : (
+          <EmptyState icon={Package} title="No SKUs match your search." />
+        )
       ) : (
         <div className={table.wrapper}>
           <table className={table.base}>
@@ -364,64 +369,77 @@ export default function StoreStockPage({
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(row => {
+              {filteredRows.map((row) => {
                 const sku = skuMap.get(row.sku_id);
                 if (!sku) return null;
                 const dc = getDisplayCount(row);
                 const isPhysical = row.physical_count !== null;
                 const showDash = dc === 0 && !isPhysical;
-                const rowKey = row.branch_id + '|' + row.sku_id;
-                const avgDailyUsage = avgUsageMap.get(rowKey) || 0;
-                const coverDay = (dc > 0 && avgDailyUsage > 0)
-                  ? dc / avgDailyUsage : null;
-                const avgWeek = avgDailyUsage > 0
-                  ? Math.round(avgDailyUsage * 7).toLocaleString() : '—';
+                const coverDay = dc > 0 && Number(row.expected_usage) > 0 ? dc / Number(row.expected_usage) : null;
+                const avgWeek =
+                  Number(row.expected_usage) > 0 ? Math.round(Number(row.expected_usage) * 7).toLocaleString() : "—";
                 const branch = branchMap.get(row.branch_id);
 
                 return (
                   <tr key={row.id} className={table.dataRow}>
                     <td className={table.dataCell}>
-                      <StatusDot status={dc > 0 ? 'green' : 'red'} />
+                      <StatusDot status={dc > 0 ? "green" : "red"} />
                     </td>
                     <td className={`${table.dataCell} font-mono text-xs`}>{sku.skuId}</td>
-                    <td className={table.truncatedCell} title={sku.name}>{sku.name}</td>
+                    <td className={table.truncatedCell} title={sku.name}>
+                      {sku.name}
+                    </td>
                     {showBranchCol && (
-                      <td className={table.truncatedCell} title={branch?.branchName || ''}>
-                        {branch?.branchName || '—'}
+                      <td className={table.truncatedCell} title={branch?.branchName || ""}>
+                        {branch?.branchName || "—"}
                       </td>
                     )}
                     <td className={table.dataCellMono}>
-                      {showDash
-                        ? <span className="text-muted-foreground">—</span>
-                        : <span className={isPhysical ? 'font-semibold' : ''}>{Math.round(dc).toLocaleString()}</span>
-                      }
+                      {showDash ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className={isPhysical ? "font-semibold" : ""}>{Math.round(dc).toLocaleString()}</span>
+                      )}
                     </td>
                     <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
                     <td className={table.dataCell}>{row.count_date}</td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>
-                      {coverDay !== null ? coverDay.toFixed(1) : '—'}
+                      {coverDay !== null ? coverDay.toFixed(1) : "—"}
                     </td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>{avgWeek}</td>
                     <td className={table.dataCell}>
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
                         title="Adjust stock"
-                        onClick={() => setAdjustModal({
-                          skuId: sku.id, skuName: sku.name,
-                          usageUom: sku.usageUom, currentStock: dc, skuType: sku.type,
-                        })}
+                        onClick={() =>
+                          setAdjustModal({
+                            skuId: sku.id,
+                            skuName: sku.name,
+                            usageUom: sku.usageUom,
+                            currentStock: dc,
+                            skuType: sku.type,
+                          })
+                        }
                       >
                         <SlidersHorizontal className="h-4 w-4" />
                       </Button>
                     </td>
                     <td className={table.dataCell}>
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
                         title="Stock card"
-                        onClick={() => setStockCard({
-                          skuId: sku.id, skuType: sku.type as 'RM' | 'SM',
-                          sku, currentStock: dc,
-                        })}
+                        onClick={() =>
+                          setStockCard({
+                            skuId: sku.id,
+                            skuType: sku.type as "RM" | "SM",
+                            sku,
+                            currentStock: dc,
+                          })
+                        }
                       >
                         <History className="h-4 w-4" />
                       </Button>
@@ -448,22 +466,18 @@ export default function StoreStockPage({
       )}
 
       {/* Stock Card Drawer */}
-      <Sheet open={!!stockCard} onOpenChange={open => !open && setStockCard(null)}>
-        <SheetContent side="right" className="w-[520px] p-0 sm:max-w-[520px]">
-          {stockCard && (
-            <StockCard
-              skuId={stockCard.skuId}
-              skuType={stockCard.skuType}
-              sku={stockCard.sku}
-              skus={skus}
-              currentStock={stockCard.currentStock}
-              stockValue={0}
-              disableMismatchCheck
-              onClose={() => setStockCard(null)}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {stockCard && (
+        <StockCard
+          skuId={stockCard.skuId}
+          skuType={stockCard.skuType}
+          sku={stockCard.sku}
+          skus={skus}
+          currentStock={stockCard.currentStock}
+          stockValue={0}
+          disableMismatchCheck
+          onClose={() => setStockCard(null)}
+        />
+      )}
     </div>
   );
 }
