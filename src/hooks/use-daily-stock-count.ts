@@ -445,30 +445,12 @@ export function useDailyStockCount({
       fetchReceiptTotals(branchId, date),
     ]);
 
-    const prevDate = new Date(date);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = toLocalDateStr(prevDate);
-    
-    const { data: prevCounts } = await supabase
-      .from('daily_stock_counts')
-      .select('sku_id, physical_count, calculated_balance')
-      .eq('branch_id', branchId)
-      .eq('count_date', prevDateStr);
-    
-    const prevPhysical: Record<string, number> = {};
-    const prevCalcBalance: Record<string, number> = {};
-    (prevCounts || []).forEach(p => {
-      if (p.physical_count !== null) {
-        // physical_count is already stored in Usage UOM (converted at input time)
-        prevPhysical[p.sku_id] = Number(p.physical_count);
-      }
-      prevCalcBalance[p.sku_id] = Number(p.calculated_balance);
-    });
+    const openingBySku = await computeOpeningWithGap(branchId, date);
 
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     
     const insertRows = activeSkus.map(sku => {
-      const opening = prevPhysical[sku.id] ?? prevCalcBalance[sku.id] ?? 0;
+      const opening = openingBySku[sku.id] ?? 0;
       const fromCk = receipts.ckBySku[sku.id] ?? 0;
       const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
