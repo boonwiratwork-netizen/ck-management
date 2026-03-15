@@ -141,7 +141,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
 
   const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, smComparators);
 
-  const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + r.stockValue, 0), [filteredRows]);
+  const totalStockValue = useMemo(() => filteredRows.reduce((s, r) => s + Math.max(0, r.stockValue), 0), [filteredRows]);
 
   const coverDayByStorage = useMemo(() => {
     const groups: Record<string, number[]> = { Chilled: [], Frozen: [], Ambient: [] };
