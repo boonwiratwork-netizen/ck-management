@@ -293,8 +293,8 @@ export default function StoreStockPage({
         <SkeletonTable columns={showBranchCol ? 11 : 10} rows={8} />
       ) : filteredRows.length === 0 ? (
         rows.length === 0
-          ? <EmptyState icon={Package} message="No count sheets submitted yet for this branch. Submit a Daily Stock Count to see stock here." />
-          : <EmptyState icon={Package} message="No SKUs match your search." />
+          ? <EmptyState icon={Package} title="No count sheets submitted yet for this branch. Submit a Daily Stock Count to see stock here." />
+          : <EmptyState icon={Package} title="No SKUs match your search." />
       ) : (
         <div className={table.wrapper}>
           <table className={table.base}>
