@@ -370,10 +370,12 @@ export default function StoreStockPage({
                 const dc = getDisplayCount(row);
                 const isPhysical = row.physical_count !== null;
                 const showDash = dc === 0 && !isPhysical;
-                const coverDay = (dc > 0 && Number(row.expected_usage) > 0)
-                  ? dc / Number(row.expected_usage) : null;
-                const avgWeek = Number(row.expected_usage) > 0
-                  ? Math.round(Number(row.expected_usage) * 7).toLocaleString() : '—';
+                const rowKey = row.branch_id + '|' + row.sku_id;
+                const avgDailyUsage = avgUsageMap.get(rowKey) || 0;
+                const coverDay = (dc > 0 && avgDailyUsage > 0)
+                  ? dc / avgDailyUsage : null;
+                const avgWeek = avgDailyUsage > 0
+                  ? Math.round(avgDailyUsage * 7).toLocaleString() : '—';
                 const branch = branchMap.get(row.branch_id);
 
                 return (
