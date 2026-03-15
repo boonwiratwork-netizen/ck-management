@@ -68,6 +68,110 @@ export function useDailyStockCount({
     return sku.converter || 1;
   }, [skus]);
 
+  // Gap-resilient opening balance: reconstructs from last submitted count + gap transactions
+  const computeOpeningWithGap = useCallback(async (
+    branchId: string,
+    beforeDate: string
+  ): Promise<Record<string, number>> => {
+    // Step 1 — Find most recent submitted count per SKU
+    const { data: recentCounts } = await supabase
+      .from('daily_stock_counts')
+      .select('sku_id, physical_count, calculated_balance, count_date')
+      .eq('branch_id', branchId)
+      .eq('is_submitted', true)
+      .lt('count_date', beforeDate)
+      .order('count_date', { ascending: false });
+
+    const lastCountBySku = new Map<string, any>();
+    (recentCounts || []).forEach(r => {
+      if (!lastCountBySku.has(r.sku_id)) {
+        lastCountBySku.set(r.sku_id, r);
+      }
+    });
+
+    const baseOpening: Record<string, number> = {};
+    const lastCountDate: Record<string, string> = {};
+    lastCountBySku.forEach((r, skuId) => {
+      baseOpening[skuId] = r.physical_count !== null
+        ? Number(r.physical_count)
+        : Number(r.calculated_balance);
+      lastCountDate[skuId] = r.count_date;
+    });
+
+    // Step 2 — Find earliest last count date for range query
+    const gapStartDate = lastCountBySku.size > 0
+      ? [...lastCountBySku.values()]
+          .reduce((min, r) => r.count_date < min ? r.count_date : min,
+                  [...lastCountBySku.values()][0].count_date)
+      : beforeDate;
+
+    // Step 3 — Fetch ALL gap transactions in range queries (not per-day)
+    const [gapToLinesRes, gapExtLinesRes, gapSalesRes] = await Promise.all([
+      supabase
+        .from('transfer_order_lines')
+        .select('sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)')
+        .eq('transfer_orders.branch_id', branchId)
+        .gt('transfer_orders.delivery_date', gapStartDate)
+        .lt('transfer_orders.delivery_date', beforeDate)
+        .in('transfer_orders.status', ['Sent', 'Received', 'Partially Received']),
+      supabase
+        .from('branch_receipts')
+        .select('sku_id, qty_received')
+        .eq('branch_id', branchId)
+        .is('transfer_order_id', null)
+        .gt('receipt_date', gapStartDate)
+        .lt('receipt_date', beforeDate),
+      supabase
+        .from('daily_stock_counts')
+        .select('sku_id, expected_usage, waste')
+        .eq('branch_id', branchId)
+        .eq('is_submitted', true)
+        .gt('count_date', gapStartDate)
+        .lt('count_date', beforeDate),
+    ]);
+
+    const gapCkBySku: Record<string, number> = {};
+    (gapToLinesRes.data || []).forEach((line: any) => {
+      const qty = Number(line.actual_qty) > 0
+        ? Number(line.actual_qty)
+        : Number(line.planned_qty);
+      gapCkBySku[line.sku_id] = (gapCkBySku[line.sku_id] || 0) + qty;
+    });
+
+    const gapExtBySku: Record<string, number> = {};
+    (gapExtLinesRes.data || []).forEach(r => {
+      gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
+    });
+
+    const gapUsageBySku: Record<string, number> = {};
+    const gapWasteBySku: Record<string, number> = {};
+    (gapSalesRes.data || []).forEach(r => {
+      gapUsageBySku[r.sku_id] = (gapUsageBySku[r.sku_id] || 0) + Number(r.expected_usage);
+      gapWasteBySku[r.sku_id] = (gapWasteBySku[r.sku_id] || 0) + Number(r.waste ?? 0);
+    });
+
+    // Step 4 — Compute final opening per SKU
+    const result: Record<string, number> = {};
+    const allSkuIds = new Set([
+      ...Object.keys(baseOpening),
+      ...Object.keys(gapCkBySku),
+      ...Object.keys(gapExtBySku),
+      ...Object.keys(gapUsageBySku),
+    ]);
+
+    allSkuIds.forEach(skuId => {
+      const base = baseOpening[skuId] ?? 0;
+      const ck = gapCkBySku[skuId] ?? 0;
+      const ext = gapExtBySku[skuId] ?? 0;
+      const extConv = getSkuConverter(skuId);
+      const usage = gapUsageBySku[skuId] ?? 0;
+      const waste = gapWasteBySku[skuId] ?? 0;
+      result[skuId] = base + ck + (ext * extConv) - usage - waste;
+    });
+
+    return result;
+  }, [getSkuConverter]);
+
   // Fetch live receipt totals for a branch+date
   const fetchReceiptTotals = useCallback(async (branchId: string, date: string) => {
     const branch = branches.find(b => b.id === branchId);
@@ -241,21 +345,8 @@ export function useDailyStockCount({
     if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
     const data = sheetResult.data || [];
 
-    // Fetch previous day's data for self-healing opening balance
-    const prevDate = new Date(date);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = toLocalDateStr(prevDate);
-    const { data: prevCounts } = await supabase
-      .from('daily_stock_counts')
-      .select('sku_id, physical_count, calculated_balance')
-      .eq('branch_id', branchId)
-      .eq('count_date', prevDateStr);
-    const prevOpening: Record<string, number> = {};
-    (prevCounts || []).forEach(p => {
-      prevOpening[p.sku_id] = p.physical_count !== null
-        ? Number(p.physical_count)
-        : Number(p.calculated_balance);
-    });
+    // Fetch gap-resilient opening balances
+    const openingBySku = await computeOpeningWithGap(branchId, date);
     
     // Patch rows with live receipt data, live expected usage, AND corrected opening balance
     const patched = data.map(r => {
@@ -265,7 +356,7 @@ export function useDailyStockCount({
       const waste = Number(r.waste ?? 0);
       // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
       const extConv = getSkuConverter(r.sku_id);
-      const opening = prevOpening[r.sku_id] ?? Number(r.opening_balance);
+      const opening = openingBySku[r.sku_id] ?? Number(r.opening_balance);
       const calcBalance = opening + ck + (ext * extConv) - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, opening_balance: opening, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
@@ -329,7 +420,7 @@ export function useDailyStockCount({
     }
     
     setRows([...patched, ...insertedRows].map(toLocal));
-  }, [fetchReceiptTotals, calculateExpectedUsage, skus]);
+  }, [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap]);
 
   // Generate count sheet
   const generateSheet = useCallback(async (branchId: string, date: string) => {
@@ -354,30 +445,12 @@ export function useDailyStockCount({
       fetchReceiptTotals(branchId, date),
     ]);
 
-    const prevDate = new Date(date);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = toLocalDateStr(prevDate);
-    
-    const { data: prevCounts } = await supabase
-      .from('daily_stock_counts')
-      .select('sku_id, physical_count, calculated_balance')
-      .eq('branch_id', branchId)
-      .eq('count_date', prevDateStr);
-    
-    const prevPhysical: Record<string, number> = {};
-    const prevCalcBalance: Record<string, number> = {};
-    (prevCounts || []).forEach(p => {
-      if (p.physical_count !== null) {
-        // physical_count is already stored in Usage UOM (converted at input time)
-        prevPhysical[p.sku_id] = Number(p.physical_count);
-      }
-      prevCalcBalance[p.sku_id] = Number(p.calculated_balance);
-    });
+    const openingBySku = await computeOpeningWithGap(branchId, date);
 
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     
     const insertRows = activeSkus.map(sku => {
-      const opening = prevPhysical[sku.id] ?? prevCalcBalance[sku.id] ?? 0;
+      const opening = openingBySku[sku.id] ?? 0;
       const fromCk = receipts.ckBySku[sku.id] ?? 0;
       const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
@@ -426,7 +499,7 @@ export function useDailyStockCount({
     setRows(allInserted.map(toLocal));
     toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
     setGenerating(false);
-  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter]);
+  }, [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter, computeOpeningWithGap]);
 
   // Update physical count — staff enters directly in Usage UOM, no conversion needed
   const updatePhysicalCount = useCallback(async (rowId: string, physicalCount: number | null) => {
