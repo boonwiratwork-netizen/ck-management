@@ -69,6 +69,7 @@ export default function StoreStockPage({
     skuType: "RM" | "SM";
     sku: SKU;
     currentStock: number;
+    branchId: string;
   } | null>(null);
 
   // Store Manager with no branch

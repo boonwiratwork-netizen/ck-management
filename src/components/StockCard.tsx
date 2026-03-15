@@ -16,6 +16,8 @@ interface StockCardProps {
   stockValue: number;
   onClose: () => void;
   disableMismatchCheck?: boolean;
+  context?: 'ck' | 'branch';
+  branchId?: string;
 }
 
 interface Movement {
@@ -27,6 +29,18 @@ interface Movement {
   qtyOut: number | null;
   runningBalance?: number;
   isProductionUse?: boolean;
+}
+
+interface BranchCountRow {
+  count_date: string;
+  opening_balance: number;
+  received_from_ck: number;
+  received_external: number;
+  expected_usage: number;
+  waste: number;
+  calculated_balance: number;
+  physical_count: number | null;
+  variance: number;
 }
 
 const STORAGE_BADGES: Record<string, string> = {
@@ -107,8 +121,11 @@ export function StockCard({
   stockValue,
   onClose,
   disableMismatchCheck,
+  context = 'ck',
+  branchId,
 }: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [branchRows, setBranchRows] = useState<BranchCountRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -117,7 +134,18 @@ export function StockCard({
     async function fetch() {
       setLoading(true);
       try {
-        if (skuType === "RM") {
+        if (context === 'branch') {
+          // Branch context: fetch daily_stock_counts history
+          const { data } = await supabase
+            .from('daily_stock_counts')
+            .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance')
+            .eq('branch_id', branchId!)
+            .eq('sku_id', skuId)
+            .eq('is_submitted', true)
+            .order('count_date', { ascending: true });
+          if (cancelled) return;
+          setBranchRows((data as BranchCountRow[]) || []);
+        } else if (skuType === "RM") {
           const [obRes, receiptsRes, adjRes, suppRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
             supabase
@@ -275,11 +303,16 @@ export function StockCard({
     return () => {
       cancelled = true;
     };
-  }, [skuId, skuType, sku.converter, skus]);
+  }, [skuId, skuType, sku.converter, skus, context, branchId]);
 
   const finalBalance = movements.length > 0 ? (movements[movements.length - 1].runningBalance ?? 0) : 0;
   const hasMismatch = Math.abs(finalBalance - currentStock) > 1;
   const hasMovements = movements.length > 1;
+
+  // Branch context: current stock from most recent row
+  const branchCurrentStock = context === 'branch' && branchRows.length > 0
+    ? (branchRows[branchRows.length - 1].physical_count ?? branchRows[branchRows.length - 1].calculated_balance)
+    : currentStock;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -320,13 +353,16 @@ export function StockCard({
           <div className="flex-1 rounded-md border px-3 py-2">
             <div className="text-xs text-muted-foreground">Current Stock</div>
             <div className="text-lg font-bold font-mono">
-              {fmt0(currentStock)} <span className="text-xs font-normal text-muted-foreground">{sku.usageUom}</span>
+              {fmt0(context === 'branch' ? Number(branchCurrentStock) : currentStock)}{" "}
+              <span className="text-xs font-normal text-muted-foreground">{sku.usageUom}</span>
             </div>
           </div>
-          <div className="flex-1 rounded-md border px-3 py-2">
-            <div className="text-xs text-muted-foreground">Stock Value</div>
-            <div className="text-lg font-bold font-mono">฿{fmt0(stockValue)}</div>
-          </div>
+          {context === 'ck' && (
+            <div className="flex-1 rounded-md border px-3 py-2">
+              <div className="text-xs text-muted-foreground">Stock Value</div>
+              <div className="text-lg font-bold font-mono">฿{fmt0(stockValue)}</div>
+            </div>
+          )}
         </div>
 
         <div className="border-b mx-5" />
@@ -346,7 +382,84 @@ export function StockCard({
                 </div>
               ))}
             </div>
+          ) : context === 'branch' ? (
+            /* ─── Branch context table ─── */
+            <>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Branch Stock History
+              </p>
+              {branchRows.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+                  <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
+                  <span>No submitted count sheets found for this SKU at this branch.</span>
+                </div>
+              ) : (
+                <table className="w-full table-fixed text-xs">
+                  <colgroup>
+                    <col style={{ width: "72px" }} />
+                    <col style={{ width: "68px" }} />
+                    <col style={{ width: "72px" }} />
+                    <col style={{ width: "72px" }} />
+                    <col style={{ width: "55px" }} />
+                    <col style={{ width: "72px" }} />
+                    <col style={{ width: "72px" }} />
+                    <col style={{ width: "72px" }} />
+                  </colgroup>
+                  <thead>
+                    <tr className={table.headerRow}>
+                      <th className={table.headerCell}>Date</th>
+                      <th className={table.headerCellNumeric}>Opening</th>
+                      <th className={table.headerCellNumeric}>Received</th>
+                      <th className={table.headerCellNumeric}>Exp.Usage</th>
+                      <th className={table.headerCellNumeric}>Waste</th>
+                      <th className={table.headerCellNumeric}>Calc.Bal</th>
+                      <th className={table.headerCellNumeric}>Physical</th>
+                      <th className={table.headerCellNumeric}>Variance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {branchRows.map((r, i) => {
+                      const received = Math.round(Number(r.received_from_ck) + Number(r.received_external));
+                      const hasPhysical = r.physical_count !== null;
+                      const variance = Number(r.variance);
+
+                      return (
+                        <tr key={i} className={table.dataRow}>
+                          <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
+                          <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
+                          <td className={table.dataCellCompactMono}>{received > 0 ? received.toLocaleString() : <span className="text-muted-foreground">—</span>}</td>
+                          <td className={table.dataCellCompactMono}>{Number(r.expected_usage) > 0 ? fmt0(Number(r.expected_usage)) : <span className="text-muted-foreground">—</span>}</td>
+                          <td className={table.dataCellCompactMono}>{Number(r.waste) > 0 ? fmt0(Number(r.waste)) : <span className="text-muted-foreground">—</span>}</td>
+                          <td className={`${table.dataCellCompactMono} font-semibold`}>{fmt0(Number(r.calculated_balance))}</td>
+                          <td className={table.dataCellCompactMono}>
+                            {hasPhysical ? (
+                              <span className="font-semibold">{fmt0(Number(r.physical_count))}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className={table.dataCellCompactMono}>
+                            {hasPhysical ? (
+                              <span className={
+                                variance > 0 ? "text-success" :
+                                variance < 0 ? "text-destructive" :
+                                "text-muted-foreground"
+                              }>
+                                {fmt0(variance)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </>
           ) : (
+            /* ─── CK context table (existing) ─── */
             <>
               <table className="w-full table-fixed text-xs">
                 <colgroup>
