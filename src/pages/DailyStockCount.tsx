@@ -321,12 +321,12 @@ export default function DailyStockCountPage({
                         <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>{t('col.fromCk')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div>FROM CK</div>
+                        <div className="text-xs font-normal text-muted-foreground">SM via TO</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>{t('col.extRecv')}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage)</div>
+                        <div>EXT. RECV</div>
+                        <div className="text-xs font-normal text-muted-foreground">RM, auto-converted</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t('col.expUsage')}</div>
