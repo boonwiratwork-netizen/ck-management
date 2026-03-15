@@ -539,8 +539,14 @@ export default function DailyStockCountPage({
                                   defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
                                   key={`phys-unused-${row.id}-${row.physicalCount}`}
                                   onBlur={(e) => {
-                                    const val = e.target.value === "" ? null : Number(e.target.value);
-                                    if (val !== row.physicalCount) updatePhysicalCount(row.id, val);
+                                    if (e.target.value === "") {
+                                      if (row.physicalCount !== null) updatePhysicalCount(row.id, null);
+                                      return;
+                                    }
+                                    const val = Number(e.target.value);
+                                    const clamped = val < 0 ? 0 : val;
+                                    if (val < 0) e.target.value = '0';
+                                    if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
                                   }}
                                   className="h-8 w-24 text-sm"
                                   placeholder="—"
