@@ -98,7 +98,7 @@ const TYPE_BADGE_STYLES: Record<TypeBadgeKey, string> = {
   StockCount: "bg-violet-500/15 text-violet-600",
 };
 
-export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue, onClose }: StockCardProps) {
+export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue, onClose, disableMismatchCheck }: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
 
