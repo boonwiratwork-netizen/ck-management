@@ -63,6 +63,7 @@ export default function StoreStockPage({
     currentStock: number;
     branchId: string;
   } | null>(null);
+  const [liveDailyUsage, setLiveDailyUsage] = useState<Record<string, number>>({});
 
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
@@ -124,6 +125,50 @@ export default function StoreStockPage({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Live daily usage from last 7 days sales × menu_bom
+  useEffect(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const since = sevenDaysAgo.toISOString().split('T')[0];
+
+    const run = async () => {
+      let q = supabase.from('sales_entries')
+        .select('menu_code, qty')
+        .gte('sale_date', since);
+
+      if (selectedBranch !== 'all') {
+        q = q.eq('branch_id', selectedBranch);
+      }
+
+      const [salesRes, bomRes, menusRes] = await Promise.all([
+        q,
+        supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
+        supabase.from('menus').select('id, menu_code'),
+      ]);
+
+      if (!salesRes.data || !bomRes.data || !menusRes.data) return;
+
+      const menuCodeToId = new Map(
+        menusRes.data.map((m: any) => [m.menu_code, m.id])
+      );
+
+      const usage: Record<string, number> = {};
+      salesRes.data.forEach((sale: any) => {
+        const menuId = menuCodeToId.get(sale.menu_code);
+        if (!menuId) return;
+        bomRes.data!
+          .filter((l: any) => l.menu_id === menuId)
+          .forEach((line: any) => {
+            usage[line.sku_id] = (usage[line.sku_id] || 0) +
+              (Number(line.effective_qty) * Number(sale.qty)) / 7;
+          });
+      });
+
+      setLiveDailyUsage(usage);
+    };
+    run();
+  }, [selectedBranch]);
 
   // Relevant SKU filter based on branch brand menus
   const { relevantSmIds, relevantRmIds } = useMemo(() => {
@@ -224,7 +269,7 @@ export default function StoreStockPage({
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
-      const eu = Number(row.expected_usage);
+      const eu = liveDailyUsage[row.sku_id] ?? 0;
       if (dc > 0 && eu > 0) {
         const cd = dc / eu;
         const sc = sku.storageCondition || "Ambient";
@@ -237,7 +282,7 @@ export default function StoreStockPage({
       Frozen: avg(groups.Frozen),
       Ambient: avg(groups.Ambient),
     };
-  }, [filteredRows, skuMap]);
+  }, [filteredRows, skuMap, liveDailyUsage]);
 
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
@@ -291,7 +336,7 @@ export default function StoreStockPage({
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-10 bg-background py-2">
         <SearchInput value={search} onChange={setSearch} placeholder="Search SKU ID or name…" className="w-64" />
         {(isManagement || isAreaManager) && (
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
@@ -333,7 +378,7 @@ export default function StoreStockPage({
           <EmptyState icon={Package} title="No SKUs match your search." />
         )
       ) : (
-        <div className="rounded-lg border overflow-auto">
+        <div className="rounded-lg border overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col style={{ width: "28px" }} />
@@ -348,7 +393,7 @@ export default function StoreStockPage({
               <col style={{ width: "95px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-[5]">
               <tr className={table.headerRow}>
                 <th className={table.headerCell} />
                 <th className={table.headerCell}>SKU ID</th>
@@ -370,9 +415,10 @@ export default function StoreStockPage({
                 const dc = getDisplayCount(row);
                 const isPhysical = row.physical_count !== null;
                 const showDash = dc === 0 && !isPhysical;
-                const coverDay = dc > 0 && Number(row.expected_usage) > 0 ? dc / Number(row.expected_usage) : null;
-                const avgWeek =
-                  Number(row.expected_usage) > 0 ? Math.round(Number(row.expected_usage) * 7).toLocaleString() : "—";
+                const dailyUsage = liveDailyUsage[row.sku_id] ?? 0;
+                const coverDay = dc > 0 && dailyUsage > 0 ? dc / dailyUsage : null;
+                const avgU = liveDailyUsage[row.sku_id] ?? 0;
+                const avgWeek = avgU > 0 ? Math.round(avgU * 7).toLocaleString() : "—";
                 const branch = branchMap.get(row.branch_id);
 
                 return (
