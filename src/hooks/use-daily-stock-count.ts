@@ -73,12 +73,11 @@ export function useDailyStockCount({
     branchId: string,
     beforeDate: string
   ): Promise<Record<string, number>> => {
-    // Step 1 — Find most recent submitted count per SKU
+    // Step 1 — Find most recent count per SKU (submitted or not — calculated_balance is valid regardless)
     const { data: recentCounts } = await supabase
       .from('daily_stock_counts')
       .select('sku_id, physical_count, calculated_balance, count_date')
       .eq('branch_id', branchId)
-      .eq('is_submitted', true)
       .lt('count_date', beforeDate)
       .order('count_date', { ascending: false });
 
