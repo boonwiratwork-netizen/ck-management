@@ -1334,18 +1334,18 @@ export default function BranchReceiptPage({
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 100 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 140 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 70 }} />
-                <col style={{ width: 60 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 90 }} />
-                {isManagement && <col style={{ width: 110 }} />}
-                {isManagement && <col style={{ width: 50 }} />}
+                <col style={{ width: 100 }} /> {/* DATE */}
+                <col style={{ width: 80 }} /> {/* SKU ID */}
+                <col /> {/* SKU NAME — auto/flex */}
+                <col style={{ width: 120 }} /> {/* SUPPLIER */}
+                <col style={{ width: 80 }} /> {/* TO REF */}
+                <col style={{ width: 70 }} /> {/* QTY */}
+                <col style={{ width: 60 }} /> {/* UOM */}
+                <col style={{ width: 100 }} /> {/* ACTUAL ฿ */}
+                <col style={{ width: 100 }} /> {/* STD ฿ */}
+                <col style={{ width: 90 }} /> {/* VARIANCE */}
+                {isManagement && <col style={{ width: 110 }} />} {/* BRANCH */}
+                {isManagement && <col style={{ width: 50 }} />} {/* DELETE */}
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
