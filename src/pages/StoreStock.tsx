@@ -57,6 +57,7 @@ export default function StoreStockPage({
   const [stockCard, setStockCard] = useState<{
     skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number;
   } | null>(null);
+  const [avgUsageMap, setAvgUsageMap] = useState<Map<string, number>>(new Map());
 
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
@@ -99,6 +100,41 @@ export default function StoreStockPage({
     });
 
     setRows(Array.from(latestByKey.values()));
+
+    // Fetch 7-day usage history for avg daily usage
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    let usageQuery = supabase
+      .from('daily_stock_counts')
+      .select('branch_id, sku_id, expected_usage')
+      .eq('is_submitted', true)
+      .gte('count_date', sevenDaysAgoStr);
+
+    if (isStoreManager && profile?.branch_id) {
+      usageQuery = usageQuery.eq('branch_id', profile.branch_id);
+    } else if (selectedBranch !== 'all') {
+      usageQuery = usageQuery.eq('branch_id', selectedBranch);
+    }
+
+    const { data: usageData } = await usageQuery;
+
+    const usageGroups = new Map<string, number[]>();
+    (usageData || []).forEach((r: any) => {
+      const key = r.branch_id + '|' + r.sku_id;
+      const arr = usageGroups.get(key) || [];
+      arr.push(Number(r.expected_usage));
+      usageGroups.set(key, arr);
+    });
+
+    const newAvgMap = new Map<string, number>();
+    usageGroups.forEach((values, key) => {
+      const avg = values.reduce((s, v) => s + v, 0) / values.length;
+      newAvgMap.set(key, avg);
+    });
+    setAvgUsageMap(newAvgMap);
+
     setLoading(false);
   }, [noBranch, isStoreManager, profile?.branch_id, selectedBranch]);
 
@@ -204,9 +240,10 @@ export default function StoreStockPage({
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
-      const eu = Number(row.expected_usage);
-      if (dc > 0 && eu > 0) {
-        const cd = dc / eu;
+      const rowKey = row.branch_id + '|' + row.sku_id;
+      const avgDU = avgUsageMap.get(rowKey) || 0;
+      if (dc > 0 && avgDU > 0) {
+        const cd = dc / avgDU;
         const sc = sku.storageCondition || 'Ambient';
         if (groups[sc]) groups[sc].push(cd);
       }
@@ -217,7 +254,7 @@ export default function StoreStockPage({
       Frozen: avg(groups.Frozen),
       Ambient: avg(groups.Ambient),
     };
-  }, [filteredRows, skuMap]);
+  }, [filteredRows, skuMap, avgUsageMap]);
 
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === 'all';
@@ -333,10 +370,12 @@ export default function StoreStockPage({
                 const dc = getDisplayCount(row);
                 const isPhysical = row.physical_count !== null;
                 const showDash = dc === 0 && !isPhysical;
-                const coverDay = (dc > 0 && Number(row.expected_usage) > 0)
-                  ? dc / Number(row.expected_usage) : null;
-                const avgWeek = Number(row.expected_usage) > 0
-                  ? Math.round(Number(row.expected_usage) * 7).toLocaleString() : '—';
+                const rowKey = row.branch_id + '|' + row.sku_id;
+                const avgDailyUsage = avgUsageMap.get(rowKey) || 0;
+                const coverDay = (dc > 0 && avgDailyUsage > 0)
+                  ? dc / avgDailyUsage : null;
+                const avgWeek = avgDailyUsage > 0
+                  ? Math.round(avgDailyUsage * 7).toLocaleString() : '—';
                 const branch = branchMap.get(row.branch_id);
 
                 return (
