@@ -404,8 +404,6 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
 
               {hasMismatch && hasMovements && (
                 <div className="flex items-center gap-2 mt-3 text-xs text-warning">
