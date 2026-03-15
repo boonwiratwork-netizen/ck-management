@@ -214,7 +214,7 @@ export default function StoreStockPage({
   const totalStockValue = filteredRows.reduce((sum, row) => {
     const price = priceMap[row.sku_id] ?? 0;
     const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
-    return sum + (price * count);
+    return sum + price * count;
   }, 0);
 
   // Cover Day By Storage
@@ -242,7 +242,6 @@ export default function StoreStockPage({
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
 
-
   // No branch assigned
   if (noBranch) {
     return <EmptyState icon={Package} title="No branch assigned to your account. Contact your manager." />;
@@ -253,9 +252,7 @@ export default function StoreStockPage({
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Store Stock</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Branch-level stock balances from daily count sheets
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Branch-level stock balances from daily count sheets</p>
       </div>
 
       {/* Summary Cards */}
@@ -341,14 +338,14 @@ export default function StoreStockPage({
             <colgroup>
               <col style={{ width: "28px" }} />
               <col style={{ width: "72px" }} />
-              <col />
+              <col style={{ width: "200px" }} />
               {showBranchCol && <col style={{ width: "90px" }} />}
-              <col style={{ width: "85px" }} />
-              <col style={{ width: "48px" }} />
               <col style={{ width: "90px" }} />
+              <col style={{ width: "48px" }} />
               <col style={{ width: "95px" }} />
-              <col style={{ width: "80px" }} />
-              <col style={{ width: "85px" }} />
+              <col style={{ width: "95px" }} />
+              <col style={{ width: "75px" }} />
+              <col style={{ width: "95px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
             <thead>
@@ -405,9 +402,11 @@ export default function StoreStockPage({
                         const price = priceMap[row.sku_id] ?? 0;
                         const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
                         const stockValue = price * count;
-                        return stockValue > 0
-                          ? '฿' + Math.round(stockValue).toLocaleString()
-                          : <span className="text-muted-foreground">—</span>;
+                        return stockValue > 0 ? (
+                          "฿" + Math.round(stockValue).toLocaleString()
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        );
                       })()}
                     </td>
                     <td className={table.dataCell}>{row.count_date}</td>
@@ -441,7 +440,6 @@ export default function StoreStockPage({
           </table>
         </div>
       )}
-
 
       {/* Stock Card Drawer */}
       {stockCard && (
