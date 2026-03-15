@@ -126,6 +126,50 @@ export default function StoreStockPage({
     fetchData();
   }, [fetchData]);
 
+  // Live daily usage from last 7 days sales × menu_bom
+  useEffect(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const since = sevenDaysAgo.toISOString().split('T')[0];
+
+    const run = async () => {
+      let q = supabase.from('sales_entries')
+        .select('menu_code, qty')
+        .gte('sale_date', since);
+
+      if (selectedBranch !== 'all') {
+        q = q.eq('branch_id', selectedBranch);
+      }
+
+      const [salesRes, bomRes, menusRes] = await Promise.all([
+        q,
+        supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
+        supabase.from('menus').select('id, menu_code'),
+      ]);
+
+      if (!salesRes.data || !bomRes.data || !menusRes.data) return;
+
+      const menuCodeToId = new Map(
+        menusRes.data.map((m: any) => [m.menu_code, m.id])
+      );
+
+      const usage: Record<string, number> = {};
+      salesRes.data.forEach((sale: any) => {
+        const menuId = menuCodeToId.get(sale.menu_code);
+        if (!menuId) return;
+        bomRes.data!
+          .filter((l: any) => l.menu_id === menuId)
+          .forEach((line: any) => {
+            usage[line.sku_id] = (usage[line.sku_id] || 0) +
+              (Number(line.effective_qty) * Number(sale.qty)) / 7;
+          });
+      });
+
+      setLiveDailyUsage(usage);
+    };
+    run();
+  }, [selectedBranch]);
+
   // Relevant SKU filter based on branch brand menus
   const { relevantSmIds, relevantRmIds } = useMemo(() => {
     const viewBranches =
