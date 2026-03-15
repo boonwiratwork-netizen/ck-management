@@ -302,7 +302,7 @@ export default function StoreStockPage({ skus, branches }: Props) {
                   return (
                     <tr key={row.id} className={table.dataRow}>
                       <td className={table.dataCellCenter}>
-                        <StatusDot color={isOut ? 'red' : 'green'} />
+                        <StatusDot status={isOut ? 'red' : 'green'} />
                       </td>
                       <td className={`${table.dataCell} font-mono text-xs`}>{sku.skuId}</td>
                       <td className={table.truncatedCell} title={sku.name}>{sku.name}</td>

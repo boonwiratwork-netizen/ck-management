@@ -158,6 +158,7 @@ const storeGroup: NavGroup = {
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
+    { key: "store-stock", labelKey: "nav.storeStock", icon: LayoutGrid },
     { key: "food-cost", labelKey: "nav.foodCost", icon: PieChart },
   ],
 };
