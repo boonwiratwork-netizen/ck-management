@@ -213,7 +213,7 @@ export default function StoreStockPage({
   const totalSkus = filteredRows.length;
   const totalStockValue = filteredRows.reduce((sum, row) => {
     const price = priceMap[row.sku_id] ?? 0;
-    const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+    const count = Math.max(0, Number(row.physical_count ?? row.calculated_balance ?? 0));
     return sum + price * count;
   }, 0);
 
@@ -400,7 +400,7 @@ export default function StoreStockPage({
                     <td className={table.dataCellMono}>
                       {(() => {
                         const price = priceMap[row.sku_id] ?? 0;
-                        const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+                        const count = Math.max(0, Number(row.physical_count ?? row.calculated_balance ?? 0));
                         const stockValue = price * count;
                         return stockValue > 0 ? (
                           "฿" + Math.round(stockValue).toLocaleString()
