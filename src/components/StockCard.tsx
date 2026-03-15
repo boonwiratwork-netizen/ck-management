@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardList, AlertTriangle } from "lucide-react";
+import { ClipboardList, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
 import type { SKU } from "@/types/sku";
@@ -272,28 +272,28 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
   const hasMovements = movements.length > 1;
 
   return (
-    <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <SheetContent side="right" className="w-[620px] max-w-none p-0 flex flex-col">
-        <SheetHeader className="px-5 pt-5 pb-0 space-y-0">
-          <SheetTitle className="sr-only">Stock Card</SheetTitle>
-          {/* Line 1 */}
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-sm text-muted-foreground">{sku.skuId}</span>
-            <span className="font-semibold text-foreground">{sku.name}</span>
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 flex flex-col bg-background border-l shadow-xl w-[620px]">
+        <div className="px-5 pt-5 pb-0 flex items-start justify-between">
+          <div>
+            {/* Line 1 */}
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-sm text-muted-foreground">{sku.skuId}</span>
+              <span className="font-semibold text-foreground">{sku.name}</span>
+            </div>
+            {/* Line 2 */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`${table.badge.base} ${STORAGE_BADGES[sku.storageCondition] ?? STORAGE_BADGES.Ambient}`}>
+                {sku.storageCondition}
+              </span>
+              <span className="text-xs text-muted-foreground">{sku.usageUom}</span>
+            </div>
           </div>
-          {/* Line 2 */}
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`${table.badge.base} ${STORAGE_BADGES[sku.storageCondition] ?? STORAGE_BADGES.Ambient}`}>
-              {sku.storageCondition}
-            </span>
-            <span className="text-xs text-muted-foreground">{sku.usageUom}</span>
-          </div>
-        </SheetHeader>
+          <button onClick={onClose} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity mt-1">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         <div className="border-b mx-5 mt-3" />
 
@@ -330,80 +330,80 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
             </div>
           ) : (
             <>
-             <table className="w-full table-fixed text-xs">
-                    <colgroup>
-                      <col style={{ width: "72px" }} />
-                      <col style={{ width: "88px" }} />
-                      <col />
-                      <col style={{ width: "65px" }} />
-                      <col style={{ width: "65px" }} />
-                      <col style={{ width: "90px" }} />
-                    </colgroup>
-                    <thead>
-                      <tr className={table.headerRow}>
-                        <th className={table.headerCell}>Date</th>
-                        <th className={table.headerCell}>Type</th>
-                        <th className={table.headerCell}>Reference / Note</th>
-                        <th className={table.headerCellNumeric}>In</th>
-                        <th className={table.headerCellNumeric}>Out</th>
-                        <th className={table.headerCellNumeric}>Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movements.map((m, i) => (
-                        <tr key={i} className={table.dataRow}>
-                          <td className={table.dataCellCompact}>{formatDateCompact(m.date)}</td>
-                          <td className={table.dataCellCompact}>
-                            <span
-                              className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                                m.isProductionUse ? "bg-warning/15 text-warning" : TYPE_BADGE_STYLES[m.type]
-                              }`}
-                            >
-                              {m.type}
-                            </span>
-                          </td>
-                          <td className={table.truncatedCellCompact} title={m.reference}>
-                            <span className="block truncate">{m.reference}</span>
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {m.qtyIn != null && m.qtyIn > 0 ? (
-                              <span className="text-success">{fmt0(m.qtyIn)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {m.qtyOut != null && m.qtyOut > 0 ? (
-                              <span className="text-warning">{fmt0(m.qtyOut)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td
-                            className={`${table.dataCellCompactMono} font-semibold ${
-                              (m.runningBalance ?? 0) < 0
-                                ? "text-destructive"
-                                : (m.runningBalance ?? 0) === 0
-                                  ? "text-muted-foreground"
-                                  : "text-foreground"
-                            }`}
-                          >
-                            {fmt0(m.runningBalance ?? 0)}
-                          </td>
-                        </tr>
-                      ))}
-                      {!hasMovements && (
-                        <tr>
-                          <td colSpan={6} className={table.emptyState}>
-                            <div className="flex flex-col items-center gap-2">
-                              <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
-                              <span>No movements recorded yet for this SKU.</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+              <table className="w-full table-fixed text-xs">
+                <colgroup>
+                  <col style={{ width: "72px" }} />
+                  <col style={{ width: "88px" }} />
+                  <col />
+                  <col style={{ width: "65px" }} />
+                  <col style={{ width: "65px" }} />
+                  <col style={{ width: "90px" }} />
+                </colgroup>
+                <thead>
+                  <tr className={table.headerRow}>
+                    <th className={table.headerCell}>Date</th>
+                    <th className={table.headerCell}>Type</th>
+                    <th className={table.headerCell}>Reference / Note</th>
+                    <th className={table.headerCellNumeric}>In</th>
+                    <th className={table.headerCellNumeric}>Out</th>
+                    <th className={table.headerCellNumeric}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.map((m, i) => (
+                    <tr key={i} className={table.dataRow}>
+                      <td className={table.dataCellCompact}>{formatDateCompact(m.date)}</td>
+                      <td className={table.dataCellCompact}>
+                        <span
+                          className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                            m.isProductionUse ? "bg-warning/15 text-warning" : TYPE_BADGE_STYLES[m.type]
+                          }`}
+                        >
+                          {m.type}
+                        </span>
+                      </td>
+                      <td className={table.truncatedCellCompact} title={m.reference}>
+                        <span className="block truncate">{m.reference}</span>
+                      </td>
+                      <td className={table.dataCellCompactMono}>
+                        {m.qtyIn != null && m.qtyIn > 0 ? (
+                          <span className="text-success">{fmt0(m.qtyIn)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className={table.dataCellCompactMono}>
+                        {m.qtyOut != null && m.qtyOut > 0 ? (
+                          <span className="text-warning">{fmt0(m.qtyOut)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td
+                        className={`${table.dataCellCompactMono} font-semibold ${
+                          (m.runningBalance ?? 0) < 0
+                            ? "text-destructive"
+                            : (m.runningBalance ?? 0) === 0
+                              ? "text-muted-foreground"
+                              : "text-foreground"
+                        }`}
+                      >
+                        {fmt0(m.runningBalance ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                  {!hasMovements && (
+                    <tr>
+                      <td colSpan={6} className={table.emptyState}>
+                        <div className="flex flex-col items-center gap-2">
+                          <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
+                          <span>No movements recorded yet for this SKU.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
               {hasMismatch && hasMovements && (
                 <div className="flex items-center gap-2 mt-3 text-xs text-warning">
@@ -414,7 +414,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </>
   );
 }
