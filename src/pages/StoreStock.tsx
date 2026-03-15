@@ -269,7 +269,7 @@ export default function StoreStockPage({
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
-      const eu = Number(row.expected_usage);
+      const eu = liveDailyUsage[row.sku_id] ?? 0;
       if (dc > 0 && eu > 0) {
         const cd = dc / eu;
         const sc = sku.storageCondition || "Ambient";
@@ -282,7 +282,7 @@ export default function StoreStockPage({
       Frozen: avg(groups.Frozen),
       Ambient: avg(groups.Ambient),
     };
-  }, [filteredRows, skuMap]);
+  }, [filteredRows, skuMap, liveDailyUsage]);
 
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
