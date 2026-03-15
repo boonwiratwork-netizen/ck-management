@@ -28,6 +28,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.branchReceipt": { th: "รับของสาขา", en: "Branch Receipt" },
   "nav.transferRequest": { th: "ใบขอเบิก", en: "Transfer Request" },
   "nav.dailyStockCount": { th: "นับสต๊อกรายวัน", en: "Daily Stock Count" },
+  "nav.storeStock": { th: "สต๊อกสาขา", en: "Store Stock" },
   "nav.foodCost": { th: "ต้นทุนอาหาร", en: "Food Cost" },
   "nav.branches": { th: "สาขา", en: "Branches" },
   "nav.userManagement": { th: "จัดการผู้ใช้", en: "User Management" },

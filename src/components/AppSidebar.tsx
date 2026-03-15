@@ -35,6 +35,7 @@ import {
   Heart,
   ArrowUpFromLine,
   ArrowRightLeft,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -66,6 +67,7 @@ export type TabKey =
   | "branch-receipt"
   | "transfer-request"
   | "daily-stock-count"
+  | "store-stock"
   | "food-cost"
   | "sku-categories";
 
@@ -95,6 +97,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   "transfer-request": "store",
   "branch-receipt": "store",
   "daily-stock-count": "store",
+  "store-stock": "store",
   "food-cost": "store",
   "sku-categories": "management",
 };
@@ -155,6 +158,7 @@ const storeGroup: NavGroup = {
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
+    { key: "store-stock", labelKey: "nav.storeStock", icon: LayoutGrid },
     { key: "food-cost", labelKey: "nav.foodCost", icon: PieChart },
   ],
 };

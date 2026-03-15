@@ -45,6 +45,7 @@ import BranchReceiptPage from '@/pages/BranchReceipt';
 import TransferRequestPage from '@/pages/TransferRequest';
 import FoodCostPage from '@/pages/FoodCost';
 import StoreOverview from '@/pages/StoreOverview';
+import StoreStockPage from '@/pages/StoreStock';
 import SkuCategoriesPage from '@/pages/SkuCategories';
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -77,6 +78,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   'branch-receipt': { title: 'Branch Receipt', subtitle: 'Track incoming stock at branches' },
   'transfer-request': { title: 'Transfer Request', subtitle: 'Request SM ingredients from Central Kitchen' },
   'daily-stock-count': { title: 'Daily Stock Count', subtitle: 'Daily branch inventory check' },
+  'store-stock': { title: 'Store Stock', subtitle: 'Branch-level stock balances' },
   'food-cost': { title: 'Food Cost', subtitle: 'Analyze your cost vs revenue' },
   'sku-categories': { title: 'SKU Categories', subtitle: 'Manage ingredient categories' },
 };
@@ -474,6 +476,11 @@ const Index = () => {
                   modifierRules={modifierRuleData.rules}
                   spBomLines={spBomData.lines}
                   menus={menuData.menus}
+                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                />
+              ) : activeTab === 'store-stock' ? (
+                <StoreStockPage
+                  skus={skus}
                   branches={isAreaManager ? areaManagerBranches : branchData.branches}
                 />
               ) : activeTab === 'food-cost' ? (
