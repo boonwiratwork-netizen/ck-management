@@ -273,8 +273,8 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-50 flex flex-col bg-background border-l shadow-xl w-[620px]">
+      <div className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-[70] flex flex-col bg-background border-l shadow-xl w-[620px]">
         <div className="px-5 pt-5 pb-0 flex items-start justify-between">
           <div>
             {/* Line 1 */}
