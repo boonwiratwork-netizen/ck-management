@@ -211,7 +211,11 @@ export default function StoreStockPage({
 
   // Summary cards
   const totalSkus = filteredRows.length;
-  const outOfStock = filteredRows.filter((r) => getDisplayCount(r) <= 0).length;
+  const totalStockValue = filteredRows.reduce((sum, row) => {
+    const price = priceMap[row.sku_id] ?? 0;
+    const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+    return sum + (price * count);
+  }, 0);
 
   // Cover Day By Storage
   const coverByStorage = useMemo(() => {
