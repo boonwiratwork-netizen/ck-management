@@ -354,7 +354,7 @@ export default function StoreStockPage({
                 <th className={table.headerCell}>SKU ID</th>
                 <th className={table.headerCell}>Name</th>
                 {showBranchCol && <th className={table.headerCell}>Branch</th>}
-                <th className={table.headerCellNumeric}>Count</th>
+                <th className={table.headerCellNumeric}>Curren Stock</th>
                 <th className={table.headerCellCenter}>UOM</th>
                 <th className={table.headerCellNumeric}>Stock Value</th>
                 <th className={table.headerCell}>Last Count</th>
