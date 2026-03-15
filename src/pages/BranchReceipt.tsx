@@ -1484,11 +1484,9 @@ export default function BranchReceiptPage({
                       <td
                         className={`${tdReadOnly} text-right font-mono tabular-nums ${r.priceVariance > 0 ? "text-destructive" : "text-success"}`}
                       >
-                        {r.priceVariance > 0 ? "+" : ""}฿
-                        {r.priceVariance.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                        {r.priceVariance > 0
+                          ? `+฿${r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : `฿${r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </td>
                       {isManagement && <td className={tdReadOnly}>{branch?.branchName || "—"}</td>}
                       {isManagement && (
