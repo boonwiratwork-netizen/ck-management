@@ -1482,7 +1482,7 @@ export default function BranchReceiptPage({
                         ฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td
-                        className={`${tdReadOnly} text-right font-mono ${r.priceVariance > 0 ? "text-destructive" : "text-success"}`}
+                        className={`${tdReadOnly} text-right font-mono tabular-nums ${r.priceVariance > 0 ? "text-destructive" : "text-success"}`}
                       >
                         {r.priceVariance > 0 ? "+" : ""}฿
                         {r.priceVariance.toLocaleString(undefined, {
