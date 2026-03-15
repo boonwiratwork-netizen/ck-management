@@ -387,25 +387,6 @@ export default function StoreStockPage({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        title="Adjust stock"
-                        onClick={() =>
-                          setAdjustModal({
-                            skuId: sku.id,
-                            skuName: sku.name,
-                            usageUom: sku.usageUom,
-                            currentStock: dc,
-                            skuType: sku.type,
-                          })
-                        }
-                      >
-                        <SlidersHorizontal className="h-4 w-4" />
-                      </Button>
-                    </td>
-                    <td className={table.dataCell}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
                         title="Stock card"
                         onClick={() =>
                           setStockCard({
