@@ -98,7 +98,16 @@ const TYPE_BADGE_STYLES: Record<TypeBadgeKey, string> = {
   StockCount: "bg-violet-500/15 text-violet-600",
 };
 
-export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue, onClose, disableMismatchCheck }: StockCardProps) {
+export function StockCard({
+  skuId,
+  skuType,
+  sku,
+  skus,
+  currentStock,
+  stockValue,
+  onClose,
+  disableMismatchCheck,
+}: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -274,7 +283,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
 
   return (
     <>
-      <div className="fixed top-0 bottom-0 left-0 right-0 z-[999] bg-black/40" onClick={onClose} />
+      <div className="fixed top-0 bottom-0 left-0 right-0 z-[999] bg-black/25" onClick={onClose} />
       <div className="fixed inset-y-0 right-0 z-[1000] flex flex-col bg-background border-l shadow-xl w-[620px]">
         <div className="px-5 pt-5 pb-0 flex items-start justify-between">
           <div>
