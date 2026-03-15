@@ -51,6 +51,7 @@ export default function StoreStockPage({
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
   const [rows, setRows] = useState<CountRow[]>([]);
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
