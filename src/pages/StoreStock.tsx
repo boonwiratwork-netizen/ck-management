@@ -439,6 +439,7 @@ export default function StoreStockPage({
                             skuType: sku.type as "RM" | "SM",
                             sku,
                             currentStock: dc,
+                            branchId: row.branch_id,
                           })
                         }
                       >
