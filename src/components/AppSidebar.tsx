@@ -35,6 +35,7 @@ import {
   Heart,
   ArrowUpFromLine,
   ArrowRightLeft,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
