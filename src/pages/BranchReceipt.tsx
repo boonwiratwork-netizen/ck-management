@@ -663,7 +663,7 @@ export default function BranchReceiptPage({
             onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
             disabled={isStoreManager}
           >
-            <SelectTrigger className="w-[200px] h-10">
+            <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Select branch" />
             </SelectTrigger>
             <SelectContent>
