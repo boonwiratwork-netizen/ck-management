@@ -356,7 +356,7 @@ export function useDailyStockCount({
       const waste = Number(r.waste ?? 0);
       // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
       const extConv = getSkuConverter(r.sku_id);
-      const opening = prevOpening[r.sku_id] ?? Number(r.opening_balance);
+      const opening = openingBySku[r.sku_id] ?? Number(r.opening_balance);
       const calcBalance = opening + ck + (ext * extConv) - expUsage - waste;
       const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
       return { ...r, opening_balance: opening, received_external: ext, received_from_ck: ck, expected_usage: expUsage, calculated_balance: calcBalance, variance };
