@@ -409,18 +409,6 @@ export default function StoreStockPage({
         </div>
       )}
 
-      {/* Adjust Modal */}
-      {adjustModal && (
-        <StockAdjustmentModal
-          open={!!adjustModal}
-          onClose={() => setAdjustModal(null)}
-          skuId={adjustModal.skuId}
-          skuName={adjustModal.skuName}
-          usageUom={adjustModal.usageUom}
-          currentStock={adjustModal.currentStock}
-          onSubmit={handleAdjustSubmit}
-        />
-      )}
 
       {/* Stock Card Drawer */}
       {stockCard && (
