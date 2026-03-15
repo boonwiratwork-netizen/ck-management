@@ -10,14 +10,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
 import { StatusDot } from "@/components/ui/status-dot";
 import { StockCard } from "@/components/StockCard";
-
+import { StockAdjustmentModal } from "@/components/StockAdjustmentModal";
 import { SearchInput } from "@/components/SearchInput";
 import { SkeletonTable } from "@/components/SkeletonTable";
 import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Package } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { SlidersHorizontal, History, Package } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   skus: SKU[];
@@ -51,11 +53,17 @@ export default function StoreStockPage({
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
   const [rows, setRows] = useState<CountRow[]>([]);
-  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"All" | "SM" | "RM">("All");
+  const [adjustModal, setAdjustModal] = useState<{
+    skuId: string;
+    skuName: string;
+    usageUom: string;
+    currentStock: number;
+    skuType: string;
+  } | null>(null);
   const [stockCard, setStockCard] = useState<{
     skuId: string;
     skuType: "RM" | "SM";
@@ -95,17 +103,7 @@ export default function StoreStockPage({
       query = query.eq("branch_id", selectedBranch);
     }
 
-    const [{ data }, { data: pricesData }] = await Promise.all([
-      query,
-      supabase.from("prices").select("sku_id, price_per_usage_uom").eq("is_active", true),
-    ]);
-
-    // Build price lookup
-    const pm: Record<string, number> = {};
-    (pricesData || []).forEach((p: any) => {
-      pm[p.sku_id] = Number(p.price_per_usage_uom);
-    });
-    setPriceMap(pm);
+    const { data } = await query;
 
     // Dedup: keep most recent per branch+sku
     const latestByKey = new Map<string, CountRow>();
@@ -211,11 +209,7 @@ export default function StoreStockPage({
 
   // Summary cards
   const totalSkus = filteredRows.length;
-  const totalStockValue = filteredRows.reduce((sum, row) => {
-    const price = priceMap[row.sku_id] ?? 0;
-    const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
-    return sum + (price * count);
-  }, 0);
+  const outOfStock = filteredRows.filter((r) => getDisplayCount(r) <= 0).length;
 
   // Cover Day By Storage
   const coverByStorage = useMemo(() => {
@@ -242,6 +236,23 @@ export default function StoreStockPage({
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
 
+  // Adjust handler
+  const handleAdjustSubmit = async (data: { skuId: string; date: string; quantity: number; reason: string }) => {
+    const sku = skuMap.get(data.skuId);
+    const { error } = await supabase.from("stock_adjustments").insert({
+      sku_id: data.skuId,
+      adjustment_date: data.date,
+      quantity: data.quantity,
+      reason: data.reason,
+      stock_type: sku?.type === "SM" ? "SM" : "RM",
+    });
+    if (error) {
+      toast.error("Failed to adjust: " + error.message);
+      return;
+    }
+    toast.success("Stock adjusted. Balance updates after next Daily Stock Count.");
+    setAdjustModal(null);
+  };
 
   // No branch assigned
   if (noBranch) {
@@ -250,14 +261,6 @@ export default function StoreStockPage({
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Store Stock</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Branch-level stock balances from daily count sheets
-        </p>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
@@ -268,8 +271,8 @@ export default function StoreStockPage({
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">TOTAL STOCK VALUE</p>
-            <p className="text-2xl font-bold font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Out of Stock</p>
+            <p className="text-2xl font-bold font-mono text-destructive">{outOfStock.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
@@ -341,14 +344,14 @@ export default function StoreStockPage({
             <colgroup>
               <col style={{ width: "28px" }} />
               <col style={{ width: "72px" }} />
-              <col />
+              <col style={{ width: "200px" }} />
               {showBranchCol && <col style={{ width: "90px" }} />}
-              <col style={{ width: "85px" }} />
-              <col style={{ width: "48px" }} />
               <col style={{ width: "90px" }} />
+              <col style={{ width: "48px" }} />
               <col style={{ width: "95px" }} />
-              <col style={{ width: "80px" }} />
-              <col style={{ width: "85px" }} />
+              <col style={{ width: "95px" }} />
+              <col style={{ width: "75px" }} />
+              <col style={{ width: "95px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
             <thead>
@@ -359,10 +362,10 @@ export default function StoreStockPage({
                 {showBranchCol && <th className={table.headerCell}>Branch</th>}
                 <th className={table.headerCellNumeric}>Count</th>
                 <th className={table.headerCellCenter}>UOM</th>
-                <th className={table.headerCellNumeric}>Stock Value</th>
                 <th className={table.headerCell}>Last Count</th>
                 <th className={table.headerCellNumeric}>Cover Day</th>
                 <th className={table.headerCellNumeric}>Avg/Week</th>
+                <th className={table.headerCell} />
                 <th className={table.headerCell} />
               </tr>
             </thead>
@@ -400,21 +403,30 @@ export default function StoreStockPage({
                       )}
                     </td>
                     <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
-                    <td className={table.dataCellMono}>
-                      {(() => {
-                        const price = priceMap[row.sku_id] ?? 0;
-                        const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
-                        const stockValue = price * count;
-                        return stockValue > 0
-                          ? '฿' + Math.round(stockValue).toLocaleString()
-                          : <span className="text-muted-foreground">—</span>;
-                      })()}
-                    </td>
                     <td className={table.dataCell}>{row.count_date}</td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
                     </td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>{avgWeek}</td>
+                    <td className={table.dataCell}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Adjust stock"
+                        onClick={() =>
+                          setAdjustModal({
+                            skuId: sku.id,
+                            skuName: sku.name,
+                            usageUom: sku.usageUom,
+                            currentStock: dc,
+                            skuType: sku.type,
+                          })
+                        }
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </Button>
+                    </td>
                     <td className={table.dataCell}>
                       <Button
                         variant="ghost"
@@ -442,6 +454,18 @@ export default function StoreStockPage({
         </div>
       )}
 
+      {/* Adjust Modal */}
+      {adjustModal && (
+        <StockAdjustmentModal
+          open={!!adjustModal}
+          onClose={() => setAdjustModal(null)}
+          skuId={adjustModal.skuId}
+          skuName={adjustModal.skuName}
+          usageUom={adjustModal.usageUom}
+          currentStock={adjustModal.currentStock}
+          onSubmit={handleAdjustSubmit}
+        />
+      )}
 
       {/* Stock Card Drawer */}
       {stockCard && (
