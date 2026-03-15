@@ -341,17 +341,17 @@ export default function StoreStockPage({
         <div className={table.wrapper}>
           <table className={table.base}>
             <colgroup>
-              <col width="28px" />
-              <col width="72px" />
+              <col style={{ width: "28px" }} />
+              <col style={{ width: "72px" }} />
               <col />
-              {showBranchCol && <col width="90px" />}
-              <col width="85px" />
-              <col width="48px" />
-              <col width="95px" />
-              <col width="80px" />
-              <col width="85px" />
-              <col width="40px" />
-              <col width="40px" />
+              {showBranchCol && <col style={{ width: "90px" }} />}
+              <col style={{ width: "85px" }} />
+              <col style={{ width: "48px" }} />
+              <col style={{ width: "95px" }} />
+              <col style={{ width: "80px" }} />
+              <col style={{ width: "85px" }} />
+              <col style={{ width: "40px" }} />
+              <col style={{ width: "40px" }} />
             </colgroup>
             <thead>
               <tr className={table.headerRow}>
