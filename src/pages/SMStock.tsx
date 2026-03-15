@@ -301,7 +301,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                   className="justify-end"
                 />
               </th>
-              <th className={table.headerCell}>{t("col.lastProduction")}</th>
+              <th className={cn(table.headerCell, "text-right")}>{t("col.lastProduction")}</th>
               <th
                 className={table.headerCellNumeric}
                 onClick={() => handleSort("coverDay")}
