@@ -136,6 +136,7 @@ export default function StoreStockPage({
     setAvgUsageMap(newAvgMap);
 
     setLoading(false);
+  }, [noBranch, isStoreManager, profile?.branch_id, selectedBranch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
