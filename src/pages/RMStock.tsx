@@ -390,7 +390,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                     </td>
                     <td className={cn(table.dataCellCenter, "text-xs font-medium text-primary")}>{row.sku.usageUom}</td>
                     <td className={table.dataCellMono}>
-                      {row.stockValue > 0 ? `฿${Math.round(row.stockValue).toLocaleString()}` : "—"}
+                      {Math.max(0, row.stockValue) > 0 ? `฿${Math.round(Math.max(0, row.stockValue)).toLocaleString()}` : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className={cn(table.dataCell, "text-right")}>{row.lastDate ?? "—"}</td>
                     <td className={cn(table.dataCellMono, "text-muted-foreground")}>
