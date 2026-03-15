@@ -246,7 +246,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className={table.emptyState}>
+                <td colSpan={11} className={table.emptyState}>
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No SM SKUs found.
                 </td>
