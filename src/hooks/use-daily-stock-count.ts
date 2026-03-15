@@ -273,6 +273,7 @@ export function useDailyStockCount({
     
     // Update DB in background for any changed rows
     const updates = patched.filter((p, i) => 
+      p.opening_balance !== Number(data[i].opening_balance) ||
       p.received_external !== Number(data[i].received_external) ||
       p.received_from_ck !== Number(data[i].received_from_ck) ||
       p.expected_usage !== Number(data[i].expected_usage)
@@ -280,6 +281,7 @@ export function useDailyStockCount({
     if (updates.length > 0) {
       for (const u of updates) {
         supabase.from('daily_stock_counts').update({
+          opening_balance: u.opening_balance,
           received_external: u.received_external,
           received_from_ck: u.received_from_ck,
           expected_usage: u.expected_usage,
