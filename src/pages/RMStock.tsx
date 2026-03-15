@@ -392,7 +392,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                     <td className={table.dataCellMono}>
                       {row.stockValue > 0 ? `฿${Math.round(row.stockValue).toLocaleString()}` : "—"}
                     </td>
-                    <td className={table.dataCell}>{row.lastDate ?? "—"}</td>
+                    <td className={cn(table.dataCell, "font-right")}>{row.lastDate ?? "—"}</td>
                     <td className={cn(table.dataCellMono, "text-muted-foreground")}>
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
                     </td>
