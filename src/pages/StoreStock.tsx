@@ -63,6 +63,7 @@ export default function StoreStockPage({
     currentStock: number;
     branchId: string;
   } | null>(null);
+  const [liveDailyUsage, setLiveDailyUsage] = useState<Record<string, number>>({});
 
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
