@@ -330,9 +330,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
             </div>
           ) : (
             <>
-              <div className={table.wrapper}>
-                <div className="overflow-x-auto">
-                  <table className={table.base}>
+             <table className="w-full table-fixed text-xs">
                     <colgroup>
                       <col style={{ width: "72px" }} />
                       <col style={{ width: "88px" }} />
