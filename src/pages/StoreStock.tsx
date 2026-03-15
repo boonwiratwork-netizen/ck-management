@@ -359,6 +359,7 @@ export default function StoreStockPage({
                 {showBranchCol && <th className={table.headerCell}>Branch</th>}
                 <th className={table.headerCellNumeric}>Count</th>
                 <th className={table.headerCellCenter}>UOM</th>
+                <th className={table.headerCellNumeric}>Stock Value</th>
                 <th className={table.headerCell}>Last Count</th>
                 <th className={table.headerCellNumeric}>Cover Day</th>
                 <th className={table.headerCellNumeric}>Avg/Week</th>
