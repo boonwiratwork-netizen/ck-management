@@ -406,7 +406,7 @@ export function StockCard({ skuId, skuType, sku, skus, currentStock, stockValue,
                 </tbody>
               </table>
 
-              {hasMismatch && hasMovements && (
+              {hasMismatch && hasMovements && !disableMismatchCheck && (
                 <div className="flex items-center gap-2 mt-3 text-xs text-warning">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>Balance mismatch — some movements may be missing</span>
