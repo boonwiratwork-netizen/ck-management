@@ -268,8 +268,8 @@ export default function StoreStockPage({
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Out of Stock</p>
-            <p className="text-2xl font-bold font-mono text-destructive">{outOfStock.toLocaleString()}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">TOTAL STOCK VALUE</p>
+            <p className="text-2xl font-bold font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
