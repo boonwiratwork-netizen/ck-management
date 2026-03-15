@@ -528,6 +528,7 @@ export default function DailyStockCountPage({
                               {!isSubmitted && (
                                 <Input
                                   type="number"
+                                  min={0}
                                   step="0.01"
                                   defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
                                   key={`phys-unused-${row.id}-${row.physicalCount}`}

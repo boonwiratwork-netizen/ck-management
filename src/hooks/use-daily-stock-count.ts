@@ -91,9 +91,9 @@ export function useDailyStockCount({
     const baseOpening: Record<string, number> = {};
     const lastCountDate: Record<string, string> = {};
     lastCountBySku.forEach((r, skuId) => {
-      baseOpening[skuId] = r.physical_count !== null
+      baseOpening[skuId] = Math.max(0, r.physical_count !== null
         ? Number(r.physical_count)
-        : Number(r.calculated_balance);
+        : Number(r.calculated_balance));
       lastCountDate[skuId] = r.count_date;
     });
 
