@@ -96,6 +96,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   "transfer-request": "store",
   "branch-receipt": "store",
   "daily-stock-count": "store",
+  "store-stock": "store",
   "food-cost": "store",
   "sku-categories": "management",
 };
