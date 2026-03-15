@@ -17,9 +17,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { History, Package } from "lucide-react";
-import { toast } from "sonner";
 
 interface Props {
   skus: SKU[];
