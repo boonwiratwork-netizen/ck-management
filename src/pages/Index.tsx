@@ -45,6 +45,7 @@ import BranchReceiptPage from '@/pages/BranchReceipt';
 import TransferRequestPage from '@/pages/TransferRequest';
 import FoodCostPage from '@/pages/FoodCost';
 import StoreOverview from '@/pages/StoreOverview';
+import StoreStockPage from '@/pages/StoreStock';
 import SkuCategoriesPage from '@/pages/SkuCategories';
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
