@@ -330,7 +330,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                   className="justify-end"
                 />
               </th>
-              <th className={table.headerCell}>{t("col.lastReceipt")}</th>
+              <th className={cn(table.headerCell, "text-right")}>{t("col.lastReceipt")}</th>
               <th
                 className={table.headerCellNumeric}
                 onClick={() => handleSort("coverDay")}
