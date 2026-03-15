@@ -358,7 +358,7 @@ export function useDailyStockCount({
     const activeSkus = skus.filter(s => s.status === 'Active' && (s.type === 'RM' || s.type === 'SM'));
     
     const insertRows = activeSkus.map(sku => {
-      const opening = prevPhysical[sku.id] ?? 0;
+      const opening = prevPhysical[sku.id] ?? prevCalcBalance[sku.id] ?? 0;
       const fromCk = receipts.ckBySku[sku.id] ?? 0;
       const receivedExternal = receipts.extBySku[sku.id] ?? 0;
       const expUsage = expectedUsage[sku.id] ?? 0;
