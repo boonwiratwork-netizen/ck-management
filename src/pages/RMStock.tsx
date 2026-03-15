@@ -41,6 +41,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [ckItemsOnly, setCkItemsOnly] = useState(true);
   const [adjustModal, setAdjustModal] = useState<{ skuId: string; skuName: string; usageUom: string; currentStock: number } | null>(null);
+  const [stockCardSku, setStockCardSku] = useState<{ skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number; stockValue: number } | null>(null);
 
   const [rmDailyUsage, setRmDailyUsage] = useState<Record<string, number>>({});
 
