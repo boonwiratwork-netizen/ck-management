@@ -391,7 +391,7 @@ export default function StoreStockPage({
                     )}
                     <td className={table.dataCellMono}>
                       {showDash ? (
-                        <span className="text-muted-foreground, font-semibold">—</span>
+                        <span className="text-muted-foreground">—</span>
                       ) : (
                         <span className={isPhysical ? "font-semibold" : ""}>{Math.round(dc).toLocaleString()}</span>
                       )}
