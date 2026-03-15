@@ -345,21 +345,8 @@ export function useDailyStockCount({
     if (sheetResult.error) { toast.error('Failed to load count sheet'); return; }
     const data = sheetResult.data || [];
 
-    // Fetch previous day's data for self-healing opening balance
-    const prevDate = new Date(date);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = toLocalDateStr(prevDate);
-    const { data: prevCounts } = await supabase
-      .from('daily_stock_counts')
-      .select('sku_id, physical_count, calculated_balance')
-      .eq('branch_id', branchId)
-      .eq('count_date', prevDateStr);
-    const prevOpening: Record<string, number> = {};
-    (prevCounts || []).forEach(p => {
-      prevOpening[p.sku_id] = p.physical_count !== null
-        ? Number(p.physical_count)
-        : Number(p.calculated_balance);
-    });
+    // Fetch gap-resilient opening balances
+    const openingBySku = await computeOpeningWithGap(branchId, date);
     
     // Patch rows with live receipt data, live expected usage, AND corrected opening balance
     const patched = data.map(r => {
