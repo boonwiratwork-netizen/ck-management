@@ -1469,7 +1469,7 @@ export default function BranchReceiptPage({
                       <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>{toNum || "—"}</td>
                       <td className={`${tdReadOnly} text-right font-mono`}>{r.qtyReceived.toLocaleString()}</td>
                       <td className={`${tdReadOnly} text-center`}>{sku?.purchaseUom || r.uom}</td>
-                      <td className={`${tdReadOnly} text-right font-mono`}>
+                      <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
                         ฿
                         {r.actualTotal.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
