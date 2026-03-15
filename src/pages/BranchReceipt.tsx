@@ -1343,7 +1343,7 @@ export default function BranchReceiptPage({
                 <col style={{ width: 70 }} /> {/* UOM */}
                 <col style={{ width: 100 }} /> {/* ACTUAL ฿ */}
                 <col style={{ width: 100 }} /> {/* STD ฿ */}
-                <col style={{ width: 100 }} /> {/* VARIANCE */}
+                <col style={{ width: 110 }} /> {/* VARIANCE */}
                 {isManagement && <col style={{ width: 110 }} />} {/* BRANCH */}
                 {isManagement && <col style={{ width: 50 }} />} {/* DELETE */}
               </colgroup>
