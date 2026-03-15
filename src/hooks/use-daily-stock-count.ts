@@ -165,7 +165,7 @@ export function useDailyStockCount({
       const extConv = getSkuConverter(skuId);
       const usage = gapUsageBySku[skuId] ?? 0;
       const waste = gapWasteBySku[skuId] ?? 0;
-      result[skuId] = base + ck + (ext * extConv) - usage - waste;
+      result[skuId] = Math.max(0, base + ck + (ext * extConv) - usage - waste);
     });
 
     return result;
