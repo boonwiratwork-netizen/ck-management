@@ -285,7 +285,23 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                           currentStock: row.currentStock,
                         })}
                       >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                    </Button>
+                    </td>
+                    <td className={table.dataCellCenter}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setStockCardSku({
+                          skuId: row.sku.id,
+                          skuType: 'SM',
+                          sku: row.sku,
+                          currentStock: row.currentStock,
+                          stockValue: row.stockValue,
+                        })}
+                      >
+                        <History className="w-3.5 h-3.5" />
                       </Button>
                     </td>
                   </tr>
