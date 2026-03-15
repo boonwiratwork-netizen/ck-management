@@ -7,8 +7,9 @@ import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SlidersHorizontal, Search, Package } from 'lucide-react';
+import { SlidersHorizontal, Search, Package, History } from 'lucide-react';
 import { StockAdjustmentModal } from '@/components/StockAdjustmentModal';
+import { StockCard } from '@/components/StockCard';
 import { StatusDot } from '@/components/ui/status-dot';
 import { UnitLabel } from '@/components/ui/unit-label';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStorage, setFilterStorage] = useState<string>('all');
   const [adjustModal, setAdjustModal] = useState<{ skuId: string; skuName: string; usageUom: string; currentStock: number } | null>(null);
+  const [stockCardSku, setStockCardSku] = useState<{ skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number; stockValue: number } | null>(null);
 
   const [smDailyUsage, setSmDailyUsage] = useState<Record<string, number>>({});
 
@@ -212,6 +214,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
             <col style={{ width: '75px' }} />
             <col style={{ width: '95px' }} />
             <col style={{ width: '40px' }} />
+            <col style={{ width: '40px' }} />
           </colgroup>
           <thead className="sticky top-0 z-[5]">
             <tr className={table.headerRow}>
@@ -237,12 +240,13 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 <SortableHeader label="Avg/Week" sortKey="avgWeek" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </th>
               <th className={table.headerCell}></th>
+              <th className={table.headerCell}></th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className={table.emptyState}>
+                <td colSpan={11} className={table.emptyState}>
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   No SM SKUs found.
                 </td>
@@ -281,7 +285,23 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                           currentStock: row.currentStock,
                         })}
                       >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                    </Button>
+                    </td>
+                    <td className={table.dataCellCenter}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setStockCardSku({
+                          skuId: row.sku.id,
+                          skuType: 'SM',
+                          sku: row.sku,
+                          currentStock: row.currentStock,
+                          stockValue: row.stockValue,
+                        })}
+                      >
+                        <History className="w-3.5 h-3.5" />
                       </Button>
                     </td>
                   </tr>
@@ -304,6 +324,18 @@ export default function SMStockPage({ skus, smStockData }: Props) {
             addAdjustment(data);
             toast.success('Stock adjusted');
           }}
+        />
+      )}
+
+      {stockCardSku && (
+        <StockCard
+          skuId={stockCardSku.skuId}
+          skuType={stockCardSku.skuType}
+          sku={stockCardSku.sku}
+          skus={skus}
+          currentStock={stockCardSku.currentStock}
+          stockValue={stockCardSku.stockValue}
+          onClose={() => setStockCardSku(null)}
         />
       )}
     </div>
