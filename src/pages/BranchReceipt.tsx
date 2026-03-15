@@ -1335,7 +1335,7 @@ export default function BranchReceiptPage({
             <table className="w-full text-sm table-fixed">
               <colgroup>
                 <col style={{ width: 100 }} />
-                <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
                 <col style={{ width: 140 }} />
                 <col style={{ width: 120 }} />
                 <col style={{ width: 80 }} />
