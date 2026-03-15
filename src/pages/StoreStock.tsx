@@ -336,7 +336,7 @@ export default function StoreStockPage({
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-10 bg-background py-2">
         <SearchInput value={search} onChange={setSearch} placeholder="Search SKU ID or name…" className="w-64" />
         {(isManagement || isAreaManager) && (
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
