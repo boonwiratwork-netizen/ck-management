@@ -328,7 +328,6 @@ export default function StoreStockPage({
               <col style={{ width: "80px" }} />
               <col style={{ width: "85px" }} />
               <col style={{ width: "40px" }} />
-              <col style={{ width: "40px" }} />
             </colgroup>
             <thead>
               <tr className={table.headerRow}>
