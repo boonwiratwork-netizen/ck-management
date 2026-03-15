@@ -420,7 +420,7 @@ export function useDailyStockCount({
     }
     
     setRows([...patched, ...insertedRows].map(toLocal));
-  }, [fetchReceiptTotals, calculateExpectedUsage, skus]);
+  }, [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap]);
 
   // Generate count sheet
   const generateSheet = useCallback(async (branchId: string, date: string) => {
