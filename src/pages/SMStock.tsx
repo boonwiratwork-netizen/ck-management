@@ -273,7 +273,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 />
               </th>
               <th
-                className={table.headerCellNumeric}
+                className={cn(table.headerCellNumeric, "font-semibold")}
                 onClick={() => handleSort("currentStock")}
                 style={{ cursor: "pointer" }}
               >
