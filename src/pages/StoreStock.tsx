@@ -345,6 +345,7 @@ export default function StoreStockPage({
               {showBranchCol && <col style={{ width: "90px" }} />}
               <col style={{ width: "85px" }} />
               <col style={{ width: "48px" }} />
+              <col style={{ width: "90px" }} />
               <col style={{ width: "95px" }} />
               <col style={{ width: "80px" }} />
               <col style={{ width: "85px" }} />
