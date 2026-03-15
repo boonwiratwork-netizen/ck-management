@@ -51,6 +51,7 @@ export default function StoreStockPage({
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
   const [rows, setRows] = useState<CountRow[]>([]);
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
@@ -94,7 +95,17 @@ export default function StoreStockPage({
       query = query.eq("branch_id", selectedBranch);
     }
 
-    const { data } = await query;
+    const [{ data }, { data: pricesData }] = await Promise.all([
+      query,
+      supabase.from("prices").select("sku_id, price_per_usage_uom").eq("is_active", true),
+    ]);
+
+    // Build price lookup
+    const pm: Record<string, number> = {};
+    (pricesData || []).forEach((p: any) => {
+      pm[p.sku_id] = Number(p.price_per_usage_uom);
+    });
+    setPriceMap(pm);
 
     // Dedup: keep most recent per branch+sku
     const latestByKey = new Map<string, CountRow>();
@@ -200,7 +211,11 @@ export default function StoreStockPage({
 
   // Summary cards
   const totalSkus = filteredRows.length;
-  const outOfStock = filteredRows.filter((r) => getDisplayCount(r) <= 0).length;
+  const totalStockValue = filteredRows.reduce((sum, row) => {
+    const price = priceMap[row.sku_id] ?? 0;
+    const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+    return sum + (price * count);
+  }, 0);
 
   // Cover Day By Storage
   const coverByStorage = useMemo(() => {
@@ -253,8 +268,8 @@ export default function StoreStockPage({
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Out of Stock</p>
-            <p className="text-2xl font-bold font-mono text-destructive">{outOfStock.toLocaleString()}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">TOTAL STOCK VALUE</p>
+            <p className="text-2xl font-bold font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
@@ -330,6 +345,7 @@ export default function StoreStockPage({
               {showBranchCol && <col style={{ width: "90px" }} />}
               <col style={{ width: "85px" }} />
               <col style={{ width: "48px" }} />
+              <col style={{ width: "90px" }} />
               <col style={{ width: "95px" }} />
               <col style={{ width: "80px" }} />
               <col style={{ width: "85px" }} />
@@ -343,6 +359,7 @@ export default function StoreStockPage({
                 {showBranchCol && <th className={table.headerCell}>Branch</th>}
                 <th className={table.headerCellNumeric}>Count</th>
                 <th className={table.headerCellCenter}>UOM</th>
+                <th className={table.headerCellNumeric}>Stock Value</th>
                 <th className={table.headerCell}>Last Count</th>
                 <th className={table.headerCellNumeric}>Cover Day</th>
                 <th className={table.headerCellNumeric}>Avg/Week</th>
@@ -383,6 +400,16 @@ export default function StoreStockPage({
                       )}
                     </td>
                     <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
+                    <td className={table.dataCellMono}>
+                      {(() => {
+                        const price = priceMap[row.sku_id] ?? 0;
+                        const count = Number(row.physical_count ?? row.calculated_balance ?? 0);
+                        const stockValue = price * count;
+                        return stockValue > 0
+                          ? '฿' + Math.round(stockValue).toLocaleString()
+                          : <span className="text-muted-foreground">—</span>;
+                      })()}
+                    </td>
                     <td className={table.dataCell}>{row.count_date}</td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
