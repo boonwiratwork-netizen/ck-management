@@ -57,6 +57,7 @@ export default function StoreStockPage({
   const [stockCard, setStockCard] = useState<{
     skuId: string; skuType: 'RM' | 'SM'; sku: SKU; currentStock: number;
   } | null>(null);
+  const [avgUsageMap, setAvgUsageMap] = useState<Map<string, number>>(new Map());
 
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
