@@ -342,7 +342,7 @@ export default function StoreStockPage({
                 return (
                   <tr key={row.id} className={table.dataRow}>
                     <td className={table.dataCell}>
-                      <StatusDot color={dc > 0 ? 'green' : 'red'} />
+                      <StatusDot status={dc > 0 ? 'green' : 'red'} />
                     </td>
                     <td className={`${table.dataCell} font-mono text-xs`}>{sku.skuId}</td>
                     <td className={table.truncatedCell} title={sku.name}>{sku.name}</td>

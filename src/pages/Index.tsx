@@ -482,6 +482,11 @@ const Index = () => {
                 <StoreStockPage
                   skus={skus}
                   branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                  bomHeaders={bomData.headers}
+                  bomLines={bomData.lines}
+                  menus={menuData.menus}
+                  menuBomLines={menuBomData.lines}
+                  spBomLines={spBomData.lines}
                 />
               ) : activeTab === 'food-cost' ? (
                 <FoodCostPage
