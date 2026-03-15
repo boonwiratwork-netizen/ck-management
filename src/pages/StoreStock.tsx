@@ -229,23 +229,6 @@ export default function StoreStockPage({
   // All branches mode
   const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
 
-  // Adjust handler
-  const handleAdjustSubmit = async (data: { skuId: string; date: string; quantity: number; reason: string }) => {
-    const sku = skuMap.get(data.skuId);
-    const { error } = await supabase.from("stock_adjustments").insert({
-      sku_id: data.skuId,
-      adjustment_date: data.date,
-      quantity: data.quantity,
-      reason: data.reason,
-      stock_type: sku?.type === "SM" ? "SM" : "RM",
-    });
-    if (error) {
-      toast.error("Failed to adjust: " + error.message);
-      return;
-    }
-    toast.success("Stock adjusted. Balance updates after next Daily Stock Count.");
-    setAdjustModal(null);
-  };
 
   // No branch assigned
   if (noBranch) {
