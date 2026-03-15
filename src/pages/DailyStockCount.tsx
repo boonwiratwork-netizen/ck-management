@@ -284,7 +284,7 @@ export default function DailyStockCountPage({
 
       {/* Count sheet table */}
       {loading ? (
-        <SkeletonTable columns={12} rows={12} />
+        <SkeletonTable columns={11} rows={12} />
       ) : rows.length > 0 ? (
         <>
           <Card>
