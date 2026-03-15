@@ -369,8 +369,18 @@ export default function DailyStockCountPage({
                           </td>
                           <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedFromCk)}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.receivedExternal * getConverter(row.skuId))}</td>
+                          <td className="text-right font-mono text-sm px-2 py-1">
+                            {row.receivedFromCk > 0
+                              ? fmt0(row.receivedFromCk)
+                              : <span className="text-muted-foreground">—</span>
+                            }
+                          </td>
+                          <td className="text-right font-mono text-sm px-2 py-1">
+                            {row.receivedExternal > 0
+                              ? fmt0(row.receivedExternal * getConverter(row.skuId))
+                              : <span className="text-muted-foreground">—</span>
+                            }
+                          </td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
