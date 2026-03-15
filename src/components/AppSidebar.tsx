@@ -66,6 +66,7 @@ export type TabKey =
   | "branch-receipt"
   | "transfer-request"
   | "daily-stock-count"
+  | "store-stock"
   | "food-cost"
   | "sku-categories";
 
