@@ -302,7 +302,6 @@ export default function DailyStockCountPage({
                     <col style={{ width: 50 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 80 }} />
-                    <col style={{ width: 80 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 80 }} />
