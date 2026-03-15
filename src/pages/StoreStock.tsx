@@ -207,7 +207,7 @@ export default function StoreStockPage({
 
   // Display count helper
   const getDisplayCount = (row: CountRow) =>
-    row.physical_count !== null ? Number(row.physical_count) : Number(row.calculated_balance);
+    Math.max(0, row.physical_count !== null ? Number(row.physical_count) : Number(row.calculated_balance));
 
   // Summary cards
   const totalSkus = filteredRows.length;
