@@ -240,6 +240,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
                 <SortableHeader label="Avg/Week" sortKey="avgWeek" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
               </th>
               <th className={table.headerCell}></th>
+              <th className={table.headerCell}></th>
             </tr>
           </thead>
           <tbody>
