@@ -163,7 +163,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
       sale_date: manualDate,
       receipt_no: `MANUAL-${Date.now()}`,
       menu_code: selectedMenu.menuCode,
-      menu_name: selectedMenu.menuName,
+      menu_name: manualModifierId
+        ? `${selectedMenu.menuName} ${modifierRules.find(r => r.id === manualModifierId)?.keyword ?? ''}`.trim()
+        : selectedMenu.menuName,
       order_type: 'Manual',
       qty: manualQty,
       unit_price: manualUnitPrice,
