@@ -169,9 +169,45 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— History state ———
   const [filterBranch, setFilterBranch] = useState<string>('__all__');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const todayStr = useMemo(() => toLocalDateStr(new Date()), []);
+  const [filterDateFrom, setFilterDateFrom] = useState(todayStr);
+  const [filterDateTo, setFilterDateTo] = useState(todayStr);
   const [historySearch, setHistorySearch] = useState('');
+  const [appliedOnce, setAppliedOnce] = useState(false);
+
+  // Lightweight preview: last 25 entries (no filters, no pagination)
+  const [previewEntries, setPreviewEntries] = useState<SalesEntry[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPreview = async () => {
+      setPreviewLoading(true);
+      const { data } = await supabase
+        .from('sales_entries')
+        .select('*')
+        .order('sale_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(25);
+      if (data) {
+        setPreviewEntries(data.map((r: any) => ({
+          id: r.id,
+          branchId: r.branch_id,
+          saleDate: r.sale_date,
+          receiptNo: r.receipt_no,
+          menuCode: r.menu_code,
+          menuName: r.menu_name,
+          orderType: r.order_type,
+          qty: Number(r.qty),
+          unitPrice: Number(r.unit_price),
+          netAmount: Number(r.net_amount),
+          channel: r.channel,
+        })));
+      }
+      setPreviewLoading(false);
+    };
+    loadPreview();
+  }, []);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   type SESortKey = 'saleDate' | 'menuCode' | 'menuName' | 'orderType' | 'qty' | 'unitPrice' | 'netAmount' | 'channel' | 'branch';
