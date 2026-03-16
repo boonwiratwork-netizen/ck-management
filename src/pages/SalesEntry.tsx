@@ -4,6 +4,7 @@ import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, SkippedRow
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
+import { ModifierRule } from '@/types/modifier-rule';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
