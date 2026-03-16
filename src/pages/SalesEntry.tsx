@@ -1166,7 +1166,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                       </Button>
                     </div>
                   </div>
-                ) : mgmtBranch && mgmtDate && !mgmtLoading && (
+                ) : mgmtBranch && mgmtDateFrom && mgmtDateTo && !mgmtLoading && (
                   <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
                     No transactions found for this date and branch.
                   </div>
