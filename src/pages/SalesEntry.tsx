@@ -1056,10 +1056,19 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </Select>
                   </div>
                   <DatePicker
-                    value={mgmtDate}
-                    onChange={setMgmtDate}
-                    placeholder="Select date"
-                    label="Date"
+                    value={mgmtDateFrom}
+                    onChange={setMgmtDateFrom}
+                    placeholder="From date"
+                    label="From"
+                    labelPosition="above"
+                    required
+                    align="start"
+                  />
+                  <DatePicker
+                    value={mgmtDateTo}
+                    onChange={setMgmtDateTo}
+                    placeholder="To date"
+                    label="To"
                     labelPosition="above"
                     required
                     align="start"
@@ -1067,7 +1076,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                   <div className="self-end">
                     <Button
                       onClick={loadMgmtTransactions}
-                      disabled={!mgmtBranch || !mgmtDate || mgmtLoading}
+                      disabled={!mgmtBranch || !mgmtDateFrom || !mgmtDateTo || mgmtLoading}
                     >
                       {mgmtLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : 'Load Transactions'}
                     </Button>
