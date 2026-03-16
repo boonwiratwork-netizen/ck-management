@@ -72,7 +72,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   // ——— Manage Transactions state ———
   const [mgmtOpen, setMgmtOpen] = useState(false);
   const [mgmtBranch, setMgmtBranch] = useState('');
-  const [mgmtDate, setMgmtDate] = useState<Date | undefined>(undefined);
+  const [mgmtDateFrom, setMgmtDateFrom] = useState<Date | undefined>(undefined);
+  const [mgmtDateTo, setMgmtDateTo] = useState<Date | undefined>(undefined);
   const [mgmtTransactions, setMgmtTransactions] = useState<SalesEntry[]>([]);
   const [mgmtLoading, setMgmtLoading] = useState(false);
   const [mgmtSelectedIds, setMgmtSelectedIds] = useState<Set<string>>(new Set());
