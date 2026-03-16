@@ -1183,13 +1183,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           <AlertDialogHeader>
             <AlertDialogTitle>
               {mgmtDeleteType === 'all'
-                ? `Delete ALL transactions for ${mgmtDateStr}?`
+                ? `Delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} from ${mgmtFromStr} to ${mgmtToStr}?`
                 : `Delete ${mgmtSelectedIds.size} transactions?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {mgmtDeleteType === 'all'
-                ? `This will permanently delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} on ${mgmtDateStr}. This cannot be undone. Re-upload correct data after deleting.`
-                : `This will permanently delete ${mgmtSelectedIds.size} selected transactions for ${mgmtBranchName} on ${mgmtDateStr}. You can re-upload correct data after.`}
+                ? `This will permanently delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} from ${mgmtFromStr} to ${mgmtToStr}. This cannot be undone. Re-upload correct data after deleting.`
+                : `This will permanently delete ${mgmtSelectedIds.size} selected transactions for ${mgmtBranchName} (${mgmtFromStr} to ${mgmtToStr}). You can re-upload correct data after.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
