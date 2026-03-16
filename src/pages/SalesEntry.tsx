@@ -422,7 +422,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     mgmtTransactions.reduce((s, t) => s + t.netAmount, 0),
     [mgmtTransactions]
   );
-  const mgmtDateStr = mgmtDate ? toLocalDateStr(mgmtDate) : '';
+  const mgmtFromStr = mgmtDateFrom ? toLocalDateStr(mgmtDateFrom) : '';
+  const mgmtToStr = mgmtDateTo ? toLocalDateStr(mgmtDateTo) : '';
   const mgmtBranchName = branchMap[mgmtBranch] || '';
 
   const toggleMgmtRow = useCallback((id: string) => {
