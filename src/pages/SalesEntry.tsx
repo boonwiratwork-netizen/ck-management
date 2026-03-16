@@ -368,15 +368,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Manage Transactions handlers ———
   const loadMgmtTransactions = useCallback(async () => {
-    if (!mgmtBranch || !mgmtDate) return;
+    if (!mgmtBranch || !mgmtDateFrom || !mgmtDateTo) return;
     setMgmtLoading(true);
     setMgmtSelectedIds(new Set());
-    const dateStr = toLocalDateStr(mgmtDate);
+    const fromStr = toLocalDateStr(mgmtDateFrom);
+    const toStr = toLocalDateStr(mgmtDateTo);
     const { data, error } = await supabase
       .from('sales_entries')
       .select('*')
       .eq('branch_id', mgmtBranch)
-      .eq('sale_date', dateStr)
+      .gte('sale_date', fromStr)
+      .lte('sale_date', toStr)
+      .order('sale_date', { ascending: false })
       .order('receipt_no');
     if (error) { toast.error('Failed to load: ' + error.message); }
     setMgmtTransactions((data || []).map(d => ({
@@ -393,7 +396,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       channel: d.channel,
     })));
     setMgmtLoading(false);
-  }, [mgmtBranch, mgmtDate]);
+  }, [mgmtBranch, mgmtDateFrom, mgmtDateTo]);
 
   const handleMgmtDelete = useCallback(async () => {
     const idsToDelete = mgmtDeleteType === 'all'
