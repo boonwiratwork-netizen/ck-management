@@ -1027,7 +1027,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
 
               {/* Modifier pills row */}
               {applicableRules.length > 0 && (
-                <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex items-center gap-2 flex-wrap">
+                <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-150 flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">Modifier:</span>
                   {applicableRules.map((rule) => (
                     <button
