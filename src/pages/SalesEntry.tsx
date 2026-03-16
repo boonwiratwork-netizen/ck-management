@@ -72,7 +72,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   // ——— Manage Transactions state ———
   const [mgmtOpen, setMgmtOpen] = useState(false);
   const [mgmtBranch, setMgmtBranch] = useState('');
-  const [mgmtDate, setMgmtDate] = useState<Date | undefined>(undefined);
+  const [mgmtDateFrom, setMgmtDateFrom] = useState<Date | undefined>(undefined);
+  const [mgmtDateTo, setMgmtDateTo] = useState<Date | undefined>(undefined);
   const [mgmtTransactions, setMgmtTransactions] = useState<SalesEntry[]>([]);
   const [mgmtLoading, setMgmtLoading] = useState(false);
   const [mgmtSelectedIds, setMgmtSelectedIds] = useState<Set<string>>(new Set());
@@ -367,15 +368,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
 
   // ——— Manage Transactions handlers ———
   const loadMgmtTransactions = useCallback(async () => {
-    if (!mgmtBranch || !mgmtDate) return;
+    if (!mgmtBranch || !mgmtDateFrom || !mgmtDateTo) return;
     setMgmtLoading(true);
     setMgmtSelectedIds(new Set());
-    const dateStr = toLocalDateStr(mgmtDate);
+    const fromStr = toLocalDateStr(mgmtDateFrom);
+    const toStr = toLocalDateStr(mgmtDateTo);
     const { data, error } = await supabase
       .from('sales_entries')
       .select('*')
       .eq('branch_id', mgmtBranch)
-      .eq('sale_date', dateStr)
+      .gte('sale_date', fromStr)
+      .lte('sale_date', toStr)
+      .order('sale_date', { ascending: false })
       .order('receipt_no');
     if (error) { toast.error('Failed to load: ' + error.message); }
     setMgmtTransactions((data || []).map(d => ({
@@ -392,7 +396,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       channel: d.channel,
     })));
     setMgmtLoading(false);
-  }, [mgmtBranch, mgmtDate]);
+  }, [mgmtBranch, mgmtDateFrom, mgmtDateTo]);
 
   const handleMgmtDelete = useCallback(async () => {
     const idsToDelete = mgmtDeleteType === 'all'
@@ -418,7 +422,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     mgmtTransactions.reduce((s, t) => s + t.netAmount, 0),
     [mgmtTransactions]
   );
-  const mgmtDateStr = mgmtDate ? toLocalDateStr(mgmtDate) : '';
+  const mgmtFromStr = mgmtDateFrom ? toLocalDateStr(mgmtDateFrom) : '';
+  const mgmtToStr = mgmtDateTo ? toLocalDateStr(mgmtDateTo) : '';
   const mgmtBranchName = branchMap[mgmtBranch] || '';
 
   const toggleMgmtRow = useCallback((id: string) => {
@@ -1051,10 +1056,19 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                     </Select>
                   </div>
                   <DatePicker
-                    value={mgmtDate}
-                    onChange={setMgmtDate}
-                    placeholder="Select date"
-                    label="Date"
+                    value={mgmtDateFrom}
+                    onChange={setMgmtDateFrom}
+                    placeholder="From date"
+                    label="From"
+                    labelPosition="above"
+                    required
+                    align="start"
+                  />
+                  <DatePicker
+                    value={mgmtDateTo}
+                    onChange={setMgmtDateTo}
+                    placeholder="To date"
+                    label="To"
                     labelPosition="above"
                     required
                     align="start"
@@ -1062,7 +1076,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                   <div className="self-end">
                     <Button
                       onClick={loadMgmtTransactions}
-                      disabled={!mgmtBranch || !mgmtDate || mgmtLoading}
+                      disabled={!mgmtBranch || !mgmtDateFrom || !mgmtDateTo || mgmtLoading}
                     >
                       {mgmtLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : 'Load Transactions'}
                     </Button>
@@ -1130,7 +1144,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                       {mgmtSelectedIds.size > 0 ? (
                         <span><span className="font-semibold text-foreground">{mgmtSelectedIds.size}</span> selected · <span className="font-semibold font-mono text-foreground">฿{mgmtSelectedSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> selected</span>
                       ) : (
-                        <span><span className="font-semibold text-foreground">{mgmtTransactions.length}</span> transactions · Total: <span className="font-semibold font-mono text-foreground">฿{mgmtTotalSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                        <span><span className="font-semibold text-foreground">{mgmtTransactions.length}</span> transactions · {mgmtFromStr} to {mgmtToStr} · Total: <span className="font-semibold font-mono text-foreground">฿{mgmtTotalSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                       )}
                     </div>
 
@@ -1148,13 +1162,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                         disabled={mgmtTransactions.length === 0}
                         onClick={() => setMgmtDeleteType('all')}
                       >
-                        <Trash2 className="w-4 h-4" /> Delete All for {mgmtDateStr} · {mgmtBranchName}
+                        <Trash2 className="w-4 h-4" /> Delete All ({mgmtTransactions.length}) · {mgmtBranchName}
                       </Button>
                     </div>
                   </div>
-                ) : mgmtBranch && mgmtDate && !mgmtLoading && (
+                ) : mgmtBranch && mgmtDateFrom && mgmtDateTo && !mgmtLoading && (
                   <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
-                    No transactions found for this date and branch.
+                    No transactions found for this date range and branch.
                   </div>
                 )}
               </CardContent>
@@ -1169,13 +1183,13 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
           <AlertDialogHeader>
             <AlertDialogTitle>
               {mgmtDeleteType === 'all'
-                ? `Delete ALL transactions for ${mgmtDateStr}?`
+                ? `Delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} from ${mgmtFromStr} to ${mgmtToStr}?`
                 : `Delete ${mgmtSelectedIds.size} transactions?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {mgmtDeleteType === 'all'
-                ? `This will permanently delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} on ${mgmtDateStr}. This cannot be undone. Re-upload correct data after deleting.`
-                : `This will permanently delete ${mgmtSelectedIds.size} selected transactions for ${mgmtBranchName} on ${mgmtDateStr}. You can re-upload correct data after.`}
+                ? `This will permanently delete ALL ${mgmtTransactions.length} transactions for ${mgmtBranchName} from ${mgmtFromStr} to ${mgmtToStr}. This cannot be undone. Re-upload correct data after deleting.`
+                : `This will permanently delete ${mgmtSelectedIds.size} selected transactions for ${mgmtBranchName} (${mgmtFromStr} to ${mgmtToStr}). You can re-upload correct data after.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
