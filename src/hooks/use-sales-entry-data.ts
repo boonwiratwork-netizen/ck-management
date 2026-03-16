@@ -276,9 +276,8 @@ export function useSalesEntryData() {
   }, []);
 
   useEffect(() => {
-    fetchEntries();
     fetchProfiles();
-  }, [fetchEntries, fetchProfiles]);
+  }, [fetchProfiles]);
 
   // Check duplicates for historical rows (sale_date < today)
   const checkDuplicates = useCallback(async (branchId: string, rows: ParsedRow[]): Promise<ParsedRow[]> => {
