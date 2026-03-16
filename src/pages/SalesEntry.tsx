@@ -39,9 +39,10 @@ import { table as tableTokens } from '@/lib/design-tokens';
 interface SalesEntryPageProps {
   branches: Branch[];
   menus: Menu[];
+  modifierRules: ModifierRule[];
 }
 
-export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps) {
+export default function SalesEntryPage({ branches, menus, modifierRules }: SalesEntryPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry, profiles, saveProfile, deleteProfile, checkDuplicates } = useSalesEntryData();
