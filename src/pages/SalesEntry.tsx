@@ -227,6 +227,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     }
 
     setManualSuccess(true);
+    toast.success(
+      `Added: ${selectedMenu.menuName}${manualModifierId ? ` + ${applicableRules.find((r) => r.id === manualModifierId)?.keyword}` : ""} × ${manualQty}`,
+    );
     setTimeout(() => setManualSuccess(false), 1500);
     setManualMenuId("");
     setManualMenuSearch("");
