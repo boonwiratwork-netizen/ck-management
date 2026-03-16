@@ -1144,7 +1144,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                       {mgmtSelectedIds.size > 0 ? (
                         <span><span className="font-semibold text-foreground">{mgmtSelectedIds.size}</span> selected · <span className="font-semibold font-mono text-foreground">฿{mgmtSelectedSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> selected</span>
                       ) : (
-                        <span><span className="font-semibold text-foreground">{mgmtTransactions.length}</span> transactions · Total: <span className="font-semibold font-mono text-foreground">฿{mgmtTotalSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                        <span><span className="font-semibold text-foreground">{mgmtTransactions.length}</span> transactions · {mgmtFromStr} to {mgmtToStr} · Total: <span className="font-semibold font-mono text-foreground">฿{mgmtTotalSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                       )}
                     </div>
 
