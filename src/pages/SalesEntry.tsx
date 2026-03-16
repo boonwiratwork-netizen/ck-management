@@ -875,6 +875,29 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   )}
                 </Button>
               </div>
+
+              {/* Modifier pills row */}
+              {applicableRules.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Modifier:</span>
+                  {applicableRules.map(rule => (
+                    <button
+                      key={rule.id}
+                      type="button"
+                      title={rule.description}
+                      onClick={() => setManualModifierId(prev => prev === rule.id ? '' : rule.id)}
+                      className={cn(
+                        'border rounded-full px-3 py-1 text-xs transition-colors',
+                        manualModifierId === rule.id
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground bg-transparent hover:bg-accent'
+                      )}
+                    >
+                      {rule.keyword}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
