@@ -4,6 +4,7 @@ import { useSalesEntryData, SalesEntry, POSMappingProfile, ParsedRow, SkippedRow
 import { useAuth } from '@/hooks/use-auth';
 import { Branch } from '@/types/branch';
 import { Menu } from '@/types/menu';
+import { ModifierRule } from '@/types/modifier-rule';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -38,9 +39,10 @@ import { table as tableTokens } from '@/lib/design-tokens';
 interface SalesEntryPageProps {
   branches: Branch[];
   menus: Menu[];
+  modifierRules: ModifierRule[];
 }
 
-export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps) {
+export default function SalesEntryPage({ branches, menus, modifierRules }: SalesEntryPageProps) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
   const { entries, loading, fetchEntries, bulkInsert, deleteEntry, profiles, saveProfile, deleteProfile, checkDuplicates } = useSalesEntryData();
@@ -100,6 +102,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const [manualMenuSearch, setManualMenuSearch] = useState('');
   const [manualMenuId, setManualMenuId] = useState('');
   const [manualQty, setManualQty] = useState(1);
+  const [manualModifierId, setManualModifierId] = useState('');
   const [manualSaving, setManualSaving] = useState(false);
   const [manualSuccess, setManualSuccess] = useState(false);
   const [menuDropdownOpen, setMenuDropdownOpen] = useState(false);
@@ -107,6 +110,18 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedMenu = useMemo(() => menus.find(m => m.id === manualMenuId), [menus, manualMenuId]);
+
+  const applicableRules = useMemo(() => {
+    if (!manualMenuId) return [];
+    return modifierRules.filter(r =>
+      r.isActive &&
+      (r.menuIds.length === 0 || r.menuIds.includes(manualMenuId)) &&
+      (r.ruleType === 'add' || r.ruleType === 'swap')
+    );
+  }, [modifierRules, manualMenuId]);
+
+  // Reset modifier when menu changes
+  useEffect(() => { setManualModifierId(''); }, [manualMenuId]);
   const manualUnitPrice = selectedMenu?.sellingPrice ?? 0;
   const manualNetAmount = manualQty * manualUnitPrice;
   const hasNoPrice = manualMenuId && manualUnitPrice <= 0;
@@ -148,7 +163,9 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
       sale_date: manualDate,
       receipt_no: `MANUAL-${Date.now()}`,
       menu_code: selectedMenu.menuCode,
-      menu_name: selectedMenu.menuName,
+      menu_name: manualModifierId
+        ? `${selectedMenu.menuName} ${modifierRules.find(r => r.id === manualModifierId)?.keyword ?? ''}`.trim()
+        : selectedMenu.menuName,
       order_type: 'Manual',
       qty: manualQty,
       unit_price: manualUnitPrice,
@@ -163,10 +180,11 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     setManualMenuId('');
     setManualMenuSearch('');
     setManualQty(1);
+    setManualModifierId('');
     setManualSaving(false);
     fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
     setTimeout(() => menuInputRef.current?.focus(), 100);
-  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, fetchEntries]);
+  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, manualModifierId, modifierRules, fetchEntries]);
 
   // ——— History state ———
   const [filterBranch, setFilterBranch] = useState<string>('__all__');
@@ -857,6 +875,29 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                   )}
                 </Button>
               </div>
+
+              {/* Modifier pills row */}
+              {applicableRules.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Modifier:</span>
+                  {applicableRules.map(rule => (
+                    <button
+                      key={rule.id}
+                      type="button"
+                      title={rule.description}
+                      onClick={() => setManualModifierId(prev => prev === rule.id ? '' : rule.id)}
+                      className={cn(
+                        'border rounded-full px-3 py-1 text-xs transition-colors',
+                        manualModifierId === rule.id
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground bg-transparent hover:bg-accent'
+                      )}
+                    >
+                      {rule.keyword}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
