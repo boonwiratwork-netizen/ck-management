@@ -1162,7 +1162,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
                         disabled={mgmtTransactions.length === 0}
                         onClick={() => setMgmtDeleteType('all')}
                       >
-                        <Trash2 className="w-4 h-4" /> Delete All for {mgmtDateStr} · {mgmtBranchName}
+                        <Trash2 className="w-4 h-4" /> Delete All ({mgmtTransactions.length}) · {mgmtBranchName}
                       </Button>
                     </div>
                   </div>
