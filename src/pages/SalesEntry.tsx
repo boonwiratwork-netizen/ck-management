@@ -180,10 +180,11 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     setManualMenuId('');
     setManualMenuSearch('');
     setManualQty(1);
+    setManualModifierId('');
     setManualSaving(false);
     fetchEntries(filterBranch !== '__all__' ? { branchId: filterBranch } : undefined);
     setTimeout(() => menuInputRef.current?.focus(), 100);
-  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, fetchEntries]);
+  }, [manualBranch, manualMenuId, selectedMenu, manualDate, manualQty, manualUnitPrice, manualNetAmount, manualModifierId, modifierRules, fetchEntries]);
 
   // ——— History state ———
   const [filterBranch, setFilterBranch] = useState<string>('__all__');
