@@ -270,6 +270,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
     if (filterDateFrom) filters.dateFrom = filterDateFrom;
     if (filterDateTo) filters.dateTo = filterDateTo;
     fetchEntries(filters);
+    setAppliedOnce(true);
   }, [filterBranch, filterDateFrom, filterDateTo, fetchEntries]);
 
   // ——— Parse + duplicate check ———
