@@ -857,7 +857,7 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
         </Collapsible>
       </Card>
 
-      {/* ═══ SECTION 2: SALES HISTORY — UNCHANGED ═══ */}
+      {/* ═══ SECTION 2: SALES HISTORY ═══ */}
       <Card>
         <CardHeader>
           <CardTitle>{t('title.salesHistory')}</CardTitle>
@@ -899,7 +899,8 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             <Button variant="outline" onClick={handleApplyFilter}>{t('btn.apply')}</Button>
           </div>
 
-          {entries.length > 0 && (
+          {/* Search — only after Apply */}
+          {appliedOnce && entries.length > 0 && (
             <SearchInput
               value={historySearch}
               onChange={setHistorySearch}
@@ -910,93 +911,107 @@ export default function SalesEntryPage({ branches, menus }: SalesEntryPageProps)
             />
           )}
 
-          {loading ? (
-            <SkeletonTable columns={9} rows={8} />
-          ) : (
-            <div className="rounded-lg border bg-card overflow-hidden">
-              <div className="overflow-auto max-h-[70vh]">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-table-header sticky top-0 z-10">
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
-                        <span className="inline-flex items-center">{t('col.date')}<SeSortIcon col="saleDate" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
-                        <span className="inline-flex items-center">{t('col.menuCode')}<SeSortIcon col="menuCode" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
-                        <span className="inline-flex items-center">{t('col.menuName')}<SeSortIcon col="menuName" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
-                        <span className="inline-flex items-center">{t('col.orderType')}<SeSortIcon col="orderType" /></span>
-                      </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
-                        <span className="inline-flex items-center justify-end">{t('col.qty')}<SeSortIcon col="qty" /></span>
-                      </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
-                        <span className="inline-flex items-center justify-end">{t('col.unitPrice')}<SeSortIcon col="unitPrice" /></span>
-                      </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
-                        <span className="inline-flex items-center justify-end">{t('col.netAmount')}<SeSortIcon col="netAmount" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
-                        <span className="inline-flex items-center">{t('col.channel')}<SeSortIcon col="channel" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
-                        <span className="inline-flex items-center">{t('col.branch')}<SeSortIcon col="branch" /></span>
-                      </th>
-                      {isManagement && <th className="w-10 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEntries.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="px-3">
-                          <EmptyState
-                            icon={ShoppingCart}
-                            title={entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
-                            description={entries.length === 0 ? 'Paste your first POS export above to get started' : 'Try adjusting your search or filter'}
-                          />
-                        </td>
-                      </tr>
-                    ) : filteredEntries.map((e) => (
-                      <tr key={e.id} className={tableTokens.dataRow}>
-                        <td className="px-3 py-2 text-sm whitespace-nowrap">{e.saleDate}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{e.menuCode}</td>
-                        <td className="px-3 py-2 text-sm max-w-[200px] truncate" title={e.menuName}>{e.menuName}</td>
-                        <td className="px-3 py-2 text-sm">{e.orderType}</td>
-                        <td className="px-3 py-2 text-sm font-mono text-right">{e.qty}</td>
-                        <td className="px-3 py-2 text-sm font-mono text-right">{e.unitPrice.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-sm font-mono text-right font-medium">{e.netAmount.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-sm">{e.channel}</td>
-                        <td className="px-3 py-2 text-sm">{branchMap[e.branchId] || '-'}</td>
-                        {isManagement && (
-                          <td className="px-3 py-2">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="icon-btn-delete h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })}>
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Preview banner — before Apply */}
+          {!appliedOnce && !loading && (
+            <div className="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+              Showing last 25 recent entries. Select filters and press Apply to load full history.
             </div>
           )}
 
-          {entries.length > 0 && (
+          {(() => {
+            const showEntries = appliedOnce ? filteredEntries : previewEntries;
+            const isLoading = appliedOnce ? loading : previewLoading;
+            const isEmpty = !isLoading && showEntries.length === 0;
+
+            return isLoading ? (
+              <SkeletonTable columns={9} rows={8} />
+            ) : (
+              <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="overflow-auto max-h-[70vh]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-table-header sticky top-0 z-10">
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('saleDate')}>
+                          <span className="inline-flex items-center">{t('col.date')}<SeSortIcon col="saleDate" /></span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuCode')}>
+                          <span className="inline-flex items-center">{t('col.menuCode')}<SeSortIcon col="menuCode" /></span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('menuName')}>
+                          <span className="inline-flex items-center">{t('col.menuName')}<SeSortIcon col="menuName" /></span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('orderType')}>
+                          <span className="inline-flex items-center">{t('col.orderType')}<SeSortIcon col="orderType" /></span>
+                        </th>
+                        <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('qty')}>
+                          <span className="inline-flex items-center justify-end">{t('col.qty')}<SeSortIcon col="qty" /></span>
+                        </th>
+                        <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('unitPrice')}>
+                          <span className="inline-flex items-center justify-end">{t('col.unitPrice')}<SeSortIcon col="unitPrice" /></span>
+                        </th>
+                        <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('netAmount')}>
+                          <span className="inline-flex items-center justify-end">{t('col.netAmount')}<SeSortIcon col="netAmount" /></span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('channel')}>
+                          <span className="inline-flex items-center">{t('col.channel')}<SeSortIcon col="channel" /></span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors" onClick={() => handleSeSort('branch')}>
+                          <span className="inline-flex items-center">{t('col.branch')}<SeSortIcon col="branch" /></span>
+                        </th>
+                        {isManagement && <th className="w-10 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isEmpty ? (
+                        <tr>
+                          <td colSpan={10} className="px-3">
+                            <EmptyState
+                              icon={ShoppingCart}
+                              title={!appliedOnce ? 'No recent entries' : entries.length === 0 ? 'No sales data yet' : 'No entries match your search'}
+                              description={!appliedOnce ? 'Press Apply to load filtered history' : entries.length === 0 ? 'Paste your first POS export above to get started' : 'Try adjusting your search or filter'}
+                            />
+                          </td>
+                        </tr>
+                      ) : showEntries.map((e) => (
+                        <tr key={e.id} className={tableTokens.dataRow}>
+                          <td className="px-3 py-2 text-sm whitespace-nowrap">{e.saleDate}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{e.menuCode}</td>
+                          <td className="px-3 py-2 text-sm max-w-[200px] truncate" title={e.menuName}>{e.menuName}</td>
+                          <td className="px-3 py-2 text-sm">{e.orderType}</td>
+                          <td className="px-3 py-2 text-sm font-mono text-right">{e.qty}</td>
+                          <td className="px-3 py-2 text-sm font-mono text-right">{e.unitPrice.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-sm font-mono text-right font-medium">{e.netAmount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-sm">{e.channel}</td>
+                          <td className="px-3 py-2 text-sm">{branchMap[e.branchId] || '-'}</td>
+                          {isManagement && (
+                            <td className="px-3 py-2">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="icon-btn-delete h-7 w-7" onClick={() => setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Summary footer — only after Apply */}
+          {appliedOnce && entries.length > 0 && (
             <div className="flex gap-6 text-sm pt-2 border-t">
               <span>{t('common.totalQty')}: <strong>{totalQty.toLocaleString()}</strong></span>
               <span>{t('common.totalRevenue')}: <strong className="font-mono">฿{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-              <span className="text-muted-foreground">{filteredEntries.length} rows</span>
+              <span className="text-muted-foreground">Showing {filteredEntries.length} of {entries.length} entries</span>
             </div>
           )}
         </CardContent>
