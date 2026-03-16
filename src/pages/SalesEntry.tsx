@@ -110,6 +110,18 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedMenu = useMemo(() => menus.find(m => m.id === manualMenuId), [menus, manualMenuId]);
+
+  const applicableRules = useMemo(() => {
+    if (!manualMenuId) return [];
+    return modifierRules.filter(r =>
+      r.isActive &&
+      (r.menuIds.length === 0 || r.menuIds.includes(manualMenuId)) &&
+      (r.ruleType === 'add' || r.ruleType === 'swap')
+    );
+  }, [modifierRules, manualMenuId]);
+
+  // Reset modifier when menu changes
+  useEffect(() => { setManualModifierId(''); }, [manualMenuId]);
   const manualUnitPrice = selectedMenu?.sellingPrice ?? 0;
   const manualNetAmount = manualQty * manualUnitPrice;
   const hasNoPrice = manualMenuId && manualUnitPrice <= 0;
