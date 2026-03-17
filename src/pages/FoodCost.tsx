@@ -497,8 +497,8 @@ export default function FoodCostPage({
 
   // FC% color helper
   const getFcPctClass = (pct: number) => {
-    if (pct <= 30) return "text-success";
-    if (pct <= 35) return "text-warning";
+    if (pct <= FC_GREEN_MAX) return "text-success";
+    if (pct <= FC_AMBER_MAX) return "text-warning";
     return "text-destructive";
   };
 
@@ -624,13 +624,17 @@ export default function FoodCostPage({
                   {t("title.fcStatus")}
                 </p>
                 <Badge
-                  variant={stdFcPct <= 35 ? "default" : "destructive"}
+                  variant={stdFcPct <= FC_AMBER_MAX ? "default" : "destructive"}
                   className={cn(
                     "text-sm px-3 py-1 mt-1",
-                    stdFcPct <= 35 ? "bg-success/15 text-success border-success/30" : "",
+                    stdFcPct <= FC_AMBER_MAX ? "bg-success/15 text-success border-success/30" : "",
                   )}
                 >
-                  {stdFcPct <= 35 ? <TrendingDown className="w-4 h-4 mr-1" /> : <TrendingUp className="w-4 h-4 mr-1" />}
+                  {stdFcPct <= FC_AMBER_MAX ? (
+                    <TrendingDown className="w-4 h-4 mr-1" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 mr-1" />
+                  )}
                   {stdFcPct.toFixed(1)}%
                 </Badge>
               </CardContent>
@@ -735,7 +739,7 @@ export default function FoodCostPage({
                       {top10Menus.map((m, i) => (
                         <TableRow
                           key={m.menuCode}
-                          className={`border-b border-table-border hover:bg-table-hover transition-colors ${m.stdFcPct > 40 ? "bg-destructive/5" : ""}`}
+                          className={`border-b border-table-border hover:bg-table-hover transition-colors ${m.stdFcPct > FC_AMBER_MAX ? "bg-destructive/5" : ""}`}
                         >
                           <TableCell className="px-3 py-2 text-sm font-mono text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
@@ -747,7 +751,13 @@ export default function FoodCostPage({
                           </TableCell>
                           <TableCell className="px-3 py-2 text-right">
                             <Badge
-                              variant={m.stdFcPct > 40 ? "destructive" : m.stdFcPct > 35 ? "secondary" : "default"}
+                              variant={
+                                m.stdFcPct > FC_AMBER_MAX
+                                  ? "destructive"
+                                  : m.stdFcPct > FC_GREEN_MAX
+                                    ? "secondary"
+                                    : "default"
+                              }
                               className="text-xs"
                             >
                               {m.stdFcPct.toFixed(1)}%
@@ -881,7 +891,13 @@ export default function FoodCostPage({
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
                         <TableCell className="px-3 py-2 text-right">
                           <Badge
-                            variant={m.stdFcPct > 40 ? "destructive" : m.stdFcPct > 35 ? "secondary" : "default"}
+                            variant={
+                              m.stdFcPct > FC_AMBER_MAX
+                                ? "destructive"
+                                : m.stdFcPct > FC_GREEN_MAX
+                                  ? "secondary"
+                                  : "default"
+                            }
                             className="text-xs"
                           >
                             {m.stdFcPct.toFixed(1)}%
