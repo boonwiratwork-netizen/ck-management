@@ -30,7 +30,7 @@ interface Props {
   smDailyUsage: Record<string, number>;
 }
 
-export default function SMStockPage({ skus, smStockData }: Props) {
+export default function SMStockPage({ skus, smStockData, smDailyUsage }: Props) {
   const { stockBalances, addAdjustment, getBomCostPerGram, getLastProductionDate } = smStockData;
   const { t } = useLanguage();
 
