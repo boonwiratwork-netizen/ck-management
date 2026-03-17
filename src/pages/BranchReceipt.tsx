@@ -129,6 +129,14 @@ export default function BranchReceiptPage({
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Pending PR counts per supplier
+  const prHook = usePurchaseRequest(branchId || null);
+  const [pendingPRCounts, setPendingPRCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!branchId) { setPendingPRCounts({}); return; }
+    prHook.getPendingPRCountsBySupplier(branchId).then(setPendingPRCounts);
+  }, [branchId]);
+
   // TO integration state
   const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
   const [selectedTOId, setSelectedTOId] = useState<string>("");
