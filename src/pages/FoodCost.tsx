@@ -113,8 +113,6 @@ export default function FoodCostPage({
 
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
 
-  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
-
   // Preset buttons now auto-calculate
   const handlePresetChange = (p: DatePreset) => {
     setPreset(p);
