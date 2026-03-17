@@ -756,11 +756,16 @@ export default function BranchReceiptPage({
                               type="button"
                               onClick={() => handleSupplierChange(s.id)}
                               className={cn(
-                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center justify-between",
                                 s.id === supplierId && "bg-accent font-medium",
                               )}
                             >
-                              {s.name}
+                              <span>{s.name}</span>
+                              {(pendingPRCounts[s.id] || 0) > 0 && (
+                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                  {pendingPRCounts[s.id]} pending
+                                </span>
+                              )}
                             </button>
                           ))}
                         </>
