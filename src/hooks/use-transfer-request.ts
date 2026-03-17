@@ -40,6 +40,7 @@ export interface TRDetailLine {
   skuCode: string;
   skuName: string;
   uom: string;
+  packSize: number;
   requestedQty: number;
   suggestedQty: number;
   stockOnHand: number;
