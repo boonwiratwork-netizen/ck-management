@@ -245,11 +245,11 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     const skuIds = data.map(d => d.sku_id);
     const { data: skus } = await supabase
       .from('skus')
-      .select('id, sku_id, name')
+      .select('id, sku_id, name, pack_size')
       .in('id', skuIds);
-    const skuMap: Record<string, { code: string; name: string }> = {};
+    const skuMap: Record<string, { code: string; name: string; packSize: number }> = {};
     for (const s of skus || []) {
-      skuMap[s.id] = { code: s.sku_id, name: s.name };
+      skuMap[s.id] = { code: s.sku_id, name: s.name, packSize: s.pack_size };
     }
 
     return data.map(d => ({
