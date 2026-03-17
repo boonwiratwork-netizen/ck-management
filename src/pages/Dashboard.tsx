@@ -30,7 +30,7 @@ interface DashboardProps {
   bomHeaders: BOMHeader[];
   bomLines: BOMLine[];
   prices: Price[];
-  deliveries: Delivery[];
+  smDailyUsage: Record<string, number>;
   getTotalProducedForPlan: (planId: string) => number;
   getStdUnitPrice: (skuId: string) => number;
 }
