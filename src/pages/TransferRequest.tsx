@@ -197,13 +197,13 @@ export default function TransferRequestPage() {
       // Get supplier IDs from those SKUs
       const relevantSupplierIds = new Set<string>();
       if (ingredientSkuIds.size > 0) {
-        const { data: skusData } = await supabase
-          .from("skus")
-          .select("supplier1, supplier2")
-          .in("id", [...ingredientSkuIds]);
-        (skusData || []).forEach((s) => {
-          if (s.supplier1) relevantSupplierIds.add(s.supplier1);
-          if (s.supplier2) relevantSupplierIds.add(s.supplier2);
+        const { data: priceData } = await supabase
+          .from("prices")
+          .select("supplier_id")
+          .eq("is_active", true)
+          .in("sku_id", [...ingredientSkuIds]);
+        (priceData || []).forEach((p) => {
+          if (p.supplier_id) relevantSupplierIds.add(p.supplier_id);
         });
       }
 
