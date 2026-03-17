@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { typography, table as tableTokens, formatNumber } from "@/lib/design-tokens";
 import { toLocalDateStr } from "@/lib/utils";
-import { Plus, Eye, Printer, Ban, Info } from "lucide-react";
+import { Plus, Eye, Printer, Ban, Info, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 
