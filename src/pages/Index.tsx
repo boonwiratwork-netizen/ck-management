@@ -357,9 +357,9 @@ const Index = () => {
                   receipts={receiptData.receipts}
                   bomHeaders={bomData.headers}
                   bomLines={bomData.lines}
-                  prices={priceData.prices}
-                  deliveries={deliveryData.deliveries}
-                  getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+                   prices={priceData.prices}
+                   smDailyUsage={smDailyUsage}
+                   getTotalProducedForPlan={productionData.getTotalProducedForPlan}
                   getStdUnitPrice={stockData.getStdUnitPrice}
                 />
               ) : activeTab === 'sku' ? (
