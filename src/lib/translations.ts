@@ -381,7 +381,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.totalRevenue": { th: "รายได้รวม", en: "Total Revenue" },
 
   // ─── Transfer Request ───
-  "tr.pageTitle": { th: "คำสั่งซื้อ/เบิกสินค้า", en: "Purchase/Transfer Request" },
+  "tr.pageTitle": { th: "สั่งสินค้า/ขอเบิก", en: "Purchase/Transfer Request" },
   "tr.pageSubtitle": {
     th: "ขอเบิกวัตถุดิบจากซัพพลายเออร์และครัวกลาง",
     en: "Request ingredients from Suppliers & Central Kitchen",
