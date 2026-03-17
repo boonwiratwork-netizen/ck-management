@@ -140,6 +140,7 @@ const Index = () => {
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps);
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps, byproductData.byproducts);
+  const smDailyUsage = useSmDailyUsage(skuData.skus);
   const branchData = useBranchData();
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
