@@ -14,7 +14,6 @@ import { ProductionPlan, ProductionRecord, getISOWeekNumber, getWeekStart, getWe
 import { GoodsReceipt } from '@/types/goods-receipt';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { Price } from '@/types/price';
-import { Delivery } from '@/types/delivery';
 import { StockBalance } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { CalendarIcon, Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3, Wallet, ChevronDown } from 'lucide-react';
