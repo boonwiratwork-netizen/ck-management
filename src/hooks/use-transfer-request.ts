@@ -40,6 +40,7 @@ export interface TRDetailLine {
   skuCode: string;
   skuName: string;
   uom: string;
+  packSize: number;
   requestedQty: number;
   suggestedQty: number;
   stockOnHand: number;
@@ -244,11 +245,11 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     const skuIds = data.map(d => d.sku_id);
     const { data: skus } = await supabase
       .from('skus')
-      .select('id, sku_id, name')
+      .select('id, sku_id, name, pack_size')
       .in('id', skuIds);
-    const skuMap: Record<string, { code: string; name: string }> = {};
+    const skuMap: Record<string, { code: string; name: string; packSize: number }> = {};
     for (const s of skus || []) {
-      skuMap[s.id] = { code: s.sku_id, name: s.name };
+      skuMap[s.id] = { code: s.sku_id, name: s.name, packSize: s.pack_size };
     }
 
     return data.map(d => ({
@@ -257,6 +258,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       skuCode: skuMap[d.sku_id]?.code || '',
       skuName: skuMap[d.sku_id]?.name || '',
       uom: d.uom,
+      packSize: skuMap[d.sku_id]?.packSize || 1,
       requestedQty: d.requested_qty,
       suggestedQty: d.suggested_qty,
       stockOnHand: d.stock_on_hand,

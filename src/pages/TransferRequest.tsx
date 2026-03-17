@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { typography, table as tableTokens, formatNumber } from "@/lib/design-tokens";
 import { toLocalDateStr } from "@/lib/utils";
-import { Plus, Eye, Printer, Ban, Info } from "lucide-react";
+import { Plus, Eye, Printer, Ban, Info, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -681,7 +681,33 @@ export default function TransferRequestPage() {
 
               <p className="text-xs text-muted-foreground">{t("tr.stockNote")}</p>
 
-              <div className="flex justify-end print:hidden">
+              <div className="flex justify-end gap-2 print:hidden">
+                {!detailLoading && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!detailTR) return;
+                      const branch = branches.find((b) => b.id === detailTR.branchId);
+                      const brandName = branch?.brandName || "";
+                      let text = `📋 ใบขอโอนสินค้า ${detailTR.trNumber}\n`;
+                      text += `สาขา: ${detailTR.branchName} — ${brandName}\n`;
+                      text += `วันที่ขอ: ${detailTR.requestedDate}\n`;
+                      text += `วันส่งสินค้า: ${detailTR.requiredDate}\n`;
+                      if (detailTR.notes) {
+                        text += `หมายเหตุ: ${detailTR.notes}\n`;
+                      }
+                      text += `\nรายการ:\n`;
+                      detailLines.forEach((l) => {
+                        text += `- ${l.skuName} — ${formatNumber(l.packSize, 0)} x ${formatNumber(l.requestedQty, 0)} ${l.uom}\n`;
+                      });
+                      navigator.clipboard.writeText(text).then(() => {
+                        toast.success("Copied to clipboard");
+                      });
+                    }}
+                  >
+                    <Copy className="w-4 h-4 mr-1" /> Copy for LINE
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => window.print()}>
                   <Printer className="w-4 h-4 mr-1" /> {t("btn.print")}
                 </Button>
