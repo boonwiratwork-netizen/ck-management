@@ -199,11 +199,11 @@ export default function TransferRequestPage() {
       if (ingredientSkuIds.size > 0) {
         const { data: skusData } = await supabase
           .from("skus")
-          .select("supplier_1_id, supplier_2_id")
+          .select("supplier1, supplier2")
           .in("id", [...ingredientSkuIds]);
         (skusData || []).forEach((s) => {
-          if (s.supplier_1_id) relevantSupplierIds.add(s.supplier_1_id);
-          if (s.supplier_2_id) relevantSupplierIds.add(s.supplier_2_id);
+          if (s.supplier1) relevantSupplierIds.add(s.supplier1);
+          if (s.supplier2) relevantSupplierIds.add(s.supplier2);
         });
       }
 
