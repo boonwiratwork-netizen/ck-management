@@ -107,6 +107,12 @@ export default function FoodCostPage({
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalStdCost, setTotalStdCost] = useState(0);
 
+  // FC% threshold configuration
+  const FC_GREEN_MAX = 30;
+  const FC_AMBER_MAX = 35;
+
+  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
+
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
 
   // Preset buttons now auto-calculate
