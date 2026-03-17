@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getWeekNumber } from "@/types/goods-receipt";
 import { supabase } from "@/integrations/supabase/client";
+import { usePurchaseRequest } from "@/hooks/use-purchase-request";
 
 interface Menu {
   id: string;
