@@ -258,6 +258,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       skuCode: skuMap[d.sku_id]?.code || '',
       skuName: skuMap[d.sku_id]?.name || '',
       uom: d.uom,
+      packSize: skuMap[d.sku_id]?.packSize || 1,
       requestedQty: d.requested_qty,
       suggestedQty: d.suggested_qty,
       stockOnHand: d.stock_on_hand,
