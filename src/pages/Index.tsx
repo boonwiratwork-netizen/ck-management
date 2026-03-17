@@ -417,7 +417,7 @@ const Index = () => {
                   refreshProductionRecords={smStockData.refreshProductionRecords}
                 />
               ) : activeTab === 'smstock' ? (
-                <SMStockPage skus={skus} smStockData={smStockData} />
+                <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
               ) : activeTab === 'stockcount' ? (
                 <StockCountPage
                   skus={skus}
