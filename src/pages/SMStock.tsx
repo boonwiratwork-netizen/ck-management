@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { SKU, CATEGORY_LABELS, Category, StorageCondition } from "@/types/sku";
 import { useSortableTable } from "@/hooks/use-sortable-table";
 import { SortableHeader } from "@/components/SortableHeader";
@@ -27,9 +27,10 @@ interface Props {
     getLastProductionDate: (skuId: string) => string | null;
     openingStocks: Record<string, number>;
   };
+  smDailyUsage: Record<string, number>;
 }
 
-export default function SMStockPage({ skus, smStockData }: Props) {
+export default function SMStockPage({ skus, smStockData, smDailyUsage }: Props) {
   const { stockBalances, addAdjustment, getBomCostPerGram, getLastProductionDate } = smStockData;
   const { t } = useLanguage();
 
@@ -50,37 +51,7 @@ export default function SMStockPage({ skus, smStockData }: Props) {
     stockValue: number;
   } | null>(null);
 
-  const [smDailyUsage, setSmDailyUsage] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      Promise.all([
-        supabase
-          .from("sales_entries")
-          .select("menu_code, qty")
-          .gte("sale_date", sevenDaysAgo.toISOString().split("T")[0]),
-        supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
-        supabase.from("menus").select("id, menu_code"),
-      ]).then(([salesRes, bomRes, menusRes]) => {
-        if (!salesRes.data || !bomRes.data || !menusRes.data) return;
-        const menuCodeToId = new Map(menusRes.data.map((m: any) => [m.menu_code, m.id]));
-        const smSkuIds = new Set(skus.filter((s) => s.type === "SM").map((s) => s.id));
-        const usage: Record<string, number> = {};
-        salesRes.data.forEach((sale: any) => {
-          const menuId = menuCodeToId.get(sale.menu_code);
-          if (!menuId) return;
-          bomRes
-            .data!.filter((l: any) => l.menu_id === menuId && smSkuIds.has(l.sku_id))
-            .forEach((line: any) => {
-              usage[line.sku_id] = (usage[line.sku_id] || 0) + (line.effective_qty * Number(sale.qty)) / 7;
-            });
-        });
-        setSmDailyUsage(usage);
-      });
-    });
-  }, [skus]);
+  // smDailyUsage is now received as a prop from Index.tsx
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM"), [skus]);
 

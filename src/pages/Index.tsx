@@ -11,6 +11,7 @@ import { useGoodsReceiptData } from '@/hooks/use-goods-receipt-data';
 import { useStockData } from '@/hooks/use-stock-data';
 import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
+import { useSmDailyUsage } from '@/hooks/use-sm-daily-usage';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
@@ -139,6 +140,7 @@ const Index = () => {
   const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps);
   const deliveryData = useDeliveryData();
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps, byproductData.byproducts);
+  const smDailyUsage = useSmDailyUsage(skuData.skus);
   const branchData = useBranchData();
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
@@ -357,9 +359,9 @@ const Index = () => {
                   receipts={receiptData.receipts}
                   bomHeaders={bomData.headers}
                   bomLines={bomData.lines}
-                  prices={priceData.prices}
-                  deliveries={deliveryData.deliveries}
-                  getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+                   prices={priceData.prices}
+                   smDailyUsage={smDailyUsage}
+                   getTotalProducedForPlan={productionData.getTotalProducedForPlan}
                   getStdUnitPrice={stockData.getStdUnitPrice}
                 />
               ) : activeTab === 'sku' ? (
@@ -415,7 +417,7 @@ const Index = () => {
                   refreshProductionRecords={smStockData.refreshProductionRecords}
                 />
               ) : activeTab === 'smstock' ? (
-                <SMStockPage skus={skus} smStockData={smStockData} />
+                <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
               ) : activeTab === 'stockcount' ? (
                 <StockCountPage
                   skus={skus}

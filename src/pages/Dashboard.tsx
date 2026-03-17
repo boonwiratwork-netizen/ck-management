@@ -14,7 +14,6 @@ import { ProductionPlan, ProductionRecord, getISOWeekNumber, getWeekStart, getWe
 import { GoodsReceipt } from '@/types/goods-receipt';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { Price } from '@/types/price';
-import { Delivery } from '@/types/delivery';
 import { StockBalance } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { CalendarIcon, Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3, Wallet, ChevronDown } from 'lucide-react';
@@ -31,7 +30,7 @@ interface DashboardProps {
   bomHeaders: BOMHeader[];
   bomLines: BOMLine[];
   prices: Price[];
-  deliveries: Delivery[];
+  smDailyUsage: Record<string, number>;
   getTotalProducedForPlan: (planId: string) => number;
   getStdUnitPrice: (skuId: string) => number;
 }
@@ -52,7 +51,7 @@ const Dashboard = ({
   bomHeaders,
   bomLines,
   prices,
-  deliveries,
+  smDailyUsage,
   getTotalProducedForPlan,
   getStdUnitPrice,
 }: DashboardProps) => {
@@ -115,32 +114,28 @@ const Dashboard = ({
     return { totalRmValue, totalSmValue, combined: totalRmValue + totalSmValue, rmRows, smRows };
   }, [rmStockBalances, smStockBalances, skuMap, getStdUnitPrice, bomHeaders, bomLines, prices]);
 
-  // SM Stock Overview
+  // SM Stock Overview (sales-based cover days, matching SM Stock page)
   const smStockRows = useMemo(() => {
     return smStockBalances.map(bal => {
       const sku = skuMap.get(bal.skuId);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const recentDeliveries = deliveries.filter(
-        d => d.smSkuId === bal.skuId && d.deliveryDate >= toLocalDateStr(thirtyDaysAgo)
-      );
-      const totalDelivered30d = recentDeliveries.reduce((s, d) => s + d.qtyDeliveredG, 0);
-      const avgDailyDelivery = totalDelivered30d / 30;
-      const coverDays = avgDailyDelivery > 0 ? bal.currentStock / avgDailyDelivery : 999;
+      const dailyUsage = smDailyUsage[bal.skuId] || 0;
+      const coverDays = dailyUsage > 0 && bal.currentStock > 0 ? bal.currentStock / dailyUsage : null;
 
       let color: 'destructive' | 'warning' | 'default' = 'default';
-      if (coverDays < 2) color = 'destructive';
-      else if (coverDays <= 5) color = 'warning';
+      if (coverDays !== null) {
+        if (coverDays < 2) color = 'destructive';
+        else if (coverDays <= 5) color = 'warning';
+      }
 
       return {
         skuId: bal.skuId,
         name: sku?.name ?? '—',
         currentStock: bal.currentStock,
-        coverDays: avgDailyDelivery > 0 ? Math.round(coverDays * 10) / 10 : null,
+        coverDays: coverDays !== null ? Math.round(coverDays * 10) / 10 : null,
         color,
       };
     });
-  }, [smStockBalances, skuMap, deliveries]);
+  }, [smStockBalances, skuMap, smDailyUsage]);
 
   // Production Plans in range
   const rangePlans = useMemo(() => {
