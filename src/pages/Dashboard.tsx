@@ -193,11 +193,12 @@ const Dashboard = ({
         const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
         bLines.forEach(line => {
           const gramsConsumed = line.qtyPerBatch * totalBatches;
-          const rmReceipts = receipts.filter(r => r.skuId === line.rmSkuId);
-          const latestReceipt = rmReceipts.length > 0
-            ? rmReceipts.reduce((latest, r) => r.receiptDate > latest.receiptDate ? r : latest)
-            : null;
-          actualValue += gramsConsumed * (latestReceipt?.actualUnitPrice ?? 0);
+          const rangeReceipts = receipts.filter(r => r.skuId === line.rmSkuId && r.receiptDate >= rangeStart && r.receiptDate <= rangeEnd);
+          const totalQty = rangeReceipts.reduce((s, r) => s + r.quantityReceived, 0);
+          const weightedAvgPrice = totalQty > 0
+            ? rangeReceipts.reduce((s, r) => s + r.actualUnitPrice * r.quantityReceived, 0) / totalQty
+            : 0;
+          actualValue += gramsConsumed * weightedAvgPrice;
         });
       }
 
