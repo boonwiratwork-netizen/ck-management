@@ -27,6 +27,7 @@ interface Props {
     getLastProductionDate: (skuId: string) => string | null;
     openingStocks: Record<string, number>;
   };
+  smDailyUsage: Record<string, number>;
 }
 
 export default function SMStockPage({ skus, smStockData }: Props) {
