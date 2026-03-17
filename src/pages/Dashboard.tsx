@@ -51,7 +51,7 @@ const Dashboard = ({
   bomHeaders,
   bomLines,
   prices,
-  deliveries,
+  smDailyUsage,
   getTotalProducedForPlan,
   getStdUnitPrice,
 }: DashboardProps) => {
