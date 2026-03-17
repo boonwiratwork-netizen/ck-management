@@ -960,6 +960,127 @@ export type Database = {
           },
         ]
       }
+      purchase_request_lines: {
+        Row: {
+          avg_daily_usage: number | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          pack_size: number | null
+          pr_id: string
+          requested_qty: number
+          rop: number | null
+          sku_id: string
+          stock_on_hand: number | null
+          suggested_qty: number | null
+          supplier_id: string | null
+          uom: string
+        }
+        Insert: {
+          avg_daily_usage?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          pack_size?: number | null
+          pr_id: string
+          requested_qty: number
+          rop?: number | null
+          sku_id: string
+          stock_on_hand?: number | null
+          suggested_qty?: number | null
+          supplier_id?: string | null
+          uom: string
+        }
+        Update: {
+          avg_daily_usage?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          pack_size?: number | null
+          pr_id?: string
+          requested_qty?: number
+          rop?: number | null
+          sku_id?: string
+          stock_on_hand?: number | null
+          suggested_qty?: number | null
+          supplier_id?: string | null
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_request_lines_pr_id_fkey"
+            columns: ["pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_lines_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requests: {
+        Row: {
+          branch_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          pr_number: string
+          requested_by: string | null
+          requested_date: string
+          required_date: string
+          status: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          pr_number: string
+          requested_by?: string | null
+          requested_date: string
+          required_date: string
+          status?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          pr_number?: string
+          requested_by?: string | null
+          requested_date?: string
+          required_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_entries: {
         Row: {
           branch_id: string
