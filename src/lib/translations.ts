@@ -382,7 +382,10 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // ─── Transfer Request ───
   "tr.pageTitle": { th: "ใบขอเบิก", en: "Transfer Request" },
-  "tr.pageSubtitle": { th: "ขอเบิกวัตถุดิบกึ่งสำเร็จจากครัวกลาง", en: "Request SM ingredients from Central Kitchen" },
+  "tr.pageSubtitle": {
+    th: "ขอเบิกวัตถุดิบจากซัพพลายเออร์และครัวกลาง",
+    en: "Request ingredients from Suppliers & Central Kitchen",
+  },
   "tr.newTR": { th: "ใบขอเบิกใหม่", en: "New TR" },
   "tr.newBranch": { th: "สาขา", en: "Branch" },
   "tr.submitTR": { th: "ส่งใบขอเบิก", en: "Submit TR" },
