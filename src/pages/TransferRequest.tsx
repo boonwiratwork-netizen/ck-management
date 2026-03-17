@@ -703,7 +703,7 @@ export default function TransferRequestPage() {
                         `🧾 รายการ:`,
                         ...detailLines.map(
                           (l) =>
-                            `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(l.requestedQty, 0)} แพ็ค — ${formatNumber(l.packSize * l.requestedQty, 0)} ก.`,
+                            `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(l.requestedQty / l.packSize, 0)} แพ็ค — ${formatNumber(l.requestedQty, 0)} ก.`,
                         ),
                         ``,
                         `อ้างอิง ${detailTR.trNumber}`,
