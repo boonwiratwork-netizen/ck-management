@@ -1585,7 +1585,7 @@ export default function TransferRequestPage() {
                         `🧾 รายการ:`,
                         ...prDetailLines.map((l) => {
                           const batches = l.packSize > 0 ? Math.round(l.requestedQty / l.packSize) : l.requestedQty;
-                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} แพ็ค `;
+                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} ${l.packUnit}`;
                         }),
                         ``,
                         `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
