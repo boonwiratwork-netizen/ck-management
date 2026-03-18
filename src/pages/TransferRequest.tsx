@@ -1579,17 +1579,15 @@ export default function TransferRequestPage() {
                       const brandName = branch?.brandName || "";
                       const copyLines = [
                         `📦 [${detailPR.branchName} — ${brandName}] - สั่งวัตถุดิบ`,
-                        `วันที่ขอ: ${detailPR.requestedDate}`,
                         `วันส่งสินค้า: ${detailPR.requiredDate}`,
                         ...(detailPR.notes ? [`หมายเหตุ: ${detailPR.notes}`] : []),
                         ``,
                         `🧾 รายการ:`,
                         ...prDetailLines.map((l) => {
                           const batches = l.packSize > 0 ? Math.round(l.requestedQty / l.packSize) : l.requestedQty;
-                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} แพ็ค — ${formatNumber(l.requestedQty, 0)} ${l.uom}`;
+                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} แพ็ค `;
                         }),
                         ``,
-                        `อ้างอิง ${detailPR.prNumber}`,
                         `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
                       ];
                       navigator.clipboard
