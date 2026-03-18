@@ -958,7 +958,7 @@ export default function TransferRequestPage() {
                             line.packSize > 0 ? Math.round((line.rop / line.packSize) * 100) / 100 : 0;
                           const parstockInPurchase =
                             line.packSize > 0 ? Math.round((line.parstock / line.packSize) * 100) / 100 : 0;
-                          const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.purchaseUom}`;
+                          const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.packUnit}`;
 
                           return (
                             <tr
