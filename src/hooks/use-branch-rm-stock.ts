@@ -106,7 +106,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       // Fetch SKU details for those IDs
       const { data: rmSkus } = await supabase
         .from("skus")
-        .select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type")
+        .select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type, pack_unit")
         .eq("status", "Active")
         .eq("type", "RM")
         .in("id", supplierSkuIds);
