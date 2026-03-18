@@ -128,7 +128,7 @@ export function usePurchaseRequest(branchId: string | null) {
       .from("skus")
       .select("id, sku_id, name, pack_size, pack_unit")
       .in("id", skuIds);
-    const skuMap: Record<string, { code: string; name: string; packSize: number }> = {};
+    const skuMap: Record<string, { code: string; name: string; packSize: number; packUnit: string }> = {};
     for (const s of skus || []) {
       skuMap[s.id] = { code: s.sku_id, name: s.name, packSize: s.pack_size, packUnit: s.pack_unit || "แพ็ค" };
     }
