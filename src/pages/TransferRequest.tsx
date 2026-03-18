@@ -1260,7 +1260,7 @@ export default function TransferRequestPage() {
           <table className={tableTokens.base}>
             <colgroup>
               <col style={{ width: 150 }} />
-              <col style={{ width: 100 }} />
+              <col style={{ width: 110 }} />
               <col style={{ width: 100 }} />
               <col style={{ width: 140 }} />
               <col />
