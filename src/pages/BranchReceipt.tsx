@@ -133,7 +133,10 @@ export default function BranchReceiptPage({
   const prHook = usePurchaseRequest(branchId || null);
   const [pendingPRCounts, setPendingPRCounts] = useState<Record<string, number>>({});
   useEffect(() => {
-    if (!branchId) { setPendingPRCounts({}); return; }
+    if (!branchId) {
+      setPendingPRCounts({});
+      return;
+    }
     prHook.getPendingPRCountsBySupplier(branchId).then(setPendingPRCounts);
   }, [branchId]);
 
@@ -960,7 +963,7 @@ export default function BranchReceiptPage({
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono`}>
                         {lineValue > 0
-                          ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
                           : "—"}
                       </td>
                       <td className="px-1 py-1">
