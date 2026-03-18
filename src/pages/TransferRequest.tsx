@@ -1449,7 +1449,6 @@ export default function TransferRequestPage() {
                       const brandName = branch?.brandName || "";
                       const copyLines = [
                         `📦 [${detailTR.branchName} — ${brandName}] - สั่งวัตถุดิบ`,
-                        `วันที่ขอ: ${detailTR.requestedDate}`,
                         `วันส่งสินค้า: ${detailTR.requiredDate}`,
                         ``,
                         `🧾 รายการ:`,
@@ -1458,7 +1457,6 @@ export default function TransferRequestPage() {
                             `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(l.requestedQty / l.packSize, 0)} แพ็ค — ${formatNumber(l.requestedQty, 0)} ก.`,
                         ),
                         ``,
-                        `อ้างอิง ${detailTR.trNumber}`,
                         `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
                       ];
                       navigator.clipboard
