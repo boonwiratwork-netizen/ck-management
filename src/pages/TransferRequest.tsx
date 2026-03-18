@@ -716,7 +716,7 @@ export default function TransferRequestPage() {
                       <colgroup>
                         <col style={{ width: 26 }} />
                         <col style={{ width: 76 }} />
-                        <col />
+                        <col style={{ width: 200 }} />
                         <col style={{ width: 110 }} />
                         <col style={{ width: 72 }} />
                         <col style={{ width: 60 }} />
@@ -904,7 +904,7 @@ export default function TransferRequestPage() {
                       <colgroup>
                         <col style={{ width: 26 }} />
                         <col style={{ width: 76 }} />
-                        <col />
+                        <col style={{ width: 200 }} />
                         <col style={{ width: 90 }} />
                         <col style={{ width: 72 }} />
                         <col style={{ width: 60 }} />
