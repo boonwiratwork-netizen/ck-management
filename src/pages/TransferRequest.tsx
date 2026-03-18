@@ -1261,7 +1261,7 @@ export default function TransferRequestPage() {
             <colgroup>
               <col style={{ width: 150 }} />
               <col style={{ width: 110 }} />
-              <col style={{ width: 100 }} />
+              <col style={{ width: 110 }} />
               <col style={{ width: 140 }} />
               <col />
               <col style={{ width: 60 }} />
