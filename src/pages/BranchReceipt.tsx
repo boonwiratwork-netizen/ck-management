@@ -990,7 +990,7 @@ export default function BranchReceiptPage({
                     ฿
                     {ckLines
                       .reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                      .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      .toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </td>
                   <td />
                 </tr>
