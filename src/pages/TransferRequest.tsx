@@ -954,10 +954,8 @@ export default function TransferRequestPage() {
                           const totalPurchaseUnits = batchVal > 0 ? batchVal : 0;
                           const stockInPurchase =
                             line.packSize > 0 ? Math.round((line.stockOnHand / line.packSize) * 100) / 100 : 0;
-                          const ropInPurchase =
-                            line.packSize > 0 ? Math.round((line.rop / line.packSize) * 100) / 100 : 0;
-                          const parstockInPurchase =
-                            line.packSize > 0 ? Math.round((line.parstock / line.packSize) * 100) / 100 : 0;
+                          const ropInPurchase = Math.round(line.rop * 100) / 100;
+                          const parstockInPurchase = Math.round(line.parstock * 100) / 100;
                           const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.packUnit}`;
 
                           return (
