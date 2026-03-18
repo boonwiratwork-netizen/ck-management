@@ -173,15 +173,15 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         qtySoldByMenuId[mid] = (qtySoldByMenuId[mid] || 0) + Number(s.qty);
       }
 
-      const menuIds = Object.keys(qtySoldByMenuId);
+      const salesMenuIds = Object.keys(qtySoldByMenuId);
 
       // Get menu_bom for those menus
       let bomRows: { menu_id: string; sku_id: string; qty_per_serving: number }[] = [];
-      if (menuIds.length > 0) {
+      if (salesMenuIds.length > 0) {
         const { data: bom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, qty_per_serving")
-          .in("menu_id", menuIds);
+          .in("menu_id", salesMenuIds);
         bomRows = bom || [];
       }
 
