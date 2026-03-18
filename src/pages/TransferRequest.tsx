@@ -711,7 +711,7 @@ export default function TransferRequestPage() {
                 <div className="text-center py-8 text-muted-foreground text-sm">{t("tr.noSmSkus")}</div>
               ) : (
                 <>
-                  <div className={`${tableTokens.wrapper} ${prTableClass}`}>
+                  <div className={tableTokens.wrapper}>
                     <table className={tableTokens.base}>
                       <colgroup>
                         <col style={{ width: 26 }} />
