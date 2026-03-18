@@ -978,10 +978,10 @@ export default function TransferRequestPage() {
                               </td>
                               <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 1)}</td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                                {formatNumber(ropInPurchase, 1)}
+                                {formatNumber(ropInPurchase, 0)}
                               </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                                {formatNumber(parstockInPurchase, 1)}
+                                {formatNumber(parstockInPurchase, 0)}
                               </td>
                               <td
                                 className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? "text-primary" : "text-muted-foreground"} font-medium`}
