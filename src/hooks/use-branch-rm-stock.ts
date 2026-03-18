@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toLocalDateStr } from '@/lib/utils';
+import { useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toLocalDateStr } from "@/lib/utils";
 
-export type BranchRmStockStatus = 'critical' | 'low' | 'sufficient' | 'no-data';
+export type BranchRmStockStatus = "critical" | "low" | "sufficient" | "no-data";
 
 export interface BranchRmStockEntry {
   stockOnHand: number;
@@ -32,82 +32,115 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
   const [zeroLeadTimeCount, setZeroLeadTimeCount] = useState(0);
 
   const calculate = useCallback(async () => {
-    if (!branchId || !supplierId) { setRmStock({}); setRmSkuList([]); setZeroLeadTimeCount(0); return; }
+    if (!branchId || !supplierId) {
+      setRmStock({});
+      setRmSkuList([]);
+      setZeroLeadTimeCount(0);
+      return;
+    }
     setLoading(true);
 
     try {
       // 1. Get branch brand_name
-      const { data: branch } = await supabase
-        .from('branches')
-        .select('brand_name')
-        .eq('id', branchId)
-        .single();
-      if (!branch) { setRmStock({}); setRmSkuList([]); setLoading(false); return; }
+      const { data: branch } = await supabase.from("branches").select("brand_name").eq("id", branchId).single();
+      if (!branch) {
+        setRmStock({});
+        setRmSkuList([]);
+        setLoading(false);
+        return;
+      }
 
       // 2. Get active menus for this brand
       const { data: menus } = await supabase
-        .from('menus')
-        .select('id')
-        .eq('brand_name', branch.brand_name)
-        .eq('status', 'Active');
-      const menuIds = (menus || []).map(m => m.id);
-      if (menuIds.length === 0) { setRmStock({}); setRmSkuList([]); setLoading(false); return; }
+        .from("menus")
+        .select("id")
+        .eq("brand_name", branch.brand_name)
+        .eq("status", "Active");
+      const menuIds = (menus || []).map((m) => m.id);
+      if (menuIds.length === 0) {
+        setRmStock({});
+        setRmSkuList([]);
+        setLoading(false);
+        return;
+      }
 
       // 3. Get SM sku_ids from menu_bom
-      const { data: bomEntries } = await supabase
-        .from('menu_bom')
-        .select('sku_id')
-        .in('menu_id', menuIds);
-      const smSkuIds = [...new Set((bomEntries || []).map(b => b.sku_id))];
+      const { data: bomEntries } = await supabase.from("menu_bom").select("sku_id").in("menu_id", menuIds);
+      const smSkuIds = [...new Set((bomEntries || []).map((b) => b.sku_id))];
 
       // 4. Get RM ingredients from sp_bom for those SM SKUs
       let rmFromSpBom: string[] = [];
       if (smSkuIds.length > 0) {
         const { data: spBomLines } = await supabase
-          .from('sp_bom')
-          .select('ingredient_sku_id')
-          .in('sp_sku_id', smSkuIds);
-        rmFromSpBom = (spBomLines || []).map(l => l.ingredient_sku_id);
+          .from("sp_bom")
+          .select("ingredient_sku_id")
+          .in("sp_sku_id", smSkuIds);
+        rmFromSpBom = (spBomLines || []).map((l) => l.ingredient_sku_id);
       }
 
       // Also get direct RM ingredients from menu_bom (type=RM)
       const allBomSkuIds = [...new Set([...smSkuIds, ...rmFromSpBom])];
-      if (allBomSkuIds.length === 0) { setRmStock({}); setRmSkuList([]); setLoading(false); return; }
+      if (allBomSkuIds.length === 0) {
+        setRmStock({});
+        setRmSkuList([]);
+        setLoading(false);
+        return;
+      }
 
-      // 5. Filter to active RM SKUs where supplier1 or supplier2 matches
+      // 5. Get RM SKU IDs that have active prices for this supplier
+      const { data: priceRows } = await supabase
+        .from("prices")
+        .select("sku_id")
+        .eq("supplier_id", supplierId)
+        .eq("is_active", true)
+        .in("sku_id", allBomSkuIds);
+
+      const supplierSkuIds = [...new Set((priceRows || []).map((p) => p.sku_id))];
+      if (supplierSkuIds.length === 0) {
+        setRmStock({});
+        setRmSkuList([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch SKU details for those IDs
       const { data: rmSkus } = await supabase
-        .from('skus')
-        .select('id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, supplier1, supplier2, type')
-        .eq('status', 'Active')
-        .in('id', allBomSkuIds);
-      
-      // Filter: must be RM type AND supplier matches
-      const filtered = (rmSkus || []).filter(s => 
-        s.type === 'RM' && (s.supplier1 === supplierId || s.supplier2 === supplierId)
-      );
-      
-      if (filtered.length === 0) { setRmStock({}); setRmSkuList([]); setLoading(false); return; }
+        .from("skus")
+        .select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type")
+        .eq("status", "Active")
+        .eq("type", "RM")
+        .in("id", supplierSkuIds);
+
+      const filtered = rmSkus || [];
+      if (filtered.length === 0) {
+        setRmStock({});
+        setRmSkuList([]);
+        setLoading(false);
+        return;
+      }
 
       // Count zero lead times
       let zeroLtCount = 0;
 
       // Build SKU info list
-      setRmSkuList(filtered.map(s => {
-        const lt = Number(s.lead_time) || 0;
-        if (lt === 0) zeroLtCount++;
-        return {
-          skuId: s.id,
-          skuCode: s.sku_id,
-          skuName: s.name,
-          purchaseUom: s.purchase_uom,
-          usageUom: s.usage_uom,
-          packSize: Number(s.pack_size) || 1,
-          leadTime: lt,
-        };
-      }));
+      setRmSkuList(
+        filtered.map((s) => {
+          const lt = Number(s.lead_time) || 0;
+          if (lt === 0) zeroLtCount++;
+          return {
+            skuId: s.id,
+            skuCode: s.sku_id,
+            skuName: s.name,
+            purchaseUom: s.purchase_uom,
+            usageUom: s.usage_uom,
+            packSize: Number(s.pack_size) || 1,
+            leadTime: lt,
+          };
+        }),
+      );
       setZeroLeadTimeCount(zeroLtCount);
 
-      const skuIds = filtered.map(s => s.id);
+      const skuIds = filtered.map((s) => s.id);
 
       // 6. Get last 7 days of submitted daily_stock_counts for this branch
       const today = new Date();
@@ -116,13 +149,13 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       const dateFrom = toLocalDateStr(sevenDaysAgo);
 
       const { data: counts } = await supabase
-        .from('daily_stock_counts')
-        .select('sku_id, count_date, expected_usage, calculated_balance, physical_count')
-        .eq('branch_id', branchId)
-        .eq('is_submitted', true)
-        .gte('count_date', dateFrom)
-        .in('sku_id', skuIds)
-        .order('count_date', { ascending: false });
+        .from("daily_stock_counts")
+        .select("sku_id, count_date, expected_usage, calculated_balance, physical_count")
+        .eq("branch_id", branchId)
+        .eq("is_submitted", true)
+        .gte("count_date", dateFrom)
+        .in("sku_id", skuIds)
+        .order("count_date", { ascending: false });
 
       // 7. Group by SKU
       const grouped: Record<string, typeof counts> = {};
@@ -142,7 +175,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
 
       for (const skuId of skuIds) {
         const rows = grouped[skuId];
-        const skuInfo = filtered.find(s => s.id === skuId);
+        const skuInfo = filtered.find((s) => s.id === skuId);
         const packSize = Number(skuInfo?.pack_size) || 1;
         const leadTime = ltMap[skuId] || 1;
 
@@ -155,19 +188,18 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
             parstock: 0,
             suggestedOrder: 0,
             suggestedBatches: 0,
-            status: 'no-data',
+            status: "no-data",
           };
           continue;
         }
 
         // Most recent row
         const latest = rows[0];
-        const stockOnHand = latest.physical_count != null
-          ? Number(latest.physical_count)
-          : Number(latest.calculated_balance);
+        const stockOnHand =
+          latest.physical_count != null ? Number(latest.physical_count) : Number(latest.calculated_balance);
 
         // Usage stats
-        const usages = rows.map(r => Number(r.expected_usage));
+        const usages = rows.map((r) => Number(r.expected_usage));
         const avgDailyUsage = usages.reduce((a, b) => a + b, 0) / 7;
         const peakDailyUsage = Math.max(...usages);
 
@@ -179,10 +211,10 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
 
         // Status
         let status: BranchRmStockStatus;
-        if (stockOnHand === 0) status = 'critical';
-        else if (stockOnHand < rop) status = 'low';
-        else if (stockOnHand >= parstock) status = 'sufficient';
-        else status = 'low';
+        if (stockOnHand === 0) status = "critical";
+        else if (stockOnHand < rop) status = "low";
+        else if (stockOnHand >= parstock) status = "sufficient";
+        else status = "low";
 
         result[skuId] = {
           stockOnHand,
@@ -205,7 +237,9 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
     }
   }, [branchId, supplierId]);
 
-  useEffect(() => { calculate(); }, [calculate]);
+  useEffect(() => {
+    calculate();
+  }, [calculate]);
 
   return { rmStock, rmSkuList, loading, zeroLeadTimeCount, refresh: calculate };
 }
