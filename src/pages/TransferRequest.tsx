@@ -1264,9 +1264,9 @@ export default function TransferRequestPage() {
               <col style={{ width: 110 }} />
               <col style={{ width: 140 }} />
               <col />
-              <col style={{ width: 60 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 90 }} />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 100 }} />
             </colgroup>
             <thead>
               <tr className={tableTokens.headerRow}>
