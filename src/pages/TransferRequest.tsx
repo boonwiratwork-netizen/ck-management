@@ -899,7 +899,7 @@ export default function TransferRequestPage() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-y-auto max-h-[70vh]">
+                  <div className={tableTokens.wrapper}>
                     <table className={tableTokens.base}>
                       <colgroup>
                         <col style={{ width: 26 }} />
