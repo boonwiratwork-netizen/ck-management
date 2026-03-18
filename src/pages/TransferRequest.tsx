@@ -1025,7 +1025,7 @@ export default function TransferRequestPage() {
                               <td
                                 className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}
                               >
-                                {line.purchaseUom}
+                                {line.usageUom}
                               </td>
                             </tr>
                           );
