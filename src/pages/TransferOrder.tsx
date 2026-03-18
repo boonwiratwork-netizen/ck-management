@@ -690,7 +690,7 @@ export default function TransferOrderPage({
                         <span className="text-primary">—</span>
                       )}
                     </td>
-                    <td className={tableTokens.dataCellMono}>{formatNumber(line.actualQty * line.unitCost, 2)}</td>
+                    <td className={tableTokens.dataCellMono}>{formatNumber(line.actualQty * line.unitCost, 0)}</td>
                     <td className={tableTokens.dataCell}>
                       {canEdit ? (
                         <Input
