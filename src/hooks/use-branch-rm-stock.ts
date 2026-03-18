@@ -135,6 +135,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
             usageUom: s.usage_uom,
             packSize: Number(s.pack_size) || 1,
             leadTime: lt,
+            packUnit: s.pack_unit || "แพ็ค",
           };
         }),
       );
