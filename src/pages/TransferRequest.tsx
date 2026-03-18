@@ -951,7 +951,7 @@ export default function TransferRequestPage() {
                             ? undefined
                             : stockStatusToDot[line.status];
                           const batchVal = prBatchInputs[line.skuId] ?? 0;
-                          const totalPurchaseUnits = batchVal > 0 ? batchVal : 0;
+                          const totalPurchaseUnits = batchVal > 0 ? batchVal * line.packSize : 0;
                           const stockInPurchase = Math.round(line.stockOnHand * 100) / 100;
                           const ropInPurchase = Math.round(line.rop * 100) / 100;
                           const parstockInPurchase = Math.round(line.parstock * 100) / 100;
