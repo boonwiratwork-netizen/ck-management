@@ -1586,7 +1586,7 @@ export default function TransferRequestPage() {
                         `🧾 รายการ:`,
                         ...prDetailLines.map((l) => {
                           const batches = l.packSize > 0 ? Math.round(l.requestedQty / l.packSize) : l.requestedQty;
-                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} แพ็ค — ${batches} ${l.uom}`;
+                          return `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batches} แพ็ค — ${formatNumber(l.requestedQty, 0)} ${l.uom}`;
                         }),
                         ``,
                         `อ้างอิง ${detailPR.prNumber}`,
