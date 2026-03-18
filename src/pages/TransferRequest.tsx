@@ -1558,7 +1558,9 @@ export default function TransferRequestPage() {
                             <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
                               {formatNumber(l.rop, 0)}
                             </td>
-                            <td className={`${tableTokens.dataCellMono} font-medium`}>{batches}</td>
+                            <td className={`${tableTokens.dataCellMono} font-medium`}>
+                              {formatNumber(l.requestedQty, 0)}
+                            </td>
                             <td className={`${tableTokens.dataCell} text-center`}>
                               <UnitLabel unit={l.uom} />
                             </td>
