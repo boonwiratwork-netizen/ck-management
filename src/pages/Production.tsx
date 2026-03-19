@@ -375,7 +375,7 @@ export default function ProductionPage({
         const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
         const suggestedBatches =
           outputPerBatch > 0 && produceTarget > 0 ? Math.ceil(produceTarget / outputPerBatch) : 0;
-        const plannedBatches = planBatches[sku.id] ?? suggestedBatches;
+        const plannedBatches = planBatches[sku.id] ?? 0;
         const planG = plannedBatches * outputPerBatch;
         const stockAfter = stockNow + planG;
         const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
