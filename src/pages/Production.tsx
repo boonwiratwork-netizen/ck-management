@@ -894,7 +894,7 @@ export default function ProductionPage({
                               }}
                               type="number"
                               className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
-                              defaultValue={planBatches[row.sku.id] !== undefined ? planBatches[row.sku.id] : ""}
+                              defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
                               key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
                               onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
                               onFocus={(e) => e.target.select()}
