@@ -268,6 +268,7 @@ export default function ProductionPage({
           setSavedWeek(getISOWeekNumber(weekStart));
         }
         setPlanBatches(map);
+        setLoadedWeek(weekStart);
       });
   }, [weekStart]);
 
@@ -718,7 +719,7 @@ export default function ProductionPage({
         </div>
 
         {/* ═══ PLANNING MODE ═══ */}
-        {mode === "planning" && (
+        {mode === "planning" && loadedWeek === weekStart && (
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
@@ -945,7 +946,7 @@ export default function ProductionPage({
         )}
 
         {/* ═══ RECORDING MODE ═══ */}
-        {mode === "recording" && (
+        {mode === "recording" && loadedWeek === weekStart && (
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
