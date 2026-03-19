@@ -124,20 +124,81 @@ export function useProductionData(
     if (error) { toast.error('Failed to add record: ' + error.message); return; }
     setRecords(prev => [toRecord(row), ...prev]);
 
-    // Auto-deduct RM stock
+    // Auto-deduct stock based on BOM
     const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
     if (bomHeader) {
       const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-      bLines.forEach(line => {
-        addStockAdjustment({
-          skuId: line.rmSkuId, date: data.productionDate,
-          quantity: -(line.qtyPerBatch * data.batchesProduced),
-          reason: `Production: ${data.batchesProduced} batches of ${smSkuId}`,
+
+      // Resolve per-line qty: for multi-step BOMs, recalculate percent-type lines
+      const resolvedLines: { rmSkuId: string; qty: number }[] = [];
+
+      if (bomHeader.bomMode === 'multistep') {
+        const steps = bomSteps.filter(s => s.bomHeaderId === bomHeader.id).sort((a, b) => a.stepNumber - b.stepNumber);
+        let prevStepOutput = 0;
+
+        steps.forEach((step, idx) => {
+          const stepLines = bLines.filter(l => l.stepId === step.id);
+          // Step input = previous step's output (step 1 has no prev output, input comes from its own fixed lines)
+          const stepInput = idx === 0
+            ? stepLines.filter(l => !l.qtyType || l.qtyType === 'fixed').reduce((s, l) => s + l.qtyPerBatch, 0)
+            : prevStepOutput;
+
+          stepLines.forEach(line => {
+            if (line.qtyType === 'percent' && line.percentOfInput) {
+              // Percent-type: resolve against the step's input qty
+              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.percentOfInput * stepInput });
+            } else {
+              // Fixed-type: use stored qtyPerBatch as-is
+              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
+            }
+          });
+
+          // Calculate step output for next step
+          const addedQty = idx === 0 ? 0 : stepLines.reduce((s, l) => {
+            if (l.qtyType === 'percent' && l.percentOfInput) return s + l.percentOfInput * stepInput;
+            return s + l.qtyPerBatch;
+          }, 0);
+          const effectiveInput = idx === 0 ? stepInput : stepInput + addedQty;
+          prevStepOutput = effectiveInput * step.yieldPercent;
         });
-      });
+      } else {
+        // Simple BOM: all lines are fixed, use qtyPerBatch directly
+        bLines.forEach(line => {
+          resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
+        });
+      }
+
+      // Fetch SKU types for all ingredient SKUs to determine stock_type
+      const uniqueSkuIds = [...new Set(resolvedLines.map(l => l.rmSkuId))];
+      const { data: skuRows } = await supabase.from('skus').select('id, type').in('id', uniqueSkuIds);
+      const skuTypeMap = new Map<string, string>();
+      (skuRows || []).forEach(s => skuTypeMap.set(s.id, s.type));
+
+      for (const line of resolvedLines) {
+        const deductQty = -(line.qty * data.batchesProduced);
+        const skuType = skuTypeMap.get(line.rmSkuId) || 'RM';
+        const reason = `Production: ${data.batchesProduced} batches of ${smSkuId}`;
+
+        if (skuType === 'SM') {
+          // SM ingredients: insert directly with stock_type='SM'
+          await supabase.from('stock_adjustments').insert({
+            sku_id: line.rmSkuId,
+            adjustment_date: data.productionDate,
+            quantity: deductQty,
+            reason,
+            stock_type: 'SM',
+          });
+        } else {
+          // RM/other: use existing addStockAdjustment (writes stock_type='RM')
+          addStockAdjustment({
+            skuId: line.rmSkuId, date: data.productionDate,
+            quantity: deductQty, reason,
+          });
+        }
+      }
     }
     return row.id;
-  }, [plans, bomHeaders, bomLines, addStockAdjustment]);
+  }, [plans, bomHeaders, bomLines, bomSteps, addStockAdjustment]);
 
   const updateRecord = useCallback(async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
     const { error } = await supabase.from('production_records').update({
