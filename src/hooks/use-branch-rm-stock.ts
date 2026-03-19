@@ -22,6 +22,7 @@ export interface BranchRmSkuInfo {
   purchaseUom: string;
   usageUom: string;
   packSize: number;
+  packUnit: string;
   leadTime: number;
 }
 
