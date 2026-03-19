@@ -174,11 +174,19 @@ export function useSmStockData(
 
   // Re-fetch production records from DB for immediate stock update
   const refreshProductionRecords = useCallback(async () => {
-    const { data } = await supabase.from('production_records').select('*').order('created_at', { ascending: false });
-    if (data) {
-      setLocalProductionRecords(data.map((r: any) => ({
+    const [prodRes, adjRes] = await Promise.all([
+      supabase.from('production_records').select('*').order('created_at', { ascending: false }),
+      supabase.from('stock_adjustments').select('*').eq('stock_type', 'SM').order('created_at', { ascending: false }),
+    ]);
+    if (prodRes.data) {
+      setLocalProductionRecords(prodRes.data.map((r: any) => ({
         id: r.id, planId: r.plan_id, productionDate: r.production_date,
         smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputG: r.actual_output_g,
+      })));
+    }
+    if (adjRes.data) {
+      setAdjustments(adjRes.data.map((r: any) => ({
+        id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason,
       })));
     }
   }, []);
