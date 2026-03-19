@@ -583,7 +583,7 @@ export default function ProductionPage({
     }
 
     const outputPerBatch = getOutputPerBatch(recordSkuId);
-    const batchesProduced = outputPerBatch > 0 ? Math.floor(recordForm.actualOutputG / outputPerBatch) : 0;
+    const batchesProduced = outputPerBatch > 0 ? Math.round(recordForm.actualOutputG / outputPerBatch) : 0;
 
     if (editingRecordId) {
       await updateRecord(editingRecordId, {
