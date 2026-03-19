@@ -1328,7 +1328,9 @@ export default function ProductionPage({
             <Button variant="outline" onClick={() => setRecordModalOpen(false)}>
               {t("btn.cancel")}
             </Button>
-            <Button onClick={doSaveRecord}>{t("prod.record")}</Button>
+            <Button onClick={doSaveRecord} disabled={saving}>
+              {saving ? "Saving..." : t("prod.record")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
