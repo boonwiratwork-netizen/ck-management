@@ -201,12 +201,9 @@ export default function ProductionPage({
 
   // ─── Mode toggle with week defaulting ───
   const handleModeSwitch = (newMode: "planning" | "recording") => {
+    const newWeek = newMode === "planning" ? getNextWeekMonday() : getCurrentWeekMonday();
     setMode(newMode);
-    if (newMode === "planning") {
-      setWeekStart(getNextWeekMonday());
-    } else {
-      setWeekStart(getCurrentWeekMonday());
-    }
+    setWeekStart(newWeek);
   };
 
   // ─── Data fetching ───
