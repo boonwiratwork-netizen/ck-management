@@ -762,7 +762,7 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
-                {/* 1A — Planning colgroup (10 cols), Name=220px */}
+                {/* 1A — Planning colgroup (11 cols), Name=220px */}
                 <colgroup>
                   <col style={{ width: "28px" }} />
                   <col style={{ width: "72px" }} />
@@ -770,8 +770,9 @@ export default function ProductionPage({
                   <col style={{ width: "48px" }} />
                   <col style={{ width: "68px" }} />
                   <col style={{ width: "85px" }} />
-                  <col style={{ width: "85px" }} />
+                  <col style={{ width: "68px" }} />
                   <col style={{ width: "78px" }} />
+                  <col style={{ width: "85px" }} />
                   <col style={{ width: "85px" }} />
                   <col style={{ width: "85px" }} />
                 </colgroup>
@@ -784,11 +785,12 @@ export default function ProductionPage({
                     <th className={table.headerCellCenter}>UOM</th>
                     <th className={table.headerCellNumeric}>g/batch</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
-                    <th className={table.headerCellNumeric}>COVER DAY NOW</th>
+                    <th className={table.headerCellNumeric}>SUGGEST</th>
                     <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
                       {t("prod.colPlanBatch")}
                     </th>
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
+                    <th className={table.headerCellNumeric}>COVER DAY NOW</th>
                     <th className={table.headerCellNumeric}>COVER DAY AFTER</th>
                   </tr>
                 </thead>
@@ -864,9 +866,11 @@ export default function ProductionPage({
                         {/* STOCK NOW — pure number */}
                         <td className={table.dataCellCompactMono}>{fmtG(row.stockNow)}</td>
 
-                        {/* COVER DAY NOW */}
+                        {/* SUGGEST */}
                         <td className={table.dataCellCompactMono}>
-                          {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
+                          <span className="text-muted-foreground">
+                            {row.suggestedBatches > 0 ? row.suggestedBatches : "—"}
+                          </span>
                         </td>
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
@@ -903,6 +907,11 @@ export default function ProductionPage({
                         {/* PLAN (g) — pure number */}
                         <td className={cn(table.dataCellCompactMono, "text-muted-foreground")}>
                           {row.planG > 0 ? fmtG(row.planG) : "—"}
+                        </td>
+
+                        {/* COVER DAY NOW */}
+                        <td className={table.dataCellCompactMono}>
+                          {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
 
                         {/* COVER DAY AFTER */}
