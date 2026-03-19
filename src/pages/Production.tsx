@@ -582,6 +582,7 @@ export default function ProductionPage({
       return;
     }
 
+    setSaving(true);
     const outputPerBatch = getOutputPerBatch(recordSkuId);
     const batchesProduced = outputPerBatch > 0 ? Math.round(recordForm.actualOutputG / outputPerBatch) : 0;
 
