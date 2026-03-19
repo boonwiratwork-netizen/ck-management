@@ -196,6 +196,25 @@ export function useProductionData(
           });
         }
       }
+      // By-product stock IN adjustments
+      const { data: byproducts } = await supabase
+        .from('bom_byproducts')
+        .select('sku_id, output_qty')
+        .eq('bom_header_id', bomHeader.id)
+        .eq('tracks_inventory', true)
+        .not('sku_id', 'is', null);
+
+      if (byproducts && byproducts.length > 0) {
+        for (const bp of byproducts) {
+          await supabase.from('stock_adjustments').insert({
+            sku_id: bp.sku_id!,
+            adjustment_date: data.productionDate,
+            quantity: bp.output_qty * data.batchesProduced,
+            stock_type: 'SM',
+            reason: `Production by-product: ${data.batchesProduced} batches of ${smSkuId}`,
+          });
+        }
+      }
     }
     return row.id;
   }, [plans, bomHeaders, bomLines, bomSteps, addStockAdjustment]);
