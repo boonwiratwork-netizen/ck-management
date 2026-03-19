@@ -178,7 +178,7 @@ export default function BranchReceiptPage({
     const { data, error } = await supabase
       .from("transfer_orders")
       .select(
-        "id, to_number, delivery_date, branch_id, transfer_order_lines(id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes)",
+        "id, to_number, delivery_date, branch_id, transfer_order_lines!to_id(id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes)",
       )
       .eq("branch_id", branchId)
       .eq("status", "Sent");
