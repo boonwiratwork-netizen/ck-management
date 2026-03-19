@@ -206,13 +206,14 @@ export function useProductionData(
 
       if (byproducts && byproducts.length > 0) {
         for (const bp of byproducts) {
-          await supabase.from('stock_adjustments').insert({
+          const { error: bpError } = await supabase.from('stock_adjustments').insert({
             sku_id: bp.sku_id!,
             adjustment_date: data.productionDate,
             quantity: bp.output_qty * data.batchesProduced,
             stock_type: 'SM',
             reason: `Production by-product: ${data.batchesProduced} batches of ${smSkuId}`,
           });
+          if (bpError) console.error('By-product stock adjustment failed:', bpError.message);
         }
       }
     }
