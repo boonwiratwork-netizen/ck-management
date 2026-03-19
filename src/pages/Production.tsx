@@ -626,6 +626,7 @@ export default function ProductionPage({
     if (refreshProductionRecords) refreshProductionRecords();
     toast.success(t("prod.recordSaved"));
     setRecordModalOpen(false);
+    setSaving(false);
   };
 
   const handleDeleteRecordConfirm = () => {
