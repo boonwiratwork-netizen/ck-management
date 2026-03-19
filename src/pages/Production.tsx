@@ -595,6 +595,7 @@ export default function ProductionPage({
       toast.success(t("prod.recordUpdated"));
       setRecordModalOpen(false);
       setEditingRecordId(null);
+      setSaving(false);
       return;
     }
 
