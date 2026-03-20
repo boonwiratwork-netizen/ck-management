@@ -309,10 +309,8 @@ export function StockCard({
   const hasMismatch = Math.abs(finalBalance - currentStock) > 1;
   const hasMovements = movements.length > 1;
 
-  // Branch context: current stock from most recent row
-  const branchCurrentStock = context === 'branch' && branchRows.length > 0
-    ? (branchRows[branchRows.length - 1].physical_count ?? branchRows[branchRows.length - 1].calculated_balance)
-    : currentStock;
+  // Branch context: use currentStock prop directly (already the live calculated balance from caller)
+  const branchCurrentStock = currentStock;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
