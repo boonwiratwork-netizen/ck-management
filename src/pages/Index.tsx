@@ -489,6 +489,7 @@ const Index = () => {
                   menus={menuData.menus}
                   menuBomLines={menuBomData.lines}
                   spBomLines={spBomData.lines}
+                  modifierRules={modifierRuleData.rules}
                 />
               ) : activeTab === 'food-cost' ? (
                 <FoodCostPage
