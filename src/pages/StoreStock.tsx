@@ -5,6 +5,7 @@ import { BOMHeader, BOMLine } from "@/types/bom";
 import { Menu } from "@/types/menu";
 import { MenuBomLine } from "@/types/menu-bom";
 import { SpBomLine } from "@/types/sp-bom";
+import { ModifierRule } from "@/types/modifier-rule";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
@@ -27,6 +28,7 @@ interface Props {
   menus: Menu[];
   menuBomLines: MenuBomLine[];
   spBomLines: SpBomLine[];
+  modifierRules: ModifierRule[];
 }
 
 interface CountRow {
@@ -40,6 +42,123 @@ interface CountRow {
   is_submitted: boolean;
 }
 
+/** Shared usage calculation: Menu BOM + SP expansion + Modifier Rules */
+function calculateUsageFromSales(
+  sales: { menu_code: string; menu_name: string; qty: number }[],
+  menus: Menu[],
+  menuBomLines: MenuBomLine[],
+  modifierRules: ModifierRule[],
+  spBomLines: SpBomLine[],
+  skus: SKU[],
+): Record<string, number> {
+  const menuByCode = new Map<string, Menu>();
+  menus.forEach(m => menuByCode.set(m.menuCode, m));
+
+  const bomByMenuId = new Map<string, MenuBomLine[]>();
+  menuBomLines.forEach(l => {
+    const arr = bomByMenuId.get(l.menuId) || [];
+    arr.push(l);
+    bomByMenuId.set(l.menuId, arr);
+  });
+
+  const activeRules = modifierRules.filter(r => r.isActive);
+
+  const spBomBySpSku = new Map<string, SpBomLine[]>();
+  spBomLines.forEach(l => {
+    const arr = spBomBySpSku.get(l.spSkuId) || [];
+    arr.push(l);
+    spBomBySpSku.set(l.spSkuId, arr);
+  });
+
+  const skuMap = new Map<string, SKU>();
+  skus.forEach(s => skuMap.set(s.id, s));
+
+  const usage: Record<string, number> = {};
+  const addUsage = (skuId: string, qty: number) => {
+    usage[skuId] = (usage[skuId] || 0) + qty;
+  };
+
+  for (const sale of sales) {
+    const qty = Number(sale.qty) || 0;
+    if (qty === 0) continue;
+
+    const menu = menuByCode.get(sale.menu_code);
+    if (!menu) continue;
+
+    const lines = bomByMenuId.get(menu.id) || [];
+    for (const line of lines) {
+      const ingredientQty = line.effectiveQty * qty;
+      const sku = skuMap.get(line.skuId);
+      if (sku && sku.type === 'SP') {
+        const spLines = spBomBySpSku.get(line.skuId) || [];
+        for (const spLine of spLines) {
+          addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty);
+        }
+      } else {
+        addUsage(line.skuId, ingredientQty);
+      }
+    }
+
+    // Modifier Rules
+    const menuName = sale.menu_name || '';
+    for (const rule of activeRules) {
+      if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
+      if (!menuName.includes(rule.keyword)) continue;
+
+      if (rule.ruleType === 'swap') {
+        if (rule.swapSkuId) {
+          const bomLines2 = bomByMenuId.get(menu.id) || [];
+          for (const line of bomLines2) {
+            if (line.skuId === rule.swapSkuId) {
+              addUsage(rule.swapSkuId, -(line.effectiveQty * qty));
+            }
+          }
+        }
+        const modQty = rule.qtyPerMatch * qty;
+        const modSku = skuMap.get(rule.skuId);
+        if (modSku && modSku.type === 'SP') {
+          const spLines = spBomBySpSku.get(rule.skuId) || [];
+          for (const spLine of spLines) {
+            addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+          }
+        } else {
+          addUsage(rule.skuId, modQty);
+        }
+      } else if (rule.ruleType === 'submenu') {
+        if (rule.submenuId) {
+          const subBomLines = bomByMenuId.get(rule.submenuId) || [];
+          for (const line of subBomLines) {
+            const ingredientQty2 = line.effectiveQty * qty;
+            const sku2 = skuMap.get(line.skuId);
+            if (sku2 && sku2.type === 'SP') {
+              const spLines = spBomBySpSku.get(line.skuId) || [];
+              for (const spLine of spLines) {
+                addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
+              }
+            } else {
+              addUsage(line.skuId, ingredientQty2);
+            }
+          }
+        }
+      } else {
+        // ADD type
+        const modQty = rule.qtyPerMatch * qty;
+        const modSku = skuMap.get(rule.skuId);
+        if (modSku && modSku.type === 'SP') {
+          const spLines = spBomBySpSku.get(rule.skuId) || [];
+          for (const spLine of spLines) {
+            addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+          }
+        } else {
+          addUsage(rule.skuId, modQty);
+        }
+      }
+    }
+  }
+
+  return usage;
+}
+
 export default function StoreStockPage({
   skus,
   branches,
@@ -48,6 +167,7 @@ export default function StoreStockPage({
   menus,
   menuBomLines,
   spBomLines,
+  modifierRules,
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
   const [rows, setRows] = useState<CountRow[]>([]);
@@ -75,100 +195,231 @@ export default function StoreStockPage({
     }
   }, [isStoreManager, profile?.branch_id]);
 
-  // Fetch data
+  // Effective branch ID (null if "all" selected)
+  const effectiveBranchId = useMemo(() => {
+    if (isStoreManager && profile?.branch_id) return profile.branch_id;
+    if (selectedBranch !== "all") return selectedBranch;
+    return null;
+  }, [isStoreManager, profile?.branch_id, selectedBranch]);
+
+  // Fetch data — live balance from transactions
   const fetchData = useCallback(async () => {
-    if (noBranch) {
+    if (noBranch || !effectiveBranchId) {
+      setRows([]);
       setLoading(false);
       return;
     }
     setLoading(true);
 
-    let query = supabase
-      .from("daily_stock_counts")
-      .select("id, branch_id, sku_id, count_date, physical_count, calculated_balance, expected_usage, is_submitted")
-      .eq("is_submitted", true)
-      .order("count_date", { ascending: false })
-      .limit(5000);
+    const branchId = effectiveBranchId;
+    const today = new Date().toISOString().split('T')[0];
 
-    if (isStoreManager && profile?.branch_id) {
-      query = query.eq("branch_id", profile.branch_id);
-    } else if (selectedBranch !== "all") {
-      query = query.eq("branch_id", selectedBranch);
-    }
-
-    const [{ data }, { data: pricesData }] = await Promise.all([
-      query,
-      supabase.from("prices").select("sku_id, price_per_usage_uom").eq("is_active", true),
-    ]);
-
-    // Build price lookup
+    // Step 2 — Prices
+    const { data: pricesData } = await supabase
+      .from("prices")
+      .select("sku_id, price_per_usage_uom")
+      .eq("is_active", true);
     const pm: Record<string, number> = {};
     (pricesData || []).forEach((p: any) => {
       pm[p.sku_id] = Number(p.price_per_usage_uom);
     });
     setPriceMap(pm);
 
-    // Dedup: keep most recent per branch+sku
-    const latestByKey = new Map<string, CountRow>();
-    (data || []).forEach((row: any) => {
-      const key = row.branch_id + "|" + row.sku_id;
-      const existing = latestByKey.get(key);
-      if (!existing || row.count_date > existing.count_date) {
-        latestByKey.set(key, row as CountRow);
+    // Step 3 — Most recent physical_count per SKU from daily_stock_counts
+    const { data: countData } = await supabase
+      .from("daily_stock_counts")
+      .select("sku_id, physical_count, count_date")
+      .eq("branch_id", branchId)
+      .lte("count_date", today)
+      .order("count_date", { ascending: false })
+      .limit(5000);
+
+    const lastSnapBySku = new Map<string, { balance: number; date: string }>();
+    (countData || []).forEach((r: any) => {
+      if (lastSnapBySku.has(r.sku_id)) return; // already have more recent
+      if (r.physical_count !== null) {
+        lastSnapBySku.set(r.sku_id, { balance: Number(r.physical_count), date: r.count_date });
       }
     });
 
-    setRows(Array.from(latestByKey.values()));
+    // Step 4 — Earliest snap date
+    let earliestSnap = "2020-01-01";
+    if (lastSnapBySku.size > 0) {
+      earliestSnap = [...lastSnapBySku.values()].reduce(
+        (min, s) => (s.date < min ? s.date : min),
+        [...lastSnapBySku.values()][0].date
+      );
+    }
+
+    // Steps 5-7 — Fetch CK receipts, external receipts, sales all in parallel
+    const skuConverterMap = new Map<string, { converter: number; purchaseUom: string; usageUom: string }>();
+    skus.forEach(s => skuConverterMap.set(s.id, { converter: s.converter, purchaseUom: s.purchaseUom, usageUom: s.usageUom }));
+
+    const [ckRes, extRes, salesRes] = await Promise.all([
+      // Step 5 — CK receipts (transfer_order_lines)
+      supabase
+        .from("transfer_order_lines")
+        .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
+        .eq("transfer_orders.branch_id", branchId)
+        .gt("transfer_orders.delivery_date", earliestSnap)
+        .lte("transfer_orders.delivery_date", today)
+        .in("transfer_orders.status", ["Sent", "Received", "Partially Received"]),
+      // Step 6 — External receipts (branch_receipts)
+      supabase
+        .from("branch_receipts")
+        .select("sku_id, qty_received, receipt_date")
+        .eq("branch_id", branchId)
+        .is("transfer_order_id", null)
+        .gt("receipt_date", earliestSnap)
+        .lte("receipt_date", today),
+      // Step 7 — Sales
+      supabase
+        .from("sales_entries")
+        .select("menu_code, menu_name, qty, sale_date")
+        .eq("branch_id", branchId)
+        .gt("sale_date", earliestSnap)
+        .lte("sale_date", today)
+        .limit(5000),
+    ]);
+
+    // Build CK receipt totals per SKU per date
+    const ckBySkuDate = new Map<string, Map<string, number>>();
+    (ckRes.data || []).forEach((line: any) => {
+      const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
+      const deliveryDate = (line.transfer_orders as any).delivery_date;
+      if (!ckBySkuDate.has(line.sku_id)) ckBySkuDate.set(line.sku_id, new Map());
+      const m = ckBySkuDate.get(line.sku_id)!;
+      m.set(deliveryDate, (m.get(deliveryDate) || 0) + qty);
+    });
+
+    // Build external receipt totals per SKU per date (with converter)
+    const extBySkuDate = new Map<string, Map<string, number>>();
+    (extRes.data || []).forEach((r: any) => {
+      const skuInfo = skuConverterMap.get(r.sku_id);
+      const conv = skuInfo && skuInfo.purchaseUom !== skuInfo.usageUom ? skuInfo.converter : 1;
+      const qty = Number(r.qty_received) * conv;
+      if (!extBySkuDate.has(r.sku_id)) extBySkuDate.set(r.sku_id, new Map());
+      const m = extBySkuDate.get(r.sku_id)!;
+      m.set(r.receipt_date, (m.get(r.receipt_date) || 0) + qty);
+    });
+
+    // Build usage per SKU per date from sales
+    const salesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
+    (salesRes.data || []).forEach((s: any) => {
+      const arr = salesByDate.get(s.sale_date) || [];
+      arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || '', qty: Number(s.qty) });
+      salesByDate.set(s.sale_date, arr);
+    });
+
+    const usageBySkuDate = new Map<string, Map<string, number>>();
+    for (const [date, dateSales] of salesByDate) {
+      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+      for (const [skuId, qty] of Object.entries(dayUsage)) {
+        if (!usageBySkuDate.has(skuId)) usageBySkuDate.set(skuId, new Map());
+        const m = usageBySkuDate.get(skuId)!;
+        m.set(date, (m.get(date) || 0) + qty);
+      }
+    }
+
+    // Step 8 — Compute final balance per SKU
+    const activeSkus = skus.filter(s => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
+    const resultRows: CountRow[] = [];
+
+    for (const sku of activeSkus) {
+      const snap = lastSnapBySku.get(sku.id);
+      const base = snap?.balance ?? 0;
+      const snapDate = snap?.date ?? earliestSnap;
+
+      // Sum CK receipts after snap date
+      let ckIn = 0;
+      const ckDates = ckBySkuDate.get(sku.id);
+      if (ckDates) {
+        for (const [d, q] of ckDates) {
+          if (d > snapDate) ckIn += q;
+        }
+      }
+
+      // Sum external receipts after snap date
+      let extIn = 0;
+      const extDates = extBySkuDate.get(sku.id);
+      if (extDates) {
+        for (const [d, q] of extDates) {
+          if (d > snapDate) extIn += q;
+        }
+      }
+
+      // Sum usage after snap date
+      let usageOut = 0;
+      const usageDates = usageBySkuDate.get(sku.id);
+      if (usageDates) {
+        for (const [d, q] of usageDates) {
+          if (d > snapDate) usageOut += q;
+        }
+      }
+
+      const balance = Math.max(0, base + ckIn + extIn - usageOut);
+
+      // Only include if there's any activity or a snap
+      if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0) {
+        resultRows.push({
+          id: sku.id,
+          branch_id: branchId,
+          sku_id: sku.id,
+          count_date: snap?.date ?? "—",
+          physical_count: snap?.balance ?? null,
+          calculated_balance: balance,
+          expected_usage: 0,
+          is_submitted: true,
+        });
+      }
+    }
+
+    setRows(resultRows);
     setLoading(false);
-  }, [noBranch, isStoreManager, profile?.branch_id, selectedBranch]);
+  }, [noBranch, effectiveBranchId, skus, menus, menuBomLines, modifierRules, spBomLines]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Live daily usage from last 7 days sales × menu_bom
+  // Live daily usage from last 7 days sales with full Modifier Rules
   useEffect(() => {
+    if (!effectiveBranchId) {
+      setLiveDailyUsage({});
+      return;
+    }
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const since = sevenDaysAgo.toISOString().split('T')[0];
 
     const run = async () => {
-      let q = supabase.from('sales_entries')
-        .select('menu_code, qty')
-        .gte('sale_date', since);
+      const { data: salesData } = await supabase
+        .from('sales_entries')
+        .select('menu_code, menu_name, qty')
+        .eq('branch_id', effectiveBranchId)
+        .gte('sale_date', since)
+        .limit(5000);
 
-      if (selectedBranch !== 'all') {
-        q = q.eq('branch_id', selectedBranch);
+      if (!salesData) return;
+
+      const sales = salesData.map((s: any) => ({
+        menu_code: s.menu_code,
+        menu_name: s.menu_name || '',
+        qty: Number(s.qty),
+      }));
+
+      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus);
+
+      // Divide by 7 for daily average
+      const daily: Record<string, number> = {};
+      for (const [skuId, total] of Object.entries(totalUsage)) {
+        daily[skuId] = total / 7;
       }
-
-      const [salesRes, bomRes, menusRes] = await Promise.all([
-        q,
-        supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
-        supabase.from('menus').select('id, menu_code'),
-      ]);
-
-      if (!salesRes.data || !bomRes.data || !menusRes.data) return;
-
-      const menuCodeToId = new Map(
-        menusRes.data.map((m: any) => [m.menu_code, m.id])
-      );
-
-      const usage: Record<string, number> = {};
-      salesRes.data.forEach((sale: any) => {
-        const menuId = menuCodeToId.get(sale.menu_code);
-        if (!menuId) return;
-        bomRes.data!
-          .filter((l: any) => l.menu_id === menuId)
-          .forEach((line: any) => {
-            usage[line.sku_id] = (usage[line.sku_id] || 0) +
-              (Number(line.effective_qty) * Number(sale.qty)) / 7;
-          });
-      });
-
-      setLiveDailyUsage(usage);
+      setLiveDailyUsage(daily);
     };
     run();
-  }, [selectedBranch]);
+  }, [effectiveBranchId, menus, menuBomLines, modifierRules, spBomLines, skus]);
 
   // Relevant SKU filter based on branch brand menus
   const { relevantSmIds, relevantRmIds } = useMemo(() => {
@@ -252,13 +503,13 @@ export default function StoreStockPage({
 
   // Display count helper
   const getDisplayCount = (row: CountRow) =>
-    Math.max(0, row.physical_count !== null ? Number(row.physical_count) : Number(row.calculated_balance));
+    Math.max(0, row.calculated_balance);
 
   // Summary cards
   const totalSkus = filteredRows.length;
   const totalStockValue = filteredRows.reduce((sum, row) => {
     const price = priceMap[row.sku_id] ?? 0;
-    const count = Math.max(0, Number(row.physical_count ?? row.calculated_balance ?? 0));
+    const count = getDisplayCount(row);
     return sum + price * count;
   }, 0);
 
@@ -283,9 +534,6 @@ export default function StoreStockPage({
       Ambient: avg(groups.Ambient),
     };
   }, [filteredRows, skuMap, liveDailyUsage]);
-
-  // All branches mode
-  const showBranchCol = (isManagement || isAreaManager) && selectedBranch === "all";
 
   // No branch assigned
   if (noBranch) {
@@ -367,12 +615,14 @@ export default function StoreStockPage({
 
       {/* Table */}
       {loading ? (
-        <SkeletonTable columns={showBranchCol ? 11 : 10} rows={8} />
+        <SkeletonTable columns={10} rows={8} />
+      ) : !effectiveBranchId ? (
+        <EmptyState icon={Package} title="Select a branch to view stock" />
       ) : filteredRows.length === 0 ? (
         rows.length === 0 ? (
           <EmptyState
             icon={Package}
-            title="No count sheets submitted yet for this branch. Submit a Daily Stock Count to see stock here."
+            title="No stock data found for this branch."
           />
         ) : (
           <EmptyState icon={Package} title="No SKUs match your search." />
@@ -384,7 +634,6 @@ export default function StoreStockPage({
               <col style={{ width: "28px" }} />
               <col style={{ width: "72px" }} />
               <col style={{ width: "200px" }} />
-              {showBranchCol && <col style={{ width: "90px" }} />}
               <col style={{ width: "90px" }} />
               <col style={{ width: "48px" }} />
               <col style={{ width: "95px" }} />
@@ -398,8 +647,7 @@ export default function StoreStockPage({
                 <th className={table.headerCell} />
                 <th className={table.headerCell}>SKU ID</th>
                 <th className={table.headerCell}>Name</th>
-                {showBranchCol && <th className={table.headerCell}>Branch</th>}
-                <th className={table.headerCellNumeric}>Curren Stock</th>
+                <th className={table.headerCellNumeric}>Current Stock</th>
                 <th className={table.headerCellCenter}>UOM</th>
                 <th className={table.headerCellNumeric}>Stock Value</th>
                 <th className={table.headerCell}>Last Count</th>
@@ -419,7 +667,6 @@ export default function StoreStockPage({
                 const coverDay = dc > 0 && dailyUsage > 0 ? dc / dailyUsage : null;
                 const avgU = liveDailyUsage[row.sku_id] ?? 0;
                 const avgWeek = avgU > 0 ? Math.round(avgU * 7).toLocaleString() : "—";
-                const branch = branchMap.get(row.branch_id);
 
                 return (
                   <tr key={row.id} className={table.dataRow}>
@@ -430,11 +677,6 @@ export default function StoreStockPage({
                     <td className={table.truncatedCell} title={sku.name}>
                       {sku.name}
                     </td>
-                    {showBranchCol && (
-                      <td className={table.truncatedCell} text-center title={branch?.branchName || ""}>
-                        {branch?.branchName || "—"}
-                      </td>
-                    )}
                     <td className={table.dataCellMono}>
                       {showDash ? (
                         <span className="text-muted-foreground">—</span>
@@ -446,8 +688,7 @@ export default function StoreStockPage({
                     <td className={table.dataCellMono}>
                       {(() => {
                         const price = priceMap[row.sku_id] ?? 0;
-                        const count = Math.max(0, Number(row.physical_count ?? row.calculated_balance ?? 0));
-                        const stockValue = price * count;
+                        const stockValue = price * dc;
                         return stockValue > 0 ? (
                           "฿" + Math.round(stockValue).toLocaleString()
                         ) : (
