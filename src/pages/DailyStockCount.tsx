@@ -260,7 +260,7 @@ export default function DailyStockCountPage({
               align="start"
             />
             <div>
-              <label className="text-xs text-muted-foreground label-required">Branch</label>
+              <label className="text-xs text-muted-foreground label-required">{t("dsc.branchLabel")}</label>
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                 <SelectTrigger className="w-56">
                   <SelectValue placeholder="Select branch" />
