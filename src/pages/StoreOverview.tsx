@@ -183,7 +183,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
             <p className="font-semibold text-sm">{t('btn.pasteTodaySales')}</p>
-            <p className="text-helper text-muted-foreground mt-1">Import POS data for today</p>
+            <p className="text-helper text-muted-foreground mt-1">{t('storeOverview.importPosHint')}</p>
           </button>
 
           <button
