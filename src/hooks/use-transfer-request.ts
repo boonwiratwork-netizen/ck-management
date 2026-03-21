@@ -312,6 +312,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           peak_daily_usage: l.peakDailyUsage,
           rop: l.rop,
           parstock: l.parstock,
+          sku_type: l.skuType,
           notes: '',
         }));
 
