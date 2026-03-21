@@ -21,6 +21,7 @@ export interface PendingTRLine {
   skuName: string;
   uom: string;
   requestedQty: number;
+  skuType: 'SM' | 'RM';
 }
 
 export interface TOLine {
