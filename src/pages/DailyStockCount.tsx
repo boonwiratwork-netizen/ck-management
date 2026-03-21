@@ -242,7 +242,7 @@ export default function DailyStockCountPage({
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Generate and manage daily stock count sheets for each branch
+          {t("dsc.subtitle")}
         </p>
       </div>
 
@@ -254,16 +254,16 @@ export default function DailyStockCountPage({
               value={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
               onChange={(d) => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
-              label="Date"
+              label={t("dsc.dateLabel")}
               required
               labelPosition="above"
               align="start"
             />
             <div>
-              <label className="text-xs text-muted-foreground label-required">Branch</label>
+              <label className="text-xs text-muted-foreground label-required">{t("dsc.branchLabel")}</label>
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                 <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Select branch" />
+                  <SelectValue placeholder={t("dsc.selectBranch")} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableBranches.map((b) => (
@@ -311,7 +311,7 @@ export default function DailyStockCountPage({
       {justSubmitted && (
         <div className="flex items-center justify-center gap-2 text-success py-4 animate-in fade-in duration-500">
           <PartyPopper className="w-6 h-6" />
-          <span className="font-medium text-lg">Great job! Daily count submitted!</span>
+          <span className="font-medium text-lg">{t("dsc.successMsg")}</span>
         </div>
       )}
 
@@ -325,7 +325,7 @@ export default function DailyStockCountPage({
               <div className="overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2 border-b bg-muted/50">
                   <p className="kbd-hint">
-                    <kbd>Tab</kbd> / <kbd>Enter</kbd> to advance to next row · Physical Count auto-selects on focus
+                    {t("dsc.keyboardHint")}
                   </p>
                 </div>
                 <table className="w-full table-fixed text-xs">
@@ -347,13 +347,13 @@ export default function DailyStockCountPage({
                       <th className={thClass}>{renderSortableHeader("skuCode", t("col.skuCode"))}</th>
                       <th className={thClass}>{renderSortableHeader("skuName", t("col.skuName"))}</th>
                       <th className={thClass}>{renderSortableHeader("type", t("col.type"))}</th>
-                      <th className={thClass}>UNIT</th>
+                      <th className={thClass}>{t("dsc.colUnit")}</th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.opening")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>RECEIVED</div>
+                        <div>{t("dsc.colReceived")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
@@ -492,7 +492,7 @@ export default function DailyStockCountPage({
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {showUnused ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showUnused ? "Hide" : "Show"} unused SKUs ({unusedRows.length})
+              {showUnused ? t("dsc.hideUnused") : t("dsc.showUnused")} {t("dsc.unusedSkus")} ({unusedRows.length})
             </button>
           )}
 
@@ -503,10 +503,10 @@ export default function DailyStockCountPage({
                   <Table>
                     <TableHeader className="sticky-thead">
                       <TableRow className="bg-table-header border-b">
-                        <TableHead className={thClass}>SKU Code</TableHead>
-                        <TableHead className={thClass}>SKU Name</TableHead>
-                        <TableHead className={thClass}>Type</TableHead>
-                        <TableHead className={`text-right ${thClass}`}>Physical Count</TableHead>
+                        <TableHead className={thClass}>{t("col.skuCode")}</TableHead>
+                        <TableHead className={thClass}>{t("col.skuName")}</TableHead>
+                        <TableHead className={thClass}>{t("col.type")}</TableHead>
+                        <TableHead className={`text-right ${thClass}`}>{t("col.physical")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -566,8 +566,8 @@ export default function DailyStockCountPage({
       ) : selectedBranch ? (
         <EmptyState
           icon={ClipboardList}
-          title="No count sheet for this date"
-          description='Click "Generate Count Sheet" to create one'
+          title={t("dsc.emptyTitle")}
+          description={t("dsc.emptyHint")}
         />
       ) : null}
 

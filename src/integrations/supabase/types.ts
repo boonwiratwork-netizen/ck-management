@@ -1165,6 +1165,7 @@ export type Database = {
           cover_days_target: number | null
           created_at: string
           id: string
+          is_distributable: boolean
           lead_time: number
           name: string
           pack_size: number
@@ -1188,6 +1189,7 @@ export type Database = {
           cover_days_target?: number | null
           created_at?: string
           id?: string
+          is_distributable?: boolean
           lead_time?: number
           name?: string
           pack_size?: number
@@ -1211,6 +1213,7 @@ export type Database = {
           cover_days_target?: number | null
           created_at?: string
           id?: string
+          is_distributable?: boolean
           lead_time?: number
           name?: string
           pack_size?: number
