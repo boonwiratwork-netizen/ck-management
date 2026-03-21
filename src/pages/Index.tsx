@@ -260,6 +260,7 @@ const Index = () => {
       supplier1: '',
       supplier2: '',
       leadTime: Number(row['Lead Time']) || 0,
+      isDistributable: false,
     }));
     const count = await bulkAddSkus(skuRows);
     if (count) {

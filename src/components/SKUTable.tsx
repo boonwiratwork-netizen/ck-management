@@ -206,6 +206,16 @@ export function SKUTable({ skus, onEdit, onDelete, onToggleDistributable, loadin
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.storageCondition}</td>
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.packSize} {sku.packUnit}</td>
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.shelfLife}d</td>
+                      {onToggleDistributable && (
+                        <td className="px-4 py-3 text-center">
+                          {sku.type === 'RM' ? (
+                            <Checkbox
+                              checked={sku.isDistributable}
+                              onCheckedChange={(checked) => onToggleDistributable(sku.id, !!checked)}
+                            />
+                          ) : null}
+                        </td>
+                      )}
                       {(onEdit || onDelete) && (
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
