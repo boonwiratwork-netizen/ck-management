@@ -7,6 +7,7 @@ import { MenuBomLine } from "@/types/menu-bom";
 import { SpBomLine } from "@/types/sp-bom";
 import { ModifierRule } from "@/types/modifier-rule";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
 import { StatusDot } from "@/components/ui/status-dot";
