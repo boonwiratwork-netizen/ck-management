@@ -35,7 +35,7 @@ const typeBadge: Record<SKUType, string> = {
 type SortKey = 'skuId' | 'name' | 'type' | 'category' | 'status';
 type SortDir = 'asc' | 'desc';
 
-export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }: SKUTableProps) {
+export function SKUTable({ skus, onEdit, onDelete, onToggleDistributable, loading, skuCategories = [] }: SKUTableProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
