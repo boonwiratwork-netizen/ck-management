@@ -325,7 +325,7 @@ export default function DailyStockCountPage({
               <div className="overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2 border-b bg-muted/50">
                   <p className="kbd-hint">
-                    <kbd>Tab</kbd> / <kbd>Enter</kbd> to advance to next row · Physical Count auto-selects on focus
+                    {t("dsc.keyboardHint")}
                   </p>
                 </div>
                 <table className="w-full table-fixed text-xs">
