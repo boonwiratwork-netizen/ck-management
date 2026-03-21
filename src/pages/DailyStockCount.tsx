@@ -311,7 +311,7 @@ export default function DailyStockCountPage({
       {justSubmitted && (
         <div className="flex items-center justify-center gap-2 text-success py-4 animate-in fade-in duration-500">
           <PartyPopper className="w-6 h-6" />
-          <span className="font-medium text-lg">Great job! Daily count submitted!</span>
+          <span className="font-medium text-lg">{t("dsc.successMsg")}</span>
         </div>
       )}
 

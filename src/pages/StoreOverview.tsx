@@ -246,7 +246,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
                     <p className="text-helper text-muted-foreground">{t('storeOverview.stockNotSubmittedHint')}</p>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => onNavigate('daily-stock-count')} className="shrink-0">
-                    Start Count
+                    {t('storeOverview.startCount')}
                   </Button>
                 </div>
               )}
