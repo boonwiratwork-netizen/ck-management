@@ -114,6 +114,7 @@ export function useTransferOrder(
           skuName: skuMap[l.sku_id]?.name || '',
           uom: l.uom,
           requestedQty: l.requested_qty,
+          skuType: (l.sku_type === 'RM' ? 'RM' : 'SM') as 'SM' | 'RM',
         })),
       };
     }));
