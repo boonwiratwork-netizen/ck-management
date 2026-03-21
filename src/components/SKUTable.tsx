@@ -171,7 +171,7 @@ export function SKUTable({ skus, onEdit, onDelete, onToggleDistributable, loadin
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4">
+                  <td colSpan={onToggleDistributable ? 10 : 9} className="px-4">
                     <EmptyState
                       icon={Package}
                       title={skus.length === 0 ? 'No SKUs added yet' : 'No SKUs match your filters'}
