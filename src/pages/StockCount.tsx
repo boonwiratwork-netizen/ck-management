@@ -1,25 +1,25 @@
-import { useState, useMemo } from 'react';
-import { useLanguage } from '@/hooks/use-language';
-import { toLocalDateStr } from '@/lib/utils';
-import { SKU, StorageCondition } from '@/types/sku';
-import { useSortableTable } from '@/hooks/use-sortable-table';
-import { SortableHeader } from '@/components/SortableHeader';
-import { StockCountSession, StockCountLine } from '@/types/stock-count';
-import { BOMHeader, BOMLine } from '@/types/bom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { UnitLabel } from '@/components/ui/unit-label';
-import { Plus, ClipboardCheck, Lock, Trash2, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useMemo } from "react";
+import { useLanguage } from "@/hooks/use-language";
+import { toLocalDateStr } from "@/lib/utils";
+import { SKU, StorageCondition } from "@/types/sku";
+import { useSortableTable } from "@/hooks/use-sortable-table";
+import { SortableHeader } from "@/components/SortableHeader";
+import { StockCountSession, StockCountLine } from "@/types/stock-count";
+import { BOMHeader, BOMLine } from "@/types/bom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { UnitLabel } from "@/components/ui/unit-label";
+import { Plus, ClipboardCheck, Lock, Trash2, AlertTriangle, CheckCircle2, Package } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   skus: SKU[];
@@ -37,74 +37,90 @@ interface Props {
   isManagement: boolean;
 }
 
-export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, isManagement }: Props) {
+export default function StockCountPage({
+  skus,
+  stockCountData,
+  getStdUnitPrice,
+  bomHeaders,
+  bomLines,
+  isManagement,
+}: Props) {
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession } = stockCountData;
   const { t } = useLanguage();
 
   const today = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
-  const [activeTab, setActiveTab] = useState<string>('RM');
-  const [filterStorage, setFilterStorage] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>("RM");
+  const [filterStorage, setFilterStorage] = useState<string>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [ckItemsOnly, setCkItemsOnly] = useState(true);
+  const [ckItemsOnly, setCkItemsOnly] = useState(false);
 
   // Derive CK RM SKU IDs
   const ckRmSkuIds = useMemo(() => {
-    const activeSmSkuIds = new Set(
-      skus.filter(s => s.type === 'SM' && s.status === 'Active').map(s => s.id)
-    );
-    const activeHeaderIds = new Set(
-      bomHeaders.filter(h => activeSmSkuIds.has(h.smSkuId)).map(h => h.id)
-    );
+    const activeSmSkuIds = new Set(skus.filter((s) => s.type === "SM" && s.status === "Active").map((s) => s.id));
+    const activeHeaderIds = new Set(bomHeaders.filter((h) => activeSmSkuIds.has(h.smSkuId)).map((h) => h.id));
     const rmIds = new Set<string>();
-    bomLines.forEach(l => {
+    bomLines.forEach((l) => {
       if (activeHeaderIds.has(l.bomHeaderId)) rmIds.add(l.rmSkuId);
     });
     return rmIds;
   }, [skus, bomHeaders, bomLines]);
 
   const sessionForDate = useMemo(() => {
-    return sessions.find(s => s.date === selectedDate) ?? null;
+    return sessions.find((s) => s.date === selectedDate) ?? null;
   }, [sessions, selectedDate]);
 
   const selectedSession = sessionForDate;
   const selectedSessionId = selectedSession?.id ?? null;
   const sessionLines = selectedSessionId ? getLinesForSession(selectedSessionId) : [];
-  const isCompleted = selectedSession?.status === 'Completed';
+  const isCompleted = selectedSession?.status === "Completed";
 
   const skuMap = useMemo(() => {
     const m: Record<string, SKU> = {};
-    skus.forEach(s => { m[s.id] = s; });
+    skus.forEach((s) => {
+      m[s.id] = s;
+    });
     return m;
   }, [skus]);
 
   const filteredLines = useMemo(() => {
-    return sessionLines.filter(line => {
+    return sessionLines.filter((line) => {
       const sku = skuMap[line.skuId];
       if (!sku) return false;
       if (line.type !== activeTab) return false;
-      if (filterStorage !== 'all' && sku.storageCondition !== filterStorage) return false;
-      if (activeTab === 'RM' && ckItemsOnly && !ckRmSkuIds.has(line.skuId)) return false;
+      if (filterStorage !== "all" && sku.storageCondition !== filterStorage) return false;
+      if (activeTab === "RM" && ckItemsOnly && !ckRmSkuIds.has(line.skuId)) return false;
       return true;
     });
   }, [sessionLines, skuMap, activeTab, filterStorage, ckItemsOnly, ckRmSkuIds]);
 
-  const scComparators = useMemo(() => ({
-    skuId: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.skuId || '').localeCompare(skuMap[b.skuId]?.skuId || ''),
-    name: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.name || '').localeCompare(skuMap[b.skuId]?.name || ''),
-    storage: (a: StockCountLine, b: StockCountLine) => (skuMap[a.skuId]?.storageCondition || '').localeCompare(skuMap[b.skuId]?.storageCondition || ''),
-    systemQty: (a: StockCountLine, b: StockCountLine) => a.systemQty - b.systemQty,
-    variance: (a: StockCountLine, b: StockCountLine) => a.variance - b.variance,
-  }), [skuMap]);
+  const scComparators = useMemo(
+    () => ({
+      skuId: (a: StockCountLine, b: StockCountLine) =>
+        (skuMap[a.skuId]?.skuId || "").localeCompare(skuMap[b.skuId]?.skuId || ""),
+      name: (a: StockCountLine, b: StockCountLine) =>
+        (skuMap[a.skuId]?.name || "").localeCompare(skuMap[b.skuId]?.name || ""),
+      storage: (a: StockCountLine, b: StockCountLine) =>
+        (skuMap[a.skuId]?.storageCondition || "").localeCompare(skuMap[b.skuId]?.storageCondition || ""),
+      systemQty: (a: StockCountLine, b: StockCountLine) => a.systemQty - b.systemQty,
+      variance: (a: StockCountLine, b: StockCountLine) => a.variance - b.variance,
+    }),
+    [skuMap],
+  );
 
-  const { sorted: sortedLines, sortKey: scSortKey, sortDir: scSortDir, handleSort: scHandleSort } = useSortableTable(filteredLines, scComparators);
+  const {
+    sorted: sortedLines,
+    sortKey: scSortKey,
+    sortDir: scSortDir,
+    handleSort: scHandleSort,
+  } = useSortableTable(filteredLines, scComparators, "skuId", "asc");
 
   const summary = useMemo(() => {
-    const counted = sessionLines.filter(l => l.physicalQty !== null).length;
-    const withVariance = sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0).length;
+    const counted = sessionLines.filter((l) => l.physicalQty !== null).length;
+    const withVariance = sessionLines.filter((l) => l.physicalQty !== null && l.variance !== 0).length;
     const totalVarianceValue = sessionLines
-      .filter(l => l.physicalQty !== null && l.variance !== 0)
+      .filter((l) => l.physicalQty !== null && l.variance !== 0)
       .reduce((sum, l) => {
         const price = getStdUnitPrice(l.skuId);
         return sum + l.variance * price;
@@ -112,41 +128,44 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     return { total: sessionLines.length, counted, withVariance, totalVarianceValue };
   }, [sessionLines, getStdUnitPrice]);
 
-  const tabCounts = useMemo(() => ({
-    RM: sessionLines.filter(l => l.type === 'RM').length,
-    SM: sessionLines.filter(l => l.type === 'SM').length,
-    PK: sessionLines.filter(l => l.type === 'PK').length,
-  }), [sessionLines]);
+  const tabCounts = useMemo(
+    () => ({
+      RM: sessionLines.filter((l) => l.type === "RM").length,
+      SM: sessionLines.filter((l) => l.type === "SM").length,
+      PK: sessionLines.filter((l) => l.type === "PK").length,
+    }),
+    [sessionLines],
+  );
 
   const varianceLines = useMemo(() => {
-    return sessionLines.filter(l => l.physicalQty !== null && l.variance !== 0);
+    return sessionLines.filter((l) => l.physicalQty !== null && l.variance !== 0);
   }, [sessionLines]);
 
   const sessionOptions = useMemo(() => {
-    return sessions.map(s => {
+    return sessions.map((s) => {
       const sLines = getLinesForSession(s.id);
-      const counted = sLines.filter(l => l.physicalQty !== null).length;
+      const counted = sLines.filter((l) => l.physicalQty !== null).length;
       return { id: s.id, date: s.date, counted, total: sLines.length, status: s.status };
     });
   }, [sessions, getLinesForSession]);
 
   const handleCreate = async () => {
     if (sessionForDate) {
-      toast.error('A session already exists for this date');
+      toast.error("A session already exists for this date");
       return;
     }
-    const result = createSession(selectedDate, '');
+    const result = createSession(selectedDate, "");
     if (result instanceof Promise) {
       await result;
     }
-    toast.success('Stock count session created');
+    toast.success("Stock count session created");
   };
 
   const handleConfirmAdjust = () => {
     if (!selectedSessionId) return;
     confirmSession(selectedSessionId);
     setConfirmOpen(false);
-    toast.success('Stock adjustments applied and session locked');
+    toast.success("Stock adjustments applied and session locked");
   };
 
   const handleSoftDelete = async () => {
@@ -154,36 +173,74 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     await softDeleteSession(deleteConfirm);
     setDeleteConfirm(null);
     setSelectedDate(today);
-    toast.success('Session deleted and adjustments reversed');
+    toast.success("Session deleted and adjustments reversed");
   };
 
-  const thClass = 'text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground';
+  const thClass = "text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground";
 
   const renderCountTable = () => (
     <div className="rounded-lg border overflow-auto max-h-[60vh]">
       <table className="w-full text-sm">
         <thead className="sticky-thead">
           <tr className="border-b bg-table-header">
-            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('skuId')}>
-              <SortableHeader label={t('col.skuId')} sortKey="skuId" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort("skuId")}>
+              <SortableHeader
+                label={t("col.skuId")}
+                sortKey="skuId"
+                activeSortKey={scSortKey}
+                sortDir={scSortDir}
+                onSort={scHandleSort}
+              />
             </th>
-            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('name')}>
-              <SortableHeader label={t('col.name')} sortKey="name" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort("name")}>
+              <SortableHeader
+                label={t("col.name")}
+                sortKey="name"
+                activeSortKey={scSortKey}
+                sortDir={scSortDir}
+                onSort={scHandleSort}
+              />
             </th>
-            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('storage')}>
-              <SortableHeader label={t('col.storage')} sortKey="storage" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} />
+            <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort("storage")}>
+              <SortableHeader
+                label={t("col.storage")}
+                sortKey="storage"
+                activeSortKey={scSortKey}
+                sortDir={scSortDir}
+                onSort={scHandleSort}
+              />
             </th>
-            <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('systemQty')}>
-              <SortableHeader label="System Qty" sortKey="systemQty" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+            <th
+              className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
+              onClick={() => scHandleSort("systemQty")}
+            >
+              <SortableHeader
+                label="System Qty"
+                sortKey="systemQty"
+                activeSortKey={scSortKey}
+                sortDir={scSortDir}
+                onSort={scHandleSort}
+                className="justify-end"
+              />
             </th>
             <th className={`${thClass} text-right`}>
               <div>Physical Qty</div>
               <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
             </th>
-            <th className={`${thClass} text-right cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort('variance')}>
-              <SortableHeader label={t('col.variance')} sortKey="variance" activeSortKey={scSortKey} sortDir={scSortDir} onSort={scHandleSort} className="justify-end" />
+            <th
+              className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
+              onClick={() => scHandleSort("variance")}
+            >
+              <SortableHeader
+                label={t("col.variance")}
+                sortKey="variance"
+                activeSortKey={scSortKey}
+                sortDir={scSortDir}
+                onSort={scHandleSort}
+                className="justify-end"
+              />
             </th>
-            <th className={thClass}>{t('col.note')}</th>
+            <th className={thClass}>{t("col.note")}</th>
           </tr>
         </thead>
         <tbody>
@@ -195,12 +252,15 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
               </td>
             </tr>
           ) : (
-            sortedLines.map(line => {
+            sortedLines.map((line) => {
               const sku = skuMap[line.skuId];
               if (!sku) return null;
               const hasVariance = line.physicalQty !== null && line.variance !== 0;
               return (
-                <tr key={line.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
+                <tr
+                  key={line.id}
+                  className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors"
+                >
                   <td className="px-3 py-2 font-mono text-xs">{sku.skuId}</td>
                   <td className="px-3 py-2 text-sm font-medium">{sku.name}</td>
                   <td className="px-3 py-2 text-sm">{sku.storageCondition}</td>
@@ -214,11 +274,11 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
                         type="number"
                         min={0}
                         step="any"
-                        defaultValue={line.physicalQty ?? ''}
+                        defaultValue={line.physicalQty ?? ""}
                         key={`phys-${line.id}-${line.physicalQty}`}
                         placeholder="—"
-                        onBlur={e => {
-                          const val = e.target.value === '' ? null : Number(e.target.value);
+                        onBlur={(e) => {
+                          const val = e.target.value === "" ? null : Number(e.target.value);
                           if (val !== line.physicalQty) updateLine(line.id, val);
                         }}
                         className="h-8 text-xs text-right w-[80px] font-mono"
@@ -226,20 +286,24 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
                       <UnitLabel unit={sku.usageUom} className="w-6 text-left" />
                     </div>
                   </td>
-                  <td className={`px-3 py-2 text-right font-mono text-sm font-medium ${
-                    !hasVariance ? 'text-muted-foreground' :
-                    line.variance > 0 ? 'text-success' : 'text-destructive'
-                  }`}>
-                    {line.physicalQty === null ? '—' :
-                      line.variance === 0 ? '0' :
-                      (line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  <td
+                    className={`px-3 py-2 text-right font-mono text-sm font-medium ${
+                      !hasVariance ? "text-muted-foreground" : line.variance > 0 ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {line.physicalQty === null
+                      ? "—"
+                      : line.variance === 0
+                        ? "0"
+                        : (line.variance > 0 ? "+" : "") +
+                          line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-1.5 py-1.5">
                     <Input
                       defaultValue={line.note}
                       key={`note-${line.id}-${line.note}`}
                       placeholder="Optional"
-                      onBlur={e => {
+                      onBlur={(e) => {
                         if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
                       }}
                       className="h-8 text-xs w-32"
@@ -258,7 +322,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t('title.stockCount')}</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t("title.stockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
       </div>
 
@@ -267,8 +331,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
         <CardContent className="p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <DatePicker
-              value={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
-              onChange={d => setSelectedDate(d ? toLocalDateStr(d) : today)}
+              value={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+              onChange={(d) => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
               label="Date"
               labelPosition="left"
@@ -276,15 +340,12 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
             />
 
             {sessionOptions.length > 0 && (
-              <Select
-                value={selectedDate}
-                onValueChange={val => setSelectedDate(val)}
-              >
+              <Select value={selectedDate} onValueChange={(val) => setSelectedDate(val)}>
                 <SelectTrigger className="h-8 text-xs w-[320px]">
                   <SelectValue placeholder="Browse sessions" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sessionOptions.map(opt => (
+                  {sessionOptions.map((opt) => (
                     <SelectItem key={opt.id} value={opt.date} className="text-xs">
                       {opt.date} · {opt.counted}/{opt.total} counted · {opt.status}
                     </SelectItem>
@@ -294,8 +355,14 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
             )}
 
             {sessionForDate && (
-              <Badge variant={isCompleted ? 'default' : 'secondary'} className="text-xs px-2 py-0.5">
-                {isCompleted ? <><Lock className="w-3 h-3 mr-1" /> Completed</> : 'Draft'}
+              <Badge variant={isCompleted ? "default" : "secondary"} className="text-xs px-2 py-0.5">
+                {isCompleted ? (
+                  <>
+                    <Lock className="w-3 h-3 mr-1" /> Completed
+                  </>
+                ) : (
+                  "Draft"
+                )}
               </Badge>
             )}
 
@@ -335,19 +402,21 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <TabsList>
-                <TabsTrigger value="RM" className="text-xs">RM ({tabCounts.RM})</TabsTrigger>
-                <TabsTrigger value="SM" className="text-xs">SM ({tabCounts.SM})</TabsTrigger>
-                <TabsTrigger value="PK" className="text-xs">PK ({tabCounts.PK})</TabsTrigger>
+                <TabsTrigger value="RM" className="text-xs">
+                  RM ({tabCounts.RM})
+                </TabsTrigger>
+                <TabsTrigger value="SM" className="text-xs">
+                  SM ({tabCounts.SM})
+                </TabsTrigger>
+                <TabsTrigger value="PK" className="text-xs">
+                  PK ({tabCounts.PK})
+                </TabsTrigger>
               </TabsList>
 
               <div className="flex items-center gap-3">
-                {activeTab === 'RM' && (
+                {activeTab === "RM" && (
                   <div className="flex items-center gap-2">
-                    <Switch
-                      id="ck-items-toggle"
-                      checked={ckItemsOnly}
-                      onCheckedChange={setCkItemsOnly}
-                    />
+                    <Switch id="ck-items-toggle" checked={ckItemsOnly} onCheckedChange={setCkItemsOnly} />
                     <label htmlFor="ck-items-toggle" className="text-xs font-medium cursor-pointer">
                       CK Items Only
                     </label>
@@ -355,47 +424,73 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
                 )}
 
                 <Select value={filterStorage} onValueChange={setFilterStorage}>
-                  <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-[130px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Storage</SelectItem>
-                    {(['Frozen', 'Chilled', 'Ambient'] as StorageCondition[]).map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    {(["Frozen", "Chilled", "Ambient"] as StorageCondition[]).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <TabsContent value="RM" className="mt-3">{renderCountTable()}</TabsContent>
-            <TabsContent value="SM" className="mt-3">{renderCountTable()}</TabsContent>
-            <TabsContent value="PK" className="mt-3">{renderCountTable()}</TabsContent>
+            <TabsContent value="RM" className="mt-3">
+              {renderCountTable()}
+            </TabsContent>
+            <TabsContent value="SM" className="mt-3">
+              {renderCountTable()}
+            </TabsContent>
+            <TabsContent value="PK" className="mt-3">
+              {renderCountTable()}
+            </TabsContent>
           </Tabs>
 
           {/* Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.totalSkus')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("summary.totalSkus")}
+                </p>
                 <p className="text-2xl font-bold mt-1">{summary.total}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.counted')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("summary.counted")}
+                </p>
                 <p className="text-2xl font-bold mt-1">{summary.counted}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.withVariance')}</p>
-                <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? 'text-destructive' : ''}`}>{summary.withVariance}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("summary.withVariance")}
+                </p>
+                <p className={`text-2xl font-bold mt-1 ${summary.withVariance > 0 ? "text-destructive" : ""}`}>
+                  {summary.withVariance}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('summary.varianceValue')}</p>
-                <p className={`text-2xl font-bold font-mono mt-1 ${summary.totalVarianceValue < 0 ? 'text-destructive' : summary.totalVarianceValue > 0 ? 'text-success' : ''}`}>
-                  ฿{summary.totalVarianceValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("summary.varianceValue")}
+                </p>
+                <p
+                  className={`text-2xl font-bold font-mono mt-1 ${summary.totalVarianceValue < 0 ? "text-destructive" : summary.totalVarianceValue > 0 ? "text-success" : ""}`}
+                >
+                  ฿
+                  {summary.totalVarianceValue.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </p>
               </CardContent>
             </Card>
@@ -404,12 +499,8 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
           {/* Confirm Button */}
           {!isCompleted && (
             <div className="flex justify-end">
-              <Button
-                onClick={() => setConfirmOpen(true)}
-                disabled={summary.counted === 0}
-                className="gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" /> {t('btn.confirmAdjust')}
+              <Button onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
+                <CheckCircle2 className="w-4 h-4" /> {t("btn.confirmAdjust")}
               </Button>
             </div>
           )}
@@ -435,22 +526,40 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-table-header border-b">
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">SKU</TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">System</TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">Physical</TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">Adjustment</TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        SKU
+                      </TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                        System
+                      </TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                        Physical
+                      </TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                        Adjustment
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {varianceLines.map(line => {
+                    {varianceLines.map((line) => {
                       const sku = skuMap[line.skuId];
                       return (
-                        <TableRow key={line.id} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                        <TableRow
+                          key={line.id}
+                          className="border-b border-table-border hover:bg-table-hover transition-colors"
+                        >
                           <TableCell className="px-3 py-2 text-sm font-medium">{sku?.name ?? line.skuId}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm font-mono text-right">{line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm font-mono text-right">{line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className={`px-3 py-2 text-sm font-mono text-right font-medium ${line.variance > 0 ? 'text-success' : 'text-destructive'}`}>
-                            {(line.variance > 0 ? '+' : '') + line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          <TableCell className="px-3 py-2 text-sm font-mono text-right">
+                            {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-sm font-mono text-right">
+                            {line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell
+                            className={`px-3 py-2 text-sm font-mono text-right font-medium ${line.variance > 0 ? "text-success" : "text-destructive"}`}
+                          >
+                            {(line.variance > 0 ? "+" : "") +
+                              line.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </TableCell>
                         </TableRow>
                       );
@@ -461,7 +570,9 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleConfirmAdjust}>
               <CheckCircle2 className="w-4 h-4 mr-1" /> Apply {varianceLines.length} Adjustments
             </Button>
@@ -472,7 +583,7 @@ export default function StockCountPage({ skus, stockCountData, getStdUnitPrice, 
       {/* Delete Confirmation */}
       <ConfirmDialog
         open={!!deleteConfirm}
-        onOpenChange={open => !open && setDeleteConfirm(null)}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title="Delete Count Session"
         description="This will reverse all stock adjustments from this session. This cannot be undone."
         confirmLabel="Delete"
