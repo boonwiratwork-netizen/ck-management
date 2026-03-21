@@ -353,7 +353,7 @@ export default function DailyStockCountPage({
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
-                        <div>RECEIVED</div>
+                        <div>{t("dsc.colReceived")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
