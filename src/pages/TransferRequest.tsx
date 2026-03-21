@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useTransferRequest, TRHistoryRow, TRDetailLine } from "@/hooks/use-transfer-request";
+import { useTransferRequest, TRHistoryRow, TRDetailLine, TRLineSkuType } from "@/hooks/use-transfer-request";
 import { usePurchaseRequest, PRHistoryRow, PRDetailLine } from "@/hooks/use-purchase-request";
 import { useBranchData } from "@/hooks/use-branch-data";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
