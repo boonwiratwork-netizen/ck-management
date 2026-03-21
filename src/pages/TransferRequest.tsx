@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useTransferRequest, TRHistoryRow, TRDetailLine } from "@/hooks/use-transfer-request";
+import { useTransferRequest, TRHistoryRow, TRDetailLine, TRLineSkuType } from "@/hooks/use-transfer-request";
 import { usePurchaseRequest, PRHistoryRow, PRDetailLine } from "@/hooks/use-purchase-request";
 import { useBranchData } from "@/hooks/use-branch-data";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
@@ -281,15 +281,25 @@ export default function TransferRequestPage() {
 
   const sortedTRLines = useMemo(() => {
     const arr = [...trHook.lines];
+    const typeOrder: Record<TRLineSkuType, number> = { SM: 0, RM: 1 };
     if (sortMode === "priority") {
       arr.sort((a, b) => {
         const sa = statusOrder[a.status] ?? 9;
         const sb = statusOrder[b.status] ?? 9;
         if (sa !== sb) return sa - sb;
+        const ta = typeOrder[a.skuType] ?? 9;
+        const tb = typeOrder[b.skuType] ?? 9;
+        if (ta !== tb) return ta - tb;
         return a.skuCode.localeCompare(b.skuCode);
       });
     } else {
-      arr.sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+      // Sort by Code: SM first sorted by code, then RM sorted by code
+      arr.sort((a, b) => {
+        const ta = typeOrder[a.skuType] ?? 9;
+        const tb = typeOrder[b.skuType] ?? 9;
+        if (ta !== tb) return ta - tb;
+        return a.skuCode.localeCompare(b.skuCode);
+      });
     }
     return arr;
   }, [trHook.lines, sortMode]);

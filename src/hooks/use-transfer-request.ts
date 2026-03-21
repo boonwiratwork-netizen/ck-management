@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { toLocalDateStr } from '@/lib/utils';
 import { useBranchSmStock, BranchSmStockStatus } from '@/hooks/use-branch-sm-stock';
+import { useBranchRmStock, BranchRmStockStatus } from '@/hooks/use-branch-rm-stock';
+
+export type TRLineSkuType = 'SM' | 'RM';
 
 export interface TRLine {
   skuId: string;
@@ -19,6 +22,7 @@ export interface TRLine {
   rop: number;
   parstock: number;
   status: BranchSmStockStatus;
+  skuType: TRLineSkuType;
 }
 
 export interface TRHistoryRow {
@@ -57,18 +61,169 @@ const statusOrder: Record<BranchSmStockStatus, number> = {
   'no-data': 3,
 };
 
+// Distributable RM uses a special sentinel supplier ID to avoid the supplier filter in useBranchRmStock
+const DISTRIBUTABLE_SENTINEL = '__distributable__';
+
 export function useTransferRequest(branchId: string | null, profileId: string | null) {
   const { smStock, smSkuList, loading: stockLoading, refresh: refreshStock } = useBranchSmStock(branchId);
+
+  // Fetch distributable RM stock data
+  const [rmLines, setRmLines] = useState<TRLine[]>([]);
+  const [rmLoading, setRmLoading] = useState(false);
+
+  const fetchDistributableRm = useCallback(async () => {
+    if (!branchId) { setRmLines([]); return; }
+    setRmLoading(true);
+    try {
+      // Get branch brand
+      const { data: branch } = await supabase.from('branches').select('brand_name').eq('id', branchId).single();
+      if (!branch) { setRmLines([]); setRmLoading(false); return; }
+
+      // Get active menus for this brand
+      const { data: menus } = await supabase.from('menus').select('id').eq('brand_name', branch.brand_name).eq('status', 'Active');
+      const menuIds = (menus || []).map(m => m.id);
+      if (menuIds.length === 0) { setRmLines([]); setRmLoading(false); return; }
+
+      // Get BOM sku_ids
+      const { data: bomEntries } = await supabase.from('menu_bom').select('sku_id').in('menu_id', menuIds);
+      const bomSkuIds = [...new Set((bomEntries || []).map(b => b.sku_id))];
+
+      // Get RM ingredients via sp_bom
+      let rmFromSpBom: string[] = [];
+      if (bomSkuIds.length > 0) {
+        const { data: spBomLines } = await supabase.from('sp_bom').select('ingredient_sku_id').in('sp_sku_id', bomSkuIds);
+        rmFromSpBom = (spBomLines || []).map(l => l.ingredient_sku_id);
+      }
+
+      const allRelevantIds = [...new Set([...bomSkuIds, ...rmFromSpBom])];
+      if (allRelevantIds.length === 0) { setRmLines([]); setRmLoading(false); return; }
+
+      // Get distributable RM SKUs that are relevant to this brand's menus
+      const { data: rmSkus } = await supabase
+        .from('skus')
+        .select('id, sku_id, name, usage_uom, pack_size, lead_time')
+        .eq('type', 'RM')
+        .eq('status', 'Active')
+        .eq('is_distributable', true)
+        .in('id', allRelevantIds);
+
+      const filtered = rmSkus || [];
+      if (filtered.length === 0) { setRmLines([]); setRmLoading(false); return; }
+
+      const skuIds = filtered.map(s => s.id);
+
+      // Avg daily usage from sales (last 7 days)
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const dateFrom = toLocalDateStr(sevenDaysAgo);
+
+      const { data: salesRows } = await supabase.from('sales_entries').select('menu_code, qty').eq('branch_id', branchId).gte('sale_date', dateFrom);
+      const menuCodes = [...new Set((salesRows || []).map(s => s.menu_code))];
+      let menuCodeToId: Record<string, string> = {};
+      if (menuCodes.length > 0) {
+        const { data: menuRows } = await supabase.from('menus').select('id, menu_code').in('menu_code', menuCodes);
+        for (const m of menuRows || []) menuCodeToId[m.menu_code] = m.id;
+      }
+      const qtySoldByMenuId: Record<string, number> = {};
+      for (const s of salesRows || []) {
+        const mid = menuCodeToId[s.menu_code];
+        if (!mid) continue;
+        qtySoldByMenuId[mid] = (qtySoldByMenuId[mid] || 0) + Number(s.qty);
+      }
+      const salesMenuIds = Object.keys(qtySoldByMenuId);
+
+      let bomRows: { menu_id: string; sku_id: string; qty_per_serving: number }[] = [];
+      if (salesMenuIds.length > 0) {
+        const { data: bom } = await supabase.from('menu_bom').select('menu_id, sku_id, qty_per_serving').in('menu_id', salesMenuIds);
+        bomRows = bom || [];
+      }
+      const spSkuIdsInBom = bomRows.filter(b => !skuIds.includes(b.sku_id)).map(b => b.sku_id);
+      let spBomRows: { sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number }[] = [];
+      if (spSkuIdsInBom.length > 0) {
+        const { data: spb } = await supabase.from('sp_bom').select('sp_sku_id, ingredient_sku_id, qty_per_batch').in('sp_sku_id', spSkuIdsInBom).in('ingredient_sku_id', skuIds);
+        spBomRows = spb || [];
+      }
+
+      const totalUsageBySkuId: Record<string, number> = {};
+      for (const bom of bomRows) {
+        const soldQty = qtySoldByMenuId[bom.menu_id] || 0;
+        if (soldQty === 0) continue;
+        if (skuIds.includes(bom.sku_id)) {
+          totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.qty_per_serving;
+        } else {
+          const spLines = spBomRows.filter(sb => sb.sp_sku_id === bom.sku_id);
+          for (const sp of spLines) {
+            totalUsageBySkuId[sp.ingredient_sku_id] = (totalUsageBySkuId[sp.ingredient_sku_id] || 0) + soldQty * bom.qty_per_serving * sp.qty_per_batch;
+          }
+        }
+      }
+
+      // Latest stock on hand
+      const { data: latestCounts } = await supabase.from('daily_stock_counts').select('sku_id, physical_count, calculated_balance').eq('branch_id', branchId).eq('is_submitted', true).in('sku_id', skuIds).order('count_date', { ascending: false });
+      const latestBySkuId: Record<string, { physical_count: number | null; calculated_balance: number }> = {};
+      for (const row of latestCounts || []) {
+        if (!latestBySkuId[row.sku_id]) {
+          latestBySkuId[row.sku_id] = { physical_count: row.physical_count, calculated_balance: Number(row.calculated_balance) };
+        }
+      }
+
+      // Build RM lines
+      const lines: TRLine[] = filtered.map(s => {
+        const ps = Number(s.pack_size) || 1;
+        const leadTime = Number(s.lead_time) || 1;
+        const avgDailyUsage = (totalUsageBySkuId[s.id] || 0) / 7;
+        const latest = latestBySkuId[s.id];
+        const stockOnHand = latest ? (latest.physical_count != null ? Number(latest.physical_count) : latest.calculated_balance) : 0;
+        const rop = avgDailyUsage * leadTime;
+        const parstock = avgDailyUsage * (leadTime * 2);
+        const suggestedOrder = Math.max(0, parstock - stockOnHand);
+        const suggestedBatches = suggestedOrder > 0 ? Math.ceil(suggestedOrder / ps) : 0;
+
+        let status: BranchSmStockStatus;
+        if (avgDailyUsage === 0) status = 'no-data';
+        else if (stockOnHand === 0) status = 'critical';
+        else if (stockOnHand < rop) status = 'low';
+        else if (stockOnHand >= parstock) status = 'sufficient';
+        else status = 'low';
+
+        return {
+          skuId: s.id,
+          skuCode: s.sku_id,
+          skuName: s.name,
+          uom: s.usage_uom,
+          packSize: ps,
+          requestedQty: 0,
+          suggestedQty: Math.round(suggestedOrder * 100) / 100,
+          suggestedBatches,
+          stockOnHand,
+          avgDailyUsage: Math.round(avgDailyUsage * 100) / 100,
+          peakDailyUsage: 0,
+          rop: Math.round(rop * 100) / 100,
+          parstock: Math.round(parstock * 100) / 100,
+          status,
+          skuType: 'RM' as TRLineSkuType,
+        };
+      });
+      setRmLines(lines);
+    } catch {
+      setRmLines([]);
+    } finally {
+      setRmLoading(false);
+    }
+  }, [branchId]);
+
+  useEffect(() => { fetchDistributableRm(); }, [fetchDistributableRm]);
+
   const [lines, setLines] = useState<TRLine[]>([]);
   const [requiredDate, setRequiredDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const [history, setHistory] = useState<TRHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Build lines from smStock + smSkuList
+  // Build lines from smStock + smSkuList + distributable RM
   useEffect(() => {
-    if (smSkuList.length === 0) { setLines([]); return; }
-    const newLines: TRLine[] = smSkuList.map(sku => {
+    const smLines: TRLine[] = smSkuList.map(sku => {
       const stock = smStock[sku.skuId] || {
         stockOnHand: 0, avgDailyUsage: 0, peakDailyUsage: 0,
         rop: 0, parstock: 0, suggestedOrder: 0, status: 'no-data' as BranchSmStockStatus,
@@ -80,7 +235,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         skuName: sku.skuName,
         uom: sku.uom,
         packSize: ps,
-        requestedQty: 0, // No pre-fill — empty by default
+        requestedQty: 0,
         suggestedQty: stock.suggestedOrder,
         suggestedBatches: stock.suggestedOrder > 0 ? Math.ceil(stock.suggestedOrder / ps) : 0,
         stockOnHand: stock.stockOnHand,
@@ -89,12 +244,15 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         rop: stock.rop,
         parstock: stock.parstock,
         status: stock.status,
+        skuType: 'SM' as TRLineSkuType,
       };
     });
-    // Sort: critical → low → sufficient → no-data
-    newLines.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
-    setLines(newLines);
-  }, [smStock, smSkuList]);
+    // Merge SM + distributable RM
+    const allLines = [...smLines, ...rmLines];
+    // Default sort: critical → low → sufficient → no-data
+    allLines.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+    setLines(allLines);
+  }, [smStock, smSkuList, rmLines]);
 
   // Update line by batches — stores requestedQty in grams (batches × packSize)
   const updateLineQty = useCallback((skuId: string, batches: number) => {
@@ -154,6 +312,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           peak_daily_usage: l.peakDailyUsage,
           rop: l.rop,
           parstock: l.parstock,
+          sku_type: l.skuType,
           notes: '',
         }));
 
@@ -282,7 +441,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
   return {
     lines,
     updateLineQty,
-    isLoading: stockLoading,
+    isLoading: stockLoading || rmLoading,
     requiredDate,
     setRequiredDate,
     notes,
