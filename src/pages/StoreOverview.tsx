@@ -194,7 +194,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
               <ClipboardCheck className="w-5 h-5 text-info" />
             </div>
             <p className="font-semibold text-sm">{t('btn.startStockCount')}</p>
-            <p className="text-helper text-muted-foreground mt-1">Count your daily inventory</p>
+            <p className="text-helper text-muted-foreground mt-1">{t('storeOverview.countInventoryHint')}</p>
           </button>
 
           <button
