@@ -254,7 +254,7 @@ export default function DailyStockCountPage({
               value={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
               onChange={(d) => setSelectedDate(d ? toLocalDateStr(d) : today)}
               defaultToday
-              label="Date"
+              label={t("dsc.dateLabel")}
               required
               labelPosition="above"
               align="start"
