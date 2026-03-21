@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusDot } from '@/components/ui/status-dot';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -20,12 +19,11 @@ import { SMStockBalance } from '@/hooks/use-sm-stock-data';
 import { useCkDashboardData } from '@/hooks/use-ck-dashboard-data';
 import {
   Calculator, BarChart3, Package, Truck, UtensilsCrossed, ShoppingCart,
-  ChevronDown, ChevronUp, AlertTriangle,
+  AlertTriangle,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ReferenceLine,
-  ResponsiveContainer, Cell,
   PieChart, Pie, Cell as PieCell, Tooltip as PieTooltip,
+  ResponsiveContainer,
 } from 'recharts';
 
 interface DashboardProps {
@@ -45,8 +43,8 @@ interface DashboardProps {
 
 type PeriodMode = 'week' | 'month' | 'custom';
 
-const fmt = (n: number) => formatNumber(n, 2);
-const fmtBaht = (n: number) => `฿${formatNumber(n, 2)}`;
+const fmt = (n: number) => formatNumber(n, 0);
+const fmtBaht = (n: number) => `฿${formatNumber(n, 0)}`;
 
 const DONUT_COLORS = [
   'hsl(24, 95%, 53%)',   // primary orange
@@ -60,6 +58,7 @@ const DONUT_COLORS = [
 const Dashboard = ({
   skus,
   smStockBalances,
+  rmStockBalances,
   smDailyUsage,
 }: DashboardProps) => {
   const { t } = useLanguage();
@@ -86,9 +85,17 @@ const Dashboard = ({
     };
   }, [periodMode, customFrom, customTo]);
 
-  const hook = useCkDashboardData({ rangeStart, rangeEnd });
+  // Map stock balances to the shape the hook expects
+  const rmBalancesForHook = useMemo(() =>
+    rmStockBalances.map(b => ({ skuId: b.skuId, currentStock: b.currentStock })),
+    [rmStockBalances]
+  );
+  const smBalancesForHook = useMemo(() =>
+    smStockBalances.map(b => ({ skuId: b.skuId, currentStock: b.currentStock })),
+    [smStockBalances]
+  );
 
-  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const hook = useCkDashboardData({ rangeStart, rangeEnd, rmStockBalances: rmBalancesForHook, smStockBalances: smBalancesForHook });
 
   const handleCalculate = useCallback(() => {
     setHasCalculated(true);
@@ -120,20 +127,6 @@ const Dashboard = ({
     return [...top5.map(s => ({ name: s.supplierName, value: s.totalActual })), { name: 'Others', value: othersVal }];
   }, [hook.purchase]);
 
-  // Bar chart data sorted worst first
-  const barData = useMemo(() => {
-    return [...hook.productionCost]
-      .sort((a, b) => b.totalVariancePct - a.totalVariancePct)
-      .map(r => ({
-        name: r.skuName.length > 20 ? r.skuName.slice(0, 20) + '…' : r.skuName,
-        fullName: r.skuName,
-        variancePct: Math.round(r.totalVariancePct * 10) / 10,
-        variance: r.totalVariance,
-        standardCost: r.standardCost,
-        actualCost: r.actualCost,
-      }));
-  }, [hook.productionCost]);
-
   const periodLabel = periodMode === 'week'
     ? `${format(startOfWeek(now, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(now, { weekStartsOn: 1 }), 'd MMM yyyy')}`
     : periodMode === 'month'
@@ -149,6 +142,9 @@ const Dashboard = ({
   const beginEstimated = beginRow?.beginIsEstimated ?? true;
   const endEstimated = beginRow?.endIsEstimated ?? true;
   const anyEstimated = beginEstimated || endEstimated;
+
+  // Inventory count warning
+  const invCountWarning = hook.inventory.countDaysOld > 7;
 
   return (
     <div className="space-y-6">
@@ -262,92 +258,55 @@ const Dashboard = ({
                 </div>
               </div>
 
-              {/* Horizontal bar chart */}
-              {barData.length === 0 ? (
+              {/* Production cost breakdown table */}
+              {hook.productionCost.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-muted-foreground">
                   <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
                   <p className="text-sm">No production recorded in this period</p>
                 </div>
               ) : (
-                <div style={{ height: Math.max(200, barData.length * 60) }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
-                      <XAxis type="number" tickFormatter={v => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12 }} />
-                      <ReferenceLine x={0} stroke="#888" />
-                      <RechartsTooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.[0]) return null;
-                          const d = payload[0].payload;
-                          return (
-                            <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm space-y-1">
-                              <p className="font-semibold">{d.fullName}</p>
-                              <p>Variance: {d.variancePct > 0 ? '+' : ''}{d.variancePct}%</p>
-                              <p>฿ Variance: {fmtBaht(d.variance)}</p>
-                              <p>Standard: {fmtBaht(d.standardCost)}</p>
-                              <p>Actual: {fmtBaht(d.actualCost)}</p>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Bar dataKey="variancePct" radius={[0, 4, 4, 0]}>
-                        {barData.map((entry, i) => (
-                          <Cell key={i} fill={entry.variancePct > 0 ? '#ef4444' : '#22c55e'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                      <tr className="border-b">
+                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Output (g)</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Standard ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Actual ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hook.productionCost.map(row => {
+                        const pct = row.totalVariancePct;
+                        const varColor = row.totalVariance > 0
+                          ? 'text-destructive'
+                          : row.totalVariance < 0
+                          ? 'text-success'
+                          : 'text-muted-foreground';
+                        const pctBg = pct > 5
+                          ? 'bg-destructive/10 text-destructive'
+                          : pct > 0
+                          ? 'bg-warning/10 text-warning'
+                          : pct < 0
+                          ? 'bg-success/10 text-success'
+                          : 'text-muted-foreground';
+                        return (
+                          <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
+                            <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
+                            <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
+                            <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
+                            <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
+                            <td className={cn('px-3 py-2 text-right font-mono', varColor)}>{fmt(row.totalVariance)}</td>
+                            <td className={cn('px-3 py-2 text-right font-mono rounded', pctBg)}>{formatNumber(pct, 1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
-
-              {/* Collapsible breakdown table */}
-              <Collapsible open={breakdownOpen} onOpenChange={setBreakdownOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1">
-                    {breakdownOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    {breakdownOpen ? 'Hide breakdown' : 'Show breakdown'}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-3">
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-muted/80 backdrop-blur">
-                        <tr className="border-b">
-                          <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Output (g)</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Standard ฿</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Actual ฿</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance ฿</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Price Var ฿</th>
-                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Usage Var ฿</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {hook.productionCost.map(row => {
-                          const pct = row.totalVariancePct;
-                          const pctClass = pct > 5 ? 'bg-destructive/10 text-destructive' : pct > 0 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success';
-                          return (
-                            <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
-                              <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
-                              <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
-                              <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
-                              <td className="px-3 py-2 text-right font-mono">{fmt(row.totalVariance)}</td>
-                              <td className={cn('px-3 py-2 text-right font-mono rounded', pctClass)}>{formatNumber(pct, 1)}%</td>
-                              <td className="px-3 py-2 text-right font-mono">{fmt(row.priceVariance)}</td>
-                              <td className="px-3 py-2 text-right font-mono">{fmt(row.usageVariance)}</td>
-                            </tr>
-                          );
-                        })}
-                        {hook.productionCost.length === 0 && (
-                          <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">No production data.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
 
               {/* Data quality strip */}
               {hook.productionCost.length > 0 && (
@@ -377,9 +336,9 @@ const Dashboard = ({
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { label: 'RM Stock · Production', value: Math.max(0, hook.inventory.rmProduction), subtitle: 'At standard price', icon: <Package className="w-5 h-5 text-warning" /> },
-                { label: 'RM Stock · Distribution', value: Math.max(0, hook.inventory.rmDistribution), subtitle: 'At standard price', icon: <Truck className="w-5 h-5 text-primary" /> },
-                { label: 'SM Stock', value: Math.max(0, hook.inventory.sm), subtitle: 'At BOM cost', icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
+                { label: 'RM Stock · Production', value: Math.max(0, hook.inventory.rmProduction), subtitle: 'Current · at standard price', icon: <Package className="w-5 h-5 text-warning" /> },
+                { label: 'RM Stock · Distribution', value: Math.max(0, hook.inventory.rmDistribution), subtitle: 'Current · at standard price', icon: <Truck className="w-5 h-5 text-primary" /> },
+                { label: 'SM Stock', value: Math.max(0, hook.inventory.sm), subtitle: 'Current · at BOM cost', icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
               ].map(tile => (
                 <Card key={tile.label} className="rounded-xl shadow-sm">
                   <CardContent className="p-5">
@@ -393,10 +352,10 @@ const Dashboard = ({
                         {tile.icon}
                       </div>
                     </div>
-                    {hook.inventory.inventoryCountWarning && hook.inventory.countDate && (
+                    {invCountWarning && hook.inventory.lastCountDate && (
                       <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                         <AlertTriangle className="w-3 h-3" />
-                        Count: {hook.inventory.countDate} · {Math.floor((Date.now() - new Date(hook.inventory.countDate).getTime()) / 86400000)} days old
+                        Last count: {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} days old
                       </span>
                     )}
                   </CardContent>
