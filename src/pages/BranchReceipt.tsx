@@ -1496,8 +1496,8 @@ export default function BranchReceiptPage({
                       <td className={`${tdReadOnly} text-right font-mono `}>
                         ฿
                         {r.actualTotal.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
                         })}
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono`}>
