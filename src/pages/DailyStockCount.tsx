@@ -263,7 +263,7 @@ export default function DailyStockCountPage({
               <label className="text-xs text-muted-foreground label-required">{t("dsc.branchLabel")}</label>
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                 <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Select branch" />
+                  <SelectValue placeholder={t("dsc.selectBranch")} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableBranches.map((b) => (
