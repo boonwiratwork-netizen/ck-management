@@ -492,7 +492,7 @@ export default function DailyStockCountPage({
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {showUnused ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showUnused ? "Hide" : "Show"} unused SKUs ({unusedRows.length})
+              {showUnused ? t("dsc.hideUnused") : t("dsc.showUnused")} {t("dsc.unusedSkus")} ({unusedRows.length})
             </button>
           )}
 
