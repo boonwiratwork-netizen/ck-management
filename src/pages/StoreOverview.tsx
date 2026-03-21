@@ -205,7 +205,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
               <ClipboardList className="w-5 h-5 text-success" />
             </div>
             <p className="font-semibold text-sm">{t('btn.recordReceipt')}</p>
-            <p className="text-helper text-muted-foreground mt-1">Log incoming stock deliveries</p>
+            <p className="text-helper text-muted-foreground mt-1">{t('storeOverview.logDeliveriesHint')}</p>
           </button>
         </div>
       </div>
