@@ -242,7 +242,7 @@ export default function DailyStockCountPage({
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Generate and manage daily stock count sheets for each branch
+          {t("dsc.subtitle")}
         </p>
       </div>
 
