@@ -347,7 +347,7 @@ export default function DailyStockCountPage({
                       <th className={thClass}>{renderSortableHeader("skuCode", t("col.skuCode"))}</th>
                       <th className={thClass}>{renderSortableHeader("skuName", t("col.skuName"))}</th>
                       <th className={thClass}>{renderSortableHeader("type", t("col.type"))}</th>
-                      <th className={thClass}>UNIT</th>
+                      <th className={thClass}>{t("dsc.colUnit")}</th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.opening")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
