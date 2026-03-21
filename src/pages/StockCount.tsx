@@ -265,7 +265,7 @@ export default function StockCountPage({
                   <td className="px-3 py-2 text-sm font-medium">{sku.name}</td>
                   <td className="px-3 py-2 text-sm">{sku.storageCondition}</td>
                   <td className="px-3 py-2 text-right font-mono text-sm">
-                    {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {(line.type === 'SM' ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     <UnitLabel unit={sku.usageUom} />
                   </td>
                   <td className="px-1.5 py-1.5 text-right">
