@@ -234,7 +234,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
                     <p className="text-helper text-muted-foreground">{t('storeOverview.salesNotEnteredHint')}</p>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => onNavigate('sales-entry')} className="shrink-0">
-                    Enter Sales
+                    {t('storeOverview.enterSales')}
                   </Button>
                 </div>
               )}
