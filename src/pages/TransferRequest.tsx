@@ -785,7 +785,9 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompact} title={batchSizeLabel}>
                                 <span className="whitespace-nowrap truncate block">{batchSizeLabel}</span>
                               </td>
-                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(line.stockOnHand, 0)}</td>
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {formatNumber(Math.max(0, line.stockOnHand), 0)}
+                              </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(line.rop, 0)}
                               </td>
