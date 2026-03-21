@@ -20,6 +20,7 @@ interface SKUTableProps {
   skus: SKU[];
   onEdit?: (sku: SKU) => void;
   onDelete?: (id: string) => void;
+  onToggleDistributable?: (id: string, value: boolean) => void;
   loading?: boolean;
   skuCategories?: SkuCategory[];
 }
