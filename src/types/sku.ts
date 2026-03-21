@@ -24,6 +24,7 @@ export interface SKU {
   supplier1: string;
   supplier2: string;
   leadTime: number;
+  isDistributable: boolean;
 }
 
 export const SKU_TYPE_LABELS: Record<SKUType, string> = {
