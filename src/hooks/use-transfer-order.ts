@@ -21,6 +21,7 @@ export interface PendingTRLine {
   skuName: string;
   uom: string;
   requestedQty: number;
+  skuType: 'SM' | 'RM';
 }
 
 export interface TOLine {
@@ -82,7 +83,7 @@ export function useTransferOrder(
     const trIds = trs.map(t => t.id);
     const { data: allLines } = await supabase
       .from('transfer_request_lines')
-      .select('id, tr_id, sku_id, requested_qty, uom')
+      .select('id, tr_id, sku_id, requested_qty, uom, sku_type')
       .in('tr_id', trIds);
 
     // Get SKU info
@@ -113,6 +114,7 @@ export function useTransferOrder(
           skuName: skuMap[l.sku_id]?.name || '',
           uom: l.uom,
           requestedQty: l.requested_qty,
+          skuType: (l.sku_type === 'RM' ? 'RM' : 'SM') as 'SM' | 'RM',
         })),
       };
     }));
@@ -157,18 +159,33 @@ export function useTransferOrder(
       let toLines: TOLine[] = [];
 
       if (params.trId && params.trLines && params.trLines.length > 0) {
+        // Fetch active RM prices for cost lookup
+        const rmSkuIds = params.trLines.filter(l => l.skuType === 'RM').map(l => l.skuId);
+        let rmPriceMap: Record<string, number> = {};
+        if (rmSkuIds.length > 0) {
+          const { data: prices } = await supabase
+            .from('prices')
+            .select('sku_id, price_per_usage_uom')
+            .in('sku_id', rmSkuIds)
+            .eq('is_active', true);
+          for (const p of prices || []) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
+        }
+
         const lineInserts = params.trLines.map(l => {
-          const costPerG = getBomCostPerGram?.(l.skuId) ?? 0;
+          const unitCost = l.skuType === 'RM'
+            ? (rmPriceMap[l.skuId] ?? 0)
+            : (getBomCostPerGram?.(l.skuId) ?? 0);
           return {
             to_id: toRow.id,
             sku_id: l.skuId,
             planned_qty: l.requestedQty,
             actual_qty: l.requestedQty,
             uom: l.uom,
-            unit_cost: costPerG,
-            line_value: l.requestedQty * costPerG,
+            unit_cost: unitCost,
+            line_value: l.requestedQty * unitCost,
             notes: '',
             tr_line_id: l.id,
+            sku_type: l.skuType,
           };
         });
 
@@ -235,10 +252,10 @@ export function useTransferOrder(
         .eq('id', line.id);
     }
 
-    // Get TO to check for TR
+    // Get TO to check for TR and get TO number
     const { data: to } = await supabase
       .from('transfer_orders')
-      .select('tr_id')
+      .select('tr_id, to_number')
       .eq('id', toId)
       .single();
 
@@ -248,6 +265,30 @@ export function useTransferOrder(
       .update({ status: 'Sent', total_value: totalValue })
       .eq('id', toId);
     if (error) return { error: error.message };
+
+    // Deduct CK RM stock for RM lines only
+    const { data: toLines } = await supabase
+      .from('transfer_order_lines')
+      .select('sku_id, actual_qty, sku_type')
+      .eq('to_id', toId)
+      .eq('sku_type', 'RM');
+    if (toLines) {
+      const today = toLocalDateStr(new Date());
+      for (const tl of toLines) {
+        if (tl.actual_qty > 0) {
+          const { error: adjErr } = await supabase
+            .from('stock_adjustments')
+            .insert({
+              sku_id: tl.sku_id,
+              quantity: -tl.actual_qty,
+              stock_type: 'RM',
+              adjustment_date: today,
+              reason: `Distribution: ${to?.to_number || toId}`,
+            });
+          if (adjErr) console.error('RM stock deduction failed:', adjErr.message);
+        }
+      }
+    }
 
     // Update linked TR to Fulfilled
     if (to?.tr_id) {
