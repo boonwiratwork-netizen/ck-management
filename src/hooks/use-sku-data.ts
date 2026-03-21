@@ -43,6 +43,7 @@ const toDb = (data: Omit<SKU, 'id' | 'skuId'>, skuId?: string) => {
     supplier1: data.supplier1,
     supplier2: data.supplier2,
     lead_time: data.leadTime,
+    is_distributable: data.isDistributable,
   };
   if (skuId) obj.sku_id = skuId;
   return obj;
