@@ -1486,6 +1486,7 @@ export type Database = {
           notes: string
           planned_qty: number
           sku_id: string
+          sku_type: string
           to_id: string
           tr_line_id: string | null
           unit_cost: number
@@ -1499,6 +1500,7 @@ export type Database = {
           notes?: string
           planned_qty?: number
           sku_id: string
+          sku_type?: string
           to_id: string
           tr_line_id?: string | null
           unit_cost?: number
@@ -1512,6 +1514,7 @@ export type Database = {
           notes?: string
           planned_qty?: number
           sku_id?: string
+          sku_type?: string
           to_id?: string
           tr_line_id?: string | null
           unit_cost?: number
@@ -1616,6 +1619,7 @@ export type Database = {
           requested_qty: number
           rop: number
           sku_id: string
+          sku_type: string
           stock_on_hand: number
           suggested_qty: number
           tr_id: string
@@ -1631,6 +1635,7 @@ export type Database = {
           requested_qty?: number
           rop?: number
           sku_id: string
+          sku_type?: string
           stock_on_hand?: number
           suggested_qty?: number
           tr_id: string
@@ -1646,6 +1651,7 @@ export type Database = {
           requested_qty?: number
           rop?: number
           sku_id?: string
+          sku_type?: string
           stock_on_hand?: number
           suggested_qty?: number
           tr_id?: string
