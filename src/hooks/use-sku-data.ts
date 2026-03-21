@@ -121,6 +121,7 @@ export function useSkuData() {
     if (data.supplier1 !== undefined) dbData.supplier1 = data.supplier1;
     if (data.supplier2 !== undefined) dbData.supplier2 = data.supplier2;
     if (data.leadTime !== undefined) dbData.lead_time = data.leadTime;
+    if (data.isDistributable !== undefined) dbData.is_distributable = data.isDistributable;
     if (newSkuCode) dbData.sku_id = newSkuCode;
 
     const { error } = await supabase.from('skus').update(dbData).eq('id', id);

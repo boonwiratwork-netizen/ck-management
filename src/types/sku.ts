@@ -63,4 +63,5 @@ export const EMPTY_SKU: Omit<SKU, 'id' | 'skuId'> = {
   supplier1: '',
   supplier2: '',
   leadTime: 0,
+  isDistributable: false,
 };
