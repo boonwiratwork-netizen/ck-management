@@ -1501,7 +1501,7 @@ export default function BranchReceiptPage({
                         })}
                       </td>
                       <td className={`${tdReadOnly} text-right font-mono`}>
-                        ฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ฿{r.stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </td>
                       <td
                         className={`${tdReadOnly} text-right font-mono tabular-nums ${r.priceVariance > 0 ? "text-destructive" : "text-success"}`}
