@@ -441,7 +441,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
   return {
     lines,
     updateLineQty,
-    isLoading: stockLoading,
+    isLoading: stockLoading || rmLoading,
     requiredDate,
     setRequiredDate,
     notes,
