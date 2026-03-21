@@ -170,6 +170,7 @@ export default function StoreStockPage({
   modifierRules,
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
+  const { t } = useLanguage();
   const [rows, setRows] = useState<CountRow[]>([]);
   const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
