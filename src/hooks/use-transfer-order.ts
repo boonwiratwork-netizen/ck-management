@@ -252,10 +252,10 @@ export function useTransferOrder(
         .eq('id', line.id);
     }
 
-    // Get TO to check for TR
+    // Get TO to check for TR and get TO number
     const { data: to } = await supabase
       .from('transfer_orders')
-      .select('tr_id')
+      .select('tr_id, to_number')
       .eq('id', toId)
       .single();
 
@@ -265,6 +265,30 @@ export function useTransferOrder(
       .update({ status: 'Sent', total_value: totalValue })
       .eq('id', toId);
     if (error) return { error: error.message };
+
+    // Deduct CK RM stock for RM lines only
+    const { data: toLines } = await supabase
+      .from('transfer_order_lines')
+      .select('sku_id, actual_qty, sku_type')
+      .eq('to_id', toId)
+      .eq('sku_type', 'RM');
+    if (toLines) {
+      const today = toLocalDateStr(new Date());
+      for (const tl of toLines) {
+        if (tl.actual_qty > 0) {
+          const { error: adjErr } = await supabase
+            .from('stock_adjustments')
+            .insert({
+              sku_id: tl.sku_id,
+              quantity: -tl.actual_qty,
+              stock_type: 'RM',
+              adjustment_date: today,
+              reason: `Distribution: ${to?.to_number || toId}`,
+            });
+          if (adjErr) console.error('RM stock deduction failed:', adjErr.message);
+        }
+      }
+    }
 
     // Update linked TR to Fulfilled
     if (to?.tr_id) {
