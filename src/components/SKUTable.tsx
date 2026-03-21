@@ -160,6 +160,9 @@ export function SKUTable({ skus, onEdit, onDelete, onToggleDistributable, loadin
                 <th className="text-left px-4 py-3 table-header">Storage</th>
                 <th className="text-left px-4 py-3 table-header">Pack</th>
                 <th className="text-left px-4 py-3 table-header">Shelf Life</th>
+                {onToggleDistributable && (
+                  <th className="text-center px-4 py-3 table-header">Distributable</th>
+                )}
                 {(onEdit || onDelete) && (
                   <th className="text-right px-4 py-3 table-header">Actions</th>
                 )}
