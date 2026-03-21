@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useTransferRequest, TRHistoryRow, TRDetailLine, TRLineSkuType } from "@/hooks/use-transfer-request";
+import { useTransferRequest, TRHistoryRow, TRDetailLine } from "@/hooks/use-transfer-request";
 import { usePurchaseRequest, PRHistoryRow, PRDetailLine } from "@/hooks/use-purchase-request";
 import { useBranchData } from "@/hooks/use-branch-data";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
@@ -281,25 +281,15 @@ export default function TransferRequestPage() {
 
   const sortedTRLines = useMemo(() => {
     const arr = [...trHook.lines];
-    const typeOrder: Record<TRLineSkuType, number> = { SM: 0, RM: 1 };
     if (sortMode === "priority") {
       arr.sort((a, b) => {
         const sa = statusOrder[a.status] ?? 9;
         const sb = statusOrder[b.status] ?? 9;
         if (sa !== sb) return sa - sb;
-        const ta = typeOrder[a.skuType] ?? 9;
-        const tb = typeOrder[b.skuType] ?? 9;
-        if (ta !== tb) return ta - tb;
         return a.skuCode.localeCompare(b.skuCode);
       });
     } else {
-      // Sort by Code: SM first sorted by code, then RM sorted by code
-      arr.sort((a, b) => {
-        const ta = typeOrder[a.skuType] ?? 9;
-        const tb = typeOrder[b.skuType] ?? 9;
-        if (ta !== tb) return ta - tb;
-        return a.skuCode.localeCompare(b.skuCode);
-      });
+      arr.sort((a, b) => a.skuCode.localeCompare(b.skuCode));
     }
     return arr;
   }, [trHook.lines, sortMode]);
@@ -795,7 +785,7 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompact} title={batchSizeLabel}>
                                 <span className="whitespace-nowrap truncate block">{batchSizeLabel}</span>
                               </td>
-                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(Math.max(0, line.stockOnHand), 0)}</td>
+                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(line.stockOnHand, 0)}</td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(line.rop, 0)}
                               </td>
@@ -962,7 +952,7 @@ export default function TransferRequestPage() {
                             : stockStatusToDot[line.status];
                           const batchVal = prBatchInputs[line.skuId] ?? 0;
                           const totalPurchaseUnits = batchVal > 0 ? batchVal * line.packSize : 0;
-                          const stockInPurchase = Math.round(line.stockOnHand * 100) / 100;
+                          const stockInPurchase = Math.round(Math.max(0, line.stockOnHand) * 100) / 100;
                           const ropInPurchase = Math.round(line.rop * 100) / 100;
                           const parstockInPurchase = Math.round(line.parstock * 100) / 100;
                           const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.packUnit}`;
