@@ -1,6 +1,7 @@
 import { SKU, SKUType, SKU_TYPE_LABELS } from '@/types/sku';
 import { SkuCategory } from '@/hooks/use-sku-categories';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Pencil, Trash2, Package, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Select,
