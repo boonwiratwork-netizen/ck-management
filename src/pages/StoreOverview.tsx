@@ -217,8 +217,8 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
             <div className="flex items-center gap-3 rounded-lg border border-success/30 bg-success/5 p-4">
               <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-success">All good! Today's tasks are complete ✓</p>
-                <p className="text-helper text-muted-foreground">Sales entered and yesterday's stock count submitted</p>
+                <p className="text-sm font-medium text-success">{t('storeOverview.allDone')}</p>
+                <p className="text-helper text-muted-foreground">{t('storeOverview.allDoneSubtitle')}</p>
               </div>
               <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setAlertsDismissed(true)}>
                 Dismiss
