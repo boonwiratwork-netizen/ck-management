@@ -135,16 +135,227 @@ export function StockCard({
       setLoading(true);
       try {
         if (context === 'branch') {
-          // Branch context: fetch daily_stock_counts history
-          const { data } = await supabase
+          // Branch context: reconstruct day-by-day ledger from raw transactions
+
+          // Step 1 — Find earliest snap date
+          const { data: firstSnap } = await supabase
             .from('daily_stock_counts')
-            .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance')
+            .select('count_date')
             .eq('branch_id', branchId!)
             .eq('sku_id', skuId)
-            .eq('is_submitted', true)
-            .order('count_date', { ascending: true });
+            .not('physical_count', 'is', null)
+            .order('count_date', { ascending: true })
+            .limit(1);
           if (cancelled) return;
-          setBranchRows((data as BranchCountRow[]) || []);
+
+          const startDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : '2020-01-01';
+
+          // Step 2 — Fetch all data in parallel
+          const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
+            supabase.from('daily_stock_counts')
+              .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted')
+              .eq('branch_id', branchId!)
+              .eq('sku_id', skuId)
+              .gte('count_date', startDate)
+              .order('count_date', { ascending: true }),
+            supabase.from('branch_receipts')
+              .select('receipt_date, qty_received, transfer_order_id, sku_id')
+              .eq('branch_id', branchId!)
+              .eq('sku_id', skuId)
+              .gte('receipt_date', startDate)
+              .order('receipt_date', { ascending: true }),
+            supabase.from('sales_entries')
+              .select('sale_date, menu_code, menu_name, qty')
+              .eq('branch_id', branchId!)
+              .gte('sale_date', startDate)
+              .order('sale_date', { ascending: true }),
+            supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
+            supabase.from('menus').select('id, menu_code'),
+            supabase.from('sp_bom').select('sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty'),
+            supabase.from('menu_modifier_rules').select('*').eq('is_active', true),
+            supabase.from('modifier_rule_menus').select('rule_id, menu_id'),
+            supabase.from('skus').select('id, type'),
+          ]);
+          if (cancelled) return;
+
+          const receipts = brRes.data ?? [];
+          const sales = salesRes.data ?? [];
+          const menuBomLines = mbRes.data ?? [];
+          const menus = menusRes.data ?? [];
+          const spBomLines = spRes.data ?? [];
+          const modRules = mrRes.data ?? [];
+          const ruleMenus = ruleMenusRes.data ?? [];
+          const allSkus = skusRes.data ?? [];
+          const dscRows = dscRes.data ?? [];
+
+          // Build menu code → id map
+          const menuCodeToId = new Map<string, string>();
+          menus.forEach((m: any) => menuCodeToId.set(m.menu_code, m.id));
+
+          // Build rule → menuIds map
+          const ruleMenuMap = new Map<string, string[]>();
+          ruleMenus.forEach((rm: any) => {
+            const arr = ruleMenuMap.get(rm.rule_id) ?? [];
+            arr.push(rm.menu_id);
+            ruleMenuMap.set(rm.rule_id, arr);
+          });
+
+          // SKU type map
+          const skuTypeMap = new Map<string, string>();
+          allSkus.forEach((s: any) => skuTypeMap.set(s.id, s.type));
+
+          // Step 3 — Calculate daily usage from sales for this specific SKU
+          const salesByDate = new Map<string, any[]>();
+          sales.forEach((s: any) => {
+            const arr = salesByDate.get(s.sale_date) ?? [];
+            arr.push(s);
+            salesByDate.set(s.sale_date, arr);
+          });
+
+          const usageByDate = new Map<string, number>();
+          for (const [date, daySales] of salesByDate) {
+            const usageMap = new Map<string, number>();
+
+            for (const sale of daySales) {
+              const menuId = menuCodeToId.get(sale.menu_code);
+              if (!menuId) continue;
+              const qty = Number(sale.qty) || 0;
+
+              // Base BOM ingredients
+              const bomLines = menuBomLines.filter((b: any) => b.menu_id === menuId);
+              for (const line of bomLines) {
+                const ingredientSkuId = line.sku_id;
+                const ingredientType = skuTypeMap.get(ingredientSkuId);
+                if (ingredientType === 'SP') {
+                  // Expand SP via sp_bom
+                  const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === ingredientSkuId);
+                  for (const sp of spLines) {
+                    const spQty = (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                    usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
+                  }
+                } else {
+                  usageMap.set(ingredientSkuId, (usageMap.get(ingredientSkuId) ?? 0) + Number(line.effective_qty) * qty);
+                }
+              }
+
+              // Modifier Rules
+              const menuName = (sale.menu_name || '').toLowerCase();
+              for (const rule of modRules) {
+                if (!rule.keyword || !rule.is_active) continue;
+                const keyword = rule.keyword.toLowerCase();
+                if (!menuName.includes(keyword)) continue;
+
+                // Check menu scope
+                const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
+                if (scopeMenuIds.length > 0 && !scopeMenuIds.includes(menuId)) continue;
+
+                if (rule.rule_type === 'swap') {
+                  if (rule.swap_sku_id) {
+                    usageMap.set(rule.swap_sku_id, (usageMap.get(rule.swap_sku_id) ?? 0) - Number(rule.qty_per_match) * qty);
+                  }
+                  if (rule.sku_id) {
+                    usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
+                  }
+                } else if (rule.rule_type === 'submenu') {
+                  if (rule.submenu_id) {
+                    const subBom = menuBomLines.filter((b: any) => b.menu_id === rule.submenu_id);
+                    for (const line of subBom) {
+                      const ingType = skuTypeMap.get(line.sku_id);
+                      if (ingType === 'SP') {
+                        const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === line.sku_id);
+                        for (const sp of spLines) {
+                          const spQty = (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                          usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
+                        }
+                      } else {
+                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty);
+                      }
+                    }
+                  }
+                } else if (rule.rule_type === 'add') {
+                  if (rule.sku_id) {
+                    usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
+                  }
+                }
+              }
+            }
+
+            const skuUsage = usageMap.get(skuId) ?? 0;
+            if (skuUsage > 0) usageByDate.set(date, skuUsage);
+          }
+
+          // Step 4 — Calculate daily receipts per day
+          const converter = sku.converter ?? 1;
+          const receiptsByDate = new Map<string, { ck: number; ext: number }>();
+          for (const r of receipts) {
+            const date = r.receipt_date;
+            const entry = receiptsByDate.get(date) ?? { ck: 0, ext: 0 };
+            if (r.transfer_order_id) {
+              entry.ck += Number(r.qty_received);
+            } else {
+              entry.ext += Number(r.qty_received) * converter;
+            }
+            receiptsByDate.set(date, entry);
+          }
+
+          // DSC rows by date for physical counts and waste
+          const dscByDate = new Map<string, any>();
+          for (const row of dscRows) {
+            if (row.is_submitted && row.physical_count !== null) {
+              dscByDate.set(row.count_date, row);
+            }
+          }
+
+          // Step 5 — Build day-by-day ledger
+          const today = new Date().toISOString().slice(0, 10);
+          const allDates: string[] = [];
+          const d = new Date(startDate);
+          const end = new Date(today);
+          while (d <= end) {
+            allDates.push(d.toISOString().slice(0, 10));
+            d.setDate(d.getDate() + 1);
+          }
+
+          const ledger: BranchCountRow[] = [];
+          let prevBalance = 0;
+
+          for (const date of allDates) {
+            const rec = receiptsByDate.get(date) ?? { ck: 0, ext: 0 };
+            const totalReceived = rec.ck + rec.ext;
+            const usage = usageByDate.get(date) ?? 0;
+            const dsc = dscByDate.get(date);
+            const waste = dsc ? Number(dsc.waste) : 0;
+            const hasPhysical = !!dsc;
+            const physicalCount = hasPhysical ? Number(dsc.physical_count) : null;
+
+            const opening = prevBalance;
+            const calcBal = opening + totalReceived - usage - waste;
+
+            // Only include days with activity
+            if (totalReceived === 0 && usage === 0 && !hasPhysical && waste === 0) {
+              // No movement — skip but keep prevBalance
+              continue;
+            }
+
+            const variance = physicalCount !== null ? physicalCount - calcBal : 0;
+
+            ledger.push({
+              count_date: date,
+              opening_balance: opening,
+              received_from_ck: rec.ck,
+              received_external: rec.ext,
+              expected_usage: usage,
+              waste,
+              calculated_balance: calcBal,
+              physical_count: physicalCount,
+              variance,
+            });
+
+            // Snap balance to physical if available
+            prevBalance = physicalCount !== null ? physicalCount : calcBal;
+          }
+
+          setBranchRows(ledger);
         } else if (skuType === "RM") {
           const [obRes, receiptsRes, adjRes, suppRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
