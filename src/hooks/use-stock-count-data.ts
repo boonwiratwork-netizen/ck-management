@@ -63,6 +63,18 @@ export function useStockCountData({
 
   const createSession = useCallback(
     async (date: string, note: string): Promise<string> => {
+      // Check if a session already exists for this date
+      const { data: existing } = await supabase
+        .from("stock_count_sessions")
+        .select("id")
+        .eq("count_date", date)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existing) {
+        toast.info("A count session already exists for this date");
+        return existing.id;
+      }
+
       const { data: sessionRow, error } = await supabase
         .from("stock_count_sessions")
         .insert({
