@@ -389,6 +389,7 @@ const Index = () => {
                     skus={skus}
                     onEdit={isManagement ? handleEdit : undefined}
                     onDelete={isManagement ? handleDeleteRequest : undefined}
+                    onToggleDistributable={(isManagement || role === 'ck_manager') ? (id, value) => updateSku(id, { isDistributable: value }) : undefined}
                     skuCategories={skuCategoryData.categories}
                   />
                 </div>
