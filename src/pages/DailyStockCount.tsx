@@ -566,8 +566,8 @@ export default function DailyStockCountPage({
       ) : selectedBranch ? (
         <EmptyState
           icon={ClipboardList}
-          title="No count sheet for this date"
-          description='Click "Generate Count Sheet" to create one'
+          title={t("dsc.emptyTitle")}
+          description={t("dsc.emptyHint")}
         />
       ) : null}
 
