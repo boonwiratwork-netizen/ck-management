@@ -221,7 +221,7 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
                 <p className="text-helper text-muted-foreground">{t('storeOverview.allDoneSubtitle')}</p>
               </div>
               <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setAlertsDismissed(true)}>
-                Dismiss
+                {t('storeOverview.dismiss')}
               </Button>
             </div>
           ) : (
