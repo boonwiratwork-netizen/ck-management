@@ -1,24 +1,32 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StatusDot } from '@/components/ui/status-dot';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, toLocalDateStr } from '@/lib/utils';
-import { format } from 'date-fns';
+import { formatNumber } from '@/lib/design-tokens';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { SKU } from '@/types/sku';
-import { ProductionPlan, ProductionRecord, getISOWeekNumber, getWeekStart, getWeekEnd } from '@/types/production';
+import { ProductionPlan, ProductionRecord } from '@/types/production';
 import { GoodsReceipt } from '@/types/goods-receipt';
 import { BOMHeader, BOMLine } from '@/types/bom';
 import { Price } from '@/types/price';
 import { StockBalance } from '@/types/stock';
 import { SMStockBalance } from '@/hooks/use-sm-stock-data';
-import { CalendarIcon, Clock, TrendingDown, TrendingUp, Package, Factory, ShoppingCart, BarChart3, Wallet, ChevronDown } from 'lucide-react';
-import type { DateRange } from 'react-day-picker';
-import { useAuth } from '@/hooks/use-auth';
+import { useCkDashboardData } from '@/hooks/use-ck-dashboard-data';
+import {
+  Calculator, BarChart3, Package, Truck, UtensilsCrossed, ShoppingCart,
+  ChevronDown, ChevronUp, AlertTriangle,
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ReferenceLine,
+  ResponsiveContainer, Cell,
+  PieChart, Pie, Cell as PieCell, Tooltip as PieTooltip,
+} from 'recharts';
 
 interface DashboardProps {
   skus: SKU[];
@@ -35,41 +43,57 @@ interface DashboardProps {
   getStdUnitPrice: (skuId: string) => number;
 }
 
-function getGreeting(name: string) {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  return `${greeting}, ${name} 👋`;
-}
+type PeriodMode = 'week' | 'month' | 'custom';
+
+const fmt = (n: number) => formatNumber(n, 2);
+const fmtBaht = (n: number) => `฿${formatNumber(n, 2)}`;
+
+const DONUT_COLORS = [
+  'hsl(24, 95%, 53%)',   // primary orange
+  'hsl(200, 60%, 50%)',  // muted blue
+  'hsl(142, 50%, 45%)',  // muted green
+  'hsl(280, 40%, 55%)',  // muted purple
+  'hsl(38, 70%, 55%)',   // muted amber
+  'hsl(0, 0%, 65%)',     // gray for others
+];
 
 const Dashboard = ({
   skus,
   smStockBalances,
-  rmStockBalances,
-  productionPlans,
-  productionRecords,
-  receipts,
-  bomHeaders,
-  bomLines,
-  prices,
   smDailyUsage,
-  getTotalProducedForPlan,
-  getStdUnitPrice,
 }: DashboardProps) => {
-  const { profile } = useAuth();
   const { t } = useLanguage();
   const now = new Date();
-  const todayStr = toLocalDateStr(now);
-  const defaultStart = new Date(getWeekStart(todayStr));
-  const defaultEnd = new Date(getWeekEnd(getWeekStart(todayStr)));
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: defaultStart,
-    to: defaultEnd,
-  });
+  // Period state
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('month');
+  const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+  const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
+  const [hasCalculated, setHasCalculated] = useState(false);
 
-  const rangeStart = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : getWeekStart(todayStr);
-  const rangeEnd = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : getWeekEnd(getWeekStart(todayStr));
-  const lastUpdated = now.toLocaleString();
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (periodMode === 'week') {
+      const ws = startOfWeek(now, { weekStartsOn: 1 });
+      const we = endOfWeek(now, { weekStartsOn: 1 });
+      return { rangeStart: toLocalDateStr(ws), rangeEnd: toLocalDateStr(we) };
+    }
+    if (periodMode === 'month') {
+      return { rangeStart: toLocalDateStr(startOfMonth(now)), rangeEnd: toLocalDateStr(endOfMonth(now)) };
+    }
+    return {
+      rangeStart: customFrom ? toLocalDateStr(customFrom) : toLocalDateStr(startOfMonth(now)),
+      rangeEnd: customTo ? toLocalDateStr(customTo) : toLocalDateStr(endOfMonth(now)),
+    };
+  }, [periodMode, customFrom, customTo]);
+
+  const hook = useCkDashboardData({ rangeStart, rangeEnd });
+
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+
+  const handleCalculate = useCallback(() => {
+    setHasCalculated(true);
+    hook.refresh();
+  }, [hook.refresh]);
 
   const skuMap = useMemo(() => {
     const m = new Map<string, SKU>();
@@ -77,460 +101,491 @@ const Dashboard = ({
     return m;
   }, [skus]);
 
-  // Stock Value Overview
-  const [stockDetailOpen, setStockDetailOpen] = useState(false);
-
-  const stockValueOverview = useMemo(() => {
-    let totalRmValue = 0;
-    const rmRows: { name: string; stock: number; value: number; uom: string }[] = [];
-    rmStockBalances.forEach(bal => {
-      const sku = skuMap.get(bal.skuId);
-      const price = getStdUnitPrice(bal.skuId);
-      const value = bal.currentStock * price;
-      totalRmValue += value;
-      rmRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value, uom: sku?.usageUom ?? '' });
-    });
-
-    let totalSmValue = 0;
-    const smRows: { name: string; stock: number; value: number }[] = [];
-    smStockBalances.forEach(bal => {
-      const sku = skuMap.get(bal.skuId);
-      const bomHeader = bomHeaders.find(h => h.smSkuId === bal.skuId);
-      let costPerGram = 0;
-      if (bomHeader) {
-        const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-        const batchCost = bLines.reduce((s, line) => {
-          const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
-          return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
-        }, 0);
-        const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
-        costPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
-      }
-      const value = costPerGram * bal.currentStock;
-      totalSmValue += value;
-      smRows.push({ name: sku?.name ?? '—', stock: bal.currentStock, value });
-    });
-
-    return { totalRmValue, totalSmValue, combined: totalRmValue + totalSmValue, rmRows, smRows };
-  }, [rmStockBalances, smStockBalances, skuMap, getStdUnitPrice, bomHeaders, bomLines, prices]);
-
-  // SM Stock Overview (sales-based cover days, matching SM Stock page)
-  const smStockRows = useMemo(() => {
+  // SM stock cover days for pills
+  const smPills = useMemo(() => {
     return smStockBalances.map(bal => {
       const sku = skuMap.get(bal.skuId);
-      const dailyUsage = smDailyUsage[bal.skuId] || 0;
-      const coverDays = dailyUsage > 0 && bal.currentStock > 0 ? bal.currentStock / dailyUsage : null;
-
-      let color: 'destructive' | 'warning' | 'default' = 'default';
-      if (coverDays !== null) {
-        if (coverDays < 2) color = 'destructive';
-        else if (coverDays <= 5) color = 'warning';
-      }
-
-      return {
-        skuId: bal.skuId,
-        name: sku?.name ?? '—',
-        currentStock: bal.currentStock,
-        coverDays: coverDays !== null ? Math.round(coverDays * 10) / 10 : null,
-        color,
-      };
+      const daily = smDailyUsage[bal.skuId] || 0;
+      const cover = daily > 0 && bal.currentStock > 0 ? bal.currentStock / daily : null;
+      return { skuId: bal.skuId, name: sku?.name ?? '—', coverDays: cover !== null ? Math.round(cover * 10) / 10 : null };
     });
   }, [smStockBalances, skuMap, smDailyUsage]);
 
-  // Production Plans in range
-  const rangePlans = useMemo(() => {
-    return productionPlans.filter(p => p.weekStartDate <= rangeEnd && p.weekEndDate >= rangeStart);
-  }, [productionPlans, rangeStart, rangeEnd]);
+  // Purchase donut data
+  const donutData = useMemo(() => {
+    const suppliers = hook.purchase.bySupplier;
+    if (suppliers.length <= 6) return suppliers.map(s => ({ name: s.supplierName, value: s.totalActual }));
+    const top5 = suppliers.slice(0, 5);
+    const othersVal = suppliers.slice(5).reduce((s, x) => s + x.totalActual, 0);
+    return [...top5.map(s => ({ name: s.supplierName, value: s.totalActual })), { name: 'Others', value: othersVal }];
+  }, [hook.purchase]);
 
-  const planSummary = useMemo(() => {
-    const totalTargetG = rangePlans.reduce((s, p) => s + p.targetQtyKg * 1000, 0);
-    const totalProduced = rangePlans.reduce((s, p) => s + getTotalProducedForPlan(p.id), 0);
-    return { totalTarget: totalTargetG, totalProduced, progress: totalTargetG > 0 ? (totalProduced / totalTargetG) * 100 : 0 };
-  }, [rangePlans, getTotalProducedForPlan]);
+  // Bar chart data sorted worst first
+  const barData = useMemo(() => {
+    return [...hook.productionCost]
+      .sort((a, b) => b.totalVariancePct - a.totalVariancePct)
+      .map(r => ({
+        name: r.skuName.length > 20 ? r.skuName.slice(0, 20) + '…' : r.skuName,
+        fullName: r.skuName,
+        variancePct: Math.round(r.totalVariancePct * 10) / 10,
+        variance: r.totalVariance,
+        standardCost: r.standardCost,
+        actualCost: r.actualCost,
+      }));
+  }, [hook.productionCost]);
 
-  // Purchase Summary in range
-  const purchaseSummary = useMemo(() => {
-    const rangeReceipts = receipts.filter(r => r.receiptDate >= rangeStart && r.receiptDate <= rangeEnd);
-    const totalActual = rangeReceipts.reduce((s, r) => s + r.actualTotal, 0);
-    const totalStandard = rangeReceipts.reduce((s, r) => s + r.standardPrice, 0);
-    return { totalActual, totalStandard, variance: totalActual - totalStandard };
-  }, [receipts, rangeStart, rangeEnd]);
+  const periodLabel = periodMode === 'week'
+    ? `${format(startOfWeek(now, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(now, { weekStartsOn: 1 }), 'd MMM yyyy')}`
+    : periodMode === 'month'
+    ? format(now, 'MMMM yyyy')
+    : customFrom && customTo
+    ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
+    : 'Custom range';
 
-  // Production Cost Analysis in range
-  const prodCostAnalysis = useMemo(() => {
-    const rangeRecords = productionRecords.filter(r =>
-      r.productionDate >= rangeStart && r.productionDate <= rangeEnd
-    );
-    const bySmSku = new Map<string, ProductionRecord[]>();
-    rangeRecords.forEach(r => {
-      const arr = bySmSku.get(r.smSkuId) || [];
-      arr.push(r);
-      bySmSku.set(r.smSkuId, arr);
-    });
-
-    const rows: { smSkuId: string; name: string; actualOutputG: number; standardValue: number; actualValue: number; variance: number }[] = [];
-
-    bySmSku.forEach((recs, smSkuId) => {
-      const sku = skuMap.get(smSkuId);
-      const totalOutputG = recs.reduce((s, r) => s + r.actualOutputG, 0);
-      const totalBatches = recs.reduce((s, r) => s + r.batchesProduced, 0);
-
-      const bomHeader = bomHeaders.find(h => h.smSkuId === smSkuId);
-      let bomCostPerGram = 0;
-      if (bomHeader) {
-        const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-        const batchCost = bLines.reduce((s, line) => {
-          const ap = prices.find(p => p.skuId === line.rmSkuId && p.isActive);
-          return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
-        }, 0);
-        const outputPerBatch = bomHeader.batchSize * bomHeader.yieldPercent;
-        bomCostPerGram = outputPerBatch > 0 ? batchCost / outputPerBatch : 0;
-      }
-      const standardValue = bomCostPerGram * totalOutputG;
-
-      let actualValue = 0;
-      if (bomHeader) {
-        const bLines = bomLines.filter(l => l.bomHeaderId === bomHeader.id);
-        bLines.forEach(line => {
-          const gramsConsumed = line.qtyPerBatch * totalBatches;
-          const rangeReceipts = receipts.filter(r => r.skuId === line.rmSkuId && r.receiptDate >= rangeStart && r.receiptDate <= rangeEnd);
-          const totalQty = rangeReceipts.reduce((s, r) => s + r.quantityReceived, 0);
-          const weightedAvgPrice = totalQty > 0
-            ? rangeReceipts.reduce((s, r) => s + r.actualUnitPrice * r.quantityReceived, 0) / totalQty
-            : 0;
-          actualValue += gramsConsumed * weightedAvgPrice;
-        });
-      }
-
-      rows.push({ smSkuId, name: sku?.name ?? '—', actualOutputG: totalOutputG, standardValue, actualValue, variance: actualValue - standardValue });
-    });
-
-    return rows;
-  }, [productionRecords, rangeStart, rangeEnd, skuMap, bomHeaders, bomLines, prices, receipts]);
-
-  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const statusColor = (status: string) => {
-    if (status === 'Done') return 'default' as const;
-    if (status === 'In Progress') return 'secondary' as const;
-    return 'outline' as const;
-  };
-
-  const firstName = profile?.full_name?.split(' ')[0] || 'Chef';
-
-  const hasNoData = rmStockBalances.length === 0 && smStockBalances.length === 0 && rangePlans.length === 0;
+  // Data quality badges
+  const beginRow = hook.productionCost[0];
+  const beginDate = beginRow?.beginCountDate;
+  const endDate = beginRow?.endCountDate;
+  const beginEstimated = beginRow?.beginIsEstimated ?? true;
+  const endEstimated = beginRow?.endIsEstimated ?? true;
+  const anyEstimated = beginEstimated || endEstimated;
 
   return (
-    <div className="section-gap">
-      {/* Header with greeting */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-6">
+      {/* ── HEADER ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="page-title">{getGreeting(firstName)}</h2>
-          <p className="page-subtitle mt-1">
-            {dateRange?.from && dateRange?.to
-              ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d, yyyy')}`
-              : 'Select date range'}
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">CK Performance Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn('justify-start text-left font-normal h-9', !dateRange && 'text-muted-foreground')}>
-                <CalendarIcon className="w-4 h-4 mr-2" />
-                {dateRange?.from ? (
-                  dateRange.to ? `${format(dateRange.from, 'MMM d')} – ${format(dateRange.to, 'MMM d')}` : format(dateRange.from, 'MMM d')
-                ) : 'Pick dates'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <div className="flex items-center gap-1.5 text-helper text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            {lastUpdated}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg border overflow-hidden">
+            {(['week', 'month', 'custom'] as PeriodMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setPeriodMode(m)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium transition-colors',
+                  periodMode === m
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {m === 'week' ? 'This Week' : m === 'month' ? 'This Month' : 'Custom'}
+              </button>
+            ))}
           </div>
+          {periodMode === 'custom' && (
+            <div className="flex items-center gap-2">
+              <DatePicker value={customFrom} onChange={setCustomFrom} placeholder="From" />
+              <DatePicker value={customTo} onChange={setCustomTo} placeholder="To" />
+            </div>
+          )}
+          <Button onClick={handleCalculate} className="gap-2">
+            <Calculator className="w-4 h-4" />
+            Calculate
+          </Button>
         </div>
       </div>
 
-      {hasNoData && (
+      {/* ── PRE-CALCULATE EMPTY STATE ── */}
+      {!hasCalculated && !hook.loading && (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4">
-              <Package className="w-8 h-8 text-primary" />
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Calculator className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-lg font-semibold">Nothing cooking yet 🍳</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first data to get started — SKUs, recipes, or receipts!</p>
+            <p className="text-lg font-semibold">Select a period and calculate</p>
+            <p className="text-sm text-muted-foreground mt-1">Your kitchen performance metrics will appear here</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Stock Value Overview */}
-      <Card className="card-hover">
-        <CardHeader className="pb-3 px-card-p pt-card-p">
-          <CardTitle className="text-section-title flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <Wallet className="w-4 h-4 text-primary" />
+      {/* ── LOADING SKELETON ── */}
+      {hook.loading && (
+        <div className="space-y-6">
+          <Card><CardContent className="p-6 space-y-4">
+            <Skeleton className="h-6 w-60" />
+            <div className="grid grid-cols-3 gap-4">
+              <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />
             </div>
-            {t('title.stockValueOverview')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 px-card-p pb-card-p">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.rmStockValue')}</p>
-              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalRmValue)}</p>
-            </div>
-            <div className="rounded-lg border p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.smStockValue')}</p>
-              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.totalSmValue)}</p>
-            </div>
-            <div className="rounded-lg border bg-accent p-card-p">
-              <p className="text-helper font-semibold text-muted-foreground uppercase tracking-wider">{t('summary.totalInventoryValue')}</p>
-              <p className="text-2xl font-bold mt-2 font-mono">{fmt(stockValueOverview.combined)}</p>
-            </div>
+            <Skeleton className="h-48" />
+          </CardContent></Card>
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
           </div>
+          <div className="grid grid-cols-2 gap-6">
+            <Skeleton className="h-64" /><Skeleton className="h-64" />
+          </div>
+        </div>
+      )}
 
-          <Collapsible open={stockDetailOpen} onOpenChange={setStockDetailOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-helper text-muted-foreground">
-                <ChevronDown className={cn("w-3.5 h-3.5 mr-1 transition-transform", stockDetailOpen && "rotate-180")} />
-                {stockDetailOpen ? 'Hide' : 'Show'} SKU breakdown
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-3">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.rawMaterials')}</h4>
-                  <div className="max-h-48 overflow-y-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">{t('col.name')}</th><th className="px-3 py-2 text-right table-header">{t('col.stock')}</th><th className="px-3 py-2 text-right table-header">{t('col.value')}</th></tr></thead>
-                      <tbody>
-                        {stockValueOverview.rmRows.map((r, i) => (
-                          <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)} {r.uom}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
-                        ))}
-                        {stockValueOverview.rmRows.length === 0 && <tr><td colSpan={3} className="px-3 py-8 text-center text-muted-foreground text-helper">No RM stock</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
+      {/* ── MAIN CONTENT ── */}
+      {hasCalculated && !hook.loading && (
+        <>
+          {/* ═══ SECTION 1 — NORTH STAR ═══ */}
+          <Card className="rounded-xl shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                Production Cost Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* KPI tiles */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="rounded-lg bg-muted/40 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Target cost</p>
+                  <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalStandardCost)}</p>
                 </div>
-                <div>
-                  <h4 className="text-helper font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t('title.semiFinished')}</h4>
-                  <div className="max-h-48 overflow-y-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-table-header"><th className="px-3 py-2 text-left table-header">{t('col.name')}</th><th className="px-3 py-2 text-right table-header">{t('col.stockKg')}</th><th className="px-3 py-2 text-right table-header">{t('col.value')}</th></tr></thead>
-                      <tbody>
-                        {stockValueOverview.smRows.map((r, i) => (
-                          <tr key={i} className="border-b border-table-border last:border-0 table-row-hover"><td className="px-3 py-2">{r.name}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.stock)}</td><td className="px-3 py-2 text-right font-mono text-helper">{fmt(r.value)}</td></tr>
-                        ))}
-                        {stockValueOverview.smRows.length === 0 && <tr><td colSpan={3} className="px-3 py-8 text-center text-muted-foreground text-helper">No SM stock</td></tr>}
-                      </tbody>
-                    </table>
+                <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Actual spend</p>
+                  <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalActualCost)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-4 flex flex-col justify-center">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">vs standard</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className={cn(
+                      'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
+                      hook.totalVariance > 0
+                        ? 'bg-destructive/15 text-destructive'
+                        : hook.totalVariance < 0
+                        ? 'bg-success/15 text-success'
+                        : 'bg-muted text-muted-foreground'
+                    )}>
+                      {hook.totalVariance > 0 ? '+' : ''}{fmtBaht(hook.totalVariance)}
+                      <span className="text-sm ml-1.5">
+                        ({hook.totalVariancePct > 0 ? '+' : ''}{formatNumber(hook.totalVariancePct, 1)}%)
+                      </span>
+                    </span>
                   </div>
                 </div>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </CardContent>
-      </Card>
 
-      {/* SM Stock Overview */}
-      <Card className="card-hover">
-        <CardHeader className="pb-3 px-card-p pt-card-p">
-          <CardTitle className="text-section-title flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center">
-              <Package className="w-4 h-4 text-info" />
-            </div>
-            {t('title.smStockOverview')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-card-p pb-card-p">
-          {smStockRows.length === 0 ? (
-            <div className="flex flex-col items-center py-8">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                <Package className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium">No SM SKUs found</p>
-              <p className="text-helper text-muted-foreground mt-1">Add semi-finished products to see stock levels</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-table-header">
-                     <th className="px-4 py-3 text-left table-header">{t('col.name')}</th>
-                     <th className="px-4 py-3 text-right table-header">{t('col.currentStockKg')}</th>
-                     <th className="px-4 py-3 text-right table-header">{t('col.coverDays')}</th>
-                     <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {smStockRows.map((row, idx) => (
-                    <tr key={row.skuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                      <td className="px-4 py-3 font-medium">{row.name}</td>
-                      <td className="px-4 py-3 text-right font-mono">{fmt(row.currentStock)}</td>
-                      <td className="px-4 py-3 text-right font-mono">{row.coverDays !== null ? row.coverDays : '—'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          row.color === 'destructive' ? 'bg-destructive/10 text-destructive' :
-                          row.color === 'warning' ? 'bg-warning/10 text-warning' :
-                          'bg-success/10 text-success'
-                        }`}>
-                          {row.coverDays === null ? 'No data' : row.coverDays < 2 ? 'Critical' : row.coverDays <= 5 ? 'Low' : 'Healthy'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {/* Horizontal bar chart */}
+              {barData.length === 0 ? (
+                <div className="flex flex-col items-center py-10 text-muted-foreground">
+                  <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
+                  <p className="text-sm">No production recorded in this period</p>
+                </div>
+              ) : (
+                <div style={{ height: Math.max(200, barData.length * 60) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                      <XAxis type="number" tickFormatter={v => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12 }} />
+                      <ReferenceLine x={0} stroke="#888" />
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.[0]) return null;
+                          const d = payload[0].payload;
+                          return (
+                            <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm space-y-1">
+                              <p className="font-semibold">{d.fullName}</p>
+                              <p>Variance: {d.variancePct > 0 ? '+' : ''}{d.variancePct}%</p>
+                              <p>฿ Variance: {fmtBaht(d.variance)}</p>
+                              <p>Standard: {fmtBaht(d.standardCost)}</p>
+                              <p>Actual: {fmtBaht(d.actualCost)}</p>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar dataKey="variancePct" radius={[0, 4, 4, 0]}>
+                        {barData.map((entry, i) => (
+                          <Cell key={i} fill={entry.variancePct > 0 ? '#ef4444' : '#22c55e'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
-      {/* Production Plan */}
-      <Card className="card-hover">
-        <CardHeader className="pb-3 px-card-p pt-card-p">
-          <CardTitle className="text-section-title flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
-              <Factory className="w-4 h-4 text-success" />
+              {/* Collapsible breakdown table */}
+              <Collapsible open={breakdownOpen} onOpenChange={setBreakdownOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1">
+                    {breakdownOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    {breakdownOpen ? 'Hide breakdown' : 'Show breakdown'}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                        <tr className="border-b">
+                          <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Output (g)</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Standard ฿</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Actual ฿</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance ฿</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Price Var ฿</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Usage Var ฿</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hook.productionCost.map(row => {
+                          const pct = row.totalVariancePct;
+                          const pctClass = pct > 5 ? 'bg-destructive/10 text-destructive' : pct > 0 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success';
+                          return (
+                            <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
+                              <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
+                              <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(row.totalVariance)}</td>
+                              <td className={cn('px-3 py-2 text-right font-mono rounded', pctClass)}>{formatNumber(pct, 1)}%</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(row.priceVariance)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(row.usageVariance)}</td>
+                            </tr>
+                          );
+                        })}
+                        {hook.productionCost.length === 0 && (
+                          <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">No production data.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Data quality strip */}
+              {hook.productionCost.length > 0 && (
+                <div className="space-y-2">
+                  {anyEstimated && (
+                    <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Inventory boundaries are estimated — complete a CK stock count for precise variance calculation
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
+                      Beginning: {beginDate ?? '—'} {beginEstimated ? '· estimated' : '· counted'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
+                      Ending: {endDate ?? '—'} {endEstimated ? '· estimated' : '· counted'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ═══ SECTION 2 — INVENTORY SNAPSHOT ═══ */}
+          <div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { label: 'RM Stock · Production', value: Math.max(0, hook.inventory.rmProduction), subtitle: 'At standard price', icon: <Package className="w-5 h-5 text-warning" /> },
+                { label: 'RM Stock · Distribution', value: Math.max(0, hook.inventory.rmDistribution), subtitle: 'At standard price', icon: <Truck className="w-5 h-5 text-primary" /> },
+                { label: 'SM Stock', value: Math.max(0, hook.inventory.sm), subtitle: 'At BOM cost', icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
+              ].map(tile => (
+                <Card key={tile.label} className="rounded-xl shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{tile.label}</p>
+                        <p className="text-2xl font-bold font-mono mt-1">{fmtBaht(tile.value)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{tile.subtitle}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                        {tile.icon}
+                      </div>
+                    </div>
+                    {hook.inventory.inventoryCountWarning && hook.inventory.countDate && (
+                      <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
+                        <AlertTriangle className="w-3 h-3" />
+                        Count: {hook.inventory.countDate} · {Math.floor((Date.now() - new Date(hook.inventory.countDate).getTime()) / 86400000)} days old
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            Production Plan
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 px-card-p pb-card-p">
-          <div className="flex items-center gap-6">
-            <div className="text-sm"><span className="text-muted-foreground">Target:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalTarget)} kg</span></div>
-            <div className="text-sm"><span className="text-muted-foreground">Produced:</span> <span className="font-semibold font-mono">{fmt(planSummary.totalProduced)} g</span></div>
+            <div className="mt-2 text-right text-sm text-muted-foreground font-mono">
+              Total inventory {fmtBaht(Math.max(0, hook.inventory.total))}
+            </div>
           </div>
-          <Progress value={Math.min(planSummary.progress, 100)} className="h-2" />
-          {rangePlans.length === 0 ? (
-            <div className="flex flex-col items-center py-8">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                <Factory className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium">No plans in selected range</p>
-              <p className="text-helper text-muted-foreground mt-1">Try a different date range or create a production plan</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-table-header">
-                     <th className="px-4 py-3 text-left table-header">{t('col.smSku')}</th>
-                     <th className="px-4 py-3 text-right table-header">{t('summary.target')} (kg)</th>
-                     <th className="px-4 py-3 text-right table-header">{t('summary.produced')} (g)</th>
-                     <th className="px-4 py-3 text-center table-header">{t('col.status')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rangePlans.map((plan, idx) => {
-                    const produced = getTotalProducedForPlan(plan.id);
+
+          {/* ═══ SECTION 3 — PURCHASES + DISTRIBUTION ═══ */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Purchase Summary */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <ShoppingCart className="w-5 h-5 text-warning" />
+                  Purchases
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-3xl font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</p>
+                  <p className="text-xs text-muted-foreground">Total spend in period</p>
+                </div>
+
+                {donutData.length > 0 ? (
+                  <div className="relative" style={{ height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={donutData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          dataKey="value"
+                          paddingAngle={2}
+                        >
+                          {donutData.map((_, i) => (
+                            <PieCell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <PieTooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.[0]) return null;
+                            const d = payload[0].payload;
+                            const pct = hook.purchase.totalActualSpend > 0
+                              ? (d.value / hook.purchase.totalActualSpend * 100)
+                              : 0;
+                            return (
+                              <div className="bg-popover border rounded-lg shadow-lg p-2 text-sm">
+                                <p className="font-medium">{d.name}</p>
+                                <p>{fmtBaht(d.value)} ({formatNumber(pct, 1)}%)</p>
+                              </div>
+                            );
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-sm font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-6 text-muted-foreground">
+                    <ShoppingCart className="w-8 h-8 mb-2 opacity-40" />
+                    <p className="text-sm">No purchases in this period</p>
+                  </div>
+                )}
+
+                {hook.purchase.bySupplier.length > 0 && (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b bg-muted/50">
+                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Supplier</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Amount ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">%</th>
+                      </tr></thead>
+                      <tbody>
+                        {hook.purchase.bySupplier.slice(0, 6).map(s => (
+                          <tr key={s.supplierName} className="border-b border-muted/30 last:border-0">
+                            <td className="px-3 py-2 truncate max-w-[140px]" title={s.supplierName}>{s.supplierName}</td>
+                            <td className="px-3 py-2 text-right font-mono">{fmt(s.totalActual)}</td>
+                            <td className="px-3 py-2 text-right font-mono">{formatNumber(s.pct, 1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Distribution Summary */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <Truck className="w-5 h-5 text-primary" />
+                  Distribution to Branches
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">SM Distributed</p>
+                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">RM Distributed</p>
+                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalRmValue)}</p>
+                  </div>
+                </div>
+
+                {hook.distribution.byBranch.length > 0 ? (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b bg-muted/50">
+                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Branch</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">SM ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">RM ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Total ฿</th>
+                      </tr></thead>
+                      <tbody>
+                        {hook.distribution.byBranch.map(b => (
+                          <tr key={b.branchName} className="border-b border-muted/30 last:border-0">
+                            <td className="px-3 py-2">{b.branchName}</td>
+                            <td className="px-3 py-2 text-right font-mono">{fmt(b.smValue)}</td>
+                            <td className="px-3 py-2 text-right font-mono">{fmt(b.rmValue)}</td>
+                            <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(b.smValue + b.rmValue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-8 text-muted-foreground">
+                    <Truck className="w-8 h-8 mb-2 opacity-40" />
+                    <p className="text-sm">No distributions in this period</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ═══ SECTION 4 — SM STOCK STATUS STRIP ═══ */}
+          {smPills.length > 0 && (
+            <div className="rounded-lg border px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">SM Stock Status</p>
+              <TooltipProvider>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {smPills.map(pill => {
+                    const cd = pill.coverDays;
+                    const pillClass = cd === null
+                      ? 'bg-muted text-muted-foreground'
+                      : cd < 2
+                      ? 'bg-destructive/15 text-destructive'
+                      : cd <= 5
+                      ? 'bg-warning/15 text-warning'
+                      : 'bg-success/15 text-success';
                     return (
-                      <tr key={plan.id} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                        <td className="px-4 py-3 font-medium">{skuMap.get(plan.smSkuId)?.name ?? '—'}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(plan.targetQtyKg)}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(produced)}</td>
-                        <td className="px-4 py-3 text-center"><Badge variant={statusColor(plan.status)}>{plan.status}</Badge></td>
-                      </tr>
+                      <Tooltip key={pill.skuId}>
+                        <TooltipTrigger asChild>
+                          <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0', pillClass)}>
+                            {pill.name.length > 12 ? pill.name.slice(0, 12) + '…' : pill.name}
+                            <span className="font-mono font-bold">{cd !== null ? cd : '—'}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{pill.name}</p>
+                          <p className="font-mono">{cd !== null ? `${cd} days cover` : 'No usage data'}</p>
+                        </TooltipContent>
+                      </Tooltip>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              </TooltipProvider>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Purchase Summary */}
-        <Card className="card-hover">
-          <CardHeader className="pb-3 px-card-p pt-card-p">
-            <CardTitle className="text-section-title flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 text-warning" />
-              </div>
-              Purchase Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 px-card-p pb-card-p">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Actual Purchase Value</span>
-              <span className="font-mono font-semibold">{fmt(purchaseSummary.totalActual)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Standard Purchase Value</span>
-              <span className="font-mono font-semibold">{fmt(purchaseSummary.totalStandard)}</span>
-            </div>
-            <div className="border-t pt-3 flex justify-between text-sm">
-              <span className="font-semibold">Variance</span>
-              <span className={`font-mono font-bold ${purchaseSummary.variance > 0 ? 'variance-positive' : purchaseSummary.variance < 0 ? 'variance-negative' : ''}`}>
-                {purchaseSummary.variance > 0 ? '+' : ''}{fmt(purchaseSummary.variance)}
-                {purchaseSummary.variance !== 0 && (
-                  purchaseSummary.variance > 0 ? <TrendingUp className="w-3.5 h-3.5 inline ml-1" /> : <TrendingDown className="w-3.5 h-3.5 inline ml-1" />
-                )}
-              </span>
-            </div>
-          </CardContent>
+      {/* Error display */}
+      {hook.error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">{hook.error}</CardContent>
         </Card>
-
-        {/* Production Cost Analysis */}
-        <Card className="card-hover">
-          <CardHeader className="pb-3 px-card-p pt-card-p">
-            <CardTitle className="text-section-title flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-primary" />
-              </div>
-              Production Cost Analysis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-card-p pb-card-p">
-            {prodCostAnalysis.length === 0 ? (
-              <div className="flex flex-col items-center py-8">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                  <BarChart3 className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium">No production in selected range</p>
-                <p className="text-helper text-muted-foreground mt-1">Record production to see cost analysis</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-table-header">
-                      <th className="px-4 py-3 text-left table-header">SM SKU</th>
-                      <th className="px-4 py-3 text-right table-header">Output (g)</th>
-                      <th className="px-4 py-3 text-right table-header">Standard</th>
-                      <th className="px-4 py-3 text-right table-header">Actual</th>
-                      <th className="px-4 py-3 text-right table-header">Variance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prodCostAnalysis.map((row, idx) => (
-                      <tr key={row.smSkuId} className={`border-b border-table-border last:border-0 table-row-hover ${idx % 2 === 1 ? 'bg-table-alt' : ''}`}>
-                        <td className="px-4 py-3 font-medium">{row.name}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualOutputG)}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(row.standardValue)}</td>
-                        <td className="px-4 py-3 text-right font-mono">{fmt(row.actualValue)}</td>
-                        <td className={`px-4 py-3 text-right font-mono font-semibold ${row.variance > 0 ? 'variance-positive' : row.variance < 0 ? 'variance-negative' : ''}`}>
-                          {row.variance > 0 ? '+' : ''}{fmt(row.variance)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   );
 };
