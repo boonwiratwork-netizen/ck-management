@@ -503,10 +503,10 @@ export default function DailyStockCountPage({
                   <Table>
                     <TableHeader className="sticky-thead">
                       <TableRow className="bg-table-header border-b">
-                        <TableHead className={thClass}>SKU Code</TableHead>
-                        <TableHead className={thClass}>SKU Name</TableHead>
-                        <TableHead className={thClass}>Type</TableHead>
-                        <TableHead className={`text-right ${thClass}`}>Physical Count</TableHead>
+                        <TableHead className={thClass}>{t("col.skuCode")}</TableHead>
+                        <TableHead className={thClass}>{t("col.skuName")}</TableHead>
+                        <TableHead className={thClass}>{t("col.type")}</TableHead>
+                        <TableHead className={`text-right ${thClass}`}>{t("col.physical")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
