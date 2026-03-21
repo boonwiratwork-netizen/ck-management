@@ -90,6 +90,10 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     bomLines.forEach((l) => {
       if (activeHeaderIds.has(l.bomHeaderId)) rmIds.add(l.rmSkuId);
     });
+    // Also include distributable RMs
+    skus.forEach((s) => {
+      if (s.type === "RM" && s.isDistributable) rmIds.add(s.id);
+    });
     return rmIds;
   }, [skus, bomHeaders, bomLines]);
 

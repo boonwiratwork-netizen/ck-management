@@ -24,6 +24,7 @@ export interface SKU {
   supplier1: string;
   supplier2: string;
   leadTime: number;
+  isDistributable: boolean;
 }
 
 export const SKU_TYPE_LABELS: Record<SKUType, string> = {
@@ -62,4 +63,5 @@ export const EMPTY_SKU: Omit<SKU, 'id' | 'skuId'> = {
   supplier1: '',
   supplier2: '',
   leadTime: 0,
+  isDistributable: false,
 };

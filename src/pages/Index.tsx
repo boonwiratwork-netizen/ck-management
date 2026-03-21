@@ -260,6 +260,7 @@ const Index = () => {
       supplier1: '',
       supplier2: '',
       leadTime: Number(row['Lead Time']) || 0,
+      isDistributable: false,
     }));
     const count = await bulkAddSkus(skuRows);
     if (count) {
@@ -388,6 +389,7 @@ const Index = () => {
                     skus={skus}
                     onEdit={isManagement ? handleEdit : undefined}
                     onDelete={isManagement ? handleDeleteRequest : undefined}
+                    onToggleDistributable={(isManagement || role === 'ck_manager') ? (id, value) => updateSku(id, { isDistributable: value }) : undefined}
                     skuCategories={skuCategoryData.categories}
                   />
                 </div>

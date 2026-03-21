@@ -1,6 +1,7 @@
 import { SKU, SKUType, SKU_TYPE_LABELS } from '@/types/sku';
 import { SkuCategory } from '@/hooks/use-sku-categories';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Pencil, Trash2, Package, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Select,
@@ -19,6 +20,7 @@ interface SKUTableProps {
   skus: SKU[];
   onEdit?: (sku: SKU) => void;
   onDelete?: (id: string) => void;
+  onToggleDistributable?: (id: string, value: boolean) => void;
   loading?: boolean;
   skuCategories?: SkuCategory[];
 }
@@ -33,7 +35,7 @@ const typeBadge: Record<SKUType, string> = {
 type SortKey = 'skuId' | 'name' | 'type' | 'category' | 'status';
 type SortDir = 'asc' | 'desc';
 
-export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }: SKUTableProps) {
+export function SKUTable({ skus, onEdit, onDelete, onToggleDistributable, loading, skuCategories = [] }: SKUTableProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -158,6 +160,9 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
                 <th className="text-left px-4 py-3 table-header">Storage</th>
                 <th className="text-left px-4 py-3 table-header">Pack</th>
                 <th className="text-left px-4 py-3 table-header">Shelf Life</th>
+                {onToggleDistributable && (
+                  <th className="text-center px-4 py-3 table-header">Distributable</th>
+                )}
                 {(onEdit || onDelete) && (
                   <th className="text-right px-4 py-3 table-header">Actions</th>
                 )}
@@ -166,7 +171,7 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4">
+                  <td colSpan={onToggleDistributable ? 10 : 9} className="px-4">
                     <EmptyState
                       icon={Package}
                       title={skus.length === 0 ? 'No SKUs added yet' : 'No SKUs match your filters'}
@@ -201,6 +206,16 @@ export function SKUTable({ skus, onEdit, onDelete, loading, skuCategories = [] }
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.storageCondition}</td>
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.packSize} {sku.packUnit}</td>
                       <td className="px-4 py-3 text-muted-foreground text-helper">{sku.shelfLife}d</td>
+                      {onToggleDistributable && (
+                        <td className="px-4 py-3 text-center">
+                          {sku.type === 'RM' ? (
+                            <Checkbox
+                              checked={sku.isDistributable}
+                              onCheckedChange={(checked) => onToggleDistributable(sku.id, !!checked)}
+                            />
+                          ) : null}
+                        </td>
+                      )}
                       {(onEdit || onDelete) && (
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">

@@ -22,6 +22,7 @@ const toLocal = (row: any): SKU => ({
   supplier1: row.supplier1,
   supplier2: row.supplier2,
   leadTime: row.lead_time,
+  isDistributable: row.is_distributable ?? false,
 });
 
 const toDb = (data: Omit<SKU, 'id' | 'skuId'>, skuId?: string) => {
@@ -42,6 +43,7 @@ const toDb = (data: Omit<SKU, 'id' | 'skuId'>, skuId?: string) => {
     supplier1: data.supplier1,
     supplier2: data.supplier2,
     lead_time: data.leadTime,
+    is_distributable: data.isDistributable,
   };
   if (skuId) obj.sku_id = skuId;
   return obj;
@@ -119,6 +121,7 @@ export function useSkuData() {
     if (data.supplier1 !== undefined) dbData.supplier1 = data.supplier1;
     if (data.supplier2 !== undefined) dbData.supplier2 = data.supplier2;
     if (data.leadTime !== undefined) dbData.lead_time = data.leadTime;
+    if (data.isDistributable !== undefined) dbData.is_distributable = data.isDistributable;
     if (newSkuCode) dbData.sku_id = newSkuCode;
 
     const { error } = await supabase.from('skus').update(dbData).eq('id', id);
