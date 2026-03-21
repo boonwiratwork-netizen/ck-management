@@ -53,6 +53,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -180,6 +181,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
   // Save all
   const handleSaveAll = useCallback(async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string }[] = [];
 
     // Pre-loaded rows with qty > 0
@@ -220,11 +223,12 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       count++;
     }
 
+    setIsSaving(false);
     setSavedCount(count);
     setRowEdits({});
     setAdHocRows([]);
     setTimeout(() => setSavedCount(null), 4000);
-  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt]);
+  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving]);
 
   // Ad-hoc row management
   const handleAddAdHoc = useCallback(() => {
@@ -296,7 +300,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
   const SaveButton = () => (
     <div className="flex items-center gap-2">
-      <Button onClick={handleSaveAll} disabled={savableCount === 0 || saving}>
+      <Button onClick={handleSaveAll} disabled={savableCount === 0 || isSaving}>
         <Save className="w-4 h-4 mr-1" /> Save All ({savableCount})
       </Button>
       {savedCount !== null && (
