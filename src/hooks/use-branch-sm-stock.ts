@@ -173,7 +173,7 @@ export function useBranchSmStock(branchId: string | null) {
         .eq("is_central_kitchen", true)
         .limit(1)
         .maybeSingle();
-      const leadTime = ckSupplier?.lead_time ?? 1;
+      const leadTime = ckSupplier?.lead_time && ckSupplier.lead_time > 0 ? ckSupplier.lead_time : 1;
 
       // 8. Calculate per SKU — all values in grams
       const result: Record<string, BranchSmStockEntry> = {};
