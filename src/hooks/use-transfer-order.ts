@@ -83,7 +83,7 @@ export function useTransferOrder(
     const trIds = trs.map(t => t.id);
     const { data: allLines } = await supabase
       .from('transfer_request_lines')
-      .select('id, tr_id, sku_id, requested_qty, uom')
+      .select('id, tr_id, sku_id, requested_qty, uom, sku_type')
       .in('tr_id', trIds);
 
     // Get SKU info
