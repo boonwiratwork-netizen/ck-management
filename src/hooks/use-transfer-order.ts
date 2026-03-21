@@ -159,18 +159,33 @@ export function useTransferOrder(
       let toLines: TOLine[] = [];
 
       if (params.trId && params.trLines && params.trLines.length > 0) {
+        // Fetch active RM prices for cost lookup
+        const rmSkuIds = params.trLines.filter(l => l.skuType === 'RM').map(l => l.skuId);
+        let rmPriceMap: Record<string, number> = {};
+        if (rmSkuIds.length > 0) {
+          const { data: prices } = await supabase
+            .from('prices')
+            .select('sku_id, price_per_usage_uom')
+            .in('sku_id', rmSkuIds)
+            .eq('is_active', true);
+          for (const p of prices || []) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
+        }
+
         const lineInserts = params.trLines.map(l => {
-          const costPerG = getBomCostPerGram?.(l.skuId) ?? 0;
+          const unitCost = l.skuType === 'RM'
+            ? (rmPriceMap[l.skuId] ?? 0)
+            : (getBomCostPerGram?.(l.skuId) ?? 0);
           return {
             to_id: toRow.id,
             sku_id: l.skuId,
             planned_qty: l.requestedQty,
             actual_qty: l.requestedQty,
             uom: l.uom,
-            unit_cost: costPerG,
-            line_value: l.requestedQty * costPerG,
+            unit_cost: unitCost,
+            line_value: l.requestedQty * unitCost,
             notes: '',
             tr_line_id: l.id,
+            sku_type: l.skuType,
           };
         });
 
