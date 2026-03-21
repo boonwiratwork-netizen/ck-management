@@ -474,6 +474,50 @@ const translations: Record<string, Record<Lang, string>> = {
   "to.detailTrRef": { th: "อ้างอิงใบขอเบิก:", en: "TR Reference:" },
   "to.detailTotalValue": { th: "มูลค่ารวม:", en: "Total Value:" },
   "to.colActual": { th: "จริง", en: "ACTUAL" },
+
+  // ─── Store Overview ───
+  "storeOverview.importPosHint": { th: "นำเข้าข้อมูล POS วันนี้", en: "Import POS data for today" },
+  "storeOverview.countInventoryHint": { th: "นับสินค้าคงคลังประจำวัน", en: "Count your daily inventory" },
+  "storeOverview.logDeliveriesHint": { th: "บันทึกสินค้าที่รับเข้า", en: "Log incoming stock deliveries" },
+  "storeOverview.allDone": { th: "เสร็จสิ้น! งานวันนี้ครบแล้ว ✓", en: "All good! Today's tasks are complete ✓" },
+  "storeOverview.allDoneSubtitle": {
+    th: "บันทึกยอดขายและนับสต๊อกเมื่อวานแล้ว",
+    en: "Sales entered and yesterday's stock count submitted",
+  },
+  "storeOverview.salesNotEntered": { th: "ยังไม่ได้บันทึกยอดขายวันนี้", en: "Sales not entered today" },
+  "storeOverview.salesNotEnteredHint": {
+    th: "วางข้อมูล POS เพื่ออัปเดตรายงาน",
+    en: "Paste today's sales data to keep your reports up to date",
+  },
+  "storeOverview.stockNotSubmitted": { th: "ยังไม่ส่งใบนับสต๊อกเมื่อวาน", en: "Yesterday's stock count not submitted" },
+  "storeOverview.stockNotSubmittedHint": {
+    th: "นับและส่งใบนับเพื่อความถูกต้องของสต๊อก",
+    en: "Complete and submit yesterday's count to maintain accurate records",
+  },
+  "storeOverview.enterSales": { th: "บันทึกยอดขาย", en: "Enter Sales" },
+  "storeOverview.startCount": { th: "เริ่มนับ", en: "Start Count" },
+  "storeOverview.dismiss": { th: "ปิด", en: "Dismiss" },
+
+  // ─── Daily Stock Count ───
+  "dsc.subtitle": {
+    th: "สร้างและจัดการใบนับสต๊อกรายวันของแต่ละสาขา",
+    en: "Generate and manage daily stock count sheets for each branch",
+  },
+  "dsc.dateLabel": { th: "วันที่", en: "Date" },
+  "dsc.branchLabel": { th: "สาขา", en: "Branch" },
+  "dsc.selectBranch": { th: "เลือกสาขา", en: "Select branch" },
+  "dsc.colUnit": { th: "หน่วย", en: "Unit" },
+  "dsc.colReceived": { th: "รับเข้า", en: "Received" },
+  "dsc.keyboardHint": {
+    th: "Tab / Enter เพื่อไปแถวถัดไป · กดที่ช่องนับเพื่อเลือกอัตโนมัติ",
+    en: "Tab / Enter to advance · Physical Count auto-selects on focus",
+  },
+  "dsc.hideUnused": { th: "ซ่อน", en: "Hide" },
+  "dsc.showUnused": { th: "แสดง", en: "Show" },
+  "dsc.unusedSkus": { th: "SKU ที่ไม่ได้ใช้", en: "unused SKUs" },
+  "dsc.emptyTitle": { th: "ไม่มีใบนับสำหรับวันนี้", en: "No count sheet for this date" },
+  "dsc.emptyHint": { th: 'กด "สร้างใบนับ" เพื่อเริ่มต้น', en: 'Click "Generate Count Sheet" to create one' },
+  "dsc.successMsg": { th: "เยี่ยม! ส่งใบนับสต๊อกแล้ว!", en: "Great job! Daily count submitted!" },
 };
 
 export default translations;
