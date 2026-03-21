@@ -22,6 +22,7 @@ const toLocal = (row: any): SKU => ({
   supplier1: row.supplier1,
   supplier2: row.supplier2,
   leadTime: row.lead_time,
+  isDistributable: row.is_distributable ?? false,
 });
 
 const toDb = (data: Omit<SKU, 'id' | 'skuId'>, skuId?: string) => {
