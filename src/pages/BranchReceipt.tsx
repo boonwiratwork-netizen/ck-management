@@ -776,7 +776,7 @@ export default function BranchReceiptPage({
                       {filteredGroupedSuppliers.other.length > 0 && (
                         <>
                           <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Other Suppliers
+                            {t('br.otherSuppliers')}
                           </div>
                           {filteredGroupedSuppliers.other.map((s) => (
                             <button
