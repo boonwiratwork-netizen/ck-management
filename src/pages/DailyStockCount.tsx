@@ -439,7 +439,7 @@ export default function DailyStockCountPage({
                           <td className="text-right font-mono text-sm font-medium px-2 py-1">
                             {fmt0(Math.max(0, row.calculatedBalance))}
                           </td>
-                          <td className="px-1.5 py-1 text-right">
+                          <td className="px-1.5 py-1 text-right bg-foreground/[0.04]">
                             {isSubmitted ? (
                               <span className="text-sm font-mono">
                                 {row.physicalCount !== null ? fmt0(row.physicalCount) : "—"}
