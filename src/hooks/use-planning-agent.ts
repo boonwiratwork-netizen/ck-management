@@ -307,6 +307,27 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       }
       setSmSkusByBrand(derivedSmSkusByBrand);
 
+      // ── Derive menusByBrand ──────────────────────────────────────────
+      const derivedMenusByBrand: Record<string, MenuInfo[]> = {};
+      for (const m of allMenus) {
+        const brand = m.brand_name;
+        if (!brand) continue;
+        const arr = derivedMenusByBrand[brand] ?? [];
+        arr.push({ menuId: m.id, menuCode: m.menu_code, menuName: m.menu_name });
+        derivedMenusByBrand[brand] = arr;
+      }
+      for (const brand of Object.keys(derivedMenusByBrand)) {
+        derivedMenusByBrand[brand].sort((a, b) => a.menuCode.localeCompare(b.menuCode));
+      }
+      setMenusByBrand(derivedMenusByBrand);
+
+      // ── Derive menuBomByMenuId ───────────────────────────────────────
+      const derivedMenuBom: Record<string, Array<{ skuId: string; effectiveQty: number }>> = {};
+      for (const [menuId, ingredients] of bomByMenu) {
+        derivedMenuBom[menuId] = ingredients;
+      }
+      setMenuBomByMenuId(derivedMenuBom);
+
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
