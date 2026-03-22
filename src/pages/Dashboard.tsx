@@ -230,16 +230,16 @@ const Dashboard = ({
             <CardContent className="space-y-5">
               {/* KPI tiles */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-lg bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.targetCost')}</p>
-                  <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalStandardCost)}</p>
+                <div className="rounded-lg bg-[#F1EFE8] p-4">
+                  <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">{t('ckd.targetCost')}</p>
+                  <p className="text-3xl font-bold font-mono mt-1 text-[#2C2C2A]">{fmtBaht(hook.totalStandardCost)}</p>
                 </div>
                 <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.actualSpend')}</p>
-                  <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalActualCost)}</p>
+                  <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.actualSpend')}</p>
+                  <p className="text-3xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.totalActualCost)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 p-4 flex flex-col justify-center">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.vsStandard')}</p>
+                <div className="rounded-lg bg-[#F1EFE8] p-4 flex flex-col justify-center">
+                  <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">{t('ckd.vsStandard')}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className={cn(
                       'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
@@ -340,15 +340,15 @@ const Dashboard = ({
                  { label: t('ckd.rmDistribution'), value: Math.max(0, hook.inventory.rmDistribution), subtitle: t('ckd.atStdPrice'), icon: <Truck className="w-5 h-5 text-primary" /> },
                  { label: t('ckd.smStock'), value: Math.max(0, hook.inventory.sm), subtitle: t('ckd.atBomCost'), icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
               ].map(tile => (
-                <Card key={tile.label} className="rounded-xl shadow-sm">
+                <Card key={tile.label} className="rounded-xl shadow-sm bg-[#E6F1FB]">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{tile.label}</p>
-                        <p className="text-2xl font-bold font-mono mt-1">{fmtBaht(tile.value)}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{tile.subtitle}</p>
+                        <p className="text-xs uppercase tracking-wide text-[#185FA5]">{tile.label}</p>
+                        <p className="text-2xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(tile.value)}</p>
+                        <p className="text-xs text-[#185FA5]/70 mt-0.5">{tile.subtitle}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center shrink-0">
                         {tile.icon}
                       </div>
                     </div>
@@ -461,13 +461,13 @@ const Dashboard = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.smDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
+                  <div className="rounded-lg bg-[#E6F1FB] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.smDistributed')}</p>
+                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalSmValue)}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.rmDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalRmValue)}</p>
+                  <div className="rounded-lg bg-[#E6F1FB] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.rmDistributed')}</p>
+                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalRmValue)}</p>
                   </div>
                 </div>
 
