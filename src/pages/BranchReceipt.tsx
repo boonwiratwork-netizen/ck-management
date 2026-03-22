@@ -652,7 +652,7 @@ export default function BranchReceiptPage({
         <div className="bg-primary/5 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3">
           <Truck className="w-5 h-5 text-primary shrink-0" />
           <span className="text-sm font-semibold text-primary">
-            {pendingTOCount} delivery from Central Kitchen is on the way — select Central Kitchen below to receive
+            {t('br.pendingTOBanner').replace('{n}', String(pendingTOCount))}
           </span>
         </div>
       )}
