@@ -48,6 +48,10 @@ interface HookReturn {
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
 export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInput): HookReturn {
+  const smStockRef = useRef(smStockBalances);
+  smStockRef.current = smStockBalances;
+  const getOutputRef = useRef(getOutputPerBatch);
+  getOutputRef.current = getOutputPerBatch;
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
