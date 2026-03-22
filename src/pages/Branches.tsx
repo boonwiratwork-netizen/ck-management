@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { Branch, EMPTY_BRANCH, BranchStatus } from '@/types/branch';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Search, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Store, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { BranchMenuAvailability } from '@/components/BranchMenuAvailability';
 
 interface Props {
   branchData: ReturnType<typeof useBranchData>;
@@ -27,6 +28,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [expandedBranchId, setExpandedBranchId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return branches.filter(b => {
@@ -137,20 +139,42 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
           </thead>
           <tbody>
             {filtered.map(b => (
-              <tr key={b.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 font-medium">{b.branchName}</td>
-                <td className="px-4 py-3">{b.brandName}</td>
-                <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
-                <td className="px-4 py-3 text-center">
-                  <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                  </div>
-                </td>
-              </tr>
+              <Fragment key={b.id}>
+                <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${!readOnly ? 'cursor-pointer' : ''}`}
+                    onClick={() => !readOnly && setExpandedBranchId(prev => prev === b.id ? null : b.id)}>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      {!readOnly && (
+                        expandedBranchId === b.id
+                          ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      {b.branchName}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{b.brandName}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </td>
+                </tr>
+                {!readOnly && expandedBranchId === b.id && (
+                  <tr key={`${b.id}-menu`}>
+                    <td colSpan={5} className="px-4 py-4 bg-muted/20 border-b">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">Menu Availability</h4>
+                        <BranchMenuAvailability branchId={b.id} brandName={b.brandName} />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {filtered.length === 0 && (
               <tr>
