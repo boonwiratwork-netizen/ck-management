@@ -230,7 +230,7 @@ export type Database = {
           {
             foreignKeyName: "branch_forecasts_branch_id_fkey"
             columns: ["branch_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "branches"
             referencedColumns: ["id"]
           },

@@ -1,0 +1,1 @@
+ALTER TABLE public.branch_forecasts ADD CONSTRAINT branch_forecasts_branch_id_unique UNIQUE (branch_id);
