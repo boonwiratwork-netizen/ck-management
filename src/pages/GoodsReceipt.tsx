@@ -741,7 +741,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
       {/* Receipt History */}
       <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-heading font-semibold">Receipt History</h3>
+        <h3 className="text-lg font-heading font-semibold">{t('gr.receiptHistory')}</h3>
         <div className="flex flex-col sm:flex-row gap-3">
           <SearchInput
             value={histSearch}
