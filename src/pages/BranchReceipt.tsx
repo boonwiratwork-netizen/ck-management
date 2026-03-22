@@ -642,7 +642,7 @@ export default function BranchReceiptPage({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-heading font-bold">{t("title.branchReceipt")}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Record external purchases received at the branch</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('br.subtitle')}</p>
         </div>
         {(bothSelected || showCKSheet) && <SaveButton />}
       </div>
