@@ -132,6 +132,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                         }`}>
                           {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
                         </span>
+                      </td>
                       <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>{r.note}</td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
