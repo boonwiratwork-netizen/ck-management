@@ -164,18 +164,18 @@ export function StockCard({
               .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted')
               .eq('branch_id', branchId!)
               .eq('sku_id', skuId)
-              .gte('count_date', startDate)
+              .gte('count_date', resolvedStartDate)
               .order('count_date', { ascending: true }),
             supabase.from('branch_receipts')
               .select('receipt_date, qty_received, transfer_order_id, sku_id')
               .eq('branch_id', branchId!)
               .eq('sku_id', skuId)
-              .gte('receipt_date', startDate)
+              .gte('receipt_date', resolvedStartDate)
               .order('receipt_date', { ascending: true }),
             supabase.from('sales_entries')
               .select('sale_date, menu_code, menu_name, qty')
               .eq('branch_id', branchId!)
-              .gte('sale_date', startDate)
+              .gte('sale_date', resolvedStartDate)
               .order('sale_date', { ascending: true }),
             supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
             supabase.from('menus').select('id, menu_code'),
