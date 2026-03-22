@@ -836,7 +836,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
                     <SortableHeader
-                      label="Actual ฿"
+                      label={t('gr.colActualBaht')}
                       sortKey="actualTotal"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
