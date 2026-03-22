@@ -665,6 +665,7 @@ export default function TransferRequestPage() {
                 <Button
                   onClick={handleTRSubmit}
                   disabled={!trHook.canSubmit || submitting || (isManagement && !selectedBranchId)}
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
                   {submitting ? t("tr.submitting") : t("tr.submitTR")}
                 </Button>
