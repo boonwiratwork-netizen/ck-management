@@ -431,8 +431,9 @@ export default function DailyStockCountPage({
                                   const val = Number(e.target.value) || 0;
                                   if (val !== row.waste) updateWaste(row.id, val);
                                 }}
-                                className="h-8 text-xs text-right w-[80px] font-mono"
+                                className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
                                 placeholder="0"
+                                style={{ textAlign: "right" }}
                               />
                             )}
                           </td>
@@ -463,8 +464,9 @@ export default function DailyStockCountPage({
                                   if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
                                 }}
                                 onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                className="h-8 text-xs text-right w-[80px] font-mono"
-                                placeholder="—"
+                                className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
+                                placeholder="0"
+                                style={{ textAlign: "right" }}
                               />
                             )}
                           </td>
