@@ -268,7 +268,7 @@ export default function StockCountPage({
                     {(line.type === 'SM' ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     <UnitLabel unit={sku.usageUom} />
                   </td>
-                  <td className="px-1.5 py-1.5 text-right">
+                  <td className="px-1.5 py-1.5 text-right bg-foreground/[0.04]">
                     <div className="flex items-center justify-end gap-1">
                       <Input
                         type="number"
@@ -281,7 +281,7 @@ export default function StockCountPage({
                           const val = e.target.value === "" ? null : Number(e.target.value);
                           if (val !== line.physicalQty) updateLine(line.id, val);
                         }}
-                        className="h-8 text-xs text-right w-[80px] font-mono"
+                        className="h-8 text-xs text-right w-[80px] font-mono border-2 border-primary/40 focus:border-primary bg-background"
                       />
                       <UnitLabel unit={sku.usageUom} className="w-6 text-left" />
                     </div>
