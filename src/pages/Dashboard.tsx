@@ -335,10 +335,10 @@ const Dashboard = ({
           {/* ═══ SECTION 2 — INVENTORY SNAPSHOT ═══ */}
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'RM Stock · Production', value: Math.max(0, hook.inventory.rmProduction), subtitle: 'Current · at standard price', icon: <Package className="w-5 h-5 text-warning" /> },
-                { label: 'RM Stock · Distribution', value: Math.max(0, hook.inventory.rmDistribution), subtitle: 'Current · at standard price', icon: <Truck className="w-5 h-5 text-primary" /> },
-                { label: 'SM Stock', value: Math.max(0, hook.inventory.sm), subtitle: 'Current · at BOM cost', icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
+               {[
+                 { label: t('ckd.rmProduction'), value: Math.max(0, hook.inventory.rmProduction), subtitle: t('ckd.atStdPrice'), icon: <Package className="w-5 h-5 text-warning" /> },
+                 { label: t('ckd.rmDistribution'), value: Math.max(0, hook.inventory.rmDistribution), subtitle: t('ckd.atStdPrice'), icon: <Truck className="w-5 h-5 text-primary" /> },
+                 { label: t('ckd.smStock'), value: Math.max(0, hook.inventory.sm), subtitle: t('ckd.atBomCost'), icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
               ].map(tile => (
                 <Card key={tile.label} className="rounded-xl shadow-sm">
                   <CardContent className="p-5">
