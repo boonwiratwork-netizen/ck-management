@@ -739,7 +739,7 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-primary/10 text-primary text-xs rounded-full px-1.5 py-0.5 font-medium">
+                        <span className="bg-primary/10 text-primary text-xs rounded px-1.5 py-0.5 font-medium">
                           {pendingTOCount} pending
                         </span>
                       </button>
@@ -765,7 +765,7 @@ export default function BranchReceiptPage({
                             >
                               <span>{s.name}</span>
                               {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
                                   {pendingPRCounts[s.id]} pending
                                 </span>
                               )}
@@ -790,7 +790,7 @@ export default function BranchReceiptPage({
                             >
                               <span>{s.name}</span>
                               {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
                                   {pendingPRCounts[s.id]} pending
                                 </span>
                               )}
@@ -891,7 +891,7 @@ export default function BranchReceiptPage({
                   <th className={thClass}>{t('col.skuCode')}</th>
                   <th className={thClass}>{t('col.skuName')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colPlanned')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('br.colReceived')}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('br.colReceived')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colCostUnit')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colLineValue')}</th>
@@ -932,7 +932,7 @@ export default function BranchReceiptPage({
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                         {line.plannedQty.toLocaleString()}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           type="number"
                           min={0}
@@ -1022,7 +1022,7 @@ export default function BranchReceiptPage({
                   <th className={`${thClass} text-center`}>{t('col.week')}</th>
                   <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.supplier')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('col.qty')}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
@@ -1090,7 +1090,7 @@ export default function BranchReceiptPage({
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           type="number"
                           min={0}
