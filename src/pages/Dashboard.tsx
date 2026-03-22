@@ -424,7 +424,7 @@ const Dashboard = ({
                 ) : (
                   <div className="flex flex-col items-center py-6 text-muted-foreground">
                     <ShoppingCart className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">No purchases in this period</p>
+                    <p className="text-sm">{t('ckd.noPurchasesInPeriod')}</p>
                   </div>
                 )}
 
