@@ -197,6 +197,13 @@ export default function ProductionPage({
   // Collapsibles
   const [noBomOpen, setNoBomOpen] = useState(false);
 
+  // Planning Agent
+  const [agentOpen, setAgentOpen] = useState(false);
+  const planningAgent = usePlanningAgent({
+    smStockBalances: smStockBalances.map(s => ({ skuId: s.skuId, currentStock: s.currentStock })),
+    getOutputPerBatch,
+  });
+
   const planInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM" && s.status === "Active"), [skus]);
