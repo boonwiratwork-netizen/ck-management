@@ -907,7 +907,7 @@ export default function TransferOrderPage({
                     </td>
                     <td className={`${tableTokens.dataCell} font-mono text-xs text-muted-foreground`}>{to.trRef}</td>
                     <td className={tableTokens.dataCellMono}>{to.itemCount}</td>
-                    <td className={tableTokens.dataCellMono}>฿{formatNumber(to.totalValue, 2)}</td>
+                    <td className={tableTokens.dataCellMono}>฿{formatNumber(to.totalValue, 0)}</td>
                     <td className={tableTokens.dataCell}>
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${toStatusBadge[to.status] || ""}`}
