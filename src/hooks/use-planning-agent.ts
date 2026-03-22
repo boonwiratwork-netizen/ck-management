@@ -232,7 +232,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         if (!info) continue;
 
         const currentStockG = Math.max(0, stockMap.get(skuId) ?? 0);
-        const outputPerBatch = getOutputPerBatch(skuId);
+        const outputPerBatch = getOutputRef.current(skuId);
         const gap = weeklyDemandG - currentStockG;
         const suggestedBatches = outputPerBatch > 0 ? Math.max(0, Math.ceil(gap / outputPerBatch)) : 0;
 
