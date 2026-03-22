@@ -363,5 +363,5 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     setSuggestions(resultSuggestions);
   }, [aggregate]);
 
-  return { branches, suggestions, smSkusByBrand, isLoading, error, refetch: calculate, recalculateWithOverrides };
+  return { branches, suggestions, smSkusByBrand, menusByBrand, menuBomByMenuId, isLoading, error, refetch: calculate, recalculateWithOverrides };
 }
