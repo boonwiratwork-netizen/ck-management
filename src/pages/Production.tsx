@@ -162,7 +162,6 @@ export default function ProductionPage({
   const { t } = useLanguage();
   const { isManagement } = useAuth();
   const navigate = useNavigate();
-  });
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
   const [globalTarget, setGlobalTarget] = useState(7);
