@@ -676,7 +676,7 @@ export default function BranchReceiptPage({
             disabled={isStoreManager}
           >
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select branch" />
+              <SelectValue placeholder={t('br.selectBranch')} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">— Select branch —</SelectItem>
