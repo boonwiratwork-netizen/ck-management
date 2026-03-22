@@ -492,7 +492,12 @@ export default function TransferOrderPage({
                     </td>
                     <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
                     <td className={`${tableTokens.dataCell} text-center`}>
-                      <Button size="sm" className="h-7 text-xs" onClick={() => handleCreateFromTR(tr)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => handleCreateFromTR(tr)}
+                      >
                         {t("to.createTO")}
                       </Button>
                     </td>
@@ -632,7 +637,9 @@ export default function TransferOrderPage({
                   <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
                   <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>{t("to.colActualQty")}</th>
+                  <th className={`${tableTokens.headerCell} !bg-foreground text-background text-right`}>
+                    {t("to.colActualQty")}
+                  </th>
                   <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("to.colCostPerG")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("to.colLineValue")}</th>
@@ -901,7 +908,7 @@ export default function TransferOrderPage({
                     <td className={tableTokens.dataCellMono}>฿{formatNumber(to.totalValue, 2)}</td>
                     <td className={tableTokens.dataCell}>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${toStatusBadge[to.status] || ""}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${toStatusBadge[to.status] || ""}`}
                       >
                         {to.status}
                       </span>
@@ -957,7 +964,7 @@ export default function TransferOrderPage({
               <span className="font-mono">{detailTO?.toNumber}</span>
               {detailTO && (
                 <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${toStatusBadge[detailTO.status] || ""}`}
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${toStatusBadge[detailTO.status] || ""}`}
                 >
                   {detailTO.status}
                 </span>
