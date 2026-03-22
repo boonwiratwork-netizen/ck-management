@@ -56,12 +56,12 @@
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 9% 46%;
-    --sidebar-primary: 24 94% 53%;
+    --sidebar-primary: 220 10% 10%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 100% 97%;
-    --sidebar-accent-foreground: 24 94% 40%;
+    --sidebar-accent: 220 10% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 13% 93%;
-    --sidebar-ring: 24 94% 53%;
+    --sidebar-ring: 220 10% 10%;
     --sidebar-muted: 220 9% 64%;
     --sidebar-section: 220 9% 72%;
 
