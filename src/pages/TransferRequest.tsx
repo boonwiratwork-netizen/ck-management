@@ -837,7 +837,7 @@ export default function TransferRequestPage() {
                                 {totalUom > 0 ? formatNumber(totalUom, 0) : "—"}
                               </td>
                               <td
-                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
                               >
                                 {line.uom}
                               </td>
