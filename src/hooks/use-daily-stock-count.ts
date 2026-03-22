@@ -74,14 +74,23 @@ export function useDailyStockCount({
     fromDate: string,
     toDate: string
   ): Promise<Record<string, number>> => {
-    const { data: salesData } = await supabase
-      .from('sales_entries')
-      .select('*')
-      .eq('branch_id', branchId)
-      .gt('sale_date', fromDate)
-      .lt('sale_date', toDate);
+    const [salesRes, overridesRes] = await Promise.all([
+      supabase
+        .from('sales_entries')
+        .select('*')
+        .eq('branch_id', branchId)
+        .gt('sale_date', fromDate)
+        .lt('sale_date', toDate),
+      supabase
+        .from('branch_menu_overrides')
+        .select('menu_id, is_active')
+        .eq('branch_id', branchId)
+        .eq('is_active', false),
+    ]);
 
-    const sales = salesData || [];
+    const suppressedMenuIds = new Set((overridesRes.data || []).map(o => o.menu_id));
+
+    const sales = salesRes.data || [];
     if (sales.length === 0) return {};
 
     const menuByCode = new Map<string, Menu>();
