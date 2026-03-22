@@ -58,9 +58,35 @@ export const colors = {
   rowFilledBg: "success/5", // light green tint
   /** Filled row left border accent */
   rowFilledBorder: "success", // green-400/500
+  // Chart palette
+  chart1Revenue: "#378ADD",
+  chart2Cost: "#D85A30",
+  chart3Threshold: "#BA7517",
+  chart4Compare: "#1D9E75",
+  chart5Accent: "#7F77DD",
 } as const;
 
 // ─── STATUS DOT COLORS ─────────────────────────────────────────────────────
+export const badgeColors = {
+  active: "bg-[#EAF3DE] text-[#27500A]",
+  inactive: "bg-[#F1EFE8] text-[#5F5E5A]",
+  draft: "bg-[#F1EFE8] text-[#5F5E5A]",
+  submitted: "bg-[#FAEEDA] text-[#633806]",
+  sent: "bg-[#FAEEDA] text-[#633806]",
+  acknowledged: "bg-[#E6F1FB] text-[#0C447C]",
+  fulfilled: "bg-[#EAF3DE] text-[#27500A]",
+  received: "bg-[#EAF3DE] text-[#27500A]",
+  partiallyReceived: "bg-[#E6F1FB] text-[#0C447C]",
+  cancelled: "bg-[#FCEBEB] text-[#791F1F]",
+  cat: [
+    "bg-[#E6F1FB] text-[#0C447C]",
+    "bg-[#FAEEDA] text-[#633806]",
+    "bg-[#EAF3DE] text-[#27500A]",
+    "bg-[#EEEDFE] text-[#3C3489]",
+    "bg-[#FAECE7] text-[#712B13]",
+    "bg-[#E1F5EE] text-[#085041]",
+  ],
+} as const;
 export const statusDotColors = {
   green: "bg-success",
   amber: "bg-warning",
@@ -404,15 +430,15 @@ export const table = {
 
   // ─── Status badges ────────────────────────────
   badge: {
-    base: "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-    draft: "bg-muted text-muted-foreground",
-    submitted: "bg-amber-100 text-amber-700",
-    acknowledged: "bg-blue-100 text-blue-700",
-    sent: "bg-amber-100 text-amber-700",
-    fulfilled: "bg-green-100 text-green-700",
-    received: "bg-green-100 text-green-700",
-    partiallyReceived: "bg-blue-100 text-blue-700",
-    cancelled: "bg-red-100 text-red-700",
+    base: "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium",
+    draft: "bg-[#F1EFE8] text-[#5F5E5A]",
+    submitted: "bg-[#FAEEDA] text-[#633806]",
+    sent: "bg-[#FAEEDA] text-[#633806]",
+    acknowledged: "bg-[#E6F1FB] text-[#0C447C]",
+    fulfilled: "bg-[#EAF3DE] text-[#27500A]",
+    received: "bg-[#EAF3DE] text-[#27500A]",
+    partiallyReceived: "bg-[#E6F1FB] text-[#0C447C]",
+    cancelled: "bg-[#FCEBEB] text-[#791F1F]",
   },
 } as const;
 
@@ -470,3 +496,16 @@ export const wording = {
   /** Batch unit */
   batch: "แบทช์",
 } as const;
+
+/**
+ * Returns a Tailwind className string for a category badge.
+ * Pass any string (category name, SKU type, etc.) — color is
+ * deterministic based on the string so the same category always
+ * gets the same color across the app.
+ *
+ * Usage: <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(category)}`}>
+ */
+export function getCatBadgeClass(label: string): string {
+  const idx = label.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % badgeColors.cat.length;
+  return badgeColors.cat[idx];
+}
