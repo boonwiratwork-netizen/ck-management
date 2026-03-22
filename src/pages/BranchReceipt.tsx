@@ -897,7 +897,7 @@ export default function BranchReceiptPage({
                   <th className={thClass}>{t("col.skuCode")}</th>
                   <th className={thClass}>{t("col.skuName")}</th>
                   <th className={`${thClass} text-right`}>{t("br.colPlanned")}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap bg-foreground text-background">
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
                     {t("br.colReceived")}
                   </th>
                   <th className={`${thClass} text-center`}>{t("col.uom")}</th>
@@ -1030,7 +1030,7 @@ export default function BranchReceiptPage({
                   <th className={`${thClass} text-center`}>{t("col.week")}</th>
                   <th className={thClass}>{t("col.sku")}</th>
                   <th className={thClass}>{t("col.supplier")}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap bg-foreground text-background">
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
                     {t("col.qty")}
                   </th>
                   <th className={`${thClass} text-center`}>{t("col.uom")}</th>
