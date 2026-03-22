@@ -456,7 +456,7 @@ const Dashboard = ({
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <Truck className="w-5 h-5 text-primary" />
-                  Distribution to Branches
+                  {t('ckd.distributionTitle')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
