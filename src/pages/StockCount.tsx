@@ -407,13 +407,13 @@ export default function StockCountPage({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <TabsList>
-                <TabsTrigger value="RM" className="text-xs">
+                <TabsTrigger value="RM" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-foreground data-[state=active]:font-semibold px-4">
                   RM ({tabCounts.RM})
                 </TabsTrigger>
-                <TabsTrigger value="SM" className="text-xs">
+                <TabsTrigger value="SM" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-warning data-[state=active]:font-semibold px-4">
                   SM ({tabCounts.SM})
                 </TabsTrigger>
-                <TabsTrigger value="PK" className="text-xs">
+                <TabsTrigger value="PK" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground data-[state=active]:font-semibold px-4">
                   PK ({tabCounts.PK})
                 </TabsTrigger>
               </TabsList>
