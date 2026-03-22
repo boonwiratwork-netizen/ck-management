@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Search, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Store, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { BranchMenuAvailability } from '@/components/BranchMenuAvailability';
 
 interface Props {
   branchData: ReturnType<typeof useBranchData>;
