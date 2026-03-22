@@ -342,7 +342,9 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                                 : "text-sidebar-foreground hover:bg-accent/50 hover:text-accent-foreground"
                             }`}
                           >
-                            <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                            <item.icon
+                              className={`w-4 h-4 shrink-0 ${isActive ? "!text-primary opacity-100" : "opacity-70"}`}
+                            />
                             <span className="text-sm">{label}</span>
                             {item.key === "transfer-order" &&
                               pendingTRCount > 0 &&
