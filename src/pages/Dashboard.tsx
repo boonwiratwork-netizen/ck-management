@@ -323,8 +323,8 @@ const Dashboard = ({
                        {t('ckd.beginning')} {beginDate ?? '—'} {beginEstimated ? t('ckd.estimated') : t('ckd.counted')}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
-                      Ending: {endDate ?? '—'} {endEstimated ? '· estimated' : '· counted'}
+                       <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
+                       {t('ckd.ending')} {endDate ?? '—'} {endEstimated ? t('ckd.estimated') : t('ckd.counted')}
                     </span>
                   </div>
                 </div>
