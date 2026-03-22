@@ -622,7 +622,7 @@ export default function BranchReceiptPage({
       </Button>
       {savedCount !== null && (
         <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
-          <CheckCircle className="w-3.5 h-3.5" /> {savedCount} items saved
+          <CheckCircle className="w-3.5 h-3.5" /> {t('br.savedConfirm').replace('{n}', String(savedCount))}
         </span>
       )}
     </div>
