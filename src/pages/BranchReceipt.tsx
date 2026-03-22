@@ -718,7 +718,7 @@ export default function BranchReceiptPage({
                     type="text"
                     value={supplierSearch}
                     onChange={(e) => setSupplierSearch(e.target.value)}
-                    placeholder="Search supplier..."
+                    placeholder={t('br.searchSupplier')}
                     className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
                     autoFocus
                   />
