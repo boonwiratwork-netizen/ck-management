@@ -857,7 +857,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={thClass}>Note</th>
+                  <th className={thClass}>{t('col.note')}</th>
                   <th className={`${thClass} text-center`}></th>
                 </tr>
               </thead>
