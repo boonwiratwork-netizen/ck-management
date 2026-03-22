@@ -168,9 +168,12 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
                 {!readOnly && expandedBranchId === b.id && (
                   <tr key={`${b.id}-menu`}>
                     <td colSpan={5} className="px-4 py-4 bg-muted/20 border-b">
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold">Menu Availability</h4>
-                        <BranchMenuAvailability branchId={b.id} brandName={b.brandName} />
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold">Menu Availability</h4>
+                          <BranchMenuAvailability branchId={b.id} brandName={b.brandName} />
+                        </div>
+                        <BranchForecast branchId={b.id} avgSellingPrice={(b as any).avgSellingPrice ?? null} />
                       </div>
                     </td>
                   </tr>
