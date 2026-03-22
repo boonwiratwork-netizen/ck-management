@@ -222,7 +222,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       }
 
       // ── Stock balance map ───────────────────────────────────────────────
-      const stockMap = new Map(smStockBalances.map(s => [s.skuId, s.currentStock]));
+      const stockMap = new Map(smStockRef.current.map(s => [s.skuId, s.currentStock]));
 
       // ── Build suggestions ───────────────────────────────────────────────
       const resultSuggestions: PlanSuggestion[] = [];
