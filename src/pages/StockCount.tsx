@@ -596,7 +596,11 @@ export default function StockCountPage({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button
+              variant="outline"
+              className="h-8 text-xs gap-1 bg-warning hover:bg-warning/90 text-warning-foreground"
+              onClick={() => setConfirmOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleConfirmAdjust}>
