@@ -679,6 +679,15 @@ export function StockCard({
                   </tbody>
                 </table>
               )}
+              <div className="mt-3 text-xs text-muted-foreground">
+                {daysBack === 14 ? (
+                  <>Showing last 14 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>Load 30 days</button></>
+                ) : daysBack === 30 ? (
+                  <>Showing last 30 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>Load all history</button></>
+                ) : (
+                  <>Showing all history</>
+                )}
+              </div>
             </>
           ) : (
             /* ─── CK context table (existing) ─── */
