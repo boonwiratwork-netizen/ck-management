@@ -300,7 +300,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
   const SaveButton = () => (
     <div className="flex items-center gap-2">
-      <Button onClick={handleSaveAll} disabled={savableCount === 0 || isSaving}>
+      <Button
+        onClick={handleSaveAll}
+        disabled={savableCount === 0 || isSaving}
+        className="bg-success hover:bg-success/90 text-success-foreground"
+      >
         <Save className="w-4 h-4 mr-1" /> Save All ({savableCount})
       </Button>
       {savedCount !== null && (
