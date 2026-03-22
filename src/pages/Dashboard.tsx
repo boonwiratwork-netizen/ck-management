@@ -262,7 +262,7 @@ const Dashboard = ({
               {hook.productionCost.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-muted-foreground">
                   <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
-                  <p className="text-sm">No production recorded in this period</p>
+                  <p className="text-sm">{t('ckd.noProdInPeriod')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border">
