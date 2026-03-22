@@ -9,6 +9,7 @@ const toLocal = (row: any): Branch => ({
   brandName: row.brand_name,
   location: row.location,
   status: row.status,
+  avgSellingPrice: row.avg_selling_price ?? null,
 });
 
 export function useBranchData() {
