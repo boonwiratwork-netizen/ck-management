@@ -940,7 +940,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={tableTokens.headerCellNumeric}>Request</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">Request</th>
                           <th className={tableTokens.headerCellNumeric}>Total</th>
                           <th className={tableTokens.headerCellCenter}>Unit</th>
                         </tr>
