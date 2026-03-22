@@ -355,7 +355,7 @@ const Dashboard = ({
                     {invCountWarning && hook.inventory.lastCountDate && (
                       <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                         <AlertTriangle className="w-3 h-3" />
-                        Last count: {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} days old
+                        {t('ckd.lastCount')} {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} {t('ckd.daysOld')}
                       </span>
                     )}
                   </CardContent>
