@@ -36,7 +36,7 @@
     --input: 220 13% 91%;
     --ring: 220 10% 10%;
 
-    --radius: 0.5rem;
+    /* --radius moved above */
 
     /* Custom semantic tokens */
     --success: 142 71% 35%;
