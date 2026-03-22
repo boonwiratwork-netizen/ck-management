@@ -272,7 +272,7 @@ export default function DailyStockCountPage({
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleGenerate} disabled={!selectedBranch || generating}>
+            <Button variant="outline" onClick={handleGenerate} disabled={!selectedBranch || generating}>
               {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" /> {t("btn.generate")}...
