@@ -849,7 +849,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <th className={`${thClass} text-right`}>{t('gr.colStdTot')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
                     <SortableHeader
-                      label="Var"
+                      label={t('gr.colVar')}
                       sortKey="variance"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
