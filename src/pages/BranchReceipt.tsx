@@ -669,7 +669,7 @@ export default function BranchReceiptPage({
           align="start"
         />
         <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Branch</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('br.branchLabel')}</label>
           <Select
             value={branchId || "_none"}
             onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
