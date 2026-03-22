@@ -239,7 +239,7 @@ const Dashboard = ({
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalActualCost)}</p>
                 </div>
                 <div className="rounded-lg bg-muted/40 p-4 flex flex-col justify-center">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">vs standard</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.vsStandard')}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className={cn(
                       'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
