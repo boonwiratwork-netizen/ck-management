@@ -92,79 +92,75 @@ export default function StoreOverview({ branches, onNavigate }: StoreOverviewPro
 
       {/* SECTION 1: TODAY'S SNAPSHOT */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-hover">
+        <Card className="card-hover bg-[#E6F1FB]">
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.todayRevenue')}</p>
-                <p className="text-2xl font-bold mt-2 font-mono">
+                <p className="text-helper uppercase tracking-wider font-semibold text-[#185FA5]">{t('summary.todayRevenue')}</p>
+                <p className="text-2xl font-bold mt-2 font-mono text-[#042C53]">
                   {loading ? '—' : `฿${fmt(todaySales?.revenue || 0)}`}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-success" />
+              <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-[#185FA5]" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-hover">
+        <Card className="card-hover bg-[#F1EFE8]">
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.todayOrders')}</p>
-                <p className="text-2xl font-bold mt-2 font-mono">
+                <p className="text-helper uppercase tracking-wider font-semibold text-[#5F5E5A]">{t('summary.todayOrders')}</p>
+                <p className="text-2xl font-bold mt-2 font-mono text-[#2C2C2A]">
                   {loading ? '—' : (todaySales?.orders || 0)}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 text-info" />
+              <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-[#5F5E5A]" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-hover">
+        <Card className="card-hover bg-[#FAEEDA]">
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.yesterdayCount')}</p>
+                <p className="text-helper uppercase tracking-wider font-semibold text-[#854F0B]">{t('summary.yesterdayCount')}</p>
                 <div className="mt-2">
                   {yesterdayStockStatus === 'loading' ? (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-[#854F0B]/60">—</span>
                   ) : yesterdayStockStatus === 'submitted' ? (
                     <span className="inline-flex items-center gap-1.5 text-success font-semibold">
                       <CheckCircle2 className="w-4 h-4" /> {t('status.submitted')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 text-warning font-semibold">
+                    <span className="inline-flex items-center gap-1.5 text-[#412402] font-semibold">
                       <AlertTriangle className="w-4 h-4" /> {t('status.notSubmitted')}
                     </span>
                   )}
                 </div>
               </div>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                yesterdayStockStatus === 'submitted' ? 'bg-success/10' : 'bg-warning/10'
-              }`}>
-                <ClipboardCheck className={`w-5 h-5 ${
-                  yesterdayStockStatus === 'submitted' ? 'text-success' : 'text-warning'
-                }`} />
+              <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center">
+                <ClipboardCheck className="w-5 h-5 text-[#854F0B]" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-hover">
+        <Card className="card-hover bg-[#E6F1FB]">
           <CardContent className="p-card-p">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-helper uppercase tracking-wider font-semibold text-muted-foreground">{t('summary.thisMonthRevenue')}</p>
-                <p className="text-2xl font-bold mt-2 font-mono">
+                <p className="text-helper uppercase tracking-wider font-semibold text-[#185FA5]">{t('summary.thisMonthRevenue')}</p>
+                <p className="text-2xl font-bold mt-2 font-mono text-[#042C53]">
                   {loading ? '—' : `฿${fmt(monthRevenue)}`}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <CalendarDays className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center">
+                <CalendarDays className="w-5 h-5 text-[#185FA5]" />
               </div>
             </div>
           </CardContent>

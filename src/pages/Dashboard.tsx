@@ -461,13 +461,13 @@ const Dashboard = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.smDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
+                  <div className="rounded-lg bg-[#E6F1FB] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.smDistributed')}</p>
+                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalSmValue)}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.rmDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalRmValue)}</p>
+                  <div className="rounded-lg bg-[#E6F1FB] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.rmDistributed')}</p>
+                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalRmValue)}</p>
                   </div>
                 </div>
 
