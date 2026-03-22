@@ -168,8 +168,8 @@ export const buttons = {
   // Segmented mode toggle — for embedded table header use
   // Use with plain <button> elements or ToggleGroup from @/components/ui/toggle
   modeToggleWrapper: 'flex rounded-md overflow-hidden border border-border',
-  modeToggleActive: 'px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors',
-  modeToggleInactive: 'px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:bg-muted transition-colors',
+  modeToggleActive: 'px-3 py-1.5 text-xs font-medium bg-foreground text-background transition-colors',
+  modeToggleInactive: 'px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:text-foreground border border-input transition-colors',
 } as const;
 
 // ─── TABLE STANDARDS ────────────────────────────────────────────────────────
