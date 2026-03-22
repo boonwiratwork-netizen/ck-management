@@ -224,7 +224,7 @@ const Dashboard = ({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                Production Cost Performance
+                {t('dash.productionCostAnalysis')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
