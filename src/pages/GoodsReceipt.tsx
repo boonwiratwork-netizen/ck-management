@@ -798,7 +798,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} text-center cursor-pointer`} onClick={() => hHandleSort("week")}>
                     <SortableHeader
-                      label="Wk"
+                      label={t('col.week')}
                       sortKey="week"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
