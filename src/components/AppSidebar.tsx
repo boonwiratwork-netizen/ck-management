@@ -254,10 +254,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const allGroups: NavGroup[] = [];
 
   if (isManagement) {
-    allGroups.push(masterDataGroup, ckGroup, storeGroup, managementGroup);
+    allGroups.push(ckGroup, storeGroup, managementGroup);
   } else if (role === "ck_manager") {
     // CK Manager: ONLY CK sections (no Store, no Management)
-    allGroups.push(masterDataGroup, ckGroup);
+    allGroups.push(ckGroup);
   } else if (role === "store_manager" || role === "area_manager") {
     // Store Manager / Area Manager: ONLY Store section
     allGroups.push(storeGroup);
