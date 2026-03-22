@@ -107,12 +107,26 @@ interface AppSidebarProps {
   onTabChange: (tab: TabKey) => void;
 }
 
+interface SubLabel {
+  subLabel: string;
+}
+interface NavItem {
+  key: TabKey;
+  labelKey: string;
+  icon: React.ElementType;
+}
+type NavGroupEntry = NavItem | SubLabel;
+
+function isSubLabel(entry: NavGroupEntry): entry is SubLabel {
+  return "subLabel" in entry;
+}
+
 interface NavGroup {
   label: string;
   labelKey: string;
   icon?: React.ElementType;
   section: "ck" | "store" | "management" | "overview";
-  items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
+  items: NavGroupEntry[];
 }
 
 const masterDataGroup: NavGroup = {
@@ -132,14 +146,17 @@ const ckGroup: NavGroup = {
   icon: ChefHat,
   section: "ck",
   items: [
-    { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-    { key: "bom", labelKey: "nav.bom", icon: FlaskConical },
+    { subLabel: "Daily" },
     { key: "receipt", labelKey: "nav.goodsReceipt", icon: ClipboardList },
     { key: "production", labelKey: "nav.production", icon: Factory },
     { key: "transfer-order", labelKey: "nav.transferOrder", icon: ArrowRightLeft },
+    { key: "stockcount", labelKey: "nav.stockCount", icon: ClipboardCheck },
+    { subLabel: "Monitor" },
+    { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
     { key: "stock", labelKey: "nav.rmStock", icon: Warehouse },
     { key: "smstock", labelKey: "nav.smStock", icon: BoxesIcon },
-    { key: "stockcount", labelKey: "nav.stockCount", icon: ClipboardCheck },
+    { subLabel: "Setup" },
+    { key: "bom", labelKey: "nav.bom", icon: FlaskConical },
   ],
 };
 
@@ -149,17 +166,20 @@ const storeGroup: NavGroup = {
   icon: Store,
   section: "store",
   items: [
-    { key: "store", labelKey: "nav.storeOverview", icon: Store },
-    { key: "menu-master", labelKey: "nav.menuMaster", icon: UtensilsCrossed },
-    { key: "menu-bom", labelKey: "nav.menuBom", icon: BookOpen },
-    { key: "sp-bom", labelKey: "nav.spBom", icon: Sparkles },
-    { key: "modifier-rules", labelKey: "nav.modifierRules", icon: ListFilter },
+    { subLabel: "Daily" },
     { key: "sales-entry", labelKey: "nav.salesEntry", icon: ShoppingCart },
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
+    { subLabel: "Monitor" },
+    { key: "store", labelKey: "nav.storeOverview", icon: Store },
     { key: "store-stock", labelKey: "nav.storeStock", icon: LayoutGrid },
     { key: "food-cost", labelKey: "nav.foodCost", icon: PieChart },
+    { subLabel: "Setup" },
+    { key: "menu-master", labelKey: "nav.menuMaster", icon: UtensilsCrossed },
+    { key: "menu-bom", labelKey: "nav.menuBom", icon: BookOpen },
+    { key: "sp-bom", labelKey: "nav.spBom", icon: Sparkles },
+    { key: "modifier-rules", labelKey: "nav.modifierRules", icon: ListFilter },
   ],
 };
 
@@ -294,7 +314,17 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {group.items.map((item) => {
+                    {group.items.map((item, itemIdx) => {
+                      if (isSubLabel(item)) {
+                        if (collapsed) return null;
+                        return (
+                          <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5">
+                            <span className="text-helper uppercase tracking-wider text-muted-foreground font-semibold text-[10px]">
+                              {item.subLabel}
+                            </span>
+                          </li>
+                        );
+                      }
                       const isActive = activeTab === item.key;
                       const label = t(item.labelKey);
                       return (
