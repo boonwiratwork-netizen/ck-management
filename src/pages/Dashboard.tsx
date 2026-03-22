@@ -374,7 +374,7 @@ const Dashboard = ({
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <ShoppingCart className="w-5 h-5 text-warning" />
-                  Purchases
+                  {t('dash.purchaseSummary')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
