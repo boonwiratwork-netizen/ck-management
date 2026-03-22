@@ -319,8 +319,8 @@ const Dashboard = ({
                   )}
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
-                      <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
-                      Beginning: {beginDate ?? '—'} {beginEstimated ? '· estimated' : '· counted'}
+                       <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
+                       {t('ckd.beginning')} {beginDate ?? '—'} {beginEstimated ? t('ckd.estimated') : t('ckd.counted')}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
