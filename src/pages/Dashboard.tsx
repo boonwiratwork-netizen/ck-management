@@ -231,7 +231,7 @@ const Dashboard = ({
               {/* KPI tiles */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-lg bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Target cost</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.targetCost')}</p>
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalStandardCost)}</p>
                 </div>
                 <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
