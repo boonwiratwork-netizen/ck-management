@@ -673,6 +673,7 @@ export default function TransferRequestPage() {
                 <Button
                   onClick={handlePRSubmit}
                   disabled={!canSubmitPR || prSubmitting || (isManagement && !selectedBranchId)}
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
                   {prSubmitting ? "Submitting..." : "Submit PR"}
                 </Button>
