@@ -367,6 +367,12 @@ export default function StockCountPage({
               </Badge>
             )}
 
+            {selectedSession && !isCompleted && summary.counted > 0 && (
+              <Button size="sm" className="h-8 text-xs gap-1" onClick={() => setConfirmOpen(true)}>
+                <CheckCircle2 className="w-3.5 h-3.5" /> ยืนยันและปรับสต็อก
+              </Button>
+            )}
+
             <div className="ml-auto flex items-center gap-2">
               {sessionForDate && isManagement && (
                 <Button
