@@ -757,7 +757,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <SelectValue placeholder="All Suppliers" />
             </SelectTrigger>
             <SelectContent className="max-h-60">
-              <SelectItem value="all">All Suppliers</SelectItem>
+              <SelectItem value="all">{t('common.allSuppliers')}</SelectItem>
               {suppliers.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
