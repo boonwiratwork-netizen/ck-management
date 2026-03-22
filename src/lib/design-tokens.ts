@@ -36,7 +36,7 @@ export const typography = {
 // Use the semantic token classes (bg-primary, text-destructive, etc.) in components.
 export const colors = {
   /** Primary action color — buttons, active states, accents */
-  primary: 'primary',            // hsl(var(--primary)) → orange-500
+  primary: 'primary',            // hsl(var(--primary)) → ink black
   primaryHover: 'primary/90',    // hover darkened via opacity or index.css
   /** Positive / success states */
   success: 'success',            // hsl(var(--success)) → green-500
