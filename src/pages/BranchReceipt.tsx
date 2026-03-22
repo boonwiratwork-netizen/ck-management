@@ -835,7 +835,7 @@ export default function BranchReceiptPage({
             </label>
             <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
               <SelectTrigger className="w-[320px]">
-                <SelectValue placeholder="— Select TO —" />
+                <SelectValue placeholder={t('br.selectTO')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Select TO —</SelectItem>
