@@ -463,7 +463,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       </Tooltip>
                     </TooltipProvider>
                   </th>
-                  <th className={`${thClass} text-right`}>Unit ฿</th>
+                  <th className={`${thClass} text-right`}>{t('gr.colUnitBaht')}</th>
                   <th className={`${thClass} text-right`}>Std ฿</th>
                   <th className={`${thClass} text-right`}>Std Tot</th>
                   <th className={`${thClass} text-right`}>Var</th>
