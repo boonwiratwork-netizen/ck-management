@@ -1090,7 +1090,7 @@ export default function BranchReceiptPage({
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           type="number"
                           min={0}
