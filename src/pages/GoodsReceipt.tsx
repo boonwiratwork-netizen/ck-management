@@ -449,7 +449,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <th className={`${thClass} text-center`}>{t('col.week')}</th>
                   <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.supplier')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('col.qty')}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
@@ -517,7 +517,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           ref={(el) => {
                             qtyRefs.current[row.skuId] = el;
@@ -538,8 +538,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           }}
                           onFocus={(e) => e.target.select()}
                           className={cn(
-                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? "border-success font-bold text-success" : "border-primary/30",
+                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-foreground focus:ring-1 focus:ring-foreground/20 outline-none",
+                            hasQty ? "border-success font-bold text-success" : "border-foreground/40",
                           )}
                           placeholder="0"
                         />
@@ -674,7 +674,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               key={`adhoc-qty-${row.tempId}`}
                               onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                               onFocus={(e) => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-foreground/40 rounded-md bg-background focus:border-foreground outline-none"
                               placeholder="0"
                             />
                           </td>
@@ -725,7 +725,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <button
             type="button"
             onClick={handleAddAdHoc}
-            className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+            className="w-full border-2 border-dashed border-muted-foreground/40 text-muted-foreground hover:border-foreground/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" /> {t('btn.addRow')}
           </button>

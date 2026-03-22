@@ -127,7 +127,11 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                       <td className={`px-3 py-2 text-sm text-right font-mono font-semibold ${
                         r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''
                       }`}>
-                        {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
+                        <span className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
+                          r.priceVariance > 0 ? 'bg-destructive/10' : r.priceVariance < 0 ? 'bg-success/10' : ''
+                        }`}>
+                          {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>{r.note}</td>
                       <td className="px-3 py-2 text-right">
