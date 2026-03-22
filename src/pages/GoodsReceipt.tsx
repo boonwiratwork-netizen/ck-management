@@ -316,7 +316,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-heading font-bold">{t("title.goodsReceipt")}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Record raw material receipts from suppliers</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('gr.subtitle')}</p>
         </div>
         {supplierId && <SaveButton />}
       </div>
