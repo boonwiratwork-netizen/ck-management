@@ -1429,7 +1429,7 @@ export default function BranchReceiptPage({
                       className="justify-end"
                     />
                   </th>
-                  {isManagement && <th className={thClass}>Branch</th>}
+                  {isManagement && <th className={thClass}>{t('col.branch')}</th>}
                   {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
