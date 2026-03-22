@@ -17,7 +17,7 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn, toLocalDateStr } from "@/lib/utils";
