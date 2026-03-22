@@ -17,7 +17,7 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn, toLocalDateStr } from "@/lib/utils";
@@ -25,6 +25,8 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { table, buttons, progressBar } from "@/lib/design-tokens";
+import { usePlanningAgent } from "@/hooks/use-planning-agent";
+import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
 
 
 interface ProductionPageProps {
@@ -194,6 +196,13 @@ export default function ProductionPage({
 
   // Collapsibles
   const [noBomOpen, setNoBomOpen] = useState(false);
+
+  // Planning Agent
+  const [agentOpen, setAgentOpen] = useState(false);
+  const planningAgent = usePlanningAgent({
+    smStockBalances: smStockBalances.map(s => ({ skuId: s.skuId, currentStock: s.currentStock })),
+    getOutputPerBatch,
+  });
 
   const planInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -1330,6 +1339,29 @@ export default function ProductionPage({
         description={`${t("prod.deleteConfirm")} "${deleteConfirm?.name}"?`}
         confirmLabel={t("btn.delete")}
         onConfirm={handleDeleteRecordConfirm}
+      />
+
+      {/* Planning Agent floating button */}
+      {mode === "planning" && (
+        <button
+          onClick={() => setAgentOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+        >
+          <Sparkles className="w-4 h-4" />
+          วางแผน AI
+        </button>
+      )}
+
+      {/* Planning Agent panel */}
+      <PlanningAgentPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        branches={planningAgent.branches}
+        suggestions={planningAgent.suggestions}
+        isLoading={planningAgent.isLoading}
+        weekStart={weekStart}
+        onRecalculate={planningAgent.recalculateWithOverrides}
+        onApplyPlan={(plan) => setPlanBatches(prev => ({ ...prev, ...plan }))}
       />
     </TooltipProvider>
   );

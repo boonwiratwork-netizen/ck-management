@@ -43,6 +43,18 @@ interface HookReturn {
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  recalculateWithOverrides: (overrides: Record<string, number>) => void;
+}
+
+// ─── Cached data from the initial fetch ─────────────────────────────────────
+
+interface CachedData {
+  allBranches: Array<{ id: string; branch_name: string; brand_name: string; avg_selling_price: number | null }>;
+  forecastByBranch: Map<string, any>;
+  salesByBranch: Map<string, Array<{ menu_code: string; qty: number; branch_id: string; sale_date: string }>>;
+  menuCodeToId: Map<string, string>;
+  bomByMenu: Map<string, Array<{ skuId: string; effectiveQty: number }>>;
+  smSkuMap: Map<string, { code: string; name: string }>;
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
@@ -52,10 +64,146 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   smStockRef.current = smStockBalances;
   const getOutputRef = useRef(getOutputPerBatch);
   getOutputRef.current = getOutputPerBatch;
+
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const cachedDataRef = useRef<CachedData | null>(null);
+
+  // ── Shared aggregation logic ────────────────────────────────────────────
+
+  const aggregate = useCallback((
+    cached: CachedData,
+    bowlsOverrides: Record<string, number> | null,
+  ) => {
+    const { allBranches, forecastByBranch, salesByBranch, menuCodeToId, bomByMenu, smSkuMap } = cached;
+
+    const weeklyDemandBySku = new Map<string, number>();
+    const resultBranches: PlanningBranch[] = [];
+
+    for (const br of allBranches) {
+      const branchId = br.id;
+      const forecast = forecastByBranch.get(branchId) ?? null;
+      const branchSales = salesByBranch.get(branchId) ?? [];
+      const hasSalesHistory = branchSales.length > 0;
+      const avgPrice = br.avg_selling_price ?? 0;
+
+      let bowlsPerDay = 0;
+      let forecastSource: PlanningBranch['forecastSource'] = 'historical';
+      let misconfigured = false;
+
+      // ── Determine bowlsPerDay ───────────────────────────────────────
+      if (forecast) {
+        if (forecast.forecast_unit === 'thb_per_day') {
+          if (!avgPrice || avgPrice <= 0) {
+            misconfigured = true;
+          } else {
+            bowlsPerDay = forecast.forecast_value / avgPrice;
+            forecastSource = 'forecast';
+          }
+        } else {
+          bowlsPerDay = forecast.forecast_value;
+          forecastSource = 'forecast';
+        }
+      } else if (hasSalesHistory) {
+        const totalQty = branchSales.reduce((sum, s) => sum + s.qty, 0);
+        bowlsPerDay = totalQty / 7;
+        forecastSource = 'historical';
+      }
+
+      // Apply override if provided
+      if (bowlsOverrides && branchId in bowlsOverrides) {
+        bowlsPerDay = bowlsOverrides[branchId];
+      }
+
+      // ── SM demand for this branch ───────────────────────────────────
+      const smGramsPerBowl = new Map<string, number>();
+
+      if (hasSalesHistory) {
+        let totalBowls = 0;
+        const totalSmGrams = new Map<string, number>();
+
+        for (const sale of branchSales) {
+          const menuId = menuCodeToId.get(sale.menu_code);
+          if (!menuId) continue;
+          totalBowls += sale.qty;
+          const ingredients = bomByMenu.get(menuId);
+          if (!ingredients) continue;
+          for (const ing of ingredients) {
+            totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + sale.qty * ing.effectiveQty);
+          }
+        }
+
+        if (totalBowls > 0) {
+          for (const [skuId, grams] of totalSmGrams) {
+            smGramsPerBowl.set(skuId, grams / totalBowls);
+          }
+        }
+      } else if (forecast && forecast.assumption_mix) {
+        forecastSource = 'assumption';
+        const mix = forecast.assumption_mix as Record<string, number>;
+        for (const [skuId, gpb] of Object.entries(mix)) {
+          if (typeof gpb === 'number') {
+            smGramsPerBowl.set(skuId, gpb);
+          }
+        }
+      }
+
+      // Weekly demand = grams_per_bowl × bowls_per_day × 7
+      if (!misconfigured) {
+        for (const [skuId, gpb] of smGramsPerBowl) {
+          const weeklyG = gpb * bowlsPerDay * 7;
+          weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
+        }
+      }
+
+      resultBranches.push({
+        branchId,
+        branchName: br.branch_name,
+        brandName: br.brand_name,
+        forecastSource,
+        bowlsPerDay: Math.round(bowlsPerDay * 10) / 10,
+        forecastValue: forecast?.forecast_value,
+        forecastUnit: forecast?.forecast_unit,
+        expiresAt: forecast?.expires_at,
+        hasSalesHistory,
+        misconfigured,
+      });
+    }
+
+    // ── Stock balance map ───────────────────────────────────────────────
+    const stockMap = new Map(smStockRef.current.map(s => [s.skuId, s.currentStock]));
+
+    // ── Build suggestions ───────────────────────────────────────────────
+    const resultSuggestions: PlanSuggestion[] = [];
+
+    for (const [skuId, weeklyDemandG] of weeklyDemandBySku) {
+      const info = smSkuMap.get(skuId);
+      if (!info) continue;
+
+      const currentStockG = Math.max(0, stockMap.get(skuId) ?? 0);
+      const outputPerBatch = getOutputRef.current(skuId);
+      const gap = weeklyDemandG - currentStockG;
+      const suggestedBatches = outputPerBatch > 0 ? Math.max(0, Math.ceil(gap / outputPerBatch)) : 0;
+
+      resultSuggestions.push({
+        skuId,
+        skuCode: info.code,
+        skuName: info.name,
+        weeklyDemandG: Math.round(weeklyDemandG),
+        currentStockG: Math.round(currentStockG),
+        suggestedBatches,
+        outputPerBatch,
+      });
+    }
+
+    resultSuggestions.sort((a, b) => b.suggestedBatches - a.suggestedBatches);
+
+    return { resultBranches, resultSuggestions };
+  }, []);
+
+  // ── Initial fetch + calculate ─────────────────────────────────────────
 
   const calculate = useCallback(async () => {
     setIsLoading(true);
@@ -68,7 +216,6 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       sevenAgo.setDate(sevenAgo.getDate() - 7);
       const sevenAgoStr = toLocalDateStr(sevenAgo);
 
-      // ── Parallel fetches ────────────────────────────────────────────────
       const [branchRes, forecastRes, salesRes, menuRes, bomRes, skuRes] = await Promise.all([
         supabase.from('branches').select('id, branch_name, brand_name, avg_selling_price').eq('status', 'Active'),
         supabase.from('branch_forecasts').select('*').gte('expires_at', todayStr).order('created_at', { ascending: false }),
@@ -95,14 +242,9 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       // ── Lookup maps ─────────────────────────────────────────────────────
       const smSkuIdSet = new Set(smSkus.map(s => s.id));
       const smSkuMap = new Map(smSkus.map(s => [s.id, { code: s.sku_id, name: s.name }]));
-
-      // menu_code → menu id
       const menuCodeToId = new Map(allMenus.map(m => [m.menu_code, m.id]));
 
-      // Filter BOM to SM-only ingredients
       const smBom = allBom.filter(b => smSkuIdSet.has(b.sku_id));
-
-      // menu_id → Array<{ skuId, effectiveQty }>
       const bomByMenu = new Map<string, Array<{ skuId: string; effectiveQty: number }>>();
       for (const b of smBom) {
         const arr = bomByMenu.get(b.menu_id) ?? [];
@@ -110,7 +252,6 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         bomByMenu.set(b.menu_id, arr);
       }
 
-      // Sales grouped by branch
       const salesByBranch = new Map<string, typeof allSales>();
       for (const s of allSales) {
         const arr = salesByBranch.get(s.branch_id) ?? [];
@@ -118,7 +259,6 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         salesByBranch.set(s.branch_id, arr);
       }
 
-      // Active forecast per branch (first = most recent due to order)
       const forecastByBranch = new Map<string, (typeof allForecasts)[0]>();
       for (const f of allForecasts) {
         if (!forecastByBranch.has(f.branch_id)) {
@@ -126,130 +266,18 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         }
       }
 
-      // ── Per-branch calculations ─────────────────────────────────────────
-      const weeklyDemandBySku = new Map<string, number>();
-      const resultBranches: PlanningBranch[] = [];
+      // Cache for recalculation
+      const cached: CachedData = {
+        allBranches,
+        forecastByBranch,
+        salesByBranch,
+        menuCodeToId,
+        bomByMenu,
+        smSkuMap,
+      };
+      cachedDataRef.current = cached;
 
-      for (const br of allBranches) {
-        const branchId = br.id;
-        const forecast = forecastByBranch.get(branchId) ?? null;
-        const branchSales = salesByBranch.get(branchId) ?? [];
-        const hasSalesHistory = branchSales.length > 0;
-        const avgPrice = br.avg_selling_price ?? 0;
-
-        let bowlsPerDay = 0;
-        let forecastSource: PlanningBranch['forecastSource'] = 'historical';
-        let misconfigured = false;
-
-        // ── Determine bowlsPerDay ───────────────────────────────────────
-        if (forecast) {
-          if (forecast.forecast_unit === 'thb_per_day') {
-            if (!avgPrice || avgPrice <= 0) {
-              misconfigured = true;
-              // Can't convert — skip this branch's demand contribution
-            } else {
-              bowlsPerDay = forecast.forecast_value / avgPrice;
-              forecastSource = 'forecast';
-            }
-          } else {
-            // bowls_per_day
-            bowlsPerDay = forecast.forecast_value;
-            forecastSource = 'forecast';
-          }
-        } else if (hasSalesHistory) {
-          const totalQty = branchSales.reduce((sum, s) => sum + s.qty, 0);
-          bowlsPerDay = totalQty / 7;
-          forecastSource = 'historical';
-        }
-        // else bowlsPerDay stays 0
-
-        // ── SM demand for this branch ───────────────────────────────────
-        // Calculate grams-per-bowl from actual sales mix
-        const smGramsPerBowl = new Map<string, number>();
-
-        if (hasSalesHistory) {
-          // Sum SM grams consumed and total bowls sold
-          let totalBowls = 0;
-          const totalSmGrams = new Map<string, number>();
-
-          for (const sale of branchSales) {
-            const menuId = menuCodeToId.get(sale.menu_code);
-            if (!menuId) continue;
-            totalBowls += sale.qty;
-            const ingredients = bomByMenu.get(menuId);
-            if (!ingredients) continue;
-            for (const ing of ingredients) {
-              totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + sale.qty * ing.effectiveQty);
-            }
-          }
-
-          if (totalBowls > 0) {
-            for (const [skuId, grams] of totalSmGrams) {
-              smGramsPerBowl.set(skuId, grams / totalBowls);
-            }
-          }
-        } else if (forecast && forecast.assumption_mix) {
-          // Use assumption_mix: { sku_id: grams_per_bowl }
-          forecastSource = 'assumption';
-          const mix = forecast.assumption_mix as Record<string, number>;
-          for (const [skuId, gpb] of Object.entries(mix)) {
-            if (typeof gpb === 'number') {
-              smGramsPerBowl.set(skuId, gpb);
-            }
-          }
-        }
-
-        // Weekly demand = grams_per_bowl × bowls_per_day × 7
-        if (!misconfigured) {
-          for (const [skuId, gpb] of smGramsPerBowl) {
-            const weeklyG = gpb * bowlsPerDay * 7;
-            weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
-          }
-        }
-
-        resultBranches.push({
-          branchId,
-          branchName: br.branch_name,
-          brandName: br.brand_name,
-          forecastSource,
-          bowlsPerDay: Math.round(bowlsPerDay * 10) / 10,
-          forecastValue: forecast?.forecast_value,
-          forecastUnit: forecast?.forecast_unit,
-          expiresAt: forecast?.expires_at,
-          hasSalesHistory,
-          misconfigured,
-        });
-      }
-
-      // ── Stock balance map ───────────────────────────────────────────────
-      const stockMap = new Map(smStockRef.current.map(s => [s.skuId, s.currentStock]));
-
-      // ── Build suggestions ───────────────────────────────────────────────
-      const resultSuggestions: PlanSuggestion[] = [];
-
-      for (const [skuId, weeklyDemandG] of weeklyDemandBySku) {
-        const info = smSkuMap.get(skuId);
-        if (!info) continue;
-
-        const currentStockG = Math.max(0, stockMap.get(skuId) ?? 0);
-        const outputPerBatch = getOutputRef.current(skuId);
-        const gap = weeklyDemandG - currentStockG;
-        const suggestedBatches = outputPerBatch > 0 ? Math.max(0, Math.ceil(gap / outputPerBatch)) : 0;
-
-        resultSuggestions.push({
-          skuId,
-          skuCode: info.code,
-          skuName: info.name,
-          weeklyDemandG: Math.round(weeklyDemandG),
-          currentStockG: Math.round(currentStockG),
-          suggestedBatches,
-          outputPerBatch,
-        });
-      }
-
-      // Sort by suggestedBatches desc
-      resultSuggestions.sort((a, b) => b.suggestedBatches - a.suggestedBatches);
-
+      const { resultBranches, resultSuggestions } = aggregate(cached, null);
 
       setBranches(resultBranches);
       setSuggestions(resultSuggestions);
@@ -258,9 +286,19 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [aggregate]);
 
   useEffect(() => { calculate(); }, [calculate]);
 
-  return { branches, suggestions, isLoading, error, refetch: calculate };
+  // ── Recalculate with bowlsPerDay overrides (no re-fetch) ──────────────
+
+  const recalculateWithOverrides = useCallback((overrides: Record<string, number>) => {
+    const cached = cachedDataRef.current;
+    if (!cached) return;
+    const { resultBranches, resultSuggestions } = aggregate(cached, overrides);
+    setBranches(resultBranches);
+    setSuggestions(resultSuggestions);
+  }, [aggregate]);
+
+  return { branches, suggestions, isLoading, error, refetch: calculate, recalculateWithOverrides };
 }
