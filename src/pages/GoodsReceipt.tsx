@@ -327,7 +327,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           value={receiptDate}
           onChange={(d) => d && setReceiptDate(d)}
           defaultToday
-          label="Date"
+          label={t('col.date')}
           required
           labelPosition="above"
           align="start"
