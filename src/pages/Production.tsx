@@ -1354,7 +1354,7 @@ export default function ProductionPage({
       {mode === "planning" &&
       <button
         onClick={() => setAgentOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg transition-colors bg-pink-500 hover:bg-pink-400">
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg transition-colors bg-warning">
         
           <Sparkles className="w-4 h-4" />
           วางแผน AI
