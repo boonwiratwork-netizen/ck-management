@@ -139,20 +139,42 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
           </thead>
           <tbody>
             {filtered.map(b => (
-              <tr key={b.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 font-medium">{b.branchName}</td>
-                <td className="px-4 py-3">{b.brandName}</td>
-                <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
-                <td className="px-4 py-3 text-center">
-                  <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                  </div>
-                </td>
-              </tr>
+              <>
+                <tr key={b.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${!readOnly ? 'cursor-pointer' : ''}`}
+                    onClick={() => !readOnly && setExpandedBranchId(prev => prev === b.id ? null : b.id)}>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      {!readOnly && (
+                        expandedBranchId === b.id
+                          ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      {b.branchName}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{b.brandName}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteRequest(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </td>
+                </tr>
+                {!readOnly && expandedBranchId === b.id && (
+                  <tr key={`${b.id}-menu`}>
+                    <td colSpan={5} className="px-4 py-4 bg-muted/20 border-b">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">Menu Availability</h4>
+                        <BranchMenuAvailability branchId={b.id} brandName={b.brandName} />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
             {filtered.length === 0 && (
               <tr>
