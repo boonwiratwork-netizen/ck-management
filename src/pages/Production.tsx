@@ -26,8 +26,8 @@ import {
   Pencil,
   CalendarDays,
   PlayCircle,
-  Sparkles,
-} from "lucide-react";
+  Sparkles } from
+"lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn, toLocalDateStr } from "@/lib/utils";
@@ -49,17 +49,17 @@ interface ProductionPageProps {
       weekDate: string;
     }) => string | Promise<string>;
     updatePlan: (
-      id: string,
-      data: Partial<{ smSkuId: string; targetQtyKg: number; status: PlanStatus; weekDate: string }>,
-    ) => void | Promise<void>;
+    id: string,
+    data: Partial<{smSkuId: string;targetQtyKg: number;status: PlanStatus;weekDate: string;}>)
+    => void | Promise<void>;
     deletePlan: (id: string) => void | Promise<void>;
     addRecord: (
-      data: Omit<ProductionRecord, "id" | "smSkuId"> & { smSkuId?: string },
-    ) => string | undefined | Promise<string | undefined>;
+    data: Omit<ProductionRecord, "id" | "smSkuId"> & {smSkuId?: string;})
+    => string | undefined | Promise<string | undefined>;
     updateRecord: (
-      id: string,
-      data: { productionDate: string; actualOutputG: number; batchesProduced: number },
-    ) => void | Promise<void>;
+    id: string,
+    data: {productionDate: string;actualOutputG: number;batchesProduced: number;})
+    => void | Promise<void>;
     deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
@@ -167,7 +167,7 @@ export default function ProductionPage({
   menuBomLines,
   menus,
   bomByproducts,
-  refreshProductionRecords,
+  refreshProductionRecords
 }: ProductionPageProps) {
   const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
@@ -178,7 +178,7 @@ export default function ProductionPage({
   const [globalTarget, setGlobalTarget] = useState(7);
   const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
-  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number }[]>([]);
+  const [salesData, setSalesData] = useState<{menuCode: string;qty: number;}[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadedWeek, setLoadedWeek] = useState<string | null>(null);
   const [mode, setMode] = useState<"planning" | "recording">("planning");
@@ -195,12 +195,12 @@ export default function ProductionPage({
   const [recordForm, setRecordForm] = useState({
     productionDate: toLocalDateStr(new Date()),
     actualOutputG: 0,
-    notes: "",
+    notes: ""
   });
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   // Dialogs
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{id: string;name: string;} | null>(null);
   const [criticalWarning, setCriticalWarning] = useState<number | null>(null);
 
   // Collapsibles
@@ -210,7 +210,7 @@ export default function ProductionPage({
   const [agentOpen, setAgentOpen] = useState(false);
   const planningAgent = usePlanningAgent({
     smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })),
-    getOutputPerBatch,
+    getOutputPerBatch
   });
 
   const planInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -228,44 +228,44 @@ export default function ProductionPage({
 
   // ─── Data fetching ───
   useEffect(() => {
-    supabase
-      .from("global_settings" as any)
-      .select("*")
-      .eq("key", "cover_days_target")
-      .single()
-      .then(({ data }: any) => {
-        if (data) setGlobalTarget(Number(data.value) || 7);
-      });
+    supabase.
+    from("global_settings" as any).
+    select("*").
+    eq("key", "cover_days_target").
+    single().
+    then(({ data }: any) => {
+      if (data) setGlobalTarget(Number(data.value) || 7);
+    });
   }, []);
 
   useEffect(() => {
-    supabase
-      .from("skus")
-      .select("id, cover_days_target" as any)
-      .not("cover_days_target", "is", null)
-      .then(({ data }: any) => {
-        if (data) {
-          const map: Record<string, number> = {};
-          data.forEach((r: any) => {
-            if (r.cover_days_target != null) map[r.id] = Number(r.cover_days_target);
-          });
-          setSkuTargets(map);
-        }
-      });
+    supabase.
+    from("skus").
+    select("id, cover_days_target" as any).
+    not("cover_days_target", "is", null).
+    then(({ data }: any) => {
+      if (data) {
+        const map: Record<string, number> = {};
+        data.forEach((r: any) => {
+          if (r.cover_days_target != null) map[r.id] = Number(r.cover_days_target);
+        });
+        setSkuTargets(map);
+      }
+    });
   }, []);
 
   useEffect(() => {
     const today = new Date();
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
-    supabase
-      .from("sales_entries")
-      .select("menu_code, qty")
-      .gte("sale_date", toLocalDateStr(sevenDaysAgo))
-      .lte("sale_date", toLocalDateStr(today))
-      .then(({ data }) => {
-        if (data) setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty) })));
-      });
+    supabase.
+    from("sales_entries").
+    select("menu_code, qty").
+    gte("sale_date", toLocalDateStr(sevenDaysAgo)).
+    lte("sale_date", toLocalDateStr(today)).
+    then(({ data }) => {
+      if (data) setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty) })));
+    });
   }, []);
 
   // Fetch saved plan for week — 2A: reset showUnplanned
@@ -274,22 +274,22 @@ export default function ProductionPage({
     setSavedWeek(null);
     setSuggestedInitialized(false);
     setShowUnplanned(false);
-    supabase
-      .from("weekly_plan_lines" as any)
-      .select("*")
-      .eq("week_start", weekStart)
-      .then(({ data }: any) => {
-        const map: Record<string, number> = {};
-        if (data && data.length > 0) {
-          (data as any[]).forEach((r) => {
-            map[r.sku_id] = Number(r.planned_batches);
-          });
-          setPlanLocked(true);
-          setSavedWeek(getISOWeekNumber(weekStart));
-        }
-        setPlanBatches(map);
-        setLoadedWeek(weekStart);
-      });
+    supabase.
+    from("weekly_plan_lines" as any).
+    select("*").
+    eq("week_start", weekStart).
+    then(({ data }: any) => {
+      const map: Record<string, number> = {};
+      if (data && data.length > 0) {
+        (data as any[]).forEach((r) => {
+          map[r.sku_id] = Number(r.planned_batches);
+        });
+        setPlanLocked(true);
+        setSavedWeek(getISOWeekNumber(weekStart));
+      }
+      setPlanBatches(map);
+      setLoadedWeek(weekStart);
+    });
   }, [weekStart]);
 
   // ─── Forecast calculation (unchanged logic) ───
@@ -300,30 +300,30 @@ export default function ProductionPage({
     salesData.forEach((sale) => {
       const menuId = menuCodeToId.get(sale.menuCode);
       if (!menuId) return;
-      menuBomLines
-        .filter((l) => l.menuId === menuId && smSkuIds.has(l.skuId))
-        .forEach((line) => {
-          usage[line.skuId] = (usage[line.skuId] || 0) + line.effectiveQty * sale.qty;
-        });
+      menuBomLines.
+      filter((l) => l.menuId === menuId && smSkuIds.has(l.skuId)).
+      forEach((line) => {
+        usage[line.skuId] = (usage[line.skuId] || 0) + line.effectiveQty * sale.qty;
+      });
     });
     return usage;
   }, [salesData, menus, menuBomLines, smSkus]);
 
   const { totalForecast } = useMemo(() => {
     const smSkuIds = new Set(smSkus.map((s) => s.id));
-    const parentChildMap = new Map<string, { childSmId: string; qtyPerBatch: number }[]>();
+    const parentChildMap = new Map<string, {childSmId: string;qtyPerBatch: number;}[]>();
 
     bomHeaders.forEach((header) => {
       if (!smSkuIds.has(header.smSkuId)) return;
-      bomLines
-        .filter((l) => l.bomHeaderId === header.id)
-        .forEach((line) => {
-          if (smSkuIds.has(line.rmSkuId)) {
-            const existing = parentChildMap.get(header.smSkuId) || [];
-            existing.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
-            parentChildMap.set(header.smSkuId, existing);
-          }
-        });
+      bomLines.
+      filter((l) => l.bomHeaderId === header.id).
+      forEach((line) => {
+        if (smSkuIds.has(line.rmSkuId)) {
+          const existing = parentChildMap.get(header.smSkuId) || [];
+          existing.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
+          parentChildMap.set(header.smSkuId, existing);
+        }
+      });
     });
 
     const indirect: Record<string, number> = {};
@@ -372,65 +372,65 @@ export default function ProductionPage({
   }, [records, weekStart, weekEnd]);
 
   const weekRecords = useMemo(() => {
-    return records
-      .filter((r) => r.productionDate >= weekStart && r.productionDate <= weekEnd)
-      .sort((a, b) => b.productionDate.localeCompare(a.productionDate));
+    return records.
+    filter((r) => r.productionDate >= weekStart && r.productionDate <= weekEnd).
+    sort((a, b) => b.productionDate.localeCompare(a.productionDate));
   }, [records, weekStart, weekEnd]);
 
   // ─── Build rows with CORRECT formulas ───
   const rows = useMemo((): PlanRow[] => {
-    return smSkus
-      .map((sku) => {
-        const hasBom = bomHeaders.some((h) => h.smSkuId === sku.id);
-        const forecastWeek = totalForecast[sku.id] || 0;
-        const dailyNeed = forecastWeek / 7;
-        const stockNow = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
-        const target = skuTargets[sku.id] ?? globalTarget;
-        const outputPerBatch = getOutputPerBatch(sku.id);
-        const producedG = weekRecordsBySku[sku.id] || 0;
+    return smSkus.
+    map((sku) => {
+      const hasBom = bomHeaders.some((h) => h.smSkuId === sku.id);
+      const forecastWeek = totalForecast[sku.id] || 0;
+      const dailyNeed = forecastWeek / 7;
+      const stockNow = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
+      const target = skuTargets[sku.id] ?? globalTarget;
+      const outputPerBatch = getOutputPerBatch(sku.id);
+      const producedG = weekRecordsBySku[sku.id] || 0;
 
-        const coverNow = dailyNeed > 0 ? stockNow / dailyNeed : Infinity;
-        const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
-        const suggestedBatches =
-          outputPerBatch > 0 && produceTarget > 0 ? Math.ceil(produceTarget / outputPerBatch) : 0;
-        const plannedBatches = planBatches[sku.id] ?? 0;
-        const planG = plannedBatches * outputPerBatch;
-        const stockAfter = stockNow + planG;
-        const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
-        const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
+      const coverNow = dailyNeed > 0 ? stockNow / dailyNeed : Infinity;
+      const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
+      const suggestedBatches =
+      outputPerBatch > 0 && produceTarget > 0 ? Math.ceil(produceTarget / outputPerBatch) : 0;
+      const plannedBatches = planBatches[sku.id] ?? 0;
+      const planG = plannedBatches * outputPerBatch;
+      const stockAfter = stockNow + planG;
+      const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
+      const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
 
-        return {
-          sku,
-          hasBom,
-          forecastWeek,
-          dailyNeed,
-          stockNow,
-          target,
-          coverNow,
-          produceTarget,
-          suggestedBatches,
-          plannedBatches,
-          outputPerBatch,
-          planG,
-          stockAfter,
-          coverAfter,
-          coverNowColor,
-          coverAfterColor: getCoverColor(coverAfter, target, dailyNeed),
-          producedG,
-        };
-      })
-      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+      return {
+        sku,
+        hasBom,
+        forecastWeek,
+        dailyNeed,
+        stockNow,
+        target,
+        coverNow,
+        produceTarget,
+        suggestedBatches,
+        plannedBatches,
+        outputPerBatch,
+        planG,
+        stockAfter,
+        coverAfter,
+        coverNowColor,
+        coverAfterColor: getCoverColor(coverAfter, target, dailyNeed),
+        producedG
+      };
+    }).
+    sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [
-    smSkus,
-    bomHeaders,
-    totalForecast,
-    smStockBalances,
-    planBatches,
-    skuTargets,
-    globalTarget,
-    getOutputPerBatch,
-    weekRecordsBySku,
-  ]);
+  smSkus,
+  bomHeaders,
+  totalForecast,
+  smStockBalances,
+  planBatches,
+  skuTargets,
+  globalTarget,
+  getOutputPerBatch,
+  weekRecordsBySku]
+  );
 
   const bomRows = useMemo(() => rows.filter((r) => r.hasBom), [rows]);
   const noBomRows = useMemo(() => rows.filter((r) => !r.hasBom), [rows]);
@@ -444,16 +444,16 @@ export default function ProductionPage({
   // 1E — Recording rows: stable sort by SKU code only, with plan-aware filtering
   const recordingRows = useMemo(() => {
     const inScope = (r: PlanRow) =>
-      !planLocked || (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
+    !planLocked || (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
     return [...rows].filter((r) => r.hasBom && inScope(r)).sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [rows, planLocked, planBatches, weekRecordsBySku]);
 
   // 2B — Unplanned rows for expandable section
   const unplannedRows = useMemo(() => {
     if (!planLocked) return [];
-    return [...rows]
-      .filter((r) => r.hasBom && (planBatches[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0)
-      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+    return [...rows].
+    filter((r) => r.hasBom && (planBatches[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0).
+    sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [rows, planLocked, planBatches, weekRecordsBySku]);
 
   // ─── Handlers ───
@@ -490,26 +490,26 @@ export default function ProductionPage({
       setSuggestedInitialized(false);
       setPlanBatches({});
     }
-    await supabase
-      .from("global_settings" as any)
-      .update({ value: String(value) } as any)
-      .eq("key", "cover_days_target");
+    await supabase.
+    from("global_settings" as any).
+    update({ value: String(value) } as any).
+    eq("key", "cover_days_target");
   };
 
   // Save plan
   const doSavePlan = async () => {
     setSaving(true);
-    const planRows = smSkus
-      .filter((s) => (planBatches[s.id] || 0) > 0)
-      .map((s) => ({
-        week_start: weekStart,
-        sku_id: s.id,
-        planned_batches: planBatches[s.id] || 0,
-      }));
-    await supabase
-      .from("weekly_plan_lines" as any)
-      .delete()
-      .eq("week_start", weekStart);
+    const planRows = smSkus.
+    filter((s) => (planBatches[s.id] || 0) > 0).
+    map((s) => ({
+      week_start: weekStart,
+      sku_id: s.id,
+      planned_batches: planBatches[s.id] || 0
+    }));
+    await supabase.
+    from("weekly_plan_lines" as any).
+    delete().
+    eq("week_start", weekStart);
     if (planRows.length > 0) {
       const { error } = await supabase.from("weekly_plan_lines" as any).insert(planRows as any);
       if (error) {
@@ -571,7 +571,7 @@ export default function ProductionPage({
       await updateRecord(editingRecordId, {
         productionDate: recordForm.productionDate,
         actualOutputG: recordForm.actualOutputG,
-        batchesProduced,
+        batchesProduced
       });
       toast.success(t("prod.recordUpdated"));
       setRecordModalOpen(false);
@@ -588,7 +588,7 @@ export default function ProductionPage({
         smSkuId: recordSkuId,
         targetQtyKg: 0,
         status: "In Progress",
-        weekDate: weekStart,
+        weekDate: weekStart
       });
       planId = typeof result === "string" ? result : "";
     }
@@ -603,7 +603,7 @@ export default function ProductionPage({
       smSkuId: recordSkuId,
       productionDate: recordForm.productionDate,
       batchesProduced,
-      actualOutputG: recordForm.actualOutputG,
+      actualOutputG: recordForm.actualOutputG
     });
     if (refreshProductionRecords) refreshProductionRecords();
     toast.success(t("prod.recordSaved"));
@@ -658,33 +658,33 @@ export default function ProductionPage({
                 const curMon = getCurrentWeekMonday();
                 const nextMon = getNextWeekMonday();
                 if (weekStart === curMon)
-                  return (
-                    <Badge
-                      variant="outline"
-                      className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap"
-                    >
+                return (
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
+                    
                       {t("prod.thisWeek")}
-                    </Badge>
-                  );
+                    </Badge>);
+
                 if (weekStart === nextMon)
-                  return (
-                    <Badge
-                      variant="outline"
-                      className="text-xs text-warning border-warning/30 bg-warning/5 whitespace-nowrap"
-                    >
+                return (
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-warning border-warning/30 bg-warning/5 whitespace-nowrap">
+                    
                       {t("prod.nextWeek")}
-                    </Badge>
-                  );
+                    </Badge>);
+
                 return null;
               })()}
-              {planLocked && savedWeek === weekNumber && (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap"
-                >
+              {planLocked && savedWeek === weekNumber &&
+              <Badge
+                variant="outline"
+                className="text-xs text-success border-success/30 bg-success/5 whitespace-nowrap">
+                
                   ✓ {t("prod.savedBadge")}
                 </Badge>
-              )}
+              }
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextWeek}>
               <ChevronRight className="w-4 h-4" />
@@ -701,46 +701,46 @@ export default function ProductionPage({
                 defaultValue={globalTarget}
                 key={`gt-${globalTarget}`}
                 onBlur={(e) => saveGlobalTarget(Number(e.target.value) || 7)}
-                onFocus={(e) => e.target.select()}
-              />
+                onFocus={(e) => e.target.select()} />
+              
             </div>
 
             {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
                 className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
-                onClick={() => handleModeSwitch("planning")}
-              >
+                onClick={() => handleModeSwitch("planning")}>
+                
                 <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
               </button>
               <button
                 className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
-                onClick={() => handleModeSwitch("recording")}
-              >
+                onClick={() => handleModeSwitch("recording")}>
+                
                 <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
               </button>
             </div>
 
             {/* Fixed-width container to prevent reflow */}
             <div className="w-28 flex justify-end">
-              {mode === "planning" && !planLocked && (
-                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
+              {mode === "planning" && !planLocked &&
+              <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {saving ? t("prod.saving") : t("prod.savePlan")}
                 </Button>
-              )}
-              {mode === "planning" && planLocked && (
-                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={unlockPlan}>
+              }
+              {mode === "planning" && planLocked &&
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={unlockPlan}>
                   {t("prod.editPlan")}
                 </Button>
-              )}
+              }
             </div>
           </div>
         </div>
 
         {/* ═══ PLANNING MODE ═══ */}
-        {mode === "planning" && loadedWeek === weekStart && (
-          <>
+        {mode === "planning" && loadedWeek === weekStart &&
+        <>
             <div className={table.wrapper}>
               <table className={table.base}>
                 {/* 1A — Planning colgroup (11 cols), Name=220px */}
@@ -778,32 +778,32 @@ export default function ProductionPage({
                 <tbody>
                   {/* 2C — Use displayedBomRows instead of bomRows */}
                   {displayedBomRows.map((row) => {
-                    const isSufficient = row.produceTarget === 0;
+                  const isSufficient = row.produceTarget === 0;
 
-                    // FIX 6 — Status dot: use coverAfterColor only when CK manager explicitly entered a value
-                    const hasExplicitPlan = planBatches[row.sku.id] !== undefined && planBatches[row.sku.id] > 0;
-                    const dotColor = hasExplicitPlan ? row.coverAfterColor : row.coverNowColor;
+                  // FIX 6 — Status dot: use coverAfterColor only when CK manager explicitly entered a value
+                  const hasExplicitPlan = planBatches[row.sku.id] !== undefined && planBatches[row.sku.id] > 0;
+                  const dotColor = hasExplicitPlan ? row.coverAfterColor : row.coverNowColor;
 
-                    const borderClass = hasExplicitPlan
-                      ? row.coverAfterColor === "green"
-                        ? table.productionRowDone
-                        : table.productionRowInProgress
-                      : "";
+                  const borderClass = hasExplicitPlan ?
+                  row.coverAfterColor === "green" ?
+                  table.productionRowDone :
+                  table.productionRowInProgress :
+                  "";
 
-                    // 2C — Ad-hoc produced row (weekRecordsBySku > 0 but not planned)
-                    const isAdHoc =
-                      planLocked && (planBatches[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
+                  // 2C — Ad-hoc produced row (weekRecordsBySku > 0 but not planned)
+                  const isAdHoc =
+                  planLocked && (planBatches[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
 
-                    return (
-                      <tr
-                        key={row.sku.id}
-                        className={cn(
-                          table.dataRow,
-                          isAdHoc ? table.dataRowLocked : "",
-                          isSufficient && !isAdHoc && "opacity-60",
-                          !isAdHoc && borderClass,
-                        )}
-                      >
+                  return (
+                    <tr
+                      key={row.sku.id}
+                      className={cn(
+                        table.dataRow,
+                        isAdHoc ? table.dataRowLocked : "",
+                        isSufficient && !isAdHoc && "opacity-60",
+                        !isAdHoc && borderClass
+                      )}>
+                      
                         {/* STATUS DOT */}
                         <td className={table.dataCellCompactCenter}>
                           <StatusDot status={dotColor} />
@@ -818,14 +818,14 @@ export default function ProductionPage({
                             <TooltipTrigger asChild>
                               <span className="truncate block">
                                 {row.sku.name}
-                                {isAdHoc && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="ml-1.5 text-[10px] px-1.5 py-0 font-normal text-muted-foreground"
-                                  >
+                                {isAdHoc &&
+                              <Badge
+                                variant="secondary"
+                                className="ml-1.5 text-[10px] px-1.5 py-0 font-normal text-muted-foreground">
+                                
                                     Ad-hoc
                                   </Badge>
-                                )}
+                              }
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs">
@@ -856,33 +856,33 @@ export default function ProductionPage({
 
                         {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
-                          {isAdHoc ? (
-                            <div className="h-8 flex items-center justify-center font-mono text-muted-foreground">
+                          {isAdHoc ?
+                        <div className="h-8 flex items-center justify-center font-mono text-muted-foreground">
                               —
-                            </div>
-                          ) : !isStockDataReady && !planLocked ? (
-                            <div className="h-8 flex items-center justify-center text-muted-foreground font-mono text-sm">
+                            </div> :
+                        !isStockDataReady && !planLocked ?
+                        <div className="h-8 flex items-center justify-center text-muted-foreground font-mono text-sm">
                               ...
-                            </div>
-                          ) : planLocked ? (
-                            <div className="h-8 flex items-center justify-center font-semibold font-mono">
+                            </div> :
+                        planLocked ?
+                        <div className="h-8 flex items-center justify-center font-semibold font-mono">
                               {row.plannedBatches || "—"}
-                            </div>
-                          ) : (
-                            <input
-                              ref={(el) => {
-                                planInputRefs.current[row.sku.id] = el;
-                              }}
-                              type="number"
-                              className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
-                              defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
-                              key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
-                              onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              onKeyDown={(e) => handlePlanKeyDown(e, row.sku.id)}
-                              min={0}
-                            />
-                          )}
+                            </div> :
+
+                        <input
+                          ref={(el) => {
+                            planInputRefs.current[row.sku.id] = el;
+                          }}
+                          type="number"
+                          className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
+                          defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
+                          key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
+                          onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => handlePlanKeyDown(e, row.sku.id)}
+                          min={0} />
+
+                        }
                         </td>
 
                         {/* PLAN (g) — pure number */}
@@ -899,24 +899,24 @@ export default function ProductionPage({
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
-                      </tr>
-                    );
-                  })}
+                      </tr>);
 
-                  {displayedBomRows.length === 0 && (
-                    <tr>
+                })}
+
+                  {displayedBomRows.length === 0 &&
+                <tr>
                       <td colSpan={10} className={table.emptyState}>
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
-                  )}
+                }
                 </tbody>
               </table>
             </div>
 
             {/* No BOM section */}
-            {noBomRows.length > 0 && (
-              <Collapsible open={noBomOpen} onOpenChange={setNoBomOpen}>
+            {noBomRows.length > 0 &&
+          <Collapsible open={noBomOpen} onOpenChange={setNoBomOpen}>
                 <CollapsibleTrigger asChild>
                   <button className="flex items-center gap-2 text-sm font-medium text-warning hover:text-foreground transition-colors w-full py-2">
                     <ChevronDown className={cn("w-4 h-4 transition-transform", noBomOpen && "rotate-180")} />
@@ -940,34 +940,34 @@ export default function ProductionPage({
                         </tr>
                       </thead>
                       <tbody>
-                        {noBomRows.map((row) => (
-                          <tr key={row.sku.id} className={table.dataRow}>
+                        {noBomRows.map((row) =>
+                    <tr key={row.sku.id} className={table.dataRow}>
                             <td className={cn(table.dataCellCompact, "font-mono")}>{row.sku.skuId}</td>
                             <td className={table.truncatedCellCompact}>{row.sku.name}</td>
                             <td className={table.dataCellCompact}>
                               <Button
-                                variant="link"
-                                size="sm"
-                                className="h-6 px-0 text-xs text-primary"
-                                onClick={() => navigate("/bom")}
-                              >
+                          variant="link"
+                          size="sm"
+                          className="h-6 px-0 text-xs text-primary"
+                          onClick={() => navigate("/bom")}>
+                          
                                 {t("prod.setupBom")} →
                               </Button>
                             </td>
                           </tr>
-                        ))}
+                    )}
                       </tbody>
                     </table>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-            )}
+          }
           </>
-        )}
+        }
 
         {/* ═══ RECORDING MODE ═══ */}
-        {mode === "recording" && loadedWeek === weekStart && (
-          <>
+        {mode === "recording" && loadedWeek === weekStart &&
+        <>
             <div className={table.wrapper}>
               <table className={table.base}>
                 {/* 1A, 1B — Recording colgroup (9 cols), Name=220px, Actions=100px */}
@@ -998,8 +998,8 @@ export default function ProductionPage({
                 </thead>
                 <tbody>
                   {/* 2D — Empty state when no plan saved */}
-                  {mode === "recording" && !planLocked && recordingRows.length === 0 ? (
-                    <tr>
+                  {mode === "recording" && !planLocked && recordingRows.length === 0 ?
+                <tr>
                       <td colSpan={9} className="py-12 text-center">
                         <p className="text-sm text-muted-foreground mb-3">No plan saved for this week yet.</p>
                         <Button variant="outline" size="sm" onClick={() => handleModeSwitch("planning")}>
@@ -1007,39 +1007,39 @@ export default function ProductionPage({
                           Go to Planning
                         </Button>
                       </td>
-                    </tr>
-                  ) : recordingRows.length === 0 ? (
-                    <tr>
+                    </tr> :
+                recordingRows.length === 0 ?
+                <tr>
                       <td colSpan={9} className={table.emptyState}>
                         No active SM SKUs found.
                       </td>
-                    </tr>
-                  ) : (
-                    recordingRows.map((row) => {
-                      const hasPlan = row.planG > 0;
-                      const remaining = hasPlan ? row.planG - row.producedG : 0;
-                      const done = hasPlan && remaining <= 0;
+                    </tr> :
 
-                      // GROUP 3 — Ad-hoc batch completion styling
-                      const isAdHocDone = !hasPlan && row.producedG > 0;
-                      const progressPct = isAdHocDone
-                        ? 100
-                        : hasPlan
-                          ? Math.min(100, Math.round((row.producedG / row.planG) * 100))
-                          : 0;
+                recordingRows.map((row) => {
+                  const hasPlan = row.planG > 0;
+                  const remaining = hasPlan ? row.planG - row.producedG : 0;
+                  const done = hasPlan && remaining <= 0;
 
-                      const dotColor: "red" | "amber" | "green" =
-                        done || isAdHocDone ? "green" : row.producedG > 0 ? "amber" : "red";
+                  // GROUP 3 — Ad-hoc batch completion styling
+                  const isAdHocDone = !hasPlan && row.producedG > 0;
+                  const progressPct = isAdHocDone ?
+                  100 :
+                  hasPlan ?
+                  Math.min(100, Math.round(row.producedG / row.planG * 100)) :
+                  0;
 
-                      const productionRowClass =
-                        done || isAdHocDone
-                          ? table.productionRowDone
-                          : row.producedG > 0
-                            ? table.productionRowInProgress
-                            : table.productionRowNotStarted;
+                  const dotColor: "red" | "amber" | "green" =
+                  done || isAdHocDone ? "green" : row.producedG > 0 ? "amber" : "red";
 
-                      return (
-                        <tr key={row.sku.id} className={cn(table.dataRow, productionRowClass)}>
+                  const productionRowClass =
+                  done || isAdHocDone ?
+                  table.productionRowDone :
+                  row.producedG > 0 ?
+                  table.productionRowInProgress :
+                  table.productionRowNotStarted;
+
+                  return (
+                    <tr key={row.sku.id} className={cn(table.dataRow, productionRowClass)}>
                           <td className={table.dataCellCompactCenter}>
                             <StatusDot status={dotColor} />
                           </td>
@@ -1068,57 +1068,57 @@ export default function ProductionPage({
                           </td>
                           {/* Remaining — GROUP 3 updated */}
                           <td className={table.dataCellCompactMono}>
-                            {done || isAdHocDone ? (
-                              <span className="text-success font-semibold">Done</span>
-                            ) : hasPlan && remaining > 0 ? (
-                              <span className="text-destructive font-semibold">{fmtG(remaining)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {done || isAdHocDone ?
+                        <span className="text-success font-semibold">Done</span> :
+                        hasPlan && remaining > 0 ?
+                        <span className="text-destructive font-semibold">{fmtG(remaining)}</span> :
+
+                        <span className="text-muted-foreground">—</span>
+                        }
                           </td>
                           {/* Progress — 1D: no label, GROUP 3: ad-hoc shows full green */}
                           <td className={table.dataCellCompact}>
-                            {hasPlan || isAdHocDone ? (
-                              <div className={cn(progressBar.track, progressBar.trackCompact)}>
+                            {hasPlan || isAdHocDone ?
+                        <div className={cn(progressBar.track, progressBar.trackCompact)}>
                                 <div
-                                  className={cn(
-                                    "h-full rounded-full",
-                                    progressPct === 0
-                                      ? progressBar.fillNotStarted
-                                      : progressPct >= 100
-                                        ? progressBar.fillComplete
-                                        : progressBar.fillInProgress,
-                                  )}
-                                  style={{ width: `${progressPct}%` }}
-                                />
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
+                            className={cn(
+                              "h-full rounded-full",
+                              progressPct === 0 ?
+                              progressBar.fillNotStarted :
+                              progressPct >= 100 ?
+                              progressBar.fillComplete :
+                              progressBar.fillInProgress
                             )}
+                            style={{ width: `${progressPct}%` }} />
+                          
+                              </div> :
+
+                        <span className="text-muted-foreground text-xs">—</span>
+                        }
                           </td>
                           {/* Action — outline style */}
                           <td className={table.dataCellCompactCenter}>
                             <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
-                              onClick={() => openRecordModal(row.sku.id)}
-                            >
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                          onClick={() => openRecordModal(row.sku.id)}>
+                          
                               <PlayCircle className="w-3 h-3 mr-1" />
                               {t("prod.record")}
                             </Button>
                           </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                        </tr>);
+
+                })
+                }
                 </tbody>
               </table>
             </div>
 
             {/* 2E — Expandable unplanned section */}
-            {planLocked && unplannedRows.length > 0 && (
-              <Collapsible open={showUnplanned} onOpenChange={setShowUnplanned}>
+            {planLocked && unplannedRows.length > 0 &&
+          <Collapsible open={showUnplanned} onOpenChange={setShowUnplanned}>
                 <CollapsibleTrigger asChild>
                   <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2">
                     <ChevronDown className={cn("w-4 h-4 transition-transform", showUnplanned && "rotate-180")} />
@@ -1141,8 +1141,8 @@ export default function ProductionPage({
                         <col style={{ width: "100px" }} />
                       </colgroup>
                       <tbody>
-                        {unplannedRows.map((row) => (
-                          <tr key={row.sku.id} className={table.dataRowLocked}>
+                        {unplannedRows.map((row) =>
+                    <tr key={row.sku.id} className={table.dataRowLocked}>
                             <td className={table.dataCellCompactCenter}>
                               <StatusDot status="amber" size="sm" />
                             </td>
@@ -1159,25 +1159,25 @@ export default function ProductionPage({
                             <td className={table.dataCellCompact}>—</td>
                             <td className={table.dataCellCompactCenter}>
                               <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
-                                onClick={() => openRecordModal(row.sku.id)}
-                              >
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                          onClick={() => openRecordModal(row.sku.id)}>
+                          
                                 <PlayCircle className="w-3 h-3 mr-1" />
                                 {t("prod.record")}
                               </Button>
                             </td>
                           </tr>
-                        ))}
+                    )}
                       </tbody>
                     </table>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-            )}
+          }
           </>
-        )}
+        }
 
         {/* ═══ PRODUCTION HISTORY — always visible ═══ */}
         <div className="space-y-2">
@@ -1189,10 +1189,10 @@ export default function ProductionPage({
               {weekRecords.length}
             </Badge>
           </div>
-          {weekRecords.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
-          ) : (
-            <div className={table.wrapper}>
+          {weekRecords.length === 0 ?
+          <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p> :
+
+          <div className={table.wrapper}>
               <table className={table.base}>
                 {/* History colgroup (5 cols) */}
                 <colgroup>
@@ -1212,8 +1212,8 @@ export default function ProductionPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {weekRecords.map((rec) => (
-                    <tr key={rec.id} className={table.dataRow}>
+                  {weekRecords.map((rec) =>
+                <tr key={rec.id} className={table.dataRow}>
                       <td className={table.dataCellCompact}>{rec.productionDate}</td>
                       <td className={cn(table.dataCellCompact, "font-mono")}>{getSkuCode(rec.smSkuId)}</td>
                       <td className={table.truncatedCellCompact} title={getSkuName(rec.smSkuId)}>
@@ -1221,40 +1221,40 @@ export default function ProductionPage({
                       </td>
                       <td className={table.dataCellCompactMono}>{fmtG(rec.actualOutputG)}</td>
                       <td className={table.dataCellCompactCenter}>
-                        {isManagement && (
-                          <span className="inline-flex gap-0.5">
+                        {isManagement &&
+                    <span className="inline-flex gap-0.5">
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={() => openEditRecordModal(rec)}
-                              title="Edit"
-                            >
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => openEditRecordModal(rec)}
+                        title="Edit">
+                        
                               <Pencil className="w-3 h-3" />
                             </Button>
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={() =>
-                                setDeleteConfirm({
-                                  id: rec.id,
-                                  name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}`,
-                                })
-                              }
-                              title="Delete"
-                            >
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() =>
+                        setDeleteConfirm({
+                          id: rec.id,
+                          name: `${getSkuCode(rec.smSkuId)} on ${rec.productionDate}`
+                        })
+                        }
+                        title="Delete">
+                        
                               <Trash2 className="w-3 h-3 text-destructive" />
                             </Button>
                           </span>
-                        )}
+                    }
                       </td>
                     </tr>
-                  ))}
+                )}
                 </tbody>
               </table>
             </div>
-          )}
+          }
         </div>
       </div>
 
@@ -1276,42 +1276,42 @@ export default function ProductionPage({
             </div>
 
             {/* Running total */}
-            {recordRow && (
-              <div className="rounded-lg bg-muted/50 border p-3 text-sm">
+            {recordRow &&
+            <div className="rounded-lg bg-muted/50 border p-3 text-sm">
                 <p className="font-medium">
                   {t("prod.runningTotal")} {fmtG(recordRow.producedG)} {t("prod.gUnit")} {t("prod.of")}{" "}
                   {fmtG(recordRow.planG)} {t("prod.gUnit")}
-                  {recordRow.planG > 0 && ` (${((recordRow.producedG / recordRow.planG) * 100).toFixed(0)}%)`}
+                  {recordRow.planG > 0 && ` (${(recordRow.producedG / recordRow.planG * 100).toFixed(0)}%)`}
                 </p>
               </div>
-            )}
+            }
 
             <DatePicker
               value={recordForm.productionDate ? new Date(recordForm.productionDate + "T00:00:00") : undefined}
               onChange={(d) =>
-                setRecordForm((f) => ({ ...f, productionDate: d ? toLocalDateStr(d) : toLocalDateStr(new Date()) }))
+              setRecordForm((f) => ({ ...f, productionDate: d ? toLocalDateStr(d) : toLocalDateStr(new Date()) }))
               }
               defaultToday
               label="Date"
               required
               labelPosition="above"
-              align="start"
-            />
+              align="start" />
+            
             <div>
               <label className="text-xs font-medium text-muted-foreground">{t("prod.actualOutputLabel")}</label>
               <Input
                 type="number"
                 step="1"
                 value={recordForm.actualOutputG || ""}
-                onChange={(e) => setRecordForm((f) => ({ ...f, actualOutputG: Number(e.target.value) }))}
-              />
+                onChange={(e) => setRecordForm((f) => ({ ...f, actualOutputG: Number(e.target.value) }))} />
+              
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">{t("prod.notesLabel")}</label>
               <Input
                 value={recordForm.notes}
-                onChange={(e) => setRecordForm((f) => ({ ...f, notes: e.target.value }))}
-              />
+                onChange={(e) => setRecordForm((f) => ({ ...f, notes: e.target.value }))} />
+              
             </div>
           </div>
           <DialogFooter>
@@ -1337,8 +1337,8 @@ export default function ProductionPage({
         onConfirm={() => {
           setCriticalWarning(null);
           doSavePlan();
-        }}
-      />
+        }} />
+      
 
       {/* Delete confirmation */}
       <ConfirmDialog
@@ -1347,19 +1347,19 @@ export default function ProductionPage({
         title={t("prod.deleteRecord")}
         description={`${t("prod.deleteConfirm")} "${deleteConfirm?.name}"?`}
         confirmLabel={t("btn.delete")}
-        onConfirm={handleDeleteRecordConfirm}
-      />
+        onConfirm={handleDeleteRecordConfirm} />
+      
 
       {/* Planning Agent floating button */}
-      {mode === "planning" && (
-        <button
-          onClick={() => setAgentOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
-        >
+      {mode === "planning" &&
+      <button
+        onClick={() => setAgentOpen(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg transition-colors bg-pink-500 hover:bg-pink-400">
+        
           <Sparkles className="w-4 h-4" />
           วางแผน AI
         </button>
-      )}
+      }
 
       {/* Planning Agent panel */}
       <PlanningAgentPanel
@@ -1373,8 +1373,8 @@ export default function ProductionPage({
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}
         onApplyPlan={(plan) => setPlanBatches((prev) => ({ ...prev, ...plan }))}
-        onRefetch={planningAgent.refetch}
-      />
-    </TooltipProvider>
-  );
+        onRefetch={planningAgent.refetch} />
+      
+    </TooltipProvider>);
+
 }
