@@ -25,6 +25,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { table, buttons, progressBar } from "@/lib/design-tokens";
+import { usePlanningAgent } from "@/hooks/use-planning-agent";
 
 interface ProductionPageProps {
   productionData: {
@@ -161,6 +162,12 @@ export default function ProductionPage({
   const { t } = useLanguage();
   const { isManagement } = useAuth();
   const navigate = useNavigate();
+
+  // Temporary: mount planning agent for data verification
+  usePlanningAgent({
+    smStockBalances: smStockBalances.map(s => ({ skuId: s.skuId, currentStock: s.currentStock })),
+    getOutputPerBatch,
+  });
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
   const [globalTarget, setGlobalTarget] = useState(7);
