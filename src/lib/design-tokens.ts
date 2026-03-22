@@ -83,9 +83,9 @@ export const spacing = {
   /** Standard table row height */
   tableRowHeight: 'h-10',
   /** Table cell padding */
-  tableCellPadding: 'px-3 py-2',
+  tableCellPadding: 'px-3 py-2.5',
   /** Compact table cell padding (for dense spreadsheet views) */
-  tableCellPaddingCompact: 'px-2 py-1.5',
+  tableCellPaddingCompact: 'px-2 py-2',
   /** Card internal padding */
   cardPadding: 'p-4',
   /** Panel / page section padding */
