@@ -223,9 +223,9 @@ export default function StockCountPage({
                 className="justify-end"
               />
             </th>
-            <th className={`${thClass} text-right`}>
+            <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide !bg-foreground text-background">
               <div>Physical Qty</div>
-              <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+              <div className="text-xs font-normal text-background/70">(Usage UOM)</div>
             </th>
             <th
               className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
@@ -268,7 +268,7 @@ export default function StockCountPage({
                     {(line.type === 'SM' ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     <UnitLabel unit={sku.usageUom} />
                   </td>
-                  <td className="px-1.5 py-1.5 text-right">
+                  <td className="px-1.5 py-1.5 text-right bg-foreground/[0.04]">
                     <div className="flex items-center justify-end gap-1">
                       <Input
                         type="number"
@@ -281,7 +281,7 @@ export default function StockCountPage({
                           const val = e.target.value === "" ? null : Number(e.target.value);
                           if (val !== line.physicalQty) updateLine(line.id, val);
                         }}
-                        className="h-8 text-xs text-right w-[80px] font-mono"
+                        className="h-8 text-xs text-right w-[80px] font-mono border-2 border-primary/40 focus:border-primary bg-background"
                       />
                       <UnitLabel unit={sku.usageUom} className="w-6 text-left" />
                     </div>
@@ -322,7 +322,7 @@ export default function StockCountPage({
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("title.stockCount")}</h2>
+        <h2 className="text-2xl font-heading font-bold tracking-tight">{t("title.stockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
       </div>
 
@@ -367,6 +367,11 @@ export default function StockCountPage({
             )}
 
             <div className="ml-auto flex items-center gap-2">
+              {selectedSession && !isCompleted && summary.counted > 0 && (
+                <Button size="sm" className="h-8 text-xs gap-1" onClick={() => setConfirmOpen(true)}>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {t("btn.confirmAdjust")}
+                </Button>
+              )}
               {sessionForDate && isManagement && (
                 <Button
                   size="sm"
@@ -402,13 +407,13 @@ export default function StockCountPage({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <TabsList>
-                <TabsTrigger value="RM" className="text-xs">
+                <TabsTrigger value="RM" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-foreground data-[state=active]:font-semibold px-4">
                   RM ({tabCounts.RM})
                 </TabsTrigger>
-                <TabsTrigger value="SM" className="text-xs">
+                <TabsTrigger value="SM" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-warning data-[state=active]:font-semibold px-4">
                   SM ({tabCounts.SM})
                 </TabsTrigger>
-                <TabsTrigger value="PK" className="text-xs">
+                <TabsTrigger value="PK" className="text-xs data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground data-[state=active]:font-semibold px-4">
                   PK ({tabCounts.PK})
                 </TabsTrigger>
               </TabsList>
@@ -496,10 +501,10 @@ export default function StockCountPage({
             </Card>
           </div>
 
-          {/* Confirm Button */}
+          {/* Bottom Confirm Button (secondary) */}
           {!isCompleted && (
             <div className="flex justify-end">
-              <Button onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
+              <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
                 <CheckCircle2 className="w-4 h-4" /> {t("btn.confirmAdjust")}
               </Button>
             </div>
