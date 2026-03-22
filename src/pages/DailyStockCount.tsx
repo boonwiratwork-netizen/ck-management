@@ -574,18 +574,6 @@ export default function DailyStockCountPage({
         <EmptyState icon={ClipboardList} title={t("dsc.emptyTitle")} description={t("dsc.emptyHint")} />
       ) : null}
 
-      {/* Submit button */}
-      {rows.length > 0 && !isSubmitted && (
-        <div className="flex justify-end">
-          <Button
-            onClick={handleSubmit}
-            disabled={!hasAnyPhysicalCount}
-            className="gap-2 bg-warning hover:bg-warning/90 text-warning-foreground"
-          >
-            <Lock className="w-4 h-4" /> {t("btn.submitCount")}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
