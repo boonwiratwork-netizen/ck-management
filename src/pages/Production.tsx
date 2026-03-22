@@ -699,13 +699,13 @@ export default function ProductionPage({
             {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
-                className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                className={mode === "planning" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
                 onClick={() => handleModeSwitch("planning")}
               >
                 <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
               </button>
               <button
-                className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                className={mode === "recording" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-info text-info-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
                 onClick={() => handleModeSwitch("recording")}
               >
                 <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
@@ -715,7 +715,7 @@ export default function ProductionPage({
             {/* Fixed-width container to prevent reflow */}
             <div className="w-28 flex justify-end">
               {mode === "planning" && !planLocked && (
-                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
+                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8 bg-info hover:bg-info/90 text-info-foreground">
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {saving ? t("prod.saving") : t("prod.savePlan")}
                 </Button>
@@ -1091,8 +1091,7 @@ export default function ProductionPage({
                           <td className={table.dataCellCompactCenter}>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                              className="h-7 px-3 text-xs whitespace-nowrap bg-info/10 text-info border border-info/40 hover:bg-info/20"
                               onClick={() => openRecordModal(row.sku.id)}
                             >
                               <PlayCircle className="w-3 h-3 mr-1" />
@@ -1151,8 +1150,7 @@ export default function ProductionPage({
                             <td className={table.dataCellCompactCenter}>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                                className="h-7 px-3 text-xs whitespace-nowrap bg-info/10 text-info border border-info/40 hover:bg-info/20"
                                 onClick={() => openRecordModal(row.sku.id)}
                               >
                                 <PlayCircle className="w-3 h-3 mr-1" />
@@ -1345,7 +1343,7 @@ export default function ProductionPage({
       {mode === "planning" && (
         <button
           onClick={() => setAgentOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-warning px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
         >
           <Sparkles className="w-4 h-4" />
           วางแผน AI
