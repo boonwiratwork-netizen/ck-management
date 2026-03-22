@@ -446,7 +446,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
                   <th className={thClass}>{t('col.date')}</th>
-                  <th className={`${thClass} text-center`}>Wk</th>
+                  <th className={`${thClass} text-center`}>{t('col.week')}</th>
                   <th className={thClass}>SKU</th>
                   <th className={thClass}>Supplier</th>
                   <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>QTY</th>
