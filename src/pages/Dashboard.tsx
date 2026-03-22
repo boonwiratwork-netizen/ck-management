@@ -235,7 +235,7 @@ const Dashboard = ({
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalStandardCost)}</p>
                 </div>
                 <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Actual spend</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.actualSpend')}</p>
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalActualCost)}</p>
                 </div>
                 <div className="rounded-lg bg-muted/40 p-4 flex flex-col justify-center">
