@@ -1,9 +1,9 @@
 /**
  * CK Manager Design System — Single Source of Truth
- * 
+ *
  * This file defines all design tokens for consistent UI across the application.
  * Pages should reference these tokens instead of hardcoding Tailwind classes.
- * 
+ *
  * IMPORTANT: Do not use raw color values (e.g. "bg-orange-500") in components.
  * Always use semantic tokens from index.css (e.g. "bg-primary") or reference
  * the mappings defined here.
@@ -12,23 +12,23 @@
 // ─── TYPOGRAPHY ─────────────────────────────────────────────────────────────
 export const typography = {
   /** Page titles — e.g. "Production Plan", "Goods Receipt" */
-  pageTitle: 'text-2xl font-bold tracking-tight',
+  pageTitle: "text-2xl font-bold tracking-tight",
   /** Section titles inside cards or panels */
-  sectionTitle: 'text-lg font-semibold',
+  sectionTitle: "text-lg font-semibold",
   /** Table column headers */
-  tableHeader: 'text-xs font-medium uppercase tracking-wide text-muted-foreground',
+  tableHeader: "text-xs font-medium uppercase tracking-wide text-muted-foreground",
   /** Table body text */
-  tableData: 'text-sm',
+  tableData: "text-sm",
   /** Table body numbers — monospaced for alignment */
-  tableDataMono: 'text-sm font-mono',
+  tableDataMono: "text-sm font-mono",
   /** Small unit labels next to values (e.g. "ก.", "฿") */
-  unitLabel: 'text-xs text-muted-foreground',
+  unitLabel: "text-xs text-muted-foreground",
   /** Badge text */
-  badge: 'text-xs font-medium',
+  badge: "text-xs font-medium",
   /** Summary card labels */
-  cardLabel: 'text-xs uppercase tracking-wide text-muted-foreground',
+  cardLabel: "text-xs uppercase tracking-wide text-muted-foreground",
   /** Summary card large values */
-  cardValue: 'text-2xl font-bold',
+  cardValue: "text-2xl font-bold",
 } as const;
 
 // ─── COLORS (semantic mapping to Tailwind tokens) ───────────────────────────
@@ -36,64 +36,64 @@ export const typography = {
 // Use the semantic token classes (bg-primary, text-destructive, etc.) in components.
 export const colors = {
   /** Primary action color — buttons, active states, accents */
-  primary: 'primary',            // hsl(var(--primary)) → ink black
-  primaryHover: 'primary/90',    // hover darkened via opacity or index.css
+  primary: "primary", // hsl(var(--primary)) → orange-500
+  primaryHover: "primary/90", // hover darkened via opacity or index.css
   /** Positive / success states */
-  success: 'success',            // hsl(var(--success)) → green-500
+  success: "success", // hsl(var(--success)) → green-500
   /** Warning / caution states */
-  warning: 'warning',            // hsl(var(--warning)) → yellow/amber-500
+  warning: "warning", // hsl(var(--warning)) → yellow/amber-500
   /** Destructive / critical states */
-  danger: 'destructive',         // hsl(var(--destructive)) → red-500
+  danger: "destructive", // hsl(var(--destructive)) → red-500
   /** Secondary text, units */
-  muted: 'muted-foreground',     // hsl(var(--muted-foreground)) → gray-400/500
+  muted: "muted-foreground", // hsl(var(--muted-foreground)) → gray-400/500
   /** Table & card borders */
-  border: 'border',              // hsl(var(--border)) → gray-200
+  border: "border", // hsl(var(--border)) → gray-200
   /** Input borders */
-  inputBorder: 'input',          // hsl(var(--input)) → gray-300
+  inputBorder: "input", // hsl(var(--input)) → gray-300
   /** Input focus ring */
-  inputFocusBorder: 'ring',      // hsl(var(--ring)) → orange-400
+  inputFocusBorder: "ring", // hsl(var(--ring)) → orange-400
   /** Row hover background */
-  rowHoverBg: 'table-hover',     // hsl(var(--table-hover))
+  rowHoverBg: "table-hover", // hsl(var(--table-hover))
   /** Filled/entered row background */
-  rowFilledBg: 'success/5',      // light green tint
+  rowFilledBg: "success/5", // light green tint
   /** Filled row left border accent */
-  rowFilledBorder: 'success',    // green-400/500
+  rowFilledBorder: "success", // green-400/500
 } as const;
 
 // ─── STATUS DOT COLORS ─────────────────────────────────────────────────────
 export const statusDotColors = {
-  green: 'bg-success',
-  amber: 'bg-warning',
-  red: 'bg-destructive',
+  green: "bg-success",
+  amber: "bg-warning",
+  red: "bg-destructive",
 } as const;
 
 export const statusDotSizes = {
-  sm: 'w-2 h-2',
-  md: 'w-2.5 h-2.5',
+  sm: "w-2 h-2",
+  md: "w-2.5 h-2.5",
 } as const;
 
 // ─── FORM CONTROLS ──────────────────────────────────────────────────────────
 export const formControl = {
   /** Universal height for all interactive form controls (Input, Select, DatePicker) */
-  height: 'h-10',
+  height: "h-10",
 } as const;
 
 // ─── SPACING ────────────────────────────────────────────────────────────────
 export const spacing = {
   /** Standard table row height */
-  tableRowHeight: 'h-10',
+  tableRowHeight: "h-10",
   /** Table cell padding */
-  tableCellPadding: 'px-3 py-2.5',
+  tableCellPadding: "px-3 py-2",
   /** Compact table cell padding (for dense spreadsheet views) */
-  tableCellPaddingCompact: 'px-2 py-2',
+  tableCellPaddingCompact: "px-2 py-1.5",
   /** Card internal padding */
-  cardPadding: 'p-4',
+  cardPadding: "p-4",
   /** Panel / page section padding */
-  panelPadding: 'p-6',
+  panelPadding: "p-6",
   /** Gap between sections */
-  sectionGap: 'gap-4',
+  sectionGap: "gap-4",
   /** Gap between summary cards */
-  cardGap: 'gap-3',
+  cardGap: "gap-3",
 } as const;
 
 // ─── INPUT STANDARDS ────────────────────────────────────────────────────────
@@ -105,13 +105,15 @@ export const inputs = {
    *
    * Modal/form inputs may use controlled pattern.
    */
-  tableCellInput: 'h-8 text-sm px-2 w-full rounded-md border border-input focus:border-ring focus:ring-0 focus:outline-none bg-background',
+  tableCellInput:
+    "h-8 text-sm px-2 w-full rounded-md border border-input focus:border-ring focus:ring-0 focus:outline-none bg-background",
   /** Standard form input */
-  formInput: 'h-10 w-full rounded-md border border-input px-3 py-2 text-sm focus:border-ring focus:ring-0 focus:outline-none bg-background',
+  formInput:
+    "h-10 w-full rounded-md border border-input px-3 py-2 text-sm focus:border-ring focus:ring-0 focus:outline-none bg-background",
   /** Number input attributes */
   numberInputProps: {
-    type: 'number' as const,
-    inputMode: 'decimal' as const,
+    type: "number" as const,
+    inputMode: "decimal" as const,
   },
 } as const;
 
@@ -134,7 +136,7 @@ export const decimals = {
  * @returns Formatted string e.g. "12,345" or "0.0012"
  */
 export function formatNumber(value: number, dp: number = 0): string {
-  return value.toLocaleString('en-US', {
+  return value.toLocaleString("en-US", {
     minimumFractionDigits: dp,
     maximumFractionDigits: dp,
   });
@@ -155,21 +157,25 @@ export const fmtPct = (v: number) => `${formatNumber(v, decimals.percentage)}%`;
 // ─── BUTTON STANDARDS ───────────────────────────────────────────────────────
 export const buttons = {
   /** Primary action button */
-  primary: 'bg-primary hover:bg-primary/80 text-primary-foreground rounded-md px-4 py-2 text-sm font-medium transition-colors',
+  primary:
+    "bg-primary hover:bg-primary/90 text-primary-foreground rounded-md px-4 py-2 text-sm font-medium transition-colors",
   /** Secondary / outlined button */
-  secondary: 'border border-primary text-primary hover:bg-accent rounded-md px-4 py-2 text-sm transition-colors',
+  secondary: "border border-primary text-primary hover:bg-accent rounded-md px-4 py-2 text-sm transition-colors",
   /** Destructive action */
-  destructive: 'border border-destructive/30 text-destructive hover:bg-destructive/5 rounded-md px-3 py-1.5 text-sm transition-colors',
+  destructive:
+    "border border-destructive/30 text-destructive hover:bg-destructive/5 rounded-md px-3 py-1.5 text-sm transition-colors",
   /** Ghost / text-only */
-  ghost: 'text-primary hover:text-primary/80 text-sm transition-colors',
+  ghost: "text-primary hover:text-primary/80 text-sm transition-colors",
   /** Dashed "add row" button */
-  dashedAdd: 'w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors',
+  dashedAdd:
+    "w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors",
 
   // Segmented mode toggle — for embedded table header use
   // Use with plain <button> elements or ToggleGroup from @/components/ui/toggle
-  modeToggleWrapper: 'flex rounded-md overflow-hidden border border-border',
-  modeToggleActive: 'px-3 py-1.5 text-xs font-medium bg-foreground text-background transition-colors',
-  modeToggleInactive: 'px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:text-foreground border border-input transition-colors',
+  modeToggleWrapper: "flex rounded-md overflow-hidden border border-border",
+  modeToggleActive: "px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors",
+  modeToggleInactive:
+    "px-3 py-1.5 text-xs font-medium bg-background text-muted-foreground hover:bg-muted transition-colors",
 } as const;
 
 // ─── TABLE STANDARDS ────────────────────────────────────────────────────────
@@ -333,73 +339,80 @@ export const buttons = {
 
 export const table = {
   // ─── Layout ───────────────────────────────────
-  wrapper: 'rounded-lg border overflow-hidden',
-  base: 'w-full table-fixed text-sm',
+  wrapper: "rounded-lg border overflow-hidden",
+  base: "w-full table-fixed text-sm",
 
   // ─── Header ───────────────────────────────────
-  headerRow: 'bg-table-header border-b',
-  headerCell: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground',
-  headerCellNumeric: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right',
-  headerCellCenter: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-center',
-  headerCellSortable: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors',
-  headerCellSortableActive: 'px-3 py-2 text-xs font-medium uppercase tracking-wide text-foreground cursor-pointer select-none',
+  headerRow: "bg-table-header border-b",
+  headerCell: "px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground",
+  headerCellNumeric: "px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right",
+  headerCellCenter: "px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground text-center",
+  headerCellSortable:
+    "px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors",
+  headerCellSortableActive:
+    "px-3 py-2 text-xs font-medium uppercase tracking-wide text-foreground cursor-pointer select-none",
 
   // ─── Data rows ────────────────────────────────
-  dataRow: 'border-b border-table-border hover:bg-table-hover transition-colors',
-  dataRowSelected: 'border-b border-table-border bg-primary/5 border-l-2 border-l-primary',
-  dataRowLocked: 'border-b border-table-border bg-muted/20',
+  dataRow: "border-b border-table-border hover:bg-table-hover transition-colors",
+  dataRowSelected: "border-b border-table-border bg-primary/5 border-l-2 border-l-primary",
+  dataRowLocked: "border-b border-table-border bg-muted/20",
 
   // ─── Cells — standard (sparse tables <8 cols) ─
-  dataCell: 'px-3 py-2.5 text-sm',
-  dataCellMono: 'px-3 py-2.5 text-sm font-mono text-right',
-  dataCellCenter: 'px-3 py-2.5 text-sm text-center',
-  truncatedCell: 'px-3 py-2.5 text-sm truncate',
+  dataCell: "px-3 py-2 text-sm",
+  dataCellMono: "px-3 py-2 text-sm font-mono text-right",
+  dataCellCenter: "px-3 py-2 text-sm text-center",
+  truncatedCell: "px-3 py-2 text-sm truncate",
 
   // ─── Cells — compact (dense tables 8+ cols) ───
-  dataCellCompact: 'px-2 py-2 text-xs',
-  dataCellCompactMono: 'px-2 py-2 text-xs font-mono text-right',
-  dataCellCompactCenter: 'px-2 py-2 text-xs text-center',
-  truncatedCellCompact: 'px-2 py-2 text-xs truncate',
+  dataCellCompact: "px-2 py-1 text-xs",
+  dataCellCompactMono: "px-2 py-1 text-xs font-mono text-right",
+  dataCellCompactCenter: "px-2 py-1 text-xs text-center",
+  truncatedCellCompact: "px-2 py-1 text-xs truncate",
 
   // ─── Input cells ──────────────────────────────
-  inputCell: 'bg-amber-50 border border-input rounded px-2 py-1 text-sm font-mono text-right w-full h-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
-  inputCellText: 'bg-background border border-input rounded px-2 py-1 text-sm text-left w-full h-8',
-  inputCellError: 'bg-amber-50 border border-destructive ring-1 ring-destructive rounded px-2 py-1 text-sm font-mono text-right w-full h-8',
-  readOnlyCell: 'bg-muted/30 border border-transparent rounded px-2 py-1 text-sm font-mono text-right w-full h-8 cursor-default',
+  inputCell:
+    "bg-amber-50 border border-input rounded px-2 py-1 text-sm font-mono text-right w-full h-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+  inputCellText: "bg-background border border-input rounded px-2 py-1 text-sm text-left w-full h-8",
+  inputCellError:
+    "bg-amber-50 border border-destructive ring-1 ring-destructive rounded px-2 py-1 text-sm font-mono text-right w-full h-8",
+  readOnlyCell:
+    "bg-muted/30 border border-transparent rounded px-2 py-1 text-sm font-mono text-right w-full h-8 cursor-default",
 
   // ─── Special row states ───────────────────────
-  filledRow: 'border-l-[3px] border-l-success bg-success/5',
-  unfilledRow: 'opacity-40',
+  filledRow: "border-l-[3px] border-l-success bg-success/5",
+  criticalRow: "border-b border-table-border border-l-[3px] border-l-destructive bg-destructive/[0.04]",
+  lowRow: "border-b border-table-border border-l-[3px] border-l-warning bg-warning/[0.04]",
+  unfilledRow: "opacity-40",
 
   // Production execution row states
-  productionRowDone: 'border-l-[3px] border-l-success bg-success/5',
-  productionRowInProgress: 'border-l-[3px] border-l-warning',
-  productionRowNotStarted: 'border-l-[3px] border-l-destructive/30',
+  productionRowDone: "border-l-[3px] border-l-success bg-success/5",
+  productionRowInProgress: "border-l-[3px] border-l-warning",
+  productionRowNotStarted: "border-l-[3px] border-l-destructive/30",
 
   // ─── Footer / summary rows ────────────────────
-  footerRow: 'border-t-2 border-border bg-muted/20',
-  footerCell: 'px-3 py-2 text-sm font-medium text-foreground',
-  footerCellMono: 'px-3 py-2 text-sm font-mono font-semibold text-right text-foreground',
+  footerRow: "border-t-2 border-border bg-muted/20",
+  footerCell: "px-3 py-2 text-sm font-medium text-foreground",
+  footerCellMono: "px-3 py-2 text-sm font-mono font-semibold text-right text-foreground",
 
   // ─── Empty state ──────────────────────────────
-  emptyState: 'text-center text-sm text-muted-foreground py-12',
+  emptyState: "text-center text-sm text-muted-foreground py-12",
 
   // ─── Loading skeleton ─────────────────────────
-  skeletonCell: 'h-4 bg-muted animate-pulse rounded',
-  skeletonCellName: 'h-4 bg-muted animate-pulse rounded w-[60%]',
-  skeletonCellNumeric: 'h-4 bg-muted animate-pulse rounded w-[50%] ml-auto',
+  skeletonCell: "h-4 bg-muted animate-pulse rounded",
+  skeletonCellName: "h-4 bg-muted animate-pulse rounded w-[60%]",
+  skeletonCellNumeric: "h-4 bg-muted animate-pulse rounded w-[50%] ml-auto",
 
   // ─── Status badges ────────────────────────────
   badge: {
-    base: 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-    draft:             'bg-muted text-muted-foreground',
-    submitted:         'bg-amber-100 text-amber-700',
-    acknowledged:      'bg-blue-100 text-blue-700',
-    sent:              'bg-amber-100 text-amber-700',
-    fulfilled:         'bg-green-100 text-green-700',
-    received:          'bg-green-100 text-green-700',
-    partiallyReceived: 'bg-blue-100 text-blue-700',
-    cancelled:         'bg-red-100 text-red-700',
+    base: "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+    draft: "bg-muted text-muted-foreground",
+    submitted: "bg-amber-100 text-amber-700",
+    acknowledged: "bg-blue-100 text-blue-700",
+    sent: "bg-amber-100 text-amber-700",
+    fulfilled: "bg-green-100 text-green-700",
+    received: "bg-green-100 text-green-700",
+    partiallyReceived: "bg-blue-100 text-blue-700",
+    cancelled: "bg-red-100 text-red-700",
   },
 } as const;
 
@@ -408,18 +421,18 @@ export const table = {
 // For compact table use (h-2) and standard use (h-4)
 export const progressBar = {
   // Outer track
-  track: 'relative w-full overflow-hidden rounded-full bg-muted',
-  trackCompact: 'h-3',      // for table rows
-  trackStandard: 'h-4',     // for cards/modals
+  track: "relative w-full overflow-hidden rounded-full bg-muted",
+  trackCompact: "h-3", // for table rows
+  trackStandard: "h-4", // for cards/modals
 
   // Fill variants — apply to ProgressPrimitive.Indicator or inner div
   // Color reflects production status
-  fillNotStarted: 'bg-destructive transition-all',   // 0% — red
-  fillInProgress: 'bg-warning transition-all',        // 1-99% — amber
-  fillComplete: 'bg-success transition-all',          // 100% — green
+  fillNotStarted: "bg-destructive transition-all", // 0% — red
+  fillInProgress: "bg-warning transition-all", // 1-99% — amber
+  fillComplete: "bg-success transition-all", // 100% — green
 
   // Label below progress bar
-  label: 'text-xs text-muted-foreground mt-0.5 font-mono',
+  label: "text-xs text-muted-foreground mt-0.5 font-mono",
 } as const;
 
 // ─── COVER DAYS DISPLAY ──────────────────────────────────────────────────────
@@ -428,32 +441,32 @@ export const progressBar = {
 // Format: "X.X วัน ↓ need Y" or "X.X วัน ↑ need Y"
 export const coverDisplay = {
   // Wrapper for the inline cover display
-  wrapper: 'inline-flex items-baseline gap-1 font-mono text-xs',
+  wrapper: "inline-flex items-baseline gap-1 font-mono text-xs",
 
   // Value + unit
-  value: 'font-semibold',
-  unit: 'text-muted-foreground',
+  value: "font-semibold",
+  unit: "text-muted-foreground",
 
   // Direction arrow + target — shows deviation from target
-  arrow: 'text-xs',
-  target: 'text-xs text-muted-foreground',
+  arrow: "text-xs",
+  target: "text-xs text-muted-foreground",
 
   // Color variants — apply to wrapper or value
-  red: 'text-destructive',
-  amber: 'text-warning',
-  green: 'text-success',
+  red: "text-destructive",
+  amber: "text-warning",
+  green: "text-success",
 } as const;
 
 // ─── WORDING STANDARDS (Thai) ───────────────────────────────────────────────
 export const wording = {
   /** Stock quantity unit */
-  stockUnit: 'ก.',
+  stockUnit: "ก.",
   /** Cover days unit */
-  coverDaysUnit: 'วัน',
+  coverDaysUnit: "วัน",
   /** Save button text */
-  save: 'บันทึก',
+  save: "บันทึก",
   /** Week reference format — use with week number */
-  weekPrefix: 'สัปดาห์ที่',
+  weekPrefix: "สัปดาห์ที่",
   /** Batch unit */
-  batch: 'แบทช์',
+  batch: "แบทช์",
 } as const;
