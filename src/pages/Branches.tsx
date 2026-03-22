@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Search, Store, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
@@ -156,7 +155,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
                   <td className="px-4 py-3">{b.brandName}</td>
                   <td className="px-4 py-3 text-muted-foreground">{b.location || '—'}</td>
                   <td className="px-4 py-3 text-center">
-                    <Badge variant={b.status === 'Active' ? 'default' : 'secondary'}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</Badge>
+                    <span className={b.status === 'Active' ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>{b.status === 'Active' ? t('status.active') : t('status.inactive')}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>

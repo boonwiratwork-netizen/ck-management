@@ -12,7 +12,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -356,7 +355,7 @@ export default function StockCountPage({
             )}
 
             {sessionForDate && (
-              <Badge variant={isCompleted ? "default" : "secondary"} className="text-xs px-2 py-0.5">
+              <span className={isCompleted ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>
                 {isCompleted ? (
                   <>
                     <Lock className="w-3 h-3 mr-1" /> Completed
@@ -364,7 +363,7 @@ export default function StockCountPage({
                 ) : (
                   "Draft"
                 )}
-              </Badge>
+              </span>
             )}
 
             {selectedSession && !isCompleted && summary.counted > 0 && (

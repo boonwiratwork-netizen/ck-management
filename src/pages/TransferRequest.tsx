@@ -30,11 +30,11 @@ const stockStatusToDot: Record<BranchSmStockStatus | BranchRmStockStatus, Status
 };
 
 const statusBadgeClass: Record<string, string> = {
-  Draft: "bg-muted text-muted-foreground",
-  Submitted: "bg-warning/15 text-warning border border-warning/30",
-  Acknowledged: "bg-primary/15 text-primary border border-primary/30",
-  Fulfilled: "bg-success/15 text-success border border-success/30",
-  Cancelled: "bg-destructive/15 text-destructive border border-destructive/30",
+  Draft: "bg-[#F1EFE8] text-[#5F5E5A]",
+  Submitted: "bg-[#FAEEDA] text-[#633806]",
+  Acknowledged: "bg-[#E6F1FB] text-[#0C447C]",
+  Fulfilled: "bg-[#EAF3DE] text-[#27500A]",
+  Cancelled: "bg-[#FCEBEB] text-[#791F1F]",
 };
 
 const CK_SUPPLIER_ID = "__central_kitchen__";

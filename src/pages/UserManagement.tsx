@@ -14,7 +14,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Plus, KeyRound, UserX, UserCheck, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -263,9 +262,9 @@ export default function UserManagement() {
                       {getAssignmentDisplay(u)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={u.status === 'Active' ? 'default' : 'secondary'}>
+                      <span className={u.status === 'Active' ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>
                         {u.status === 'Active' ? t('status.active') : t('status.inactive')}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button
