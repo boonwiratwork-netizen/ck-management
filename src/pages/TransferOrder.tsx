@@ -32,11 +32,11 @@ import {
 import { toast } from "sonner";
 
 const toStatusBadge: Record<string, string> = {
-  Draft: "bg-muted text-muted-foreground",
-  Sent: "bg-warning/15 text-warning border border-warning/30",
-  Received: "bg-success/15 text-success border border-success/30",
-  "Partially Received": "bg-primary/15 text-primary border border-primary/30",
-  Cancelled: "bg-destructive/15 text-destructive border border-destructive/30",
+  Draft: "bg-[#F1EFE8] text-[#5F5E5A]",
+  Sent: "bg-[#FAEEDA] text-[#633806]",
+  Received: "bg-[#EAF3DE] text-[#27500A]",
+  "Partially Received": "bg-[#E6F1FB] text-[#0C447C]",
+  Cancelled: "bg-[#FCEBEB] text-[#791F1F]",
 };
 
 type SortKey = "toNumber" | "date" | "branch" | "status";

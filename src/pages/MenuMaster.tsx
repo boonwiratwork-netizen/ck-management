@@ -352,9 +352,9 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                       {menu.sellingPrice.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={menu.status === 'Active' ? 'default' : 'outline'} className="text-xs">
+                      <span className={menu.status === 'Active' ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>
                         {menu.status === 'Active' ? t('status.active') : t('status.inactive')}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
                     {canEdit && (

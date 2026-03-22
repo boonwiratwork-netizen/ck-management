@@ -533,9 +533,9 @@ export default function ModifierRulesPage({ ruleData, skus, menus, menuBomLines 
                     <TableCell>{rule.ruleType === 'submenu' ? '—' : rule.uom}</TableCell>
                     <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{rule.description || '—'}</TableCell>
                     <TableCell>
-                      <Badge variant={rule.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                      <span className={rule.isActive ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>
                         {rule.isActive ? t('status.active') : t('status.inactive')}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
