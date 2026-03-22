@@ -127,8 +127,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "btn.confirmAdjust": { th: "ยืนยันและปรับสต๊อก", en: "Confirm & Adjust Stock" },
 
   // ─── Status Badges ───
-  "status.active": { th: "ใช้งาน", en: "Active" },
-  "status.inactive": { th: "ไม่ใช้งาน", en: "Inactive" },
+  "status.active": { th: "Active", en: "Active" },
+  "status.inactive": { th: "Inactive", en: "Inactive" },
   "status.draft": { th: "แบบร่าง", en: "Draft" },
   "status.completed": { th: "เสร็จสิ้น", en: "Completed" },
   "status.planned": { th: "วางแผน", en: "Planned" },
@@ -178,7 +178,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.pricePurchaseUom": { th: "ราคา/หน่วยซื้อ", en: "Price/Purchase UOM" },
   "col.priceUsageUom": { th: "ราคา/หน่วยใช้", en: "Price/Usage UOM" },
   "col.vat": { th: "VAT", en: "VAT" },
-  "col.active": { th: "ใช้งาน", en: "Active" },
+  "col.active": { th: "Active", en: "Active" },
   "col.effDate": { th: "วันที่มีผล", en: "Eff. Date" },
 
   // Goods Receipt
