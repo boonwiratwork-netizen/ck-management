@@ -317,7 +317,7 @@ export function StockCard({
           // Step 5 — Build day-by-day ledger
           const today = new Date().toISOString().slice(0, 10);
           const allDates: string[] = [];
-          const d = new Date(startDate);
+          const d = new Date(resolvedStartDate);
           const end = new Date(today);
           while (d <= end) {
             allDates.push(d.toISOString().slice(0, 10));
