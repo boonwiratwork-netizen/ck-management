@@ -1325,7 +1325,7 @@ export default function BranchReceiptPage({
             value={historyDateTo}
             onChange={setHistoryDateTo}
             placeholder="End"
-            label="To"
+            label={t('common.to')}
             labelPosition="left"
             align="start"
           />
