@@ -844,7 +844,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-right`}>Unit ฿</th>
+                  <th className={`${thClass} text-right`}>{t('gr.colUnitBaht')}</th>
                   <th className={`${thClass} text-right`}>Std ฿</th>
                   <th className={`${thClass} text-right`}>Std Tot</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
