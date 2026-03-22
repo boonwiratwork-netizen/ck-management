@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toLocalDateStr } from '@/lib/utils';
 
@@ -48,6 +48,10 @@ interface HookReturn {
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
 export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInput): HookReturn {
+  const smStockRef = useRef(smStockBalances);
+  smStockRef.current = smStockBalances;
+  const getOutputRef = useRef(getOutputPerBatch);
+  getOutputRef.current = getOutputPerBatch;
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -218,7 +222,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       }
 
       // ── Stock balance map ───────────────────────────────────────────────
-      const stockMap = new Map(smStockBalances.map(s => [s.skuId, s.currentStock]));
+      const stockMap = new Map(smStockRef.current.map(s => [s.skuId, s.currentStock]));
 
       // ── Build suggestions ───────────────────────────────────────────────
       const resultSuggestions: PlanSuggestion[] = [];
@@ -228,7 +232,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         if (!info) continue;
 
         const currentStockG = Math.max(0, stockMap.get(skuId) ?? 0);
-        const outputPerBatch = getOutputPerBatch(skuId);
+        const outputPerBatch = getOutputRef.current(skuId);
         const gap = weeklyDemandG - currentStockG;
         const suggestedBatches = outputPerBatch > 0 ? Math.max(0, Math.ceil(gap / outputPerBatch)) : 0;
 
@@ -246,7 +250,9 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       // Sort by suggestedBatches desc
       resultSuggestions.sort((a, b) => b.suggestedBatches - a.suggestedBatches);
 
-      console.log('[PlanningAgent]', { branches: resultBranches, suggestions: resultSuggestions });
+      if (resultBranches.length > 0 && resultSuggestions.length > 0) {
+        console.log('[PlanningAgent]', { branches: resultBranches, suggestions: resultSuggestions });
+      }
 
       setBranches(resultBranches);
       setSuggestions(resultSuggestions);
@@ -255,7 +261,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     } finally {
       setIsLoading(false);
     }
-  }, [smStockBalances, getOutputPerBatch]);
+  }, []);
 
   useEffect(() => { calculate(); }, [calculate]);
 
