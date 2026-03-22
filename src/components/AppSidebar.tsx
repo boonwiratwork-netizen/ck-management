@@ -338,12 +338,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             tooltip={label}
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
-                                ? "bg-accent text-accent-foreground font-semibold border-l-2 border-primary"
-                                : "text-sidebar-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                                ? "bg-foreground text-background font-semibold"
+                                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-accent/40"
                             }`}
                           >
                             <item.icon
-                              className={`w-4 h-4 shrink-0 ${isActive ? "!text-primary opacity-100" : "opacity-70"}`}
+                              className={`w-4 h-4 shrink-0 ${isActive ? "text-background" : "opacity-70"}`}
                             />
                             <span className="text-sm">{label}</span>
                             {item.key === "transfer-order" &&
