@@ -466,7 +466,7 @@ const Dashboard = ({
                     <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">RM Distributed</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.rmDistributed')}</p>
                     <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalRmValue)}</p>
                   </div>
                 </div>
