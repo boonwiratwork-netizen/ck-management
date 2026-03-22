@@ -639,7 +639,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </colgroup>
                   <thead>
                     <tr className="bg-table-header border-b">
-                      <th className={thClass}>SKU</th>
+                      <th className={thClass}>{t('col.sku')}</th>
                       <th className={`${thClass} text-right`}>QTY</th>
                       <th className={`${thClass} text-center`}>UOM</th>
                       <th className={`${thClass} text-right`}>Actual ฿</th>
