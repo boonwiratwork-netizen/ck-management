@@ -617,7 +617,11 @@ export default function BranchReceiptPage({
 
   const SaveButton = () => (
     <div className="flex items-center gap-2">
-      <Button onClick={handleSaveAll} disabled={savableCount === 0}>
+      <Button
+        onClick={handleSaveAll}
+        disabled={savableCount === 0}
+        className="bg-success hover:bg-success/90 text-success-foreground"
+      >
         <Save className="w-4 h-4 mr-1" /> {t("br.saveAll").replace("{n}", String(savableCount))}
       </Button>
       {savedCount !== null && (
