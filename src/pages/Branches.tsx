@@ -139,7 +139,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
           </thead>
           <tbody>
             {filtered.map(b => (
-              <>
+              <Fragment key={b.id}>
                 <tr key={b.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${!readOnly ? 'cursor-pointer' : ''}`}
                     onClick={() => !readOnly && setExpandedBranchId(prev => prev === b.id ? null : b.id)}>
                   <td className="px-4 py-3 font-medium">
