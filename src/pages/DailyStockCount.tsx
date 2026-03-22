@@ -240,7 +240,7 @@ export default function DailyStockCountPage({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-heading font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{t("dsc.subtitle")}</p>
       </div>
 
@@ -272,7 +272,7 @@ export default function DailyStockCountPage({
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" onClick={handleGenerate} disabled={!selectedBranch || generating}>
+            <Button onClick={handleGenerate} disabled={!selectedBranch || generating}>
               {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" /> {t("btn.generate")}...
@@ -364,9 +364,9 @@ export default function DailyStockCountPage({
                         <div>{t("col.calcBalance")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">
+                      <th className={`text-right ${thClass} !bg-foreground !text-background font-semibold`}>
                         <div>{t("col.physical")}</div>
-                        <div className="text-xs font-normal text-background/70">(Usage UOM)</div>
+                        <div className="text-xs font-normal opacity-60">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.variance")}</div>
@@ -391,7 +391,7 @@ export default function DailyStockCountPage({
                           </td>
                           <td className="px-2 py-1">
                             <span
-                              className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium ${
+                              className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                                 sku.type === "RM"
                                   ? "badge-rm"
                                   : sku.type === "SM"
@@ -439,7 +439,7 @@ export default function DailyStockCountPage({
                           <td className="text-right font-mono text-sm font-medium px-2 py-1">
                             {fmt0(Math.max(0, row.calculatedBalance))}
                           </td>
-                          <td className="px-1.5 py-1 text-right bg-foreground/[0.04]">
+                          <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
                               <span className="text-sm font-mono">
                                 {row.physicalCount !== null ? fmt0(row.physicalCount) : "—"}
@@ -502,7 +502,7 @@ export default function DailyStockCountPage({
                         <TableHead className={thClass}>{t("col.skuCode")}</TableHead>
                         <TableHead className={thClass}>{t("col.skuName")}</TableHead>
                         <TableHead className={thClass}>{t("col.type")}</TableHead>
-                        <TableHead className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t("col.physical")}</TableHead>
+                        <TableHead className={`text-right ${thClass}`}>{t("col.physical")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -519,14 +519,14 @@ export default function DailyStockCountPage({
                             <TableCell className="px-2 py-1 text-sm">{sku.name}</TableCell>
                             <TableCell className="px-2 py-1">
                               <span
-                                className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium ${
+                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
                                   sku.type === "RM" ? "badge-rm" : "badge-sm"
                                 }`}
                               >
                                 {sku.type}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right w-28 px-2 py-1 bg-foreground/[0.04]">
+                            <TableCell className="text-right w-28 px-2 py-1">
                               {!isSubmitted && (
                                 <Input
                                   type="number"
