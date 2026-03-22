@@ -1018,29 +1018,29 @@ export default function BranchReceiptPage({
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={thClass}>Date</th>
-                  <th className={`${thClass} text-center`}>Wk</th>
-                  <th className={thClass}>SKU</th>
-                  <th className={thClass}>Supplier</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>QTY</th>
-                  <th className={`${thClass} text-center`}>UOM</th>
+                  <th className={thClass}>{t('col.date')}</th>
+                  <th className={`${thClass} text-center`}>{t('col.week')}</th>
+                  <th className={thClass}>{t('col.sku')}</th>
+                  <th className={thClass}>{t('col.supplier')}</th>
+                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('col.qty')}</th>
+                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-muted-foreground">Actual ฿</span>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">{t('col.actualTotal')}</span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p>Verify actual price paid</p>
+                          <p>{t('col.totalPaid')}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </th>
-                  <th className={`${thClass} text-right`}>Unit ฿</th>
-                  <th className={`${thClass} text-right`}>Std ฿</th>
-                  <th className={`${thClass} text-right`}>Std Tot</th>
-                  <th className={`${thClass} text-right`}>Var</th>
-                  <th className={thClass}>Note</th>
+                  <th className={`${thClass} text-right`}>{t('col.actualUnit')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdUnit')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
+                  <th className={`${thClass} text-right`}>{t('col.variance')}</th>
+                  <th className={thClass}>{t('col.note')}</th>
                 </tr>
               </thead>
               <tbody>
