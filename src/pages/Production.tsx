@@ -758,7 +758,7 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>g/batch</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
                     <th className={table.headerCellNumeric}>SUGGEST</th>
-                    <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
+                    <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-foreground text-background border-x border-foreground/20 font-semibold">
                       {t("prod.colPlanBatch")}
                     </th>
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
