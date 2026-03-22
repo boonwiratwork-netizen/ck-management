@@ -1022,7 +1022,7 @@ export default function BranchReceiptPage({
                   <th className={`${thClass} text-center`}>{t('col.week')}</th>
                   <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.supplier')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('col.qty')}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
