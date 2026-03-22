@@ -308,7 +308,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // ─── Production Page ───
   "prod.title": { th: "การผลิต", en: "Production" },
   "prod.subtitle": { th: "แผนการผลิตและบันทึกผลผลิต", en: "Production planning and output recording" },
-  "prod.targetCoverDays": { th: "เป้าหมายวันคุ้มทุน", en: "Target Cover Days" },
+  "prod.targetCoverDays": { th: "Target Cover Days", en: "Target Cover Days" },
   "prod.modePlanning": { th: "📋 วางแผน", en: "📋 Planning" },
   "prod.modeExecution": { th: "✅ บันทึกผลผลิต", en: "✅ Record Output" },
   "prod.savePlan": { th: "บันทึกแผน", en: "Save Plan" },
