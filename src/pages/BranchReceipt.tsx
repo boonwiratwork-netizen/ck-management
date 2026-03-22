@@ -790,7 +790,7 @@ export default function BranchReceiptPage({
                             >
                               <span>{s.name}</span>
                               {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
                                   {pendingPRCounts[s.id]} pending
                                 </span>
                               )}
