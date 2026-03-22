@@ -1418,7 +1418,7 @@ export default function BranchReceiptPage({
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-right`}>Std ฿</th>
+                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
                     <SortableHeader
                       label="Variance"
