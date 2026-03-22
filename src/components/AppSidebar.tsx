@@ -146,13 +146,16 @@ const ckGroup: NavGroup = {
   icon: ChefHat,
   section: "ck",
   items: [
+    { subLabel: "Daily" },
     { key: "receipt", labelKey: "nav.goodsReceipt", icon: ClipboardList },
     { key: "production", labelKey: "nav.production", icon: Factory },
     { key: "transfer-order", labelKey: "nav.transferOrder", icon: ArrowRightLeft },
     { key: "stockcount", labelKey: "nav.stockCount", icon: ClipboardCheck },
+    { subLabel: "Monitor" },
     { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
     { key: "stock", labelKey: "nav.rmStock", icon: Warehouse },
     { key: "smstock", labelKey: "nav.smStock", icon: BoxesIcon },
+    { subLabel: "Config" },
     { key: "bom", labelKey: "nav.bom", icon: FlaskConical },
   ],
 };
