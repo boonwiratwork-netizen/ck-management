@@ -1340,6 +1340,29 @@ export default function ProductionPage({
         confirmLabel={t("btn.delete")}
         onConfirm={handleDeleteRecordConfirm}
       />
+
+      {/* Planning Agent floating button */}
+      {mode === "planning" && (
+        <button
+          onClick={() => setAgentOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+        >
+          <Sparkles className="w-4 h-4" />
+          วางแผน AI
+        </button>
+      )}
+
+      {/* Planning Agent panel */}
+      <PlanningAgentPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        branches={planningAgent.branches}
+        suggestions={planningAgent.suggestions}
+        isLoading={planningAgent.isLoading}
+        weekStart={weekStart}
+        onRecalculate={planningAgent.recalculateWithOverrides}
+        onApplyPlan={(plan) => setPlanBatches(prev => ({ ...prev, ...plan }))}
+      />
     </TooltipProvider>
   );
 }
