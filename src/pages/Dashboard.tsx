@@ -495,7 +495,7 @@ const Dashboard = ({
                 ) : (
                   <div className="flex flex-col items-center py-8 text-muted-foreground">
                     <Truck className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">No distributions in this period</p>
+                    <p className="text-sm">{t('ckd.noDistributions')}</p>
                   </div>
                 )}
               </CardContent>
