@@ -305,7 +305,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       </Button>
       {savedCount !== null && (
         <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
-          <CheckCircle className="w-3.5 h-3.5" /> {savedCount} {t('gr.itemsSaved')}
+          <CheckCircle className="w-3.5 h-3.5" /> {savedCount} {t("gr.itemsSaved")}
         </span>
       )}
     </div>
@@ -316,7 +316,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-heading font-bold">{t("title.goodsReceipt")}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">{t('gr.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t("gr.subtitle")}</p>
         </div>
         {supplierId && <SaveButton />}
       </div>
@@ -327,14 +327,16 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           value={receiptDate}
           onChange={(d) => d && setReceiptDate(d)}
           defaultToday
-          label={t('col.date')}
+          label={t("col.date")}
           required
           labelPosition="above"
           align="start"
         />
         {/* FIX 3: Searchable grouped supplier dropdown */}
         <div className="relative" ref={supplierDropdownRef}>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('col.supplier')}</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+            {t("col.supplier")}
+          </label>
           <button
             type="button"
             onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
@@ -362,7 +364,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {filteredGroupedSuppliers.ck.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {t('gr.ckSuppliers')}
+                      {t("gr.ckSuppliers")}
                     </div>
                     {filteredGroupedSuppliers.ck.map((s) => (
                       <button
@@ -382,7 +384,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {filteredGroupedSuppliers.other.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {t('gr.otherSuppliers')}
+                      {t("gr.otherSuppliers")}
                     </div>
                     {filteredGroupedSuppliers.other.map((s) => (
                       <button
@@ -400,7 +402,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </>
                 )}
                 {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t('gr.noSuppliersFound')}</p>
+                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
                 )}
               </div>
             </div>
@@ -411,7 +413,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       {/* Row count info */}
       {supplierId && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{preloadedRows.length}</span> {t('gr.itemsFrom')}{" "}
+          <span className="font-semibold text-foreground">{preloadedRows.length}</span> {t("gr.itemsFrom")}{" "}
           <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
         </p>
       )}
@@ -445,17 +447,21 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={thClass}>{t('col.date')}</th>
-                  <th className={`${thClass} text-center`}>{t('col.week')}</th>
-                  <th className={thClass}>{t('col.sku')}</th>
-                  <th className={thClass}>{t('col.supplier')}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('col.qty')}</th>
-                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={thClass}>{t("col.date")}</th>
+                  <th className={`${thClass} text-center`}>{t("col.week")}</th>
+                  <th className={thClass}>{t("col.sku")}</th>
+                  <th className={thClass}>{t("col.supplier")}</th>
+                  <th className={`${thClass} text-right !bg-foreground !text-background font-semibold`}>
+                    {t("col.qty")}
+                  </th>
+                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-muted-foreground">{t('gr.colActualBaht')}</span>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">
+                            {t("gr.colActualBaht")}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           <p>Verify actual price paid</p>
@@ -463,11 +469,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       </Tooltip>
                     </TooltipProvider>
                   </th>
-                  <th className={`${thClass} text-right`}>{t('gr.colUnitBaht')}</th>
-                  <th className={`${thClass} text-right`}>{t('gr.colStdBaht')}</th>
-                  <th className={`${thClass} text-right`}>{t('gr.colStdTot')}</th>
-                  <th className={`${thClass} text-right`}>{t('gr.colVar')}</th>
-                  <th className={thClass}>{t('col.note')}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colUnitBaht")}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colStdBaht")}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colStdTot")}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colVar")}</th>
+                  <th className={thClass}>{t("col.note")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -517,7 +523,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1 bg-foreground/[0.04]">
+                      <td className="px-1 py-1">
                         <input
                           ref={(el) => {
                             qtyRefs.current[row.skuId] = el;
@@ -538,8 +544,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           }}
                           onFocus={(e) => e.target.select()}
                           className={cn(
-                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-foreground focus:ring-1 focus:ring-foreground/20 outline-none",
-                            hasQty ? "border-success font-bold text-success" : "border-foreground/40",
+                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
+                            hasQty ? "border-success font-bold text-success" : "border-primary/30",
                           )}
                           placeholder="0"
                         />
@@ -626,7 +632,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         <div className="space-y-2">
           {adHocRows.length > 0 && (
             <>
-              <p className="text-xs font-medium text-muted-foreground">{t('gr.adHocItems')}</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("gr.adHocItems")}</p>
               <div className="rounded-lg border bg-card overflow-hidden">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
@@ -639,11 +645,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </colgroup>
                   <thead>
                     <tr className="bg-table-header border-b">
-                      <th className={thClass}>{t('col.sku')}</th>
-                      <th className={`${thClass} text-right`}>{t('col.qty')}</th>
-                      <th className={`${thClass} text-center`}>{t('col.uom')}</th>
-                      <th className={`${thClass} text-right`}>{t('gr.colActualBaht')}</th>
-                      <th className={thClass}>{t('col.note')}</th>
+                      <th className={thClass}>{t("col.sku")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.qty")}</th>
+                      <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                      <th className={`${thClass} text-right`}>{t("gr.colActualBaht")}</th>
+                      <th className={thClass}>{t("col.note")}</th>
                       <th className={`${thClass} text-center`}></th>
                     </tr>
                   </thead>
@@ -674,7 +680,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               key={`adhoc-qty-${row.tempId}`}
                               onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                               onFocus={(e) => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-foreground/40 rounded-md bg-background focus:border-foreground outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
                               placeholder="0"
                             />
                           </td>
@@ -725,9 +731,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <button
             type="button"
             onClick={handleAddAdHoc}
-            className="w-full border-2 border-dashed border-muted-foreground/40 text-muted-foreground hover:border-foreground/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+            className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5" /> {t('btn.addRow')}
+            <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
           </button>
         </div>
       )}
@@ -741,7 +747,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
       {/* Receipt History */}
       <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-heading font-semibold">{t('gr.receiptHistory')}</h3>
+        <h3 className="text-lg font-heading font-semibold">{t("gr.receiptHistory")}</h3>
         <div className="flex flex-col sm:flex-row gap-3">
           <SearchInput
             value={histSearch}
@@ -757,7 +763,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <SelectValue placeholder="All Suppliers" />
             </SelectTrigger>
             <SelectContent className="max-h-60">
-              <SelectItem value="all">{t('common.allSuppliers')}</SelectItem>
+              <SelectItem value="all">{t("common.allSuppliers")}</SelectItem>
               {suppliers.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
@@ -789,7 +795,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader
-                      label={t('col.date')}
+                      label={t("col.date")}
                       sortKey="date"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -798,7 +804,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} text-center cursor-pointer`} onClick={() => hHandleSort("week")}>
                     <SortableHeader
-                      label={t('col.week')}
+                      label={t("col.week")}
                       sortKey="week"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -807,7 +813,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("sku")}>
                     <SortableHeader
-                      label={t('col.sku')}
+                      label={t("col.sku")}
                       sortKey="sku"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -816,7 +822,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("supplier")}>
                     <SortableHeader
-                      label={t('col.supplier')}
+                      label={t("col.supplier")}
                       sortKey="supplier"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -825,7 +831,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("qty")}>
                     <SortableHeader
-                      label={t('col.qty')}
+                      label={t("col.qty")}
                       sortKey="qty"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -833,10 +839,10 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
                     <SortableHeader
-                      label={t('gr.colActualBaht')}
+                      label={t("gr.colActualBaht")}
                       sortKey="actualTotal"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -844,12 +850,12 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-right`}>{t('gr.colUnitBaht')}</th>
-                  <th className={`${thClass} text-right`}>{t('gr.colStdBaht')}</th>
-                  <th className={`${thClass} text-right`}>{t('gr.colStdTot')}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colUnitBaht")}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colStdBaht")}</th>
+                  <th className={`${thClass} text-right`}>{t("gr.colStdTot")}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
                     <SortableHeader
-                      label={t('gr.colVar')}
+                      label={t("gr.colVar")}
                       sortKey="variance"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -857,7 +863,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={thClass}>{t('col.note')}</th>
+                  <th className={thClass}>{t("col.note")}</th>
                   <th className={`${thClass} text-center`}></th>
                 </tr>
               </thead>
@@ -865,7 +871,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {displayHistory.length === 0 ? (
                   <tr>
                     <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
-                      {t('gr.noReceiptsFound')}
+                      {t("gr.noReceiptsFound")}
                     </td>
                   </tr>
                 ) : (
@@ -953,9 +959,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={t('gr.changeSupplierTitle')}
-        description={t('gr.changeSupplierDesc')}
-        confirmLabel={t('btn.confirm')}
+        title={t("gr.changeSupplierTitle")}
+        description={t("gr.changeSupplierDesc")}
+        confirmLabel={t("btn.confirm")}
         variant="warning"
         onConfirm={confirmSupplierChange}
       />
