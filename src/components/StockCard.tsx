@@ -127,9 +127,15 @@ export function StockCard({
   const [movements, setMovements] = useState<Movement[]>([]);
   const [branchRows, setBranchRows] = useState<BranchCountRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [daysBack, setDaysBack] = useState(14);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Calculate fromDate for CK context date filtering
+    const fromD = new Date();
+    fromD.setDate(fromD.getDate() - daysBack);
+    const fromDate = fromD.toISOString().slice(0, 10);
 
     async function fetch() {
       setLoading(true);
@@ -363,6 +369,7 @@ export function StockCard({
               .from("goods_receipts")
               .select("receipt_date, quantity_received, supplier_id, created_at")
               .eq("sku_id", skuId)
+              .gte("receipt_date", fromDate)
               .order("receipt_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
@@ -370,6 +377,7 @@ export function StockCard({
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "RM")
+              .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase.from("suppliers").select("id, name"),
@@ -430,6 +438,7 @@ export function StockCard({
               .from("production_records")
               .select("production_date, actual_output_g, batches_produced, created_at")
               .eq("sm_sku_id", skuId)
+              .gte("production_date", fromDate)
               .order("production_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
@@ -438,12 +447,14 @@ export function StockCard({
                 "actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
               )
               .eq("sku_id", skuId)
-              .in("transfer_orders.status", ["Sent", "Received"]),
+              .in("transfer_orders.status", ["Sent", "Received"])
+              .gte("transfer_orders.delivery_date", fromDate),
             supabase
               .from("stock_adjustments")
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "SM")
+              .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
           ]);
@@ -514,7 +525,7 @@ export function StockCard({
     return () => {
       cancelled = true;
     };
-  }, [skuId, skuType, sku.converter, skus, context, branchId]);
+  }, [skuId, skuType, sku.converter, skus, context, branchId, daysBack]);
 
   const finalBalance = movements.length > 0 ? (movements[movements.length - 1].runningBalance ?? 0) : 0;
   const hasMismatch = Math.abs(finalBalance - currentStock) > 1;
@@ -751,6 +762,16 @@ export function StockCard({
                   <span>Balance mismatch — some movements may be missing</span>
                 </div>
               )}
+
+              <div className="mt-3 text-xs text-muted-foreground">
+                {daysBack === 14 ? (
+                  <>Showing last 14 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>Load 30 days</button></>
+                ) : daysBack === 30 ? (
+                  <>Showing last 30 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>Load all history</button></>
+                ) : (
+                  <>Showing all history</>
+                )}
+              </div>
             </>
           )}
         </div>
