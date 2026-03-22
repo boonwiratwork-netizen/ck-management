@@ -884,7 +884,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
               <Button
                 onClick={handleImport}
                 disabled={importing || checking || newRows.length === 0 || !selectedBranch}
-                className={cn(newRows.length === 0 && "opacity-50")}
+                className={cn("bg-info hover:bg-info/90 text-info-foreground", newRows.length === 0 && "opacity-50")}
               >
                 {importing ? (
                   <>
