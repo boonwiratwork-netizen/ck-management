@@ -618,11 +618,11 @@ export default function BranchReceiptPage({
   const SaveButton = () => (
     <div className="flex items-center gap-2">
       <Button onClick={handleSaveAll} disabled={savableCount === 0}>
-        <Save className="w-4 h-4 mr-1" /> {t('br.saveAll').replace('{n}', String(savableCount))}
+        <Save className="w-4 h-4 mr-1" /> {t("br.saveAll").replace("{n}", String(savableCount))}
       </Button>
       {savedCount !== null && (
         <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
-          <CheckCircle className="w-3.5 h-3.5" /> {t('br.savedConfirm').replace('{n}', String(savedCount))}
+          <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
         </span>
       )}
     </div>
@@ -642,7 +642,7 @@ export default function BranchReceiptPage({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-heading font-bold">{t("title.branchReceipt")}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">{t('br.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t("br.subtitle")}</p>
         </div>
         {(bothSelected || showCKSheet) && <SaveButton />}
       </div>
@@ -652,7 +652,7 @@ export default function BranchReceiptPage({
         <div className="bg-primary/5 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3">
           <Truck className="w-5 h-5 text-primary shrink-0" />
           <span className="text-sm font-semibold text-primary">
-            {t('br.pendingTOBanner').replace('{n}', String(pendingTOCount))}
+            {t("br.pendingTOBanner").replace("{n}", String(pendingTOCount))}
           </span>
         </div>
       )}
@@ -663,23 +663,25 @@ export default function BranchReceiptPage({
           value={receiptDate}
           onChange={(d) => d && setReceiptDate(d)}
           defaultToday
-          label={t('br.dateLabel')}
+          label={t("br.dateLabel")}
           required
           labelPosition="above"
           align="start"
         />
         <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('br.branchLabel')}</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+            {t("br.branchLabel")}
+          </label>
           <Select
             value={branchId || "_none"}
             onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
             disabled={isStoreManager}
           >
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={t('br.selectBranch')} />
+              <SelectValue placeholder={t("br.selectBranch")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">{t('br.selectBranch')}</SelectItem>
+              <SelectItem value="_none">{t("br.selectBranch")}</SelectItem>
               {availableBranches.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.branchName}
@@ -690,7 +692,9 @@ export default function BranchReceiptPage({
         </div>
         {branchId && (
           <div className="relative" ref={supplierDropdownRef}>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('br.supplierLabel')}</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+              {t("br.supplierLabel")}
+            </label>
             <button
               type="button"
               onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
@@ -706,7 +710,7 @@ export default function BranchReceiptPage({
                     Central Kitchen
                   </>
                 ) : (
-                  selectedSupplier?.name || t('br.selectSupplier')
+                  selectedSupplier?.name || t("br.selectSupplier")
                 )}
               </span>
               <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
@@ -718,7 +722,7 @@ export default function BranchReceiptPage({
                     type="text"
                     value={supplierSearch}
                     onChange={(e) => setSupplierSearch(e.target.value)}
-                    placeholder={t('br.searchSupplier')}
+                    placeholder={t("br.searchSupplier")}
                     className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
                     autoFocus
                   />
@@ -739,7 +743,7 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-primary/10 text-primary text-xs rounded px-1.5 py-0.5 font-medium">
+                        <span className="bg-primary/10 text-primary text-xs rounded-full px-1.5 py-0.5 font-medium">
                           {pendingTOCount} pending
                         </span>
                       </button>
@@ -751,7 +755,7 @@ export default function BranchReceiptPage({
                       {filteredGroupedSuppliers.brand.length > 0 && (
                         <>
                           <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t('br.brandSuppliers')}
+                            {t("br.brandSuppliers")}
                           </div>
                           {filteredGroupedSuppliers.brand.map((s) => (
                             <button
@@ -765,7 +769,7 @@ export default function BranchReceiptPage({
                             >
                               <span>{s.name}</span>
                               {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
+                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
                                   {pendingPRCounts[s.id]} pending
                                 </span>
                               )}
@@ -776,7 +780,7 @@ export default function BranchReceiptPage({
                       {filteredGroupedSuppliers.other.length > 0 && (
                         <>
                           <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t('br.otherSuppliers')}
+                            {t("br.otherSuppliers")}
                           </div>
                           {filteredGroupedSuppliers.other.map((s) => (
                             <button
@@ -790,7 +794,7 @@ export default function BranchReceiptPage({
                             >
                               <span>{s.name}</span>
                               {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
+                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
                                   {pendingPRCounts[s.id]} pending
                                 </span>
                               )}
@@ -817,7 +821,7 @@ export default function BranchReceiptPage({
                   {filteredGroupedSuppliers.brand.length === 0 &&
                     filteredGroupedSuppliers.other.length === 0 &&
                     pendingTOCount === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t('br.noSuppliers')}</p>
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("br.noSuppliers")}</p>
                     )}
                 </div>
               </div>
@@ -831,14 +835,14 @@ export default function BranchReceiptPage({
         <div className="flex items-end gap-3">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-              {t('br.toLabel')}
+              {t("br.toLabel")}
             </label>
             <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
               <SelectTrigger className="w-[320px]">
-                <SelectValue placeholder={t('br.selectTO')} />
+                <SelectValue placeholder={t("br.selectTO")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">{t('br.selectTO')}</SelectItem>
+                <SelectItem value="_none">{t("br.selectTO")}</SelectItem>
                 {pendingTOs.map((to) => (
                   <SelectItem key={to.id} value={to.id}>
                     {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
@@ -853,16 +857,15 @@ export default function BranchReceiptPage({
       {/* Row count info */}
       {bothSelected && !isCKSupplier && selectedBranch && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
-          {t('br.rowCount').replace('{n}', String(preloadedRows.length)).replace('{branch}', selectedBranch.branchName).replace('{supplier}', selectedSupplier.name)}
+          {t("br.rowCount")
+            .replace("{n}", String(preloadedRows.length))
+            .replace("{branch}", selectedBranch.branchName)
+            .replace("{supplier}", selectedSupplier.name)}
         </p>
       )}
 
       {/* Keyboard hints */}
-      {(showExternalSheet || showCKSheet) && (
-        <div className="kbd-hint">
-          {t('br.keyboardHint')}
-        </div>
-      )}
+      {(showExternalSheet || showCKSheet) && <div className="kbd-hint">{t("br.keyboardHint")}</div>}
 
       {/* CK Receipt sheet from TO */}
       {showCKSheet && (
@@ -870,9 +873,12 @@ export default function BranchReceiptPage({
           <div className="px-4 py-3 border-b bg-primary/5">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Truck className="w-4 h-4 text-primary" />
-              {t('br.ckReceivingTitle').replace('{toNumber}', pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || '')}
+              {t("br.ckReceivingTitle").replace(
+                "{toNumber}",
+                pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || "",
+              )}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">{t('br.ckAdjustHint')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t("br.ckAdjustHint")}</p>
           </div>
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
@@ -888,14 +894,16 @@ export default function BranchReceiptPage({
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={thClass}>{t('col.skuCode')}</th>
-                  <th className={thClass}>{t('col.skuName')}</th>
-                  <th className={`${thClass} text-right`}>{t('br.colPlanned')}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('br.colReceived')}</th>
-                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
-                  <th className={`${thClass} text-right`}>{t('br.colCostUnit')}</th>
-                  <th className={`${thClass} text-right`}>{t('br.colLineValue')}</th>
-                  <th className={thClass}>{t('col.note')}</th>
+                  <th className={thClass}>{t("col.skuCode")}</th>
+                  <th className={thClass}>{t("col.skuName")}</th>
+                  <th className={`${thClass} text-right`}>{t("br.colPlanned")}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap bg-foreground text-background">
+                    {t("br.colReceived")}
+                  </th>
+                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                  <th className={`${thClass} text-right`}>{t("br.colCostUnit")}</th>
+                  <th className={`${thClass} text-right`}>{t("br.colLineValue")}</th>
+                  <th className={thClass}>{t("col.note")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -932,7 +940,7 @@ export default function BranchReceiptPage({
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                         {line.plannedQty.toLocaleString()}
                       </td>
-                      <td className="px-1 py-1 bg-foreground/[0.04]">
+                      <td className="px-1 py-1">
                         <input
                           type="number"
                           min={0}
@@ -981,7 +989,7 @@ export default function BranchReceiptPage({
               <tfoot>
                 <tr className="border-t bg-muted/30">
                   <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>
-                    {t('br.totalValue')}
+                    {t("br.totalValue")}
                   </td>
                   <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
                     ฿
@@ -1018,29 +1026,33 @@ export default function BranchReceiptPage({
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={thClass}>{t('col.date')}</th>
-                  <th className={`${thClass} text-center`}>{t('col.week')}</th>
-                  <th className={thClass}>{t('col.sku')}</th>
-                  <th className={thClass}>{t('col.supplier')}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('col.qty')}</th>
-                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={thClass}>{t("col.date")}</th>
+                  <th className={`${thClass} text-center`}>{t("col.week")}</th>
+                  <th className={thClass}>{t("col.sku")}</th>
+                  <th className={thClass}>{t("col.supplier")}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap bg-foreground text-background">
+                    {t("col.qty")}
+                  </th>
+                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-muted-foreground">{t('col.actualTotal')}</span>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">
+                            {t("col.actualTotal")}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p>{t('col.totalPaid')}</p>
+                          <p>{t("col.totalPaid")}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </th>
-                  <th className={`${thClass} text-right`}>{t('col.actualUnit')}</th>
-                  <th className={`${thClass} text-right`}>{t('col.stdUnit')}</th>
-                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
-                  <th className={`${thClass} text-right`}>{t('col.variance')}</th>
-                  <th className={thClass}>{t('col.note')}</th>
+                  <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
+                  <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
+                  <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
+                  <th className={`${thClass} text-right`}>{t("col.variance")}</th>
+                  <th className={thClass}>{t("col.note")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1090,7 +1102,7 @@ export default function BranchReceiptPage({
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1 bg-foreground/[0.04]">
+                      <td className="px-1 py-1">
                         <input
                           type="number"
                           min={0}
@@ -1209,11 +1221,11 @@ export default function BranchReceiptPage({
                   </colgroup>
                   <thead>
                     <tr className="bg-table-header border-b">
-                      <th className={thClass}>{t('col.sku')}</th>
-                      <th className={`${thClass} text-right`}>{t('col.qty')}</th>
-                      <th className={`${thClass} text-center`}>{t('col.uom')}</th>
-                      <th className={`${thClass} text-right`}>{t('col.actualTotal')}</th>
-                      <th className={thClass}>{t('col.note')}</th>
+                      <th className={thClass}>{t("col.sku")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.qty")}</th>
+                      <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                      <th className={thClass}>{t("col.note")}</th>
                       <th className={`${thClass} text-center`}></th>
                     </tr>
                   </thead>
@@ -1297,7 +1309,7 @@ export default function BranchReceiptPage({
             onClick={handleAddAdHoc}
             className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5" /> {t('btn.addRow')}
+            <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
           </button>
         </div>
       )}
@@ -1317,7 +1329,7 @@ export default function BranchReceiptPage({
             value={historyDateFrom}
             onChange={setHistoryDateFrom}
             placeholder="Start"
-            label={t('common.from')}
+            label={t("common.from")}
             labelPosition="left"
             align="start"
           />
@@ -1325,19 +1337,19 @@ export default function BranchReceiptPage({
             value={historyDateTo}
             onChange={setHistoryDateTo}
             placeholder="End"
-            label={t('common.to')}
+            label={t("common.to")}
             labelPosition="left"
             align="start"
           />
           {isManagement && (
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t('col.branch')}</label>
+              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t("col.branch")}</label>
               <Select value={historyBranch} onValueChange={setHistoryBranch}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('common.allBranches')}</SelectItem>
+                  <SelectItem value="all">{t("common.allBranches")}</SelectItem>
                   {activeBranches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.branchName}
@@ -1370,7 +1382,7 @@ export default function BranchReceiptPage({
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader
-                      label={t('col.date')}
+                      label={t("col.date")}
                       sortKey="date"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -1379,17 +1391,17 @@ export default function BranchReceiptPage({
                   </th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("sku")}>
                     <SortableHeader
-                      label={t('col.sku')}
+                      label={t("col.sku")}
                       sortKey="sku"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
                       onSort={hHandleSort}
                     />
                   </th>
-                  <th className={thClass}>{t('col.skuName')}</th>
+                  <th className={thClass}>{t("col.skuName")}</th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("supplier")}>
                     <SortableHeader
-                      label={t('col.supplier')}
+                      label={t("col.supplier")}
                       sortKey="supplier"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -1399,7 +1411,7 @@ export default function BranchReceiptPage({
                   <th className={thClass}>TO Ref</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("qty")}>
                     <SortableHeader
-                      label={t('col.qty')}
+                      label={t("col.qty")}
                       sortKey="qty"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -1407,10 +1419,10 @@ export default function BranchReceiptPage({
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
                     <SortableHeader
-                      label={t('col.actualTotal')}
+                      label={t("col.actualTotal")}
                       sortKey="actualTotal"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -1418,10 +1430,10 @@ export default function BranchReceiptPage({
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
+                  <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
                     <SortableHeader
-                      label={t('col.variance')}
+                      label={t("col.variance")}
                       sortKey="variance"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
@@ -1429,7 +1441,7 @@ export default function BranchReceiptPage({
                       className="justify-end"
                     />
                   </th>
-                  {isManagement && <th className={thClass}>{t('col.branch')}</th>}
+                  {isManagement && <th className={thClass}>{t("col.branch")}</th>}
                   {isManagement && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
