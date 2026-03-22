@@ -981,7 +981,7 @@ export default function BranchReceiptPage({
               <tfoot>
                 <tr className="border-t bg-muted/30">
                   <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>
-                    Total Value:
+                    {t('br.totalValue')}
                   </td>
                   <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
                     ฿
