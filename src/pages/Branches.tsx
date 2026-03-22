@@ -44,7 +44,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
   const handleAdd = () => { setEditing(null); setForm(EMPTY_BRANCH); setErrors({}); setModalOpen(true); };
   const handleEdit = (b: Branch) => {
     setEditing(b);
-    setForm({ branchName: b.branchName, brandName: b.brandName, location: b.location, status: b.status });
+    setForm({ branchName: b.branchName, brandName: b.brandName, location: b.location, status: b.status, avgSellingPrice: b.avgSellingPrice });
     setErrors({});
     setModalOpen(true);
   };
