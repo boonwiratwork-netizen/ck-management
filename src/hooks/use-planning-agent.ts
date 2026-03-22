@@ -246,6 +246,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       // Sort by suggestedBatches desc
       resultSuggestions.sort((a, b) => b.suggestedBatches - a.suggestedBatches);
 
+      console.log('[PlanningAgent]', { branches: resultBranches, suggestions: resultSuggestions });
+
       setBranches(resultBranches);
       setSuggestions(resultSuggestions);
     } catch (err: any) {
