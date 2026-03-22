@@ -163,6 +163,12 @@ export default function ProductionPage({
   const { isManagement } = useAuth();
   const navigate = useNavigate();
 
+  // Temporary: mount planning agent for data verification
+  usePlanningAgent({
+    smStockBalances: smStockBalances.map(s => ({ skuId: s.skuId, currentStock: s.currentStock })),
+    getOutputPerBatch,
+  });
+
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
   const [globalTarget, setGlobalTarget] = useState(7);
   const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
