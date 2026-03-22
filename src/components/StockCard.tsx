@@ -369,6 +369,7 @@ export function StockCard({
               .from("goods_receipts")
               .select("receipt_date, quantity_received, supplier_id, created_at")
               .eq("sku_id", skuId)
+              .gte("receipt_date", fromDate)
               .order("receipt_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
@@ -376,6 +377,7 @@ export function StockCard({
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "RM")
+              .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase.from("suppliers").select("id, name"),
