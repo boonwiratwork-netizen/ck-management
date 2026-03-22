@@ -192,6 +192,48 @@ export type Database = {
           },
         ]
       }
+      branch_menu_overrides: {
+        Row: {
+          branch_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          menu_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          menu_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          menu_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_menu_overrides_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_menu_overrides_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_receipts: {
         Row: {
           actual_total: number
