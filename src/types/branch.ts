@@ -6,6 +6,7 @@ export interface Branch {
   brandName: string;
   location: string;
   status: BranchStatus;
+  avgSellingPrice: number | null;
 }
 
 export const EMPTY_BRANCH: Omit<Branch, 'id'> = {
@@ -13,4 +14,5 @@ export const EMPTY_BRANCH: Omit<Branch, 'id'> = {
   brandName: '',
   location: '',
   status: 'Active',
+  avgSellingPrice: null,
 };
