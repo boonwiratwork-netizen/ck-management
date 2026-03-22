@@ -283,7 +283,7 @@ export default function StockCountPage({
                           const val = e.target.value === "" ? null : Number(e.target.value);
                           if (val !== line.physicalQty) updateLine(line.id, val);
                         }}
-                        className="h-8 text-xs text-right w-[80px] font-mono"
+                        className="h-8 text-xs text-right w-[80px] font-mono border-2 border-primary/40 focus:border-primary bg-background"
                       />
                       <UnitLabel unit={sku.usageUom} className="w-6 text-left" />
                     </div>
