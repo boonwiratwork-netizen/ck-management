@@ -527,7 +527,7 @@ const Dashboard = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{pill.name}</p>
-                          <p className="font-mono">{cd !== null ? `${cd} days cover` : 'No usage data'}</p>
+                          <p className="font-mono">{cd !== null ? `${cd} ${t('ckd.daysCover')}` : t('ckd.noUsageData')}</p>
                         </TooltipContent>
                       </Tooltip>
                     );
