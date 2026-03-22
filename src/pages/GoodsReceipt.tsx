@@ -465,7 +465,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} text-right`}>{t('gr.colUnitBaht')}</th>
                   <th className={`${thClass} text-right`}>{t('gr.colStdBaht')}</th>
-                  <th className={`${thClass} text-right`}>Std Tot</th>
+                  <th className={`${thClass} text-right`}>{t('gr.colStdTot')}</th>
                   <th className={`${thClass} text-right`}>Var</th>
                   <th className={thClass}>Note</th>
                 </tr>
