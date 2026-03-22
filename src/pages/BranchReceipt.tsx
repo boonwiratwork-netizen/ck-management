@@ -706,7 +706,7 @@ export default function BranchReceiptPage({
                     Central Kitchen
                   </>
                 ) : (
-                  selectedSupplier?.name || "— Select supplier —"
+                  selectedSupplier?.name || t('br.selectSupplier')
                 )}
               </span>
               <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
