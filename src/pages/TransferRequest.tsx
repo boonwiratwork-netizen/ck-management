@@ -606,7 +606,7 @@ export default function TransferRequestPage() {
                             <span className={s.isCK ? "font-medium" : ""}>{s.name}</span>
                           </span>
                           {s.pendingPRCount > 0 && (
-                            <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                            <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
                               {s.pendingPRCount} pending
                             </span>
                           )}
@@ -665,6 +665,7 @@ export default function TransferRequestPage() {
                 <Button
                   onClick={handleTRSubmit}
                   disabled={!trHook.canSubmit || submitting || (isManagement && !selectedBranchId)}
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
                   {submitting ? t("tr.submitting") : t("tr.submitTR")}
                 </Button>
@@ -672,6 +673,7 @@ export default function TransferRequestPage() {
                 <Button
                   onClick={handlePRSubmit}
                   disabled={!canSubmitPR || prSubmitting || (isManagement && !selectedBranchId)}
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
                   {prSubmitting ? "Submitting..." : "Submit PR"}
                 </Button>
@@ -750,7 +752,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRequestBatch")}</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">{t("tr.colRequestBatch")}</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colTotalUom")}</th>
                           <th className={tableTokens.headerCellCenter}>{t("tr.colUnit")}</th>
                         </tr>
@@ -835,7 +837,7 @@ export default function TransferRequestPage() {
                                 {totalUom > 0 ? formatNumber(totalUom, 0) : "—"}
                               </td>
                               <td
-                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
                               >
                                 {line.uom}
                               </td>
@@ -851,6 +853,7 @@ export default function TransferRequestPage() {
                       <span className="font-semibold text-foreground">{trHook.itemsToOrder}</span>
                     </span>
                     <Button
+                      variant="outline"
                       onClick={handleTRSubmit}
                       disabled={!trHook.canSubmit || submitting || (isManagement && !selectedBranchId)}
                     >
@@ -940,7 +943,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={tableTokens.headerCellNumeric}>Request</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">Request</th>
                           <th className={tableTokens.headerCellNumeric}>Total</th>
                           <th className={tableTokens.headerCellCenter}>Unit</th>
                         </tr>
@@ -1025,7 +1028,7 @@ export default function TransferRequestPage() {
                                 {totalPurchaseUnits > 0 ? formatNumber(totalPurchaseUnits, 0) : "—"}
                               </td>
                               <td
-                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
                               >
                                 {line.usageUom}
                               </td>
@@ -1040,6 +1043,7 @@ export default function TransferRequestPage() {
                       Items to order: <span className="font-semibold text-foreground">{prItemsToOrder}</span>
                     </span>
                     <Button
+                      variant="outline"
                       onClick={handlePRSubmit}
                       disabled={!canSubmitPR || prSubmitting || (isManagement && !selectedBranchId)}
                     >
