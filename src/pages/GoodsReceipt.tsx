@@ -953,9 +953,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Change supplier?"
-        description="Changing supplier will clear current entries. Continue?"
-        confirmLabel="Continue"
+        title={t('gr.changeSupplierTitle')}
+        description={t('gr.changeSupplierDesc')}
+        confirmLabel={t('btn.confirm')}
         variant="warning"
         onConfirm={confirmSupplierChange}
       />
