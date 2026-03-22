@@ -1386,7 +1386,7 @@ export default function BranchReceiptPage({
                       onSort={hHandleSort}
                     />
                   </th>
-                  <th className={thClass}>SKU Name</th>
+                  <th className={thClass}>{t('col.skuName')}</th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("supplier")}>
                     <SortableHeader
                       label="Supplier"
