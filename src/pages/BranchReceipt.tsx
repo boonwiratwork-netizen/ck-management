@@ -932,7 +932,7 @@ export default function BranchReceiptPage({
                       <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                         {line.plannedQty.toLocaleString()}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           type="number"
                           min={0}
