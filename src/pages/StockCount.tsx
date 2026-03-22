@@ -411,7 +411,11 @@ export default function StockCountPage({
                     className={cn(
                       "px-4 py-1.5 rounded-md text-sm font-medium transition-all",
                       activeTab === tab
-                        ? "bg-foreground text-background shadow-sm"
+                        ? tab === "SM"
+                          ? "bg-warning text-warning-foreground shadow-sm font-semibold"
+                          : tab === "PK"
+                            ? "bg-muted text-muted-foreground shadow-sm font-semibold"
+                            : "bg-foreground text-background shadow-sm font-semibold"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
