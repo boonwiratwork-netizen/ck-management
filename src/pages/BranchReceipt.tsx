@@ -1337,7 +1337,7 @@ export default function BranchReceiptPage({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="all">{t('common.allBranches')}</SelectItem>
                   {activeBranches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.branchName}
