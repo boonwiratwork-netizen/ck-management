@@ -184,10 +184,13 @@ const storeGroup: NavGroup = {
 };
 
 const managementGroup: NavGroup = {
-  label: "MANAGEMENT",
+  label: "SETUP",
   labelKey: "nav.management",
   section: "management",
   items: [
+    { key: "sku", labelKey: "nav.skuMaster", icon: Package },
+    { key: "supplier", labelKey: "nav.suppliers", icon: Users },
+    { key: "price", labelKey: "nav.prices", icon: DollarSign },
     { key: "branches", labelKey: "nav.branches", icon: Store },
     { key: "users", labelKey: "nav.userManagement", icon: Settings },
     { key: "sku-categories", labelKey: "nav.skuCategories", icon: Package },
