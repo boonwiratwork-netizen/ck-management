@@ -380,7 +380,7 @@ const Dashboard = ({
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-3xl font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</p>
-                  <p className="text-xs text-muted-foreground">Total spend in period</p>
+                  <p className="text-xs text-muted-foreground">{t('ckd.totalSpendInPeriod')}</p>
                 </div>
 
                 {donutData.length > 0 ? (
