@@ -1091,8 +1091,7 @@ export default function ProductionPage({
                           <td className={table.dataCellCompactCenter}>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
+                              className="h-7 px-3 text-xs whitespace-nowrap bg-info/10 text-info border border-info/40 hover:bg-info/20"
                               onClick={() => openRecordModal(row.sku.id)}
                             >
                               <PlayCircle className="w-3 h-3 mr-1" />
