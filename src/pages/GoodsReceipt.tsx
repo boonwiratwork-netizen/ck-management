@@ -641,7 +641,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                     <tr className="bg-table-header border-b">
                       <th className={thClass}>{t('col.sku')}</th>
                       <th className={`${thClass} text-right`}>{t('col.qty')}</th>
-                      <th className={`${thClass} text-center`}>UOM</th>
+                      <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                       <th className={`${thClass} text-right`}>Actual ฿</th>
                       <th className={thClass}>Note</th>
                       <th className={`${thClass} text-center`}></th>
