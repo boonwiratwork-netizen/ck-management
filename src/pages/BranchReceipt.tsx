@@ -831,7 +831,7 @@ export default function BranchReceiptPage({
         <div className="flex items-end gap-3">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-              Transfer Order
+              {t('br.toLabel')}
             </label>
             <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
               <SelectTrigger className="w-[320px]">
