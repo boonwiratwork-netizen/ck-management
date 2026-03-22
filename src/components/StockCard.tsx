@@ -154,7 +154,9 @@ export function StockCard({
             .limit(1);
           if (cancelled) return;
 
-          const startDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : '2020-01-01';
+          const snapDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : '2020-01-01';
+          // Use whichever is later: snap date or fromDate (daysBack limit)
+          const resolvedStartDate = snapDate > fromDate ? snapDate : fromDate;
 
           // Step 2 — Fetch all data in parallel
           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
@@ -162,18 +164,18 @@ export function StockCard({
               .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted')
               .eq('branch_id', branchId!)
               .eq('sku_id', skuId)
-              .gte('count_date', startDate)
+              .gte('count_date', resolvedStartDate)
               .order('count_date', { ascending: true }),
             supabase.from('branch_receipts')
               .select('receipt_date, qty_received, transfer_order_id, sku_id')
               .eq('branch_id', branchId!)
               .eq('sku_id', skuId)
-              .gte('receipt_date', startDate)
+              .gte('receipt_date', resolvedStartDate)
               .order('receipt_date', { ascending: true }),
             supabase.from('sales_entries')
               .select('sale_date, menu_code, menu_name, qty')
               .eq('branch_id', branchId!)
-              .gte('sale_date', startDate)
+              .gte('sale_date', resolvedStartDate)
               .order('sale_date', { ascending: true }),
             supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
             supabase.from('menus').select('id, menu_code'),
@@ -315,7 +317,7 @@ export function StockCard({
           // Step 5 — Build day-by-day ledger
           const today = new Date().toISOString().slice(0, 10);
           const allDates: string[] = [];
-          const d = new Date(startDate);
+          const d = new Date(resolvedStartDate);
           const end = new Date(today);
           while (d <= end) {
             allDates.push(d.toISOString().slice(0, 10));
@@ -677,6 +679,15 @@ export function StockCard({
                   </tbody>
                 </table>
               )}
+              <div className="mt-3 text-xs text-muted-foreground">
+                {daysBack === 14 ? (
+                  <>Showing last 14 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>Load 30 days</button></>
+                ) : daysBack === 30 ? (
+                  <>Showing last 30 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>Load all history</button></>
+                ) : (
+                  <>Showing all history</>
+                )}
+              </div>
             </>
           ) : (
             /* ─── CK context table (existing) ─── */
