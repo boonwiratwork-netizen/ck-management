@@ -739,7 +739,7 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-primary/10 text-primary text-xs rounded-full px-1.5 py-0.5 font-medium">
+                        <span className="bg-primary/10 text-primary text-xs rounded px-1.5 py-0.5 font-medium">
                           {pendingTOCount} pending
                         </span>
                       </button>
