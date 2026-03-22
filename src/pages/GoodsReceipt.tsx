@@ -727,7 +727,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             onClick={handleAddAdHoc}
             className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5" /> + Add Row
+            <Plus className="w-3.5 h-3.5" /> {t('btn.addRow')}
           </button>
         </div>
       )}
