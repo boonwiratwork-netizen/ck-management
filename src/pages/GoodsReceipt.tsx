@@ -865,7 +865,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {displayHistory.length === 0 ? (
                   <tr>
                     <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
-                      No receipts found
+                      {t('gr.noReceiptsFound')}
                     </td>
                   </tr>
                 ) : (
