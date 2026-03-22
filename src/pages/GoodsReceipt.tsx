@@ -411,7 +411,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       {/* Row count info */}
       {supplierId && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{preloadedRows.length}</span> items from{" "}
+          <span className="font-semibold text-foreground">{preloadedRows.length}</span> {t('gr.itemsFrom')}{" "}
           <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
         </p>
       )}
