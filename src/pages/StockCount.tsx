@@ -406,19 +406,19 @@ export default function StockCountPage({
               <TabsList>
                 <TabsTrigger
                   value="RM"
-                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-foreground data-[state=active]:font-semibold px-4"
+                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-foreground"
                 >
                   RM ({tabCounts.RM})
                 </TabsTrigger>
                 <TabsTrigger
                   value="SM"
-                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-warning data-[state=active]:font-semibold px-4"
+                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-warning"
                 >
                   SM ({tabCounts.SM})
                 </TabsTrigger>
                 <TabsTrigger
                   value="PK"
-                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground data-[state=active]:font-semibold px-4"
+                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground"
                 >
                   PK ({tabCounts.PK})
                 </TabsTrigger>
