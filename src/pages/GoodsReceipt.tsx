@@ -833,7 +833,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       className="justify-end"
                     />
                   </th>
-                  <th className={`${thClass} text-center`}>UOM</th>
+                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
                     <SortableHeader
                       label="Actual ฿"
