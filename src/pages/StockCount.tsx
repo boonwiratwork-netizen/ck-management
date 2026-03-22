@@ -368,7 +368,11 @@ export default function StockCountPage({
             )}
 
             {selectedSession && !isCompleted && summary.counted > 0 && (
-              <Button size="sm" className="h-8 text-xs gap-1" onClick={() => setConfirmOpen(true)}>
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1 bg-warning hover:bg-warning/90 text-warning-foreground"
+                onClick={() => setConfirmOpen(true)}
+              >
                 <CheckCircle2 className="w-3.5 h-3.5" /> ยืนยันและปรับสต็อก
               </Button>
             )}
