@@ -167,7 +167,7 @@ const Dashboard = ({
                     : 'bg-background text-muted-foreground hover:bg-muted'
                 )}
               >
-                {m === 'week' ? 'This Week' : m === 'month' ? 'This Month' : 'Custom'}
+                {m === 'week' ? t('ckd.periodThisWeek') : m === 'month' ? t('ckd.periodThisMonth') : t('ckd.periodCustom')}
               </button>
             ))}
           </div>
