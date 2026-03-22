@@ -860,8 +860,7 @@ export default function BranchReceiptPage({
       {/* Keyboard hints */}
       {(showExternalSheet || showCKSheet) && (
         <div className="kbd-hint">
-          <kbd>Tab</kbd> — move to next item's QTY · Click — edit price or note · <kbd>Enter</kbd> — save row ·{" "}
-          <kbd>Esc</kbd> — cancel
+          {t('br.keyboardHint')}
         </div>
       )}
 
