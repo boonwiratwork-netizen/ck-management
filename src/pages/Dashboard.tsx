@@ -314,7 +314,7 @@ const Dashboard = ({
                   {anyEstimated && (
                     <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-center gap-2">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      Inventory boundaries are estimated — complete a CK stock count for precise variance calculation
+                      {t('ckd.inventoryWarning')}
                     </div>
                   )}
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
