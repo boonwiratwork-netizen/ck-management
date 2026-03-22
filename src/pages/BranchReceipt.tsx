@@ -888,14 +888,14 @@ export default function BranchReceiptPage({
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
-                  <th className={thClass}>SKU Code</th>
-                  <th className={thClass}>SKU Name</th>
-                  <th className={`${thClass} text-right`}>Planned</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>Received</th>
-                  <th className={`${thClass} text-center`}>UOM</th>
-                  <th className={`${thClass} text-right`}>Cost/Unit</th>
-                  <th className={`${thClass} text-right`}>Line Value</th>
-                  <th className={thClass}>Note</th>
+                  <th className={thClass}>{t('col.skuCode')}</th>
+                  <th className={thClass}>{t('col.skuName')}</th>
+                  <th className={`${thClass} text-right`}>{t('br.colPlanned')}</th>
+                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('br.colReceived')}</th>
+                  <th className={`${thClass} text-center`}>{t('col.uom')}</th>
+                  <th className={`${thClass} text-right`}>{t('br.colCostUnit')}</th>
+                  <th className={`${thClass} text-right`}>{t('br.colLineValue')}</th>
+                  <th className={thClass}>{t('col.note')}</th>
                 </tr>
               </thead>
               <tbody>
