@@ -690,7 +690,7 @@ export default function BranchReceiptPage({
         </div>
         {branchId && (
           <div className="relative" ref={supplierDropdownRef}>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Supplier</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('br.supplierLabel')}</label>
             <button
               type="button"
               onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
