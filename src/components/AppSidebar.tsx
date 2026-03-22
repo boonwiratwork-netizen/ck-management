@@ -275,7 +275,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-sm">
-            <ChefHat className="w-5 h-5 text-primary-foreground" />
+            <ChefHat className="w-5 h-5 text-primary" />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
                                 ? "bg-foreground text-background font-semibold [&>svg]:text-background [&>svg]:opacity-100"
-                                : "text-sidebar-foreground/70 hover:bg-accent/50 hover:text-sidebar-foreground [&>svg]:opacity-60"
+                                : "text-sidebar-foreground hover:bg-accent/50 hover:text-sidebar-foreground [&>svg]:opacity-80"
                             }`}
                           >
                             <item.icon className="w-4 h-4 shrink-0" />
