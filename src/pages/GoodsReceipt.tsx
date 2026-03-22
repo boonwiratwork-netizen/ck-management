@@ -807,7 +807,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </th>
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("sku")}>
                     <SortableHeader
-                      label="SKU"
+                      label={t('col.sku')}
                       sortKey="sku"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
