@@ -107,12 +107,26 @@ interface AppSidebarProps {
   onTabChange: (tab: TabKey) => void;
 }
 
+interface SubLabel {
+  subLabel: string;
+}
+interface NavItem {
+  key: TabKey;
+  labelKey: string;
+  icon: React.ElementType;
+}
+type NavGroupEntry = NavItem | SubLabel;
+
+function isSubLabel(entry: NavGroupEntry): entry is SubLabel {
+  return "subLabel" in entry;
+}
+
 interface NavGroup {
   label: string;
   labelKey: string;
   icon?: React.ElementType;
   section: "ck" | "store" | "management" | "overview";
-  items: { key: TabKey; labelKey: string; icon: React.ElementType }[];
+  items: NavGroupEntry[];
 }
 
 const masterDataGroup: NavGroup = {
