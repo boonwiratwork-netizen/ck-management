@@ -853,6 +853,7 @@ export default function TransferRequestPage() {
                       <span className="font-semibold text-foreground">{trHook.itemsToOrder}</span>
                     </span>
                     <Button
+                      variant="outline"
                       onClick={handleTRSubmit}
                       disabled={!trHook.canSubmit || submitting || (isManagement && !selectedBranchId)}
                     >
