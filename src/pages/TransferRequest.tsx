@@ -1028,7 +1028,7 @@ export default function TransferRequestPage() {
                                 {totalPurchaseUnits > 0 ? formatNumber(totalPurchaseUnits, 0) : "—"}
                               </td>
                               <td
-                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-orange-50`}
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
                               >
                                 {line.usageUom}
                               </td>
