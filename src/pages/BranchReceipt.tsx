@@ -1410,7 +1410,7 @@ export default function BranchReceiptPage({
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("actualTotal")}>
                     <SortableHeader
-                      label="Actual ฿"
+                      label={t('col.actualTotal')}
                       sortKey="actualTotal"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
