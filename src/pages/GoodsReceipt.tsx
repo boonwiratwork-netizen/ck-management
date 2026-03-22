@@ -334,7 +334,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         />
         {/* FIX 3: Searchable grouped supplier dropdown */}
         <div className="relative" ref={supplierDropdownRef}>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">Supplier</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">{t('col.supplier')}</label>
           <button
             type="button"
             onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
