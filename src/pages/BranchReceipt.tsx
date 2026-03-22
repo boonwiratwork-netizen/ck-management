@@ -1370,7 +1370,7 @@ export default function BranchReceiptPage({
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader
-                      label="Date"
+                      label={t('col.date')}
                       sortKey="date"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
