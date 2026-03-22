@@ -1421,7 +1421,7 @@ export default function BranchReceiptPage({
                   <th className={`${thClass} text-right`}>{t('col.stdTotal')}</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("variance")}>
                     <SortableHeader
-                      label="Variance"
+                      label={t('col.variance')}
                       sortKey="variance"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
