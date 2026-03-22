@@ -53,6 +53,8 @@ interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
   smSkusByBrand: Record<string, SmSkuInfo[]>;
+  menusByBrand: Record<string, MenuInfo[]>;
+  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
