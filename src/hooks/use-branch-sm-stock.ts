@@ -45,13 +45,21 @@ export function useBranchSmStock(branchId: string | null) {
         return;
       }
 
-      // 2. Get active menus for this brand
-      const { data: menus } = await supabase
-        .from("menus")
-        .select("id")
-        .eq("brand_name", branch.brand_name)
-        .eq("status", "Active");
-      const menuIds = (menus || []).map((m) => m.id);
+      // 2. Get active menus for this brand + branch overrides
+      const [menusRes, overridesRes] = await Promise.all([
+        supabase
+          .from("menus")
+          .select("id")
+          .eq("brand_name", branch.brand_name)
+          .eq("status", "Active"),
+        supabase
+          .from("branch_menu_overrides")
+          .select("menu_id, is_active")
+          .eq("branch_id", branchId)
+          .eq("is_active", false),
+      ]);
+      const suppressedMenuIds = new Set((overridesRes.data || []).map(o => o.menu_id));
+      const menuIds = (menusRes.data || []).map((m) => m.id).filter(id => !suppressedMenuIds.has(id));
       if (menuIds.length === 0) {
         setSmStock({});
         setSmSkuList([]);
