@@ -400,7 +400,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   </>
                 )}
                 {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
+                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t('gr.noSuppliersFound')}</p>
                 )}
               </div>
             </div>
