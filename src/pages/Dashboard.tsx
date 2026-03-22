@@ -133,7 +133,7 @@ const Dashboard = ({
     ? format(now, 'MMMM yyyy')
     : customFrom && customTo
     ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
-    : 'Custom range';
+    : t('ckd.periodCustomRange');
 
   // Data quality badges
   const beginRow = hook.productionCost[0];
