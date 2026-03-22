@@ -17,7 +17,17 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Save, ChevronDown, Trash2, Pencil, CalendarDays, PlayCircle, Sparkles } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  ChevronDown,
+  Trash2,
+  Pencil,
+  CalendarDays,
+  PlayCircle,
+  Sparkles,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn, toLocalDateStr } from "@/lib/utils";
@@ -27,7 +37,6 @@ import { useNavigate } from "react-router-dom";
 import { table, buttons, progressBar } from "@/lib/design-tokens";
 import { usePlanningAgent } from "@/hooks/use-planning-agent";
 import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
-
 
 interface ProductionPageProps {
   productionData: {
@@ -200,7 +209,7 @@ export default function ProductionPage({
   // Planning Agent
   const [agentOpen, setAgentOpen] = useState(false);
   const planningAgent = usePlanningAgent({
-    smStockBalances: smStockBalances.map(s => ({ skuId: s.skuId, currentStock: s.currentStock })),
+    smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })),
     getOutputPerBatch,
   });
 
@@ -699,13 +708,17 @@ export default function ProductionPage({
             {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
-                className={mode === "planning" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
+                className={
+                  mode === "planning"
+                    ? "px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors"
+                    : "px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                }
                 onClick={() => handleModeSwitch("planning")}
               >
                 <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
               </button>
               <button
-                className={mode === "recording" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-info text-info-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
+                className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("recording")}
               >
                 <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
@@ -715,7 +728,7 @@ export default function ProductionPage({
             {/* Fixed-width container to prevent reflow */}
             <div className="w-28 flex justify-end">
               {mode === "planning" && !planLocked && (
-                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8 bg-info hover:bg-info/90 text-info-foreground">
+                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {saving ? t("prod.saving") : t("prod.savePlan")}
                 </Button>
@@ -758,7 +771,7 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>g/batch</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
                     <th className={table.headerCellNumeric}>SUGGEST</th>
-                    <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-foreground text-background border-x border-foreground/20 font-semibold">
+                    <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
                       {t("prod.colPlanBatch")}
                     </th>
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
@@ -865,7 +878,7 @@ export default function ProductionPage({
                                 planInputRefs.current[row.sku.id] = el;
                               }}
                               type="number"
-                              className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-foreground/40 rounded bg-background focus:border-foreground focus:ring-1 focus:ring-foreground/20 outline-none"
+                              className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
                               defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
                               key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
                               onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
@@ -1091,7 +1104,8 @@ export default function ProductionPage({
                           <td className={table.dataCellCompactCenter}>
                             <Button
                               size="sm"
-                              className="h-7 px-3 text-xs whitespace-nowrap bg-info/10 text-info border border-info/40 hover:bg-info/20"
+                              variant="outline"
+                              className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
                               onClick={() => openRecordModal(row.sku.id)}
                             >
                               <PlayCircle className="w-3 h-3 mr-1" />
@@ -1150,7 +1164,8 @@ export default function ProductionPage({
                             <td className={table.dataCellCompactCenter}>
                               <Button
                                 size="sm"
-                                className="h-7 px-3 text-xs whitespace-nowrap bg-info/10 text-info border border-info/40 hover:bg-info/20"
+                                variant="outline"
+                                className="h-7 px-3 text-xs whitespace-nowrap text-primary border-primary/40 hover:bg-primary/5"
                                 onClick={() => openRecordModal(row.sku.id)}
                               >
                                 <PlayCircle className="w-3 h-3 mr-1" />
@@ -1343,7 +1358,7 @@ export default function ProductionPage({
       {mode === "planning" && (
         <button
           onClick={() => setAgentOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-warning px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg transition-colors"
         >
           <Sparkles className="w-4 h-4" />
           วางแผน AI
@@ -1361,7 +1376,7 @@ export default function ProductionPage({
         isLoading={planningAgent.isLoading}
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}
-        onApplyPlan={(plan) => setPlanBatches(prev => ({ ...prev, ...plan }))}
+        onApplyPlan={(plan) => setPlanBatches((prev) => ({ ...prev, ...plan }))}
         onRefetch={planningAgent.refetch}
       />
     </TooltipProvider>
