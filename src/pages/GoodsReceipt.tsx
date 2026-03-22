@@ -455,7 +455,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-muted-foreground">Actual ฿</span>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">{t('gr.colActualBaht')}</span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           <p>Verify actual price paid</p>
