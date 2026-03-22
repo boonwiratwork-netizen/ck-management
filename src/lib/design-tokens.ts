@@ -36,7 +36,7 @@ export const typography = {
 // Use the semantic token classes (bg-primary, text-destructive, etc.) in components.
 export const colors = {
   /** Primary action color — buttons, active states, accents */
-  primary: 'primary',            // hsl(var(--primary)) → orange-500
+  primary: 'primary',            // hsl(var(--primary)) → ink black
   primaryHover: 'primary/90',    // hover darkened via opacity or index.css
   /** Positive / success states */
   success: 'success',            // hsl(var(--success)) → green-500
@@ -155,7 +155,7 @@ export const fmtPct = (v: number) => `${formatNumber(v, decimals.percentage)}%`;
 // ─── BUTTON STANDARDS ───────────────────────────────────────────────────────
 export const buttons = {
   /** Primary action button */
-  primary: 'bg-primary hover:bg-primary/90 text-primary-foreground rounded-md px-4 py-2 text-sm font-medium transition-colors',
+  primary: 'bg-primary hover:bg-primary/80 text-primary-foreground rounded-md px-4 py-2 text-sm font-medium transition-colors',
   /** Secondary / outlined button */
   secondary: 'border border-primary text-primary hover:bg-accent rounded-md px-4 py-2 text-sm transition-colors',
   /** Destructive action */
