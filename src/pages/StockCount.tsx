@@ -322,7 +322,7 @@ export default function StockCountPage({
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("title.stockCount")}</h2>
+        <h2 className="text-2xl font-heading font-bold tracking-tight">{t("title.stockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
       </div>
 
