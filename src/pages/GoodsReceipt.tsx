@@ -382,7 +382,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {filteredGroupedSuppliers.other.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Other Suppliers
+                      {t('gr.otherSuppliers')}
                     </div>
                     {filteredGroupedSuppliers.other.map((s) => (
                       <button
