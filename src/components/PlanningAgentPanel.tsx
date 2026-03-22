@@ -93,7 +93,7 @@ function BranchAssumptionInline({
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      const { error: insertErr } = await supabase.from('branch_forecasts').insert({
+      const { error: insertErr } = await supabase.from('branch_forecasts').upsert({
         branch_id: branch.branchId,
         forecast_value: preview.forecast_value,
         forecast_unit: 'bowls_per_day',
@@ -101,7 +101,7 @@ function BranchAssumptionInline({
         assumption_text: text.trim(),
         expires_at: toLocalDateStr(expiresAt),
         created_by: user?.id ?? null,
-      });
+      }, { onConflict: 'branch_id' });
 
       if (insertErr) throw insertErr;
       onSaved();
