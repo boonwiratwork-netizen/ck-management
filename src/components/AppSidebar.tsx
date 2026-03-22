@@ -309,10 +309,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
 
           return (
             <div key={group.labelKey}>
-              {showDivider && <div className="my-3 mx-2 border-t-2 border-sidebar-border" />}
+              {showDivider && <div className="my-2 mx-3 border-t-2 border-sidebar-border" />}
               <SidebarGroup className="py-1">
                 <SidebarGroupLabel className="text-xs font-bold uppercase tracking-widest text-foreground px-3 mb-1 flex items-center gap-1.5">
-                  {group.icon && !collapsed && <group.icon className="w-3.5 h-3.5 text-foreground" />}
+                  {group.icon && !collapsed && <group.icon className="w-3 h-3" />}
                   {t(group.labelKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -321,8 +321,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                       if (isSubLabel(item)) {
                         if (collapsed) return null;
                         return (
-                          <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-3 pb-0.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                          <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5">
+                            <span className="text-helper uppercase tracking-wider text-muted-foreground font-semibold text-[10px]">
                               {item.subLabel}
                             </span>
                           </li>
@@ -338,12 +338,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             tooltip={label}
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
-                                ? "bg-foreground text-background font-semibold"
-                                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-accent/40"
+                                ? "bg-accent text-accent-foreground font-semibold border-l-2 border-primary"
+                                : "text-sidebar-foreground hover:bg-accent/50 hover:text-accent-foreground"
                             }`}
                           >
                             <item.icon
-                              className={`w-4 h-4 shrink-0 ${isActive ? "text-background" : "opacity-70"}`}
+                              className={`w-4 h-4 shrink-0 ${isActive ? "!text-primary opacity-100" : "opacity-70"}`}
                             />
                             <span className="text-sm">{label}</span>
                             {item.key === "transfer-order" &&
