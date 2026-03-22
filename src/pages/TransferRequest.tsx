@@ -1043,6 +1043,7 @@ export default function TransferRequestPage() {
                       Items to order: <span className="font-semibold text-foreground">{prItemsToOrder}</span>
                     </span>
                     <Button
+                      variant="outline"
                       onClick={handlePRSubmit}
                       disabled={!canSubmitPR || prSubmitting || (isManagement && !selectedBranchId)}
                     >
