@@ -12,6 +12,7 @@ import { Plus, Pencil, Trash2, Search, Store, ChevronDown, ChevronUp } from 'luc
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
 import { BranchMenuAvailability } from '@/components/BranchMenuAvailability';
+import { BranchForecast } from '@/components/BranchForecast';
 
 interface Props {
   branchData: ReturnType<typeof useBranchData>;
