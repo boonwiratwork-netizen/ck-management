@@ -708,11 +708,7 @@ export default function ProductionPage({
             {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
-                className={
-                  mode === "planning"
-                    ? "px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground transition-colors"
-                    : "px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-                }
+                className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("planning")}
               >
                 <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
