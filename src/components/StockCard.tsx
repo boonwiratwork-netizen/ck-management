@@ -438,6 +438,7 @@ export function StockCard({
               .from("production_records")
               .select("production_date, actual_output_g, batches_produced, created_at")
               .eq("sm_sku_id", skuId)
+              .gte("production_date", fromDate)
               .order("production_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
@@ -446,12 +447,14 @@ export function StockCard({
                 "actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
               )
               .eq("sku_id", skuId)
-              .in("transfer_orders.status", ["Sent", "Received"]),
+              .in("transfer_orders.status", ["Sent", "Received"])
+              .gte("transfer_orders.delivery_date", fromDate),
             supabase
               .from("stock_adjustments")
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "SM")
+              .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
           ]);
