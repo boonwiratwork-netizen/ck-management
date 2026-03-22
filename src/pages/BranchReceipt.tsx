@@ -870,9 +870,9 @@ export default function BranchReceiptPage({
           <div className="px-4 py-3 border-b bg-primary/5">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Truck className="w-4 h-4 text-primary" />
-              Receiving from Central Kitchen — {pendingTOs.find((t) => t.id === selectedTOId)?.toNumber}
+              {t('br.ckReceivingTitle').replace('{toNumber}', pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || '')}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Adjust quantities if short-received</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('br.ckAdjustHint')}</p>
           </div>
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
