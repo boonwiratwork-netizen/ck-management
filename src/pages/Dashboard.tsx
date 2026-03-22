@@ -224,7 +224,7 @@ const Dashboard = ({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                Production Cost Performance
+                {t('dash.productionCostAnalysis')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -269,11 +269,11 @@ const Dashboard = ({
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted/80 backdrop-blur">
                       <tr className="border-b">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Output (g)</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Standard ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Actual ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance ฿</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.smSku')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colOutput')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colStandard')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colActual')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.variance')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
                       </tr>
                     </thead>
@@ -374,7 +374,7 @@ const Dashboard = ({
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <ShoppingCart className="w-5 h-5 text-warning" />
-                  Purchases
+                  {t('dash.purchaseSummary')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
