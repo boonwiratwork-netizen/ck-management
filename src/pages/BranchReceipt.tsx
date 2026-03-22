@@ -817,7 +817,7 @@ export default function BranchReceiptPage({
                   {filteredGroupedSuppliers.brand.length === 0 &&
                     filteredGroupedSuppliers.other.length === 0 &&
                     pendingTOCount === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">No suppliers found</p>
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t('br.noSuppliers')}</p>
                     )}
                 </div>
               </div>
