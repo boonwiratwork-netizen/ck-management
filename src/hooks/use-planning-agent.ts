@@ -37,9 +37,16 @@ export interface PlanSuggestion {
   outputPerBatch: number;
 }
 
+export interface SmSkuInfo {
+  skuId: string;
+  skuCode: string;
+  skuName: string;
+}
+
 interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
+  smSkusByBrand: Record<string, SmSkuInfo[]>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
