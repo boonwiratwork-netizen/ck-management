@@ -674,7 +674,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               key={`adhoc-qty-${row.tempId}`}
                               onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                               onFocus={(e) => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
+                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-foreground/40 rounded-md bg-background focus:border-foreground outline-none"
                               placeholder="0"
                             />
                           </td>
