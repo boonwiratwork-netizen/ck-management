@@ -475,10 +475,10 @@ const Dashboard = ({
                   <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b bg-muted/50">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Branch</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">SM ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">RM ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Total ฿</th>
+                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.branch')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colSmBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colRmBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colTotalBaht')}</th>
                       </tr></thead>
                       <tbody>
                         {hook.distribution.byBranch.map(b => (
