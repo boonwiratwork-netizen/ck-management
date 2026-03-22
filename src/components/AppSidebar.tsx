@@ -343,7 +343,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             }`}
                           >
                             <item.icon
-                              className={`w-4 h-4 shrink-0 ${isActive ? "!text-primary opacity-100" : "opacity-70"}`}
+                              className="w-4 h-4 shrink-0"
+                              style={{
+                                color: isActive ? "hsl(var(--primary))" : undefined,
+                                opacity: isActive ? 1 : 0.6,
+                              }}
                             />
                             <span className="text-sm">{label}</span>
                             {item.key === "transfer-order" &&
