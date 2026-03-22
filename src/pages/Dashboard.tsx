@@ -179,7 +179,7 @@ const Dashboard = ({
           )}
           <Button onClick={handleCalculate} className="gap-2">
             <Calculator className="w-4 h-4" />
-            Calculate
+            {t('btn.calculate')}
           </Button>
         </div>
       </div>
