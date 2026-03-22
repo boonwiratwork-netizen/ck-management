@@ -891,7 +891,7 @@ export default function BranchReceiptPage({
                   <th className={thClass}>{t('col.skuCode')}</th>
                   <th className={thClass}>{t('col.skuName')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colPlanned')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('br.colReceived')}</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t('br.colReceived')}</th>
                   <th className={`${thClass} text-center`}>{t('col.uom')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colCostUnit')}</th>
                   <th className={`${thClass} text-right`}>{t('br.colLineValue')}</th>
