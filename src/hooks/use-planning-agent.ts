@@ -252,6 +252,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const smSkuIdSet = new Set(smSkus.map(s => s.id));
       const smSkuMap = new Map(smSkus.map(s => [s.id, { code: s.sku_id, name: s.name }]));
       const menuCodeToId = new Map(allMenus.map(m => [m.menu_code, m.id]));
+      const menuBrandMap = new Map(allMenus.map(m => [m.id, m.brand_name]));
 
       const smBom = allBom.filter(b => smSkuIdSet.has(b.sku_id));
       const bomByMenu = new Map<string, Array<{ skuId: string; effectiveQty: number }>>();
@@ -275,6 +276,27 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         }
       }
 
+      // ── Derive smSkusByBrand ──────────────────────────────────────────
+      const brandSkuSet = new Map<string, Set<string>>();
+      for (const [menuId, ingredients] of bomByMenu) {
+        const brand = menuBrandMap.get(menuId);
+        if (!brand) continue;
+        const set = brandSkuSet.get(brand) ?? new Set();
+        for (const ing of ingredients) set.add(ing.skuId);
+        brandSkuSet.set(brand, set);
+      }
+      const derivedSmSkusByBrand: Record<string, SmSkuInfo[]> = {};
+      for (const [brand, skuIds] of brandSkuSet) {
+        derivedSmSkusByBrand[brand] = Array.from(skuIds)
+          .map(id => {
+            const info = smSkuMap.get(id);
+            return info ? { skuId: id, skuCode: info.code, skuName: info.name } : null;
+          })
+          .filter((x): x is SmSkuInfo => x !== null)
+          .sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+      }
+      setSmSkusByBrand(derivedSmSkusByBrand);
+
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
@@ -283,6 +305,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         menuCodeToId,
         bomByMenu,
         smSkuMap,
+        menuBrandMap,
       };
       cachedDataRef.current = cached;
 
