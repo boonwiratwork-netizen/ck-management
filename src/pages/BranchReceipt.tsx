@@ -853,9 +853,7 @@ export default function BranchReceiptPage({
       {/* Row count info */}
       {bothSelected && !isCKSupplier && selectedBranch && selectedSupplier && (
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{preloadedRows.length}</span> items for{" "}
-          <span className="font-semibold text-foreground">{selectedBranch.branchName}</span> from{" "}
-          <span className="font-semibold text-foreground">{selectedSupplier.name}</span>
+          {t('br.rowCount').replace('{n}', String(preloadedRows.length)).replace('{branch}', selectedBranch.branchName).replace('{supplier}', selectedSupplier.name)}
         </p>
       )}
 
