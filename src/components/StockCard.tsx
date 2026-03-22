@@ -132,6 +132,11 @@ export function StockCard({
   useEffect(() => {
     let cancelled = false;
 
+    // Calculate fromDate for CK context date filtering
+    const fromD = new Date();
+    fromD.setDate(fromD.getDate() - daysBack);
+    const fromDate = fromD.toISOString().slice(0, 10);
+
     async function fetch() {
       setLoading(true);
       try {
