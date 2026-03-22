@@ -391,14 +391,14 @@ export default function DailyStockCountPage({
                           </td>
                           <td className="px-2 py-1">
                             <span
-                              className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                              className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
                                 sku.type === "RM"
-                                  ? "badge-rm"
+                                  ? "bg-warning/15 text-warning"
                                   : sku.type === "SM"
-                                    ? "badge-sm"
+                                    ? "bg-info/15 text-info"
                                     : sku.type === "SP"
-                                      ? "badge-sp"
-                                      : "badge-pk"
+                                      ? "bg-primary/15 text-primary"
+                                      : "bg-muted text-muted-foreground"
                               }`}
                             >
                               {sku.type}
