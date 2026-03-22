@@ -1399,7 +1399,7 @@ export default function BranchReceiptPage({
                   <th className={thClass}>TO Ref</th>
                   <th className={`${thClass} text-right cursor-pointer`} onClick={() => hHandleSort("qty")}>
                     <SortableHeader
-                      label="Qty"
+                      label={t('col.qty')}
                       sortKey="qty"
                       activeSortKey={hSortKey}
                       sortDir={hSortDir}
