@@ -329,13 +329,22 @@ export function useDailyStockCount({
 
   // Calculate expected usage from sales data × current BOM
   const calculateExpectedUsage = useCallback(async (branchId: string, date: string): Promise<Record<string, number>> => {
-    const { data: salesData } = await supabase
-      .from('sales_entries')
-      .select('*')
-      .eq('branch_id', branchId)
-      .eq('sale_date', date);
-    
-    const sales = salesData || [];
+    const [salesRes, overridesRes] = await Promise.all([
+      supabase
+        .from('sales_entries')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('sale_date', date),
+      supabase
+        .from('branch_menu_overrides')
+        .select('menu_id, is_active')
+        .eq('branch_id', branchId)
+        .eq('is_active', false),
+    ]);
+
+    const suppressedMenuIds = new Set((overridesRes.data || []).map(o => o.menu_id));
+
+    const sales = salesRes.data || [];
     if (sales.length === 0) return {};
 
     const menuByCode = new Map<string, Menu>();
