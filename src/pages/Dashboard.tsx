@@ -432,9 +432,9 @@ const Dashboard = ({
                   <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b bg-muted/50">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Supplier</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Amount ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">%</th>
+                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.supplier')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colAmountBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colPct')}</th>
                       </tr></thead>
                       <tbody>
                         {hook.purchase.bySupplier.slice(0, 6).map(s => (
