@@ -364,9 +364,9 @@ export default function DailyStockCountPage({
                         <div>{t("col.calcBalance")}</div>
                         <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
                       </th>
-                      <th className={`text-right ${thClass}`}>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">
                         <div>{t("col.physical")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-background/70">(Usage UOM)</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.variance")}</div>
