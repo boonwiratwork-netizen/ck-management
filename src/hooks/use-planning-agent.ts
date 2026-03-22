@@ -84,6 +84,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [smSkusByBrand, setSmSkusByBrand] = useState<Record<string, SmSkuInfo[]>>({});
+  const [menusByBrand, setMenusByBrand] = useState<Record<string, MenuInfo[]>>({});
+  const [menuBomByMenuId, setMenuBomByMenuId] = useState<Record<string, Array<{ skuId: string; effectiveQty: number }>>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const cachedDataRef = useRef<CachedData | null>(null);
