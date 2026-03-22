@@ -35,12 +35,12 @@ interface SpBomPageProps {
 }
 
 const CSV_COLUMNS: CSVColumnDef[] = [
-  { key: 'sp_code', label: 'sp_code', required: true },
-  { key: 'sku_code', label: 'sku_code', required: true },
-  { key: 'qty', label: 'qty', required: true },
-  { key: 'yield_pct', label: 'yield_pct' },
-  { key: 'batch_yield_qty', label: 'batch_yield_qty', required: true },
-];
+{ key: 'sp_code', label: 'sp_code', required: true },
+{ key: 'sku_code', label: 'sku_code', required: true },
+{ key: 'qty', label: 'qty', required: true },
+{ key: 'yield_pct', label: 'yield_pct' },
+{ key: 'batch_yield_qty', label: 'batch_yield_qty', required: true }];
+
 
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
   const { isManagement } = useAuth();
@@ -50,7 +50,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const [selectedSpId, setSelectedSpId] = useState<string | null>(null);
   const [spSearch, setSpSearch] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{id: string;name: string;} | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
 
   // Batch yield editing
@@ -64,20 +64,20 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const [formQty, setFormQty] = useState(0);
   const [formYieldPct, setFormYieldPct] = useState(100);
 
-  const spSkus = useMemo(() => skus.filter(s => s.type === 'SP'), [skus]);
-  const rmSkus = useMemo(() => skus.filter(s => s.type === 'RM'), [skus]);
+  const spSkus = useMemo(() => skus.filter((s) => s.type === 'SP'), [skus]);
+  const rmSkus = useMemo(() => skus.filter((s) => s.type === 'RM'), [skus]);
 
-  const getSkuById = (id: string) => skus.find(s => s.id === id);
-  const getSkuByCode = (code: string) => skus.find(s => s.skuId === code);
+  const getSkuById = (id: string) => skus.find((s) => s.id === id);
+  const getSkuByCode = (code: string) => skus.find((s) => s.skuId === code);
 
   const getActiveCost = (skuId: string): number => {
-    const active = prices.find(p => p.skuId === skuId && p.isActive);
+    const active = prices.find((p) => p.skuId === skuId && p.isActive);
     return active?.pricePerUsageUom ?? 0;
   };
 
   const calcEffQty = (qty: number, yieldPct: number) => yieldPct > 0 ? qty / (yieldPct / 100) : qty;
 
-  const selectedSp = spSkus.find(s => s.id === selectedSpId) ?? null;
+  const selectedSp = spSkus.find((s) => s.id === selectedSpId) ?? null;
   const selectedLines = selectedSpId ? spBomData.getLinesForSp(selectedSpId) : [];
 
   const currentBatchYieldQty = selectedLines.length > 0 ? selectedLines[0].batchYieldQty : 1;
@@ -94,8 +94,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const filteredSpSkus = useMemo(() => {
     const q = spSearch.toLowerCase();
-    const filtered = spSkus.filter(s =>
-      s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+    const filtered = spSkus.filter((s) =>
+    s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
     );
     return [...filtered].sort((a, b) => {
       const cmp = a.skuId.localeCompare(b.skuId);
@@ -104,7 +104,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   }, [spSkus, spSearch, sortAsc]);
 
   // Summary: how many SP items have BOM set up
-  const spWithBom = useMemo(() => spSkus.filter(s => spBomData.getLinesForSp(s.id).length > 0).length, [spSkus, spBomData]);
+  const spWithBom = useMemo(() => spSkus.filter((s) => spBomData.getLinesForSp(s.id).length > 0).length, [spSkus, spBomData]);
 
   // Sync SP BOM price
   const syncSpPrice = async () => {
@@ -115,7 +115,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     onPricesRefresh?.();
   };
 
-  const formUom = formSkuId ? (getSkuById(formSkuId)?.usageUom ?? '') : '';
+  const formUom = formSkuId ? getSkuById(formSkuId)?.usageUom ?? '' : '';
 
   const startAddLine = () => {
     setFormSkuId('');
@@ -138,18 +138,18 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   };
 
   const saveLine = async () => {
-    if (!formSkuId || !selectedSpId) { toast.error('Select a SKU'); return; }
-    if (formQty <= 0) { toast.error('Qty must be > 0'); return; }
+    if (!formSkuId || !selectedSpId) {toast.error('Select a SKU');return;}
+    if (formQty <= 0) {toast.error('Qty must be > 0');return;}
 
     const effQty = calcEffQty(formQty, formYieldPct);
-    const costPerUnit = currentBatchYieldQty > 0 ? (effQty * getActiveCost(formSkuId)) / currentBatchYieldQty : 0;
+    const costPerUnit = currentBatchYieldQty > 0 ? effQty * getActiveCost(formSkuId) / currentBatchYieldQty : 0;
 
     if (editingLineId) {
       await spBomData.updateLine(editingLineId, {
         ingredientSkuId: formSkuId,
         qtyPerBatch: formQty,
         uom: formUom,
-        costPerUnit,
+        costPerUnit
       });
       toast.success('Ingredient updated');
       setEditingLineId(null);
@@ -161,7 +161,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         uom: formUom,
         batchYieldQty: currentBatchYieldQty,
         batchYieldUom: currentBatchYieldUom,
-        costPerUnit,
+        costPerUnit
       });
       toast.success('Ingredient added');
       setFormSkuId('');
@@ -187,7 +187,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const saveYield = async () => {
     if (!selectedSpId) return;
-    if (yieldQty <= 0) { toast.error('Yield qty must be > 0'); return; }
+    if (yieldQty <= 0) {toast.error('Yield qty must be > 0');return;}
     await spBomData.updateBatchYield(selectedSpId, yieldQty, currentBatchYieldUom);
     setEditingYield(false);
     toast.success('Batch yield updated');
@@ -202,7 +202,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
     // Track which sp_codes already have BOM
     const spCodesWithBom = new Set<string>();
-    spSkus.forEach(sp => {
+    spSkus.forEach((sp) => {
       if (spBomData.getLinesForSp(sp.id).length > 0) {
         spCodesWithBom.add(sp.skuId);
       }
@@ -215,22 +215,22 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
       const qtyStr = (row['qty'] ?? '').trim();
       const batchYieldStr = (row['batch_yield_qty'] ?? '').trim();
 
-      if (!spCode) { errors.push({ row: rowNum, message: 'sp_code is required' }); return; }
-      if (!skuCode) { errors.push({ row: rowNum, message: 'sku_code is required' }); return; }
-      if (!qtyStr) { errors.push({ row: rowNum, message: 'qty is required' }); return; }
-      if (!batchYieldStr) { errors.push({ row: rowNum, message: 'batch_yield_qty is required' }); return; }
+      if (!spCode) {errors.push({ row: rowNum, message: 'sp_code is required' });return;}
+      if (!skuCode) {errors.push({ row: rowNum, message: 'sku_code is required' });return;}
+      if (!qtyStr) {errors.push({ row: rowNum, message: 'qty is required' });return;}
+      if (!batchYieldStr) {errors.push({ row: rowNum, message: 'batch_yield_qty is required' });return;}
 
       const spSku = getSkuByCode(spCode);
-      if (!spSku || spSku.type !== 'SP') { errors.push({ row: rowNum, message: `SP SKU "${spCode}" not found` }); return; }
+      if (!spSku || spSku.type !== 'SP') {errors.push({ row: rowNum, message: `SP SKU "${spCode}" not found` });return;}
 
       const ingredientSku = getSkuByCode(skuCode);
-      if (!ingredientSku) { errors.push({ row: rowNum, message: `SKU "${skuCode}" not found` }); return; }
+      if (!ingredientSku) {errors.push({ row: rowNum, message: `SKU "${skuCode}" not found` });return;}
 
       const qty = Number(qtyStr);
-      if (isNaN(qty) || qty <= 0) { errors.push({ row: rowNum, message: 'qty must be a positive number' }); return; }
+      if (isNaN(qty) || qty <= 0) {errors.push({ row: rowNum, message: 'qty must be a positive number' });return;}
 
       const batchYield = Number(batchYieldStr);
-      if (isNaN(batchYield) || batchYield <= 0) { errors.push({ row: rowNum, message: 'batch_yield_qty must be a positive number' }); return; }
+      if (isNaN(batchYield) || batchYield <= 0) {errors.push({ row: rowNum, message: 'batch_yield_qty must be a positive number' });return;}
 
       // Add warning for existing BOM (shown in errors list as info)
       if (spCodesWithBom.has(spCode)) {
@@ -246,7 +246,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const handleCsvImport = useCallback(async (rows: Record<string, string>[]) => {
     // Group rows by sp_code
     const grouped: Record<string, Record<string, string>[]> = {};
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const spCode = (row['sp_code'] ?? '').trim();
       if (!grouped[spCode]) grouped[spCode] = [];
       grouped[spCode].push(row);
@@ -258,7 +258,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
     for (const [spCode, spRows] of Object.entries(grouped)) {
       const spSku = getSkuByCode(spCode);
-      if (!spSku) { failCount += spRows.length; continue; }
+      if (!spSku) {failCount += spRows.length;continue;}
 
       // Delete existing lines for this SP
       const existing = spBomData.getLinesForSp(spSku.id);
@@ -276,13 +276,13 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
       for (const row of spRows) {
         const ingredientSku = getSkuByCode((row['sku_code'] ?? '').trim());
-        if (!ingredientSku) { failCount++; continue; }
+        if (!ingredientSku) {failCount++;continue;}
 
         const qty = Number((row['qty'] ?? '0').trim()) || 0;
         const yieldPct = Number((row['yield_pct'] ?? '100').trim()) || 100;
         const effQty = calcEffQty(qty, yieldPct);
         const unitCost = getActiveCost(ingredientSku.id);
-        const costPerUnit = batchYieldQty > 0 ? (effQty * unitCost) / batchYieldQty : 0;
+        const costPerUnit = batchYieldQty > 0 ? effQty * unitCost / batchYieldQty : 0;
 
         await spBomData.addLine({
           spSkuId: spSku.id,
@@ -291,7 +291,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           uom: ingredientSku.usageUom,
           batchYieldQty,
           batchYieldUom,
-          costPerUnit,
+          costPerUnit
         });
         rowCount++;
       }
@@ -318,35 +318,35 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
   const previewEffQty = calcEffQty(formQty, formYieldPct);
   const previewLineCost = previewEffQty * getActiveCost(formSkuId);
 
-  const renderInlineRow = () => (
-    <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
+  const renderInlineRow = () =>
+  <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
       <TableCell className="py-1 px-2">
         <SearchableSelect
-          value={formSkuId}
-          onValueChange={handleSkuChange}
-          options={rmSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-          placeholder="Select RM SKU"
-          triggerClassName="h-8 text-xs w-full"
-        />
+        value={formSkuId}
+        onValueChange={handleSkuChange}
+        options={rmSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+        placeholder="Select RM SKU"
+        triggerClassName="h-8 text-xs w-full" />
+      
       </TableCell>
       <TableCell className="text-sm text-muted-foreground truncate overflow-hidden py-1 px-2">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
-          onChange={e => setFormQty(Number(e.target.value))} />
+      onChange={(e) => setFormQty(Number(e.target.value))} />
       </TableCell>
       <TableCell className="text-sm text-muted-foreground py-1 px-2">{formUom || '—'}</TableCell>
       <TableCell className="py-1 px-2">
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYieldPct}
-          onChange={e => setFormYieldPct(Number(e.target.value) || 100)} />
+      onChange={(e) => setFormYieldPct(Number(e.target.value) || 100)} />
       </TableCell>
       <TableCell className="text-sm text-right font-mono py-1 px-2">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
       <TableCell className="text-sm text-right font-mono py-1 px-2">
         {formSkuId ? (() => {
-          const c = getActiveCost(formSkuId);
-          return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
-        })() : '—'}
+        const c = getActiveCost(formSkuId);
+        return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
+      })() : '—'}
       </TableCell>
       <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
         {formSkuId && previewLineCost > 0 ? `฿${previewLineCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
@@ -357,8 +357,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
-    </TableRow>
-  );
+    </TableRow>;
+
 
   return (
     <div className="space-y-4">
@@ -367,52 +367,52 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           <h2 className="text-2xl font-heading font-bold">{t('title.spBom')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials for Special items — ingredients and costing</p>
         </div>
-        {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+        {canEdit &&
+        <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
             <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
-        )}
+        }
       </div>
 
       <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[320px_1fr]'}`}>
         {/* Left panel */}
-        {!fullscreen && (
-          <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
+        {!fullscreen &&
+        <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">{t('section.spItems')}</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">{spWithBom} of {spSkus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search SP items..."
-                  value={spSearch}
-                  onChange={e => setSpSearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                />
+                placeholder="Search SP items..."
+                value={spSearch}
+                onChange={(e) => setSpSearch(e.target.value)}
+                className="pl-9 h-9 text-sm" />
+              
               </div>
               <div className="flex items-center justify-end mt-1.5">
                 <button
-                  onClick={() => setSortAsc(!sortAsc)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                >
+                onClick={() => setSortAsc(!sortAsc)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                
                   Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                 </button>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
               <div className="divide-y">
-                {filteredSpSkus.map(s => {
-                  const lineCount = spBomData.getLinesForSp(s.id).length;
-                  const batchYield = spBomData.getLinesForSp(s.id)[0]?.batchYieldQty ?? 1;
-                  const hasBom = lineCount > 0;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => { setSelectedSpId(s.id); setEditingYield(false); cancelEdit(); }}
-                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
-                        selectedSpId === s.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      } ${!hasBom ? 'bg-primary/5' : ''}`}
-                    >
+                {filteredSpSkus.map((s) => {
+                const lineCount = spBomData.getLinesForSp(s.id).length;
+                const batchYield = spBomData.getLinesForSp(s.id)[0]?.batchYieldQty ?? 1;
+                const hasBom = lineCount > 0;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => {setSelectedSpId(s.id);setEditingYield(false);cancelEdit();}}
+                    className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
+                    selectedSpId === s.id ? 'bg-primary/5 border-l-2 border-primary' : ''} ${
+                    !hasBom ? 'bg-primary/5' : ''}`}>
+                    
                       <p className="text-sm font-medium flex items-center gap-1.5">
                         {!hasBom && <StatusDot status="amber" size="sm" />}
                         {s.skuId} · {s.name}
@@ -420,30 +420,30 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <p className="text-xs text-muted-foreground">
                         {lineCount} ingredients {lineCount > 0 && <span>· {batchYield} {s.usageUom}</span>}
                       </p>
-                    </button>
-                  );
-                })}
-                {filteredSpSkus.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">No SP items found</p>
-                )}
+                    </button>);
+
+              })}
+                {filteredSpSkus.length === 0 &&
+              <p className="text-sm text-muted-foreground text-center py-6">No SP items found</p>
+              }
               </div>
             </CardContent>
           </Card>
-        )}
+        }
 
         {/* Right panel */}
         <div className="space-y-4">
-          {!selectedSp ? (
-            <Card>
+          {!selectedSp ?
+          <Card>
               <CardContent className="py-16 flex flex-col items-center justify-center gap-3">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
                   <Package className="w-7 h-7 text-muted-foreground" />
                 </div>
                 <p className="font-medium">Select an SP item from the left to view its BOM</p>
               </CardContent>
-            </Card>
-          ) : (
-            <>
+            </Card> :
+
+          <>
               {/* Header */}
               <Card>
                 <CardContent className="p-6">
@@ -457,18 +457,18 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Yield</p>
                         <p className="text-lg font-bold font-mono">{currentBatchYieldQty} {currentBatchYieldUom || <span className="text-primary text-xs">⚠</span>}</p>
                       </div>
-                      <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[120px]">
+                      <div className="text-center p-3 rounded-lg min-w-[120px] bg-green-100">
                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                           <DollarSign className="w-3 h-3" /> Cost/Unit
                         </p>
                         <p className="text-lg font-bold text-primary font-mono">฿{totalCostPerUnit.toFixed(4)}</p>
                       </div>
                       <div className="flex flex-col gap-1">
-                        {canEdit && (
-                          <Button size="sm" variant="outline" onClick={startEditYield}>
+                        {canEdit &&
+                      <Button size="sm" variant="outline" onClick={startEditYield}>
                             <Edit2 className="w-3.5 h-3.5" /> {t('btn.editYield')}
                           </Button>
-                        )}
+                      }
                         <Button size="sm" variant="outline" onClick={() => setFullscreen(!fullscreen)}>
                           {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                         </Button>
@@ -477,15 +477,15 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                   </div>
 
                   {/* Batch yield editor — UOM is read-only from SP SKU */}
-                  {editingYield && canEdit && (
-                    <div className="flex items-center gap-2 text-sm border-t pt-3 mt-3">
+                  {editingYield && canEdit &&
+                <div className="flex items-center gap-2 text-sm border-t pt-3 mt-3">
                       <span className="text-muted-foreground font-medium">1 batch produces</span>
-                      <Input type="number" min={0.01} step="any" value={yieldQty || ''} onChange={e => setYieldQty(Number(e.target.value))} className="h-8 w-20 text-sm" />
+                      <Input type="number" min={0.01} step="any" value={yieldQty || ''} onChange={(e) => setYieldQty(Number(e.target.value))} className="h-8 w-20 text-sm" />
                       <span className="text-sm text-muted-foreground font-medium">{currentBatchYieldUom || '—'}</span>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveYield}><Check className="w-3.5 h-3.5 text-success" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingYield(false)}><X className="w-3.5 h-3.5" /></Button>
                     </div>
-                  )}
+                }
                 </CardContent>
               </Card>
 
@@ -507,35 +507,35 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLines.length === 0 && !addingLine && (
-                        <TableRow>
+                      {selectedLines.length === 0 && !addingLine &&
+                    <TableRow>
                           <TableCell colSpan={canEdit ? 9 : 8} className="py-16">
                             <div className="flex flex-col items-center justify-center gap-3">
                               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
                                 <Package className="w-7 h-7 text-muted-foreground" />
                               </div>
                               <p className="font-medium">No ingredients added yet</p>
-                              {canEdit && (
-                                <Button
-                                  variant="outline"
-                                 className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                                  onClick={startAddLine}
-                                >
+                              {canEdit &&
+                          <Button
+                            variant="outline"
+                            className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                            onClick={startAddLine}>
+                            
                                   <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                                 </Button>
-                              )}
+                          }
                             </div>
                           </TableCell>
                         </TableRow>
-                      )}
-                      {selectedLines.map(line => {
-                        const sku = getSkuById(line.ingredientSkuId);
-                        const unitPrice = getActiveCost(line.ingredientSkuId);
-                        const effQty = line.qtyPerBatch;
-                        const lineCost = effQty * unitPrice;
-                        if (editingLineId === line.id) return <>{renderInlineRow()}</>;
-                        return (
-                          <TableRow key={line.id} className="h-9">
+                    }
+                      {selectedLines.map((line) => {
+                      const sku = getSkuById(line.ingredientSkuId);
+                      const unitPrice = getActiveCost(line.ingredientSkuId);
+                      const effQty = line.qtyPerBatch;
+                      const lineCost = effQty * unitPrice;
+                      if (editingLineId === line.id) return <>{renderInlineRow()}</>;
+                      return (
+                        <TableRow key={line.id} className="h-9">
                             <TableCell className="text-sm font-mono py-1 px-2">
                               {sku?.skuId ?? '—'}
                             </TableCell>
@@ -551,12 +551,12 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                             </TableCell>
                             <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
                               {(() => {
-                                const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
-                                return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-primary">—</span>;
-                              })()}
+                              const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
+                              return liveLineCost > 0 ? `฿${liveLineCost.toFixed(2)}` : <span className="text-primary">—</span>;
+                            })()}
                             </TableCell>
-                            {canEdit && (
-                              <TableCell className="py-1 px-2">
+                            {canEdit &&
+                          <TableCell className="py-1 px-2">
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -566,43 +566,43 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                                   </Button>
                                 </div>
                               </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
+                          }
+                          </TableRow>);
+
+                    })}
                       {addingLine && renderInlineRow()}
                     </TableBody>
                   </Table>
                   {/* Add button at bottom */}
-                  {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId && (
-                    <div className="p-4 pt-2">
+                  {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId &&
+                <div className="p-4 pt-2">
                        <Button
-                        variant="outline"
-                        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                        onClick={startAddLine}
-                      >
+                    variant="outline"
+                    className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                    onClick={startAddLine}>
+                    
                         <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
                       </Button>
                     </div>
-                  )}
+                }
                   {/* Totals */}
-                  {totalBatchCost > 0 && (
-                    <div className="border-t px-6 py-3 flex justify-end gap-6">
+                  {totalBatchCost > 0 &&
+                <div className="border-t px-6 py-3 flex justify-end gap-6">
                       <p className="text-sm">Total cost/batch: <span className="font-bold font-mono text-primary">฿{totalBatchCost.toFixed(2)}</span></p>
                       <p className="text-sm">Cost/unit: <span className="font-bold font-mono text-primary">฿{totalCostPerUnit.toFixed(4)}</span></p>
                     </div>
-                  )}
+                }
                 </CardContent>
               </Card>
             </>
-          )}
+          }
         </div>
       </div>
 
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteConfirm}
-        onOpenChange={open => !open && setDeleteConfirm(null)}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title="Remove Ingredient"
         description={`Remove "${deleteConfirm?.name}" from this SP's BOM?`}
         confirmLabel="Remove"
@@ -613,8 +613,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
             setDeleteConfirm(null);
             setTimeout(() => syncSpPrice(), 300);
           }
-        }}
-      />
+        }} />
+      
 
       {/* CSV Import Modal */}
       <CSVImportModal
@@ -623,8 +623,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         title="SP BOM"
         columns={CSV_COLUMNS}
         validate={validateCsv}
-        onConfirm={handleCsvImport}
-      />
-    </div>
-  );
+        onConfirm={handleCsvImport} />
+      
+    </div>);
+
 }
