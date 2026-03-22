@@ -1015,7 +1015,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                 <Button
                   onClick={handleManualAdd}
                   disabled={manualSaving || !manualMenuId || !manualBranch || !!hasNoPrice}
-                  className="h-10"
+                  className="h-10 bg-info hover:bg-info/90 text-info-foreground"
                   tabIndex={5}
                 >
                   {manualSuccess ? (
