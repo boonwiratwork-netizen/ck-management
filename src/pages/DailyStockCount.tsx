@@ -519,8 +519,8 @@ export default function DailyStockCountPage({
                             <TableCell className="px-2 py-1 text-sm">{sku.name}</TableCell>
                             <TableCell className="px-2 py-1">
                               <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  sku.type === "RM" ? "badge-rm" : "badge-sm"
+                                className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                  sku.type === "RM" ? "bg-warning/15 text-warning" : "bg-info/15 text-info"
                                 }`}
                               >
                                 {sku.type}
