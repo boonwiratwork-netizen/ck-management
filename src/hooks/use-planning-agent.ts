@@ -43,6 +43,12 @@ export interface SmSkuInfo {
   skuName: string;
 }
 
+export interface MenuInfo {
+  menuId: string;
+  menuCode: string;
+  menuName: string;
+}
+
 interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
