@@ -637,7 +637,9 @@ export default function TransferOrderPage({
                   <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
                   <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
-                  <th className={`${tableTokens.headerCell} !bg-foreground text-background text-right`}>
+                  <th
+                    className={`${tableTokens.headerCell} !bg-foreground text-background !text-background font-semibold text-right`}
+                  >
                     {t("to.colActualQty")}
                   </th>
                   <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
