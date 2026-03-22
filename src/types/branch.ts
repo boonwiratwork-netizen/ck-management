@@ -14,4 +14,5 @@ export const EMPTY_BRANCH: Omit<Branch, 'id'> = {
   brandName: '',
   location: '',
   status: 'Active',
+  avgSellingPrice: null,
 };
