@@ -626,7 +626,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         <div className="space-y-2">
           {adHocRows.length > 0 && (
             <>
-              <p className="text-xs font-medium text-muted-foreground">Ad-hoc items (not in Price Master)</p>
+              <p className="text-xs font-medium text-muted-foreground">{t('gr.adHocItems')}</p>
               <div className="rounded-lg border bg-card overflow-hidden">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
