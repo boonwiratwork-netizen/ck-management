@@ -309,7 +309,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
 
           return (
             <div key={group.labelKey}>
-              {showDivider && <div className="my-2 mx-3 border-t-2 border-sidebar-border" />}
+              {showDivider && <div className="my-3 mx-2 border-t-2 border-sidebar-border" />}
               <SidebarGroup className="py-1">
                 <SidebarGroupLabel className="text-helper uppercase tracking-wider text-muted-foreground font-semibold px-3 mb-1 flex items-center gap-1.5">
                   {group.icon && !collapsed && <group.icon className="w-3 h-3" />}
