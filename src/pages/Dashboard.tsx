@@ -363,7 +363,7 @@ const Dashboard = ({
               ))}
             </div>
             <div className="mt-2 text-right text-sm text-muted-foreground font-mono">
-              Total inventory {fmtBaht(Math.max(0, hook.inventory.total))}
+              {t('ckd.totalInventory')} {fmtBaht(Math.max(0, hook.inventory.total))}
             </div>
           </div>
 
