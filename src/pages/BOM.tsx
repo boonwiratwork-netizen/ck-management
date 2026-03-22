@@ -42,7 +42,7 @@ interface BOMPageProps {
     addByproduct: (data: Omit<BomByproduct, 'id'>) => void | Promise<void>;
     updateByproduct: (id: string, data: Partial<Omit<BomByproduct, 'id' | 'bomHeaderId'>>) => void | Promise<void>;
     deleteByproduct: (id: string) => void | Promise<void>;
-    bulkUpdateAllocations: (updates: { id: string; costAllocationPct: number }[]) => void | Promise<void>;
+    bulkUpdateAllocations: (updates: {id: string;costAllocationPct: number;}[]) => void | Promise<void>;
   };
   skus: SKU[];
   prices: Price[];
@@ -51,16 +51,16 @@ interface BOMPageProps {
 }
 
 // Uncontrolled input that only fires onChange on blur
-function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, placeholder, min, max }: {
-  defaultValue: string | number;
-  onBlurValue: (val: string) => void;
-  type?: string;
-  className?: string;
-  step?: string;
-  placeholder?: string;
-  min?: number;
-  max?: number;
-}) {
+function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, placeholder, min, max
+
+
+
+
+
+
+
+
+}: {defaultValue: string | number;onBlurValue: (val: string) => void;type?: string;className?: string;step?: string;placeholder?: string;min?: number;max?: number;}) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <input
@@ -75,7 +75,7 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
       onBlur={() => {
         if (ref.current) onBlurValue(ref.current.value);
       }}
-      onKeyDown={e => {
+      onKeyDown={(e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
           if (ref.current) {
@@ -83,9 +83,9 @@ function BlurInput({ defaultValue, onBlurValue, type = 'text', className, step, 
             ref.current.blur();
           }
         }
-      }}
-    />
-  );
+      }} />);
+
+
 }
 
 const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
@@ -93,7 +93,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const {
     headers, addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
-    addStep, updateStep, deleteStep, getStepsForHeader, getLinesForStep,
+    addStep, updateStep, deleteStep, getStepsForHeader, getLinesForStep
   } = bomData;
   const { byproducts, getByproductsForHeader, addByproduct, updateByproduct, deleteByproduct, bulkUpdateAllocations } = byproductData;
 
@@ -101,8 +101,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [editingHeader, setEditingHeader] = useState(false);
   const [headerForm, setHeaderForm] = useState(EMPTY_BOM_HEADER);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
-  const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'> & { yieldPct: number }>({
-    rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, yieldPct: 100,
+  const [lineForm, setLineForm] = useState<Omit<BOMLine, 'id' | 'bomHeaderId'> & {yieldPct: number;}>({
+    rmSkuId: '', qtyPerBatch: 0, yieldPercent: 1.0, yieldPct: 100
   });
   const [addingLine, setAddingLine] = useState(false);
   const [addingLineStepId, setAddingLineStepId] = useState<string | null>(null);
@@ -114,37 +114,37 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [pendingNavHeaderId, setPendingNavHeaderId] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
-  const smSkus = useMemo(() => skus.filter(s => s.type === 'SM'), [skus]);
-  const ingredientSkus = useMemo(() => skus.filter(s => s.type === 'RM' || s.type === 'SM'), [skus]);
+  const smSkus = useMemo(() => skus.filter((s) => s.type === 'SM'), [skus]);
+  const ingredientSkus = useMemo(() => skus.filter((s) => s.type === 'RM' || s.type === 'SM'), [skus]);
 
-  const getSkuName = (id: string) => skus.find(s => s.id === id)?.name ?? '—';
-  const getSkuById = (id: string) => skus.find(s => s.id === id);
-  const getSkuCode = (id: string) => skus.find(s => s.id === id)?.skuId ?? '';
+  const getSkuName = (id: string) => skus.find((s) => s.id === id)?.name ?? '—';
+  const getSkuById = (id: string) => skus.find((s) => s.id === id);
+  const getSkuCode = (id: string) => skus.find((s) => s.id === id)?.skuId ?? '';
 
   const getActiveCost = (rmSkuId: string): number => {
-    const active = prices.find(p => p.skuId === rmSkuId && p.isActive);
+    const active = prices.find((p) => p.skuId === rmSkuId && p.isActive);
     return active?.pricePerUsageUom ?? 0;
   };
 
-  const selectedHeader = headers.find(h => h.id === selectedHeaderId) ?? null;
+  const selectedHeader = headers.find((h) => h.id === selectedHeaderId) ?? null;
   const selectedLines = selectedHeaderId ? getLinesForHeader(selectedHeaderId) : [];
   const selectedSteps = selectedHeaderId ? getStepsForHeader(selectedHeaderId) : [];
 
   // Yield-aware calculations for simple BOM
   const calcEffQty = (qty: number, yieldPct: number) => yieldPct > 0 ? qty / (yieldPct / 100) : qty;
 
-  const outputQty = selectedHeader && selectedHeader.bomMode === 'simple'
-    ? selectedHeader.batchSize * selectedHeader.yieldPercent : 0;
-  
+  const outputQty = selectedHeader && selectedHeader.bomMode === 'simple' ?
+  selectedHeader.batchSize * selectedHeader.yieldPercent : 0;
+
   // Simple BOM: lines don't have yield in DB, but we treat yield=100% for backward compat
   // For simple BOM we use raw qty (no per-line yield currently stored in bom_lines)
-  const simpleTotalCost = selectedHeader?.bomMode === 'simple'
-    ? selectedLines.reduce((sum, l) => {
-        const cost = getActiveCost(l.rmSkuId);
-        const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
-        const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
-        return sum + effQty * cost;
-      }, 0) : 0;
+  const simpleTotalCost = selectedHeader?.bomMode === 'simple' ?
+  selectedLines.reduce((sum, l) => {
+    const cost = getActiveCost(l.rmSkuId);
+    const lineYieldPct = Math.round((l.yieldPercent ?? 1.0) * 100);
+    const effQty = calcEffQty(l.qtyPerBatch, lineYieldPct);
+    return sum + effQty * cost;
+  }, 0) : 0;
   const simpleCostPerGram = outputQty > 0 ? simpleTotalCost / outputQty : 0;
 
   // Multi-step calculations
@@ -152,8 +152,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     if (!selectedHeader || selectedHeader.bomMode !== 'multistep') return { steps: [], totalCost: 0, finalOutput: 0, costPerGram: 0 };
 
     let totalCost = 0;
-    const stepsCalc: Array<{ step: typeof selectedSteps[0]; inputQty: number; outputQty: number; stepCost: number; ingredients: Array<any> }> = [];
-    
+    const stepsCalc: Array<{step: typeof selectedSteps[0];inputQty: number;outputQty: number;stepCost: number;ingredients: Array<any>;}> = [];
+
     for (let idx = 0; idx < selectedSteps.length; idx++) {
       const step = selectedSteps[idx];
       const stepLines = getLinesForStep(step.id);
@@ -167,7 +167,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         inputQty = stepsCalc[idx - 1].outputQty;
       }
 
-      const ingredientsWithCost = stepLines.map(l => {
+      const ingredientsWithCost = stepLines.map((l) => {
         let qty = l.qtyPerBatch;
         if (l.qtyType === 'percent' && l.percentOfInput) {
           qty = l.percentOfInput * inputQty;
@@ -270,9 +270,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const handleSaveHeader = async () => {
-    if (!headerForm.smSkuId) { toast.error('Select an SM SKU'); return; }
-    const exists = headers.find(h => h.smSkuId === headerForm.smSkuId && h.id !== selectedHeaderId);
-    if (exists) { toast.error('BOM already exists for this SM SKU'); return; }
+    if (!headerForm.smSkuId) {toast.error('Select an SM SKU');return;}
+    const exists = headers.find((h) => h.smSkuId === headerForm.smSkuId && h.id !== selectedHeaderId);
+    if (exists) {toast.error('BOM already exists for this SM SKU');return;}
 
     if (selectedHeaderId && selectedHeader) {
       await updateHeader(selectedHeaderId, headerForm);
@@ -280,7 +280,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     } else {
       const result = addHeader(headerForm);
       if (result instanceof Promise) {
-        result.then(id => { setSelectedHeaderId(id); });
+        result.then((id) => {setSelectedHeaderId(id);});
       } else {
         setSelectedHeaderId(result);
       }
@@ -296,7 +296,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       productionType: selectedHeader.productionType,
       bomMode: selectedHeader.bomMode,
       batchSize: selectedHeader.batchSize,
-      yieldPercent: selectedHeader.yieldPercent,
+      yieldPercent: selectedHeader.yieldPercent
     });
     setEditingHeader(true);
   };
@@ -316,7 +316,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const handleSaveLine = async () => {
-    if (!selectedHeaderId || !lineForm.rmSkuId) { toast.error('Select a SKU'); return; }
+    if (!selectedHeaderId || !lineForm.rmSkuId) {toast.error('Select a SKU');return;}
     if (addingLine) {
       await addLine({ ...lineForm, yieldPercent: lineForm.yieldPct / 100, bomHeaderId: selectedHeaderId });
       // Auto-continue: open new empty row
@@ -339,7 +339,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       stepId: line.stepId,
       qtyType: line.qtyType,
       percentOfInput: line.percentOfInput,
-      yieldPct: yieldPctDisplay,
+      yieldPct: yieldPctDisplay
     });
     setEditingLineId(line.id);
     setAddingLine(false);
@@ -375,7 +375,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
   const handleDeleteStep = (stepId: string) => {
     deleteStep(stepId);
-    const remaining = selectedSteps.filter(s => s.id !== stepId);
+    const remaining = selectedSteps.filter((s) => s.id !== stepId);
     remaining.forEach((s, i) => updateStep(s.id, { stepNumber: i + 1 }));
     toast.success('Step removed');
   };
@@ -384,11 +384,11 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const handleDragStart = (stepId: string) => setDraggedStepId(stepId);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   const handleDrop = (targetStepId: string) => {
-    if (!draggedStepId || draggedStepId === targetStepId) { setDraggedStepId(null); return; }
+    if (!draggedStepId || draggedStepId === targetStepId) {setDraggedStepId(null);return;}
     const ordered = [...selectedSteps];
-    const fromIdx = ordered.findIndex(s => s.id === draggedStepId);
-    const toIdx = ordered.findIndex(s => s.id === targetStepId);
-    if (fromIdx < 0 || toIdx < 0) { setDraggedStepId(null); return; }
+    const fromIdx = ordered.findIndex((s) => s.id === draggedStepId);
+    const toIdx = ordered.findIndex((s) => s.id === targetStepId);
+    if (fromIdx < 0 || toIdx < 0) {setDraggedStepId(null);return;}
     const [moved] = ordered.splice(fromIdx, 1);
     ordered.splice(toIdx, 0, moved);
     ordered.forEach((s, i) => updateStep(s.id, { stepNumber: i + 1 }));
@@ -404,7 +404,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       name: '',
       outputQty: 0,
       costAllocationPct: 0,
-      tracksInventory: false,
+      tracksInventory: false
     });
     setByproductsDirty(true);
   };
@@ -429,20 +429,20 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     if (!selectedHeaderId) return;
     const bps = getByproductsForHeader(selectedHeaderId);
     if (bps.length === 0) return;
-    
+
     const totalBpOutput = bps.reduce((s, bp) => {
       const out = bp.id === changedId && changedOutput !== undefined ? changedOutput : bp.outputQty;
       return s + out;
     }, 0);
     const totalOutput = mainProductOutput + totalBpOutput;
-    
+
     if (totalOutput <= 0) return;
-    
-    const updates = bps.map(bp => {
+
+    const updates = bps.map((bp) => {
       const out = bp.id === changedId && changedOutput !== undefined ? changedOutput : bp.outputQty;
       return {
         id: bp.id,
-        costAllocationPct: totalOutput > 0 ? (out / totalOutput) * 100 : 0,
+        costAllocationPct: totalOutput > 0 ? out / totalOutput * 100 : 0
       };
     });
     await bulkUpdateAllocations(updates);
@@ -513,14 +513,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   // Check if an SM SKU has its own BOM (for conflict warning)
   const skuHasOwnBom = (skuId: string | null): boolean => {
     if (!skuId) return false;
-    return headers.some(h => h.smSkuId === skuId && h.id !== selectedHeaderId);
+    return headers.some((h) => h.smSkuId === skuId && h.id !== selectedHeaderId);
   };
 
   // Check if an SM SKU is registered as a by-product somewhere
   const getByproductParentHeader = (skuId: string): BOMHeader | null => {
-    const bp = byproducts.find(b => b.skuId === skuId && b.tracksInventory);
+    const bp = byproducts.find((b) => b.skuId === skuId && b.tracksInventory);
     if (!bp) return null;
-    return headers.find(h => h.id === bp.bomHeaderId) ?? null;
+    return headers.find((h) => h.id === bp.bomHeaderId) ?? null;
   };
 
   const [sortAsc, setSortAsc] = useState(true);
@@ -528,12 +528,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   // Filtered headers for left panel search
   const filteredHeaders = useMemo(() => {
     const q = listSearch.toLowerCase();
-    const filtered = listSearch
-      ? headers.filter(h => {
-          const sku = getSkuById(h.smSkuId);
-          return sku?.skuId.toLowerCase().includes(q) || sku?.name.toLowerCase().includes(q);
-        })
-      : headers;
+    const filtered = listSearch ?
+    headers.filter((h) => {
+      const sku = getSkuById(h.smSkuId);
+      return sku?.skuId.toLowerCase().includes(q) || sku?.name.toLowerCase().includes(q);
+    }) :
+    headers;
     return [...filtered].sort((a, b) => {
       const skuA = getSkuById(a.smSkuId)?.skuId ?? '';
       const skuB = getSkuById(b.smSkuId)?.skuId ?? '';
@@ -543,26 +543,26 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   }, [headers, listSearch, skus, sortAsc]);
 
   // Inline line editor row (reusable for simple and multistep)
-  const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
-    <TableRow className="bg-muted/30 h-9" onKeyDown={handleLineKeyDown}>
+  const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) =>
+  <TableRow className="bg-muted/30 h-9" onKeyDown={handleLineKeyDown}>
       <TableCell>
         <SearchableSelect
-          value={lineForm.rmSkuId}
-          onValueChange={v => {
-            const sku = getSkuById(v);
-            setLineForm(f => ({ ...f, rmSkuId: v }));
-          }}
-          options={ingredientSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-          placeholder="Select SKU"
-          triggerClassName="h-8 text-xs"
-        />
+        value={lineForm.rmSkuId}
+        onValueChange={(v) => {
+          const sku = getSkuById(v);
+          setLineForm((f) => ({ ...f, rmSkuId: v }));
+        }}
+        options={ingredientSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+        placeholder="Select SKU"
+        triggerClassName="h-8 text-xs" />
+      
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {lineForm.rmSkuId ? getSkuName(lineForm.rmSkuId) : '—'}
       </TableCell>
-      {isMultiStep && (
-        <TableCell>
-          <Select value={lineForm.qtyType || 'fixed'} onValueChange={v => setLineForm(f => ({ ...f, qtyType: v as IngredientQtyType }))}>
+      {isMultiStep &&
+    <TableCell>
+          <Select value={lineForm.qtyType || 'fixed'} onValueChange={(v) => setLineForm((f) => ({ ...f, qtyType: v as IngredientQtyType }))}>
             <SelectTrigger className="h-8 text-xs w-24"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="fixed">Fixed (g)</SelectItem>
@@ -570,58 +570,58 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </SelectContent>
           </Select>
         </TableCell>
-      )}
+    }
       <TableCell>
-        {isMultiStep && lineForm.qtyType === 'percent' ? (
-          <div className="flex items-center gap-1">
+        {isMultiStep && lineForm.qtyType === 'percent' ?
+      <div className="flex items-center gap-1">
             <Input type="number" step="0.01" className="h-8 w-20 text-xs text-right font-mono"
-              value={lineForm.percentOfInput ? (lineForm.percentOfInput * 100) : ''}
-              onChange={e => {
-                const pct = Number(e.target.value) / 100;
-                setLineForm(f => ({ ...f, percentOfInput: pct, qtyPerBatch: pct * (stepInputQty || 0) }));
-              }} />
+        value={lineForm.percentOfInput ? lineForm.percentOfInput * 100 : ''}
+        onChange={(e) => {
+          const pct = Number(e.target.value) / 100;
+          setLineForm((f) => ({ ...f, percentOfInput: pct, qtyPerBatch: pct * (stepInputQty || 0) }));
+        }} />
             <span className="text-xs text-muted-foreground">%</span>
-          </div>
-        ) : (
-          <Input type="number" className="h-8 w-full max-w-[80px] text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
-            onChange={e => setLineForm(f => ({ ...f, qtyPerBatch: Number(e.target.value) }))} />
-        )}
+          </div> :
+
+      <Input type="number" className="h-8 w-full max-w-[80px] text-xs text-right font-mono" value={lineForm.qtyPerBatch || ''}
+      onChange={(e) => setLineForm((f) => ({ ...f, qtyPerBatch: Number(e.target.value) }))} />
+      }
       </TableCell>
       <TableCell className="text-xs">{lineForm.rmSkuId ? getSkuById(lineForm.rmSkuId)?.usageUom : '—'}</TableCell>
-      {!isMultiStep && (
-        <>
+      {!isMultiStep &&
+    <>
           <TableCell className="overflow-hidden">
             <Input type="number" className="h-8 w-full max-w-[64px] text-xs text-right font-mono" value={lineForm.yieldPct}
-              onChange={e => {
-                const v = Number(e.target.value);
-                setLineForm(f => ({ ...f, yieldPct: v || 0 }));
-              }}
-              onBlur={e => {
-                let v = Number(e.target.value);
-                if (v < 0.01 || v > 100 || isNaN(v)) v = 100;
-                setLineForm(f => ({ ...f, yieldPct: v }));
-              }} />
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setLineForm((f) => ({ ...f, yieldPct: v || 0 }));
+        }}
+        onBlur={(e) => {
+          let v = Number(e.target.value);
+          if (v < 0.01 || v > 100 || isNaN(v)) v = 100;
+          setLineForm((f) => ({ ...f, yieldPct: v }));
+        }} />
           </TableCell>
           <TableCell className="text-xs text-right font-mono">
             {lineForm.rmSkuId ? calcEffQty(lineForm.qtyPerBatch, lineForm.yieldPct).toFixed(2) : '—'}
           </TableCell>
         </>
-      )}
+    }
       <TableCell className="text-xs text-right font-mono">
         {lineForm.rmSkuId ? (() => {
-          const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>;
-        })() : '—'}
+        const cost = getActiveCost(lineForm.rmSkuId);
+        return cost > 0 ? `฿${cost.toFixed(4)}` : <span className="text-primary">—</span>;
+      })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
         {lineForm.rmSkuId ? (() => {
-          const qty = isMultiStep && lineForm.qtyType === 'percent'
-            ? (lineForm.percentOfInput || 0) * (stepInputQty || 0)
-            : lineForm.qtyPerBatch;
-          const effQty = isMultiStep ? qty : calcEffQty(qty, lineForm.yieldPct);
-          const cost = getActiveCost(lineForm.rmSkuId);
-          return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-primary">—</span>;
-        })() : '—'}
+        const qty = isMultiStep && lineForm.qtyType === 'percent' ?
+        (lineForm.percentOfInput || 0) * (stepInputQty || 0) :
+        lineForm.qtyPerBatch;
+        const effQty = isMultiStep ? qty : calcEffQty(qty, lineForm.yieldPct);
+        const cost = getActiveCost(lineForm.rmSkuId);
+        return cost > 0 ? `฿${(effQty * cost).toFixed(2)}` : <span className="text-primary">—</span>;
+      })() : '—'}
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
@@ -629,14 +629,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelLineEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
-    </TableRow>
-  );
+    </TableRow>;
+
 
   // Type badge — removed per design: SKU code prefix already communicates type
 
   // Common table headers for simple BOM
-  const simpleTableHeaders = (
-    <TableRow>
+  const simpleTableHeaders =
+  <TableRow>
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 120 }}>{t('col.skuCode')}</TableHead>
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('col.name')}</TableHead>
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 80 }}>{t('col.qty')}</TableHead>
@@ -646,12 +646,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.costUnit')}</TableHead>
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: 100 }}>{t('col.lineCost')}</TableHead>
       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 70 }}></TableHead>
-    </TableRow>
-  );
+    </TableRow>;
+
 
   // Render simple BOM
-  const renderSimpleBOM = () => (
-    <>
+  const renderSimpleBOM = () =>
+  <>
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -677,11 +677,11 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
               <p className="text-lg font-bold font-mono">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-muted/50">
+            <div className="text-center p-4 rounded-lg bg-cyan-100">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
               <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-primary/10">
+            <div className="text-center p-4 rounded-lg bg-green-100">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />Cost/gram</p>
               <p className="text-lg font-bold text-primary font-mono">฿{(hasByproducts ? allocatedMainCpg : simpleCostPerGram).toFixed(4)}</p>
               {hasByproducts && <p className="text-xs text-muted-foreground mt-0.5">after by-product allocation</p>}
@@ -695,8 +695,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <Table className="table-fixed">
             <TableHeader>{simpleTableHeaders}</TableHeader>
             <TableBody>
-              {selectedLines.filter(l => !l.stepId).length === 0 && !addingLine && (
-                <TableRow>
+              {selectedLines.filter((l) => !l.stepId).length === 0 && !addingLine &&
+            <TableRow>
                   <TableCell colSpan={9} className="py-16">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
@@ -704,25 +704,25 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       </div>
                       <p className="font-medium text-foreground">No ingredients added yet</p>
                       <Button
-                        variant="outline"
-                        className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                        onClick={() => handleStartAddLine()}
-                      >
+                    variant="outline"
+                    className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                    onClick={() => handleStartAddLine()}>
+                    
                         <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
-              )}
-              {selectedLines.filter(l => !l.stepId).map(line => {
-                const rmSku = getSkuById(line.rmSkuId);
-                const cost = getActiveCost(line.rmSkuId);
-                const lineYieldPct = Math.round((line.yieldPercent ?? 1.0) * 100);
-                const effQty = calcEffQty(line.qtyPerBatch, lineYieldPct);
-                const lineCost = effQty * cost;
-                if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
-                return (
-                  <TableRow key={line.id} className="h-9">
+            }
+              {selectedLines.filter((l) => !l.stepId).map((line) => {
+              const rmSku = getSkuById(line.rmSkuId);
+              const cost = getActiveCost(line.rmSkuId);
+              const lineYieldPct = Math.round((line.yieldPercent ?? 1.0) * 100);
+              const effQty = calcEffQty(line.qtyPerBatch, lineYieldPct);
+              const lineCost = effQty * cost;
+              if (editingLineId === line.id) return <Fragment key={line.id}>{renderLineEditor(false)}</Fragment>;
+              return (
+                <TableRow key={line.id} className="h-9">
                     <TableCell className="text-sm font-mono py-2 px-3">
                       {rmSku?.skuId ?? '—'}
                     </TableCell>
@@ -749,38 +749,38 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                );
-              })}
+                  </TableRow>);
+
+            })}
               {addingLine && !addingLineStepId && renderLineEditor(false)}
             </TableBody>
           </Table>
           {/* Add Ingredient button at bottom */}
-          {selectedLines.filter(l => !l.stepId).length > 0 && !addingLine && (
-            <div className="p-4 pt-2">
+          {selectedLines.filter((l) => !l.stepId).length > 0 && !addingLine &&
+        <div className="p-4 pt-2">
               <Button
-                variant="outline"
-                className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                onClick={() => handleStartAddLine()}
-              >
+            variant="outline"
+            className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+            onClick={() => handleStartAddLine()}>
+            
                  <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
               </Button>
             </div>
-          )}
+        }
           {/* Totals pinned at bottom */}
-          {simpleTotalCost > 0 && (
-            <div className="border-t px-6 py-3 flex justify-end gap-6">
+          {simpleTotalCost > 0 &&
+        <div className="border-t px-6 py-3 flex justify-end gap-6">
               <p className="text-sm">Total batch cost: <span className="font-bold font-mono text-primary">฿{simpleTotalCost.toFixed(2)}</span></p>
               <p className="text-sm">Cost/gram: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span></p>
             </div>
-          )}
+        }
         </CardContent>
       </Card>
       {renderByproductsSection()}
-    </>
-  );
-  const renderMultiStepBOM = () => (
-    <>
+    </>;
+
+  const renderMultiStepBOM = () =>
+  <>
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -800,8 +800,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
         </CardContent>
       </Card>
 
-      {selectedSteps.length === 0 && (
-        <Card>
+      {selectedSteps.length === 0 &&
+    <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
               <FlaskConical className="w-7 h-7 text-muted-foreground" />
@@ -810,20 +810,20 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <p className="text-sm text-muted-foreground">Add a step to define the production process.</p>
           </CardContent>
         </Card>
-      )}
+    }
 
       <div className="space-y-6">
         {multiStepData.steps.map((sd, idx) => {
-          const stepLines = getLinesForStep(sd.step.id);
-          return (
-            <Card
-              key={sd.step.id}
-              className={`border-l-4 border-l-primary/30 ${draggedStepId === sd.step.id ? 'opacity-50' : ''}`}
-              draggable
-              onDragStart={() => handleDragStart(sd.step.id)}
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(sd.step.id)}
-            >
+        const stepLines = getLinesForStep(sd.step.id);
+        return (
+          <Card
+            key={sd.step.id}
+            className={`border-l-4 border-l-primary/30 ${draggedStepId === sd.step.id ? 'opacity-50' : ''}`}
+            draggable
+            onDragStart={() => handleDragStart(sd.step.id)}
+            onDragOver={handleDragOver}
+            onDrop={() => handleDrop(sd.step.id)}>
+            
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
@@ -831,11 +831,11 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   </div>
                   <Badge variant="outline" className="font-mono text-sm px-3 py-1">{sd.step.stepNumber}</Badge>
                   <BlurInput
-                    defaultValue={sd.step.stepName}
-                    onBlurValue={val => updateStep(sd.step.id, { stepName: val })}
-                    className="h-9 text-sm font-medium min-w-[200px] flex-1 border-dashed"
-                    placeholder="Step name..."
-                  />
+                  defaultValue={sd.step.stepName}
+                  onBlurValue={(val) => updateStep(sd.step.id, { stepName: val })}
+                  className="h-9 text-sm font-medium min-w-[200px] flex-1 border-dashed"
+                  placeholder="Step name..." />
+                
                   <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleDeleteStep(sd.step.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
@@ -850,19 +850,19 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Yield:</span>
                     <BlurInput
-                      defaultValue={sd.step.yieldPercent}
-                      onBlurValue={val => {
-                        const num = parseFloat(val);
-                        if (!isNaN(num) && num >= 0 && num <= 1) {
-                          updateStep(sd.step.id, { yieldPercent: num });
-                        }
-                      }}
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      max={1}
-                      className="h-8 w-24 text-xs font-mono"
-                    />
+                    defaultValue={sd.step.yieldPercent}
+                    onBlurValue={(val) => {
+                      const num = parseFloat(val);
+                      if (!isNaN(num) && num >= 0 && num <= 1) {
+                        updateStep(sd.step.id, { yieldPercent: num });
+                      }
+                    }}
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    className="h-8 w-24 text-xs font-mono" />
+                  
                     <span className="text-xs text-muted-foreground">({(sd.step.yieldPercent * 100).toFixed(0)}%)</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
@@ -870,16 +870,16 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <span className="text-muted-foreground text-xs font-medium">Output:</span>
                     <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)}g</span>
                   </div>
-                  {sd.stepCost > 0 && (
-                    <Badge variant="secondary" className="text-xs ml-auto font-mono">
+                  {sd.stepCost > 0 &&
+                <Badge variant="secondary" className="text-xs ml-auto font-mono">
                       Step cost: ฿{sd.stepCost.toFixed(2)}
                     </Badge>
-                  )}
+                }
                 </div>
               </CardHeader>
               <CardContent className="p-0 pb-4">
-                {(stepLines.length > 0 || (addingLine && addingLineStepId === sd.step.id)) && (
-                  <div className="px-4 overflow-hidden">
+                {(stepLines.length > 0 || addingLine && addingLineStepId === sd.step.id) &&
+              <div className="px-4 overflow-hidden">
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
@@ -894,13 +894,13 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {sd.ingredients.map(ing => {
-                          const rmSku = getSkuById(ing.rmSkuId);
-                          if (editingLineId === ing.id) {
-                            return <Fragment key={ing.id}>{renderLineEditor(true, sd.inputQty)}</Fragment>;
-                          }
-                          return (
-                            <TableRow key={ing.id} className="h-9">
+                        {sd.ingredients.map((ing) => {
+                      const rmSku = getSkuById(ing.rmSkuId);
+                      if (editingLineId === ing.id) {
+                        return <Fragment key={ing.id}>{renderLineEditor(true, sd.inputQty)}</Fragment>;
+                      }
+                      return (
+                        <TableRow key={ing.id} className="h-9">
                             <TableCell className="text-sm font-mono py-2 px-3">
                                 {rmSku?.skuId ?? '—'}
                               </TableCell>
@@ -930,41 +930,41 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                                   </Button>
                                 </div>
                               </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                            </TableRow>);
+
+                    })}
                         {addingLine && addingLineStepId === sd.step.id && renderLineEditor(true, sd.inputQty)}
                       </TableBody>
                     </Table>
                   </div>
-                )}
+              }
 
                 <div className="px-4 mt-3">
                   <Button
-                    variant="outline"
-                    className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                    onClick={() => handleStartAddLine(sd.step.id)}
-                    disabled={addingLine && addingLineStepId === sd.step.id}
-                  >
+                  variant="outline"
+                  className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                  onClick={() => handleStartAddLine(sd.step.id)}
+                  disabled={addingLine && addingLineStepId === sd.step.id}>
+                  
                     <Plus className="w-4 h-4" /> Add Ingredient to this step
                   </Button>
                 </div>
               </CardContent>
-            </Card>
-          );
-        })}
+            </Card>);
+
+      })}
       </div>
 
       <Button
-        variant="outline"
-        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent py-6 text-base"
-        onClick={handleAddStep}
-      >
+      variant="outline"
+      className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent py-6 text-base"
+      onClick={handleAddStep}>
+      
         <Plus className="w-5 h-5" /> Add Step
       </Button>
 
-      {multiStepData.totalCost > 0 && (
-        <Card className="bg-primary/5 border-primary/20">
+      {multiStepData.totalCost > 0 &&
+    <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4">
             <div className="grid grid-cols-3 gap-6 text-center">
               <div>
@@ -983,10 +983,10 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </div>
           </CardContent>
         </Card>
-      )}
+    }
       {renderByproductsSection()}
-    </>
-  );
+    </>;
+
   // Reusable by-products section for both simple and multi-step BOMs
   const renderByproductsSection = () => {
     if (!selectedHeaderId || !selectedHeader) return null;
@@ -1001,76 +1001,76 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               size="sm"
               variant="outline"
               className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-              onClick={handleAddByproduct}
-            >
+              onClick={handleAddByproduct}>
+              
               <Plus className="w-3.5 h-3.5" /> Add By-product
             </Button>
           </div>
 
-          {bps.length === 0 && (
-            <p className="text-xs text-muted-foreground py-4 text-center">No by-products. Click "Add By-product" to define output splits.</p>
-          )}
+          {bps.length === 0 &&
+          <p className="text-xs text-muted-foreground py-4 text-center">No by-products. Click "Add By-product" to define output splits.</p>
+          }
 
-          {bps.length > 0 && (
-            <div className="space-y-2">
-              {bps.map(bp => {
-                const bpAllocCost = totalBatchCost * (bp.costAllocationPct / 100);
-                const bpCpg = bp.outputQty > 0 ? bpAllocCost / bp.outputQty : 0;
-                const hasConflict = bp.tracksInventory && bp.skuId && skuHasOwnBom(bp.skuId);
-                return (
-                  <div key={bp.id}>
+          {bps.length > 0 &&
+          <div className="space-y-2">
+              {bps.map((bp) => {
+              const bpAllocCost = totalBatchCost * (bp.costAllocationPct / 100);
+              const bpCpg = bp.outputQty > 0 ? bpAllocCost / bp.outputQty : 0;
+              const hasConflict = bp.tracksInventory && bp.skuId && skuHasOwnBom(bp.skuId);
+              return (
+                <div key={bp.id}>
                     <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/20">
                       {/* Type badge */}
                       <button
-                        className={`text-xs px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
-                        onClick={() => handleByproductFieldChange(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}
-                      >
+                      className={`text-xs px-2 py-1 rounded-md shrink-0 font-medium transition-colors ${bp.tracksInventory ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}
+                      onClick={() => handleByproductFieldChange(bp.id, { tracksInventory: !bp.tracksInventory, skuId: null, name: '' })}>
+                      
                         {bp.tracksInventory ? 'SKU' : 'Text'}
                       </button>
 
                       {/* SKU selector or name field */}
                       <div className="min-w-0 flex-1">
-                        {bp.tracksInventory ? (
-                          <SearchableSelect
-                            value={bp.skuId || ''}
-                            onValueChange={v => handleByproductFieldChange(bp.id, { skuId: v, name: getSkuName(v) })}
-                            options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-                            placeholder="Select SM SKU"
-                            triggerClassName="h-8 text-xs"
-                          />
-                        ) : (
-                          <BlurInput
-                            defaultValue={bp.name}
-                            onBlurValue={val => handleByproductFieldChange(bp.id, { name: val })}
-                            className="h-8 text-xs w-full"
-                            placeholder="By-product name..."
-                          />
-                        )}
+                        {bp.tracksInventory ?
+                      <SearchableSelect
+                        value={bp.skuId || ''}
+                        onValueChange={(v) => handleByproductFieldChange(bp.id, { skuId: v, name: getSkuName(v) })}
+                        options={smSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                        placeholder="Select SM SKU"
+                        triggerClassName="h-8 text-xs" /> :
+
+
+                      <BlurInput
+                        defaultValue={bp.name}
+                        onBlurValue={(val) => handleByproductFieldChange(bp.id, { name: val })}
+                        className="h-8 text-xs w-full"
+                        placeholder="By-product name..." />
+
+                      }
                       </div>
 
                       {/* Output g */}
                       <div className="shrink-0 w-20">
                         <BlurInput
-                          key={`out-${bp.id}-${bp.outputQty}`}
-                          defaultValue={bp.outputQty}
-                          onBlurValue={val => handleByproductOutputChange(bp.id, Number(val) || 0)}
-                          type="number"
-                          className="h-8 w-full text-xs text-right font-mono"
-                          placeholder="g"
-                        />
+                        key={`out-${bp.id}-${bp.outputQty}`}
+                        defaultValue={bp.outputQty}
+                        onBlurValue={(val) => handleByproductOutputChange(bp.id, Number(val) || 0)}
+                        type="number"
+                        className="h-8 w-full text-xs text-right font-mono"
+                        placeholder="g" />
+                      
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0">g</span>
 
                       {/* Alloc % */}
                       <div className="shrink-0 w-16">
                         <BlurInput
-                          key={`pct-${bp.id}-${bp.costAllocationPct.toFixed(1)}`}
-                          defaultValue={bp.costAllocationPct.toFixed(1)}
-                          onBlurValue={val => handleByproductPctChange(bp.id, Number(val) || 0)}
-                          type="number"
-                          step="0.1"
-                          className="h-8 w-full text-xs text-right font-mono"
-                        />
+                        key={`pct-${bp.id}-${bp.costAllocationPct.toFixed(1)}`}
+                        defaultValue={bp.costAllocationPct.toFixed(1)}
+                        onBlurValue={(val) => handleByproductPctChange(bp.id, Number(val) || 0)}
+                        type="number"
+                        step="0.1"
+                        className="h-8 w-full text-xs text-right font-mono" />
+                      
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0">%</span>
 
@@ -1094,21 +1094,21 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       </Button>
                     </div>
                     {/* Conflict warning below affected row */}
-                    {hasConflict && (
-                      <div className="flex items-center gap-1.5 text-xs text-primary mt-1 ml-2">
+                    {hasConflict &&
+                  <div className="flex items-center gap-1.5 text-xs text-primary mt-1 ml-2">
                         <AlertTriangle className="w-3 h-3" />
                         {getSkuCode(bp.skuId!)} already has its own BOM. Using it as a by-product will override its cost/gram.
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                  }
+                  </div>);
+
+            })}
             </div>
-          )}
+          }
 
           {/* Summary */}
-          {bps.length > 0 && (
-            <div className="border-t pt-2 space-y-1">
+          {bps.length > 0 &&
+          <div className="border-t pt-2 space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Main product ({getSkuCode(selectedHeader.smSkuId)})</span>
                 <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
@@ -1117,41 +1117,41 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="text-muted-foreground">Main product cost/gram</span>
                 <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
               </div>
-              {!allocationValid && (
-                <p className="text-xs text-destructive font-medium flex items-center gap-1">
+              {!allocationValid &&
+            <p className="text-xs text-destructive font-medium flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> Total allocation does not equal 100%. Adjust by-product percentages.
                 </p>
-              )}
+            }
             </div>
-          )}
+          }
 
           {/* Save By-products button */}
-          {bps.length > 0 && (
-            <div className="border-t pt-3 flex items-center justify-between">
+          {bps.length > 0 &&
+          <div className="border-t pt-3 flex items-center justify-between">
               <div>
-                {byproductsSavedMsg && (
-                  <span className="text-xs text-success font-medium flex items-center gap-1">
+                {byproductsSavedMsg &&
+              <span className="text-xs text-success font-medium flex items-center gap-1">
                     <Check className="w-3.5 h-3.5" /> By-products saved ✓
                   </span>
-                )}
+              }
               </div>
               <Button
-                onClick={handleSaveByproducts}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                disabled={!byproductsDirty}
-              >
+              onClick={handleSaveByproducts}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              disabled={!byproductsDirty}>
+              
                 Save By-products
               </Button>
             </div>
-          )}
+          }
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   };
 
   {/* Unsaved by-product changes dialog */}
-  const unsavedDialog = showUnsavedDialog ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  const unsavedDialog = showUnsavedDialog ?
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-background rounded-lg border shadow-lg p-6 max-w-sm w-full space-y-4">
         <h3 className="text-sm font-semibold">Unsaved By-product Changes</h3>
         <p className="text-sm text-muted-foreground">You have unsaved by-product changes. Save before leaving?</p>
@@ -1160,8 +1160,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={confirmSaveAndNav}>Save & Continue</Button>
         </div>
       </div>
-    </div>
-  ) : null;
+    </div> :
+  null;
 
   return (
     <>
@@ -1179,7 +1179,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
 
       <div className={`grid gap-6 ${fullscreen ? 'grid-cols-1' : 'grid-cols-12'}`}>
         {/* LEFT: SM list */}
-        {!fullscreen && (
+        {!fullscreen &&
           <div className="col-span-4 space-y-3">
             <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
               <CardHeader className="pb-2">
@@ -1187,47 +1187,47 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {headers.filter(h => getLinesForHeader(h.id).length > 0).length} of {headers.filter(h => !byproducts.some(bp => bp.skuId === h.smSkuId && bp.tracksInventory)).length} items have BOM
+                  {headers.filter((h) => getLinesForHeader(h.id).length > 0).length} of {headers.filter((h) => !byproducts.some((bp) => bp.skuId === h.smSkuId && bp.tracksInventory)).length} items have BOM
                 </p>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search SM items..."
                     value={listSearch}
-                    onChange={e => setListSearch(e.target.value)}
-                    className="pl-9 h-9 text-sm"
-                  />
+                    onChange={(e) => setListSearch(e.target.value)}
+                    className="pl-9 h-9 text-sm" />
+                  
                 </div>
                 <div className="flex items-center justify-end mt-1.5">
                   <button
                     onClick={() => setSortAsc(!sortAsc)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                  >
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                    
                     Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                   </button>
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto p-0">
-                {filteredHeaders.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-4 pb-4 text-center py-6">No BOMs yet. Click "New BOM" to start.</p>
-                ) : (
-                  <div className="divide-y">
-                    {filteredHeaders.map(h => {
-                      const sku = getSkuById(h.smSkuId);
-                      const hLines = getLinesForHeader(h.id);
-                      const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
-                      const isSelected = selectedHeaderId === h.id;
-                      const hasBom = hLines.length > 0;
-                      // Check if this SKU is a by-product of another BOM
-                      const parentHeader = getByproductParentHeader(h.smSkuId);
-                      const isByproductSku = !!parentHeader;
-                      const showNoBomWarning = !hasBom && !isByproductSku;
-                      return (
-                        <div
-                          key={h.id}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-primary/5' : ''}`}
-                          onClick={() => trySelectHeader(h.id)}
-                        >
+                {filteredHeaders.length === 0 ?
+                <p className="text-sm text-muted-foreground px-4 pb-4 text-center py-6">No BOMs yet. Click "New BOM" to start.</p> :
+
+                <div className="divide-y">
+                    {filteredHeaders.map((h) => {
+                    const sku = getSkuById(h.smSkuId);
+                    const hLines = getLinesForHeader(h.id);
+                    const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
+                    const isSelected = selectedHeaderId === h.id;
+                    const hasBom = hLines.length > 0;
+                    // Check if this SKU is a by-product of another BOM
+                    const parentHeader = getByproductParentHeader(h.smSkuId);
+                    const isByproductSku = !!parentHeader;
+                    const showNoBomWarning = !hasBom && !isByproductSku;
+                    return (
+                      <div
+                        key={h.id}
+                        className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : ''} ${showNoBomWarning ? 'bg-primary/5' : ''}`}
+                        onClick={() => trySelectHeader(h.id)}>
+                        
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium flex items-center gap-1.5">
@@ -1237,35 +1237,35 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                               <p className="text-xs text-muted-foreground">
                                 {hLines.length} ingredients · {h.bomMode === 'multistep' ? 'Multi-step' : 'Simple'} · {hOutput.toFixed(0)}g
                               </p>
-                              {isByproductSku && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
+                              {isByproductSku &&
+                            <p className="text-xs text-muted-foreground mt-0.5">
                                   By-product of {getSkuCode(parentHeader!.smSkuId)}
                                 </p>
-                              )}
+                            }
                             </div>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={e => { e.stopPropagation(); handleDeleteHeader(h.id); }}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={(e) => {e.stopPropagation();handleDeleteHeader(h.id);}}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
                           </div>
-                          {hCost > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1 font-mono">
+                          {hCost > 0 &&
+                        <p className="text-xs text-muted-foreground mt-1 font-mono">
                               ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
                             </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                        }
+                        </div>);
+
+                  })}
                   </div>
-                )}
+                }
               </CardContent>
             </Card>
           </div>
-        )}
+          }
 
         {/* RIGHT: BOM detail */}
         <div className={fullscreen ? '' : 'col-span-8'} style={{ minWidth: 0 }}>
           <div className="space-y-4">
-            {editingHeader ? (
+            {editingHeader ?
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">
@@ -1278,14 +1278,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       <label className="text-xs font-medium text-muted-foreground">SM SKU</label>
                       <SearchableSelect
                         value={headerForm.smSkuId}
-                        onValueChange={v => setHeaderForm(f => ({ ...f, smSkuId: v }))}
-                        options={smSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-                        placeholder="Select SM SKU"
-                      />
+                        onValueChange={(v) => setHeaderForm((f) => ({ ...f, smSkuId: v }))}
+                        options={smSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                        placeholder="Select SM SKU" />
+                      
                     </div>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">Production Type</label>
-                      <Select value={headerForm.productionType} onValueChange={v => setHeaderForm(f => ({ ...f, productionType: v as 'CK' | 'Outsource' }))}>
+                      <Select value={headerForm.productionType} onValueChange={(v) => setHeaderForm((f) => ({ ...f, productionType: v as 'CK' | 'Outsource' }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="CK">CK (Central Kitchen)</SelectItem>
@@ -1301,45 +1301,45 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       <span className={`text-sm ${headerForm.bomMode === 'simple' ? 'font-bold text-primary' : 'text-muted-foreground'}`}>Simple</span>
                       <Switch
                         checked={headerForm.bomMode === 'multistep'}
-                        onCheckedChange={checked => setHeaderForm(f => ({ ...f, bomMode: checked ? 'multistep' : 'simple' }))}
-                      />
+                        onCheckedChange={(checked) => setHeaderForm((f) => ({ ...f, bomMode: checked ? 'multistep' : 'simple' }))} />
+                      
                       <span className={`text-sm ${headerForm.bomMode === 'multistep' ? 'font-bold text-primary' : 'text-muted-foreground'}`}>Multi-step</span>
                     </div>
                   </div>
 
-                  {headerForm.bomMode === 'simple' && (
-                    <div className="grid grid-cols-2 gap-4">
+                  {headerForm.bomMode === 'simple' &&
+                  <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Batch Size (grams)</label>
-                        <Input type="number" value={headerForm.batchSize || ''} onChange={e => setHeaderForm(f => ({ ...f, batchSize: Number(e.target.value) }))} />
+                        <Input type="number" value={headerForm.batchSize || ''} onChange={(e) => setHeaderForm((f) => ({ ...f, batchSize: Number(e.target.value) }))} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Yield % (e.g. 1.0 = 100%)</label>
-                        <Input type="number" step="0.01" value={headerForm.yieldPercent || ''} onChange={e => setHeaderForm(f => ({ ...f, yieldPercent: Number(e.target.value) }))} />
+                        <Input type="number" step="0.01" value={headerForm.yieldPercent || ''} onChange={(e) => setHeaderForm((f) => ({ ...f, yieldPercent: Number(e.target.value) }))} />
                       </div>
                     </div>
-                  )}
+                  }
 
-                  {headerForm.bomMode === 'simple' && (
-                    <div className="flex items-center gap-2 text-sm">
+                  {headerForm.bomMode === 'simple' &&
+                  <div className="flex items-center gap-2 text-sm">
                       <FlaskConical className="w-4 h-4 text-muted-foreground" />
                       Output per batch: <span className="font-semibold font-mono">{(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)}g</span>
                     </div>
-                  )}
+                  }
 
-                  {headerForm.bomMode === 'multistep' && (
-                    <p className="text-xs text-muted-foreground">Multi-step BOM: Define steps and ingredients after saving the header. Batch size and yield are calculated per step.</p>
-                  )}
+                  {headerForm.bomMode === 'multistep' &&
+                  <p className="text-xs text-muted-foreground">Multi-step BOM: Define steps and ingredients after saving the header. Batch size and yield are calculated per step.</p>
+                  }
 
                   <div className="flex gap-2 pt-2">
                     <Button onClick={handleSaveHeader}>Save</Button>
                     <Button variant="outline" onClick={() => setEditingHeader(false)}>Cancel</Button>
                   </div>
                 </CardContent>
-              </Card>
-            ) : selectedHeader ? (
-              selectedHeader.bomMode === 'multistep' ? renderMultiStepBOM() : renderSimpleBOM()
-            ) : (
+              </Card> :
+              selectedHeader ?
+              selectedHeader.bomMode === 'multistep' ? renderMultiStepBOM() : renderSimpleBOM() :
+
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
@@ -1348,13 +1348,13 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <p className="font-medium">Select an SM item from the left or create a new BOM</p>
                 </CardContent>
               </Card>
-            )}
+              }
           </div>
         </div>
       </div>
     </div>
-    </>
-  );
+    </>);
+
 };
 
 export default BOMPage;
