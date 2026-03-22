@@ -606,7 +606,7 @@ export default function TransferRequestPage() {
                             <span className={s.isCK ? "font-medium" : ""}>{s.name}</span>
                           </span>
                           {s.pendingPRCount > 0 && (
-                            <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                            <span className="bg-warning/15 text-warning text-xs rounded px-1.5 py-0.5 font-medium">
                               {s.pendingPRCount} pending
                             </span>
                           )}
