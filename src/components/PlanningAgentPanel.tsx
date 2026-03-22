@@ -93,7 +93,7 @@ function BranchAssumptionInline({
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      const { error: insertErr } = await supabase.from('branch_forecasts').upsert({
+      const forecastPayload = {
         branch_id: branch.branchId,
         forecast_value: preview.forecast_value,
         forecast_unit: 'bowls_per_day',
@@ -101,9 +101,31 @@ function BranchAssumptionInline({
         assumption_text: text.trim(),
         expires_at: toLocalDateStr(expiresAt),
         created_by: user?.id ?? null,
-      }, { onConflict: 'branch_id', ignoreDuplicates: false }).select();
+      };
 
-      if (insertErr) throw insertErr;
+      const { data: existingForecast, error: existingErr } = await supabase
+        .from('branch_forecasts')
+        .select('id')
+        .eq('branch_id', branch.branchId)
+        .maybeSingle();
+
+      if (existingErr) throw existingErr;
+
+      if (existingForecast) {
+        const { error: updateErr } = await supabase
+          .from('branch_forecasts')
+          .update(forecastPayload)
+          .eq('id', existingForecast.id);
+
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('branch_forecasts')
+          .insert(forecastPayload);
+
+        if (insertErr) throw insertErr;
+      }
+
       onSaved();
     } catch {
       setError('บันทึกไม่สำเร็จ');
