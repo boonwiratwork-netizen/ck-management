@@ -525,7 +525,7 @@ export function StockCard({
     return () => {
       cancelled = true;
     };
-  }, [skuId, skuType, sku.converter, skus, context, branchId]);
+  }, [skuId, skuType, sku.converter, skus, context, branchId, daysBack]);
 
   const finalBalance = movements.length > 0 ? (movements[movements.length - 1].runningBalance ?? 0) : 0;
   const hasMismatch = Math.abs(finalBalance - currentStock) > 1;
