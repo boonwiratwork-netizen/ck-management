@@ -505,7 +505,7 @@ const Dashboard = ({
           {/* ═══ SECTION 4 — SM STOCK STATUS STRIP ═══ */}
           {smPills.length > 0 && (
             <div className="rounded-lg border px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">SM Stock Status</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{t('ckd.smStockStatus')}</p>
               <TooltipProvider>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {smPills.map(pill => {
