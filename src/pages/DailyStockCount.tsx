@@ -502,7 +502,7 @@ export default function DailyStockCountPage({
                         <TableHead className={thClass}>{t("col.skuCode")}</TableHead>
                         <TableHead className={thClass}>{t("col.skuName")}</TableHead>
                         <TableHead className={thClass}>{t("col.type")}</TableHead>
-                        <TableHead className={`text-right ${thClass}`}>{t("col.physical")}</TableHead>
+                        <TableHead className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide bg-foreground text-background">{t("col.physical")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
