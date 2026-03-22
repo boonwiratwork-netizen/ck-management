@@ -44,7 +44,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
   const [menuSearch, setMenuSearch] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{id: string;name: string;} | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
 
   // Inline editing state
@@ -57,11 +57,11 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
   // CSV import config
   const csvColumns: CSVColumnDef[] = [
-    { key: 'menu_code', label: 'menu_code', required: true },
-    { key: 'sku_code', label: 'sku_code', required: true },
-    { key: 'qty', label: 'qty', required: true },
-    { key: 'yield_pct', label: 'yield_pct' },
-  ];
+  { key: 'menu_code', label: 'menu_code', required: true },
+  { key: 'sku_code', label: 'sku_code', required: true },
+  { key: 'qty', label: 'qty', required: true },
+  { key: 'yield_pct', label: 'yield_pct' }];
+
 
   const validateCsv = useCallback((rows: Record<string, string>[]) => {
     const valid: Record<string, string>[] = [];
@@ -76,27 +76,27 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
       const qtyStr = (row['qty'] ?? '').trim();
       const yieldStr = (row['yield_pct'] ?? '').trim();
 
-      if (!menuCode) { errors.push({ row: rowNum, message: 'menu_code is required' }); return; }
-      if (!skuCode) { errors.push({ row: rowNum, message: 'sku_code is required' }); return; }
-      if (!qtyStr) { errors.push({ row: rowNum, message: 'qty is required' }); return; }
+      if (!menuCode) {errors.push({ row: rowNum, message: 'menu_code is required' });return;}
+      if (!skuCode) {errors.push({ row: rowNum, message: 'sku_code is required' });return;}
+      if (!qtyStr) {errors.push({ row: rowNum, message: 'qty is required' });return;}
 
-      const menu = menus.find(m => m.menuCode.toLowerCase() === menuCode.toLowerCase());
-      if (!menu) { errors.push({ row: rowNum, message: `menu_code "${menuCode}" not found` }); return; }
+      const menu = menus.find((m) => m.menuCode.toLowerCase() === menuCode.toLowerCase());
+      if (!menu) {errors.push({ row: rowNum, message: `menu_code "${menuCode}" not found` });return;}
 
-      const sku = skus.find(s => s.skuId.toLowerCase() === skuCode.toLowerCase());
-      if (!sku) { errors.push({ row: rowNum, message: `sku_code "${skuCode}" not found` }); return; }
+      const sku = skus.find((s) => s.skuId.toLowerCase() === skuCode.toLowerCase());
+      if (!sku) {errors.push({ row: rowNum, message: `sku_code "${skuCode}" not found` });return;}
 
       const qty = Number(qtyStr);
-      if (isNaN(qty) || qty <= 0) { errors.push({ row: rowNum, message: 'qty must be a positive number' }); return; }
+      if (isNaN(qty) || qty <= 0) {errors.push({ row: rowNum, message: 'qty must be a positive number' });return;}
 
       let yieldPct = 100;
       if (yieldStr) {
         yieldPct = Number(yieldStr);
-        if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) { errors.push({ row: rowNum, message: 'yield_pct must be between 0 and 100' }); return; }
+        if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) {errors.push({ row: rowNum, message: 'yield_pct must be between 0 and 100' });return;}
       }
 
       const dupKey = `${menuCode.toLowerCase()}|${skuCode.toLowerCase()}`;
-      if (seen.has(dupKey)) { skipped++; return; }
+      if (seen.has(dupKey)) {skipped++;return;}
       seen.add(dupKey);
 
       valid.push({ ...row, menu_code: menuCode, sku_code: skuCode, qty: String(qty), yield_pct: String(yieldPct) });
@@ -108,7 +108,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const handleCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
     // Group rows by menu_code
     const grouped = new Map<string, Record<string, string>[]>();
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const mc = row['menu_code'].toLowerCase();
       if (!grouped.has(mc)) grouped.set(mc, []);
       grouped.get(mc)!.push(row);
@@ -120,20 +120,20 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
     for (const [, menuRows] of grouped) {
       const menuCode = menuRows[0]['menu_code'];
-      const menu = menus.find(m => m.menuCode.toLowerCase() === menuCode.toLowerCase());
-      if (!menu) { failed += menuRows.length; continue; }
+      const menu = menus.find((m) => m.menuCode.toLowerCase() === menuCode.toLowerCase());
+      if (!menu) {failed += menuRows.length;continue;}
 
       // Delete existing BOM lines for this menu
       const { error: delErr } = await supabase.from('menu_bom').delete().eq('menu_id', menu.id);
-      if (delErr) { failed += menuRows.length; continue; }
+      if (delErr) {failed += menuRows.length;continue;}
 
       // Build insert rows
-      const insertRows = menuRows.map(row => {
-        const sku = skus.find(s => s.skuId.toLowerCase() === row['sku_code'].toLowerCase())!;
+      const insertRows = menuRows.map((row) => {
+        const sku = skus.find((s) => s.skuId.toLowerCase() === row['sku_code'].toLowerCase())!;
         const qty = Number(row['qty']);
         const yieldPct = Number(row['yield_pct']);
         const effectiveQty = yieldPct > 0 ? qty / (yieldPct / 100) : qty;
-        const active = prices.find(p => p.skuId === sku.id && p.isActive);
+        const active = prices.find((p) => p.skuId === sku.id && p.isActive);
         const costPerServing = effectiveQty * (active?.pricePerUsageUom ?? 0);
         return {
           menu_id: menu.id,
@@ -142,12 +142,12 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           uom: sku.usageUom,
           yield_pct: yieldPct,
           effective_qty: effectiveQty,
-          cost_per_serving: costPerServing,
+          cost_per_serving: costPerServing
         };
       });
 
       const { error: insErr } = await supabase.from('menu_bom').insert(insertRows);
-      if (insErr) { failed += menuRows.length; continue; }
+      if (insErr) {failed += menuRows.length;continue;}
 
       menusImported++;
       rowsInserted += menuRows.length;
@@ -169,12 +169,12 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   }, [menus, skus, prices]);
 
   // Eligible SKUs: RM, SM, SP
-  const eligibleSkus = useMemo(() => skus.filter(s => ['RM', 'SM', 'SP'].includes(s.type)), [skus]);
+  const eligibleSkus = useMemo(() => skus.filter((s) => ['RM', 'SM', 'SP'].includes(s.type)), [skus]);
 
-  const getSkuById = (id: string) => skus.find(s => s.id === id);
+  const getSkuById = (id: string) => skus.find((s) => s.id === id);
 
   const getActiveCost = (skuId: string): number => {
-    const active = prices.find(p => p.skuId === skuId && p.isActive);
+    const active = prices.find((p) => p.skuId === skuId && p.isActive);
     return active?.pricePerUsageUom ?? 0;
   };
 
@@ -187,7 +187,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
     return effectiveQty * getActiveCost(skuId);
   };
 
-  const selectedMenu = menus.find(m => m.id === selectedMenuId) ?? null;
+  const selectedMenu = menus.find((m) => m.id === selectedMenuId) ?? null;
   const selectedLines = selectedMenuId ? menuBomData.getLinesForMenu(selectedMenuId) : [];
   // Always compute cost from live prices (auto-recalc)
   const totalCost = selectedLines.reduce((sum, l) => {
@@ -199,8 +199,8 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
 
   const filteredMenus = useMemo(() => {
     const q = menuSearch.toLowerCase();
-    const filtered = menus.filter(m =>
-      m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q)
+    const filtered = menus.filter((m) =>
+    m.menuCode.toLowerCase().includes(q) || m.menuName.toLowerCase().includes(q)
     );
     return [...filtered].sort((a, b) => {
       const cmp = a.menuCode.localeCompare(b.menuCode);
@@ -209,7 +209,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   }, [menus, menuSearch, sortAsc]);
 
   // Summary: how many menus have BOM set up
-  const menusWithBom = useMemo(() => menus.filter(m => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
+  const menusWithBom = useMemo(() => menus.filter((m) => menuBomData.getLinesForMenu(m.id).length > 0).length, [menus, menuBomData]);
 
   // Helper: live cost for a menu
   const getLiveMenuCost = useCallback((menuId: string) => {
@@ -245,8 +245,8 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   };
 
   const saveLine = async () => {
-    if (!formSkuId || !selectedMenuId) { toast.error('Select a SKU'); return; }
-    if (formQty <= 0) { toast.error('Qty must be > 0'); return; }
+    if (!formSkuId || !selectedMenuId) {toast.error('Select a SKU');return;}
+    if (formQty <= 0) {toast.error('Qty must be > 0');return;}
 
     const effectiveQty = calcEffectiveQty(formQty, formYield);
     const costPerServing = calcCostPerServing(effectiveQty, formSkuId);
@@ -258,7 +258,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
         uom: formUom,
         yieldPct: formYield,
         effectiveQty,
-        costPerServing,
+        costPerServing
       });
       toast.success('Ingredient updated');
       setEditingLineId(null);
@@ -270,7 +270,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
         uom: formUom,
         yieldPct: formYield,
         effectiveQty,
-        costPerServing,
+        costPerServing
       });
       toast.success('Ingredient added');
       // Auto-continue: reset form for next ingredient
@@ -294,38 +294,38 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
   const previewEffQty = calcEffectiveQty(formQty, formYield);
   const previewCost = calcCostPerServing(previewEffQty, formSkuId);
 
-  const renderInlineRow = () => (
-    <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
+  const renderInlineRow = () =>
+  <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
       <TableCell>
         <SearchableSelect
-          value={formSkuId}
-          onValueChange={handleSkuChange}
-          options={eligibleSkus.map(s => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-          placeholder="Select SKU"
-          triggerClassName="h-8 text-xs w-full"
-        />
+        value={formSkuId}
+        onValueChange={handleSkuChange}
+        options={eligibleSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+        placeholder="Select SKU"
+        triggerClassName="h-8 text-xs w-full" />
+      
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
         {formSkuId ? getSkuById(formSkuId)?.name : '—'}
       </TableCell>
       <TableCell>
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formQty || ''}
-          onChange={e => setFormQty(Number(e.target.value))} />
+      onChange={(e) => setFormQty(Number(e.target.value))} />
       </TableCell>
       <TableCell>
         <Input className="h-8 w-full text-xs" value={formUom}
-          onChange={e => setFormUom(e.target.value)} />
+      onChange={(e) => setFormUom(e.target.value)} />
       </TableCell>
       <TableCell>
         <Input type="number" className="h-8 w-full text-xs text-right font-mono" value={formYield}
-          onChange={e => setFormYield(Number(e.target.value) || 100)} />
+      onChange={(e) => setFormYield(Number(e.target.value) || 100)} />
       </TableCell>
       <TableCell className="text-xs text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : '—'}</TableCell>
       <TableCell className="text-xs text-right font-mono">
         {formSkuId ? (() => {
-          const c = getActiveCost(formSkuId);
+        const c = getActiveCost(formSkuId);
         return c > 0 ? `฿${c.toFixed(4)}` : <span className="text-primary">—</span>;
-        })() : '—'}
+      })() : '—'}
       </TableCell>
       <TableCell className="text-xs text-right font-mono font-medium">
         {formSkuId && previewCost > 0 ? `฿${previewCost.toFixed(2)}` : formSkuId ? <span className="text-primary">—</span> : '—'}
@@ -336,8 +336,8 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}><X className="w-3.5 h-3.5" /></Button>
         </div>
       </TableCell>
-    </TableRow>
-  );
+    </TableRow>;
+
 
   return (
     <div className="space-y-4">
@@ -346,52 +346,52 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
           <h2 className="text-2xl font-heading font-bold">{t('title.menuBom')}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Bill of Materials per menu item — ingredients and costing</p>
         </div>
-        {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+        {canEdit &&
+        <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
             <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
-        )}
+        }
       </div>
 
       <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[320px_1fr]'}`}>
         {/* Left panel: menu list */}
-        {!fullscreen && (
-          <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
+        {!fullscreen &&
+        <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">{t('section.menus')}</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">{menusWithBom} of {menus.length} items have BOM</p>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search menus..."
-                  value={menuSearch}
-                  onChange={e => setMenuSearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                />
+                placeholder="Search menus..."
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                className="pl-9 h-9 text-sm" />
+              
               </div>
               <div className="flex items-center justify-end mt-1.5">
                 <button
-                  onClick={() => setSortAsc(!sortAsc)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                >
+                onClick={() => setSortAsc(!sortAsc)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                
                   Code {sortAsc ? 'A→Z ↑' : 'Z→A ↓'}
                 </button>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
               <div className="divide-y">
-                {filteredMenus.map(m => {
-                  const lineCount = menuBomData.getLinesForMenu(m.id).length;
-                  const menuCost = getLiveMenuCost(m.id);
-                  const hasBom = lineCount > 0;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => { setSelectedMenuId(m.id); cancelEdit(); }}
-                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
-                        selectedMenuId === m.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                      } ${!hasBom ? 'bg-primary/5' : ''}`}
-                    >
+                {filteredMenus.map((m) => {
+                const lineCount = menuBomData.getLinesForMenu(m.id).length;
+                const menuCost = getLiveMenuCost(m.id);
+                const hasBom = lineCount > 0;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {setSelectedMenuId(m.id);cancelEdit();}}
+                    className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
+                    selectedMenuId === m.id ? 'bg-primary/5 border-l-2 border-primary' : ''} ${
+                    !hasBom ? 'bg-primary/5' : ''}`}>
+                    
                       <p className="text-sm font-medium flex items-center gap-1.5">
                         {!hasBom && <StatusDot status="amber" size="sm" />}
                         {m.menuCode} · {m.menuName}
@@ -399,30 +399,30 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                       <p className="text-xs text-muted-foreground">
                         {lineCount} ingredients {menuCost > 0 && <span className="font-mono">· ฿{menuCost.toFixed(2)}/serving</span>}
                       </p>
-                    </button>
-                  );
-                })}
-                {filteredMenus.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">No menus found</p>
-                )}
+                    </button>);
+
+              })}
+                {filteredMenus.length === 0 &&
+              <p className="text-sm text-muted-foreground text-center py-6">No menus found</p>
+              }
               </div>
             </CardContent>
           </Card>
-        )}
+        }
 
         {/* Right panel */}
         <div className="space-y-4">
-          {!selectedMenu ? (
-            <Card>
+          {!selectedMenu ?
+          <Card>
               <CardContent className="py-16 flex flex-col items-center justify-center gap-3">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
                   <UtensilsCrossed className="w-7 h-7 text-muted-foreground" />
                 </div>
                 <p className="font-medium">Select a menu from the left to view its BOM</p>
               </CardContent>
-            </Card>
-          ) : (
-            <>
+            </Card> :
+
+          <>
               {/* Header */}
               <Card>
                 <CardContent className="p-6 flex items-center justify-between">
@@ -431,7 +431,7 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
               <p className="text-sm text-muted-foreground mt-0.5">{selectedMenu.menuCode} · {selectedMenu.category}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-center p-3 rounded-lg bg-primary/10 min-w-[140px]">
+                    <div className="text-center p-3 rounded-lg min-w-[140px] bg-green-100">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                         <DollarSign className="w-3 h-3" /> Total Cost/Serving
                       </p>
@@ -462,33 +462,33 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLines.length === 0 && !addingLine && (
-                        <TableRow>
+                      {selectedLines.length === 0 && !addingLine &&
+                    <TableRow>
                           <TableCell colSpan={canEdit ? 9 : 8} className="py-16">
                             <div className="flex flex-col items-center justify-center gap-3">
                               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
                                 <UtensilsCrossed className="w-7 h-7 text-muted-foreground" />
                               </div>
                               <p className="font-medium">No ingredients added yet</p>
-                              {canEdit && (
-                                <Button
-                                  variant="outline"
-                                 className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                                  onClick={startAddLine}
-                                >
+                              {canEdit &&
+                          <Button
+                            variant="outline"
+                            className="border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                            onClick={startAddLine}>
+                            
                                   <Plus className="w-4 h-4" /> {t('btn.addFirstIngredient')}
                                 </Button>
-                              )}
+                          }
                             </div>
                           </TableCell>
                         </TableRow>
-                      )}
-                      {selectedLines.map(line => {
-                        const sku = getSkuById(line.skuId);
-                        const unitCost = getActiveCost(line.skuId);
-                        if (editingLineId === line.id) return <>{renderInlineRow()}</>;
-                        return (
-                          <TableRow key={line.id} className="h-9">
+                    }
+                      {selectedLines.map((line) => {
+                      const sku = getSkuById(line.skuId);
+                      const unitCost = getActiveCost(line.skuId);
+                      if (editingLineId === line.id) return <>{renderInlineRow()}</>;
+                      return (
+                        <TableRow key={line.id} className="h-9">
                             <TableCell className="text-sm font-mono py-2 px-3">
                               {sku?.skuId ?? '—'}
                             </TableCell>
@@ -504,12 +504,12 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                             </TableCell>
                             <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
                               {(() => {
-                                const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
-                                return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-primary">—</span>;
-                              })()}
+                              const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
+                              return liveCost > 0 ? `฿${liveCost.toFixed(2)}` : <span className="text-primary">—</span>;
+                            })()}
                             </TableCell>
-                            {canEdit && (
-                              <TableCell className="py-2 px-3">
+                            {canEdit &&
+                          <TableCell className="py-2 px-3">
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -519,42 +519,42 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
                                   </Button>
                                 </div>
                               </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
+                          }
+                          </TableRow>);
+
+                    })}
                       {addingLine && renderInlineRow()}
                     </TableBody>
                   </Table>
                   {/* Add button at bottom */}
-                  {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId && (
-                    <div className="p-4 pt-2">
+                  {canEdit && selectedLines.length > 0 && !addingLine && !editingLineId &&
+                <div className="p-4 pt-2">
                       <Button
-                        variant="outline"
-                        className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
-                        onClick={startAddLine}
-                      >
+                    variant="outline"
+                    className="w-full border-dashed border-2 border-primary/40 text-primary hover:border-primary/60 hover:bg-accent"
+                    onClick={startAddLine}>
+                    
                         <Plus className="w-4 h-4" /> {t('btn.addIngredient')}
                       </Button>
                     </div>
-                  )}
+                }
                   {/* Totals */}
-                  {totalCost > 0 && (
-                    <div className="border-t px-6 py-3 flex justify-end">
+                  {totalCost > 0 &&
+                <div className="border-t px-6 py-3 flex justify-end">
                       <p className="text-sm">Total cost/serving: <span className="font-bold font-mono text-primary">฿{totalCost.toFixed(2)}</span></p>
                     </div>
-                  )}
+                }
                 </CardContent>
               </Card>
             </>
-          )}
+          }
         </div>
       </div>
 
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteConfirm}
-        onOpenChange={open => !open && setDeleteConfirm(null)}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title="Remove Ingredient"
         description={`Remove "${deleteConfirm?.name}" from this menu's BOM?`}
         confirmLabel="Remove"
@@ -564,8 +564,8 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
             toast.success('Ingredient removed');
             setDeleteConfirm(null);
           }
-        }}
-      />
+        }} />
+      
 
       <CSVImportModal
         open={csvOpen}
@@ -573,8 +573,8 @@ export default function MenuBOMPage({ menuBomData, menus, skus, prices, branches
         title="Menu BOM"
         columns={csvColumns}
         validate={validateCsv}
-        onConfirm={handleCsvConfirm}
-      />
-    </div>
-  );
+        onConfirm={handleCsvConfirm} />
+      
+    </div>);
+
 }
