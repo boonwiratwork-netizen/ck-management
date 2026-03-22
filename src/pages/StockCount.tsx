@@ -402,26 +402,23 @@ export default function StockCountPage({
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <TabsList>
-                <TabsTrigger
-                  value="RM"
-                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-foreground"
-                >
-                  RM ({tabCounts.RM})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="SM"
-                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-warning"
-                >
-                  SM ({tabCounts.SM})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="PK"
-                  className="text-sm px-4 data-[state=active]:font-semibold data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground"
-                >
-                  PK ({tabCounts.PK})
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex gap-1 border rounded-lg p-1 bg-muted/40">
+                {(["RM", "SM", "PK"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all",
+                      activeTab === tab
+                        ? "bg-foreground text-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab} ({tabCounts[tab]})
+                  </button>
+                ))}
+              </div>
 
               <div className="flex items-center gap-3">
                 {activeTab === "RM" && (
