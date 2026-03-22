@@ -192,6 +192,57 @@ export type Database = {
           },
         ]
       }
+      branch_forecasts: {
+        Row: {
+          assumption_mix: Json | null
+          assumption_text: string | null
+          branch_id: string
+          created_at: string | null
+          created_by: string | null
+          expires_at: string
+          forecast_unit: string
+          forecast_value: number
+          id: string
+        }
+        Insert: {
+          assumption_mix?: Json | null
+          assumption_text?: string | null
+          branch_id: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at: string
+          forecast_unit: string
+          forecast_value: number
+          id?: string
+        }
+        Update: {
+          assumption_mix?: Json | null
+          assumption_text?: string | null
+          branch_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string
+          forecast_unit?: string
+          forecast_value?: number
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_forecasts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_forecasts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_menu_overrides: {
         Row: {
           branch_id: string
@@ -312,6 +363,7 @@ export type Database = {
       }
       branches: {
         Row: {
+          avg_selling_price: number | null
           branch_name: string
           brand_name: string
           created_at: string
@@ -321,6 +373,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avg_selling_price?: number | null
           branch_name?: string
           brand_name?: string
           created_at?: string
@@ -330,6 +383,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avg_selling_price?: number | null
           branch_name?: string
           brand_name?: string
           created_at?: string
