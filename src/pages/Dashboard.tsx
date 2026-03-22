@@ -340,13 +340,13 @@ const Dashboard = ({
                  { label: t('ckd.rmDistribution'), value: Math.max(0, hook.inventory.rmDistribution), subtitle: t('ckd.atStdPrice'), icon: <Truck className="w-5 h-5 text-primary" /> },
                  { label: t('ckd.smStock'), value: Math.max(0, hook.inventory.sm), subtitle: t('ckd.atBomCost'), icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
               ].map(tile => (
-                <Card key={tile.label} className="rounded-xl shadow-sm">
+                <Card key={tile.label} className="rounded-xl shadow-sm bg-[#E6F1FB]">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{tile.label}</p>
-                        <p className="text-2xl font-bold font-mono mt-1">{fmtBaht(tile.value)}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{tile.subtitle}</p>
+                        <p className="text-xs uppercase tracking-wide text-[#185FA5]">{tile.label}</p>
+                        <p className="text-2xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(tile.value)}</p>
+                        <p className="text-xs text-[#185FA5]/70 mt-0.5">{tile.subtitle}</p>
                       </div>
                       <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                         {tile.icon}
