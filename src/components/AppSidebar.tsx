@@ -322,7 +322,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                         if (collapsed) return null;
                         return (
                           <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5">
-                            <span className="text-helper uppercase tracking-wider text-muted-foreground font-semibold text-[10px]">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                               {item.subLabel}
                             </span>
                           </li>
