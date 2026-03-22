@@ -261,7 +261,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     } finally {
       setIsLoading(false);
     }
-  }, [smStockBalances, getOutputPerBatch]);
+  }, []);
 
   useEffect(() => { calculate(); }, [calculate]);
 
