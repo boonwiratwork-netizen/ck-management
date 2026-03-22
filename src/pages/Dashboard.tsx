@@ -133,7 +133,7 @@ const Dashboard = ({
     ? format(now, 'MMMM yyyy')
     : customFrom && customTo
     ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
-    : 'Custom range';
+    : t('ckd.periodCustomRange');
 
   // Data quality badges
   const beginRow = hook.productionCost[0];
@@ -151,7 +151,7 @@ const Dashboard = ({
       {/* ── HEADER ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">CK Performance Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('ckd.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -167,7 +167,7 @@ const Dashboard = ({
                     : 'bg-background text-muted-foreground hover:bg-muted'
                 )}
               >
-                {m === 'week' ? 'This Week' : m === 'month' ? 'This Month' : 'Custom'}
+                {m === 'week' ? t('ckd.periodThisWeek') : m === 'month' ? t('ckd.periodThisMonth') : t('ckd.periodCustom')}
               </button>
             ))}
           </div>
@@ -179,7 +179,7 @@ const Dashboard = ({
           )}
           <Button onClick={handleCalculate} className="gap-2">
             <Calculator className="w-4 h-4" />
-            Calculate
+            {t('btn.calculate')}
           </Button>
         </div>
       </div>
@@ -191,8 +191,8 @@ const Dashboard = ({
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <Calculator className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-lg font-semibold">Select a period and calculate</p>
-            <p className="text-sm text-muted-foreground mt-1">Your kitchen performance metrics will appear here</p>
+             <p className="text-lg font-semibold">{t('ckd.emptyTitle')}</p>
+             <p className="text-sm text-muted-foreground mt-1">{t('ckd.emptySubtitle')}</p>
           </CardContent>
         </Card>
       )}
@@ -231,15 +231,15 @@ const Dashboard = ({
               {/* KPI tiles */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-lg bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Target cost</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.targetCost')}</p>
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalStandardCost)}</p>
                 </div>
                 <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Actual spend</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.actualSpend')}</p>
                   <p className="text-3xl font-bold font-mono mt-1">{fmtBaht(hook.totalActualCost)}</p>
                 </div>
                 <div className="rounded-lg bg-muted/40 p-4 flex flex-col justify-center">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">vs standard</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.vsStandard')}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className={cn(
                       'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
@@ -262,7 +262,7 @@ const Dashboard = ({
               {hook.productionCost.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-muted-foreground">
                   <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
-                  <p className="text-sm">No production recorded in this period</p>
+                  <p className="text-sm">{t('ckd.noProdInPeriod')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border">
@@ -274,7 +274,7 @@ const Dashboard = ({
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colStandard')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colActual')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.variance')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.variancePct')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -314,17 +314,17 @@ const Dashboard = ({
                   {anyEstimated && (
                     <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-center gap-2">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      Inventory boundaries are estimated — complete a CK stock count for precise variance calculation
+                      {t('ckd.inventoryWarning')}
                     </div>
                   )}
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
-                      <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
-                      Beginning: {beginDate ?? '—'} {beginEstimated ? '· estimated' : '· counted'}
+                       <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
+                       {t('ckd.beginning')} {beginDate ?? '—'} {beginEstimated ? t('ckd.estimated') : t('ckd.counted')}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
-                      Ending: {endDate ?? '—'} {endEstimated ? '· estimated' : '· counted'}
+                       <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
+                       {t('ckd.ending')} {endDate ?? '—'} {endEstimated ? t('ckd.estimated') : t('ckd.counted')}
                     </span>
                   </div>
                 </div>
@@ -335,10 +335,10 @@ const Dashboard = ({
           {/* ═══ SECTION 2 — INVENTORY SNAPSHOT ═══ */}
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'RM Stock · Production', value: Math.max(0, hook.inventory.rmProduction), subtitle: 'Current · at standard price', icon: <Package className="w-5 h-5 text-warning" /> },
-                { label: 'RM Stock · Distribution', value: Math.max(0, hook.inventory.rmDistribution), subtitle: 'Current · at standard price', icon: <Truck className="w-5 h-5 text-primary" /> },
-                { label: 'SM Stock', value: Math.max(0, hook.inventory.sm), subtitle: 'Current · at BOM cost', icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
+               {[
+                 { label: t('ckd.rmProduction'), value: Math.max(0, hook.inventory.rmProduction), subtitle: t('ckd.atStdPrice'), icon: <Package className="w-5 h-5 text-warning" /> },
+                 { label: t('ckd.rmDistribution'), value: Math.max(0, hook.inventory.rmDistribution), subtitle: t('ckd.atStdPrice'), icon: <Truck className="w-5 h-5 text-primary" /> },
+                 { label: t('ckd.smStock'), value: Math.max(0, hook.inventory.sm), subtitle: t('ckd.atBomCost'), icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
               ].map(tile => (
                 <Card key={tile.label} className="rounded-xl shadow-sm">
                   <CardContent className="p-5">
@@ -355,7 +355,7 @@ const Dashboard = ({
                     {invCountWarning && hook.inventory.lastCountDate && (
                       <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                         <AlertTriangle className="w-3 h-3" />
-                        Last count: {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} days old
+                        {t('ckd.lastCount')} {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} {t('ckd.daysOld')}
                       </span>
                     )}
                   </CardContent>
@@ -363,7 +363,7 @@ const Dashboard = ({
               ))}
             </div>
             <div className="mt-2 text-right text-sm text-muted-foreground font-mono">
-              Total inventory {fmtBaht(Math.max(0, hook.inventory.total))}
+              {t('ckd.totalInventory')} {fmtBaht(Math.max(0, hook.inventory.total))}
             </div>
           </div>
 
@@ -380,7 +380,7 @@ const Dashboard = ({
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-3xl font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</p>
-                  <p className="text-xs text-muted-foreground">Total spend in period</p>
+                  <p className="text-xs text-muted-foreground">{t('ckd.totalSpendInPeriod')}</p>
                 </div>
 
                 {donutData.length > 0 ? (
@@ -424,7 +424,7 @@ const Dashboard = ({
                 ) : (
                   <div className="flex flex-col items-center py-6 text-muted-foreground">
                     <ShoppingCart className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">No purchases in this period</p>
+                    <p className="text-sm">{t('ckd.noPurchasesInPeriod')}</p>
                   </div>
                 )}
 
@@ -432,9 +432,9 @@ const Dashboard = ({
                   <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b bg-muted/50">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Supplier</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Amount ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">%</th>
+                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.supplier')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colAmountBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colPct')}</th>
                       </tr></thead>
                       <tbody>
                         {hook.purchase.bySupplier.slice(0, 6).map(s => (
@@ -456,17 +456,17 @@ const Dashboard = ({
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <Truck className="w-5 h-5 text-primary" />
-                  Distribution to Branches
+                  {t('ckd.distributionTitle')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">SM Distributed</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.smDistributed')}</p>
                     <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">RM Distributed</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.rmDistributed')}</p>
                     <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalRmValue)}</p>
                   </div>
                 </div>
@@ -475,10 +475,10 @@ const Dashboard = ({
                   <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b bg-muted/50">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Branch</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">SM ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">RM ฿</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Total ฿</th>
+                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.branch')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colSmBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colRmBaht')}</th>
+                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colTotalBaht')}</th>
                       </tr></thead>
                       <tbody>
                         {hook.distribution.byBranch.map(b => (
@@ -495,7 +495,7 @@ const Dashboard = ({
                 ) : (
                   <div className="flex flex-col items-center py-8 text-muted-foreground">
                     <Truck className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">No distributions in this period</p>
+                    <p className="text-sm">{t('ckd.noDistributions')}</p>
                   </div>
                 )}
               </CardContent>
@@ -505,7 +505,7 @@ const Dashboard = ({
           {/* ═══ SECTION 4 — SM STOCK STATUS STRIP ═══ */}
           {smPills.length > 0 && (
             <div className="rounded-lg border px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">SM Stock Status</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{t('ckd.smStockStatus')}</p>
               <TooltipProvider>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {smPills.map(pill => {
@@ -527,7 +527,7 @@ const Dashboard = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{pill.name}</p>
-                          <p className="font-mono">{cd !== null ? `${cd} days cover` : 'No usage data'}</p>
+                          <p className="font-mono">{cd !== null ? `${cd} ${t('ckd.daysCover')}` : t('ckd.noUsageData')}</p>
                         </TooltipContent>
                       </Tooltip>
                     );
