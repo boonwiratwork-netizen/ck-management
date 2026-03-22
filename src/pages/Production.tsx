@@ -699,13 +699,13 @@ export default function ProductionPage({
             {/* Mode toggle in page header */}
             <div className={buttons.modeToggleWrapper}>
               <button
-                className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                className={mode === "planning" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
                 onClick={() => handleModeSwitch("planning")}
               >
                 <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
               </button>
               <button
-                className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
+                className={mode === "recording" ? "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-info text-info-foreground" : "inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-muted text-muted-foreground hover:bg-muted/80"}
                 onClick={() => handleModeSwitch("recording")}
               >
                 <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
