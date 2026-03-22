@@ -653,9 +653,9 @@ export default function BranchReceiptPage({
 
       {/* Pending TO Banner */}
       {branchId && pendingTOCount > 0 && (
-        <div className="bg-primary/5 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3">
-          <Truck className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-sm font-semibold text-primary">
+        <div className="bg-info/10 border border-info/30 rounded-lg px-4 py-3 flex items-center gap-3">
+          <Truck className="w-5 h-5 text-info shrink-0" />
+          <span className="text-sm font-semibold text-info">
             {t("br.pendingTOBanner").replace("{n}", String(pendingTOCount))}
           </span>
         </div>
@@ -747,7 +747,7 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-primary/10 text-primary text-xs rounded-full px-1.5 py-0.5 font-medium">
+                        <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
                           {pendingTOCount} pending
                         </span>
                       </button>
