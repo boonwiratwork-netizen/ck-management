@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { StatusDot, StatusDotStatus } from '@/components/ui/status-dot';
 import { Badge } from '@/components/ui/badge';
-import { X, AlertTriangle, Sparkles, Loader2, Pencil } from 'lucide-react';
+import { X, AlertTriangle, Sparkles, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PlanningBranch, PlanSuggestion, SmSkuInfo } from '@/hooks/use-planning-agent';
+import { PlanningBranch, PlanSuggestion, MenuInfo } from '@/hooks/use-planning-agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toLocalDateStr } from '@/lib/utils';
 
@@ -13,7 +13,8 @@ interface PlanningAgentPanelProps {
   onClose: () => void;
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
-  smSkusByBrand: Record<string, SmSkuInfo[]>;
+  menusByBrand: Record<string, MenuInfo[]>;
+  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
   isLoading: boolean;
   weekStart: string;
   onRecalculate: (overrides: Record<string, number>) => void;
@@ -35,94 +36,99 @@ function getBatchColor(batches: number): StatusDotStatus {
   return 'red';
 }
 
-// ─── Assumption inline form ──────────────────────────────────────────────
+// ─── Manual Assumption Inline ────────────────────────────────────────────
 
-interface AssumptionResult {
-  forecast_value: number;
-  forecast_unit: string;
-  assumption_mix: Record<string, number>;
-}
-
-function BranchAssumptionInline({
+function ManualAssumptionInline({
   branch,
-  smSkus,
+  menus,
+  menuBomByMenuId,
   onSaved,
 }: {
   branch: PlanningBranch;
-  smSkus: SmSkuInfo[];
+  menus: MenuInfo[];
+  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
   onSaved: () => void;
 }) {
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<AssumptionResult | null>(null);
+  const bowlsRef = useRef<Record<string, number>>({});
+  const [total, setTotal] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = useCallback(async () => {
-    if (!text.trim()) return;
-    setLoading(true);
-    setError(null);
-    setPreview(null);
+  const recalcTotal = useCallback(() => {
+    const sum = Object.values(bowlsRef.current).reduce((a, b) => a + b, 0);
+    setTotal(sum);
+  }, []);
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('parse-assumption', {
-        body: {
-          assumptionText: text.trim(),
-          smSkus,
-          branchName: branch.branchName,
-        },
-      });
-
-      if (fnError) throw fnError;
-      if (data?.error) throw new Error(data.error);
-
-      setPreview(data as AssumptionResult);
-    } catch (err: any) {
-      setError('วิเคราะห์ไม่สำเร็จ ลองใหม่');
-    } finally {
-      setLoading(false);
+  const handleBlur = useCallback((menuId: string, value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num >= 0) {
+      bowlsRef.current[menuId] = num;
+    } else {
+      bowlsRef.current[menuId] = 0;
     }
-  }, [text, smSkus, branch.branchName]);
+    recalcTotal();
+  }, [recalcTotal]);
 
   const handleSave = useCallback(async () => {
-    if (!preview) return;
+    if (total <= 0) return;
     setSaving(true);
+    setError(null);
 
     try {
+      // Calculate assumption_mix: grams_per_bowl per SM SKU
+      const totalSmGrams = new Map<string, number>();
+      let totalBowls = 0;
+
+      for (const [menuId, bowls] of Object.entries(bowlsRef.current)) {
+        if (bowls <= 0) continue;
+        totalBowls += bowls;
+        const ingredients = menuBomByMenuId[menuId];
+        if (!ingredients) continue;
+        for (const ing of ingredients) {
+          totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + bowls * ing.effectiveQty);
+        }
+      }
+
+      const assumptionMix: Record<string, number> = {};
+      if (totalBowls > 0) {
+        for (const [skuId, grams] of totalSmGrams) {
+          assumptionMix[skuId] = Math.round((grams / totalBowls) * 1000) / 1000;
+        }
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
       const forecastPayload = {
         branch_id: branch.branchId,
-        forecast_value: preview.forecast_value,
+        forecast_value: total,
         forecast_unit: 'bowls_per_day',
-        assumption_mix: preview.assumption_mix,
-        assumption_text: text.trim(),
+        assumption_mix: assumptionMix,
+        assumption_text: null,
         expires_at: toLocalDateStr(expiresAt),
         created_by: user?.id ?? null,
       };
 
-      const { data: existingForecast, error: existingErr } = await supabase
+      // Find-then-update-or-insert pattern
+      const { data: existing, error: findErr } = await supabase
         .from('branch_forecasts')
         .select('id')
         .eq('branch_id', branch.branchId)
         .maybeSingle();
 
-      if (existingErr) throw existingErr;
+      if (findErr) throw findErr;
 
-      if (existingForecast) {
+      if (existing) {
         const { error: updateErr } = await supabase
           .from('branch_forecasts')
           .update(forecastPayload)
-          .eq('id', existingForecast.id);
-
+          .eq('id', existing.id);
         if (updateErr) throw updateErr;
       } else {
         const { error: insertErr } = await supabase
           .from('branch_forecasts')
           .insert(forecastPayload);
-
         if (insertErr) throw insertErr;
       }
 
@@ -132,82 +138,49 @@ function BranchAssumptionInline({
     } finally {
       setSaving(false);
     }
-  }, [preview, branch.branchId, text, onSaved]);
+  }, [total, menuBomByMenuId, branch.branchId, onSaved]);
 
-  const handleRetry = useCallback(() => {
-    setPreview(null);
-    setError(null);
-  }, []);
-
-  // Resolve SKU names for preview
-  const skuNameMap = new Map(smSkus.map(s => [s.skuId, s.skuName]));
+  const noMenus = menus.length === 0;
 
   return (
     <div className="mt-1.5 rounded-md border border-dashed border-muted-foreground/30 px-2.5 py-2 space-y-2 bg-muted/20">
-      {!preview ? (
-        <>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="เช่น คาดว่าขายได้ 80 ชาม เน้น Tori Paitan ประมาณ 50%"
-            rows={2}
-            className="w-full text-xs rounded border border-input px-2 py-1.5 bg-background resize-none focus:border-ring focus:outline-none placeholder:text-muted-foreground/60"
-          />
-          {error && <p className="text-[10px] text-destructive">{error}</p>}
-          <Button
-            size="sm"
-            className="h-7 text-xs w-full"
-            onClick={handleAnalyze}
-            disabled={loading || !text.trim()}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                กำลังวิเคราะห์...
-              </>
-            ) : (
-              'วิเคราะห์'
-            )}
-          </Button>
-        </>
+      {noMenus ? (
+        <p className="text-[10px] text-muted-foreground text-center py-2">ไม่พบเมนูสำหรับแบรนด์นี้</p>
       ) : (
-        <>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">ชาม/วัน</span>
-              <span className="text-xs font-mono font-semibold">{preview.forecast_value}</span>
+        <div className="space-y-1 max-h-48 overflow-y-auto">
+          {menus.map(m => (
+            <div key={m.menuId} className="flex items-center gap-2">
+              <span className="text-[11px] truncate flex-1" title={`${m.menuCode} ${m.menuName}`}>
+                {m.menuName}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                defaultValue={0}
+                onBlur={(e) => handleBlur(m.menuId, e.target.value)}
+                className="w-16 h-6 text-[11px] font-mono text-right rounded border border-input px-1.5 bg-background focus:border-ring focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-[10px] text-muted-foreground w-12 shrink-0">ชาม/วัน</span>
             </div>
-            {Object.entries(preview.assumption_mix).map(([skuId, gpb]) => (
-              <div key={skuId} className="flex items-center justify-between">
-                <span className="text-[10px] truncate flex-1 mr-2">
-                  {skuNameMap.get(skuId) ?? skuId}
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground">{gpb}g/ชาม</span>
-              </div>
-            ))}
-          </div>
-          {error && <p className="text-[10px] text-destructive">{error}</p>}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs flex-1"
-              onClick={handleRetry}
-              disabled={saving}
-            >
-              ลองใหม่
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'บันทึก'}
-            </Button>
-          </div>
-        </>
+          ))}
+        </div>
       )}
+
+      <div className="flex items-center justify-between border-t border-muted-foreground/20 pt-1.5">
+        <span className="text-[11px] font-medium">รวม {total} ชาม/วัน</span>
+      </div>
+
+      {error && <p className="text-[10px] text-destructive">{error}</p>}
+
+      <Button
+        size="sm"
+        className="h-7 text-xs w-full bg-success hover:bg-success/90 text-success-foreground"
+        onClick={handleSave}
+        disabled={saving || noMenus || total <= 0}
+      >
+        {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+      </Button>
     </div>
   );
 }
@@ -219,7 +192,8 @@ export function PlanningAgentPanel({
   onClose,
   branches,
   suggestions,
-  smSkusByBrand,
+  menusByBrand,
+  menuBomByMenuId,
   isLoading,
   weekStart,
   onRecalculate,
@@ -365,11 +339,12 @@ export function PlanningAgentPanel({
                       )}
                     </div>
 
-                    {/* Inline assumption form */}
+                    {/* Inline manual assumption form */}
                     {isExpanded && (
-                      <BranchAssumptionInline
+                      <ManualAssumptionInline
                         branch={br}
-                        smSkus={smSkusByBrand[br.brandName] ?? []}
+                        menus={menusByBrand[br.brandName] ?? []}
+                        menuBomByMenuId={menuBomByMenuId}
                         onSaved={handleAssumptionSaved}
                       />
                     )}

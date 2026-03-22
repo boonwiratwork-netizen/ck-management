@@ -1358,7 +1358,8 @@ export default function ProductionPage({
         onClose={() => setAgentOpen(false)}
         branches={planningAgent.branches}
         suggestions={planningAgent.suggestions}
-        smSkusByBrand={planningAgent.smSkusByBrand}
+        menusByBrand={planningAgent.menusByBrand}
+        menuBomByMenuId={planningAgent.menuBomByMenuId}
         isLoading={planningAgent.isLoading}
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}

@@ -43,10 +43,18 @@ export interface SmSkuInfo {
   skuName: string;
 }
 
+export interface MenuInfo {
+  menuId: string;
+  menuCode: string;
+  menuName: string;
+}
+
 interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
   smSkusByBrand: Record<string, SmSkuInfo[]>;
+  menusByBrand: Record<string, MenuInfo[]>;
+  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -76,6 +84,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [smSkusByBrand, setSmSkusByBrand] = useState<Record<string, SmSkuInfo[]>>({});
+  const [menusByBrand, setMenusByBrand] = useState<Record<string, MenuInfo[]>>({});
+  const [menuBomByMenuId, setMenuBomByMenuId] = useState<Record<string, Array<{ skuId: string; effectiveQty: number }>>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const cachedDataRef = useRef<CachedData | null>(null);
@@ -229,7 +239,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         supabase.from('branches').select('id, branch_name, brand_name, avg_selling_price').eq('status', 'Active'),
         supabase.from('branch_forecasts').select('*').gte('expires_at', todayStr).order('created_at', { ascending: false }),
         supabase.from('sales_entries').select('menu_code, qty, branch_id, sale_date').gte('sale_date', sevenAgoStr).lte('sale_date', todayStr),
-        supabase.from('menus').select('id, menu_code, brand_name'),
+        supabase.from('menus').select('id, menu_code, menu_name, brand_name'),
         supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
         supabase.from('skus').select('id, sku_id, name, type').eq('type', 'SM'),
       ]);
@@ -297,6 +307,27 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       }
       setSmSkusByBrand(derivedSmSkusByBrand);
 
+      // ── Derive menusByBrand ──────────────────────────────────────────
+      const derivedMenusByBrand: Record<string, MenuInfo[]> = {};
+      for (const m of allMenus) {
+        const brand = m.brand_name;
+        if (!brand) continue;
+        const arr = derivedMenusByBrand[brand] ?? [];
+        arr.push({ menuId: m.id, menuCode: m.menu_code, menuName: m.menu_name });
+        derivedMenusByBrand[brand] = arr;
+      }
+      for (const brand of Object.keys(derivedMenusByBrand)) {
+        derivedMenusByBrand[brand].sort((a, b) => a.menuCode.localeCompare(b.menuCode));
+      }
+      setMenusByBrand(derivedMenusByBrand);
+
+      // ── Derive menuBomByMenuId ───────────────────────────────────────
+      const derivedMenuBom: Record<string, Array<{ skuId: string; effectiveQty: number }>> = {};
+      for (const [menuId, ingredients] of bomByMenu) {
+        derivedMenuBom[menuId] = ingredients;
+      }
+      setMenuBomByMenuId(derivedMenuBom);
+
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
@@ -332,5 +363,5 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     setSuggestions(resultSuggestions);
   }, [aggregate]);
 
-  return { branches, suggestions, smSkusByBrand, isLoading, error, refetch: calculate, recalculateWithOverrides };
+  return { branches, suggestions, smSkusByBrand, menusByBrand, menuBomByMenuId, isLoading, error, refetch: calculate, recalculateWithOverrides };
 }
