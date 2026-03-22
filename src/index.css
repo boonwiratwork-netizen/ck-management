@@ -318,4 +318,30 @@
   .kbd-hint kbd {
     @apply inline-flex items-center px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono font-medium;
   }
+
+  /* Card surface with subtle shadow */
+  .surface-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px 0 rgba(15, 14, 12, 0.06), 0 1px 2px -1px rgba(15, 14, 12, 0.04);
+  }
+
+  /* Rectangular status badge */
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Table row comfortable spacing */
+  .table-row-comfortable td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
 }
