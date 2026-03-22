@@ -348,7 +348,7 @@ const Dashboard = ({
                         <p className="text-2xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(tile.value)}</p>
                         <p className="text-xs text-[#185FA5]/70 mt-0.5">{tile.subtitle}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center shrink-0">
                         {tile.icon}
                       </div>
                     </div>
