@@ -28,6 +28,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [expandedBranchId, setExpandedBranchId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return branches.filter(b => {
