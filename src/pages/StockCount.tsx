@@ -501,10 +501,10 @@ export default function StockCountPage({
             </Card>
           </div>
 
-          {/* Confirm Button */}
+          {/* Bottom Confirm Button (secondary) */}
           {!isCompleted && (
             <div className="flex justify-end">
-              <Button onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
+              <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
                 <CheckCircle2 className="w-4 h-4" /> {t("btn.confirmAdjust")}
               </Button>
             </div>
