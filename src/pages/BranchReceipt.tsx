@@ -838,7 +838,7 @@ export default function BranchReceiptPage({
                 <SelectValue placeholder={t('br.selectTO')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">— Select TO —</SelectItem>
+                <SelectItem value="_none">{t('br.selectTO')}</SelectItem>
                 {pendingTOs.map((to) => (
                   <SelectItem key={to.id} value={to.id}>
                     {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
