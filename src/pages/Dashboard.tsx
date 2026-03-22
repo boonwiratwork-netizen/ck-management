@@ -462,7 +462,7 @@ const Dashboard = ({
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">SM Distributed</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('ckd.smDistributed')}</p>
                     <p className="text-xl font-bold font-mono mt-1">{fmtBaht(hook.distribution.totalSmValue)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-3">
