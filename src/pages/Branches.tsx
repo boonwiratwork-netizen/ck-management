@@ -174,7 +174,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
             {filtered.length === 0 && (
               <tr>
