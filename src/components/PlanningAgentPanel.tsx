@@ -101,7 +101,7 @@ function BranchAssumptionInline({
         assumption_text: text.trim(),
         expires_at: toLocalDateStr(expiresAt),
         created_by: user?.id ?? null,
-      }, { onConflict: 'branch_id' });
+      }, { onConflict: 'branch_id', ignoreDuplicates: false }).select();
 
       if (insertErr) throw insertErr;
       onSaved();
