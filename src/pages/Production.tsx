@@ -715,7 +715,7 @@ export default function ProductionPage({
             {/* Fixed-width container to prevent reflow */}
             <div className="w-28 flex justify-end">
               {mode === "planning" && !planLocked && (
-                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8">
+                <Button onClick={handleSavePlan} disabled={saving || !isStockDataReady} size="sm" className="h-8 bg-info hover:bg-info/90 text-info-foreground">
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {saving ? t("prod.saving") : t("prod.savePlan")}
                 </Button>
