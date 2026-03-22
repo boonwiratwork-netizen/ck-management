@@ -1358,10 +1358,12 @@ export default function ProductionPage({
         onClose={() => setAgentOpen(false)}
         branches={planningAgent.branches}
         suggestions={planningAgent.suggestions}
+        smSkusByBrand={planningAgent.smSkusByBrand}
         isLoading={planningAgent.isLoading}
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}
         onApplyPlan={(plan) => setPlanBatches(prev => ({ ...prev, ...plan }))}
+        onRefetch={planningAgent.refetch}
       />
     </TooltipProvider>
   );

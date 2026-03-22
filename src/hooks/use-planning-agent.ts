@@ -37,9 +37,16 @@ export interface PlanSuggestion {
   outputPerBatch: number;
 }
 
+export interface SmSkuInfo {
+  skuId: string;
+  skuCode: string;
+  skuName: string;
+}
+
 interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
+  smSkusByBrand: Record<string, SmSkuInfo[]>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -55,6 +62,7 @@ interface CachedData {
   menuCodeToId: Map<string, string>;
   bomByMenu: Map<string, Array<{ skuId: string; effectiveQty: number }>>;
   smSkuMap: Map<string, { code: string; name: string }>;
+  menuBrandMap: Map<string, string>; // menuId → brand_name
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
@@ -67,6 +75,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
 
   const [branches, setBranches] = useState<PlanningBranch[]>([]);
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
+  const [smSkusByBrand, setSmSkusByBrand] = useState<Record<string, SmSkuInfo[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const cachedDataRef = useRef<CachedData | null>(null);
@@ -243,6 +252,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const smSkuIdSet = new Set(smSkus.map(s => s.id));
       const smSkuMap = new Map(smSkus.map(s => [s.id, { code: s.sku_id, name: s.name }]));
       const menuCodeToId = new Map(allMenus.map(m => [m.menu_code, m.id]));
+      const menuBrandMap = new Map(allMenus.map(m => [m.id, m.brand_name]));
 
       const smBom = allBom.filter(b => smSkuIdSet.has(b.sku_id));
       const bomByMenu = new Map<string, Array<{ skuId: string; effectiveQty: number }>>();
@@ -266,6 +276,27 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         }
       }
 
+      // ── Derive smSkusByBrand ──────────────────────────────────────────
+      const brandSkuSet = new Map<string, Set<string>>();
+      for (const [menuId, ingredients] of bomByMenu) {
+        const brand = menuBrandMap.get(menuId);
+        if (!brand) continue;
+        const set = brandSkuSet.get(brand) ?? new Set();
+        for (const ing of ingredients) set.add(ing.skuId);
+        brandSkuSet.set(brand, set);
+      }
+      const derivedSmSkusByBrand: Record<string, SmSkuInfo[]> = {};
+      for (const [brand, skuIds] of brandSkuSet) {
+        derivedSmSkusByBrand[brand] = Array.from(skuIds)
+          .map(id => {
+            const info = smSkuMap.get(id);
+            return info ? { skuId: id, skuCode: info.code, skuName: info.name } : null;
+          })
+          .filter((x): x is SmSkuInfo => x !== null)
+          .sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+      }
+      setSmSkusByBrand(derivedSmSkusByBrand);
+
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
@@ -274,6 +305,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         menuCodeToId,
         bomByMenu,
         smSkuMap,
+        menuBrandMap,
       };
       cachedDataRef.current = cached;
 
@@ -300,5 +332,5 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     setSuggestions(resultSuggestions);
   }, [aggregate]);
 
-  return { branches, suggestions, isLoading, error, refetch: calculate, recalculateWithOverrides };
+  return { branches, suggestions, smSkusByBrand, isLoading, error, refetch: calculate, recalculateWithOverrides };
 }
