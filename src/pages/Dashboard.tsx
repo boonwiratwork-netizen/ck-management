@@ -272,7 +272,7 @@ const Dashboard = ({
                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.smSku')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colOutput')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colStandard')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Actual ฿</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colActual')}</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance ฿</th>
                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">Variance %</th>
                       </tr>
