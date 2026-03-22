@@ -223,9 +223,9 @@ export default function StockCountPage({
                 className="justify-end"
               />
             </th>
-            <th className={`${thClass} text-right`}>
+            <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide !bg-foreground text-background">
               <div>Physical Qty</div>
-              <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+              <div className="text-xs font-normal text-background/70">(Usage UOM)</div>
             </th>
             <th
               className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
