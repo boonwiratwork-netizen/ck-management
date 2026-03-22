@@ -62,6 +62,7 @@ interface CachedData {
   menuCodeToId: Map<string, string>;
   bomByMenu: Map<string, Array<{ skuId: string; effectiveQty: number }>>;
   smSkuMap: Map<string, { code: string; name: string }>;
+  menuBrandMap: Map<string, string>; // menuId → brand_name
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
