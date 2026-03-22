@@ -83,9 +83,9 @@ export const spacing = {
   /** Standard table row height */
   tableRowHeight: 'h-10',
   /** Table cell padding */
-  tableCellPadding: 'px-3 py-2',
+  tableCellPadding: 'px-3 py-2.5',
   /** Compact table cell padding (for dense spreadsheet views) */
-  tableCellPaddingCompact: 'px-2 py-1.5',
+  tableCellPaddingCompact: 'px-2 py-2',
   /** Card internal padding */
   cardPadding: 'p-4',
   /** Panel / page section padding */
@@ -350,16 +350,16 @@ export const table = {
   dataRowLocked: 'border-b border-table-border bg-muted/20',
 
   // ─── Cells — standard (sparse tables <8 cols) ─
-  dataCell: 'px-3 py-2 text-sm',
-  dataCellMono: 'px-3 py-2 text-sm font-mono text-right',
-  dataCellCenter: 'px-3 py-2 text-sm text-center',
-  truncatedCell: 'px-3 py-2 text-sm truncate',
+  dataCell: 'px-3 py-2.5 text-sm',
+  dataCellMono: 'px-3 py-2.5 text-sm font-mono text-right',
+  dataCellCenter: 'px-3 py-2.5 text-sm text-center',
+  truncatedCell: 'px-3 py-2.5 text-sm truncate',
 
   // ─── Cells — compact (dense tables 8+ cols) ───
-  dataCellCompact: 'px-2 py-1 text-xs',
-  dataCellCompactMono: 'px-2 py-1 text-xs font-mono text-right',
-  dataCellCompactCenter: 'px-2 py-1 text-xs text-center',
-  truncatedCellCompact: 'px-2 py-1 text-xs truncate',
+  dataCellCompact: 'px-2 py-2 text-xs',
+  dataCellCompactMono: 'px-2 py-2 text-xs font-mono text-right',
+  dataCellCompactCenter: 'px-2 py-2 text-xs text-center',
+  truncatedCellCompact: 'px-2 py-2 text-xs truncate',
 
   // ─── Input cells ──────────────────────────────
   inputCell: 'bg-amber-50 border border-input rounded px-2 py-1 text-sm font-mono text-right w-full h-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',

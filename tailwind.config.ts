@@ -14,10 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        heading: ['"Syne"', 'system-ui', '-apple-system', 'sans-serif'],
-        body: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"DM Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+        heading: ['Syne', 'system-ui', 'sans-serif'],
+        body: ['DM Sans', 'system-ui', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
       },
       fontSize: {
         'page-title': ['24px', { lineHeight: '1.2', fontWeight: '700' }],

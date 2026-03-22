@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500&family=DM+Mono:wght@300;400;500&display=swap');
 
 @layer base {
   :root {
@@ -11,6 +11,9 @@
 
     --card: 0 0% 100%;
     --card-foreground: 220 20% 10%;
+
+    --border: 220 13% 88%;
+    --radius: 0.625rem;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
@@ -30,11 +33,10 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 220 10% 10%;
 
-    --radius: 0.5rem;
+    /* --radius moved above */
 
     /* Custom semantic tokens */
     --success: 142 71% 35%;
@@ -315,5 +317,31 @@
   }
   .kbd-hint kbd {
     @apply inline-flex items-center px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono font-medium;
+  }
+
+  /* Card surface with subtle shadow */
+  .surface-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px 0 rgba(15, 14, 12, 0.06), 0 1px 2px -1px rgba(15, 14, 12, 0.04);
+  }
+
+  /* Rectangular status badge */
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Table row comfortable spacing */
+  .table-row-comfortable td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
   }
 }
