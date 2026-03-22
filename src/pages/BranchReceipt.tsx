@@ -679,7 +679,7 @@ export default function BranchReceiptPage({
               <SelectValue placeholder={t('br.selectBranch')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">— Select branch —</SelectItem>
+              <SelectItem value="_none">{t('br.selectBranch')}</SelectItem>
               {availableBranches.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.branchName}
