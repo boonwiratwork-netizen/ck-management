@@ -449,7 +449,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <th className={`${thClass} text-center`}>{t('col.week')}</th>
                   <th className={thClass}>{t('col.sku')}</th>
                   <th className={thClass}>{t('col.supplier')}</th>
-                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>QTY</th>
+                  <th className={`${thClass} text-right bg-background font-semibold text-foreground`}>{t('col.qty')}</th>
                   <th className={`${thClass} text-center`}>UOM</th>
                   <th className={`${thClass} text-right`}>
                     <TooltipProvider>
