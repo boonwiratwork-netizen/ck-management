@@ -265,7 +265,9 @@ export default function StockCountPage({
                   <td className="px-3 py-2 text-sm font-medium">{sku.name}</td>
                   <td className="px-3 py-2 text-sm">{sku.storageCondition}</td>
                   <td className="px-3 py-2 text-right font-mono text-sm">
-                    {(line.type === 'SM' ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {(line.type === "SM" ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}
                     <UnitLabel unit={sku.usageUom} />
                   </td>
                   <td className="px-1.5 py-1.5 text-right">
@@ -402,15 +404,25 @@ export default function StockCountPage({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <TabsList>
-                <TabsTrigger value="RM" className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-foreground data-[state=active]:font-semibold px-4">
-  RM ({tabCounts.RM})
-</TabsTrigger>
-<TabsTrigger value="SM" className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-warning data-[state=active]:font-semibold px-4">
-  SM ({tabCounts.SM})
-</TabsTrigger>
-<TabsTrigger value="PK" className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground data-[state=active]:font-semibold px-4">
-  PK ({tabCounts.PK})
-</TabsTrigger>
+                <TabsTrigger
+                  value="RM"
+                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-foreground data-[state=active]:font-semibold px-4"
+                >
+                  RM ({tabCounts.RM})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="SM"
+                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-warning data-[state=active]:font-semibold px-4"
+                >
+                  SM ({tabCounts.SM})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="PK"
+                  className="text-sm data-[state=active]:border-l-2 data-[state=active]:border-l-muted-foreground data-[state=active]:font-semibold px-4"
+                >
+                  PK ({tabCounts.PK})
+                </TabsTrigger>
+              </TabsList>
 
               <div className="flex items-center gap-3">
                 {activeTab === "RM" && (
@@ -498,7 +510,12 @@ export default function StockCountPage({
           {/* Confirm Button */}
           {!isCompleted && (
             <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={summary.counted === 0} className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmOpen(true)}
+                disabled={summary.counted === 0}
+                className="gap-2"
+              >
                 <CheckCircle2 className="w-4 h-4" /> {t("btn.confirmAdjust")}
               </Button>
             </div>
