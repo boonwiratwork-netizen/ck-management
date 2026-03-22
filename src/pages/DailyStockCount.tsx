@@ -240,7 +240,7 @@ export default function DailyStockCountPage({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
+        <h2 className="text-2xl font-heading font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{t("dsc.subtitle")}</p>
       </div>
 
