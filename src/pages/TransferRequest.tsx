@@ -750,7 +750,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRequestBatch")}</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">{t("tr.colRequestBatch")}</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colTotalUom")}</th>
                           <th className={tableTokens.headerCellCenter}>{t("tr.colUnit")}</th>
                         </tr>
