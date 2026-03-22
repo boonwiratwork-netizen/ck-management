@@ -239,7 +239,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         supabase.from('branches').select('id, branch_name, brand_name, avg_selling_price').eq('status', 'Active'),
         supabase.from('branch_forecasts').select('*').gte('expires_at', todayStr).order('created_at', { ascending: false }),
         supabase.from('sales_entries').select('menu_code, qty, branch_id, sale_date').gte('sale_date', sevenAgoStr).lte('sale_date', todayStr),
-        supabase.from('menus').select('id, menu_code, brand_name'),
+        supabase.from('menus').select('id, menu_code, menu_name, brand_name'),
         supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
         supabase.from('skus').select('id, sku_id, name, type').eq('type', 'SM'),
       ]);
