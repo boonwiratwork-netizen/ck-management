@@ -241,9 +241,7 @@ export default function DailyStockCountPage({
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("title.dailyStockCount")}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {t("dsc.subtitle")}
-        </p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t("dsc.subtitle")}</p>
       </div>
 
       {/* Controls */}
@@ -324,9 +322,7 @@ export default function DailyStockCountPage({
             <CardContent className="p-0">
               <div className="overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2 border-b bg-muted/50">
-                  <p className="kbd-hint">
-                    {t("dsc.keyboardHint")}
-                  </p>
+                  <p className="kbd-hint">{t("dsc.keyboardHint")}</p>
                 </div>
                 <table className="w-full table-fixed text-xs">
                   <colgroup>
@@ -441,7 +437,7 @@ export default function DailyStockCountPage({
                             )}
                           </td>
                           <td className="text-right font-mono text-sm font-medium px-2 py-1">
-                            {fmt0(row.calculatedBalance)}
+                            {fmt0(Math.max(0, row.calculatedBalance))}
                           </td>
                           <td className="px-1.5 py-1 text-right">
                             {isSubmitted ? (
@@ -463,7 +459,7 @@ export default function DailyStockCountPage({
                                   }
                                   const val = Number(e.target.value);
                                   const clamped = val < 0 ? 0 : val;
-                                  if (val < 0) e.target.value = '0';
+                                  if (val < 0) e.target.value = "0";
                                   if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
                                 }}
                                 onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
@@ -545,7 +541,7 @@ export default function DailyStockCountPage({
                                     }
                                     const val = Number(e.target.value);
                                     const clamped = val < 0 ? 0 : val;
-                                    if (val < 0) e.target.value = '0';
+                                    if (val < 0) e.target.value = "0";
                                     if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
                                   }}
                                   className="h-8 w-24 text-sm"
@@ -564,11 +560,7 @@ export default function DailyStockCountPage({
           )}
         </>
       ) : selectedBranch ? (
-        <EmptyState
-          icon={ClipboardList}
-          title={t("dsc.emptyTitle")}
-          description={t("dsc.emptyHint")}
-        />
+        <EmptyState icon={ClipboardList} title={t("dsc.emptyTitle")} description={t("dsc.emptyHint")} />
       ) : null}
 
       {/* Submit button */}
