@@ -128,7 +128,7 @@ export function useDailyStockCount({
       const menuName = sale.menu_name || '';
       const menu = menuByCode.get(menuCode);
 
-      if (menu) {
+      if (menu && !suppressedMenuIds.has(menu.id)) {
         const bomLines = bomByMenuId.get(menu.id) || [];
         for (const line of bomLines) {
           const ingredientQty = line.effectiveQty * qty;
