@@ -517,7 +517,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                         </TooltipProvider>
                       </td>
                       <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 bg-foreground/[0.04]">
                         <input
                           ref={(el) => {
                             qtyRefs.current[row.skuId] = el;
