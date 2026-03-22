@@ -663,7 +663,7 @@ export default function BranchReceiptPage({
           value={receiptDate}
           onChange={(d) => d && setReceiptDate(d)}
           defaultToday
-          label="Date"
+          label={t('br.dateLabel')}
           required
           labelPosition="above"
           align="start"
