@@ -173,7 +173,7 @@ export default function BranchesPage({ branchData, readOnly = false }: Props) {
                           <h4 className="text-sm font-semibold">Menu Availability</h4>
                           <BranchMenuAvailability branchId={b.id} brandName={b.brandName} />
                         </div>
-                        <BranchForecast branchId={b.id} avgSellingPrice={(b as any).avgSellingPrice ?? null} />
+                        <BranchForecast branchId={b.id} avgSellingPrice={b.avgSellingPrice} />
                       </div>
                     </td>
                   </tr>
