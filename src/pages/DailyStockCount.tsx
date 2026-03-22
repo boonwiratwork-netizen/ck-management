@@ -526,7 +526,7 @@ export default function DailyStockCountPage({
                                 {sku.type}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right w-28 px-2 py-1">
+                            <TableCell className="text-right w-28 px-2 py-1 bg-foreground/[0.04]">
                               {!isSubmitted && (
                                 <Input
                                   type="number"
