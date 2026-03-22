@@ -151,7 +151,7 @@ const Dashboard = ({
       {/* ── HEADER ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">CK Performance Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('ckd.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
