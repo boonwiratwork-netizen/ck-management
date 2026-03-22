@@ -680,7 +680,7 @@ export default function TransferOrderPage({
                               }
                             }
                           }}
-                          className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-ring focus:ring-0 focus:outline-none"
+                          className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none"
                           key={`qty-${line.id}`}
                         />
                       ) : (
