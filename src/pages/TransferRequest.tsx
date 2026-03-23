@@ -1037,7 +1037,57 @@ export default function TransferRequestPage() {
               </div>
 
               {rmLoading ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">Loading items...</div>
+                <div className={tableTokens.wrapper}>
+                  <div className="overflow-y-auto max-h-[65vh]">
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col style={{ width: 26 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 200 }} />
+                        <col style={{ width: 90 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 60 }} />
+                        <col style={{ width: 68 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 52 }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-[5]">
+                        <tr className={tableTokens.headerRow}>
+                          <th className={tableTokens.headerCellCenter}></th>
+                          <th className={tableTokens.headerCell}>SKU Code</th>
+                          <th className={tableTokens.headerCell}>SKU Name</th>
+                          <th className={tableTokens.headerCell}>Pack Size</th>
+                          <th className={tableTokens.headerCellNumeric}>Stock Now</th>
+                          <th className={tableTokens.headerCellNumeric}>ROP</th>
+                          <th className={tableTokens.headerCellNumeric}>Parstock</th>
+                          <th className={tableTokens.headerCellNumeric}>Suggested</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">Request</th>
+                          <th className={tableTokens.headerCellNumeric}>Total</th>
+                          <th className={tableTokens.headerCellCenter}>Unit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <tr key={i} className={tableTokens.dataRow}>
+                            <td className={tableTokens.dataCellCompactCenter}><Skeleton className="h-2 w-2 rounded-full" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-14" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-32" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-20" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-12 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={`${tableTokens.dataCellCompact} text-right`}><Skeleton className="h-4 w-14 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-12 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactCenter}><Skeleton className="h-4 w-6 mx-auto" /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ) : prLines.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   No RM SKUs found for this supplier and branch.
