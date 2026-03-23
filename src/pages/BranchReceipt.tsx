@@ -667,7 +667,9 @@ export default function BranchReceiptPage({
           <Button
             className="bg-success hover:bg-success/90 text-success-foreground"
             onClick={() => {
-              /* no-op: user picks branch+supplier to start */
+              if (branchId) {
+                setSupplierDropdownOpen(true);
+              }
             }}
             disabled={!branchId}
           >
