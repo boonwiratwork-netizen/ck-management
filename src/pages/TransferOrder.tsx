@@ -868,7 +868,7 @@ export default function TransferOrderPage({
               <col style={{ width: 130 }} />
               <col style={{ width: 90 }} />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-[5]">
               <tr className={tableTokens.headerRow}>
                 <th className={thSortable} onClick={() => handleSort("toNumber")}>
                   <span className={`inline-flex items-center ${sortKey === "toNumber" ? "text-foreground" : ""}`}>
