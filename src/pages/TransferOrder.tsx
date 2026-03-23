@@ -327,9 +327,7 @@ export default function TransferOrderPage({
       } else {
         updateTOLine(lineId, 0).then(() => {
           // Update note via separate call
-          import("@/integrations/supabase/client").then(({ supabase }) => {
-            supabase.from("transfer_order_lines").update({ notes: value }).eq("id", lineId);
-          });
+          supabase.from("transfer_order_lines").update({ notes: value }).eq("id", lineId);
         });
       }
     },
