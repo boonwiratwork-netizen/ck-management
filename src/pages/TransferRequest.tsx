@@ -17,7 +17,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { typography, table as tableTokens, formatNumber } from "@/lib/design-tokens";
 import { toLocalDateStr } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { Plus, Eye, Printer, Ban, Info, Copy, Search, Zap, AlertTriangle } from "lucide-react";
+import { Plus, Eye, Printer, Ban, Info, Copy, Search, Zap, AlertTriangle, X, ClipboardList } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
