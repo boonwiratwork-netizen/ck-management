@@ -460,6 +460,28 @@ export default function TransferRequestPage() {
       }
 
       toast.success(`Purchase Request ${prNumber} submitted`);
+
+      // Auto-copy LINE message
+      try {
+        const branch = branches.find((b) => b.id === effectiveBranchId);
+        const brandName = branch?.brandName || "";
+        const requiredDateStr = requiredDate ? toLocalDateStr(requiredDate) : "";
+        const orderedPrLines = prLines.filter((l) => (prBatchInputs[l.skuId] || 0) > 0);
+        const copyLines = [
+          `📦 [${branchName} — ${brandName}] - สั่งวัตถุดิบ`,
+          `วันส่งสินค้า: ${requiredDateStr}`,
+          ``,
+          `🧾 รายการ:`,
+          ...orderedPrLines.map(
+            (l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.usageUom} x ${prBatchInputs[l.skuId]} ${l.packUnit}`,
+          ),
+          ``,
+          `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
+        ];
+        await navigator.clipboard.writeText(copyLines.join("\n"));
+        toast.success("📋 คัดลอกข้อความ LINE แล้ว — วางได้เลย", { duration: 4000 });
+      } catch {}
+
       setFormOpen(false);
       setPrBatchInputs({});
       setNotes("");
