@@ -50,7 +50,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border shadow-lg">
         <CardHeader className="text-center space-y-4 pb-2">
-          <div className="mx-auto w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+          <div className="mx-auto w-14 h-14 rounded-xl flex items-center justify-center shadow-sm bg-[#ff5e29]">
             <ChefHat className="w-7 h-7 text-primary-foreground" />
           </div>
           <div>
@@ -62,65 +62,65 @@ export default function Login() {
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          {forgotMode ? (
-            <form onSubmit={handleForgotPassword} className="space-y-field">
+          {forgotMode ?
+          <form onSubmit={handleForgotPassword} className="space-y-field">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-helper font-medium">Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  className="h-10"
-                />
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                className="h-10" />
+              
               </div>
               <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? 'Sending…' : 'Send Reset Link'}
               </Button>
               <Button
-                type="button"
-                variant="link"
-                className="w-full text-muted-foreground"
-                onClick={() => setForgotMode(false)}
-              >
+              type="button"
+              variant="link"
+              className="w-full text-muted-foreground"
+              onClick={() => setForgotMode(false)}>
+              
                 Back to login
               </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} className="space-y-field">
+            </form> :
+
+          <form onSubmit={handleLogin} className="space-y-field">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-helper font-medium">Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  className="h-10"
-                />
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                className="h-10" />
+              
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-helper font-medium">Password</Label>
                 <div className="relative">
                   <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="h-10 pr-10"
-                  />
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="h-10 pr-10" />
+                
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}>
+                  
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
@@ -129,17 +129,17 @@ export default function Login() {
                 {loading ? 'Signing in…' : 'Sign In'}
               </Button>
               <Button
-                type="button"
-                variant="link"
-                className="w-full text-muted-foreground"
-                onClick={() => setForgotMode(true)}
-              >
+              type="button"
+              variant="link"
+              className="w-full text-muted-foreground"
+              onClick={() => setForgotMode(true)}>
+              
                 Forgot password?
               </Button>
             </form>
-          )}
+          }
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 }
