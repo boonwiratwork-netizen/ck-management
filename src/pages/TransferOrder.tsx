@@ -5,6 +5,7 @@ import { useTransferOrder, TOLine, PendingTR, TOHistoryRow } from "@/hooks/use-t
 import { useBranchData } from "@/hooks/use-branch-data";
 import { useSkuData } from "@/hooks/use-sku-data";
 import { useSmStockData } from "@/hooks/use-sm-stock-data";
+import { supabase } from "@/integrations/supabase/client";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,9 +31,24 @@ import {
   ChevronDown,
   ArrowUpDown,
   Pencil,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface LotLineLocal {
+  id?: string;
+  productionRecordId: string;
+  productionDate: string;
+  packs: number;
+  packWeightG: number;
+}
+
+interface ProdRecord {
+  id: string;
+  productionDate: string;
+  actualOutputG: number;
+  batchesProduced: number;
+}
 const toStatusBadge: Record<string, string> = {
   Draft: "bg-[#F1EFE8] text-[#5F5E5A]",
   Sent: "bg-[#FAEEDA] text-[#633806]",
