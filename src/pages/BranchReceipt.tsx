@@ -1509,7 +1509,7 @@ export default function BranchReceiptPage({
                 {isManagement && <col style={{ width: 110 }} />}
                 {isManagement && <col style={{ width: 50 }} />}
               </colgroup>
-              <thead className="sticky-thead">
+              <thead className="sticky top-0 z-[5]">
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader

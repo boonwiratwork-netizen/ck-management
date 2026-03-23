@@ -980,6 +980,7 @@ export default function TransferOrderPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

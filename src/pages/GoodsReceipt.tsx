@@ -927,7 +927,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <col style={{ width: 80 }} />
                 <col style={{ width: 60 }} />
               </colgroup>
-              <thead className="sticky-thead">
+              <thead className="sticky top-0 z-[5]">
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader
