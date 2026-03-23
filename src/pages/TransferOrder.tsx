@@ -9,10 +9,12 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UnitLabel } from "@/components/ui/unit-label";
+import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
 import { typography, table as tableTokens, formatNumber, fmtCurrency } from "@/lib/design-tokens";
 import { toLocalDateStr } from "@/lib/utils";
 import {
@@ -438,7 +440,7 @@ export default function TransferOrderPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ═══ Page Header ═══ */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className={typography.pageTitle}>{t("to.pageTitle")}</h2>
@@ -451,12 +453,13 @@ export default function TransferOrderPage({
         )}
       </div>
 
-      {/* ─── SECTION A: Pending TR Queue ─── */}
+      {/* ═══ SECTION A: Pending TR Queue ═══ */}
       {canEdit && pendingTRs.length > 0 && !formState && (
-        <div className="rounded-lg border-l-4 border-l-primary bg-primary/5 p-4 space-y-3">
+        <div className="rounded-lg border border-warning/30 border-l-4 border-l-warning bg-warning/[0.06] p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-primary">
+            <StatusDot status="amber" size="sm" />
+            <Zap className="w-4 h-4 text-warning" />
+            <span className="text-sm font-semibold text-foreground">
               {t("to.pendingTRs").replace("{n}", String(pendingTRs.length))}
             </span>
           </div>
@@ -509,7 +512,7 @@ export default function TransferOrderPage({
         </div>
       )}
 
-      {/* ─── Standalone TO creation form ─── */}
+      {/* ═══ Standalone TO creation form ═══ */}
       {canEdit && standaloneOpen && !formState && (
         <div className="rounded-lg border bg-card p-6 space-y-4">
           <h3 className={typography.sectionTitle}>{t("to.newFormTitle")}</h3>
@@ -553,220 +556,230 @@ export default function TransferOrderPage({
         </div>
       )}
 
-      {/* ─── SECTION B: TO Creation/Edit Form ─── */}
+      {/* ═══ SECTION B: Active TO Form ═══ */}
       {formState && (
-        <div className="rounded-lg border bg-card p-6 space-y-4">
-          {/* TO metadata */}
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">{t("to.colToNumber")}</label>
-              <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm font-mono min-w-[160px] flex items-center">
-                {formState.toNumber}
-              </div>
+        <div className="rounded-lg border-2 border-primary/20 bg-card shadow-sm overflow-hidden">
+          {/* ── Header strip ── */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-base font-bold text-foreground">{formState.toNumber}</span>
+              <Separator orientation="vertical" className="h-5" />
+              <span className="text-sm font-medium text-foreground">{formState.branchName}</span>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">{t("col.branch")}</label>
-              <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm min-w-[200px] flex items-center">
-                {formState.branchName}
-              </div>
-            </div>
-            <DatePicker
-              value={formState.deliveryDate ? new Date(formState.deliveryDate + "T00:00:00") : undefined}
-              onChange={(d) => {
-                if (d) setFormState((prev) => (prev ? { ...prev, deliveryDate: toLocalDateStr(d) } : prev));
-              }}
-              label={t("to.deliveryDate")}
-              required
-              labelPosition="above"
-            />
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground">{t("to.colTrRef")}</label>
-              <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/30 text-sm font-mono min-w-[140px] flex items-center">
-                {formState.trNumber || "—"}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-              <label className="text-sm text-muted-foreground">{t("col.notes")}</label>
-              <Input
-                value={formState.notes}
-                onChange={(e) => setFormState((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
-                placeholder={t("tr.notesPlaceholder")}
-                className="h-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={handleCancelForm}>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleCancelForm}>
                 Cancel
               </Button>
-              <Button variant="outline" onClick={handleSaveDraft} disabled={formSaving}>
+              <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={formSaving}>
                 <Save className="w-4 h-4 mr-1" />
                 {formSaving ? "Saving..." : t("to.saveDraft")}
               </Button>
-              <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
+              <Button
+                size="sm"
+                className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                onClick={handleSend}
+                disabled={!hasLinesWithQty || formSending}
+              >
                 <Send className="w-4 h-4 mr-1" />
                 {formSending ? t("to.sending") : t("to.sendTO")}
               </Button>
             </div>
           </div>
 
-          {/* SKU Sheet */}
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-sm font-semibold">{t("to.itemsFor").replace("{branch}", formState.branchName)}</p>
-              <p className="text-xs text-muted-foreground">
-                {formState.trId ? t("to.preloadedHint") : t("to.addItemsHint")}
-              </p>
+          {/* ── Secondary metadata bar ── */}
+          <div className="flex flex-wrap items-center gap-4 px-5 py-2.5 bg-muted/30 border-b text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">{t("to.deliveryDate")}:</span>
+              <DatePicker
+                value={formState.deliveryDate ? new Date(formState.deliveryDate + "T00:00:00") : undefined}
+                onChange={(d) => {
+                  if (d) setFormState((prev) => (prev ? { ...prev, deliveryDate: toLocalDateStr(d) } : prev));
+                }}
+                required
+              />
+            </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">{t("to.colTrRef")}:</span>
+              <span className="font-mono text-xs">{formState.trNumber || "—"}</span>
+            </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
+              <span className="text-muted-foreground">{t("col.notes")}:</span>
+              <Input
+                value={formState.notes}
+                onChange={(e) => setFormState((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
+                placeholder={t("tr.notesPlaceholder")}
+                className="h-8 text-sm flex-1"
+              />
             </div>
           </div>
 
-          <div className={tableTokens.wrapper}>
-            <table className={tableTokens.base}>
-              <colgroup>
-                <col style={{ width: 90 }} />
-                <col />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 60 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 40 }} />
-              </colgroup>
-              <thead>
-                <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
-                  <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
-                  <th
-                    className={`${tableTokens.headerCell} !bg-foreground text-background !text-background font-semibold text-right`}
-                  >
-                    {t("to.colActualQty")}
-                  </th>
-                  <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>{t("to.colCostPerG")}</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>{t("to.colLineValue")}</th>
-                  <th className={tableTokens.headerCell}>{t("col.note")}</th>
-                  <th className={tableTokens.headerCell}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {formState.lines.map((line, idx) => (
-                  <tr key={line.id} className={tableTokens.dataRow}>
-                    <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                    <td className={tableTokens.truncatedCell} title={line.skuName}>
-                      {line.skuName}
-                    </td>
-                    <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
-                      {line.trLineId ? formatNumber(line.plannedQty, 0) : "—"}
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-right`}>
-                      {canEdit ? (
-                        <input
-                          ref={(el) => {
-                            if (el) qtyRefs.current[line.id] = el;
-                          }}
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          step={1}
-                          defaultValue={line.actualQty || ""}
-                          onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Tab") {
-                              e.preventDefault();
-                              const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                              if (nextIdx >= 0 && nextIdx < formState.lines.length) {
-                                const nextId = formState.lines[nextIdx].id;
-                                qtyRefs.current[nextId]?.focus();
-                                qtyRefs.current[nextId]?.select();
-                              }
-                            }
-                          }}
-                          className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none"
-                          key={`qty-${line.id}`}
-                        />
-                      ) : (
-                        <span className="font-mono">{formatNumber(line.actualQty, 0)}</span>
-                      )}
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      <UnitLabel unit={line.uom} />
-                    </td>
-                    <td className={tableTokens.dataCellMono}>
-                      {line.unitCost > 0 ? (
-                        <span>{formatNumber(line.unitCost, 4)}</span>
-                      ) : (
-                        <span className="text-primary">—</span>
-                      )}
-                    </td>
-                    <td className={tableTokens.dataCellMono}>{formatNumber(line.actualQty * line.unitCost, 0)}</td>
-                    <td className={tableTokens.dataCell}>
-                      {canEdit ? (
-                        <Input
-                          defaultValue={line.note}
-                          onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
-                          className="h-8 text-xs"
-                          placeholder="Note..."
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{line.note || ""}</span>
-                      )}
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      {canEdit && !line.trLineId && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteLine(line.id)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </td>
+          {/* ── SKU Sheet ── */}
+          <div className="p-5 space-y-3">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-sm font-semibold">{t("to.itemsFor").replace("{branch}", formState.branchName)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formState.trId ? t("to.preloadedHint") : t("to.addItemsHint")}
+                </p>
+              </div>
+            </div>
+
+            <div className={tableTokens.wrapper}>
+              <table className={tableTokens.base}>
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 60 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 40 }} />
+                </colgroup>
+                <thead>
+                  <tr className={tableTokens.headerRow}>
+                    <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
+                    <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
+                    <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
+                    <th
+                      className={`${tableTokens.headerCell} !bg-foreground text-background !text-background font-semibold text-right`}
+                    >
+                      {t("to.colActualQty")}
+                    </th>
+                    <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
+                    <th className={`${tableTokens.headerCell} text-right`}>{t("to.colCostPerG")}</th>
+                    <th className={`${tableTokens.headerCell} text-right`}>{t("to.colLineValue")}</th>
+                    <th className={tableTokens.headerCell}>{t("col.note")}</th>
+                    <th className={tableTokens.headerCell}></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {formState.lines.map((line, idx) => (
+                    <tr key={line.id} className={tableTokens.dataRow}>
+                      <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
+                      <td className={tableTokens.truncatedCell} title={line.skuName}>
+                        {line.skuName}
+                      </td>
+                      <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
+                        {line.trLineId ? formatNumber(line.plannedQty, 0) : "—"}
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-right`}>
+                        {canEdit ? (
+                          <input
+                            ref={(el) => {
+                              if (el) qtyRefs.current[line.id] = el;
+                            }}
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={1}
+                            defaultValue={line.actualQty || ""}
+                            onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Tab") {
+                                e.preventDefault();
+                                const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                  const nextId = formState.lines[nextIdx].id;
+                                  qtyRefs.current[nextId]?.focus();
+                                  qtyRefs.current[nextId]?.select();
+                                }
+                              }
+                            }}
+                            className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none"
+                            key={`qty-${line.id}`}
+                          />
+                        ) : (
+                          <span className="font-mono">{formatNumber(line.actualQty, 0)}</span>
+                        )}
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        <UnitLabel unit={line.uom} />
+                      </td>
+                      <td className={tableTokens.dataCellMono}>
+                        {line.unitCost > 0 ? (
+                          <span>{formatNumber(line.unitCost, 4)}</span>
+                        ) : (
+                          <span className="text-primary">—</span>
+                        )}
+                      </td>
+                      <td className={tableTokens.dataCellMono}>{formatNumber(line.actualQty * line.unitCost, 0)}</td>
+                      <td className={tableTokens.dataCell}>
+                        {canEdit ? (
+                          <Input
+                            defaultValue={line.note}
+                            onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
+                            className="h-8 text-xs"
+                            placeholder="Note..."
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{line.note || ""}</span>
+                        )}
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        {canEdit && !line.trLineId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteLine(line.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add item (standalone only) */}
+            {canEdit && !formState.trId && (
+              <div className="flex items-center gap-2">
+                {skuSearchOpen ? (
+                  <div className="flex-1 max-w-[400px]">
+                    <SearchableSelect
+                      value=""
+                      onValueChange={handleAddItem}
+                      options={smSkus
+                        .filter((s) => bomSkuIds.has(s.id) && !formState.lines.some((l) => l.skuId === s.id))
+                        .map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
+                      placeholder="Search SM SKU..."
+                      triggerClassName="h-9"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setSkuSearchOpen(true)}
+                    className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> {t("to.addItem")}
+                  </button>
+                )}
+                {skuSearchOpen && (
+                  <Button variant="ghost" size="sm" onClick={() => setSkuSearchOpen(false)}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Add item (standalone only) */}
-          {canEdit && !formState.trId && (
-            <div className="flex items-center gap-2">
-              {skuSearchOpen ? (
-                <div className="flex-1 max-w-[400px]">
-                  <SearchableSelect
-                    value=""
-                    onValueChange={handleAddItem}
-                    options={smSkus
-                      .filter((s) => bomSkuIds.has(s.id) && !formState.lines.some((l) => l.skuId === s.id))
-                      .map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-                    placeholder="Search SM SKU..."
-                    triggerClassName="h-9"
-                  />
-                </div>
-              ) : (
-                <button
-                  onClick={() => setSkuSearchOpen(true)}
-                  className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
-                >
-                  <Plus className="w-4 h-4" /> {t("to.addItem")}
-                </button>
-              )}
-              {skuSearchOpen && (
-                <Button variant="ghost" size="sm" onClick={() => setSkuSearchOpen(false)}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-4">
+          {/* ── Footer bar ── */}
+          <div className="flex items-center justify-between px-5 py-3 bg-muted/20 border-t">
             <span className="text-sm">
-              {t("to.totalValue")} <span className="font-mono font-semibold">฿{formatNumber(totalFormValue, 2)}</span>
+              {t("to.totalValue")}{" "}
+              <span className="font-mono font-bold text-base">฿{formatNumber(totalFormValue, 2)}</span>
             </span>
-            <Button onClick={handleSend} disabled={!hasLinesWithQty || formSending}>
+            <Button
+              className="bg-warning hover:bg-warning/90 text-warning-foreground"
+              onClick={handleSend}
+              disabled={!hasLinesWithQty || formSending}
+            >
               <Send className="w-4 h-4 mr-1" />
               {formSending ? t("to.sending") : t("to.sendTO")}
             </Button>
@@ -774,9 +787,15 @@ export default function TransferOrderPage({
         </div>
       )}
 
-      {/* ─── SECTION C: TO History ─── */}
-      <div className="space-y-3">
-        <h3 className={typography.sectionTitle}>{t("to.history")}</h3>
+      {/* ═══ SECTION C: TO History ═══ */}
+      <div className="space-y-4">
+        {/* Divider + label */}
+        <div className="pt-2">
+          <Separator className="mb-3" />
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {t("to.history")}
+          </span>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-3">
@@ -958,7 +977,7 @@ export default function TransferOrderPage({
         </div>
       </div>
 
-      {/* ─── TO Detail Modal ─── */}
+      {/* ═══ TO Detail Modal ═══ */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto print:max-w-full print:max-h-full print:overflow-visible">
           <DialogHeader>
@@ -1042,7 +1061,11 @@ export default function TransferOrderPage({
 
               <div className="flex justify-end gap-2 print:hidden">
                 {canEdit && detailTO.status === "Draft" && detailLines.some((l) => l.actualQty > 0) && (
-                  <Button onClick={handleSendFromDetail} disabled={formSending}>
+                  <Button
+                    className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                    onClick={handleSendFromDetail}
+                    disabled={formSending}
+                  >
                     <Send className="w-4 h-4 mr-1" />
                     {formSending ? t("to.sending") : t("to.sendTO")}
                   </Button>
