@@ -516,7 +516,7 @@ export default function TransferRequestPage() {
           <p className="text-sm text-muted-foreground">{t("tr.pageSubtitle")}</p>
         </div>
         {canCreateTR && !formOpen && (
-          <Button onClick={handleOpenForm} className="h-9">
+          <Button onClick={handleOpenForm} className="h-9 bg-warning text-warning-foreground hover:bg-warning/90">
             <Plus className="w-4 h-4 mr-1" /> {t("tr.newTR")}
           </Button>
         )}
@@ -752,7 +752,9 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">{t("tr.colRequestBatch")}</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
+                            {t("tr.colRequestBatch")}
+                          </th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colTotalUom")}</th>
                           <th className={tableTokens.headerCellCenter}>{t("tr.colUnit")}</th>
                         </tr>
@@ -943,7 +945,9 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
-                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">Request</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
+                            Request
+                          </th>
                           <th className={tableTokens.headerCellNumeric}>Total</th>
                           <th className={tableTokens.headerCellCenter}>Unit</th>
                         </tr>
