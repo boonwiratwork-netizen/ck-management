@@ -482,7 +482,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
           {/* SKU spreadsheet table */}
           {preloadedRows.length > 0 && (
-            <div className="overflow-auto max-h-[70vh]">
+            <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 90 }} />
