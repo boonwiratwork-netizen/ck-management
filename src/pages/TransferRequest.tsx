@@ -151,22 +151,7 @@ export default function TransferRequestPage() {
   const [skuFinderLoading, setSkuFinderLoading] = useState(false);
   const [skuFinderTargetSkuId, setSkuFinderTargetSkuId] = useState<string | null>(null);
 
-  // Scroll-to-highlight after SKU finder selects a result
-  useEffect(() => {
-    if (!skuFinderTargetSkuId) return;
-    const timer = setTimeout(() => {
-      const row = document.querySelector(`tr[data-sku-id="${skuFinderTargetSkuId}"]`);
-      if (row) {
-        row.scrollIntoView({ behavior: "smooth", block: "center" });
-        (row as HTMLElement).style.backgroundColor = "hsl(var(--warning) / 0.2)";
-        setTimeout(() => {
-          (row as HTMLElement).style.backgroundColor = "";
-        }, 1500);
-      }
-      setSkuFinderTargetSkuId(null);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [skuFinderTargetSkuId, sortedTRLines, filteredPrLines]);
+  // Scroll-to-highlight moved below sortedTRLines/filteredPrLines declarations
 
   const branchName = useMemo(() => {
     if (!effectiveBranchId) return "";
