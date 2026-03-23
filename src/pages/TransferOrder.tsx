@@ -856,6 +856,7 @@ export default function TransferOrderPage({
 
         {/* History table */}
         <div className={tableTokens.wrapper}>
+          <div className="overflow-y-auto max-h-[65vh]">
           <table className={tableTokens.base}>
             <colgroup>
               <col style={{ width: 150 }} />
