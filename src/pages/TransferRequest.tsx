@@ -368,6 +368,28 @@ export default function TransferRequestPage() {
       toast.error(result.error);
     } else {
       toast.success(`Transfer Request ${result.trNumber} submitted`);
+
+      // Auto-copy LINE message
+      try {
+        const branch = branches.find((b) => b.id === effectiveBranchId);
+        const brandName = branch?.brandName || "";
+        const requiredDateStr = trHook.requiredDate ? toLocalDateStr(trHook.requiredDate) : "";
+        const orderedLines = trHook.lines.filter((l) => (batchInputs[l.skuId] || 0) > 0);
+        const copyLines = [
+          `📦 [${branchName} — ${brandName}] - สั่งวัตถุดิบ`,
+          `วันส่งสินค้า: ${requiredDateStr}`,
+          ``,
+          `🧾 รายการ:`,
+          ...orderedLines.map(
+            (l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(batchInputs[l.skuId], 0)} แพ็ค`,
+          ),
+          ``,
+          `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
+        ];
+        await navigator.clipboard.writeText(copyLines.join("\n"));
+        toast.success("📋 คัดลอกข้อความ LINE แล้ว — วางได้เลย", { duration: 4000 });
+      } catch {}
+
       setFormOpen(false);
       setBatchInputs({});
     }
