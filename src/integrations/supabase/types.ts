@@ -1633,6 +1633,54 @@ export type Database = {
           },
         ]
       }
+      transfer_order_lot_lines: {
+        Row: {
+          created_at: string | null
+          id: string
+          pack_weight_g: number
+          packs: number
+          production_date: string
+          production_record_id: string | null
+          to_line_id: string
+          total_g: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          pack_weight_g: number
+          packs: number
+          production_date: string
+          production_record_id?: string | null
+          to_line_id: string
+          total_g?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          pack_weight_g?: number
+          packs?: number
+          production_date?: string
+          production_record_id?: string | null
+          to_line_id?: string
+          total_g?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_order_lot_lines_production_record_id_fkey"
+            columns: ["production_record_id"]
+            isOneToOne: false
+            referencedRelation: "production_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_order_lot_lines_to_line_id_fkey"
+            columns: ["to_line_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_order_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transfer_orders: {
         Row: {
           branch_id: string
