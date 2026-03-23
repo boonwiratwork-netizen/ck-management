@@ -447,7 +447,10 @@ export default function TransferOrderPage({
           <p className="text-sm text-muted-foreground">{t("to.pageSubtitle")}</p>
         </div>
         {canEdit && !formState && !standaloneOpen && (
-          <Button onClick={() => setStandaloneOpen(true)} className="h-9">
+          <Button
+            onClick={() => setStandaloneOpen(true)}
+            className="h-9 bg-warning text-warning-foreground hover:bg-warning/90"
+          >
             <Plus className="w-4 h-4 mr-1" /> {t("to.newTO")}
           </Button>
         )}
@@ -498,7 +501,7 @@ export default function TransferOrderPage({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs"
+                        className="h-7 text-xs bg-warning text-warning-foreground hover:bg-warning/90"
                         onClick={() => handleCreateFromTR(tr)}
                       >
                         {t("to.createTO")}
@@ -792,9 +795,7 @@ export default function TransferOrderPage({
         {/* Divider + label */}
         <div className="pt-2">
           <Separator className="mb-3" />
-          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {t("to.history")}
-          </span>
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("to.history")}</span>
         </div>
 
         {/* Filters */}
