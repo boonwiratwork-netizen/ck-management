@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap } from "lucide-react";
+import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap, PackageOpen, X } from "lucide-react";
+import { StatusDot } from "@/components/ui/status-dot";
+import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -641,664 +643,642 @@ export default function BranchReceiptPage({
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
+  const isFormActive = showCKSheet || showExternalSheet;
+
+  // Source label for header strip
+  const formSourceLabel = isCKSupplier
+    ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
+    : selectedSupplier?.name || "";
+
   return (
     <div className="space-y-6">
+      {/* ── 1. PAGE HEADER ── */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-heading font-bold">{t("title.branchReceipt")}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">{t("br.subtitle")}</p>
         </div>
-        {(bothSelected || showCKSheet) && <SaveButton />}
-      </div>
-
-      {/* Pending TO Banner */}
-      {branchId && pendingTOCount > 0 && (
-        <div className="bg-info/10 border border-info/30 rounded-lg px-4 py-3 flex items-center gap-3">
-          <Truck className="w-5 h-5 text-info shrink-0" />
-          <span className="text-sm font-semibold text-info">
-            {t("br.pendingTOBanner").replace("{n}", String(pendingTOCount))}
-          </span>
-        </div>
-      )}
-
-      {/* Header controls */}
-      <div className="flex flex-wrap items-end gap-3">
-        <DatePicker
-          value={receiptDate}
-          onChange={(d) => d && setReceiptDate(d)}
-          defaultToday
-          label={t("br.dateLabel")}
-          required
-          labelPosition="above"
-          align="start"
-        />
-        <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-            {t("br.branchLabel")}
-          </label>
-          <Select
-            value={branchId || "_none"}
-            onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
-            disabled={isStoreManager}
+        {!isFormActive && (
+          <Button
+            className="bg-success hover:bg-success/90 text-success-foreground"
+            onClick={() => {
+              /* no-op: user picks branch+supplier to start */
+            }}
+            disabled={!branchId}
           >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={t("br.selectBranch")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">{t("br.selectBranch")}</SelectItem>
-              {availableBranches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {branchId && (
-          <div className="relative" ref={supplierDropdownRef}>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-              {t("br.supplierLabel")}
-            </label>
-            <button
-              type="button"
-              onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
-              className={cn(
-                "flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors",
-                !supplierId && "text-muted-foreground",
-              )}
-            >
-              <span className="truncate flex items-center gap-1.5">
-                {isCKSupplier ? (
-                  <>
-                    <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-                    Central Kitchen
-                  </>
-                ) : (
-                  selectedSupplier?.name || t("br.selectSupplier")
-                )}
-              </span>
-              <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
-            </button>
-            {supplierDropdownOpen && (
-              <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
-                <div className="p-2 border-b">
-                  <input
-                    type="text"
-                    value={supplierSearch}
-                    onChange={(e) => setSupplierSearch(e.target.value)}
-                    placeholder={t("br.searchSupplier")}
-                    className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
-                    autoFocus
-                  />
-                </div>
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {/* CK option pinned at top */}
-                  {pendingTOCount > 0 && ckMatchesSearch && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between",
-                          supplierId === CK_SUPPLIER_ID && "bg-accent font-medium",
-                        )}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <span className="font-medium">Central Kitchen</span>
-                        </span>
-                        <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
-                          {pendingTOCount} pending
-                        </span>
-                      </button>
-                      <div className="border-b my-1" />
-                    </>
-                  )}
-                  {branchId ? (
-                    <>
-                      {filteredGroupedSuppliers.brand.length > 0 && (
-                        <>
-                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t("br.brandSuppliers")}
-                          </div>
-                          {filteredGroupedSuppliers.brand.map((s) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => handleSupplierChange(s.id)}
-                              className={cn(
-                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center justify-between",
-                                s.id === supplierId && "bg-accent font-medium",
-                              )}
-                            >
-                              <span>{s.name}</span>
-                              {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
-                                  {pendingPRCounts[s.id]} pending
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {filteredGroupedSuppliers.other.length > 0 && (
-                        <>
-                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t("br.otherSuppliers")}
-                          </div>
-                          {filteredGroupedSuppliers.other.map((s) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => handleSupplierChange(s.id)}
-                              className={cn(
-                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center justify-between",
-                                s.id === supplierId && "bg-accent font-medium",
-                              )}
-                            >
-                              <span>{s.name}</span>
-                              {(pendingPRCounts[s.id] || 0) > 0 && (
-                                <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
-                                  {pendingPRCounts[s.id]} pending
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    filteredGroupedSuppliers.brand.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => handleSupplierChange(s.id)}
-                        className={cn(
-                          "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
-                          s.id === supplierId && "bg-accent font-medium",
-                        )}
-                      >
-                        {s.name}
-                      </button>
-                    ))
-                  )}
-                  {filteredGroupedSuppliers.brand.length === 0 &&
-                    filteredGroupedSuppliers.other.length === 0 &&
-                    pendingTOCount === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("br.noSuppliers")}</p>
-                    )}
-                </div>
-              </div>
-            )}
-          </div>
+            <Plus className="w-4 h-4 mr-1" /> New Receipt
+          </Button>
         )}
       </div>
 
-      {/* TO selector when CK supplier selected */}
-      {isCKSupplier && branchId && (
-        <div className="flex items-end gap-3">
+      {/* ── 2. PENDING TO DELIVERIES QUEUE ── */}
+      {branchId && pendingTOCount > 0 && !isFormActive && (
+        <div className="rounded-lg border border-success/30 border-l-4 border-l-success bg-success/[0.06] p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <StatusDot status="green" size="md" />
+            <span className="text-sm font-semibold">
+              {pendingTOCount} Delivery{pendingTOCount !== 1 ? "ies" : ""} Pending
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pendingTOs.map((to) => (
+              <div
+                key={to.id}
+                className="flex items-center justify-between rounded-md border bg-card px-4 py-2.5"
+              >
+                <div className="flex items-center gap-4">
+                  <Truck className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-mono text-sm font-medium">{to.toNumber}</span>
+                  <span className="text-sm text-muted-foreground">{to.deliveryDate}</span>
+                  <span className="text-xs text-muted-foreground">{to.itemCount} items</span>
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={() => {
+                    setSupplierId(CK_SUPPLIER_ID);
+                    setSelectedTOId(to.id);
+                  }}
+                >
+                  Receive
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── HEADER CONTROLS (branch/supplier/date selectors) ── */}
+      {!isFormActive && (
+        <div className="flex flex-wrap items-end gap-3">
+          <DatePicker
+            value={receiptDate}
+            onChange={(d) => d && setReceiptDate(d)}
+            defaultToday
+            label={t("br.dateLabel")}
+            required
+            labelPosition="above"
+            align="start"
+          />
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-              {t("br.toLabel")}
+              {t("br.branchLabel")}
             </label>
-            <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
-              <SelectTrigger className="w-[320px]">
-                <SelectValue placeholder={t("br.selectTO")} />
+            <Select
+              value={branchId || "_none"}
+              onValueChange={(v) => handleBranchChange(v === "_none" ? "" : v)}
+              disabled={isStoreManager}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder={t("br.selectBranch")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">{t("br.selectTO")}</SelectItem>
-                {pendingTOs.map((to) => (
-                  <SelectItem key={to.id} value={to.id}>
-                    {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
+                <SelectItem value="_none">{t("br.selectBranch")}</SelectItem>
+                {availableBranches.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.branchName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
-      )}
-
-      {/* Row count info */}
-      {bothSelected && !isCKSupplier && selectedBranch && selectedSupplier && (
-        <p className="text-sm text-muted-foreground">
-          {t("br.rowCount")
-            .replace("{n}", String(preloadedRows.length))
-            .replace("{branch}", selectedBranch.branchName)
-            .replace("{supplier}", selectedSupplier.name)}
-        </p>
-      )}
-
-      {/* Keyboard hints */}
-      {(showExternalSheet || showCKSheet) && <div className="kbd-hint">{t("br.keyboardHint")}</div>}
-
-      {/* CK Receipt sheet from TO */}
-      {showCKSheet && (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="px-4 py-3 border-b bg-primary/5">
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Truck className="w-4 h-4 text-primary" />
-              {t("br.ckReceivingTitle").replace(
-                "{toNumber}",
-                pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || "",
-              )}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">{t("br.ckAdjustHint")}</p>
-          </div>
-          <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm table-fixed">
-              <colgroup>
-                <col style={{ width: 90 }} />
-                <col style={{ width: 200 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 60 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 120 }} />
-              </colgroup>
-              <thead className="sticky-thead">
-                <tr className="bg-table-header border-b">
-                  <th className={thClass}>{t("col.skuCode")}</th>
-                  <th className={thClass}>{t("col.skuName")}</th>
-                  <th className={`${thClass} text-right`}>{t("br.colPlanned")}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
-                    {t("br.colReceived")}
-                  </th>
-                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
-                  <th className={`${thClass} text-right`}>{t("br.colCostUnit")}</th>
-                  <th className={`${thClass} text-right`}>{t("br.colLineValue")}</th>
-                  <th className={thClass}>{t("col.note")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ckLines.map((line) => {
-                  const sku = skuMap[line.skuId];
-                  const lineValue = line.receivedQty * line.unitCost;
-                  const hasQty = line.receivedQty > 0;
-                  const isShort = line.receivedQty < line.plannedQty && line.receivedQty > 0;
-                  return (
-                    <tr
-                      key={line.toLineId}
-                      className={cn(
-                        "border-b last:border-0 transition-colors",
-                        hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
-                      )}
-                    >
-                      <td className={`${tdReadOnly} font-mono text-xs`}>{sku?.skuId || "—"}</td>
-                      <td className={tdReadOnly}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="block truncate" title={sku?.name}>
-                                {sku?.name || "—"}
-                              </span>
-                            </TooltipTrigger>
-                            {sku?.name && (
-                              <TooltipContent side="top">
-                                <p>{sku.name}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {line.plannedQty.toLocaleString()}
-                      </td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          defaultValue={line.receivedQty || ""}
-                          key={`ck-qty-${line.toLineId}-${savedCount}`}
-                          onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
-                          onFocus={(e) => e.target.select()}
+          {branchId && (
+            <div className="relative" ref={supplierDropdownRef}>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                {t("br.supplierLabel")}
+              </label>
+              <button
+                type="button"
+                onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
+                className={cn(
+                  "flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors",
+                  !supplierId && "text-muted-foreground",
+                )}
+              >
+                <span className="truncate flex items-center gap-1.5">
+                  {isCKSupplier ? (
+                    <>
+                      <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                      Central Kitchen
+                    </>
+                  ) : (
+                    selectedSupplier?.name || t("br.selectSupplier")
+                  )}
+                </span>
+                <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
+              </button>
+              {supplierDropdownOpen && (
+                <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
+                  <div className="p-2 border-b">
+                    <input
+                      type="text"
+                      value={supplierSearch}
+                      onChange={(e) => setSupplierSearch(e.target.value)}
+                      placeholder={t("br.searchSupplier")}
+                      className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {pendingTOCount > 0 && ckMatchesSearch && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
                           className={cn(
-                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty
-                              ? isShort
-                                ? "border-warning font-bold text-warning"
-                                : "border-success font-bold text-success"
-                              : "border-primary/30",
+                            "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                            supplierId === CK_SUPPLIER_ID && "bg-accent font-medium",
                           )}
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className={`${tdReadOnly} text-center text-muted-foreground text-xs`}>
-                        {sku?.usageUom || line.uom}
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {line.unitCost > 0 ? line.unitCost.toFixed(4) : "—"}
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono`}>
-                        {lineValue > 0
-                          ? lineValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                          : "—"}
-                      </td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="text"
-                          defaultValue={line.note}
-                          key={`ck-note-${line.toLineId}-${savedCount}`}
-                          tabIndex={-1}
-                          onBlur={(e) => updateCkLine(line.toLineId, { note: e.target.value })}
-                          className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                          placeholder="Note"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t bg-muted/30">
-                  <td colSpan={6} className={`${tdReadOnly} text-right font-semibold`}>
-                    {t("br.totalValue")}
-                  </td>
-                  <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
-                    ฿
-                    {ckLines
-                      .reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                      .toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Pre-loaded sheet (external supplier) */}
-      {showExternalSheet && (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-auto max-h-[70vh]">
-            <table className="w-full text-sm table-fixed">
-              <colgroup>
-                <col style={{ width: 90 }} />
-                <col style={{ width: 36 }} />
-                <col style={{ width: 200 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 50 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 70 }} />
-                <col style={{ width: 70 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 100 }} />
-              </colgroup>
-              <thead className="sticky-thead">
-                <tr className="bg-table-header border-b">
-                  <th className={thClass}>{t("col.date")}</th>
-                  <th className={`${thClass} text-center`}>{t("col.week")}</th>
-                  <th className={thClass}>{t("col.sku")}</th>
-                  <th className={thClass}>{t("col.supplier")}</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
-                    {t("col.qty")}
-                  </th>
-                  <th className={`${thClass} text-center`}>{t("col.uom")}</th>
-                  <th className={`${thClass} text-right`}>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-muted-foreground">
-                            {t("col.actualTotal")}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span className="font-medium">Central Kitchen</span>
                           </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>{t("col.totalPaid")}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </th>
-                  <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
-                  <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
-                  <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
-                  <th className={`${thClass} text-right`}>{t("col.variance")}</th>
-                  <th className={thClass}>{t("col.note")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preloadedRows.map((row) => {
-                  const edit = getRowEdit(row.skuId);
-                  const stdTotal = row.stdUnitPrice * edit.qty;
-                  const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
-                  const unitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
-                  const variance = actualTotal - stdTotal;
-                  const hasQty = edit.qty > 0;
-                  const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
-
-                  return (
-                    <tr
-                      key={row.skuId}
-                      className={cn(
-                        "border-b last:border-0 transition-colors",
-                        hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
-                      )}
-                    >
-                      <td className={`${tdReadOnly} text-muted-foreground`}>{dateStr}</td>
-                      <td className={`${tdReadOnly} text-center font-mono text-muted-foreground`}>{weekNum}</td>
-                      <td className={tdReadOnly}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="truncate">
-                                <span
-                                  className={cn(
-                                    "font-mono text-xs",
-                                    hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground",
-                                  )}
-                                >
-                                  {row.sku.skuId}
-                                </span>
-                                <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>
-                                  {row.sku.name}
-                                </span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="font-medium">
-                                {row.sku.skuId} — {row.sku.name}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </td>
-                      <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          defaultValue={edit.qty || ""}
-                          key={`qty-${row.skuId}-${savedCount}`}
-                          onBlur={(e) => {
-                            const val = Number(e.target.value) || 0;
-                            updateRowEdit(row.skuId, {
-                              qty: val,
-                              ...(!rowEdits[row.skuId]?.actualManuallyEdited
-                                ? { actualTotal: row.stdUnitPrice * val }
-                                : {}),
-                            });
-                          }}
-                          onFocus={(e) => e.target.select()}
+                          <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
+                            {pendingTOCount} pending
+                          </span>
+                        </button>
+                        <div className="border-b my-1" />
+                      </>
+                    )}
+                    {branchId ? (
+                      <>
+                        {filteredGroupedSuppliers.brand.length > 0 && (
+                          <>
+                            <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              {t("br.brandSuppliers")}
+                            </div>
+                            {filteredGroupedSuppliers.brand.map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => handleSupplierChange(s.id)}
+                                className={cn(
+                                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                                  s.id === supplierId && "bg-accent font-medium",
+                                )}
+                              >
+                                <span>{s.name}</span>
+                                {(pendingPRCounts[s.id] || 0) > 0 && (
+                                  <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                    {pendingPRCounts[s.id]} pending
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {filteredGroupedSuppliers.other.length > 0 && (
+                          <>
+                            <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              {t("br.otherSuppliers")}
+                            </div>
+                            {filteredGroupedSuppliers.other.map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => handleSupplierChange(s.id)}
+                                className={cn(
+                                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                                  s.id === supplierId && "bg-accent font-medium",
+                                )}
+                              >
+                                <span>{s.name}</span>
+                                {(pendingPRCounts[s.id] || 0) > 0 && (
+                                  <span className="bg-warning/15 text-warning text-xs rounded-full px-1.5 py-0.5 font-medium">
+                                    {pendingPRCounts[s.id]} pending
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      filteredGroupedSuppliers.brand.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleSupplierChange(s.id)}
                           className={cn(
-                            "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                            hasQty ? "border-success font-bold text-success" : "border-primary/30",
+                            "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                            s.id === supplierId && "bg-accent font-medium",
                           )}
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className={`${tdReadOnly} text-center text-muted-foreground`}>{row.sku.purchaseUom}</td>
-                      <td className="px-1 py-1">
-                        <div className="flex items-center gap-1">
+                        >
+                          {s.name}
+                        </button>
+                      ))
+                    )}
+                    {filteredGroupedSuppliers.brand.length === 0 &&
+                      filteredGroupedSuppliers.other.length === 0 &&
+                      pendingTOCount === 0 && (
+                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("br.noSuppliers")}</p>
+                      )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {/* TO selector when CK supplier selected */}
+          {isCKSupplier && branchId && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                {t("br.toLabel")}
+              </label>
+              <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
+                <SelectTrigger className="w-[320px]">
+                  <SelectValue placeholder={t("br.selectTO")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">{t("br.selectTO")}</SelectItem>
+                  {pendingTOs.map((to) => (
+                    <SelectItem key={to.id} value={to.id}>
+                      {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 3. ACTIVE RECEIPT FORM ── */}
+      {isFormActive && (
+        <div className="rounded-lg border-2 border-primary/20 bg-card overflow-hidden">
+          {/* Header strip */}
+          <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">
+                BR-{dateStr}
+              </span>
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
+                {formSourceLabel}
+              </span>
+              {selectedBranch && (
+                <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSupplierId("");
+                  setSelectedTOId("");
+                  setCkLines([]);
+                  setRowEdits({});
+                  setAdHocRows([]);
+                  setSavedCount(null);
+                }}
+              >
+                <X className="w-4 h-4 mr-1" /> Cancel
+              </Button>
+              <Button variant="outline" size="sm" disabled={savableCount === 0}>
+                <Save className="w-4 h-4 mr-1" /> Save Draft
+              </Button>
+              <Button
+                size="sm"
+                className="bg-success hover:bg-success/90 text-success-foreground"
+                onClick={handleSaveAll}
+                disabled={savableCount === 0}
+              >
+                <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+              </Button>
+            </div>
+          </div>
+
+          {/* Meta bar */}
+          <div className="flex items-center gap-6 px-5 py-2.5 border-b bg-muted/30 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Date:</span>
+              <span className="font-medium">{dateStr}</span>
+              <span className="text-xs text-muted-foreground ml-1">W{weekNum}</span>
+            </div>
+            {isCKSupplier && selectedTOId && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">TO Ref:</span>
+                <span className="font-mono text-xs font-medium">
+                  {pendingTOs.find((to) => to.id === selectedTOId)?.toNumber}
+                </span>
+              </div>
+            )}
+            {!isCKSupplier && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Items:</span>
+                <span className="font-medium">{preloadedRows.length} SKUs</span>
+              </div>
+            )}
+          </div>
+
+          {/* CK Receipt sheet from TO */}
+          {showCKSheet && (
+            <div className="overflow-auto max-h-[70vh]">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 60 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 120 }} />
+                </colgroup>
+                <thead className="sticky-thead">
+                  <tr className="bg-table-header border-b">
+                    <th className={thClass}>{t("col.skuCode")}</th>
+                    <th className={thClass}>{t("col.skuName")}</th>
+                    <th className={`${thClass} text-right`}>{t("br.colPlanned")}</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                      {t("br.colReceived")}
+                    </th>
+                    <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                    <th className={`${thClass} text-right`}>{t("br.colCostUnit")}</th>
+                    <th className={`${thClass} text-right`}>{t("br.colLineValue")}</th>
+                    <th className={thClass}>{t("col.note")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ckLines.map((line) => {
+                    const sku = skuMap[line.skuId];
+                    const lineValue = line.receivedQty * line.unitCost;
+                    const diff = line.receivedQty - line.plannedQty;
+                    const hasDiff = diff !== 0;
+                    return (
+                      <tr
+                        key={line.toLineId}
+                        className={cn(
+                          "border-b last:border-0 transition-colors",
+                          line.receivedQty > 0
+                            ? "bg-success/5 border-l-[3px] border-l-success"
+                            : "opacity-40",
+                        )}
+                      >
+                        <td className={`${tdReadOnly} font-mono`}>{sku?.skuId || "—"}</td>
+                        <td className={`${tdReadOnly} truncate`} title={sku?.name}>
+                          {sku?.name || "—"}
+                        </td>
+                        <td className={`${tdReadOnly} text-right font-mono`}>{line.plannedQty}</td>
+                        <td className="px-1 py-1">
                           <input
                             type="number"
                             min={0}
                             step="any"
-                            defaultValue={actualTotal || ""}
-                            key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
-                            tabIndex={-1}
-                            onBlur={(e) => {
-                              const val = Number(e.target.value) || 0;
-                              updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
-                            }}
+                            defaultValue={line.receivedQty || ""}
+                            key={`ck-recv-${line.toLineId}-${savedCount}`}
+                            onBlur={(e) =>
+                              updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })
+                            }
                             onFocus={(e) => e.target.select()}
                             className={cn(
-                              "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
-                              hasQty && !actualMatchesStd
-                                ? "bg-warning/10 border-warning/40 focus:border-warning"
-                                : "bg-warning/5 border-warning/20 focus:border-primary",
+                              "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
+                              line.receivedQty > 0 ? "border-success font-bold text-success" : "border-primary/30",
                             )}
-                            placeholder="0.00"
+                            placeholder="0"
                           />
-                          {hasQty && actualMatchesStd && (
-                            <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
-                              = STD
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
-                      </td>
-                      <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                        {stdTotal > 0
-                          ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : "—"}
-                      </td>
-                      <td
-                        className={cn(
-                          `${tdReadOnly} text-right font-mono`,
-                          hasQty && variance !== 0 ? "font-bold" : "font-semibold",
-                          variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
-                        )}
-                      >
-                        {hasQty ? (
-                          <>
-                            {variance > 0 ? "+" : ""}
-                            {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="text"
-                          defaultValue={edit.note}
-                          key={`note-${row.skuId}-${savedCount}`}
-                          tabIndex={-1}
-                          onBlur={(e) => updateRowEdit(row.skuId, { note: e.target.value })}
-                          className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                          placeholder="Note"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                        </td>
+                        <td className={`${tdReadOnly} text-center text-muted-foreground`}>
+                          {sku?.usageUom || line.uom}
+                        </td>
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                          {line.unitCost.toFixed(2)}
+                        </td>
+                        <td className={`${tdReadOnly} text-right font-mono`}>
+                          {lineValue > 0
+                            ? lineValue.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              })
+                            : "—"}
+                        </td>
+                        <td className="px-1 py-1">
+                          <input
+                            type="text"
+                            defaultValue={line.note}
+                            key={`ck-note-${line.toLineId}-${savedCount}`}
+                            tabIndex={-1}
+                            onBlur={(e) => updateCkLine(line.toLineId, { note: e.target.value })}
+                            className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                            placeholder="Note"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-muted/50 font-semibold border-t">
+                    <td colSpan={3} className={`${tdReadOnly} text-right font-medium text-muted-foreground`}>
+                      Total
+                    </td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>
+                      {ckLines.reduce((s, l) => s + l.receivedQty, 0).toLocaleString()}
+                    </td>
+                    <td />
+                    <td />
+                    <td className={`${tdReadOnly} text-right font-mono`}>
+                      ฿
+                      {ckLines
+                        .reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                        .toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
 
-      {/* Ad-hoc rows (external supplier only) */}
-      {bothSelected && !isCKSupplier && (
-        <div className="space-y-2">
-          {adHocRows.length > 0 && (
+          {/* External supplier sheet */}
+          {showExternalSheet && (
             <>
-              <p className="text-xs font-medium text-muted-foreground">Ad-hoc items (not in active menus)</p>
-              <div className="rounded-lg border bg-card overflow-hidden">
+              <div className="overflow-auto max-h-[70vh]">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
-                    <col style={{ width: 240 }} />
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 36 }} />
+                    <col style={{ width: 200 }} />
+                    <col style={{ width: 120 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 50 }} />
                     <col style={{ width: 90 }} />
+                    <col style={{ width: 70 }} />
+                    <col style={{ width: 70 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 80 }} />
                     <col style={{ width: 100 }} />
-                    <col style={{ width: 50 }} />
                   </colgroup>
-                  <thead>
+                  <thead className="sticky-thead">
                     <tr className="bg-table-header border-b">
+                      <th className={thClass}>{t("col.date")}</th>
+                      <th className={`${thClass} text-center`}>{t("col.week")}</th>
                       <th className={thClass}>{t("col.sku")}</th>
-                      <th className={`${thClass} text-right`}>{t("col.qty")}</th>
+                      <th className={thClass}>{t("col.supplier")}</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                        {t("col.qty")}
+                      </th>
                       <th className={`${thClass} text-center`}>{t("col.uom")}</th>
-                      <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                      <th className={`${thClass} text-right`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help border-b border-dashed border-muted-foreground">
+                                {t("col.actualTotal")}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p>{t("col.totalPaid")}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </th>
+                      <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.variance")}</th>
                       <th className={thClass}>{t("col.note")}</th>
-                      <th className={`${thClass} text-center`}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {adHocRows.map((row) => {
-                      const sku = skuMap[row.skuId];
+                    {preloadedRows.map((row) => {
+                      const edit = getRowEdit(row.skuId);
+                      const stdTotal = row.stdUnitPrice * edit.qty;
+                      const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
+                      const unitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
+                      const variance = actualTotal - stdTotal;
+                      const hasQty = edit.qty > 0;
+                      const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
+
                       return (
-                        <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
-                          <td className="px-1 py-1">
-                            <SearchableSelect
-                              value={row.skuId}
-                              onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
-                              options={rmSkus.map((s) => ({
-                                value: s.id,
-                                label: `${s.skuId} — ${s.name}`,
-                                sublabel: s.skuId,
-                              }))}
-                              placeholder="Select SKU"
-                              triggerClassName="h-8 text-xs truncate"
-                            />
+                        <tr
+                          key={row.skuId}
+                          className={cn(
+                            "border-b last:border-0 transition-colors",
+                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
+                          )}
+                        >
+                          <td className={`${tdReadOnly} text-muted-foreground`}>{dateStr}</td>
+                          <td className={`${tdReadOnly} text-center font-mono text-muted-foreground`}>{weekNum}</td>
+                          <td className={tdReadOnly}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="truncate">
+                                    <span
+                                      className={cn(
+                                        "font-mono text-xs",
+                                        hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground",
+                                      )}
+                                    >
+                                      {row.sku.skuId}
+                                    </span>
+                                    <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>
+                                      {row.sku.name}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="font-medium">
+                                    {row.sku.skuId} — {row.sku.name}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </td>
+                          <td className={`${tdReadOnly} text-muted-foreground truncate`}>{selectedSupplier?.name}</td>
                           <td className="px-1 py-1">
                             <input
                               type="number"
                               min={0}
                               step="any"
-                              defaultValue={row.qty || ""}
-                              key={`adhoc-qty-${row.tempId}`}
-                              onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                              defaultValue={edit.qty || ""}
+                              key={`qty-${row.skuId}-${savedCount}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                updateRowEdit(row.skuId, {
+                                  qty: val,
+                                  ...(!rowEdits[row.skuId]?.actualManuallyEdited
+                                    ? { actualTotal: row.stdUnitPrice * val }
+                                    : {}),
+                                });
+                              }}
                               onFocus={(e) => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
+                              className={cn(
+                                "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
+                                hasQty ? "border-success font-bold text-success" : "border-primary/30",
+                              )}
                               placeholder="0"
                             />
                           </td>
-                          <td className={`${tdReadOnly} text-center text-muted-foreground`}>
-                            {sku?.purchaseUom || "—"}
-                          </td>
+                          <td className={`${tdReadOnly} text-center text-muted-foreground`}>{row.sku.purchaseUom}</td>
                           <td className="px-1 py-1">
-                            <input
-                              type="number"
-                              min={0}
-                              step="any"
-                              defaultValue={row.actualTotal || ""}
-                              key={`adhoc-actual-${row.tempId}`}
-                              onBlur={(e) => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
-                              onFocus={(e) => e.target.select()}
-                              className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
-                              placeholder="0.00"
-                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={actualTotal || ""}
+                                key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
+                                tabIndex={-1}
+                                onBlur={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
+                                  hasQty && !actualMatchesStd
+                                    ? "bg-warning/10 border-warning/40 focus:border-warning"
+                                    : "bg-warning/5 border-warning/20 focus:border-primary",
+                                )}
+                                placeholder="0.00"
+                              />
+                              {hasQty && actualMatchesStd && (
+                                <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                                  = STD
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                            {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                          </td>
+                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                            {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                          </td>
+                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                            {stdTotal > 0
+                              ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                              : "—"}
+                          </td>
+                          <td
+                            className={cn(
+                              `${tdReadOnly} text-right font-mono`,
+                              hasQty && variance !== 0 ? "font-bold" : "font-semibold",
+                              variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
+                            )}
+                          >
+                            {hasQty ? (
+                              <>
+                                {variance > 0 ? "+" : ""}
+                                {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                           <td className="px-1 py-1">
                             <input
                               type="text"
-                              defaultValue={row.note}
-                              key={`adhoc-note-${row.tempId}`}
-                              onBlur={(e) => updateAdHoc(row.tempId, { note: e.target.value })}
+                              defaultValue={edit.note}
+                              key={`note-${row.skuId}-${savedCount}`}
+                              tabIndex={-1}
+                              onBlur={(e) => updateRowEdit(row.skuId, { note: e.target.value })}
                               className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
                               placeholder="Note"
                             />
-                          </td>
-                          <td className="px-1 py-1 text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => deleteAdHoc(row.tempId)}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
                           </td>
                         </tr>
                       );
@@ -1306,28 +1286,175 @@ export default function BranchReceiptPage({
                   </tbody>
                 </table>
               </div>
+
+              {/* Ad-hoc rows */}
+              <div className="px-4 py-3 space-y-2 border-t">
+                {adHocRows.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-muted-foreground">Ad-hoc items (not in active menus)</p>
+                    <div className="rounded-lg border bg-card overflow-hidden">
+                      <table className="w-full text-sm table-fixed">
+                        <colgroup>
+                          <col style={{ width: 240 }} />
+                          <col style={{ width: 80 }} />
+                          <col style={{ width: 50 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 100 }} />
+                          <col style={{ width: 50 }} />
+                        </colgroup>
+                        <thead>
+                          <tr className="bg-table-header border-b">
+                            <th className={thClass}>{t("col.sku")}</th>
+                            <th className={`${thClass} text-right`}>{t("col.qty")}</th>
+                            <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                            <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                            <th className={thClass}>{t("col.note")}</th>
+                            <th className={`${thClass} text-center`}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adHocRows.map((row) => {
+                            const sku = skuMap[row.skuId];
+                            return (
+                              <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
+                                <td className="px-1 py-1">
+                                  <SearchableSelect
+                                    value={row.skuId}
+                                    onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                                    options={rmSkus.map((s) => ({
+                                      value: s.id,
+                                      label: `${s.skuId} — ${s.name}`,
+                                      sublabel: s.skuId,
+                                    }))}
+                                    placeholder="Select SKU"
+                                    triggerClassName="h-8 text-xs truncate"
+                                  />
+                                </td>
+                                <td className="px-1 py-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    defaultValue={row.qty || ""}
+                                    key={`adhoc-qty-${row.tempId}`}
+                                    onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                    onFocus={(e) => e.target.select()}
+                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td className={`${tdReadOnly} text-center text-muted-foreground`}>
+                                  {sku?.purchaseUom || "—"}
+                                </td>
+                                <td className="px-1 py-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    defaultValue={row.actualTotal || ""}
+                                    key={`adhoc-actual-${row.tempId}`}
+                                    onBlur={(e) => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
+                                    onFocus={(e) => e.target.select()}
+                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                                <td className="px-1 py-1">
+                                  <input
+                                    type="text"
+                                    defaultValue={row.note}
+                                    key={`adhoc-note-${row.tempId}`}
+                                    onBlur={(e) => updateAdHoc(row.tempId, { note: e.target.value })}
+                                    className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                                    placeholder="Note"
+                                  />
+                                </td>
+                                <td className="px-1 py-1 text-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteAdHoc(row.tempId)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAddAdHoc}
+                  className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
+                </button>
+              </div>
             </>
           )}
-          <button
-            type="button"
-            onClick={handleAddAdHoc}
-            className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
-          >
-            <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
-          </button>
+
+          {/* Footer bar */}
+          <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+              <span className="text-lg font-heading font-bold">
+                ฿
+                {(isCKSupplier
+                  ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                  : preloadedRows.reduce((s, row) => {
+                      const edit = getRowEdit(row.skuId);
+                      const stdTotal = row.stdUnitPrice * edit.qty;
+                      return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
+                    }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {savedCount !== null && (
+                <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
+                  <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+                </span>
+              )}
+              <Button
+                className="bg-success hover:bg-success/90 text-success-foreground"
+                onClick={handleSaveAll}
+                disabled={savableCount === 0}
+              >
+                <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Bottom Save */}
-      {(showExternalSheet || showCKSheet) && savableCount > 0 && (
-        <div className="flex justify-end">
-          <SaveButton />
+      {/* ── 4. EMPTY STATE ── */}
+      {!isFormActive && branchId && pendingTOCount === 0 && (
+        <div className="rounded-lg border bg-card py-16 flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
+            <PackageOpen className="w-7 h-7 text-success" />
+          </div>
+          <div className="text-center">
+            <p className="font-medium text-foreground">No active receipt</p>
+            <p className="text-sm text-muted-foreground mt-1">Select a supplier above to start receiving</p>
+          </div>
         </div>
       )}
 
-      {/* Receipt History */}
-      <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-heading font-semibold">Receipt History</h3>
+      {/* Keyboard hints */}
+      {isFormActive && <div className="kbd-hint">{t("br.keyboardHint")}</div>}
+
+      {/* ── 5. RECEIPT HISTORY ── */}
+      <div className="pt-2">
+        <Separator className="mb-3" />
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Receipt History</span>
+      </div>
+
+      <div className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <DatePicker
             value={historyDateFrom}
@@ -1369,18 +1496,18 @@ export default function BranchReceiptPage({
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 110 }} /> {/* DATE */}
-                <col style={{ width: 90 }} /> {/* SKU ID */}
-                <col /> {/* SKU NAME — auto/flex */}
-                <col style={{ width: 140 }} /> {/* SUPPLIER */}
-                <col style={{ width: 140 }} /> {/* TO REF */}
-                <col style={{ width: 70 }} /> {/* QTY */}
-                <col style={{ width: 70 }} /> {/* UOM */}
-                <col style={{ width: 100 }} /> {/* ACTUAL ฿ */}
-                <col style={{ width: 100 }} /> {/* STD ฿ */}
-                <col style={{ width: 110 }} /> {/* VARIANCE */}
-                {isManagement && <col style={{ width: 110 }} />} {/* BRANCH */}
-                {isManagement && <col style={{ width: 50 }} />} {/* DELETE */}
+                <col style={{ width: 110 }} />
+                <col style={{ width: 90 }} />
+                <col />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 110 }} />
+                {isManagement && <col style={{ width: 110 }} />}
+                {isManagement && <col style={{ width: 50 }} />}
               </colgroup>
               <thead className="sticky-thead">
                 <tr className="bg-table-header border-b">
