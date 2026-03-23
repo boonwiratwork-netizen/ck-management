@@ -789,6 +789,7 @@ export default function TransferRequestPage() {
                           key={`${r.skuId}-${r.supplierId}-${i}`}
                           type="button"
                           onClick={() => {
+                            setSkuFinderTargetSkuId(r.skuId);
                             handleSupplierChange(r.supplierId);
                           }}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-3 border-b last:border-0"
