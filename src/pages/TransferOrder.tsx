@@ -515,7 +515,98 @@ export default function TransferOrderPage({
     [formState?.lines],
   );
 
-  const hasLinesWithQty = useMemo(() => formState?.lines.some((l) => l.actualQty > 0) ?? false, [formState?.lines]);
+  const hasLinesWithQty = useMemo(() => {
+    if (!formState) return false;
+    return formState.lines.some((l) => {
+      const apw = avgPackWeightMap[l.skuId] || 0;
+      if (apw === 0) return l.actualQty > 0;
+      return l.actualQty > 0;
+    });
+  }, [formState?.lines, avgPackWeightMap]);
+
+  // Lot line helpers
+  const handleToggleExpand = useCallback((lineId: string, skuId: string) => {
+    setExpandedLines((prev) => {
+      const next = { ...prev, [lineId]: !prev[lineId] };
+      // First expansion: auto-add oldest prod record if no lots exist
+      if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
+        const records = prodRecordsMap[skuId];
+        if (records && records.length > 0) {
+          const oldest = records[0];
+          const pwg = oldest.batchesProduced > 0 ? oldest.actualOutputG / oldest.batchesProduced : 0;
+          setLotLines((p) => ({
+            ...p,
+            [lineId]: [{
+              productionRecordId: oldest.id,
+              productionDate: oldest.productionDate,
+              packs: 0,
+              packWeightG: pwg,
+            }],
+          }));
+        }
+      }
+      return next;
+    });
+  }, [lotLines, prodRecordsMap]);
+
+  const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
+    if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
+    if (lot.id) {
+      // Update existing
+      await supabase.from("transfer_order_lot_lines").update({
+        production_record_id: lot.productionRecordId || null,
+        production_date: lot.productionDate,
+        packs: lot.packs,
+        pack_weight_g: lot.packWeightG,
+      }).eq("id", lot.id);
+    } else {
+      // Insert new
+      const { data } = await supabase.from("transfer_order_lot_lines").insert({
+        to_line_id: toLineId,
+        production_record_id: lot.productionRecordId || null,
+        production_date: lot.productionDate,
+        packs: lot.packs,
+        pack_weight_g: lot.packWeightG,
+      }).select("id").single();
+      if (data) {
+        setLotLines((prev) => {
+          const arr = [...(prev[toLineId] || [])];
+          arr[idx] = { ...arr[idx], id: data.id };
+          return { ...prev, [toLineId]: arr };
+        });
+      }
+    }
+  }, []);
+
+  const handleDeleteLotLine = useCallback(async (toLineId: string, idx: number) => {
+    const lot = lotLines[toLineId]?.[idx];
+    if (lot?.id) {
+      await supabase.from("transfer_order_lot_lines").delete().eq("id", lot.id);
+    }
+    setLotLines((prev) => {
+      const arr = [...(prev[toLineId] || [])];
+      arr.splice(idx, 1);
+      return { ...prev, [toLineId]: arr };
+    });
+  }, [lotLines]);
+
+  const handleAddLotLine = useCallback((toLineId: string, skuId: string) => {
+    const records = prodRecordsMap[skuId];
+    const first = records?.[0];
+    const pwg = first && first.batchesProduced > 0 ? first.actualOutputG / first.batchesProduced : 0;
+    setLotLines((prev) => ({
+      ...prev,
+      [toLineId]: [
+        ...(prev[toLineId] || []),
+        {
+          productionRecordId: first?.id || "",
+          productionDate: first?.productionDate || toLocalDateStr(new Date()),
+          packs: 0,
+          packWeightG: pwg,
+        },
+      ],
+    }));
+  }, [prodRecordsMap]);
 
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
