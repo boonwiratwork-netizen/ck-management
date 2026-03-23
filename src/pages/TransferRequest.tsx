@@ -1251,6 +1251,7 @@ export default function TransferRequestPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
