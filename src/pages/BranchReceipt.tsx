@@ -1094,7 +1094,7 @@ export default function BranchReceiptPage({
           {/* External supplier sheet */}
           {showExternalSheet && (
             <>
-              <div className="overflow-auto max-h-[70vh]">
+              <div className="overflow-y-auto max-h-[65vh]">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col style={{ width: 90 }} />
