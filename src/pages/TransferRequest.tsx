@@ -685,6 +685,100 @@ export default function TransferRequestPage() {
               </div>
             )}
 
+            {/* SKU Finder — search by name */}
+            {effectiveBranchId && !skuFinderOpen && (
+              <div className="self-end">
+                <button
+                  type="button"
+                  onClick={() => setSkuFinderOpen(true)}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
+                >
+                  Can't find SKU? Search by name
+                </button>
+              </div>
+            )}
+            {effectiveBranchId && skuFinderOpen && (
+              <div className="self-end relative">
+                <div className="flex items-center gap-1.5">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={skuFinderQuery}
+                      onChange={async (e) => {
+                        const q = e.target.value;
+                        setSkuFinderQuery(q);
+                        if (q.length < 2) {
+                          setSkuFinderResults([]);
+                          return;
+                        }
+                        setSkuFinderLoading(true);
+                        const { data } = await supabase
+                          .from("prices")
+                          .select("sku_id, supplier_id, skus!inner(sku_id, name), suppliers!inner(name)")
+                          .eq("is_active", true)
+                          .or(`name.ilike.%${q}%,sku_id.ilike.%${q}%`, { referencedTable: "skus" });
+                        const results = (data || []).map((row: any) => ({
+                          skuId: row.sku_id,
+                          skuCode: row.skus?.sku_id || "",
+                          skuName: row.skus?.name || "",
+                          supplierId: row.supplier_id,
+                          supplierName: row.suppliers?.name || "",
+                        }));
+                        const seen = new Set<string>();
+                        const unique = results.filter((r: any) => {
+                          const key = `${r.skuId}-${r.supplierId}`;
+                          if (seen.has(key)) return false;
+                          seen.add(key);
+                          return true;
+                        });
+                        setSkuFinderResults(unique.slice(0, 15));
+                        setSkuFinderLoading(false);
+                      }}
+                      placeholder="Type SKU code or name..."
+                      className="w-[220px] h-8 pl-7 pr-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSkuFinderOpen(false);
+                      setSkuFinderQuery("");
+                      setSkuFinderResults([]);
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {skuFinderQuery.length >= 2 && (
+                  <div className="absolute z-50 top-full mt-1 w-[360px] bg-popover border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {skuFinderLoading ? (
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">Searching...</p>
+                    ) : skuFinderResults.length === 0 ? (
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">No SKUs found for this branch</p>
+                    ) : (
+                      skuFinderResults.map((r, i) => (
+                        <button
+                          key={`${r.skuId}-${r.supplierId}-${i}`}
+                          type="button"
+                          onClick={() => {
+                            handleSupplierChange(r.supplierId);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-3 border-b last:border-0"
+                        >
+                          <span className="font-mono text-xs text-muted-foreground shrink-0">{r.skuCode}</span>
+                          <span className="truncate flex-1">{r.skuName}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">{r.supplierName}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <DatePicker
               value={isCKSelected ? trHook.requiredDate : requiredDate}
               onChange={(d) => {
