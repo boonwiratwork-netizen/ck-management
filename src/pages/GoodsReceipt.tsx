@@ -498,7 +498,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <col style={{ width: 80 }} />
                   <col style={{ width: 100 }} />
                 </colgroup>
-                <thead className="sticky-thead">
+                <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
                     <th className={thClass}>{t("col.date")}</th>
                     <th className={`${thClass} text-center`}>{t("col.week")}</th>
