@@ -514,6 +514,7 @@ export default function BranchReceiptPage({
       setSavedCount(count);
       setRowEdits({});
       setAdHocRows([]);
+      setSupplierId("");
       setTimeout(() => setSavedCount(null), 4000);
     }
   }, [
