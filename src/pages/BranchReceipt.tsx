@@ -428,23 +428,27 @@ export default function BranchReceiptPage({
         }
 
         const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
-        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
 
-        // Update TR status if linked
-        if (selectedTO) {
-          const { data: toData } = await supabase
-            .from("transfer_orders")
-            .select("tr_id")
-            .eq("id", selectedTOId)
-            .single();
-          if (toData?.tr_id) {
-            await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
+        // Run TO status update and TR status update in parallel
+        const toStatusPromise = supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
+        const trStatusPromise = (async () => {
+          if (selectedTO) {
+            const { data: toData } = await supabase
+              .from("transfer_orders")
+              .select("tr_id")
+              .eq("id", selectedTOId)
+              .single();
+            if (toData?.tr_id) {
+              await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
+            }
           }
-        }
+        })();
+        await Promise.all([toStatusPromise, trStatusPromise]);
 
         setSavedCount(count);
         setSelectedTOId("");
         setCkLines([]);
+        setSupplierId("");
         await fetchPendingTOs();
         setTimeout(() => setSavedCount(null), 4000);
       }
@@ -510,6 +514,7 @@ export default function BranchReceiptPage({
       setSavedCount(count);
       setRowEdits({});
       setAdHocRows([]);
+      setSupplierId("");
       setTimeout(() => setSavedCount(null), 4000);
     }
   }, [
@@ -662,7 +667,9 @@ export default function BranchReceiptPage({
           <Button
             className="bg-success hover:bg-success/90 text-success-foreground"
             onClick={() => {
-              /* no-op: user picks branch+supplier to start */
+              if (branchId) {
+                setSupplierDropdownOpen(true);
+              }
             }}
             disabled={!branchId}
           >
