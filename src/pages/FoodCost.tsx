@@ -33,6 +33,7 @@ import { SpBomLine } from "@/types/sp-bom";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { useAuth } from "@/hooks/use-auth";
+import { getCatBadgeClass } from "@/lib/design-tokens";
 
 interface FoodCostPageProps {
   skus: SKU[];
@@ -754,18 +755,17 @@ export default function FoodCostPage({
                             ฿{fmt(m.stdFoodCost)}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-right">
-                            <Badge
-                              variant={
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
                                 m.stdFcPct > FC_AMBER_MAX
-                                  ? "destructive"
+                                  ? "bg-[#FCEBEB] text-[#791F1F]"
                                   : m.stdFcPct > FC_GREEN_MAX
-                                    ? "secondary"
-                                    : "default"
-                              }
-                              className="text-xs"
+                                    ? "bg-[#FAEEDA] text-[#633806]"
+                                    : "bg-[#EAF3DE] text-[#27500A]"
+                              }`}
                             >
                               {m.stdFcPct.toFixed(1)}%
-                            </Badge>
+                            </span>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -819,15 +819,9 @@ export default function FoodCostPage({
                         <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
                         <TableCell className="px-3 py-2">
                           <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                              m.stdFcPct > FC_AMBER_MAX
-                                ? "bg-[#FCEBEB] text-[#791F1F]"
-                                : m.stdFcPct > FC_GREEN_MAX
-                                  ? "bg-[#FAEEDA] text-[#633806]"
-                                  : "bg-[#EAF3DE] text-[#27500A]"
-                            }`}
+                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}
                           >
-                            {m.stdFcPct.toFixed(1)}%
+                            {r.type}
                           </span>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">
@@ -902,18 +896,17 @@ export default function FoodCostPage({
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
                         <TableCell className="px-3 py-2 text-right">
-                          <Badge
-                            variant={
+                          <span
+                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
                               m.stdFcPct > FC_AMBER_MAX
-                                ? "destructive"
+                                ? "bg-[#FCEBEB] text-[#791F1F]"
                                 : m.stdFcPct > FC_GREEN_MAX
-                                  ? "secondary"
-                                  : "default"
-                            }
-                            className="text-xs"
+                                  ? "bg-[#FAEEDA] text-[#633806]"
+                                  : "bg-[#EAF3DE] text-[#27500A]"
+                            }`}
                           >
                             {m.stdFcPct.toFixed(1)}%
-                          </Badge>
+                          </span>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">
                           ฿{m.costPerServing.toFixed(2)}
