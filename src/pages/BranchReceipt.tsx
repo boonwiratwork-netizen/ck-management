@@ -125,6 +125,7 @@ export default function BranchReceiptPage({
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -378,16 +379,19 @@ export default function BranchReceiptPage({
       toast.error("Please select a branch");
       return;
     }
+    setSaving(true);
 
     if (isCKSupplier) {
       // CK receipt from TO
       if (!selectedTOId) {
         toast.error("Please select a Transfer Order");
+        setSaving(false);
         return;
       }
       const linesToSave = ckLines.filter((l) => l.receivedQty > 0);
       if (linesToSave.length === 0) {
         toast.error("No items with quantity to save");
+        setSaving(false);
         return;
       }
 
@@ -428,30 +432,29 @@ export default function BranchReceiptPage({
         }
 
         const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
+        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
 
-        // Run TO status update and TR status update in parallel
-        const toStatusPromise = supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
-        const trStatusPromise = (async () => {
-          if (selectedTO) {
-            const { data: toData } = await supabase
-              .from("transfer_orders")
-              .select("tr_id")
-              .eq("id", selectedTOId)
-              .single();
-            if (toData?.tr_id) {
-              await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
-            }
+        // Update TR status if linked
+        if (selectedTO) {
+          const { data: toData } = await supabase
+            .from("transfer_orders")
+            .select("tr_id")
+            .eq("id", selectedTOId)
+            .single();
+          if (toData?.tr_id) {
+            await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
           }
-        })();
-        await Promise.all([toStatusPromise, trStatusPromise]);
+        }
 
         setSavedCount(count);
         setSelectedTOId("");
         setCkLines([]);
         setSupplierId("");
+        setSaving(false);
         await fetchPendingTOs();
         setTimeout(() => setSavedCount(null), 4000);
       }
+      setSaving(false);
       return;
     }
 
@@ -510,6 +513,7 @@ export default function BranchReceiptPage({
     });
 
     const count = await saveReceipts(rows);
+    setSaving(false);
     if (count) {
       setSavedCount(count);
       setRowEdits({});
@@ -667,9 +671,7 @@ export default function BranchReceiptPage({
           <Button
             className="bg-success hover:bg-success/90 text-success-foreground"
             onClick={() => {
-              if (branchId) {
-                setSupplierDropdownOpen(true);
-              }
+              /* no-op: user picks branch+supplier to start */
             }}
             disabled={!branchId}
           >
@@ -689,10 +691,7 @@ export default function BranchReceiptPage({
           </div>
           <div className="space-y-2">
             {pendingTOs.map((to) => (
-              <div
-                key={to.id}
-                className="flex items-center justify-between rounded-md border bg-card px-4 py-2.5"
-              >
+              <div key={to.id} className="flex items-center justify-between rounded-md border bg-card px-4 py-2.5">
                 <div className="flex items-center gap-4">
                   <Truck className="w-4 h-4 text-muted-foreground" />
                   <span className="font-mono text-sm font-medium">{to.toNumber}</span>
@@ -916,16 +915,12 @@ export default function BranchReceiptPage({
           {/* Header strip */}
           <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
             <div className="flex items-center gap-4">
-              <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">
-                BR-{dateStr}
-              </span>
+              <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
               <span className="text-sm font-medium flex items-center gap-1.5">
                 {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
                 {formSourceLabel}
               </span>
-              {selectedBranch && (
-                <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>
-              )}
+              {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -949,9 +944,10 @@ export default function BranchReceiptPage({
                 size="sm"
                 className="bg-success hover:bg-success/90 text-success-foreground"
                 onClick={handleSaveAll}
-                disabled={savableCount === 0}
+                disabled={savableCount === 0 || saving}
               >
-                <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+                <CheckCircle className="w-4 h-4 mr-1" />
+                {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
               </Button>
             </div>
           </div>
@@ -1018,9 +1014,7 @@ export default function BranchReceiptPage({
                         key={line.toLineId}
                         className={cn(
                           "border-b last:border-0 transition-colors",
-                          line.receivedQty > 0
-                            ? "bg-success/5 border-l-[3px] border-l-success"
-                            : "opacity-40",
+                          line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
                         )}
                       >
                         <td className={`${tdReadOnly} font-mono`}>{sku?.skuId || "—"}</td>
@@ -1035,9 +1029,7 @@ export default function BranchReceiptPage({
                             step="any"
                             defaultValue={line.receivedQty || ""}
                             key={`ck-recv-${line.toLineId}-${savedCount}`}
-                            onBlur={(e) =>
-                              updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })
-                            }
+                            onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
                             onFocus={(e) => e.target.select()}
                             className={cn(
                               "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
@@ -1257,20 +1249,30 @@ export default function BranchReceiptPage({
                           </td>
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
                             {stdTotal > 0
-                              ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                              ? stdTotal.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
                               : "—"}
                           </td>
                           <td
                             className={cn(
                               `${tdReadOnly} text-right font-mono`,
                               hasQty && variance !== 0 ? "font-bold" : "font-semibold",
-                              variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
+                              variance < 0
+                                ? "text-success"
+                                : variance > 0
+                                  ? "text-destructive"
+                                  : "text-muted-foreground",
                             )}
                           >
                             {hasQty ? (
                               <>
                                 {variance > 0 ? "+" : ""}
-                                {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {variance.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                               </>
                             ) : (
                               "—"
@@ -1360,7 +1362,9 @@ export default function BranchReceiptPage({
                                     step="any"
                                     defaultValue={row.actualTotal || ""}
                                     key={`adhoc-actual-${row.tempId}`}
-                                    onBlur={(e) => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
+                                    onBlur={(e) =>
+                                      updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
+                                    }
                                     onFocus={(e) => e.target.select()}
                                     className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
                                     placeholder="0.00"
@@ -1430,9 +1434,10 @@ export default function BranchReceiptPage({
               <Button
                 className="bg-success hover:bg-success/90 text-success-foreground"
                 onClick={handleSaveAll}
-                disabled={savableCount === 0}
+                disabled={savableCount === 0 || saving}
               >
-                <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+                <CheckCircle className="w-4 h-4 mr-1" />
+                {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
               </Button>
             </div>
           </div>
