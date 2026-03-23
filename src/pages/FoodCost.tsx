@@ -672,12 +672,12 @@ export default function FoodCostPage({
                         }}
                       />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" opacity={0.3} />
+                      <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#378ADD" opacity={0.3} />
                       <Bar
                         yAxisId="left"
                         dataKey="stdFoodCost"
                         name="Food Cost"
-                        fill="hsl(var(--destructive))"
+                        fill="#D85A30"
                         opacity={0.5}
                       />
                       <Line
@@ -685,13 +685,13 @@ export default function FoodCostPage({
                         type="monotone"
                         dataKey="stdFcPct"
                         name="FC%"
-                        stroke="hsl(var(--primary))"
+                        stroke="#BA7517"
                         strokeWidth={3}
-                        dot={{ r: 4, fill: "hsl(var(--primary))" }}
+                        dot={{ r: 4, fill: "#BA7517" }}
                         label={{
                           position: "top",
                           fontSize: 10,
-                          fill: "hsl(var(--primary))",
+                          fill: "#BA7517",
                           formatter: (v: number) => `${v.toFixed(1)}%`,
                         }}
                       />
