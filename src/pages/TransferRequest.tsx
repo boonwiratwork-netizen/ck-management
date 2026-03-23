@@ -144,7 +144,9 @@ export default function TransferRequestPage() {
   // SKU finder (search by name flow)
   const [skuFinderOpen, setSkuFinderOpen] = useState(false);
   const [skuFinderQuery, setSkuFinderQuery] = useState("");
-  const [skuFinderResults, setSkuFinderResults] = useState<Array<{ skuId: string; skuCode: string; skuName: string; supplierId: string; supplierName: string }>>([]);
+  const [skuFinderResults, setSkuFinderResults] = useState<
+    Array<{ skuId: string; skuCode: string; skuName: string; supplierId: string; supplierName: string }>
+  >([]);
   const [skuFinderLoading, setSkuFinderLoading] = useState(false);
 
   const branchName = useMemo(() => {
@@ -541,12 +543,12 @@ export default function TransferRequestPage() {
               <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">
                 {isCKSelected ? "TR" : "PR"}-NEW
               </span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${isCKSelected ? "bg-[#E6F1FB] text-[#0C447C]" : "bg-[#FAEEDA] text-[#633806]"}`}>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${isCKSelected ? "bg-[#E6F1FB] text-[#0C447C]" : "bg-[#FAEEDA] text-[#633806]"}`}
+              >
                 {isCKSelected ? "Transfer Request" : "Purchase Request"}
               </span>
-              {branchName && (
-                <span className="text-sm text-muted-foreground">· {branchName}</span>
-              )}
+              {branchName && <span className="text-sm text-muted-foreground">· {branchName}</span>}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCloseForm}>
@@ -693,7 +695,7 @@ export default function TransferRequestPage() {
                   onClick={() => setSkuFinderOpen(true)}
                   className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
                 >
-                  Can't find SKU? Search by name
+                  เสิร์จ SKU
                 </button>
               </div>
             )}
@@ -757,7 +759,9 @@ export default function TransferRequestPage() {
                     {skuFinderLoading ? (
                       <p className="px-3 py-4 text-sm text-muted-foreground text-center">Searching...</p>
                     ) : skuFinderResults.length === 0 ? (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">No SKUs found for this branch</p>
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                        No SKUs found for this branch
+                      </p>
                     ) : (
                       skuFinderResults.map((r, i) => (
                         <button
@@ -838,140 +842,140 @@ export default function TransferRequestPage() {
               ) : (
                 <div className={tableTokens.wrapper}>
                   <div className="overflow-y-auto max-h-[65vh]">
-                  <table className={tableTokens.base}>
-                    <colgroup>
-                      <col style={{ width: 26 }} />
-                      <col style={{ width: 76 }} />
-                      <col style={{ width: 200 }} />
-                      <col style={{ width: 110 }} />
-                      <col style={{ width: 72 }} />
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 76 }} />
-                      <col style={{ width: 88 }} />
-                      <col style={{ width: 88 }} />
-                      <col style={{ width: 72 }} />
-                      <col style={{ width: 52 }} />
-                    </colgroup>
-                    <thead className="sticky top-0 z-[5]">
-                      <tr className={tableTokens.headerRow}>
-                        <th className={tableTokens.headerCellCenter}></th>
-                        <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
-                        <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
-                        <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
-                        <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
-                        <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
-                        <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
-                        <th className={tableTokens.headerCellNumeric}>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
-                                  {t("tr.colSuggested")}
-                                  <Info className="w-3 h-3 opacity-50" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">{t("tr.roundedUpHint")}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </th>
-                        <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
-                          {t("tr.colRequestBatch")}
-                        </th>
-                        <th className={tableTokens.headerCellNumeric}>{t("tr.colTotalUom")}</th>
-                        <th className={tableTokens.headerCellCenter}>{t("tr.colUnit")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedTRLines.map((line, idx) => {
-                        const isSufficient = line.status === "sufficient";
-                        const isNoData = line.status === "no-data";
-                        const dotStatus: StatusDotStatus | undefined = isNoData
-                          ? undefined
-                          : stockStatusToDot[line.status];
-                        const batchVal = batchInputs[line.skuId] ?? 0;
-                        const totalUom = batchVal > 0 ? batchVal * line.packSize : 0;
-                        const batchSizeLabel = `${formatNumber(line.packSize, 0)} ${line.uom}/แพ็ค`;
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col style={{ width: 26 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 200 }} />
+                        <col style={{ width: 110 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 60 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 52 }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-[5]">
+                        <tr className={tableTokens.headerRow}>
+                          <th className={tableTokens.headerCellCenter}></th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
+                          <th className={tableTokens.headerCellNumeric}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
+                                    {t("tr.colSuggested")}
+                                    <Info className="w-3 h-3 opacity-50" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">{t("tr.roundedUpHint")}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
+                            {t("tr.colRequestBatch")}
+                          </th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colTotalUom")}</th>
+                          <th className={tableTokens.headerCellCenter}>{t("tr.colUnit")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedTRLines.map((line, idx) => {
+                          const isSufficient = line.status === "sufficient";
+                          const isNoData = line.status === "no-data";
+                          const dotStatus: StatusDotStatus | undefined = isNoData
+                            ? undefined
+                            : stockStatusToDot[line.status];
+                          const batchVal = batchInputs[line.skuId] ?? 0;
+                          const totalUom = batchVal > 0 ? batchVal * line.packSize : 0;
+                          const batchSizeLabel = `${formatNumber(line.packSize, 0)} ${line.uom}/แพ็ค`;
 
-                        return (
-                          <tr
-                            key={line.skuId}
-                            className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
-                          >
-                            <td className={tableTokens.dataCellCompactCenter}>
-                              {dotStatus ? (
-                                <StatusDot status={dotStatus} size="sm" />
-                              ) : (
-                                <span className="inline-block w-2 h-2 rounded-full bg-muted" />
-                              )}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
-                            <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
-                              {line.skuName}
-                            </td>
-                            <td className={tableTokens.dataCellCompact} title={batchSizeLabel}>
-                              <span className="whitespace-nowrap truncate block">{batchSizeLabel}</span>
-                            </td>
-                            <td className={tableTokens.dataCellCompactMono}>
-                              {formatNumber(Math.max(0, line.stockOnHand), 0)}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                              {formatNumber(line.rop, 0)}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                              {formatNumber(line.parstock, 0)}
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? "text-primary" : "text-muted-foreground"} font-medium`}
+                          return (
+                            <tr
+                              key={line.skuId}
+                              className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
-                              {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompact} text-right`}>
-                              <input
-                                ref={(el) => {
-                                  if (el) qtyInputRefs.current[line.skuId] = el;
-                                }}
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                defaultValue=""
-                                placeholder="0"
-                                onBlur={(e) => {
-                                  const v = Math.max(0, Math.round(Number(e.target.value) || 0));
-                                  setBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
-                                  trHook.updateLineQty(line.skuId, v);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Tab") {
-                                    e.preventDefault();
-                                    const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                    if (nextIdx >= 0 && nextIdx < sortedTRLines.length) {
-                                      const nextSkuId = sortedTRLines[nextIdx].skuId;
-                                      qtyInputRefs.current[nextSkuId]?.focus();
-                                      qtyInputRefs.current[nextSkuId]?.select();
+                              <td className={tableTokens.dataCellCompactCenter}>
+                                {dotStatus ? (
+                                  <StatusDot status={dotStatus} size="sm" />
+                                ) : (
+                                  <span className="inline-block w-2 h-2 rounded-full bg-muted" />
+                                )}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
+                              <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
+                                {line.skuName}
+                              </td>
+                              <td className={tableTokens.dataCellCompact} title={batchSizeLabel}>
+                                <span className="whitespace-nowrap truncate block">{batchSizeLabel}</span>
+                              </td>
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {formatNumber(Math.max(0, line.stockOnHand), 0)}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
+                                {formatNumber(line.rop, 0)}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
+                                {formatNumber(line.parstock, 0)}
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? "text-primary" : "text-muted-foreground"} font-medium`}
+                              >
+                                {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompact} text-right`}>
+                                <input
+                                  ref={(el) => {
+                                    if (el) qtyInputRefs.current[line.skuId] = el;
+                                  }}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  step={1}
+                                  defaultValue=""
+                                  placeholder="0"
+                                  onBlur={(e) => {
+                                    const v = Math.max(0, Math.round(Number(e.target.value) || 0));
+                                    setBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
+                                    trHook.updateLineQty(line.skuId, v);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Tab") {
+                                      e.preventDefault();
+                                      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                      if (nextIdx >= 0 && nextIdx < sortedTRLines.length) {
+                                        const nextSkuId = sortedTRLines[nextIdx].skuId;
+                                        qtyInputRefs.current[nextSkuId]?.focus();
+                                        qtyInputRefs.current[nextSkuId]?.select();
+                                      }
                                     }
-                                  }
-                                }}
-                                className={tableTokens.inputCell}
-                              />
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactMono} ${totalUom > 0 ? "text-foreground" : "text-muted-foreground"}`}
-                            >
-                              {totalUom > 0 ? formatNumber(totalUom, 0) : "—"}
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
-                            >
-                              {line.uom}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                  }}
+                                  className={tableTokens.inputCell}
+                                />
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactMono} ${totalUom > 0 ? "text-foreground" : "text-muted-foreground"}`}
+                              >
+                                {totalUom > 0 ? formatNumber(totalUom, 0) : "—"}
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
+                              >
+                                {line.uom}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -1018,140 +1022,140 @@ export default function TransferRequestPage() {
               ) : (
                 <div className={tableTokens.wrapper}>
                   <div className="overflow-y-auto max-h-[65vh]">
-                  <table className={tableTokens.base}>
-                    <colgroup>
-                      <col style={{ width: 26 }} />
-                      <col style={{ width: 76 }} />
-                      <col style={{ width: 200 }} />
-                      <col style={{ width: 90 }} />
-                      <col style={{ width: 72 }} />
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 68 }} />
-                      <col style={{ width: 72 }} />
-                      <col style={{ width: 80 }} />
-                      <col style={{ width: 72 }} />
-                      <col style={{ width: 52 }} />
-                    </colgroup>
-                    <thead className="sticky top-0 z-[5]">
-                      <tr className={tableTokens.headerRow}>
-                        <th className={tableTokens.headerCellCenter}></th>
-                        <th className={tableTokens.headerCell}>SKU Code</th>
-                        <th className={tableTokens.headerCell}>SKU Name</th>
-                        <th className={tableTokens.headerCell}>Pack Size</th>
-                        <th className={tableTokens.headerCellNumeric}>Stock Now</th>
-                        <th className={tableTokens.headerCellNumeric}>ROP</th>
-                        <th className={tableTokens.headerCellNumeric}>Parstock</th>
-                        <th className={tableTokens.headerCellNumeric}>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
-                                  Suggested
-                                  <Info className="w-3 h-3 opacity-50" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Batches to reach parstock</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </th>
-                        <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
-                          Request
-                        </th>
-                        <th className={tableTokens.headerCellNumeric}>Total</th>
-                        <th className={tableTokens.headerCellCenter}>Unit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPrLines.map((line, idx) => {
-                        const isSufficient = line.status === "sufficient";
-                        const isNoData = line.status === "no-data";
-                        const dotStatus: StatusDotStatus | undefined = isNoData
-                          ? undefined
-                          : stockStatusToDot[line.status];
-                        const batchVal = prBatchInputs[line.skuId] ?? 0;
-                        const totalPurchaseUnits = batchVal > 0 ? batchVal * line.packSize : 0;
-                        const stockInPurchase = Math.round(Math.max(0, line.stockOnHand) * 100) / 100;
-                        const ropInPurchase = Math.round(line.rop * 100) / 100;
-                        const parstockInPurchase = Math.round(line.parstock * 100) / 100;
-                        const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.packUnit}`;
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col style={{ width: 26 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 200 }} />
+                        <col style={{ width: 90 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 60 }} />
+                        <col style={{ width: 68 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 52 }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-[5]">
+                        <tr className={tableTokens.headerRow}>
+                          <th className={tableTokens.headerCellCenter}></th>
+                          <th className={tableTokens.headerCell}>SKU Code</th>
+                          <th className={tableTokens.headerCell}>SKU Name</th>
+                          <th className={tableTokens.headerCell}>Pack Size</th>
+                          <th className={tableTokens.headerCellNumeric}>Stock Now</th>
+                          <th className={tableTokens.headerCellNumeric}>ROP</th>
+                          <th className={tableTokens.headerCellNumeric}>Parstock</th>
+                          <th className={tableTokens.headerCellNumeric}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
+                                    Suggested
+                                    <Info className="w-3 h-3 opacity-50" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Batches to reach parstock</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
+                            Request
+                          </th>
+                          <th className={tableTokens.headerCellNumeric}>Total</th>
+                          <th className={tableTokens.headerCellCenter}>Unit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPrLines.map((line, idx) => {
+                          const isSufficient = line.status === "sufficient";
+                          const isNoData = line.status === "no-data";
+                          const dotStatus: StatusDotStatus | undefined = isNoData
+                            ? undefined
+                            : stockStatusToDot[line.status];
+                          const batchVal = prBatchInputs[line.skuId] ?? 0;
+                          const totalPurchaseUnits = batchVal > 0 ? batchVal * line.packSize : 0;
+                          const stockInPurchase = Math.round(Math.max(0, line.stockOnHand) * 100) / 100;
+                          const ropInPurchase = Math.round(line.rop * 100) / 100;
+                          const parstockInPurchase = Math.round(line.parstock * 100) / 100;
+                          const packLabel = `${formatNumber(line.packSize, 0)} ${line.usageUom}/${line.packUnit}`;
 
-                        return (
-                          <tr
-                            key={line.skuId}
-                            className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
-                          >
-                            <td className={tableTokens.dataCellCompactCenter}>
-                              {dotStatus ? (
-                                <StatusDot status={dotStatus} size="sm" />
-                              ) : (
-                                <span className="inline-block w-2 h-2 rounded-full bg-muted" />
-                              )}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
-                            <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
-                              {line.skuName}
-                            </td>
-                            <td className={tableTokens.dataCellCompact} title={packLabel}>
-                              <span className="whitespace-nowrap truncate block">{packLabel}</span>
-                            </td>
-                            <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 1)}</td>
-                            <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                              {formatNumber(ropInPurchase, 0)}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                              {formatNumber(parstockInPurchase, 0)}
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? "text-primary" : "text-muted-foreground"} font-medium`}
+                          return (
+                            <tr
+                              key={line.skuId}
+                              className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
-                              {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
-                            </td>
-                            <td className={`${tableTokens.dataCellCompact} text-right`}>
-                              <input
-                                ref={(el) => {
-                                  if (el) prQtyInputRefs.current[line.skuId] = el;
-                                }}
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                defaultValue=""
-                                placeholder="0"
-                                onBlur={(e) => {
-                                  const v = Math.max(0, Math.round(Number(e.target.value) || 0));
-                                  setPrBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Tab") {
-                                    e.preventDefault();
-                                    const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                    if (nextIdx >= 0 && nextIdx < filteredPrLines.length) {
-                                      const nextSkuId = filteredPrLines[nextIdx].skuId;
-                                      prQtyInputRefs.current[nextSkuId]?.focus();
-                                      prQtyInputRefs.current[nextSkuId]?.select();
+                              <td className={tableTokens.dataCellCompactCenter}>
+                                {dotStatus ? (
+                                  <StatusDot status={dotStatus} size="sm" />
+                                ) : (
+                                  <span className="inline-block w-2 h-2 rounded-full bg-muted" />
+                                )}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
+                              <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
+                                {line.skuName}
+                              </td>
+                              <td className={tableTokens.dataCellCompact} title={packLabel}>
+                                <span className="whitespace-nowrap truncate block">{packLabel}</span>
+                              </td>
+                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 1)}</td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
+                                {formatNumber(ropInPurchase, 0)}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
+                                {formatNumber(parstockInPurchase, 0)}
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactMono} ${line.suggestedBatches > 0 ? "text-primary" : "text-muted-foreground"} font-medium`}
+                              >
+                                {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
+                              </td>
+                              <td className={`${tableTokens.dataCellCompact} text-right`}>
+                                <input
+                                  ref={(el) => {
+                                    if (el) prQtyInputRefs.current[line.skuId] = el;
+                                  }}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  step={1}
+                                  defaultValue=""
+                                  placeholder="0"
+                                  onBlur={(e) => {
+                                    const v = Math.max(0, Math.round(Number(e.target.value) || 0));
+                                    setPrBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Tab") {
+                                      e.preventDefault();
+                                      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                      if (nextIdx >= 0 && nextIdx < filteredPrLines.length) {
+                                        const nextSkuId = filteredPrLines[nextIdx].skuId;
+                                        prQtyInputRefs.current[nextSkuId]?.focus();
+                                        prQtyInputRefs.current[nextSkuId]?.select();
+                                      }
                                     }
-                                  }
-                                }}
-                                className={tableTokens.inputCell}
-                              />
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactMono} ${totalPurchaseUnits > 0 ? "text-foreground" : "text-muted-foreground"}`}
-                            >
-                              {totalPurchaseUnits > 0 ? formatNumber(totalPurchaseUnits, 0) : "—"}
-                            </td>
-                            <td
-                              className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
-                            >
-                              {line.usageUom}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                  }}
+                                  className={tableTokens.inputCell}
+                                />
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactMono} ${totalPurchaseUnits > 0 ? "text-foreground" : "text-muted-foreground"}`}
+                              >
+                                {totalPurchaseUnits > 0 ? formatNumber(totalPurchaseUnits, 0) : "—"}
+                              </td>
+                              <td
+                                className={`${tableTokens.dataCellCompactCenter} font-medium text-primary bg-primary/5`}
+                              >
+                                {line.usageUom}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -1269,91 +1273,93 @@ export default function TransferRequestPage() {
 
         <div className={tableTokens.wrapper}>
           <div className="overflow-y-auto max-h-[65vh]">
-          <table className={tableTokens.base}>
-            <colgroup>
-              <col style={{ width: 150 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 110 }} />
-              <col />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 100 }} />
-            </colgroup>
-            <thead className="sticky top-0 z-[5]">
-              <tr className={tableTokens.headerRow}>
-                <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
-                <th className={tableTokens.headerCell}>{t("col.date")}</th>
-                <th className={tableTokens.headerCell}>{t("tr.colRequiredDate")}</th>
-                <th className={tableTokens.headerCell}>{t("col.branch")}</th>
-                <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
-                <th className={tableTokens.headerCell}>{t("col.status")}</th>
-                <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trHook.historyLoading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
-                    {t("common.loading")}
-                  </td>
+            <table className={tableTokens.base}>
+              <colgroup>
+                <col style={{ width: 150 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 110 }} />
+                <col />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 100 }} />
+              </colgroup>
+              <thead className="sticky top-0 z-[5]">
+                <tr className={tableTokens.headerRow}>
+                  <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
+                  <th className={tableTokens.headerCell}>{t("col.date")}</th>
+                  <th className={tableTokens.headerCell}>{t("tr.colRequiredDate")}</th>
+                  <th className={tableTokens.headerCell}>{t("col.branch")}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
+                  <th className={tableTokens.headerCell}>{t("col.status")}</th>
+                  <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
                 </tr>
-              ) : trHook.history.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
-                    {t("tr.noResults")}
-                  </td>
-                </tr>
-              ) : (
-                trHook.history.map((tr) => (
-                  <tr key={tr.id} className={tableTokens.dataRow}>
-                    <td
-                      className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
-                      onClick={() => handleViewTRDetail(tr)}
-                    >
-                      {tr.trNumber}
+              </thead>
+              <tbody>
+                {trHook.historyLoading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                      {t("common.loading")}
                     </td>
-                    <td className={tableTokens.dataCell}>{tr.requestedDate}</td>
-                    <td className={tableTokens.dataCell}>{tr.requiredDate}</td>
-                    <td className={tableTokens.truncatedCell} title={tr.branchName}>
-                      {tr.branchName}
+                  </tr>
+                ) : trHook.history.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                      {t("tr.noResults")}
                     </td>
-                    <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
-                    <td className={tableTokens.dataCell}>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass[tr.status] || ""}`}
+                  </tr>
+                ) : (
+                  trHook.history.map((tr) => (
+                    <tr key={tr.id} className={tableTokens.dataRow}>
+                      <td
+                        className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
+                        onClick={() => handleViewTRDetail(tr)}
                       >
-                        {tr.status}
-                      </span>
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleViewTRDetail(tr)}
-                          title="View"
+                        {tr.trNumber}
+                      </td>
+                      <td className={tableTokens.dataCell}>{tr.requestedDate}</td>
+                      <td className={tableTokens.dataCell}>{tr.requiredDate}</td>
+                      <td className={tableTokens.truncatedCell} title={tr.branchName}>
+                        {tr.branchName}
+                      </td>
+                      <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
+                      <td className={tableTokens.dataCell}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass[tr.status] || ""}`}
                         >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {(isManagement || isStoreManager) && tr.status !== "Cancelled" && tr.status !== "Fulfilled" && (
+                          {tr.status}
+                        </span>
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => trHook.cancelTR(tr.id)}
-                            title="Cancel"
+                            className="h-7 w-7"
+                            onClick={() => handleViewTRDetail(tr)}
+                            title="View"
                           >
-                            <Ban className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                          {(isManagement || isStoreManager) &&
+                            tr.status !== "Cancelled" &&
+                            tr.status !== "Fulfilled" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => trHook.cancelTR(tr.id)}
+                                title="Cancel"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1420,96 +1426,98 @@ export default function TransferRequestPage() {
 
         <div className={tableTokens.wrapper}>
           <div className="overflow-y-auto max-h-[65vh]">
-          <table className={tableTokens.base}>
-            <colgroup>
-              <col style={{ width: 150 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 140 }} />
-              <col />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 100 }} />
-            </colgroup>
-            <thead className="sticky top-0 z-[5]">
-              <tr className={tableTokens.headerRow}>
-                <th className={tableTokens.headerCell}>PR Number</th>
-                <th className={tableTokens.headerCell}>{t("col.date")}</th>
-                <th className={tableTokens.headerCell}>วันส่งสินค้า</th>
-                <th className={tableTokens.headerCell}>Supplier</th>
-                <th className={tableTokens.headerCell}>{t("col.branch")}</th>
-                <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
-                <th className={tableTokens.headerCell}>{t("col.status")}</th>
-                <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prHook.historyLoading ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                    {t("common.loading")}
-                  </td>
+            <table className={tableTokens.base}>
+              <colgroup>
+                <col style={{ width: 150 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 140 }} />
+                <col />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 100 }} />
+              </colgroup>
+              <thead className="sticky top-0 z-[5]">
+                <tr className={tableTokens.headerRow}>
+                  <th className={tableTokens.headerCell}>PR Number</th>
+                  <th className={tableTokens.headerCell}>{t("col.date")}</th>
+                  <th className={tableTokens.headerCell}>วันส่งสินค้า</th>
+                  <th className={tableTokens.headerCell}>Supplier</th>
+                  <th className={tableTokens.headerCell}>{t("col.branch")}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
+                  <th className={tableTokens.headerCell}>{t("col.status")}</th>
+                  <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
                 </tr>
-              ) : prHook.history.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                    No purchase requests found.
-                  </td>
-                </tr>
-              ) : (
-                prHook.history.map((pr) => (
-                  <tr key={pr.id} className={tableTokens.dataRow}>
-                    <td
-                      className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
-                      onClick={() => handleViewPRDetail(pr)}
-                    >
-                      {pr.prNumber}
+              </thead>
+              <tbody>
+                {prHook.historyLoading ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                      {t("common.loading")}
                     </td>
-                    <td className={tableTokens.dataCell}>{pr.requestedDate}</td>
-                    <td className={tableTokens.dataCell}>{pr.requiredDate}</td>
-                    <td className={tableTokens.truncatedCell} title={pr.supplierName}>
-                      {pr.supplierName}
+                  </tr>
+                ) : prHook.history.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                      No purchase requests found.
                     </td>
-                    <td className={tableTokens.truncatedCell} title={pr.branchName}>
-                      {pr.branchName}
-                    </td>
-                    <td className={tableTokens.dataCellMono}>{pr.itemCount}</td>
-                    <td className={tableTokens.dataCell}>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass[pr.status] || ""}`}
+                  </tr>
+                ) : (
+                  prHook.history.map((pr) => (
+                    <tr key={pr.id} className={tableTokens.dataRow}>
+                      <td
+                        className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
+                        onClick={() => handleViewPRDetail(pr)}
                       >
-                        {pr.status}
-                      </span>
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleViewPRDetail(pr)}
-                          title="View"
+                        {pr.prNumber}
+                      </td>
+                      <td className={tableTokens.dataCell}>{pr.requestedDate}</td>
+                      <td className={tableTokens.dataCell}>{pr.requiredDate}</td>
+                      <td className={tableTokens.truncatedCell} title={pr.supplierName}>
+                        {pr.supplierName}
+                      </td>
+                      <td className={tableTokens.truncatedCell} title={pr.branchName}>
+                        {pr.branchName}
+                      </td>
+                      <td className={tableTokens.dataCellMono}>{pr.itemCount}</td>
+                      <td className={tableTokens.dataCell}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass[pr.status] || ""}`}
                         >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {(isManagement || isStoreManager) && pr.status !== "Cancelled" && pr.status !== "Fulfilled" && (
+                          {pr.status}
+                        </span>
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => prHook.cancelPR(pr.id)}
-                            title="Cancel"
+                            className="h-7 w-7"
+                            onClick={() => handleViewPRDetail(pr)}
+                            title="View"
                           >
-                            <Ban className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                          {(isManagement || isStoreManager) &&
+                            pr.status !== "Cancelled" &&
+                            pr.status !== "Fulfilled" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => prHook.cancelPR(pr.id)}
+                                title="Cancel"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
