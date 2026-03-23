@@ -630,7 +630,7 @@ export default function ProductionPage({
   // FIX 2 — Simplified cover display: pure number with color only
   const coverDisplayFn = (cover: number, color: "red" | "amber" | "green", dailyNeed: number) => {
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
-    const colorClass = color === "red" ? "text-destructive" : color === "amber" ? "text-warning" : "text-success";
+    const colorClass = color === "red" ? "text-[#A32D2D]" : color === "amber" ? "text-[#854F0B]" : "text-[#3B6D11]";
     return <span className={cn("font-mono text-xs font-semibold tabular-nums", colorClass)}>{fmtDays(cover)}</span>;
   };
 
