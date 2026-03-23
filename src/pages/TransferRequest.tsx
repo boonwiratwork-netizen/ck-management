@@ -749,7 +749,7 @@ export default function TransferRequestPage() {
                       <col style={{ width: 72 }} />
                       <col style={{ width: 52 }} />
                     </colgroup>
-                    <thead>
+                    <thead className="sticky top-0 z-[5]">
                       <tr className={tableTokens.headerRow}>
                         <th className={tableTokens.headerCellCenter}></th>
                         <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
