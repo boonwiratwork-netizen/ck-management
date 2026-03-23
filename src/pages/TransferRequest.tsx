@@ -495,6 +495,9 @@ export default function TransferRequestPage() {
     setPrSkuSearch("");
     setSupplierDropdownOpen(false);
     setSupplierSearch("");
+    setSkuFinderOpen(false);
+    setSkuFinderQuery("");
+    setSkuFinderResults([]);
   }, []);
 
   // When form opens, reset
