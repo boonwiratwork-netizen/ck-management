@@ -630,7 +630,7 @@ export default function ProductionPage({
   // FIX 2 — Simplified cover display: pure number with color only
   const coverDisplayFn = (cover: number, color: "red" | "amber" | "green", dailyNeed: number) => {
     if (dailyNeed <= 0) return <span className="text-muted-foreground">—</span>;
-    const colorClass = color === "red" ? "text-destructive" : color === "amber" ? "text-warning" : "text-success";
+    const colorClass = color === "red" ? "text-[#A32D2D]" : color === "amber" ? "text-[#854F0B]" : "text-[#3B6D11]";
     return <span className={cn("font-mono text-xs font-semibold tabular-nums", colorClass)}>{fmtDays(cover)}</span>;
   };
 
@@ -695,11 +695,11 @@ export default function ProductionPage({
 
           {/* Right: target + mode toggle + save/edit (fixed-width container) */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-col gap-0.5">
               <label className="text-xs text-muted-foreground whitespace-nowrap">{t("prod.targetCoverDays")}</label>
               <input
                 type="number"
-                className="h-8 w-14 text-sm text-right font-mono px-1.5 border rounded-md bg-background"
+                className="h-8 w-14 text-sm text-right font-mono px-1.5 border border-primary/40 rounded-md bg-primary/5 text-primary"
                 defaultValue={globalTarget}
                 key={`gt-${globalTarget}`}
                 onBlur={(e) => saveGlobalTarget(Number(e.target.value) || 7)}
@@ -800,7 +800,9 @@ export default function ProductionPage({
                       <tr
                         key={row.sku.id}
                         className={cn(
-                          table.dataRow,
+                          row.coverNowColor === "red" ? table.criticalRow
+                            : row.coverNowColor === "amber" ? table.lowRow
+                            : table.dataRow,
                           isAdHoc ? table.dataRowLocked : "",
                           isSufficient && !isAdHoc && "opacity-60",
                           !isAdHoc && borderClass,

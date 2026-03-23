@@ -318,8 +318,17 @@ export default function SMStockPage({ skus, smStockData, smDailyUsage }: Props) 
                 const dailyUsage = smDailyUsage[row.sku.id] || 0;
                 const coverDay = dailyUsage > 0 && row.currentStock > 0 ? row.currentStock / dailyUsage : null;
                 const avgWeek = dailyUsage * 7;
+                const skuTarget = (row.sku as any).coverDaysTarget ?? 7;
+                const coverRowClass = coverDay === null ? table.dataRow
+                  : coverDay === 0 ? table.criticalRow
+                  : coverDay < skuTarget ? table.lowRow
+                  : table.dataRow;
+                const coverTextClass = coverDay === null ? "text-muted-foreground"
+                  : coverDay === 0 ? "text-[#A32D2D]"
+                  : coverDay < skuTarget ? "text-[#854F0B]"
+                  : "text-[#3B6D11]";
                 return (
-                  <tr key={row.sku.id} className={table.dataRow}>
+                  <tr key={row.sku.id} className={coverRowClass}>
                     <td className={table.dataCellCenter}>
                       <StatusDot status={row.healthStatus} />
                     </td>
@@ -335,7 +344,7 @@ export default function SMStockPage({ skus, smStockData, smDailyUsage }: Props) 
                       {Math.max(0, row.stockValue) > 0 ? `฿${Math.round(Math.max(0, row.stockValue)).toLocaleString()}` : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className={cn(table.dataCell, "text-right")}>{row.lastDate ?? "—"}</td>
-                    <td className={cn(table.dataCellMono, "text-muted-foreground")}>
+                    <td className={cn(table.dataCellMono, coverTextClass)}>
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
                     </td>
                     <td className={table.dataCellMono}>
