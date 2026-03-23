@@ -818,9 +818,17 @@ export default function FoodCostPage({
                         <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
                         <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
                         <TableCell className="px-3 py-2">
-                          <Badge variant="outline" className="text-xs">
-                            {r.type}
-                          </Badge>
+                          <span
+                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                              m.stdFcPct > FC_AMBER_MAX
+                                ? "bg-[#FCEBEB] text-[#791F1F]"
+                                : m.stdFcPct > FC_GREEN_MAX
+                                  ? "bg-[#FAEEDA] text-[#633806]"
+                                  : "bg-[#EAF3DE] text-[#27500A]"
+                            }`}
+                          >
+                            {m.stdFcPct.toFixed(1)}%
+                          </span>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">
                           {Math.round(r.expectedUsage).toLocaleString("en-US")}
