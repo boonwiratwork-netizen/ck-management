@@ -741,6 +741,7 @@ export default function TransferOrderPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Add item (standalone only) */}
