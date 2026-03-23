@@ -45,7 +45,7 @@ interface BranchCountRow {
 
 const STORAGE_BADGES: Record<string, string> = {
   Frozen: "bg-[#E6F1FB] text-blue-700",
-  Chilled: "bg-cyan-100 text-cyan-700",
+  Chilled: "bg-[#E6F1FB] text-cyan-700",
   Ambient: "bg-muted text-muted-foreground",
 };
 
