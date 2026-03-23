@@ -478,7 +478,7 @@ export default function FoodCostPage({
     lines.push("Type,Code,Name,Expected Usage,UOM,Std Unit Price,Std Cost");
     skuBreakdown.forEach((r) => {
       lines.push(
-        `SKU,${r.skuCode},"${r.skuName}",${r.expectedUsage.toFixed(2)},${r.uom},${r.stdUnitPrice.toFixed(4)},${r.stdCost.toFixed(2)}`,
+        `SKU,${r.skuCode},"${r.skuName}",${Math.round(r.expectedUsage).toLocaleString("en-US")},${r.uom},${r.stdUnitPrice.toFixed(4)},${r.stdCost.toFixed(2)}`,
       );
     });
     lines.push("");
@@ -823,7 +823,7 @@ export default function FoodCostPage({
                           </Badge>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                          {r.expectedUsage.toFixed(2)}
+                          {Math.round(r.expectedUsage).toLocaleString("en-US")}
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <UnitLabel unit={r.uom} />
