@@ -15,15 +15,15 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.goodsReceipt": { th: "รับของเข้า", en: "Goods Receipt" },
   "nav.production": { th: "การผลิต", en: "Production" },
   "nav.delivery": { th: "ส่งของ", en: "Delivery" },
-  "nav.transferOrder": { th: "ใบโอนสินค้า", en: "Transfer Order" },
-  "nav.rmStock": { th: "สต๊อกวัตถุดิบ", en: "RM Stock" },
-  "nav.smStock": { th: "สต๊อกกึ่งสำเร็จ", en: "SM Stock" },
+  "nav.transferOrder": { th: "โอนสินค้า", en: "Transfer Order" },
+  "nav.rmStock": { th: "สต๊อก RM", en: "RM Stock" },
+  "nav.smStock": { th: "สต๊อก SM", en: "SM Stock" },
   "nav.stockCount": { th: "นับสต๊อก", en: "Stock Count" },
   "nav.storeOverview": { th: "ภาพรวมร้าน", en: "Store Overview" },
   "nav.menuMaster": { th: "รายการเมนู", en: "Menu Master" },
-  "nav.menuBom": { th: "สูตรเมนู", en: "Menu BOM" },
-  "nav.spBom": { th: "สูตร SP", en: "SP BOM" },
-  "nav.modifierRules": { th: "กฎตัวเลือก", en: "Modifier Rules" },
+  "nav.menuBom": { th: "BOM เมนู", en: "Menu BOM" },
+  "nav.spBom": { th: "BOM SP", en: "SP BOM" },
+  "nav.modifierRules": { th: "กฎพิเศษ", en: "Modifier Rules" },
   "nav.salesEntry": { th: "บันทึกยอดขาย", en: "Sales Entry" },
   "nav.branchReceipt": { th: "รับของสาขา", en: "Branch Receipt" },
   "nav.transferRequest": { th: "สั่งสินค้า/ขอเบิก", en: "PR/TR" },
@@ -39,10 +39,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "title.skuMaster": { th: "รายการวัตถุดิบ", en: "SKU Master" },
   "title.supplierMaster": { th: "ซัพพลายเออร์", en: "Supplier Master" },
   "title.priceMaster": { th: "ราคาวัตถุดิบ", en: "Price Master" },
-  "title.bomMaster": { th: "สูตรการผลิต", en: "BOM Master" },
+  "title.bomMaster": { th: "BOM การผลิต", en: "BOM SM" },
   "title.goodsReceipt": { th: "รับของเข้า", en: "Goods Receipt" },
-  "title.rmStock": { th: "สต๊อกวัตถุดิบ", en: "RM Stock" },
-  "title.smStock": { th: "สต๊อกกึ่งสำเร็จ", en: "SM Stock" },
+  "title.rmStock": { th: "สต๊อก RM", en: "RM Stock" },
+  "title.smStock": { th: "สต๊อก SM", en: "SM Stock" },
   "title.stockCount": { th: "นับสต๊อก", en: "Stock Count" },
   "title.production": { th: "การผลิต", en: "Production" },
   "title.delivery": { th: "ส่งของไปสาขา", en: "Delivery to Branches" },
@@ -50,9 +50,9 @@ const translations: Record<string, Record<Lang, string>> = {
   "title.userManagement": { th: "จัดการผู้ใช้", en: "User Management" },
   "title.storeOverview": { th: "ภาพรวมร้าน", en: "Store Overview" },
   "title.menuMaster": { th: "รายการเมนู", en: "Menu Master" },
-  "title.menuBom": { th: "สูตรเมนู", en: "Menu BOM" },
-  "title.spBom": { th: "สูตร SP", en: "SP BOM" },
-  "title.modifierRules": { th: "กฎตัวเลือก", en: "Modifier Rules" },
+  "title.menuBom": { th: "BOM เมนู", en: "Menu BOM" },
+  "title.spBom": { th: "BOM SP", en: "SP BOM" },
+  "title.modifierRules": { th: "กฎพิเศษ", en: "Modifier Rules" },
   "title.salesEntry": { th: "บันทึกยอดขาย", en: "Sales Entry" },
   "title.branchReceipt": { th: "รับของสาขา", en: "Branch Receipt" },
   "title.dailyStockCount": { th: "นับสต๊อกรายวัน", en: "Daily Stock Count" },
@@ -211,7 +211,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.physicalQty": { th: "จำนวนนับจริง", en: "Physical Qty" },
 
   // Delivery
-  "col.smSku": { th: "SKU กึ่งสำเร็จ", en: "SM SKU" },
+  "col.smSku": { th: "SM SKU", en: "SM SKU" },
   "col.qtyKg": { th: "จำนวน", en: "Qty" },
 
   // Menu Master
@@ -220,7 +220,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.sellingPrice": { th: "ราคาขาย", en: "Selling Price" },
 
   // BOM / Menu BOM / SP BOM
-  "col.qtyPerBatch": { th: "จำนวน/ล็อต", en: "Qty/Batch" },
+  "col.qtyPerBatch": { th: "จำนวน/แบทช์", en: "Qty/Batch" },
   "col.qtyPerServing": { th: "จำนวน/จาน", en: "Qty/Serving" },
   "col.yieldPct": { th: "Yield %", en: "Yield %" },
   "col.effQty": { th: "จำนวนจริง", en: "Eff. Qty" },
@@ -228,7 +228,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.lineCost": { th: "ต้นทุนรวม", en: "Line Cost" },
   "col.costPerServing": { th: "ต้นทุน/จาน", en: "Cost/Serving" },
   "col.totalCostServing": { th: "ต้นทุนรวม/จาน", en: "Total Cost/Serving" },
-  "col.batchYield": { th: "ผลผลิต/ล็อต", en: "Batch Yield" },
+  "col.batchYield": { th: "ผลผลิต/แบทช์", en: "Batch Yield" },
 
   // Sales Entry
   "col.orderType": { th: "ประเภทออเดอร์", en: "Order Type" },
@@ -239,10 +239,10 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Daily Stock Count
   "col.fromCk": { th: "จากครัวกลาง", en: "From CK" },
-  "col.extRecv": { th: "รับจากนอก", en: "Ext. Recv" },
-  "col.expUsage": { th: "ใช้คาดการณ์", en: "Exp. Usage" },
+  "col.extRecv": { th: "ยอดรับ", en: "Receive" },
+  "col.expUsage": { th: "ยอดใช้", en: "Std Usage" },
   "col.waste": { th: "ของเสีย", en: "Waste" },
-  "col.calcBalance": { th: "ยอดคำนวณ", en: "Calc. Bal." },
+  "col.calcBalance": { th: "คงเหลือ", en: "Balance" },
   "col.physical": { th: "นับจริง", en: "Physical" },
 
   // Branch Receipt
@@ -255,7 +255,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.description": { th: "รายละเอียด", en: "Description" },
 
   // Food Cost
-  "col.expectedUsage": { th: "ใช้คาดการณ์", en: "Expected Usage" },
+  "col.expectedUsage": { th: "ยอดใช้มาตรฐาน", en: "Std Usage" },
   "col.stdUnitPrice": { th: "ราคามาตรฐาน", en: "Std Unit Price" },
   "col.stdCost": { th: "ต้นทุนมาตรฐาน", en: "Std Cost" },
   "col.qtySold": { th: "จำนวนขาย", en: "Qty Sold" },
@@ -269,7 +269,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.stock": { th: "สต๊อก", en: "Stock" },
 
   // Summary card labels
-  "summary.totalSuppliers": { th: "ซัพพลายเออร์ทั้งหมด", en: "Total Suppliers" },
+  "summary.totalSuppliers": { th: "ซัพพลายเออร์", en: "Total Suppliers" },
   "summary.totalPrices": { th: "ราคาทั้งหมด", en: "Total Prices" },
   "summary.activePrices": { th: "ราคาที่ใช้งาน", en: "Active Prices" },
   "summary.skusPriced": { th: "SKU มีราคา", en: "SKUs Priced" },
@@ -343,8 +343,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "prod.colName": { th: "ชื่อ", en: "Name" },
   "prod.colNeedWk": { th: "ต้องการ/สัปดาห์", en: "NEED/WK" },
   "prod.colStockNow": { th: "สต๊อกตอนนี้", en: "STOCK NOW" },
-  "prod.colCoverNow": { th: "คุ้มตอนนี้", en: "COVER NOW" },
-  "prod.colCoverAfter": { th: "คุ้มหลังผลิต", en: "COVER AFTER" },
+  "prod.colCoverNow": { th: "COVER NOW", en: "COVER NOW" },
+  "prod.colCoverAfter": { th: "COVER AFTER", en: "COVER AFTER" },
   "prod.colGap": { th: "ส่วนต่าง", en: "GAP" },
   "prod.colPlanBatch": { th: "แผน (แบทช์)", en: "PLAN (batches)" },
   "prod.colPlanG": { th: "แผน (ก.)", en: "PLAN (g)" },
@@ -386,7 +386,7 @@ const translations: Record<string, Record<Lang, string>> = {
     th: "ขอเบิกวัตถุดิบจากซัพพลายเออร์และครัวกลาง",
     en: "Request ingredients from Suppliers & Central Kitchen",
   },
-  "tr.newTR": { th: "คำสั่งซื้อ/เบิกใหม่", en: "New PR/TR" },
+  "tr.newTR": { th: "เพิ่มคำสั่งซื้อ/ขอเบิก", en: "New PR/TR" },
   "tr.newBranch": { th: "สาขา", en: "Branch" },
   "tr.submitTR": { th: "ส่งใบขอเบิก", en: "Submit TR" },
   "tr.submitting": { th: "กำลังส่ง...", en: "Submitting..." },
@@ -414,7 +414,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "tr.colRop": { th: "ROP", en: "ROP" },
   "tr.colParstock": { th: "PARSTOCK", en: "PARSTOCK" },
   "tr.colSuggested": { th: "แนะนำ", en: "SUGGESTED" },
-  "tr.colRequestBatch": { th: "ขอ (แบทช์)", en: "REQUEST (BATCH)" },
+  "tr.colRequestBatch": { th: "ขอเบิก (แบทช์)", en: "REQUEST (BATCH)" },
   "tr.colTotalUom": { th: "รวม (หน่วย)", en: "TOTAL (UOM)" },
   "tr.colUnit": { th: "หน่วย", en: "UNIT" },
   "tr.history": { th: "ประวัติใบขอเบิก", en: "TR History" },
@@ -458,7 +458,7 @@ const translations: Record<string, Record<Lang, string>> = {
     en: "Pre-loaded from TR. Adjust quantities as needed.",
   },
   "to.addItemsHint": { th: "เพิ่มรายการที่ต้องการจัดส่ง", en: "Add items to deliver." },
-  "to.addItem": { th: "+ เพิ่มรายการ", en: "Add Item" },
+  "to.addItem": { th: "เพิ่มรายการ", en: "Add Item" },
   "to.itemAlreadyAdded": { th: "รายการนี้มีอยู่แล้ว", en: "Item already in list" },
   "to.qtyError": { th: "จำนวนต้องมากกว่าหรือเท่ากับ 0", en: "All quantities must be >= 0" },
   "to.sentSuccess": { th: "ส่งเรียบร้อยแล้ว", en: "sent successfully" },
@@ -655,7 +655,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "se.colDate": { th: "วันที่", en: "Date" },
 
   // ─── CK Dashboard ───
-  "ckd.title": { th: "แดชบอร์ดครัวกลาง", en: "CK Performance Dashboard" },
+  "ckd.title": { th: "Dashboard ครัวกลาง", en: "CK Performance Dashboard" },
   "ckd.periodThisWeek": { th: "สัปดาห์นี้", en: "This Week" },
   "ckd.periodThisMonth": { th: "เดือนนี้", en: "This Month" },
   "ckd.periodCustom": { th: "กำหนดเอง", en: "Custom" },
