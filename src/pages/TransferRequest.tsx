@@ -923,6 +923,7 @@ export default function TransferRequestPage() {
                           return (
                             <tr
                               key={line.skuId}
+                              data-sku-id={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
                               <td className={tableTokens.dataCellCompactCenter}>
