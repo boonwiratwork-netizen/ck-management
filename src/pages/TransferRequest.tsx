@@ -332,6 +332,23 @@ export default function TransferRequestPage() {
     return prLines.filter((l) => l.skuCode.toLowerCase().includes(q) || l.skuName.toLowerCase().includes(q));
   }, [prLines, prSkuSearch]);
 
+  // Scroll-to-highlight after SKU finder selects a result
+  useEffect(() => {
+    if (!skuFinderTargetSkuId) return;
+    const timer = setTimeout(() => {
+      const row = document.querySelector(`tr[data-sku-id="${skuFinderTargetSkuId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        (row as HTMLElement).style.backgroundColor = "hsl(var(--warning) / 0.2)";
+        setTimeout(() => {
+          (row as HTMLElement).style.backgroundColor = "";
+        }, 1500);
+      }
+      setSkuFinderTargetSkuId(null);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [skuFinderTargetSkuId, sortedTRLines, filteredPrLines]);
+
   // ─── TR form state ───
   const [submitting, setSubmitting] = useState(false);
   const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
