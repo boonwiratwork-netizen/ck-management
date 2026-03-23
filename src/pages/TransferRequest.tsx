@@ -707,15 +707,17 @@ export default function TransferRequestPage() {
             )}
 
             {/* SKU Finder — search by name */}
-            {effectiveBranchId && !skuFinderOpen && (
+            {effectiveBranchId && formOpen && !skuFinderOpen && (
               <div className="self-end">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
                   onClick={() => setSkuFinderOpen(true)}
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
                 >
+                  <Search className="w-3.5 h-3.5 mr-1.5" />
                   เสิร์จ SKU
-                </button>
+                </Button>
               </div>
             )}
             {effectiveBranchId && skuFinderOpen && (
