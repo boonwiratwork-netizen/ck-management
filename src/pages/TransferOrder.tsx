@@ -374,7 +374,6 @@ export default function TransferOrderPage({
       }
     }
     const total = formState.lines.reduce((sum, l) => sum + l.actualQty * l.unitCost, 0);
-    const { supabase } = await import("@/integrations/supabase/client");
     await supabase.from("transfer_orders").update({ total_value: total }).eq("id", formState.toId);
     setFormSaving(false);
     toast.success("Draft saved");
