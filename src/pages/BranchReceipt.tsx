@@ -986,7 +986,7 @@ export default function BranchReceiptPage({
                   <col style={{ width: 90 }} />
                   <col style={{ width: 120 }} />
                 </colgroup>
-                <thead className="sticky-thead">
+                <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
                     <th className={thClass}>{t("col.skuCode")}</th>
                     <th className={thClass}>{t("col.skuName")}</th>
