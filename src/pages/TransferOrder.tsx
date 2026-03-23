@@ -476,7 +476,7 @@ export default function TransferOrderPage({
                 <col style={{ width: 70 }} />
                 <col style={{ width: 120 }} />
               </colgroup>
-              <thead>
+              <thead className="sticky top-0 z-[5]">
                 <tr className={tableTokens.headerRow}>
                   <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
                   <th className={tableTokens.headerCell}>{t("col.branch")}</th>
