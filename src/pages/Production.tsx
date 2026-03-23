@@ -800,7 +800,9 @@ export default function ProductionPage({
                       <tr
                         key={row.sku.id}
                         className={cn(
-                          table.dataRow,
+                          row.coverNowColor === "red" ? table.criticalRow
+                            : row.coverNowColor === "amber" ? table.lowRow
+                            : table.dataRow,
                           isAdHoc ? table.dataRowLocked : "",
                           isSufficient && !isAdHoc && "opacity-60",
                           !isAdHoc && borderClass,
