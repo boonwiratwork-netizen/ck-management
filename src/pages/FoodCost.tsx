@@ -467,7 +467,7 @@ export default function FoodCostPage({
   }, [autoCalcTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stdFcPct = totalRevenue > 0 ? (totalStdCost / totalRevenue) * 100 : 0;
-  const fmt = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   // Top 10 highest FC% menus
   const top10Menus = menuBreakdown.slice(0, 10);
@@ -672,12 +672,12 @@ export default function FoodCostPage({
                         }}
                       />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#378ADD" opacity={0.3} />
+                      <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" opacity={0.3} />
                       <Bar
                         yAxisId="left"
                         dataKey="stdFoodCost"
                         name="Food Cost"
-                        fill="#D85A30"
+                        fill="hsl(var(--destructive))"
                         opacity={0.5}
                       />
                       <Line
@@ -685,13 +685,13 @@ export default function FoodCostPage({
                         type="monotone"
                         dataKey="stdFcPct"
                         name="FC%"
-                        stroke="#BA7517"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={3}
-                        dot={{ r: 4, fill: "#BA7517" }}
+                        dot={{ r: 4, fill: "hsl(var(--primary))" }}
                         label={{
                           position: "top",
                           fontSize: 10,
-                          fill: "#BA7517",
+                          fill: "hsl(var(--primary))",
                           formatter: (v: number) => `${v.toFixed(1)}%`,
                         }}
                       />
