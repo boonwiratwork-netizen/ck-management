@@ -1,5 +1,5 @@
-import { SKUType, SKU_TYPE_LABELS } from '@/types/sku';
-import { Package, Layers, Sparkles, Box } from 'lucide-react';
+import { SKUType, SKU_TYPE_LABELS } from "@/types/sku";
+import { Package, Layers, Sparkles, Box } from "lucide-react";
 
 const icons: Record<SKUType, React.ElementType> = {
   RM: Package,
@@ -9,17 +9,17 @@ const icons: Record<SKUType, React.ElementType> = {
 };
 
 const badgeClasses: Record<SKUType, string> = {
-  RM: 'badge-rm',
-  SM: 'badge-sm',
-  SP: 'badge-sp',
-  PK: 'badge-pk',
+  RM: "badge-rm",
+  SM: "badge-sm",
+  SP: "badge-sp",
+  PK: "badge-pk",
 };
 
 const categoryCardColors: Record<SKUType, { bg: string; label: string; value: string }> = {
-  RM: { bg: 'bg-[#E6F1FB]', label: 'text-[#0C447C]', value: 'text-[#042C53]' },
-  SM: { bg: 'bg-[#EEEDFE]', label: 'text-[#3C3489]', value: 'text-[#1E1A5A]' },
-  SP: { bg: 'bg-[#E1F5EE]', label: 'text-[#085041]', value: 'text-[#03302A]' },
-  PK: { bg: 'bg-[#FAECE7]', label: 'text-[#712B13]', value: 'text-[#4A1A0A]' },
+  RM: { bg: "bg-[#FAECE7]", label: "text-[#712B13]", value: "text-[#4A1A0A]" },
+  SM: { bg: "bg-[#E6F1FB]", label: "text-[#0C447C]", value: "text-[#042C53]" },
+  SP: { bg: "bg-[#EEEDFE]", label: "text-[#3C3489]", value: "text-[#1E1A5A]" },
+  PK: { bg: "bg-[#E1F5EE]", label: "text-[#085041]", value: "text-[#03302A]" },
 };
 
 interface SummaryCardsProps {
@@ -28,7 +28,7 @@ interface SummaryCardsProps {
 }
 
 export function SummaryCards({ counts, total }: SummaryCardsProps) {
-  const types: SKUType[] = ['RM', 'SM', 'SP', 'PK'];
+  const types: SKUType[] = ["RM", "SM", "SP", "PK"];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
