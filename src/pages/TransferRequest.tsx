@@ -1328,7 +1328,7 @@ export default function TransferRequestPage() {
               <col style={{ width: 120 }} />
               <col style={{ width: 100 }} />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-[5]">
               <tr className={tableTokens.headerRow}>
                 <th className={tableTokens.headerCell}>PR Number</th>
                 <th className={tableTokens.headerCell}>{t("col.date")}</th>
