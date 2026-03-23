@@ -179,7 +179,16 @@ export default function StockCountPage({
 
   const renderCountTable = () => (
     <div className="rounded-lg border overflow-auto max-h-[60vh]">
-      <table className="w-full text-sm">
+      <table className="w-full table-fixed text-sm">
+        <colgroup>
+          <col style={{ width: "88px" }} />
+          <col style={{ width: "auto" }} />
+          <col style={{ width: "90px" }} />
+          <col style={{ width: "110px" }} />
+          <col style={{ width: "170px" }} />
+          <col style={{ width: "90px" }} />
+          <col style={{ width: "130px" }} />
+        </colgroup>
         <thead className="sticky-thead">
           <tr className="border-b bg-table-header">
             <th className={`${thClass} cursor-pointer hover:bg-muted/50`} onClick={() => scHandleSort("skuId")}>
@@ -355,7 +364,13 @@ export default function StockCountPage({
             )}
 
             {sessionForDate && (
-              <span className={isCompleted ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]" : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"}>
+              <span
+                className={
+                  isCompleted
+                    ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#EAF3DE] text-[#27500A]"
+                    : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F1EFE8] text-[#5F5E5A]"
+                }
+              >
                 {isCompleted ? (
                   <>
                     <Lock className="w-3 h-3 mr-1" /> Completed
