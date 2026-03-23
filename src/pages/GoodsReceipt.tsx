@@ -482,7 +482,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
           {/* SKU spreadsheet table */}
           {preloadedRows.length > 0 && (
-            <div className="overflow-auto max-h-[70vh]">
+            <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 90 }} />
@@ -498,7 +498,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   <col style={{ width: 80 }} />
                   <col style={{ width: 100 }} />
                 </colgroup>
-                <thead className="sticky-thead">
+                <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
                     <th className={thClass}>{t("col.date")}</th>
                     <th className={`${thClass} text-center`}>{t("col.week")}</th>
@@ -910,7 +910,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         </div>
 
         <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-auto max-h-[70vh]">
+          <div className="overflow-y-auto max-h-[65vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
                 <col style={{ width: 90 }} />
@@ -927,7 +927,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <col style={{ width: 80 }} />
                 <col style={{ width: 60 }} />
               </colgroup>
-              <thead className="sticky-thead">
+              <thead className="sticky top-0 z-[5]">
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader

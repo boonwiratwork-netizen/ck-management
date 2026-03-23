@@ -467,6 +467,7 @@ export default function TransferOrderPage({
             </span>
           </div>
           <div className={tableTokens.wrapper}>
+            <div className="overflow-y-auto max-h-[65vh]">
             <table className={tableTokens.base}>
               <colgroup>
                 <col style={{ width: 150 }} />
@@ -475,7 +476,7 @@ export default function TransferOrderPage({
                 <col style={{ width: 70 }} />
                 <col style={{ width: 120 }} />
               </colgroup>
-              <thead>
+              <thead className="sticky top-0 z-[5]">
                 <tr className={tableTokens.headerRow}>
                   <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
                   <th className={tableTokens.headerCell}>{t("col.branch")}</th>
@@ -511,6 +512,7 @@ export default function TransferOrderPage({
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -630,6 +632,7 @@ export default function TransferOrderPage({
             </div>
 
             <div className={tableTokens.wrapper}>
+              <div className="overflow-y-auto max-h-[65vh]">
               <table className={tableTokens.base}>
                 <colgroup>
                   <col style={{ width: 90 }} />
@@ -642,7 +645,7 @@ export default function TransferOrderPage({
                   <col style={{ width: 100 }} />
                   <col style={{ width: 40 }} />
                 </colgroup>
-                <thead>
+                <thead className="sticky top-0 z-[5]">
                   <tr className={tableTokens.headerRow}>
                     <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
                     <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
@@ -738,6 +741,7 @@ export default function TransferOrderPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Add item (standalone only) */}
@@ -852,6 +856,7 @@ export default function TransferOrderPage({
 
         {/* History table */}
         <div className={tableTokens.wrapper}>
+          <div className="overflow-y-auto max-h-[65vh]">
           <table className={tableTokens.base}>
             <colgroup>
               <col style={{ width: 150 }} />
@@ -863,7 +868,7 @@ export default function TransferOrderPage({
               <col style={{ width: 130 }} />
               <col style={{ width: 90 }} />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-[5]">
               <tr className={tableTokens.headerRow}>
                 <th className={thSortable} onClick={() => handleSort("toNumber")}>
                   <span className={`inline-flex items-center ${sortKey === "toNumber" ? "text-foreground" : ""}`}>
@@ -975,6 +980,7 @@ export default function TransferOrderPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

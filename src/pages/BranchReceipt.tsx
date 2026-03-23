@@ -974,7 +974,7 @@ export default function BranchReceiptPage({
 
           {/* CK Receipt sheet from TO */}
           {showCKSheet && (
-            <div className="overflow-auto max-h-[70vh]">
+            <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 90 }} />
@@ -986,7 +986,7 @@ export default function BranchReceiptPage({
                   <col style={{ width: 90 }} />
                   <col style={{ width: 120 }} />
                 </colgroup>
-                <thead className="sticky-thead">
+                <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
                     <th className={thClass}>{t("col.skuCode")}</th>
                     <th className={thClass}>{t("col.skuName")}</th>
@@ -1094,7 +1094,7 @@ export default function BranchReceiptPage({
           {/* External supplier sheet */}
           {showExternalSheet && (
             <>
-              <div className="overflow-auto max-h-[70vh]">
+              <div className="overflow-y-auto max-h-[65vh]">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col style={{ width: 90 }} />
@@ -1110,7 +1110,7 @@ export default function BranchReceiptPage({
                     <col style={{ width: 80 }} />
                     <col style={{ width: 100 }} />
                   </colgroup>
-                  <thead className="sticky-thead">
+                  <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
                       <th className={thClass}>{t("col.date")}</th>
                       <th className={`${thClass} text-center`}>{t("col.week")}</th>
@@ -1493,7 +1493,7 @@ export default function BranchReceiptPage({
         </div>
 
         <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-auto max-h-[70vh]">
+          <div className="overflow-y-auto max-h-[65vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
                 <col style={{ width: 110 }} />
@@ -1509,7 +1509,7 @@ export default function BranchReceiptPage({
                 {isManagement && <col style={{ width: 110 }} />}
                 {isManagement && <col style={{ width: 50 }} />}
               </colgroup>
-              <thead className="sticky-thead">
+              <thead className="sticky top-0 z-[5]">
                 <tr className="bg-table-header border-b">
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("date")}>
                     <SortableHeader
