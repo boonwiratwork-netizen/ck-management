@@ -16,7 +16,7 @@ interface StockCardProps {
   stockValue: number;
   onClose: () => void;
   disableMismatchCheck?: boolean;
-  context?: 'ck' | 'branch';
+  context?: "ck" | "branch";
   branchId?: string;
 }
 
@@ -44,7 +44,7 @@ interface BranchCountRow {
 }
 
 const STORAGE_BADGES: Record<string, string> = {
-  Frozen: "bg-blue-100 text-blue-700",
+  Frozen: "bg-[#E6F1FB] text-blue-700",
   Chilled: "bg-cyan-100 text-cyan-700",
   Ambient: "bg-muted text-muted-foreground",
 };
@@ -121,7 +121,7 @@ export function StockCard({
   stockValue,
   onClose,
   disableMismatchCheck,
-  context = 'ck',
+  context = "ck",
   branchId,
 }: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -140,49 +140,54 @@ export function StockCard({
     async function fetch() {
       setLoading(true);
       try {
-        if (context === 'branch') {
+        if (context === "branch") {
           // Branch context: reconstruct day-by-day ledger from raw transactions
 
           // Step 1 — Find earliest snap date
           const { data: firstSnap } = await supabase
-            .from('daily_stock_counts')
-            .select('count_date')
-            .eq('branch_id', branchId!)
-            .eq('sku_id', skuId)
-            .not('physical_count', 'is', null)
-            .order('count_date', { ascending: true })
+            .from("daily_stock_counts")
+            .select("count_date")
+            .eq("branch_id", branchId!)
+            .eq("sku_id", skuId)
+            .not("physical_count", "is", null)
+            .order("count_date", { ascending: true })
             .limit(1);
           if (cancelled) return;
 
-          const snapDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : '2020-01-01';
+          const snapDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : "2020-01-01";
           // Use whichever is later: snap date or fromDate (daysBack limit)
           const resolvedStartDate = snapDate > fromDate ? snapDate : fromDate;
 
           // Step 2 — Fetch all data in parallel
           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
-            supabase.from('daily_stock_counts')
-              .select('count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted')
-              .eq('branch_id', branchId!)
-              .eq('sku_id', skuId)
-              .gte('count_date', resolvedStartDate)
-              .order('count_date', { ascending: true }),
-            supabase.from('branch_receipts')
-              .select('receipt_date, qty_received, transfer_order_id, sku_id')
-              .eq('branch_id', branchId!)
-              .eq('sku_id', skuId)
-              .gte('receipt_date', resolvedStartDate)
-              .order('receipt_date', { ascending: true }),
-            supabase.from('sales_entries')
-              .select('sale_date, menu_code, menu_name, qty')
-              .eq('branch_id', branchId!)
-              .gte('sale_date', resolvedStartDate)
-              .order('sale_date', { ascending: true }),
-            supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
-            supabase.from('menus').select('id, menu_code'),
-            supabase.from('sp_bom').select('sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty'),
-            supabase.from('menu_modifier_rules').select('*').eq('is_active', true),
-            supabase.from('modifier_rule_menus').select('rule_id, menu_id'),
-            supabase.from('skus').select('id, type'),
+            supabase
+              .from("daily_stock_counts")
+              .select(
+                "count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted",
+              )
+              .eq("branch_id", branchId!)
+              .eq("sku_id", skuId)
+              .gte("count_date", resolvedStartDate)
+              .order("count_date", { ascending: true }),
+            supabase
+              .from("branch_receipts")
+              .select("receipt_date, qty_received, transfer_order_id, sku_id")
+              .eq("branch_id", branchId!)
+              .eq("sku_id", skuId)
+              .gte("receipt_date", resolvedStartDate)
+              .order("receipt_date", { ascending: true }),
+            supabase
+              .from("sales_entries")
+              .select("sale_date, menu_code, menu_name, qty")
+              .eq("branch_id", branchId!)
+              .gte("sale_date", resolvedStartDate)
+              .order("sale_date", { ascending: true }),
+            supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
+            supabase.from("menus").select("id, menu_code"),
+            supabase.from("sp_bom").select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty"),
+            supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
+            supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
+            supabase.from("skus").select("id, type"),
           ]);
           if (cancelled) return;
 
@@ -234,20 +239,24 @@ export function StockCard({
               for (const line of bomLines) {
                 const ingredientSkuId = line.sku_id;
                 const ingredientType = skuTypeMap.get(ingredientSkuId);
-                if (ingredientType === 'SP') {
+                if (ingredientType === "SP") {
                   // Expand SP via sp_bom
                   const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === ingredientSkuId);
                   for (const sp of spLines) {
-                    const spQty = (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                    const spQty =
+                      (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
                     usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
                   }
                 } else {
-                  usageMap.set(ingredientSkuId, (usageMap.get(ingredientSkuId) ?? 0) + Number(line.effective_qty) * qty);
+                  usageMap.set(
+                    ingredientSkuId,
+                    (usageMap.get(ingredientSkuId) ?? 0) + Number(line.effective_qty) * qty,
+                  );
                 }
               }
 
               // Modifier Rules
-              const menuName = (sale.menu_name || '').toLowerCase();
+              const menuName = (sale.menu_name || "").toLowerCase();
               for (const rule of modRules) {
                 if (!rule.keyword || !rule.is_active) continue;
                 const keyword = rule.keyword.toLowerCase();
@@ -257,22 +266,26 @@ export function StockCard({
                 const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
                 if (scopeMenuIds.length > 0 && !scopeMenuIds.includes(menuId)) continue;
 
-                if (rule.rule_type === 'swap') {
+                if (rule.rule_type === "swap") {
                   if (rule.swap_sku_id) {
-                    usageMap.set(rule.swap_sku_id, (usageMap.get(rule.swap_sku_id) ?? 0) - Number(rule.qty_per_match) * qty);
+                    usageMap.set(
+                      rule.swap_sku_id,
+                      (usageMap.get(rule.swap_sku_id) ?? 0) - Number(rule.qty_per_match) * qty,
+                    );
                   }
                   if (rule.sku_id) {
                     usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
                   }
-                } else if (rule.rule_type === 'submenu') {
+                } else if (rule.rule_type === "submenu") {
                   if (rule.submenu_id) {
                     const subBom = menuBomLines.filter((b: any) => b.menu_id === rule.submenu_id);
                     for (const line of subBom) {
                       const ingType = skuTypeMap.get(line.sku_id);
-                      if (ingType === 'SP') {
+                      if (ingType === "SP") {
                         const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === line.sku_id);
                         for (const sp of spLines) {
-                          const spQty = (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                          const spQty =
+                            (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
                           usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
                         }
                       } else {
@@ -280,7 +293,7 @@ export function StockCard({
                       }
                     }
                   }
-                } else if (rule.rule_type === 'add') {
+                } else if (rule.rule_type === "add") {
                   if (rule.sku_id) {
                     usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
                   }
@@ -575,11 +588,11 @@ export function StockCard({
           <div className="flex-1 rounded-md border px-3 py-2">
             <div className="text-xs text-muted-foreground">Current Stock</div>
             <div className="text-lg font-bold font-mono">
-              {fmt0(context === 'branch' ? Number(branchCurrentStock) : currentStock)}{" "}
+              {fmt0(context === "branch" ? Number(branchCurrentStock) : currentStock)}{" "}
               <span className="text-xs font-normal text-muted-foreground">{sku.usageUom}</span>
             </div>
           </div>
-          {context === 'ck' && (
+          {context === "ck" && (
             <div className="flex-1 rounded-md border px-3 py-2">
               <div className="text-xs text-muted-foreground">Stock Value</div>
               <div className="text-lg font-bold font-mono">฿{fmt0(stockValue)}</div>
@@ -604,7 +617,7 @@ export function StockCard({
                 </div>
               ))}
             </div>
-          ) : context === 'branch' ? (
+          ) : context === "branch" ? (
             /* ─── Branch context table ─── */
             <>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -649,10 +662,30 @@ export function StockCard({
                         <tr key={i} className={table.dataRow}>
                           <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
                           <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
-                          <td className={table.dataCellCompactMono}>{received > 0 ? received.toLocaleString() : <span className="text-muted-foreground">—</span>}</td>
-                          <td className={table.dataCellCompactMono}>{Number(r.expected_usage) > 0 ? fmt0(Number(r.expected_usage)) : <span className="text-muted-foreground">—</span>}</td>
-                          <td className={table.dataCellCompactMono}>{Number(r.waste) > 0 ? fmt0(Number(r.waste)) : <span className="text-muted-foreground">—</span>}</td>
-                          <td className={`${table.dataCellCompactMono} font-semibold`}>{fmt0(Number(r.calculated_balance))}</td>
+                          <td className={table.dataCellCompactMono}>
+                            {received > 0 ? (
+                              received.toLocaleString()
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className={table.dataCellCompactMono}>
+                            {Number(r.expected_usage) > 0 ? (
+                              fmt0(Number(r.expected_usage))
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className={table.dataCellCompactMono}>
+                            {Number(r.waste) > 0 ? (
+                              fmt0(Number(r.waste))
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className={`${table.dataCellCompactMono} font-semibold`}>
+                            {fmt0(Number(r.calculated_balance))}
+                          </td>
                           <td className={table.dataCellCompactMono}>
                             {hasPhysical ? (
                               <span className="font-semibold">{fmt0(Number(r.physical_count))}</span>
@@ -662,11 +695,15 @@ export function StockCard({
                           </td>
                           <td className={table.dataCellCompactMono}>
                             {hasPhysical ? (
-                              <span className={
-                                variance > 0 ? "text-success" :
-                                variance < 0 ? "text-destructive" :
-                                "text-muted-foreground"
-                              }>
+                              <span
+                                className={
+                                  variance > 0
+                                    ? "text-success"
+                                    : variance < 0
+                                      ? "text-destructive"
+                                      : "text-muted-foreground"
+                                }
+                              >
                                 {fmt0(variance)}
                               </span>
                             ) : (
@@ -681,9 +718,19 @@ export function StockCard({
               )}
               <div className="mt-3 text-xs text-muted-foreground">
                 {daysBack === 14 ? (
-                  <>Showing last 14 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>Load 30 days</button></>
+                  <>
+                    Showing last 14 days ·{" "}
+                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
+                      Load 30 days
+                    </button>
+                  </>
                 ) : daysBack === 30 ? (
-                  <>Showing last 30 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>Load all history</button></>
+                  <>
+                    Showing last 30 days ·{" "}
+                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>
+                      Load all history
+                    </button>
+                  </>
                 ) : (
                   <>Showing all history</>
                 )}
@@ -776,9 +823,19 @@ export function StockCard({
 
               <div className="mt-3 text-xs text-muted-foreground">
                 {daysBack === 14 ? (
-                  <>Showing last 14 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>Load 30 days</button></>
+                  <>
+                    Showing last 14 days ·{" "}
+                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
+                      Load 30 days
+                    </button>
+                  </>
                 ) : daysBack === 30 ? (
-                  <>Showing last 30 days · <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>Load all history</button></>
+                  <>
+                    Showing last 30 days ·{" "}
+                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>
+                      Load all history
+                    </button>
+                  </>
                 ) : (
                   <>Showing all history</>
                 )}
