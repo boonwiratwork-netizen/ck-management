@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusDot, StatusDotStatus } from "@/components/ui/status-dot";
 import { UnitLabel } from "@/components/ui/unit-label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +149,9 @@ export default function TransferRequestPage() {
     Array<{ skuId: string; skuCode: string; skuName: string; supplierId: string; supplierName: string }>
   >([]);
   const [skuFinderLoading, setSkuFinderLoading] = useState(false);
+  const [skuFinderTargetSkuId, setSkuFinderTargetSkuId] = useState<string | null>(null);
+
+  // Scroll-to-highlight moved below sortedTRLines/filteredPrLines declarations
 
   const branchName = useMemo(() => {
     if (!effectiveBranchId) return "";
@@ -328,6 +332,23 @@ export default function TransferRequestPage() {
     return prLines.filter((l) => l.skuCode.toLowerCase().includes(q) || l.skuName.toLowerCase().includes(q));
   }, [prLines, prSkuSearch]);
 
+  // Scroll-to-highlight after SKU finder selects a result
+  useEffect(() => {
+    if (!skuFinderTargetSkuId) return;
+    const timer = setTimeout(() => {
+      const row = document.querySelector(`tr[data-sku-id="${skuFinderTargetSkuId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        (row as HTMLElement).style.backgroundColor = "hsl(var(--warning) / 0.2)";
+        setTimeout(() => {
+          (row as HTMLElement).style.backgroundColor = "";
+        }, 1500);
+      }
+      setSkuFinderTargetSkuId(null);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [skuFinderTargetSkuId, sortedTRLines, filteredPrLines]);
+
   // ─── TR form state ───
   const [submitting, setSubmitting] = useState(false);
   const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
@@ -347,6 +368,28 @@ export default function TransferRequestPage() {
       toast.error(result.error);
     } else {
       toast.success(`Transfer Request ${result.trNumber} submitted`);
+
+      // Auto-copy LINE message
+      try {
+        const branch = branches.find((b) => b.id === effectiveBranchId);
+        const brandName = branch?.brandName || "";
+        const requiredDateStr = trHook.requiredDate ? toLocalDateStr(trHook.requiredDate) : "";
+        const orderedLines = trHook.lines.filter((l) => (batchInputs[l.skuId] || 0) > 0);
+        const copyLines = [
+          `📦 [${branchName} — ${brandName}] - สั่งวัตถุดิบ`,
+          `วันส่งสินค้า: ${requiredDateStr}`,
+          ``,
+          `🧾 รายการ:`,
+          ...orderedLines.map(
+            (l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(batchInputs[l.skuId], 0)} แพ็ค`,
+          ),
+          ``,
+          `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
+        ];
+        await navigator.clipboard.writeText(copyLines.join("\n"));
+        toast.success("📋 คัดลอกข้อความ LINE แล้ว — วางได้เลย", { duration: 4000 });
+      } catch {}
+
       setFormOpen(false);
       setBatchInputs({});
     }
@@ -417,6 +460,28 @@ export default function TransferRequestPage() {
       }
 
       toast.success(`Purchase Request ${prNumber} submitted`);
+
+      // Auto-copy LINE message
+      try {
+        const branch = branches.find((b) => b.id === effectiveBranchId);
+        const brandName = branch?.brandName || "";
+        const requiredDateStr = requiredDate ? toLocalDateStr(requiredDate) : "";
+        const orderedPrLines = prLines.filter((l) => (prBatchInputs[l.skuId] || 0) > 0);
+        const copyLines = [
+          `📦 [${branchName} — ${brandName}] - สั่งวัตถุดิบ`,
+          `วันส่งสินค้า: ${requiredDateStr}`,
+          ``,
+          `🧾 รายการ:`,
+          ...orderedPrLines.map(
+            (l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.usageUom} x ${prBatchInputs[l.skuId]} ${l.packUnit}`,
+          ),
+          ``,
+          `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
+        ];
+        await navigator.clipboard.writeText(copyLines.join("\n"));
+        toast.success("📋 คัดลอกข้อความ LINE แล้ว — วางได้เลย", { duration: 4000 });
+      } catch {}
+
       setFormOpen(false);
       setPrBatchInputs({});
       setNotes("");
@@ -688,15 +753,17 @@ export default function TransferRequestPage() {
             )}
 
             {/* SKU Finder — search by name */}
-            {effectiveBranchId && !skuFinderOpen && (
+            {effectiveBranchId && formOpen && !skuFinderOpen && (
               <div className="self-end">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
                   onClick={() => setSkuFinderOpen(true)}
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
                 >
+                  <Search className="w-3.5 h-3.5 mr-1.5" />
                   เสิร์จ SKU
-                </button>
+                </Button>
               </div>
             )}
             {effectiveBranchId && skuFinderOpen && (
@@ -768,6 +835,7 @@ export default function TransferRequestPage() {
                           key={`${r.skuId}-${r.supplierId}-${i}`}
                           type="button"
                           onClick={() => {
+                            setSkuFinderTargetSkuId(r.skuId);
                             handleSupplierChange(r.supplierId);
                           }}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-3 border-b last:border-0"
@@ -901,6 +969,7 @@ export default function TransferRequestPage() {
                           return (
                             <tr
                               key={line.skuId}
+                              data-sku-id={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
                               <td className={tableTokens.dataCellCompactCenter}>
@@ -1014,7 +1083,57 @@ export default function TransferRequestPage() {
               </div>
 
               {rmLoading ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">Loading items...</div>
+                <div className={tableTokens.wrapper}>
+                  <div className="overflow-y-auto max-h-[65vh]">
+                    <table className={tableTokens.base}>
+                      <colgroup>
+                        <col style={{ width: 26 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 200 }} />
+                        <col style={{ width: 90 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 60 }} />
+                        <col style={{ width: 68 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 52 }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-[5]">
+                        <tr className={tableTokens.headerRow}>
+                          <th className={tableTokens.headerCellCenter}></th>
+                          <th className={tableTokens.headerCell}>SKU Code</th>
+                          <th className={tableTokens.headerCell}>SKU Name</th>
+                          <th className={tableTokens.headerCell}>Pack Size</th>
+                          <th className={tableTokens.headerCellNumeric}>Stock Now</th>
+                          <th className={tableTokens.headerCellNumeric}>ROP</th>
+                          <th className={tableTokens.headerCellNumeric}>Parstock</th>
+                          <th className={tableTokens.headerCellNumeric}>Suggested</th>
+                          <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">Request</th>
+                          <th className={tableTokens.headerCellNumeric}>Total</th>
+                          <th className={tableTokens.headerCellCenter}>Unit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <tr key={i} className={tableTokens.dataRow}>
+                            <td className={tableTokens.dataCellCompactCenter}><Skeleton className="h-2 w-2 rounded-full" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-14" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-32" /></td>
+                            <td className={tableTokens.dataCellCompact}><Skeleton className="h-4 w-20" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-12 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-10 ml-auto" /></td>
+                            <td className={`${tableTokens.dataCellCompact} text-right`}><Skeleton className="h-4 w-14 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactMono}><Skeleton className="h-4 w-12 ml-auto" /></td>
+                            <td className={tableTokens.dataCellCompactCenter}><Skeleton className="h-4 w-6 mx-auto" /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ) : prLines.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   No RM SKUs found for this supplier and branch.
@@ -1084,6 +1203,7 @@ export default function TransferRequestPage() {
                           return (
                             <tr
                               key={line.skuId}
+                              data-sku-id={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
                               <td className={tableTokens.dataCellCompactCenter}>
