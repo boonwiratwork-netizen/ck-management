@@ -141,6 +141,12 @@ export default function TransferRequestPage() {
   // PR search
   const [prSkuSearch, setPrSkuSearch] = useState("");
 
+  // SKU finder (search by name flow)
+  const [skuFinderOpen, setSkuFinderOpen] = useState(false);
+  const [skuFinderQuery, setSkuFinderQuery] = useState("");
+  const [skuFinderResults, setSkuFinderResults] = useState<Array<{ skuId: string; skuCode: string; skuName: string; supplierId: string; supplierName: string }>>([]);
+  const [skuFinderLoading, setSkuFinderLoading] = useState(false);
+
   const branchName = useMemo(() => {
     if (!effectiveBranchId) return "";
     return branches.find((b) => b.id === effectiveBranchId)?.branchName || "";
