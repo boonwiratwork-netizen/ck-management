@@ -148,6 +148,7 @@ export default function TransferRequestPage() {
     Array<{ skuId: string; skuCode: string; skuName: string; supplierId: string; supplierName: string }>
   >([]);
   const [skuFinderTargetSkuId, setSkuFinderTargetSkuId] = useState<string | null>(null);
+  const [skuFinderLoading, setSkuFinderLoading] = useState(false);
 
   const branchName = useMemo(() => {
     if (!effectiveBranchId) return "";
