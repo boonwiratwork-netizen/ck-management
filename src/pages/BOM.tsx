@@ -828,7 +828,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
               <p className="text-lg font-bold font-mono">{(selectedHeader!.yieldPercent * 100).toFixed(0)}%</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-cyan-100">
+            <div className="text-center p-4 rounded-lg bg-[#E6F1FB]">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
               <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
             </div>
