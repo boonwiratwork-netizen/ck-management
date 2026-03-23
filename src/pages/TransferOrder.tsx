@@ -154,18 +154,91 @@ export default function TransferOrderPage({
   const [profileId, setProfileId] = useState<string | null>(null);
   useEffect(() => {
     if (user) {
-      import("@/integrations/supabase/client").then(({ supabase }) => {
-        supabase
-          .from("profiles")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (data) setProfileId(data.id);
-          });
-      });
+      supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setProfileId(data.id);
+        });
     }
   }, [user]);
+
+  // ─── Avg pack weight per SKU (production history) ───
+  const [avgPackWeightMap, setAvgPackWeightMap] = useState<Record<string, number>>({});
+  // ─── Production records per SKU (for lot assignment) ───
+  const [prodRecordsMap, setProdRecordsMap] = useState<Record<string, ProdRecord[]>>({});
+  // ─── Lot lines per TO line ───
+  const [lotLines, setLotLines] = useState<Record<string, LotLineLocal[]>>({});
+  // ─── Expanded lot rows ───
+  const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
+
+  // Fetch production data + existing lot lines when form opens
+  useEffect(() => {
+    if (!formState || formState.lines.length === 0) {
+      setAvgPackWeightMap({});
+      setProdRecordsMap({});
+      setLotLines({});
+      setExpandedLines({});
+      return;
+    }
+    const skuIds = formState.lines.map((l) => l.skuId);
+    const lineIds = formState.lines.map((l) => l.id);
+
+    // Query A: avg pack weight + production records
+    supabase
+      .from("production_records")
+      .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
+      .in("sm_sku_id", skuIds)
+      .order("production_date", { ascending: true })
+      .then(({ data }) => {
+        if (!data) return;
+        const bySkuAgg: Record<string, { totalG: number; totalBatches: number }> = {};
+        const bySkuRecords: Record<string, ProdRecord[]> = {};
+        for (const r of data) {
+          if (!bySkuAgg[r.sm_sku_id]) bySkuAgg[r.sm_sku_id] = { totalG: 0, totalBatches: 0 };
+          bySkuAgg[r.sm_sku_id].totalG += r.actual_output_g;
+          bySkuAgg[r.sm_sku_id].totalBatches += r.batches_produced;
+          if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
+          bySkuRecords[r.sm_sku_id].push({
+            id: r.id,
+            productionDate: r.production_date,
+            actualOutputG: r.actual_output_g,
+            batchesProduced: r.batches_produced,
+          });
+        }
+        const weightMap: Record<string, number> = {};
+        for (const [skuId, agg] of Object.entries(bySkuAgg)) {
+          weightMap[skuId] = agg.totalBatches > 0 ? agg.totalG / agg.totalBatches : 0;
+        }
+        setAvgPackWeightMap(weightMap);
+        setProdRecordsMap(bySkuRecords);
+      });
+
+    // Query B: existing lot lines for this TO
+    if (lineIds.length > 0) {
+      supabase
+        .from("transfer_order_lot_lines")
+        .select("*")
+        .in("to_line_id", lineIds)
+        .then(({ data }) => {
+          if (!data) return;
+          const byLine: Record<string, LotLineLocal[]> = {};
+          for (const r of data) {
+            if (!byLine[r.to_line_id]) byLine[r.to_line_id] = [];
+            byLine[r.to_line_id].push({
+              id: r.id,
+              productionRecordId: r.production_record_id || "",
+              productionDate: r.production_date,
+              packs: r.packs,
+              packWeightG: r.pack_weight_g,
+            });
+          }
+          setLotLines(byLine);
+        });
+    }
+  }, [formState?.toId, formState?.lines.length]);
 
   // ─── Create TO from TR ───
   const handleCreateFromTR = useCallback(
