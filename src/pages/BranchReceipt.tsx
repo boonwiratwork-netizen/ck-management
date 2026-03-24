@@ -1170,18 +1170,15 @@ export default function BranchReceiptPage({
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col style={{ width: 90 }} />
-                    <col style={{ width: 36 }} />
-                    <col style={{ width: 200 }} />
+                    <col style={{ width: 220 }} />
                     <col style={{ width: 120 }} />
                     <col style={{ width: 110 }} />
                     <col style={{ width: 100 }} />
-                    <col style={{ width: 50 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 70 }} />
                     <col style={{ width: 70 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 80 }} />
-                    <col style={{ width: 100 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
