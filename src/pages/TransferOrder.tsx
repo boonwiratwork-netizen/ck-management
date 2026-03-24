@@ -954,10 +954,10 @@ export default function TransferOrderPage({
                                         const grams = packs * packSize;
                                         handleLineUpdate(line.id, "actualQty", grams);
 
-                                        // FIFO auto-fill lots if empty
-                                        const currentLots = lotLines[line.id] || [];
+                                        // FIFO auto-fill lots if empty (read from refs to avoid stale closures)
+                                        const currentLots = lotLinesRef.current[line.id] || [];
                                         const hasManualLots = currentLots.some((l) => l.packs > 0);
-                                        const records = prodRecordsMap[line.skuId] || [];
+                                        const records = prodRecordsMapRef.current[line.skuId] || [];
                                         if (packs > 0 && !hasManualLots && records.length > 0) {
                                           let remaining = packs;
                                           const newLotLines: LotLineLocal[] = [];
