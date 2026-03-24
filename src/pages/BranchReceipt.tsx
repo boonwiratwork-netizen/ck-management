@@ -1010,7 +1010,7 @@ export default function BranchReceiptPage({
                         key={line.toLineId}
                         className={cn(
                           "border-b last:border-0 transition-colors",
-                          line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
+                          line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                         )}
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
@@ -1211,7 +1211,7 @@ export default function BranchReceiptPage({
                           key={row.skuId}
                           className={cn(
                             "border-b last:border-0 transition-colors",
-                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
+                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                           )}
                         >
                           <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
