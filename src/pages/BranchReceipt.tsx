@@ -980,13 +980,13 @@ export default function BranchReceiptPage({
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 88 }} />
                   <col />
+                  <col style={{ width: 95 }} />
+                  <col style={{ width: 85 }} />
+                  <col style={{ width: 95 }} />
+                  <col style={{ width: 55 }} />
                   <col style={{ width: 100 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 60 }} />
-                  <col style={{ width: 120 }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
