@@ -950,10 +950,15 @@ export default function TransferOrderPage({
                       return (
                         <React.Fragment key={line.id}>
                           <tr className={`${tableTokens.dataRow} align-top`}>
-                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>
+                              <div>
+                                {line.skuCode}
+                                <div className="text-xs mt-0.5 invisible">·</div>
+                              </div>
+                            </td>
                             <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               <div className="truncate">{line.skuName}</div>
-                              {lotSummary && <div className="text-xs mt-0.5">{lotSummary}</div>}
+                              {lotSummary ? <div className="text-xs mt-0.5">{lotSummary}</div> : <div className="text-xs mt-0.5 invisible">·</div>}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
@@ -1111,47 +1116,56 @@ export default function TransferOrderPage({
                               )}
                             </td>
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
-                              <UnitLabel unit={line.uom} />
+                              <div>
+                                <UnitLabel unit={line.uom} />
+                                <div className="text-xs mt-0.5 invisible">·</div>
+                              </div>
                             </td>
                             <td className={`${tableTokens.dataCell} align-middle`}>
-                              {canEdit ? (
-                                <Input
-                                  defaultValue={line.note}
-                                  onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
-                                  className="h-8 text-xs"
-                                  placeholder="Note..."
-                                />
-                              ) : (
-                                <span className="text-xs text-muted-foreground">{line.note || ""}</span>
-                              )}
+                              <div>
+                                {canEdit ? (
+                                  <Input
+                                    defaultValue={line.note}
+                                    onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
+                                    className="h-8 text-xs"
+                                    placeholder="Note..."
+                                  />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">{line.note || ""}</span>
+                                )}
+                                <div className="text-xs mt-0.5 invisible">·</div>
+                              </div>
                             </td>
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
-                              <div className="flex items-center justify-center gap-0.5">
-                                {packSize > 0 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => handleToggleExpand(line.id, line.skuId)}
-                                    title="Lot assignment"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <ChevronDown className="w-3.5 h-3.5" />
-                                    )}
-                                  </Button>
-                                )}
-                                {canEdit && !line.trLineId && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={() => handleDeleteLine(line.id)}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
-                                )}
+                              <div>
+                                <div className="flex items-center justify-center gap-0.5">
+                                  {packSize > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleToggleExpand(line.id, line.skuId)}
+                                      title="Lot assignment"
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                      )}
+                                    </Button>
+                                  )}
+                                  {canEdit && !line.trLineId && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => handleDeleteLine(line.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="text-xs mt-0.5 invisible">·</div>
                               </div>
                             </td>
                           </tr>
