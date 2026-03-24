@@ -135,6 +135,8 @@ export default function BranchReceiptPage({
   // Pending PR counts per supplier
   const prHook = usePurchaseRequest(branchId || null);
   const [pendingPRCounts, setPendingPRCounts] = useState<Record<string, number>>({});
+  // PR SKU qty map: skuId → total requested qty across pending PRs for current supplier
+  const [prSkuQtyMap, setPrSkuQtyMap] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!branchId) {
       setPendingPRCounts({});
@@ -142,6 +144,40 @@ export default function BranchReceiptPage({
     }
     prHook.getPendingPRCountsBySupplier(branchId).then(setPendingPRCounts);
   }, [branchId]);
+
+  // Fetch PR line items when external supplier selected
+  useEffect(() => {
+    if (!branchId || !supplierId || supplierId === CK_SUPPLIER_ID) {
+      setPrSkuQtyMap({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // Find pending PRs for this branch+supplier
+      const { data: prs } = await supabase
+        .from("purchase_requests")
+        .select("id")
+        .eq("branch_id", branchId)
+        .in("status", ["Submitted", "Acknowledged"]);
+      if (cancelled || !prs || prs.length === 0) {
+        if (!cancelled) setPrSkuQtyMap({});
+        return;
+      }
+      const prIds = prs.map((p) => p.id);
+      const { data: lines } = await supabase
+        .from("purchase_request_lines")
+        .select("sku_id, requested_qty, supplier_id")
+        .in("pr_id", prIds)
+        .eq("supplier_id", supplierId);
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      for (const l of lines || []) {
+        map[l.sku_id] = (map[l.sku_id] || 0) + Number(l.requested_qty);
+      }
+      setPrSkuQtyMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [branchId, supplierId]);
 
   // TO integration state
   const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
