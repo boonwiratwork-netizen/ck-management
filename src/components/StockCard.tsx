@@ -29,6 +29,7 @@ interface Movement {
   qtyOut: number | null;
   runningBalance?: number;
   isProductionUse?: boolean;
+  lotText?: string;
 }
 
 interface BranchCountRow {
@@ -459,7 +460,7 @@ export function StockCard({
             supabase
               .from("transfer_order_lines")
               .select(
-                "actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
+                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
               )
               .eq("sku_id", skuId)
               .in("transfer_orders.status", ["Sent", "Received"])
@@ -499,11 +500,39 @@ export function StockCard({
             });
           });
 
-          (toRes.data ?? []).forEach((line: any) => {
+          // Fetch lot lines for all TO lines in one batched query
+          const toLines = toRes.data ?? [];
+          const toLineIds = toLines.map((l: any) => l.id).filter(Boolean);
+          let lotLookup: Record<string, { production_date: string; packs: number }[]> = {};
+          if (toLineIds.length > 0) {
+            const { data: lotData } = await supabase
+              .from("transfer_order_lot_lines")
+              .select("to_line_id, production_date, packs")
+              .in("to_line_id", toLineIds);
+            if (cancelled) return;
+            for (const lot of lotData ?? []) {
+              const arr = lotLookup[lot.to_line_id] ?? [];
+              arr.push({ production_date: lot.production_date, packs: lot.packs });
+              lotLookup[lot.to_line_id] = arr;
+            }
+          }
+
+          toLines.forEach((line: any) => {
             const to = line.transfer_orders;
             if (!to) return;
             const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
             const branchName = to.branches?.branch_name ?? "";
+            const lots = lotLookup[line.id] ?? [];
+            let lotText = "";
+            if (lots.length > 0) {
+              lotText = lots
+                .sort((a, b) => a.production_date.localeCompare(b.production_date))
+                .map((l) => {
+                  const d = new Date(l.production_date);
+                  return `${d.getDate()}/${d.getMonth() + 1} ×${l.packs}`;
+                })
+                .join(", ");
+            }
             mvts.push({
               date: to.delivery_date,
               sortKey: `${to.delivery_date}|${to.delivery_date}`,
@@ -511,6 +540,7 @@ export function StockCard({
               reference: `${to.to_number} · ${branchName}`,
               qtyIn: null,
               qtyOut: qty,
+              lotText: lotText || undefined,
             });
           });
 
@@ -773,6 +803,11 @@ export function StockCard({
                       </td>
                       <td className={table.truncatedCellCompact} title={m.reference}>
                         <span className="block truncate">{m.reference}</span>
+                        {m.lotText && (
+                          <span className="block truncate text-[10px] text-muted-foreground mt-0.5" title={m.lotText}>
+                            {m.lotText}
+                          </span>
+                        )}
                       </td>
                       <td className={table.dataCellCompactMono}>
                         {m.qtyIn != null && m.qtyIn > 0 ? (
