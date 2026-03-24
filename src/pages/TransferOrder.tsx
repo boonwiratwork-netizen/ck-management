@@ -625,7 +625,7 @@ export default function TransferOrderPage({
         ],
       }));
     },
-    [prodRecordsMap, smSkus],
+    [prodRecordsMap, skus],
   );
 
   // Qty input refs for Tab navigation
