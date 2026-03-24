@@ -1425,17 +1425,6 @@ export default function BranchReceiptPage({
                               "—"
                             )}
                           </td>
-                          <td className="px-1 py-1 align-middle">
-                            <input
-                              type="text"
-                              defaultValue={edit.note}
-                              key={`note-${row.skuId}-${savedCount}`}
-                              tabIndex={-1}
-                              onBlur={(e) => updateRowEdit(row.skuId, { note: e.target.value })}
-                              className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                              placeholder="Note"
-                            />
-                          </td>
                         </tr>
                       );
                     })}
