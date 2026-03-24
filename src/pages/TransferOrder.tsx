@@ -834,9 +834,9 @@ export default function TransferOrderPage({
                 </thead>
                 <tbody>
                   {formState.lines.map((line, idx) => {
-                    const apw = avgPackWeightMap[line.skuId] || 0;
-                    const requestedPacks = apw > 0 ? Math.round(line.plannedQty / apw) : 0;
-                    const currentPacks = apw > 0 ? Math.round(line.actualQty / apw) : 0;
+                    const packSize = smSkus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+                    const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
+                    const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
                     const isExpanded = expandedLines[line.id] || false;
                     const lineLots = lotLines[line.id] || [];
                     const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
