@@ -1441,6 +1441,7 @@ export default function BranchReceiptPage({
                         <colgroup>
                           <col style={{ width: 240 }} />
                           <col style={{ width: 80 }} />
+                          <col style={{ width: 80 }} />
                           <col style={{ width: 50 }} />
                           <col style={{ width: 90 }} />
                           <col style={{ width: 100 }} />
@@ -1449,7 +1450,8 @@ export default function BranchReceiptPage({
                         <thead>
                           <tr className="bg-table-header border-b">
                             <th className={thClass}>{t("col.sku")}</th>
-                            <th className={`${thClass} text-right`}>{t("col.qty")}</th>
+                            <th className={`${thClass} text-right`}>PACKS</th>
+                            <th className={`${thClass} text-right`}>WEIGHT</th>
                             <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                             <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
                             <th className={thClass}>{t("col.note")}</th>
@@ -1459,9 +1461,13 @@ export default function BranchReceiptPage({
                         <tbody>
                           {adHocRows.map((row) => {
                             const sku = skuMap[row.skuId];
+                            const packSize = sku?.packSize ?? 0;
+                            const packUnit = sku?.packUnit ?? "";
+                            const isPacksMode = sku && packSize > 1 && packUnit.length > 0;
+                            const currentPacks = isPacksMode ? Math.round(row.qty / packSize) : 0;
                             return (
                               <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
-                                <td className="px-1 py-1">
+                                <td className="px-1 py-1 align-middle">
                                   <SearchableSelect
                                     value={row.skuId}
                                     onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
@@ -1474,23 +1480,73 @@ export default function BranchReceiptPage({
                                     triggerClassName="h-8 text-xs truncate"
                                   />
                                 </td>
-                                <td className="px-1 py-1">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    defaultValue={row.qty || ""}
-                                    key={`adhoc-qty-${row.tempId}`}
-                                    onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
-                                    onFocus={(e) => e.target.select()}
-                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
-                                    placeholder="0"
-                                  />
+                                <td className="px-1 py-1 align-middle">
+                                  {isPacksMode ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        defaultValue={currentPacks || ""}
+                                        key={`adhoc-packs-${row.tempId}-${row.skuId}`}
+                                        onBlur={(e) => {
+                                          const packs = Math.round(Number(e.target.value) || 0);
+                                          updateAdHoc(row.tempId, { qty: packs * packSize });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        defaultValue={row.qty || ""}
+                                        key={`adhoc-qty-${row.tempId}-${row.skuId}`}
+                                        onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                        onFocus={(e) => e.target.select()}
+                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || "—"}</span>
+                                    </div>
+                                  )}
                                 </td>
-                                <td className={`${tdReadOnly} text-center text-muted-foreground`}>
-                                  {sku?.purchaseUom || "—"}
+                                <td className="px-1 py-1 align-middle">
+                                  {isPacksMode ? (
+                                    <div>
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        defaultValue={row.qty || ""}
+                                        key={`adhoc-wt-${row.tempId}-${row.skuId}-${row.qty}`}
+                                        onBlur={(e) => {
+                                          const grams = Number(e.target.value) || 0;
+                                          if (grams > 0) updateAdHoc(row.tempId, { qty: grams });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        placeholder="override"
+                                        className="h-8 w-full text-xs font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      />
+                                      <div className="text-xs text-muted-foreground mt-0.5">
+                                        est. {(currentPacks * packSize).toLocaleString()}g
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
                                 </td>
-                                <td className="px-1 py-1">
+                                <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
+                                  {isPacksMode ? packUnit : (sku?.usageUom || "—")}
+                                </td>
+                                <td className="px-1 py-1 align-middle">
                                   <input
                                     type="number"
                                     min={0}
@@ -1505,7 +1561,7 @@ export default function BranchReceiptPage({
                                     placeholder="0.00"
                                   />
                                 </td>
-                                <td className="px-1 py-1">
+                                <td className="px-1 py-1 align-middle">
                                   <input
                                     type="text"
                                     defaultValue={row.note}
@@ -1515,7 +1571,7 @@ export default function BranchReceiptPage({
                                     placeholder="Note"
                                   />
                                 </td>
-                                <td className="px-1 py-1 text-center">
+                                <td className="px-1 py-1 text-center align-middle">
                                   <Button
                                     variant="ghost"
                                     size="icon"
