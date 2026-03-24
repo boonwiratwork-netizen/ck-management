@@ -1153,21 +1153,6 @@ export default function TransferOrderPage({
                             </td>
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <div className="flex items-center justify-center gap-0.5">
-                                {packSize > 0 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => handleToggleExpand(line.id, line.skuId)}
-                                    title="Lot assignment"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <ChevronDown className="w-3.5 h-3.5" />
-                                    )}
-                                  </Button>
-                                )}
                                 {canEdit && !line.trLineId && (
                                   <Button
                                     variant="ghost"
