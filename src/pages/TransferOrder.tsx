@@ -1534,7 +1534,7 @@ export default function TransferOrderPage({
                     </thead>
                     <tbody>
                       {detailLines.map((l) => {
-                        const detailPackSize = smSkus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+                        const detailPackSize = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
                         return (
                           <tr key={l.id} className={tableTokens.dataRow}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
