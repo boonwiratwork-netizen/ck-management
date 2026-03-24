@@ -176,6 +176,14 @@ export default function TransferOrderPage({
   // ─── Duplicate lot save guard ───
   const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
 
+  // Refs to avoid stale closures in onBlur handlers
+  const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
+  const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
+  const savingLotLinesRef = useRef<Set<string>>(new Set());
+  useEffect(() => { lotLinesRef.current = lotLines; }, [lotLines]);
+  useEffect(() => { prodRecordsMapRef.current = prodRecordsMap; }, [prodRecordsMap]);
+  useEffect(() => { savingLotLinesRef.current = savingLotLines; }, [savingLotLines]);
+
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
     if (!formState || formState.lines.length === 0) {
@@ -546,7 +554,7 @@ export default function TransferOrderPage({
     async (toLineId: string, idx: number, lot: LotLineLocal) => {
       if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
       const lockKey = `${toLineId}-${idx}`;
-      if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
+      if (savingLotLinesRef.current.has(lockKey)) return; // Prevent duplicate concurrent saves
       setSavingLotLines((prev) => new Set(prev).add(lockKey));
       try {
         if (lot.id) {
@@ -946,10 +954,10 @@ export default function TransferOrderPage({
                                         const grams = packs * packSize;
                                         handleLineUpdate(line.id, "actualQty", grams);
 
-                                        // FIFO auto-fill lots if empty
-                                        const currentLots = lotLines[line.id] || [];
+                                        // FIFO auto-fill lots if empty (read from refs to avoid stale closures)
+                                        const currentLots = lotLinesRef.current[line.id] || [];
                                         const hasManualLots = currentLots.some((l) => l.packs > 0);
-                                        const records = prodRecordsMap[line.skuId] || [];
+                                        const records = prodRecordsMapRef.current[line.skuId] || [];
                                         if (packs > 0 && !hasManualLots && records.length > 0) {
                                           let remaining = packs;
                                           const newLotLines: LotLineLocal[] = [];
@@ -1136,10 +1144,9 @@ export default function TransferOrderPage({
                                   {lineLots.map((lot, lotIdx) => {
                                     const selRecord = skuRecords.find((r) => r.id === lot.productionRecordId);
                                     return (
-                                      <div key={lotIdx} className="flex items-center gap-3 text-sm">
-                                        {/* Production date selector */}
+                                      <div key={lotIdx} className="flex items-center gap-2">
                                         <select
-                                          className="h-8 rounded-md border border-input bg-background px-2 text-xs min-w-[180px]"
+                                          className="h-7 rounded border border-input bg-background px-2 text-xs w-[160px] shrink-0"
                                           defaultValue={lot.productionRecordId}
                                           onChange={(e) => {
                                             const rec = skuRecords.find((r) => r.id === e.target.value);
@@ -1169,8 +1176,6 @@ export default function TransferOrderPage({
                                             </option>
                                           ))}
                                         </select>
-
-                                        {/* Packs input */}
                                         <input
                                           type="number"
                                           inputMode="numeric"
@@ -1188,26 +1193,16 @@ export default function TransferOrderPage({
                                             });
                                             handleLotLineSave(line.id, lotIdx, updated);
                                           }}
-                                          className="h-8 w-16 text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          style={{ textAlign: "right" }}
+                                          className="h-7 w-14 text-xs font-mono text-right px-1.5 rounded border border-input bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
-
-                                        {/* Pack weight display */}
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                          ~{formatNumber(lot.packWeightG, 0)}g/pack
+                                        <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+                                          ~{formatNumber(lot.packWeightG, 0)}g · {formatNumber(lot.packs * lot.packWeightG, 0)}g
                                         </span>
-
-                                        {/* Total g */}
-                                        <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                                          = {formatNumber(lot.packs * lot.packWeightG, 0)}g
-                                        </span>
-
-                                        {/* Delete */}
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-6 w-6 text-destructive hover:text-destructive"
+                                          className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
                                           onClick={() => handleDeleteLotLine(line.id, lotIdx)}
                                         >
                                           <Trash2 className="w-3 h-3" />
