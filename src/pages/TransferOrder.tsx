@@ -809,9 +809,9 @@ export default function TransferOrderPage({
                 <colgroup>
                   <col style={{ width: 90 }} />
                   <col />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
                   <col style={{ width: 80 }} />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
                   <col style={{ width: 60 }} />
                   <col style={{ width: 100 }} />
                   <col style={{ width: 50 }} />
