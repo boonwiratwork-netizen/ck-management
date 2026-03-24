@@ -910,6 +910,7 @@ export default function TransferOrderPage({
                   <tbody>
                     {formState.lines.map((line, idx) => {
                       const packSize = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+                      const sku = smSkus.find((s) => s.id === line.skuId);
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
                       const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
                       const isExpanded = expandedLines[line.id] || false;
@@ -1110,8 +1111,7 @@ export default function TransferOrderPage({
                                     key={`wt-${line.id}`}
                                   />
                                   <div className="text-xs text-muted-foreground mt-0.5">
-                                    est. {formatNumber(currentPacks * packSize, 0)}
-                                    {sku.purchaseUom || "g"}
+                                    est. {formatNumber(currentPacks * packSize, 0)} {sku?.usageUom || "g"}
                                   </div>
                                 </div>
                               ) : packSize === 0 ? (
