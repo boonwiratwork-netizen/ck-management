@@ -1240,34 +1240,37 @@ export default function BranchReceiptPage({
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
                             {isPacksMode ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={0}
-                                  step={1}
-                                  defaultValue={currentPacks || ""}
-                                  key={`packs-${row.skuId}-${savedCount}`}
-                                  onBlur={(e) => {
-                                    const packs = Math.round(Number(e.target.value) || 0);
-                                    const grams = packs * packSize;
-                                    updateRowEdit(row.skuId, {
-                                      qty: grams,
-                                      ...(!rowEdits[row.skuId]?.actualManuallyEdited
-                                        ? { actualTotal: row.stdUnitPrice * grams }
-                                        : {}),
-                                    });
-                                  }}
-                                  onFocus={(e) => e.target.select()}
-                                  className={cn(
-                                    "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                    hasQty && "border-success font-bold text-success",
-                                  )}
-                                  placeholder="0"
-                                />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                                  {packUnit}
-                                </span>
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={currentPacks || ""}
+                                    key={`packs-${row.skuId}-${savedCount}`}
+                                    onBlur={(e) => {
+                                      const packs = Math.round(Number(e.target.value) || 0);
+                                      const grams = packs * packSize;
+                                      updateRowEdit(row.skuId, {
+                                        qty: grams,
+                                        ...(!rowEdits[row.skuId]?.actualManuallyEdited
+                                          ? { actualTotal: row.stdUnitPrice * grams }
+                                          : {}),
+                                      });
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className={cn(
+                                      "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                      hasQty && "border-success font-bold text-success",
+                                    )}
+                                    placeholder="0"
+                                  />
+                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                    {packUnit}
+                                  </span>
+                                </div>
+                                <div className="text-xs mt-0.5 invisible">·</div>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1">
