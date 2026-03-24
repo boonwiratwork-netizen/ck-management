@@ -165,19 +165,18 @@ export default function TransferOrderPage({
     }
   }, [user]);
 
-  // ─── Avg pack weight per SKU (production history) ───
-  const [avgPackWeightMap, setAvgPackWeightMap] = useState<Record<string, number>>({});
   // ─── Production records per SKU (for lot assignment) ───
   const [prodRecordsMap, setProdRecordsMap] = useState<Record<string, ProdRecord[]>>({});
   // ─── Lot lines per TO line ───
   const [lotLines, setLotLines] = useState<Record<string, LotLineLocal[]>>({});
   // ─── Expanded lot rows ───
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
+  // ─── Duplicate lot save guard ───
+  const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
 
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
     if (!formState || formState.lines.length === 0) {
-      setAvgPackWeightMap({});
       setProdRecordsMap({});
       setLotLines({});
       setExpandedLines({});
@@ -186,7 +185,7 @@ export default function TransferOrderPage({
     const skuIds = formState.lines.map((l) => l.skuId);
     const lineIds = formState.lines.map((l) => l.id);
 
-    // Query A: avg pack weight + production records
+    // Query A: production records per SKU (for lot date dropdown)
     supabase
       .from("production_records")
       .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
@@ -194,12 +193,8 @@ export default function TransferOrderPage({
       .order("production_date", { ascending: true })
       .then(({ data }) => {
         if (!data) return;
-        const bySkuAgg: Record<string, { totalG: number; totalBatches: number }> = {};
         const bySkuRecords: Record<string, ProdRecord[]> = {};
         for (const r of data) {
-          if (!bySkuAgg[r.sm_sku_id]) bySkuAgg[r.sm_sku_id] = { totalG: 0, totalBatches: 0 };
-          bySkuAgg[r.sm_sku_id].totalG += r.actual_output_g;
-          bySkuAgg[r.sm_sku_id].totalBatches += r.batches_produced;
           if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
           bySkuRecords[r.sm_sku_id].push({
             id: r.id,
@@ -208,11 +203,6 @@ export default function TransferOrderPage({
             batchesProduced: r.batches_produced,
           });
         }
-        const weightMap: Record<string, number> = {};
-        for (const [skuId, agg] of Object.entries(bySkuAgg)) {
-          weightMap[skuId] = agg.totalBatches > 0 ? agg.totalG / agg.totalBatches : 0;
-        }
-        setAvgPackWeightMap(weightMap);
         setProdRecordsMap(bySkuRecords);
       });
 
@@ -517,12 +507,8 @@ export default function TransferOrderPage({
 
   const hasLinesWithQty = useMemo(() => {
     if (!formState) return false;
-    return formState.lines.some((l) => {
-      const apw = avgPackWeightMap[l.skuId] || 0;
-      if (apw === 0) return l.actualQty > 0;
-      return l.actualQty > 0;
-    });
-  }, [formState?.lines, avgPackWeightMap]);
+    return formState.lines.some((l) => l.actualQty > 0);
+  }, [formState?.lines]);
 
   // Lot line helpers
   const handleToggleExpand = useCallback((lineId: string, skuId: string) => {
@@ -531,52 +517,63 @@ export default function TransferOrderPage({
       // First expansion: auto-add oldest prod record if no lots exist
       if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
         const records = prodRecordsMap[skuId];
+        const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
         if (records && records.length > 0) {
           const oldest = records[0];
-          const pwg = oldest.batchesProduced > 0 ? oldest.actualOutputG / oldest.batchesProduced : 0;
           setLotLines((p) => ({
             ...p,
             [lineId]: [{
               productionRecordId: oldest.id,
               productionDate: oldest.productionDate,
               packs: 0,
-              packWeightG: pwg,
+              packWeightG: packSize,
             }],
           }));
         }
       }
       return next;
     });
-  }, [lotLines, prodRecordsMap]);
+  }, [lotLines, prodRecordsMap, smSkus]);
 
   const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
     if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
-    if (lot.id) {
-      // Update existing
-      await supabase.from("transfer_order_lot_lines").update({
-        production_record_id: lot.productionRecordId || null,
-        production_date: lot.productionDate,
-        packs: lot.packs,
-        pack_weight_g: lot.packWeightG,
-      }).eq("id", lot.id);
-    } else {
-      // Insert new
-      const { data } = await supabase.from("transfer_order_lot_lines").insert({
-        to_line_id: toLineId,
-        production_record_id: lot.productionRecordId || null,
-        production_date: lot.productionDate,
-        packs: lot.packs,
-        pack_weight_g: lot.packWeightG,
-      }).select("id").single();
-      if (data) {
-        setLotLines((prev) => {
-          const arr = [...(prev[toLineId] || [])];
-          arr[idx] = { ...arr[idx], id: data.id };
-          return { ...prev, [toLineId]: arr };
-        });
+    const lockKey = `${toLineId}-${idx}`;
+    if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
+    setSavingLotLines((prev) => new Set(prev).add(lockKey));
+    try {
+      if (lot.id) {
+        // Update existing
+        await supabase.from("transfer_order_lot_lines").update({
+          production_record_id: lot.productionRecordId || null,
+          production_date: lot.productionDate,
+          packs: lot.packs,
+          pack_weight_g: lot.packWeightG,
+        }).eq("id", lot.id);
+      } else {
+        // Insert new
+        const { data } = await supabase.from("transfer_order_lot_lines").insert({
+          to_line_id: toLineId,
+          production_record_id: lot.productionRecordId || null,
+          production_date: lot.productionDate,
+          packs: lot.packs,
+          pack_weight_g: lot.packWeightG,
+        }).select("id").single();
+        if (data) {
+          setLotLines((prev) => {
+            const arr = [...(prev[toLineId] || [])];
+            arr[idx] = { ...arr[idx], id: data.id };
+            return { ...prev, [toLineId]: arr };
+          });
+        }
       }
+    } finally {
+      setSavingLotLines((prev) => {
+        const next = new Set(prev);
+        next.delete(lockKey);
+        return next;
+      });
     }
-  }, []);
+  }, [savingLotLines]);
 
   const handleDeleteLotLine = useCallback(async (toLineId: string, idx: number) => {
     const lot = lotLines[toLineId]?.[idx];
@@ -593,7 +590,7 @@ export default function TransferOrderPage({
   const handleAddLotLine = useCallback((toLineId: string, skuId: string) => {
     const records = prodRecordsMap[skuId];
     const first = records?.[0];
-    const pwg = first && first.batchesProduced > 0 ? first.actualOutputG / first.batchesProduced : 0;
+    const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
     setLotLines((prev) => ({
       ...prev,
       [toLineId]: [
@@ -602,11 +599,11 @@ export default function TransferOrderPage({
           productionRecordId: first?.id || "",
           productionDate: first?.productionDate || toLocalDateStr(new Date()),
           packs: 0,
-          packWeightG: pwg,
+          packWeightG: packSize,
         },
       ],
     }));
-  }, [prodRecordsMap]);
+  }, [prodRecordsMap, smSkus]);
 
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
@@ -812,9 +809,9 @@ export default function TransferOrderPage({
                 <colgroup>
                   <col style={{ width: 90 }} />
                   <col />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
                   <col style={{ width: 80 }} />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
                   <col style={{ width: 60 }} />
                   <col style={{ width: 100 }} />
                   <col style={{ width: 50 }} />
@@ -837,9 +834,9 @@ export default function TransferOrderPage({
                 </thead>
                 <tbody>
                   {formState.lines.map((line, idx) => {
-                    const apw = avgPackWeightMap[line.skuId] || 0;
-                    const requestedPacks = apw > 0 ? Math.round(line.plannedQty / apw) : 0;
-                    const currentPacks = apw > 0 ? Math.round(line.actualQty / apw) : 0;
+                    const packSize = smSkus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+                    const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
+                    const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
                     const isExpanded = expandedLines[line.id] || false;
                     const lineLots = lotLines[line.id] || [];
                     const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
@@ -855,7 +852,7 @@ export default function TransferOrderPage({
                           {/* REQUESTED — packs primary, grams secondary */}
                           <td className={`${tableTokens.dataCell} text-right`}>
                             {line.trLineId ? (
-                              apw > 0 ? (
+                              packSize > 0 ? (
                                 <div>
                                   <span className="font-mono text-sm">{formatNumber(requestedPacks, 0)}</span>
                                   <div className="text-xs text-muted-foreground">{formatNumber(line.plannedQty, 0)}g</div>
@@ -870,7 +867,7 @@ export default function TransferOrderPage({
                           {/* PACKS — primary amber input */}
                           <td className={`${tableTokens.dataCell} text-right`}>
                             {canEdit ? (
-                              apw > 0 ? (
+                              packSize > 0 ? (
                                 <input
                                   ref={(el) => { if (el) qtyRefs.current[line.id] = el; }}
                                   type="number"
@@ -880,7 +877,7 @@ export default function TransferOrderPage({
                                   defaultValue={currentPacks || ""}
                                   onBlur={(e) => {
                                     const packs = Math.round(Number(e.target.value) || 0);
-                                    const grams = packs * apw;
+                                    const grams = packs * packSize;
                                     handleLineUpdate(line.id, "actualQty", grams);
                                   }}
                                   onKeyDown={(e) => {
@@ -925,12 +922,12 @@ export default function TransferOrderPage({
                                 />
                               )
                             ) : (
-                              <span className="font-mono">{apw > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}</span>
+                              <span className="font-mono">{packSize > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}</span>
                             )}
                           </td>
                           {/* WEIGHT (g) — secondary amber input */}
                           <td className={`${tableTokens.dataCell} text-right`}>
-                            {canEdit && apw > 0 ? (
+                            {canEdit && packSize > 0 ? (
                               <div>
                                 <input
                                   type="number"
@@ -950,10 +947,10 @@ export default function TransferOrderPage({
                                   key={`wt-${line.id}`}
                                 />
                                 <div className="text-xs text-muted-foreground mt-0.5">
-                                  est. {formatNumber(currentPacks * apw, 0)}g
+                                  est. {formatNumber(currentPacks * packSize, 0)}g
                                 </div>
                               </div>
-                            ) : apw === 0 ? (
+                            ) : packSize === 0 ? (
                               <span className="text-muted-foreground text-xs">—</span>
                             ) : (
                               <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
@@ -976,7 +973,7 @@ export default function TransferOrderPage({
                           </td>
                           <td className={`${tableTokens.dataCell} text-center`}>
                             <div className="flex items-center justify-center gap-0.5">
-                              {skuRecords.length > 0 && (
+                              {packSize > 0 && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1030,8 +1027,7 @@ export default function TransferOrderPage({
                                         onChange={(e) => {
                                           const rec = skuRecords.find((r) => r.id === e.target.value);
                                           if (!rec) return;
-                                          const pwg = rec.batchesProduced > 0 ? rec.actualOutputG / rec.batchesProduced : 0;
-                                          const updated: LotLineLocal = { ...lot, productionRecordId: rec.id, productionDate: rec.productionDate, packWeightG: pwg };
+                                          const updated: LotLineLocal = { ...lot, productionRecordId: rec.id, productionDate: rec.productionDate, packWeightG: packSize };
                                           setLotLines((prev) => {
                                             const arr = [...(prev[line.id] || [])];
                                             arr[lotIdx] = updated;
@@ -1092,6 +1088,10 @@ export default function TransferOrderPage({
                                     </div>
                                   );
                                 })}
+
+                                {skuRecords.length === 0 && (
+                                  <span className="text-xs text-muted-foreground">No production records found for this SKU</span>
+                                )}
 
                                 {/* Add lot button */}
                                 {skuRecords.length > 0 && (
@@ -1399,22 +1399,41 @@ export default function TransferOrderPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {detailLines.map((l) => (
+                      {detailLines.map((l) => {
+                        const detailPackSize = smSkus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+                        return (
                         <tr key={l.id} className={tableTokens.dataRow}>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
                           <td className={tableTokens.truncatedCell} title={l.skuName}>
                             {l.skuName}
                           </td>
                           <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
-                            {formatNumber(l.plannedQty, 0)}
+                            {detailPackSize > 0 ? (
+                              <div>
+                                <span>{Math.round(l.plannedQty / detailPackSize)} packs</span>
+                                <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
+                              </div>
+                            ) : (
+                              formatNumber(l.plannedQty, 0) + "g"
+                            )}
                           </td>
-                          <td className={`${tableTokens.dataCellMono} font-medium`}>{formatNumber(l.actualQty, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} font-medium`}>
+                            {detailPackSize > 0 ? (
+                              <div>
+                                <span>{Math.round(l.actualQty / detailPackSize)} packs</span>
+                                <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
+                              </div>
+                            ) : (
+                              formatNumber(l.actualQty, 0) + "g"
+                            )}
+                          </td>
                           <td className={`${tableTokens.dataCell} text-center`}>
                             <UnitLabel unit={l.uom} />
                           </td>
                           <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 2)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
