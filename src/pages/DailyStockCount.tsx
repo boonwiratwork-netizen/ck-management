@@ -413,7 +413,7 @@ export default function DailyStockCountPage({
                               {sku.type}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
+                          <td className="px-2 py-1 text-xs text-muted-foreground text-center">{sku.usageUom}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
                           <td className="text-right font-mono text-sm px-2 py-1">
                             {(() => {
