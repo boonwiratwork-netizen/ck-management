@@ -1208,7 +1208,6 @@ export default function BranchReceiptPage({
                       <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
                       <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
                       <th className={`${thClass} text-right`}>{t("col.variance")}</th>
-                      <th className={thClass}>{t("col.note")}</th>
                     </tr>
                   </thead>
                   <tbody>
