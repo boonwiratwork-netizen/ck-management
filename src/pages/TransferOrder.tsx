@@ -178,13 +178,16 @@ export default function TransferOrderPage({
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
   // ─── Duplicate lot save guard ───
   const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
+  const [autoFillVersion, setAutoFillVersion] = useState(0);
 
   // Refs to avoid stale closures in onBlur handlers
   const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
+  const formStateRef = useRef<TOFormState | null>(null);
+  useEffect(() => {
+    formStateRef.current = formState;
+  }, [formState]);
   const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
   const savingLotLinesRef = useRef<Set<string>>(new Set());
-  const formStateRef = useRef<typeof formState>(null);
-  useEffect(() => { formStateRef.current = formState; }, [formState]);
   useEffect(() => {
     lotLinesRef.current = lotLines;
   }, [lotLines]);
@@ -226,17 +229,15 @@ export default function TransferOrderPage({
         }
         setProdRecordsMap(bySkuRecords);
 
-        // Auto-fill lots after React flushes ref sync
+        // Auto-fill lots for lines that already have packs but no lot assignment yet
         setTimeout(() => {
-          const currentFormState = formStateRef.current;
-          if (!currentFormState) return;
-          const lotsSnapshot = lotLinesRef.current;
-          for (const line of currentFormState.lines) {
+          if (!formStateRef.current) return;
+          for (const line of formStateRef.current.lines) {
             const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
             if (ps <= 0) continue;
             const currentPacks = Math.round(line.actualQty / ps);
             if (currentPacks <= 0) continue;
-            const existing = lotsSnapshot[line.id] || [];
+            const existing = lotLinesRef.current[line.id] || [];
             if (existing.some((l) => l.packs > 0)) continue;
             const records = bySkuRecords[line.skuId] || [];
             if (records.length === 0) continue;
@@ -249,6 +250,7 @@ export default function TransferOrderPage({
             setLotLines((prev) => ({ ...prev, [line.id]: [newLot] }));
             handleLotLineSave(line.id, 0, newLot);
           }
+          setAutoFillVersion((v) => v + 1);
         }, 0);
       });
 
@@ -271,7 +273,16 @@ export default function TransferOrderPage({
               packWeightG: r.pack_weight_g,
             });
           }
-          setLotLines(byLine);
+          setLotLines((prev) => {
+            // Only set lots from DB for lines that don't already have auto-filled lots
+            const merged = { ...prev };
+            for (const lineId of Object.keys(byLine)) {
+              if (!merged[lineId] || merged[lineId].length === 0) {
+                merged[lineId] = byLine[lineId];
+              }
+            }
+            return merged;
+          });
         });
     }
   }, [formState?.toId, formState?.lines.length]);
@@ -1232,8 +1243,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-~{formatNumber(lot.packWeightG ?? 0, 0)}g ·{" "}
-                                          {formatNumber((lot.packs ?? 0) * (lot.packWeightG ?? 0), 0)}g
+                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
+                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
