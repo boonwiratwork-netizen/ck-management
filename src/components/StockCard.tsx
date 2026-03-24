@@ -465,6 +465,84 @@ export function StockCard({
               .eq("sku_id", skuId)
               .in("transfer_orders.status", ["Sent", "Received"])
               .gte("transfer_orders.delivery_date", fromDate),
+            supabase
+              .from("stock_adjustments")
+              .select("adjustment_date, quantity, reason, created_at")
+              .eq("sku_id", skuId)
+              .eq("stock_type", "SM")
+              .gte("adjustment_date", fromDate)
+              .order("adjustment_date", { ascending: true })
+              .order("created_at", { ascending: true }),
+          ]);
+          if (cancelled) return;
+
+          const openingQty = obRes.data?.quantity ?? 0;
+
+          const mvts: Movement[] = [
+            {
+              date: "—",
+              sortKey: "0000-00-00",
+              type: "Opening",
+              reference: "—",
+              qtyIn: openingQty > 0 ? openingQty : null,
+              qtyOut: null,
+            },
+          ];
+
+          (prodRes.data ?? []).forEach((p) => {
+            mvts.push({
+              date: p.production_date,
+              sortKey: `${p.production_date}|${p.created_at}`,
+              type: "Production",
+              reference: `${p.batches_produced} batch${p.batches_produced > 1 ? "es" : ""}`,
+              qtyIn: p.actual_output_g,
+              qtyOut: null,
+            });
+          });
+
+          // Fetch lot lines for all TO lines in one batched query
+          const toLines = toRes.data ?? [];
+          const toLineIds = toLines.map((l: any) => l.id).filter(Boolean);
+          let lotLookup: Record<string, { production_date: string; packs: number }[]> = {};
+          if (toLineIds.length > 0) {
+            const { data: lotData } = await supabase
+              .from("transfer_order_lot_lines")
+              .select("to_line_id, production_date, packs")
+              .in("to_line_id", toLineIds);
+            if (cancelled) return;
+            for (const lot of lotData ?? []) {
+              const arr = lotLookup[lot.to_line_id] ?? [];
+              arr.push({ production_date: lot.production_date, packs: lot.packs });
+              lotLookup[lot.to_line_id] = arr;
+            }
+          }
+
+          toLines.forEach((line: any) => {
+            const to = line.transfer_orders;
+            if (!to) return;
+            const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
+            const branchName = to.branches?.branch_name ?? "";
+            const lots = lotLookup[line.id] ?? [];
+            let lotText = "";
+            if (lots.length > 0) {
+              lotText = lots
+                .sort((a, b) => a.production_date.localeCompare(b.production_date))
+                .map((l) => {
+                  const d = new Date(l.production_date);
+                  return `${d.getDate()}/${d.getMonth() + 1} ×${l.packs}`;
+                })
+                .join(", ");
+            }
+            mvts.push({
+              date: to.delivery_date,
+              sortKey: `${to.delivery_date}|${to.delivery_date}`,
+              type: "Delivery",
+              reference: `${to.to_number} · ${branchName}`,
+              qtyIn: null,
+              qtyOut: qty,
+              lotText: lotText || undefined,
+            });
+          });
 
           (adjRes.data ?? []).forEach((a) => {
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
