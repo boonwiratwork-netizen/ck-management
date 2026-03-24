@@ -981,7 +981,7 @@ export default function BranchReceiptPage({
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 88 }} /> // SKU CODE
-                  <col /> // SKU NAME — flex
+                  <col style={{ width: 150 }} /> // SKU NAME
                   <col style={{ width: 110 }} /> // PLANNED
                   <col style={{ width: 110 }} /> // PACKS
                   <col style={{ width: 100 }} /> // WEIGHT
@@ -1152,7 +1152,7 @@ export default function BranchReceiptPage({
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col style={{ width: 100 }} />
-                    <col />
+                    <col style={{ width: 150 }} />
                     <col style={{ width: 140 }} />
                     <col style={{ width: 110 }} />
                     <col style={{ width: 100 }} />
