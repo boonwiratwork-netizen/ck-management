@@ -183,6 +183,8 @@ export default function TransferOrderPage({
   const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
   const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
   const savingLotLinesRef = useRef<Set<string>>(new Set());
+  const formStateRef = useRef<typeof formState>(null);
+  useEffect(() => { formStateRef.current = formState; }, [formState]);
   useEffect(() => {
     lotLinesRef.current = lotLines;
   }, [lotLines]);
