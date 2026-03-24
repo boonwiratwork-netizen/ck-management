@@ -130,7 +130,10 @@ export default function TransferOrderPage({
   const [skuSearchOpen, setSkuSearchOpen] = useState(false);
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM" && s.status === "Active"), [skus]);
-  const distributableRmSkus = useMemo(() => skus.filter((s) => s.type === "RM" && s.status === "Active" && s.isDistributable), [skus]);
+  const distributableRmSkus = useMemo(
+    () => skus.filter((s) => s.type === "RM" && s.status === "Active" && s.isDistributable),
+    [skus],
+  );
 
   // BOM-filtered SKU IDs
   const [bomSkuIds, setBomSkuIds] = useState<Set<string>>(new Set());
@@ -180,9 +183,15 @@ export default function TransferOrderPage({
   const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
   const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
   const savingLotLinesRef = useRef<Set<string>>(new Set());
-  useEffect(() => { lotLinesRef.current = lotLines; }, [lotLines]);
-  useEffect(() => { prodRecordsMapRef.current = prodRecordsMap; }, [prodRecordsMap]);
-  useEffect(() => { savingLotLinesRef.current = savingLotLines; }, [savingLotLines]);
+  useEffect(() => {
+    lotLinesRef.current = lotLines;
+  }, [lotLines]);
+  useEffect(() => {
+    prodRecordsMapRef.current = prodRecordsMap;
+  }, [prodRecordsMap]);
+  useEffect(() => {
+    savingLotLinesRef.current = savingLotLines;
+  }, [savingLotLines]);
 
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
@@ -550,55 +559,52 @@ export default function TransferOrderPage({
     [lotLines, prodRecordsMap, skus],
   );
 
-  const handleLotLineSave = useCallback(
-    async (toLineId: string, idx: number, lot: LotLineLocal) => {
-      if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
-      const lockKey = `${toLineId}-${idx}`;
-      if (savingLotLinesRef.current.has(lockKey)) return; // Prevent duplicate concurrent saves
-      setSavingLotLines((prev) => new Set(prev).add(lockKey));
-      try {
-        if (lot.id) {
-          // Update existing
-          await supabase
-            .from("transfer_order_lot_lines")
-            .update({
-              production_record_id: lot.productionRecordId || null,
-              production_date: lot.productionDate,
-              packs: lot.packs,
-              pack_weight_g: lot.packWeightG,
-            })
-            .eq("id", lot.id);
-        } else {
-          // Insert new
-          const { data } = await supabase
-            .from("transfer_order_lot_lines")
-            .insert({
-              to_line_id: toLineId,
-              production_record_id: lot.productionRecordId || null,
-              production_date: lot.productionDate,
-              packs: lot.packs,
-              pack_weight_g: lot.packWeightG,
-            })
-            .select("id")
-            .single();
-          if (data) {
-            setLotLines((prev) => {
-              const arr = [...(prev[toLineId] || [])];
-              arr[idx] = { ...arr[idx], id: data.id };
-              return { ...prev, [toLineId]: arr };
-            });
-          }
+  const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
+    if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
+    const lockKey = `${toLineId}-${idx}`;
+    if (savingLotLinesRef.current.has(lockKey)) return; // Prevent duplicate concurrent saves
+    setSavingLotLines((prev) => new Set(prev).add(lockKey));
+    try {
+      if (lot.id) {
+        // Update existing
+        await supabase
+          .from("transfer_order_lot_lines")
+          .update({
+            production_record_id: lot.productionRecordId || null,
+            production_date: lot.productionDate,
+            packs: lot.packs,
+            pack_weight_g: lot.packWeightG,
+          })
+          .eq("id", lot.id);
+      } else {
+        // Insert new
+        const { data } = await supabase
+          .from("transfer_order_lot_lines")
+          .insert({
+            to_line_id: toLineId,
+            production_record_id: lot.productionRecordId || null,
+            production_date: lot.productionDate,
+            packs: lot.packs,
+            pack_weight_g: lot.packWeightG,
+          })
+          .select("id")
+          .single();
+        if (data) {
+          setLotLines((prev) => {
+            const arr = [...(prev[toLineId] || [])];
+            arr[idx] = { ...arr[idx], id: data.id };
+            return { ...prev, [toLineId]: arr };
+          });
         }
-      } finally {
-        setSavingLotLines((prev) => {
-          const next = new Set(prev);
-          next.delete(lockKey);
-          return next;
-        });
       }
-    },
-    [savingLotLines],
-  );
+    } finally {
+      setSavingLotLines((prev) => {
+        const next = new Set(prev);
+        next.delete(lockKey);
+        return next;
+      });
+    }
+  }, []);
 
   const handleDeleteLotLine = useCallback(
     async (toLineId: string, idx: number) => {
@@ -1006,7 +1012,9 @@ export default function TransferOrderPage({
                                       min={0}
                                       step={1}
                                       defaultValue={line.actualQty || ""}
-                                      onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
+                                      onBlur={(e) =>
+                                        handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)
+                                      }
                                       onKeyDown={(e) => {
                                         if (e.key === "Tab") {
                                           e.preventDefault();
@@ -1197,7 +1205,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                          ~{formatNumber(lot.packWeightG, 0)}g · {formatNumber(lot.packs * lot.packWeightG, 0)}g
+                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
+                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
