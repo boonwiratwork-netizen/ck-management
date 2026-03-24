@@ -950,10 +950,15 @@ export default function TransferOrderPage({
                       return (
                         <React.Fragment key={line.id}>
                           <tr className={`${tableTokens.dataRow} align-top`}>
-                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>
+                              <div>
+                                {line.skuCode}
+                                <div className="text-xs mt-0.5 invisible">·</div>
+                              </div>
+                            </td>
                             <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               <div className="truncate">{line.skuName}</div>
-                              {lotSummary && <div className="text-xs mt-0.5">{lotSummary}</div>}
+                              {lotSummary ? <div className="text-xs mt-0.5">{lotSummary}</div> : <div className="text-xs mt-0.5 invisible">·</div>}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
