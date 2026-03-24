@@ -867,7 +867,7 @@ export default function TransferOrderPage({
                           {/* PACKS — primary amber input */}
                           <td className={`${tableTokens.dataCell} text-right`}>
                             {canEdit ? (
-                              apw > 0 ? (
+                              packSize > 0 ? (
                                 <input
                                   ref={(el) => { if (el) qtyRefs.current[line.id] = el; }}
                                   type="number"
@@ -877,7 +877,7 @@ export default function TransferOrderPage({
                                   defaultValue={currentPacks || ""}
                                   onBlur={(e) => {
                                     const packs = Math.round(Number(e.target.value) || 0);
-                                    const grams = packs * apw;
+                                    const grams = packs * packSize;
                                     handleLineUpdate(line.id, "actualQty", grams);
                                   }}
                                   onKeyDown={(e) => {
@@ -922,7 +922,7 @@ export default function TransferOrderPage({
                                 />
                               )
                             ) : (
-                              <span className="font-mono">{apw > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}</span>
+                              <span className="font-mono">{packSize > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}</span>
                             )}
                           </td>
                           {/* WEIGHT (g) — secondary amber input */}
