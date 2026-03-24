@@ -865,7 +865,7 @@ export default function TransferOrderPage({
 
                       return (
                         <React.Fragment key={line.id}>
-                          <tr className={tableTokens.dataRow}>
+                          <tr className={`${tableTokens.dataRow}`}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
                             <td className={tableTokens.truncatedCell} title={line.skuName}>
                               {line.skuName}
