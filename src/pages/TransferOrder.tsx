@@ -547,32 +547,43 @@ export default function TransferOrderPage({
 
   const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
     if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
-    if (lot.id) {
-      // Update existing
-      await supabase.from("transfer_order_lot_lines").update({
-        production_record_id: lot.productionRecordId || null,
-        production_date: lot.productionDate,
-        packs: lot.packs,
-        pack_weight_g: lot.packWeightG,
-      }).eq("id", lot.id);
-    } else {
-      // Insert new
-      const { data } = await supabase.from("transfer_order_lot_lines").insert({
-        to_line_id: toLineId,
-        production_record_id: lot.productionRecordId || null,
-        production_date: lot.productionDate,
-        packs: lot.packs,
-        pack_weight_g: lot.packWeightG,
-      }).select("id").single();
-      if (data) {
-        setLotLines((prev) => {
-          const arr = [...(prev[toLineId] || [])];
-          arr[idx] = { ...arr[idx], id: data.id };
-          return { ...prev, [toLineId]: arr };
-        });
+    const lockKey = `${toLineId}-${idx}`;
+    if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
+    setSavingLotLines((prev) => new Set(prev).add(lockKey));
+    try {
+      if (lot.id) {
+        // Update existing
+        await supabase.from("transfer_order_lot_lines").update({
+          production_record_id: lot.productionRecordId || null,
+          production_date: lot.productionDate,
+          packs: lot.packs,
+          pack_weight_g: lot.packWeightG,
+        }).eq("id", lot.id);
+      } else {
+        // Insert new
+        const { data } = await supabase.from("transfer_order_lot_lines").insert({
+          to_line_id: toLineId,
+          production_record_id: lot.productionRecordId || null,
+          production_date: lot.productionDate,
+          packs: lot.packs,
+          pack_weight_g: lot.packWeightG,
+        }).select("id").single();
+        if (data) {
+          setLotLines((prev) => {
+            const arr = [...(prev[toLineId] || [])];
+            arr[idx] = { ...arr[idx], id: data.id };
+            return { ...prev, [toLineId]: arr };
+          });
+        }
       }
+    } finally {
+      setSavingLotLines((prev) => {
+        const next = new Set(prev);
+        next.delete(lockKey);
+        return next;
+      });
     }
-  }, []);
+  }, [savingLotLines]);
 
   const handleDeleteLotLine = useCallback(async (toLineId: string, idx: number) => {
     const lot = lotLines[toLineId]?.[idx];
