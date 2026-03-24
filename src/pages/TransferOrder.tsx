@@ -852,7 +852,7 @@ export default function TransferOrderPage({
                           {/* REQUESTED — packs primary, grams secondary */}
                           <td className={`${tableTokens.dataCell} text-right`}>
                             {line.trLineId ? (
-                              apw > 0 ? (
+                              packSize > 0 ? (
                                 <div>
                                   <span className="font-mono text-sm">{formatNumber(requestedPacks, 0)}</span>
                                   <div className="text-xs text-muted-foreground">{formatNumber(line.plannedQty, 0)}g</div>
