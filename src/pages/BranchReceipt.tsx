@@ -1443,9 +1443,7 @@ export default function BranchReceiptPage({
                           <col style={{ width: 240 }} />
                           <col style={{ width: 80 }} />
                           <col style={{ width: 80 }} />
-                          <col style={{ width: 50 }} />
                           <col style={{ width: 90 }} />
-                          <col style={{ width: 100 }} />
                           <col style={{ width: 50 }} />
                         </colgroup>
                         <thead>
