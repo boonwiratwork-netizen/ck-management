@@ -982,9 +982,9 @@ export default function BranchReceiptPage({
                 <colgroup>
                   <col style={{ width: 100 }} /> // SKU CODE
                   <col /> // SKU NAME
-                  <col style={{ width: 120 }} /> // PLANNED
-                  <col style={{ width: 120 }} /> // PACKS
-                  <col style={{ width: 120 }} /> // WEIGHT
+                  <col style={{ width: 140 }} /> // PLANNED
+                  <col style={{ width: 140 }} /> // PACKS
+                  <col style={{ width: 140 }} /> // WEIGHT
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
@@ -1153,14 +1153,14 @@ export default function BranchReceiptPage({
                   <colgroup>
                     <col style={{ width: 100 }} />
                     <col />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 90 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
