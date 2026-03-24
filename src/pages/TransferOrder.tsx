@@ -520,7 +520,7 @@ export default function TransferOrderPage({
         // First expansion: auto-add oldest prod record if no lots exist
         if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
           const records = prodRecordsMap[skuId];
-          const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
+          const packSize = skus.find((s) => s.id === skuId)?.packSize ?? 0;
           if (records && records.length > 0) {
             const oldest = records[0];
             setLotLines((p) => ({
