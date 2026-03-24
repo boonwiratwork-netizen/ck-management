@@ -983,7 +983,7 @@ export default function BranchReceiptPage({
                   <col style={{ width: 88 }} />
                   <col />
                   <col style={{ width: 95 }} />
-                  <col style={{ width: 85 }} />
+                  <col style={{ width: 110 }} />
                   <col style={{ width: 95 }} />
                   <col style={{ width: 55 }} />
                   <col style={{ width: 100 }} />
@@ -1059,7 +1059,9 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {packUnit}
+                                </span>
                               </div>
                               <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
@@ -1072,7 +1074,9 @@ export default function BranchReceiptPage({
                                   step="any"
                                   defaultValue={line.receivedQty || ""}
                                   key={`ck-units-${line.toLineId}-${savedCount}`}
-                                  onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
+                                  onBlur={(e) =>
+                                    updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })
+                                  }
                                   onFocus={(e) => e.target.select()}
                                   className={cn(
                                     "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
@@ -1080,7 +1084,9 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || line.uom}</span>
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {sku?.usageUom || line.uom}
+                                </span>
                               </div>
                               <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
@@ -1116,7 +1122,7 @@ export default function BranchReceiptPage({
                           )}
                         </td>
                         <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                          {isPacksMode ? packUnit : (sku?.usageUom || line.uom)}
+                          {isPacksMode ? packUnit : sku?.usageUom || line.uom}
                         </td>
                         <td className="px-1 py-1 align-middle">
                           <input
@@ -1167,7 +1173,7 @@ export default function BranchReceiptPage({
                     <col style={{ width: 36 }} />
                     <col style={{ width: 200 }} />
                     <col style={{ width: 120 }} />
-                    <col style={{ width: 80 }} />
+                    <col style={{ width: 110 }} />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 50 }} />
                     <col style={{ width: 90 }} />
@@ -1233,7 +1239,9 @@ export default function BranchReceiptPage({
                           )}
                         >
                           <td className={`${tdReadOnly} text-muted-foreground align-middle`}>{dateStr}</td>
-                          <td className={`${tdReadOnly} text-center font-mono text-muted-foreground align-middle`}>{weekNum}</td>
+                          <td className={`${tdReadOnly} text-center font-mono text-muted-foreground align-middle`}>
+                            {weekNum}
+                          </td>
                           <td className={`${tdReadOnly} align-middle`}>
                             <TooltipProvider>
                               <Tooltip>
@@ -1260,7 +1268,9 @@ export default function BranchReceiptPage({
                               </Tooltip>
                             </TooltipProvider>
                           </td>
-                          <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>{selectedSupplier?.name}</td>
+                          <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
+                            {selectedSupplier?.name}
+                          </td>
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
                             {isPacksMode ? (
@@ -1289,7 +1299,9 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {packUnit}
+                                </span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1">
@@ -1315,7 +1327,9 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku.usageUom}</span>
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {sku.usageUom}
+                                </span>
                               </div>
                             )}
                           </td>
@@ -1507,7 +1521,9 @@ export default function BranchReceiptPage({
                                         className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         placeholder="0"
                                       />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                        {packUnit}
+                                      </span>
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-1">
@@ -1522,7 +1538,9 @@ export default function BranchReceiptPage({
                                         className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         placeholder="0"
                                       />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || "—"}</span>
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                        {sku?.usageUom || "—"}
+                                      </span>
                                     </div>
                                   )}
                                 </td>
@@ -1553,7 +1571,7 @@ export default function BranchReceiptPage({
                                   )}
                                 </td>
                                 <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                                  {isPacksMode ? packUnit : (sku?.usageUom || "—")}
+                                  {isPacksMode ? packUnit : sku?.usageUom || "—"}
                                 </td>
                                 <td className="px-1 py-1 align-middle">
                                   <input
