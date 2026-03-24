@@ -865,9 +865,9 @@ export default function TransferOrderPage({
 
                       return (
                         <React.Fragment key={line.id}>
-                          <tr className={tableTokens.dataRow}>
-                            <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                            <td className={tableTokens.truncatedCell} title={line.skuName}>
+                          <tr className={`${tableTokens.dataRow}`}>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
+                            <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               {line.skuName}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
@@ -987,10 +987,10 @@ export default function TransferOrderPage({
                                 <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
                               )}
                             </td>
-                            <td className={`${tableTokens.dataCell} text-center`}>
+                            <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <UnitLabel unit={line.uom} />
                             </td>
-                            <td className={tableTokens.dataCell}>
+                            <td className={`${tableTokens.dataCell} align-middle`}>
                               {canEdit ? (
                                 <Input
                                   defaultValue={line.note}
@@ -1002,7 +1002,7 @@ export default function TransferOrderPage({
                                 <span className="text-xs text-muted-foreground">{line.note || ""}</span>
                               )}
                             </td>
-                            <td className={`${tableTokens.dataCell} text-center`}>
+                            <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <div className="flex items-center justify-center gap-0.5">
                                 {packSize > 0 && (
                                   <Button
