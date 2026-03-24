@@ -1170,23 +1170,19 @@ export default function BranchReceiptPage({
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
                     <col style={{ width: 90 }} />
-                    <col style={{ width: 36 }} />
-                    <col style={{ width: 200 }} />
+                    <col style={{ width: 220 }} />
                     <col style={{ width: 120 }} />
                     <col style={{ width: 110 }} />
                     <col style={{ width: 100 }} />
-                    <col style={{ width: 50 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 70 }} />
                     <col style={{ width: 70 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 80 }} />
-                    <col style={{ width: 100 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
                       <th className={thClass}>{t("col.date")}</th>
-                      <th className={`${thClass} text-center`}>{t("col.week")}</th>
                       <th className={thClass}>{t("col.sku")}</th>
                       <th className={thClass}>{t("col.supplier")}</th>
                       <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
@@ -1212,7 +1208,6 @@ export default function BranchReceiptPage({
                       <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
                       <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
                       <th className={`${thClass} text-right`}>{t("col.variance")}</th>
-                      <th className={thClass}>{t("col.note")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1239,9 +1234,6 @@ export default function BranchReceiptPage({
                           )}
                         >
                           <td className={`${tdReadOnly} text-muted-foreground align-middle`}>{dateStr}</td>
-                          <td className={`${tdReadOnly} text-center font-mono text-muted-foreground align-middle`}>
-                            {weekNum}
-                          </td>
                           <td className={`${tdReadOnly} align-middle`}>
                             <TooltipProvider>
                               <Tooltip>
@@ -1367,9 +1359,6 @@ export default function BranchReceiptPage({
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </td>
-                          <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                            {isPacksMode ? packUnit : sku.usageUom}
-                          </td>
                           <td className="px-1 py-1 align-middle">
                             <div className="flex items-center gap-1">
                               <input
@@ -1436,17 +1425,6 @@ export default function BranchReceiptPage({
                               "—"
                             )}
                           </td>
-                          <td className="px-1 py-1 align-middle">
-                            <input
-                              type="text"
-                              defaultValue={edit.note}
-                              key={`note-${row.skuId}-${savedCount}`}
-                              tabIndex={-1}
-                              onBlur={(e) => updateRowEdit(row.skuId, { note: e.target.value })}
-                              className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                              placeholder="Note"
-                            />
-                          </td>
                         </tr>
                       );
                     })}
@@ -1465,9 +1443,7 @@ export default function BranchReceiptPage({
                           <col style={{ width: 240 }} />
                           <col style={{ width: 80 }} />
                           <col style={{ width: 80 }} />
-                          <col style={{ width: 50 }} />
                           <col style={{ width: 90 }} />
-                          <col style={{ width: 100 }} />
                           <col style={{ width: 50 }} />
                         </colgroup>
                         <thead>
@@ -1475,9 +1451,7 @@ export default function BranchReceiptPage({
                             <th className={thClass}>{t("col.sku")}</th>
                             <th className={`${thClass} text-right`}>PACKS</th>
                             <th className={`${thClass} text-right`}>WEIGHT</th>
-                            <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                             <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
-                            <th className={thClass}>{t("col.note")}</th>
                             <th className={`${thClass} text-center`}></th>
                           </tr>
                         </thead>
@@ -1570,9 +1544,6 @@ export default function BranchReceiptPage({
                                     <span className="text-muted-foreground text-xs">—</span>
                                   )}
                                 </td>
-                                <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                                  {isPacksMode ? packUnit : sku?.usageUom || "—"}
-                                </td>
                                 <td className="px-1 py-1 align-middle">
                                   <input
                                     type="number"
@@ -1586,16 +1557,6 @@ export default function BranchReceiptPage({
                                     onFocus={(e) => e.target.select()}
                                     className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
                                     placeholder="0.00"
-                                  />
-                                </td>
-                                <td className="px-1 py-1 align-middle">
-                                  <input
-                                    type="text"
-                                    defaultValue={row.note}
-                                    key={`adhoc-note-${row.tempId}`}
-                                    onBlur={(e) => updateAdHoc(row.tempId, { note: e.target.value })}
-                                    className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                                    placeholder="Note"
                                   />
                                 </td>
                                 <td className="px-1 py-1 text-center align-middle">
