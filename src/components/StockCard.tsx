@@ -803,6 +803,11 @@ export function StockCard({
                       </td>
                       <td className={table.truncatedCellCompact} title={m.reference}>
                         <span className="block truncate">{m.reference}</span>
+                        {m.lotText && (
+                          <span className="block truncate text-[10px] text-muted-foreground mt-0.5" title={m.lotText}>
+                            {m.lotText}
+                          </span>
+                        )}
                       </td>
                       <td className={table.dataCellCompactMono}>
                         {m.qtyIn != null && m.qtyIn > 0 ? (
