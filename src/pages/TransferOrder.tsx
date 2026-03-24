@@ -1251,10 +1251,15 @@ export default function TransferOrderPage({
                     <SearchableSelect
                       value=""
                       onValueChange={handleAddItem}
-                      options={smSkus
-                        .filter((s) => bomSkuIds.has(s.id) && !formState.lines.some((l) => l.skuId === s.id))
-                        .map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
-                      placeholder="Search SM SKU..."
+                      options={[
+                        ...smSkus
+                          .filter((s) => bomSkuIds.has(s.id) && !formState.lines.some((l) => l.skuId === s.id))
+                          .map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId })),
+                        ...distributableRmSkus
+                          .filter((s) => !formState.lines.some((l) => l.skuId === s.id))
+                          .map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name} (RM)`, sublabel: s.skuId })),
+                      ]}
+                      placeholder="Search SKU..."
                       triggerClassName="h-9"
                     />
                   </div>
