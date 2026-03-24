@@ -1027,8 +1027,7 @@ export default function TransferOrderPage({
                                         onChange={(e) => {
                                           const rec = skuRecords.find((r) => r.id === e.target.value);
                                           if (!rec) return;
-                                          const pwg = rec.batchesProduced > 0 ? rec.actualOutputG / rec.batchesProduced : 0;
-                                          const updated: LotLineLocal = { ...lot, productionRecordId: rec.id, productionDate: rec.productionDate, packWeightG: pwg };
+                                          const updated: LotLineLocal = { ...lot, productionRecordId: rec.id, productionDate: rec.productionDate, packWeightG: packSize };
                                           setLotLines((prev) => {
                                             const arr = [...(prev[line.id] || [])];
                                             arr[lotIdx] = updated;
