@@ -1559,16 +1559,6 @@ export default function BranchReceiptPage({
                                     placeholder="0.00"
                                   />
                                 </td>
-                                <td className="px-1 py-1 align-middle">
-                                  <input
-                                    type="text"
-                                    defaultValue={row.note}
-                                    key={`adhoc-note-${row.tempId}`}
-                                    onBlur={(e) => updateAdHoc(row.tempId, { note: e.target.value })}
-                                    className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                                    placeholder="Note"
-                                  />
-                                </td>
                                 <td className="px-1 py-1 text-center align-middle">
                                   <Button
                                     variant="ghost"
