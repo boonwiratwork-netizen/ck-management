@@ -857,7 +857,7 @@ export default function TransferOrderPage({
                   </thead>
                   <tbody>
                     {formState.lines.map((line, idx) => {
-                      const packSize = smSkus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+                      const packSize = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
                       const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
                       const isExpanded = expandedLines[line.id] || false;
@@ -865,12 +865,42 @@ export default function TransferOrderPage({
                       const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
                       const skuRecords = prodRecordsMap[line.skuId] || [];
 
+                      // Inline lot summary
+                      const lotSummary = (() => {
+                        if (packSize === 0) return null;
+                        if (skuRecords.length === 0) {
+                          return currentPacks > 0 ? (
+                            <span className="text-warning flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> No production records
+                            </span>
+                          ) : null;
+                        }
+                        const activeLots = lineLots.filter((l) => l.packs > 0);
+                        if (activeLots.length === 0) {
+                          return currentPacks > 0 ? (
+                            <span className="text-muted-foreground italic">No lots assigned</span>
+                          ) : null;
+                        }
+                        const parts = activeLots.map((l) => {
+                          const d = new Date(l.productionDate + "T00:00:00");
+                          return `${d.getDate()}/${d.getMonth() + 1}×${l.packs}`;
+                        });
+                        const colorCls =
+                          assignedPacks === currentPacks
+                            ? "text-success"
+                            : assignedPacks < currentPacks
+                              ? "text-warning"
+                              : "text-destructive";
+                        return <span className={`${colorCls} font-mono`}>{parts.join(", ")}</span>;
+                      })();
+
                       return (
                         <React.Fragment key={line.id}>
                           <tr className={`${tableTokens.dataRow}`}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
                             <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
-                              {line.skuName}
+                              <div className="truncate">{line.skuName}</div>
+                              {lotSummary && <div className="text-xs mt-0.5">{lotSummary}</div>}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
@@ -883,74 +913,110 @@ export default function TransferOrderPage({
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="font-mono text-sm text-muted-foreground">
-                                    {formatNumber(line.plannedQty, 0)}g
-                                  </span>
+                                  <div>
+                                    <span className="font-mono text-sm text-muted-foreground">
+                                      {formatNumber(line.plannedQty, 0)}g
+                                    </span>
+                                    <div className="text-xs text-muted-foreground mt-0.5 invisible">·</div>
+                                  </div>
                                 )
                               ) : (
-                                <span className="text-muted-foreground">—</span>
+                                <div>
+                                  <span className="text-muted-foreground">—</span>
+                                  <div className="text-xs text-muted-foreground mt-0.5 invisible">·</div>
+                                </div>
                               )}
                             </td>
                             {/* PACKS — primary amber input */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
                               {canEdit ? (
                                 packSize > 0 ? (
-                                  <input
-                                    ref={(el) => {
-                                      if (el) qtyRefs.current[line.id] = el;
-                                    }}
-                                    type="number"
-                                    inputMode="numeric"
-                                    min={0}
-                                    step={1}
-                                    defaultValue={currentPacks || ""}
-                                    onBlur={(e) => {
-                                      const packs = Math.round(Number(e.target.value) || 0);
-                                      const grams = packs * packSize;
-                                      handleLineUpdate(line.id, "actualQty", grams);
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Tab") {
-                                        e.preventDefault();
-                                        const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                        if (nextIdx >= 0 && nextIdx < formState.lines.length) {
-                                          const nextId = formState.lines[nextIdx].id;
-                                          qtyRefs.current[nextId]?.focus();
-                                          qtyRefs.current[nextId]?.select();
+                                  <div>
+                                    <input
+                                      ref={(el) => {
+                                        if (el) qtyRefs.current[line.id] = el;
+                                      }}
+                                      type="number"
+                                      inputMode="numeric"
+                                      min={0}
+                                      step={1}
+                                      defaultValue={currentPacks || ""}
+                                      onBlur={(e) => {
+                                        const packs = Math.round(Number(e.target.value) || 0);
+                                        const grams = packs * packSize;
+                                        handleLineUpdate(line.id, "actualQty", grams);
+
+                                        // FIFO auto-fill lots if empty
+                                        const currentLots = lotLines[line.id] || [];
+                                        const hasManualLots = currentLots.some((l) => l.packs > 0);
+                                        const records = prodRecordsMap[line.skuId] || [];
+                                        if (packs > 0 && !hasManualLots && records.length > 0) {
+                                          let remaining = packs;
+                                          const newLotLines: LotLineLocal[] = [];
+                                          for (const record of records) {
+                                            if (remaining <= 0) break;
+                                            const allocate = remaining;
+                                            newLotLines.push({
+                                              productionRecordId: record.id,
+                                              productionDate: record.productionDate,
+                                              packs: allocate,
+                                              packWeightG: packSize,
+                                            });
+                                            remaining -= allocate;
+                                          }
+                                          setLotLines((prev) => ({ ...prev, [line.id]: newLotLines }));
+                                          for (let i = 0; i < newLotLines.length; i++) {
+                                            handleLotLineSave(line.id, i, newLotLines[i]);
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    style={{ textAlign: "right" }}
-                                    key={`packs-${line.id}`}
-                                  />
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Tab") {
+                                          e.preventDefault();
+                                          const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                          if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                            const nextId = formState.lines[nextIdx].id;
+                                            qtyRefs.current[nextId]?.focus();
+                                            qtyRefs.current[nextId]?.select();
+                                          }
+                                        }
+                                      }}
+                                      className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      style={{ textAlign: "right" }}
+                                      key={`packs-${line.id}`}
+                                    />
+                                    <div className="text-xs text-muted-foreground mt-0.5 invisible">·</div>
+                                  </div>
                                 ) : (
-                                  <input
-                                    ref={(el) => {
-                                      if (el) qtyRefs.current[line.id] = el;
-                                    }}
-                                    type="number"
-                                    inputMode="numeric"
-                                    min={0}
-                                    step={1}
-                                    defaultValue={line.actualQty || ""}
-                                    onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Tab") {
-                                        e.preventDefault();
-                                        const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                        if (nextIdx >= 0 && nextIdx < formState.lines.length) {
-                                          const nextId = formState.lines[nextIdx].id;
-                                          qtyRefs.current[nextId]?.focus();
-                                          qtyRefs.current[nextId]?.select();
+                                  <div>
+                                    <input
+                                      ref={(el) => {
+                                        if (el) qtyRefs.current[line.id] = el;
+                                      }}
+                                      type="number"
+                                      inputMode="numeric"
+                                      min={0}
+                                      step={1}
+                                      defaultValue={line.actualQty || ""}
+                                      onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Tab") {
+                                          e.preventDefault();
+                                          const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                          if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                            const nextId = formState.lines[nextIdx].id;
+                                            qtyRefs.current[nextId]?.focus();
+                                            qtyRefs.current[nextId]?.select();
+                                          }
                                         }
-                                      }
-                                    }}
-                                    placeholder="g"
-                                    className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    style={{ textAlign: "right" }}
-                                    key={`g-${line.id}`}
-                                  />
+                                      }}
+                                      placeholder="g"
+                                      className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      style={{ textAlign: "right" }}
+                                      key={`g-${line.id}`}
+                                    />
+                                    <div className="text-xs text-muted-foreground mt-0.5 invisible">·</div>
+                                  </div>
                                 )
                               ) : (
                                 <span className="font-mono">
