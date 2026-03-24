@@ -539,7 +539,7 @@ export default function TransferOrderPage({
         return next;
       });
     },
-    [lotLines, prodRecordsMap, smSkus],
+    [lotLines, prodRecordsMap, skus],
   );
 
   const handleLotLineSave = useCallback(
