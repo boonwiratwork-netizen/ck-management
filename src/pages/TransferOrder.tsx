@@ -165,14 +165,14 @@ export default function TransferOrderPage({
     }
   }, [user]);
 
-  // ─── Avg pack weight per SKU (production history) ───
-  const [avgPackWeightMap, setAvgPackWeightMap] = useState<Record<string, number>>({});
   // ─── Production records per SKU (for lot assignment) ───
   const [prodRecordsMap, setProdRecordsMap] = useState<Record<string, ProdRecord[]>>({});
   // ─── Lot lines per TO line ───
   const [lotLines, setLotLines] = useState<Record<string, LotLineLocal[]>>({});
   // ─── Expanded lot rows ───
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
+  // ─── Duplicate lot save guard ───
+  const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
 
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
