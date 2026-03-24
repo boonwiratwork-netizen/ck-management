@@ -927,7 +927,7 @@ export default function TransferOrderPage({
                           </td>
                           {/* WEIGHT (g) — secondary amber input */}
                           <td className={`${tableTokens.dataCell} text-right`}>
-                            {canEdit && apw > 0 ? (
+                            {canEdit && packSize > 0 ? (
                               <div>
                                 <input
                                   type="number"
@@ -947,10 +947,10 @@ export default function TransferOrderPage({
                                   key={`wt-${line.id}`}
                                 />
                                 <div className="text-xs text-muted-foreground mt-0.5">
-                                  est. {formatNumber(currentPacks * apw, 0)}g
+                                  est. {formatNumber(currentPacks * packSize, 0)}g
                                 </div>
                               </div>
-                            ) : apw === 0 ? (
+                            ) : packSize === 0 ? (
                               <span className="text-muted-foreground text-xs">—</span>
                             ) : (
                               <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
