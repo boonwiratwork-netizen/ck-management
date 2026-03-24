@@ -1167,38 +1167,10 @@ export default function TransferOrderPage({
                             </td>
                           </tr>
 
-                          {/* ── Lot assignment sub-row ── */}
                           {isExpanded && (
                             <tr>
                               <td colSpan={8} className="p-0">
-                                <div className="bg-muted/30 px-5 py-3 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                                      <Package className="w-3.5 h-3.5" />
-                                      Lot Assignment
-                                    </span>
-                                    {(() => {
-                                      const y = currentPacks;
-                                      if (y === 0)
-                                        return (
-                                          <span className="text-xs text-muted-foreground">
-                                            Enter packs above to track lots
-                                          </span>
-                                        );
-                                      const colorCls =
-                                        assignedPacks < y
-                                          ? "text-warning"
-                                          : assignedPacks === y
-                                            ? "text-success"
-                                            : "text-destructive";
-                                      return (
-                                        <span className={`text-xs font-mono font-medium ${colorCls}`}>
-                                          {assignedPacks} / {y} packs assigned
-                                        </span>
-                                      );
-                                    })()}
-                                  </div>
-
+                                <div className="bg-muted/30 px-5 py-2 space-y-1.5">
                                   {lineLots.map((lot, lotIdx) => {
                                     const selRecord = skuRecords.find((r) => r.id === lot.productionRecordId);
                                     return (
@@ -1255,8 +1227,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
-                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
+                                          ~{formatNumber(lot.packWeightG ?? 0, 0)}g ·{" "}
+                                          {formatNumber((lot.packs ?? 0) * (lot.packWeightG ?? 0), 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
@@ -1276,11 +1248,10 @@ export default function TransferOrderPage({
                                     </span>
                                   )}
 
-                                  {/* Add lot button */}
                                   {skuRecords.length > 0 && (
                                     <button
                                       onClick={() => handleAddLotLine(line.id, line.skuId)}
-                                      className="w-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary rounded-md py-1.5 text-xs transition-colors flex items-center justify-center gap-1"
+                                      className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 pt-0.5"
                                     >
                                       <Plus className="w-3 h-3" /> Add lot
                                     </button>
