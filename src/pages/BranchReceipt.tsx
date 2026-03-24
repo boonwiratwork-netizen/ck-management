@@ -1216,17 +1216,26 @@ export default function BranchReceiptPage({
                           )}
                         >
                           <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
-                            <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
-                              {sku.skuId}
-                            </span>
+                            <div>
+                              <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
+                                {sku.skuId}
+                              </span>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           <td className={`${tdReadOnly} align-middle`} title={sku.name}>
-                            <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
-                              {sku.name}
-                            </span>
+                            <div>
+                              <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                                {sku.name}
+                              </span>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
-                            {selectedSupplier?.name}
+                            <div>
+                              {selectedSupplier?.name}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
