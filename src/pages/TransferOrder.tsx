@@ -1110,7 +1110,7 @@ export default function TransferOrderPage({
                                     key={`wt-${line.id}`}
                                   />
                                   <div className="text-xs text-muted-foreground mt-0.5">
-                                    est. {formatNumber(currentPacks * packSize, 0)} {sku.purchaseUom || "g"}
+                                    est. {formatNumber(currentPacks * packSize, 0)}g
                                   </div>
                                 </div>
                               ) : packSize === 0 ? (
