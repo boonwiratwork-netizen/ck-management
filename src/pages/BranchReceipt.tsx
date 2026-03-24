@@ -1183,7 +1183,6 @@ export default function BranchReceiptPage({
                   <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
                       <th className={thClass}>{t("col.date")}</th>
-                      <th className={`${thClass} text-center`}>{t("col.week")}</th>
                       <th className={thClass}>{t("col.sku")}</th>
                       <th className={thClass}>{t("col.supplier")}</th>
                       <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
