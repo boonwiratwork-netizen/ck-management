@@ -921,7 +921,8 @@ export default function TransferOrderPage({
                       const lotSummary = (() => {
                         if (packSize === 0) return null;
                         if (skuRecords.length === 0) {
-                          return currentPacks > 0 ? (
+                          const isSmSku = line.skuCode?.startsWith("SM-");
+                          return currentPacks > 0 && isSmSku ? (
                             <span className="text-warning flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" /> No production records
                             </span>
