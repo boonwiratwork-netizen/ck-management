@@ -1055,7 +1055,7 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {packUnit}
                                 </span>
                               </div>
@@ -1080,7 +1080,7 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {sku?.usageUom || line.uom}
                                 </span>
                               </div>
@@ -1110,8 +1110,8 @@ export default function BranchReceiptPage({
                                 className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                est. {(currentPacks * packSize).toLocaleString()}
-                                {sku.purchaseUom || "g"}
+                                est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                <span className="font-bold">{sku.purchaseUom || "g"}</span>
                               </div>
                             </div>
                           ) : (
@@ -1266,7 +1266,7 @@ export default function BranchReceiptPage({
                                     )}
                                     placeholder="0"
                                   />
-                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                     {packUnit}
                                   </span>
                                 </div>
@@ -1296,7 +1296,7 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0"
                                 />
-                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {sku.usageUom}
                                 </span>
                               </div>
@@ -1325,12 +1325,12 @@ export default function BranchReceiptPage({
                                     }
                                   }}
                                   onFocus={(e) => e.target.select()}
-                                  placeholder="override"
+                                  placeholder="ยอดนับจริง"
                                   className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                  est. {(currentPacks * packSize).toLocaleString()}
-                                  {sku.purchaseUom || "g"}
+                                  est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                  <span className="font-bold">{sku.purchaseUom || "g"}</span>
                                 </div>
                               </div>
                             ) : (
@@ -1345,7 +1345,7 @@ export default function BranchReceiptPage({
                                   type="number"
                                   min={0}
                                   step="any"
-                                  defaultValue={actualTotal || ""}
+                                  defaultValue={actualTotal ? Number(actualTotal).toFixed(2) : ""}
                                   key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
                                   tabIndex={-1}
                                   onBlur={(e) => {
@@ -1489,7 +1489,7 @@ export default function BranchReceiptPage({
                                         className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         placeholder="0"
                                       />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                         {packUnit}
                                       </span>
                                     </div>
@@ -1506,7 +1506,7 @@ export default function BranchReceiptPage({
                                         className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         placeholder="0"
                                       />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                         {sku?.usageUom || "—"}
                                       </span>
                                     </div>
@@ -1531,8 +1531,8 @@ export default function BranchReceiptPage({
                                         className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
                                       <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                        est. {(currentPacks * packSize).toLocaleString()}
-                                        {sku.purchaseUom || "g"}
+                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                        <span className="font-bold">{sku.purchaseUom || "g"}</span>
                                       </div>
                                     </div>
                                   ) : (
