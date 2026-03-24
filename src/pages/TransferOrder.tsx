@@ -330,7 +330,7 @@ export default function TransferOrderPage({
   const handleAddItem = useCallback(
     async (skuId: string) => {
       if (!formState) return;
-      const sku = smSkus.find((s) => s.id === skuId);
+      const sku = skus.find((s) => s.id === skuId);
       if (!sku) return;
       if (formState.lines.some((l) => l.skuId === skuId)) {
         toast.error(t("to.itemAlreadyAdded"));
@@ -342,7 +342,7 @@ export default function TransferOrderPage({
       }
       setSkuSearchOpen(false);
     },
-    [formState, smSkus, addTOLine, t],
+    [formState, skus, addTOLine, t],
   );
 
   // ─── Delete line ───
