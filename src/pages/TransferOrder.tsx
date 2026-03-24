@@ -611,7 +611,7 @@ export default function TransferOrderPage({
     (toLineId: string, skuId: string) => {
       const records = prodRecordsMap[skuId];
       const first = records?.[0];
-      const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
+      const packSize = skus.find((s) => s.id === skuId)?.packSize ?? 0;
       setLotLines((prev) => ({
         ...prev,
         [toLineId]: [
