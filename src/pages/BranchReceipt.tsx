@@ -980,13 +980,13 @@ export default function BranchReceiptPage({
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: 88 }} />
                   <col />
+                  <col style={{ width: 95 }} />
+                  <col style={{ width: 85 }} />
+                  <col style={{ width: 95 }} />
+                  <col style={{ width: 55 }} />
                   <col style={{ width: 100 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 60 }} />
-                  <col style={{ width: 120 }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
@@ -1030,50 +1030,59 @@ export default function BranchReceiptPage({
                               <div className="text-xs text-muted-foreground">{line.plannedQty.toLocaleString()}g</div>
                             </div>
                           ) : (
-                            <span>{line.plannedQty.toLocaleString()}</span>
+                            <div>
+                              <span>{line.plannedQty.toLocaleString()}</span>
+                              <div className="text-xs mt-0.5 invisible">·</div>
+                            </div>
                           )}
                         </td>
                         {/* PACKS — primary amber input */}
                         <td className="px-1 py-1 align-middle">
                           {isPacksMode ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                defaultValue={currentPacks || ""}
-                                key={`ck-packs-${line.toLineId}-${savedCount}`}
-                                onBlur={(e) => {
-                                  const packs = Math.round(Number(e.target.value) || 0);
-                                  updateCkLine(line.toLineId, { receivedQty: packs * packSize });
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                className={cn(
-                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                  line.receivedQty > 0 && "border-success font-bold text-success",
-                                )}
-                                placeholder="0"
-                              />
-                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  step={1}
+                                  defaultValue={currentPacks || ""}
+                                  key={`ck-packs-${line.toLineId}-${savedCount}`}
+                                  onBlur={(e) => {
+                                    const packs = Math.round(Number(e.target.value) || 0);
+                                    updateCkLine(line.toLineId, { receivedQty: packs * packSize });
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className={cn(
+                                    "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    line.receivedQty > 0 && "border-success font-bold text-success",
+                                  )}
+                                  placeholder="0"
+                                />
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                              </div>
+                              <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                step="any"
-                                defaultValue={line.receivedQty || ""}
-                                key={`ck-units-${line.toLineId}-${savedCount}`}
-                                onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
-                                onFocus={(e) => e.target.select()}
-                                className={cn(
-                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                  line.receivedQty > 0 && "border-success font-bold text-success",
-                                )}
-                                placeholder="0"
-                              />
-                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || line.uom}</span>
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  defaultValue={line.receivedQty || ""}
+                                  key={`ck-units-${line.toLineId}-${savedCount}`}
+                                  onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
+                                  onFocus={(e) => e.target.select()}
+                                  className={cn(
+                                    "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    line.receivedQty > 0 && "border-success font-bold text-success",
+                                  )}
+                                  placeholder="0"
+                                />
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || line.uom}</span>
+                              </div>
+                              <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
                           )}
                         </td>
