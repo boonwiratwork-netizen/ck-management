@@ -1339,47 +1339,59 @@ export default function BranchReceiptPage({
                           </td>
 
                           <td className="px-1 py-1 align-middle">
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                step="any"
-                                defaultValue={actualTotal || ""}
-                                key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
-                                tabIndex={-1}
-                                onBlur={(e) => {
-                                  const val = Number(e.target.value) || 0;
-                                  updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                className={cn(
-                                  "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
-                                  hasQty && !actualMatchesStd
-                                    ? "bg-warning/10 border-warning/40 focus:border-warning"
-                                    : "bg-warning/5 border-warning/20 focus:border-primary",
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  defaultValue={actualTotal || ""}
+                                  key={`actual-${row.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "manual" : "auto"}-${savedCount}`}
+                                  tabIndex={-1}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value) || 0;
+                                    updateRowEdit(row.skuId, { actualTotal: val, actualManuallyEdited: true });
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className={cn(
+                                    "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
+                                    hasQty && !actualMatchesStd
+                                      ? "bg-warning/10 border-warning/40 focus:border-warning"
+                                      : "bg-warning/5 border-warning/20 focus:border-primary",
+                                  )}
+                                  placeholder="0.00"
+                                />
+                                {hasQty && actualMatchesStd && (
+                                  <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                                    = STD
+                                  </span>
                                 )}
-                                placeholder="0.00"
-                              />
-                              {hasQty && actualMatchesStd && (
-                                <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
-                                  = STD
-                                </span>
-                              )}
+                              </div>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                            {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                            <div>
+                              {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                            {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                            <div>
+                              {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                            {stdTotal > 0
-                              ? stdTotal.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })
-                              : "—"}
+                            <div>
+                              {stdTotal > 0
+                                ? stdTotal.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })
+                                : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           <td
                             className={cn(
@@ -1392,17 +1404,20 @@ export default function BranchReceiptPage({
                                   : "text-muted-foreground",
                             )}
                           >
-                            {hasQty ? (
-                              <>
-                                {variance > 0 ? "+" : ""}
-                                {variance.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </>
-                            ) : (
-                              "—"
-                            )}
+                            <div>
+                              {hasQty ? (
+                                <>
+                                  {variance > 0 ? "+" : ""}
+                                  {variance.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                         </tr>
                       );
