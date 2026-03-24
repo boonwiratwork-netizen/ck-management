@@ -1386,8 +1386,8 @@ export default function BranchReceiptPage({
                             <div>
                               {stdTotal > 0
                                 ? stdTotal.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
                                   })
                                 : "—"}
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
