@@ -527,23 +527,23 @@ export default function TransferOrderPage({
       // First expansion: auto-add oldest prod record if no lots exist
       if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
         const records = prodRecordsMap[skuId];
+        const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
         if (records && records.length > 0) {
           const oldest = records[0];
-          const pwg = oldest.batchesProduced > 0 ? oldest.actualOutputG / oldest.batchesProduced : 0;
           setLotLines((p) => ({
             ...p,
             [lineId]: [{
               productionRecordId: oldest.id,
               productionDate: oldest.productionDate,
               packs: 0,
-              packWeightG: pwg,
+              packWeightG: packSize,
             }],
           }));
         }
       }
       return next;
     });
-  }, [lotLines, prodRecordsMap]);
+  }, [lotLines, prodRecordsMap, smSkus]);
 
   const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
     if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
