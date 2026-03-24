@@ -981,12 +981,11 @@ export default function BranchReceiptPage({
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 90 }} />
-                  <col style={{ width: 200 }} />
-                  <col style={{ width: 90 }} />
+                  <col />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 80 }} />
                   <col style={{ width: 100 }} />
                   <col style={{ width: 60 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 90 }} />
                   <col style={{ width: 120 }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
@@ -995,20 +994,21 @@ export default function BranchReceiptPage({
                     <th className={thClass}>{t("col.skuName")}</th>
                     <th className={`${thClass} text-right`}>{t("br.colPlanned")}</th>
                     <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
-                      {t("br.colReceived")}
+                      PACKS
                     </th>
+                    <th className={`${thClass} text-right`}>WEIGHT (g)</th>
                     <th className={`${thClass} text-center`}>{t("col.uom")}</th>
-                    <th className={`${thClass} text-right`}>{t("br.colCostUnit")}</th>
-                    <th className={`${thClass} text-right`}>{t("br.colLineValue")}</th>
                     <th className={thClass}>{t("col.note")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ckLines.map((line) => {
                     const sku = skuMap[line.skuId];
-                    const lineValue = line.receivedQty * line.unitCost;
-                    const diff = line.receivedQty - line.plannedQty;
-                    const hasDiff = diff !== 0;
+                    const packSize = sku?.packSize ?? 0;
+                    const packUnit = sku?.packUnit ?? "";
+                    const isPacksMode = packSize > 1 && packUnit.length > 0;
+                    const plannedPacks = isPacksMode ? Math.round(line.plannedQty / packSize) : 0;
+                    const currentPacks = isPacksMode ? Math.round(line.receivedQty / packSize) : 0;
                     return (
                       <tr
                         key={line.toLineId}
@@ -1017,42 +1017,99 @@ export default function BranchReceiptPage({
                           line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
                         )}
                       >
-                        <td className={`${tdReadOnly} font-mono`}>{sku?.skuId || "—"}</td>
-                        <td className={`${tdReadOnly} truncate`} title={sku?.name}>
+                        <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
+                        <td className={`${tdReadOnly} truncate align-middle`} title={sku?.name}>
                           {sku?.name || "—"}
                         </td>
-                        <td className={`${tdReadOnly} text-right font-mono`}>{line.plannedQty}</td>
-                        <td className="px-1 py-1">
-                          <input
-                            type="number"
-                            min={0}
-                            step="any"
-                            defaultValue={line.receivedQty || ""}
-                            key={`ck-recv-${line.toLineId}-${savedCount}`}
-                            onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
-                            onFocus={(e) => e.target.select()}
-                            className={cn(
-                              "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
-                              line.receivedQty > 0 ? "border-success font-bold text-success" : "border-primary/30",
-                            )}
-                            placeholder="0"
-                          />
+                        {/* PLANNED */}
+                        <td className={`${tdReadOnly} text-right font-mono align-middle`}>
+                          {isPacksMode ? (
+                            <div>
+                              <span className="text-sm">{plannedPacks}</span>
+                              <span className="text-xs text-muted-foreground ml-1">{packUnit}</span>
+                              <div className="text-xs text-muted-foreground">{line.plannedQty.toLocaleString()}g</div>
+                            </div>
+                          ) : (
+                            <span>{line.plannedQty.toLocaleString()}</span>
+                          )}
                         </td>
-                        <td className={`${tdReadOnly} text-center text-muted-foreground`}>
-                          {sku?.usageUom || line.uom}
+                        {/* PACKS — primary amber input */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                defaultValue={currentPacks || ""}
+                                key={`ck-packs-${line.toLineId}-${savedCount}`}
+                                onBlur={(e) => {
+                                  const packs = Math.round(Number(e.target.value) || 0);
+                                  updateCkLine(line.toLineId, { receivedQty: packs * packSize });
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  line.receivedQty > 0 && "border-success font-bold text-success",
+                                )}
+                                placeholder="0"
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{packUnit}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={line.receivedQty || ""}
+                                key={`ck-units-${line.toLineId}-${savedCount}`}
+                                onBlur={(e) => updateCkLine(line.toLineId, { receivedQty: Number(e.target.value) || 0 })}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  line.receivedQty > 0 && "border-success font-bold text-success",
+                                )}
+                                placeholder="0"
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{sku?.usageUom || line.uom}</span>
+                            </div>
+                          )}
                         </td>
-                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                          {line.unitCost.toFixed(2)}
+                        {/* WEIGHT (g) — secondary override, packs mode only */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <div>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                defaultValue={line.receivedQty || ""}
+                                key={`ck-wt-${line.toLineId}-${savedCount}`}
+                                onBlur={(e) => {
+                                  const grams = Number(e.target.value) || 0;
+                                  if (grams > 0) {
+                                    updateCkLine(line.toLineId, { receivedQty: grams });
+                                  }
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                placeholder="override"
+                                className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                est. {(currentPacks * packSize).toLocaleString()}g
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </td>
-                        <td className={`${tdReadOnly} text-right font-mono`}>
-                          {lineValue > 0
-                            ? lineValue.toLocaleString(undefined, {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              })
-                            : "—"}
+                        <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
+                          {isPacksMode ? packUnit : (sku?.usageUom || line.uom)}
                         </td>
-                        <td className="px-1 py-1">
+                        <td className="px-1 py-1 align-middle">
                           <input
                             type="text"
                             defaultValue={line.note}
@@ -1069,21 +1126,22 @@ export default function BranchReceiptPage({
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/50 font-semibold border-t">
-                    <td colSpan={3} className={`${tdReadOnly} text-right font-medium text-muted-foreground`}>
+                    <td colSpan={2} className={`${tdReadOnly} text-right font-medium text-muted-foreground`}>
                       Total
                     </td>
                     <td className={`${tdReadOnly} text-right font-mono`}>
-                      {ckLines.reduce((s, l) => s + l.receivedQty, 0).toLocaleString()}
+                      {(() => {
+                        const totalPacks = ckLines.reduce((s, l) => {
+                          const sku = skuMap[l.skuId];
+                          const ps = sku?.packSize ?? 0;
+                          const pu = sku?.packUnit ?? "";
+                          return s + (ps > 1 && pu ? Math.round(l.receivedQty / ps) : 0);
+                        }, 0);
+                        const totalG = ckLines.reduce((s, l) => s + l.receivedQty, 0);
+                        return `${totalPacks} packs · ${totalG.toLocaleString()}g`;
+                      })()}
                     </td>
-                    <td />
-                    <td />
-                    <td className={`${tdReadOnly} text-right font-mono`}>
-                      ฿
-                      {ckLines
-                        .reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                        .toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </td>
-                    <td />
+                    <td colSpan={4} />
                   </tr>
                 </tfoot>
               </table>
