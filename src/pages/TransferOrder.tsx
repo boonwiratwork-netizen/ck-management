@@ -183,6 +183,8 @@ export default function TransferOrderPage({
   const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
   const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
   const savingLotLinesRef = useRef<Set<string>>(new Set());
+  const formStateRef = useRef<typeof formState>(null);
+  useEffect(() => { formStateRef.current = formState; }, [formState]);
   useEffect(() => {
     lotLinesRef.current = lotLines;
   }, [lotLines]);
@@ -224,30 +226,30 @@ export default function TransferOrderPage({
         }
         setProdRecordsMap(bySkuRecords);
 
-        // Auto-fill lots for lines that already have packs but no lot assignment yet
-        if (formState) {
-          for (const line of formState.lines) {
+        // Auto-fill lots after React flushes ref sync
+        setTimeout(() => {
+          const currentFormState = formStateRef.current;
+          if (!currentFormState) return;
+          const lotsSnapshot = lotLinesRef.current;
+          for (const line of currentFormState.lines) {
             const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
             if (ps <= 0) continue;
-            const currentPacks = ps > 0 ? Math.round(line.actualQty / ps) : 0;
+            const currentPacks = Math.round(line.actualQty / ps);
             if (currentPacks <= 0) continue;
-            const existingLots = lotLinesRef.current[line.id] || [];
-            const hasLots = existingLots.some((l) => l.packs > 0);
-            if (hasLots) continue;
+            const existing = lotsSnapshot[line.id] || [];
+            if (existing.some((l) => l.packs > 0)) continue;
             const records = bySkuRecords[line.skuId] || [];
             if (records.length === 0) continue;
-            const newLotLines: LotLineLocal[] = [
-              {
-                productionRecordId: records[0].id,
-                productionDate: records[0].productionDate,
-                packs: currentPacks,
-                packWeightG: ps,
-              },
-            ];
-            setLotLines((prev) => ({ ...prev, [line.id]: newLotLines }));
-            handleLotLineSave(line.id, 0, newLotLines[0]);
+            const newLot: LotLineLocal = {
+              productionRecordId: records[0].id,
+              productionDate: records[0].productionDate,
+              packs: currentPacks,
+              packWeightG: ps,
+            };
+            setLotLines((prev) => ({ ...prev, [line.id]: [newLot] }));
+            handleLotLineSave(line.id, 0, newLot);
           }
-        }
+        }, 0);
       });
 
     // Query B: existing lot lines for this TO
@@ -1230,8 +1232,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
-                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
+~{formatNumber(lot.packWeightG ?? 0, 0)}g ·{" "}
+                                          {formatNumber((lot.packs ?? 0) * (lot.packWeightG ?? 0), 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
