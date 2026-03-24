@@ -135,8 +135,6 @@ export default function BranchReceiptPage({
   // Pending PR counts per supplier
   const prHook = usePurchaseRequest(branchId || null);
   const [pendingPRCounts, setPendingPRCounts] = useState<Record<string, number>>({});
-  // PR SKU qty map: skuId → total requested qty across pending PRs for current supplier
-  const [prSkuQtyMap, setPrSkuQtyMap] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!branchId) {
       setPendingPRCounts({});
@@ -144,40 +142,6 @@ export default function BranchReceiptPage({
     }
     prHook.getPendingPRCountsBySupplier(branchId).then(setPendingPRCounts);
   }, [branchId]);
-
-  // Fetch PR line items when external supplier selected
-  useEffect(() => {
-    if (!branchId || !supplierId || supplierId === CK_SUPPLIER_ID) {
-      setPrSkuQtyMap({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      // Find pending PRs for this branch+supplier
-      const { data: prs } = await supabase
-        .from("purchase_requests")
-        .select("id")
-        .eq("branch_id", branchId)
-        .in("status", ["Submitted", "Acknowledged"]);
-      if (cancelled || !prs || prs.length === 0) {
-        if (!cancelled) setPrSkuQtyMap({});
-        return;
-      }
-      const prIds = prs.map((p) => p.id);
-      const { data: lines } = await supabase
-        .from("purchase_request_lines")
-        .select("sku_id, requested_qty, supplier_id")
-        .in("pr_id", prIds)
-        .eq("supplier_id", supplierId);
-      if (cancelled) return;
-      const map: Record<string, number> = {};
-      for (const l of lines || []) {
-        map[l.sku_id] = (map[l.sku_id] || 0) + Number(l.requested_qty);
-      }
-      setPrSkuQtyMap(map);
-    })();
-    return () => { cancelled = true; };
-  }, [branchId, supplierId]);
 
   // TO integration state
   const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
@@ -1146,7 +1110,8 @@ export default function BranchReceiptPage({
                                 className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <div className="text-xs text-muted-foreground mt-0.5">
-                                est. {(currentPacks * packSize).toLocaleString()}g
+                                est. {(currentPacks * packSize).toLocaleString()}
+                                {sku.usageUom || "g"}
                               </div>
                             </div>
                           ) : (
@@ -1241,16 +1206,13 @@ export default function BranchReceiptPage({
                       const variance = actualTotal - stdTotal;
                       const hasQty = edit.qty > 0;
                       const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
-                      const prRequestedQty = prSkuQtyMap[row.skuId] || 0;
-                      const hasPrHint = prRequestedQty > 0;
-                      const prHintPacks = isPacksMode ? Math.round(prRequestedQty / packSize) : 0;
 
                       return (
                         <tr
                           key={row.skuId}
                           className={cn(
                             "border-b last:border-0 transition-colors",
-                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : hasPrHint ? "border-l-[3px] border-l-warning/60" : "opacity-60",
+                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                           )}
                         >
                           <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
@@ -1269,72 +1231,62 @@ export default function BranchReceiptPage({
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
                             {isPacksMode ? (
-                              <div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    min={0}
-                                    step={1}
-                                    defaultValue={currentPacks || ""}
-                                    key={`packs-${row.skuId}-${savedCount}`}
-                                    onBlur={(e) => {
-                                      const packs = Math.round(Number(e.target.value) || 0);
-                                      const grams = packs * packSize;
-                                      updateRowEdit(row.skuId, {
-                                        qty: grams,
-                                        ...(!rowEdits[row.skuId]?.actualManuallyEdited
-                                          ? { actualTotal: row.stdUnitPrice * grams }
-                                          : {}),
-                                      });
-                                    }}
-                                    onFocus={(e) => e.target.select()}
-                                    className={cn(
-                                      "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                      hasQty && "border-success font-bold text-success",
-                                    )}
-                                    placeholder="0"
-                                  />
-                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                                    {packUnit}
-                                  </span>
-                                </div>
-                                {hasPrHint && (
-                                  <div className="text-xs text-warning mt-0.5 font-mono">PR: {prHintPacks} {packUnit}</div>
-                                )}
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  step={1}
+                                  defaultValue={currentPacks || ""}
+                                  key={`packs-${row.skuId}-${savedCount}`}
+                                  onBlur={(e) => {
+                                    const packs = Math.round(Number(e.target.value) || 0);
+                                    const grams = packs * packSize;
+                                    updateRowEdit(row.skuId, {
+                                      qty: grams,
+                                      ...(!rowEdits[row.skuId]?.actualManuallyEdited
+                                        ? { actualTotal: row.stdUnitPrice * grams }
+                                        : {}),
+                                    });
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className={cn(
+                                    "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    hasQty && "border-success font-bold text-success",
+                                  )}
+                                  placeholder="0"
+                                />
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {packUnit}
+                                </span>
                               </div>
                             ) : (
-                              <div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    defaultValue={edit.qty || ""}
-                                    key={`qty-${row.skuId}-${savedCount}`}
-                                    onBlur={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      updateRowEdit(row.skuId, {
-                                        qty: val,
-                                        ...(!rowEdits[row.skuId]?.actualManuallyEdited
-                                          ? { actualTotal: row.stdUnitPrice * val }
-                                          : {}),
-                                      });
-                                    }}
-                                    onFocus={(e) => e.target.select()}
-                                    className={cn(
-                                      "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                      hasQty && "border-success font-bold text-success",
-                                    )}
-                                    placeholder="0"
-                                  />
-                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                                    {sku.usageUom}
-                                  </span>
-                                </div>
-                                {hasPrHint && (
-                                  <div className="text-xs text-warning mt-0.5 font-mono">PR: {prRequestedQty.toLocaleString()} {sku.usageUom}</div>
-                                )}
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  defaultValue={edit.qty || ""}
+                                  key={`qty-${row.skuId}-${savedCount}`}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value) || 0;
+                                    updateRowEdit(row.skuId, {
+                                      qty: val,
+                                      ...(!rowEdits[row.skuId]?.actualManuallyEdited
+                                        ? { actualTotal: row.stdUnitPrice * val }
+                                        : {}),
+                                    });
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className={cn(
+                                    "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    hasQty && "border-success font-bold text-success",
+                                  )}
+                                  placeholder="0"
+                                />
+                                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                  {sku.usageUom}
+                                </span>
                               </div>
                             )}
                           </td>
@@ -1365,7 +1317,8 @@ export default function BranchReceiptPage({
                                   className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <div className="text-xs text-muted-foreground mt-0.5">
-                                  est. {(currentPacks * packSize).toLocaleString()}g
+                                  est. {(currentPacks * packSize).toLocaleString()}
+                                  {sku.usageUom || "g"}
                                 </div>
                               </div>
                             ) : (
@@ -1551,7 +1504,8 @@ export default function BranchReceiptPage({
                                         className="h-8 w-full text-xs font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
                                       <div className="text-xs text-muted-foreground mt-0.5">
-                                        est. {(currentPacks * packSize).toLocaleString()}g
+                                        est. {(currentPacks * packSize).toLocaleString()}
+                                        {sku.usageUom || "g"}
                                       </div>
                                     </div>
                                   ) : (
