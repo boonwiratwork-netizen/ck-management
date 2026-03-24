@@ -1241,13 +1241,16 @@ export default function BranchReceiptPage({
                       const variance = actualTotal - stdTotal;
                       const hasQty = edit.qty > 0;
                       const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
+                      const prRequestedQty = prSkuQtyMap[row.skuId] || 0;
+                      const hasPrHint = prRequestedQty > 0;
+                      const prHintPacks = isPacksMode ? Math.round(prRequestedQty / packSize) : 0;
 
                       return (
                         <tr
                           key={row.skuId}
                           className={cn(
                             "border-b last:border-0 transition-colors",
-                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
+                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : hasPrHint ? "border-l-[3px] border-l-warning/60" : "opacity-60",
                           )}
                         >
                           <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
