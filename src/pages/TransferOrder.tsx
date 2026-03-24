@@ -1002,7 +1002,7 @@ export default function TransferOrderPage({
                                 <span className="text-xs text-muted-foreground">{line.note || ""}</span>
                               )}
                             </td>
-                            <td className={`${tableTokens.dataCell} text-center`}>
+                            <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <div className="flex items-center justify-center gap-0.5">
                                 {packSize > 0 && (
                                   <Button
