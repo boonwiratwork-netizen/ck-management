@@ -31,7 +31,7 @@ import {
   ChevronDown,
   ArrowUpDown,
   Pencil,
-  // Package removed — lot header no longer rendered
+  AlertTriangle,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
