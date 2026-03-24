@@ -511,99 +511,120 @@ export default function TransferOrderPage({
   }, [formState?.lines]);
 
   // Lot line helpers
-  const handleToggleExpand = useCallback((lineId: string, skuId: string) => {
-    setExpandedLines((prev) => {
-      const next = { ...prev, [lineId]: !prev[lineId] };
-      // First expansion: auto-add oldest prod record if no lots exist
-      if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
-        const records = prodRecordsMap[skuId];
-        const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
-        if (records && records.length > 0) {
-          const oldest = records[0];
-          setLotLines((p) => ({
-            ...p,
-            [lineId]: [{
-              productionRecordId: oldest.id,
-              productionDate: oldest.productionDate,
-              packs: 0,
-              packWeightG: packSize,
-            }],
-          }));
+  const handleToggleExpand = useCallback(
+    (lineId: string, skuId: string) => {
+      setExpandedLines((prev) => {
+        const next = { ...prev, [lineId]: !prev[lineId] };
+        // First expansion: auto-add oldest prod record if no lots exist
+        if (next[lineId] && (!lotLines[lineId] || lotLines[lineId].length === 0)) {
+          const records = prodRecordsMap[skuId];
+          const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
+          if (records && records.length > 0) {
+            const oldest = records[0];
+            setLotLines((p) => ({
+              ...p,
+              [lineId]: [
+                {
+                  productionRecordId: oldest.id,
+                  productionDate: oldest.productionDate,
+                  packs: 0,
+                  packWeightG: packSize,
+                },
+              ],
+            }));
+          }
         }
-      }
-      return next;
-    });
-  }, [lotLines, prodRecordsMap, smSkus]);
-
-  const handleLotLineSave = useCallback(async (toLineId: string, idx: number, lot: LotLineLocal) => {
-    if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
-    const lockKey = `${toLineId}-${idx}`;
-    if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
-    setSavingLotLines((prev) => new Set(prev).add(lockKey));
-    try {
-      if (lot.id) {
-        // Update existing
-        await supabase.from("transfer_order_lot_lines").update({
-          production_record_id: lot.productionRecordId || null,
-          production_date: lot.productionDate,
-          packs: lot.packs,
-          pack_weight_g: lot.packWeightG,
-        }).eq("id", lot.id);
-      } else {
-        // Insert new
-        const { data } = await supabase.from("transfer_order_lot_lines").insert({
-          to_line_id: toLineId,
-          production_record_id: lot.productionRecordId || null,
-          production_date: lot.productionDate,
-          packs: lot.packs,
-          pack_weight_g: lot.packWeightG,
-        }).select("id").single();
-        if (data) {
-          setLotLines((prev) => {
-            const arr = [...(prev[toLineId] || [])];
-            arr[idx] = { ...arr[idx], id: data.id };
-            return { ...prev, [toLineId]: arr };
-          });
-        }
-      }
-    } finally {
-      setSavingLotLines((prev) => {
-        const next = new Set(prev);
-        next.delete(lockKey);
         return next;
       });
-    }
-  }, [savingLotLines]);
+    },
+    [lotLines, prodRecordsMap, smSkus],
+  );
 
-  const handleDeleteLotLine = useCallback(async (toLineId: string, idx: number) => {
-    const lot = lotLines[toLineId]?.[idx];
-    if (lot?.id) {
-      await supabase.from("transfer_order_lot_lines").delete().eq("id", lot.id);
-    }
-    setLotLines((prev) => {
-      const arr = [...(prev[toLineId] || [])];
-      arr.splice(idx, 1);
-      return { ...prev, [toLineId]: arr };
-    });
-  }, [lotLines]);
+  const handleLotLineSave = useCallback(
+    async (toLineId: string, idx: number, lot: LotLineLocal) => {
+      if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
+      const lockKey = `${toLineId}-${idx}`;
+      if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
+      setSavingLotLines((prev) => new Set(prev).add(lockKey));
+      try {
+        if (lot.id) {
+          // Update existing
+          await supabase
+            .from("transfer_order_lot_lines")
+            .update({
+              production_record_id: lot.productionRecordId || null,
+              production_date: lot.productionDate,
+              packs: lot.packs,
+              pack_weight_g: lot.packWeightG,
+            })
+            .eq("id", lot.id);
+        } else {
+          // Insert new
+          const { data } = await supabase
+            .from("transfer_order_lot_lines")
+            .insert({
+              to_line_id: toLineId,
+              production_record_id: lot.productionRecordId || null,
+              production_date: lot.productionDate,
+              packs: lot.packs,
+              pack_weight_g: lot.packWeightG,
+            })
+            .select("id")
+            .single();
+          if (data) {
+            setLotLines((prev) => {
+              const arr = [...(prev[toLineId] || [])];
+              arr[idx] = { ...arr[idx], id: data.id };
+              return { ...prev, [toLineId]: arr };
+            });
+          }
+        }
+      } finally {
+        setSavingLotLines((prev) => {
+          const next = new Set(prev);
+          next.delete(lockKey);
+          return next;
+        });
+      }
+    },
+    [savingLotLines],
+  );
 
-  const handleAddLotLine = useCallback((toLineId: string, skuId: string) => {
-    const records = prodRecordsMap[skuId];
-    const first = records?.[0];
-    const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
-    setLotLines((prev) => ({
-      ...prev,
-      [toLineId]: [
-        ...(prev[toLineId] || []),
-        {
-          productionRecordId: first?.id || "",
-          productionDate: first?.productionDate || toLocalDateStr(new Date()),
-          packs: 0,
-          packWeightG: packSize,
-        },
-      ],
-    }));
-  }, [prodRecordsMap, smSkus]);
+  const handleDeleteLotLine = useCallback(
+    async (toLineId: string, idx: number) => {
+      const lot = lotLines[toLineId]?.[idx];
+      if (lot?.id) {
+        await supabase.from("transfer_order_lot_lines").delete().eq("id", lot.id);
+      }
+      setLotLines((prev) => {
+        const arr = [...(prev[toLineId] || [])];
+        arr.splice(idx, 1);
+        return { ...prev, [toLineId]: arr };
+      });
+    },
+    [lotLines],
+  );
+
+  const handleAddLotLine = useCallback(
+    (toLineId: string, skuId: string) => {
+      const records = prodRecordsMap[skuId];
+      const first = records?.[0];
+      const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
+      setLotLines((prev) => ({
+        ...prev,
+        [toLineId]: [
+          ...(prev[toLineId] || []),
+          {
+            productionRecordId: first?.id || "",
+            productionDate: first?.productionDate || toLocalDateStr(new Date()),
+            packs: 0,
+            packWeightG: packSize,
+          },
+        ],
+      }));
+    },
+    [prodRecordsMap, smSkus],
+  );
 
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
@@ -640,50 +661,50 @@ export default function TransferOrderPage({
           </div>
           <div className={tableTokens.wrapper}>
             <div className="overflow-y-auto max-h-[65vh]">
-            <table className={tableTokens.base}>
-              <colgroup>
-                <col style={{ width: 150 }} />
-                <col />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 70 }} />
-                <col style={{ width: 120 }} />
-              </colgroup>
-              <thead className="sticky top-0 z-[5]">
-                <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
-                  <th className={tableTokens.headerCell}>{t("col.branch")}</th>
-                  <th className={tableTokens.headerCell}>{t("tr.colRequiredDate")}</th>
-                  <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
-                  <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingTRs.map((tr) => (
-                  <tr key={tr.trId} className={tableTokens.dataRow}>
-                    <td className={`${tableTokens.dataCell} font-mono text-xs`}>{tr.trNumber}</td>
-                    <td className={tableTokens.truncatedCell} title={tr.branchName}>
-                      {tr.branchName}
-                    </td>
-                    <td
-                      className={`${tableTokens.dataCell} ${isUrgent(tr.requiredDate) ? "text-destructive font-medium" : ""}`}
-                    >
-                      {tr.requiredDate}
-                    </td>
-                    <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs bg-warning text-warning-foreground hover:bg-warning/90"
-                        onClick={() => handleCreateFromTR(tr)}
-                      >
-                        {t("to.createTO")}
-                      </Button>
-                    </td>
+              <table className={tableTokens.base}>
+                <colgroup>
+                  <col style={{ width: 150 }} />
+                  <col />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 70 }} />
+                  <col style={{ width: 120 }} />
+                </colgroup>
+                <thead className="sticky top-0 z-[5]">
+                  <tr className={tableTokens.headerRow}>
+                    <th className={tableTokens.headerCell}>{t("tr.colTrNumber")}</th>
+                    <th className={tableTokens.headerCell}>{t("col.branch")}</th>
+                    <th className={tableTokens.headerCell}>{t("tr.colRequiredDate")}</th>
+                    <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
+                    <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pendingTRs.map((tr) => (
+                    <tr key={tr.trId} className={tableTokens.dataRow}>
+                      <td className={`${tableTokens.dataCell} font-mono text-xs`}>{tr.trNumber}</td>
+                      <td className={tableTokens.truncatedCell} title={tr.branchName}>
+                        {tr.branchName}
+                      </td>
+                      <td
+                        className={`${tableTokens.dataCell} ${isUrgent(tr.requiredDate) ? "text-destructive font-medium" : ""}`}
+                      >
+                        {tr.requiredDate}
+                      </td>
+                      <td className={tableTokens.dataCellMono}>{tr.itemCount}</td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs bg-warning text-warning-foreground hover:bg-warning/90"
+                          onClick={() => handleCreateFromTR(tr)}
+                        >
+                          {t("to.createTO")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -805,312 +826,352 @@ export default function TransferOrderPage({
 
             <div className={tableTokens.wrapper}>
               <div className="overflow-y-auto max-h-[65vh]">
-              <table className={tableTokens.base}>
-                <colgroup>
-                  <col style={{ width: 90 }} />
-                  <col />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 60 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 50 }} />
-                </colgroup>
-                <thead className="sticky top-0 z-[5]">
-                  <tr className={tableTokens.headerRow}>
-                    <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
-                    <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
-                    <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
-                    <th
-                      className={`${tableTokens.headerCell} !bg-foreground !text-background font-semibold text-right`}
-                    >
-                      PACKS
-                    </th>
-                    <th className={`${tableTokens.headerCell} text-right`}>WEIGHT (g)</th>
-                    <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
-                    <th className={tableTokens.headerCell}>{t("col.note")}</th>
-                    <th className={tableTokens.headerCell}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formState.lines.map((line, idx) => {
-                    const packSize = smSkus.find((s) => s.id === line.skuId)?.packSize ?? 0;
-                    const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
-                    const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
-                    const isExpanded = expandedLines[line.id] || false;
-                    const lineLots = lotLines[line.id] || [];
-                    const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
-                    const skuRecords = prodRecordsMap[line.skuId] || [];
+                <table className={tableTokens.base}>
+                  <colgroup>
+                    <col style={{ width: 90 }} />
+                    <col />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 50 }} />
+                  </colgroup>
+                  <thead className="sticky top-0 z-[5]">
+                    <tr className={tableTokens.headerRow}>
+                      <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
+                      <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
+                      <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colRequested")}</th>
+                      <th
+                        className={`${tableTokens.headerCell} !bg-foreground !text-background font-semibold text-right`}
+                      >
+                        PACKS
+                      </th>
+                      <th className={`${tableTokens.headerCell} text-right`}>WEIGHT (g)</th>
+                      <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
+                      <th className={tableTokens.headerCell}>{t("col.note")}</th>
+                      <th className={tableTokens.headerCell}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formState.lines.map((line, idx) => {
+                      const packSize = smSkus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+                      const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
+                      const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
+                      const isExpanded = expandedLines[line.id] || false;
+                      const lineLots = lotLines[line.id] || [];
+                      const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
+                      const skuRecords = prodRecordsMap[line.skuId] || [];
 
-                    return (
-                      <React.Fragment key={line.id}>
-                        <tr className={tableTokens.dataRow}>
-                          <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                          <td className={tableTokens.truncatedCell} title={line.skuName}>
-                            {line.skuName}
-                          </td>
-                          {/* REQUESTED — packs primary, grams secondary */}
-                          <td className={`${tableTokens.dataCell} text-right`}>
-                            {line.trLineId ? (
-                              packSize > 0 ? (
-                                <div>
-                                  <span className="font-mono text-sm">{formatNumber(requestedPacks, 0)}</span>
-                                  <div className="text-xs text-muted-foreground">{formatNumber(line.plannedQty, 0)}g</div>
-                                </div>
-                              ) : (
-                                <span className="font-mono text-sm text-muted-foreground">{formatNumber(line.plannedQty, 0)}g</span>
-                              )
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          {/* PACKS — primary amber input */}
-                          <td className={`${tableTokens.dataCell} text-right`}>
-                            {canEdit ? (
-                              packSize > 0 ? (
-                                <input
-                                  ref={(el) => { if (el) qtyRefs.current[line.id] = el; }}
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={0}
-                                  step={1}
-                                  defaultValue={currentPacks || ""}
-                                  onBlur={(e) => {
-                                    const packs = Math.round(Number(e.target.value) || 0);
-                                    const grams = packs * packSize;
-                                    handleLineUpdate(line.id, "actualQty", grams);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Tab") {
-                                      e.preventDefault();
-                                      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                      if (nextIdx >= 0 && nextIdx < formState.lines.length) {
-                                        const nextId = formState.lines[nextIdx].id;
-                                        qtyRefs.current[nextId]?.focus();
-                                        qtyRefs.current[nextId]?.select();
-                                      }
-                                    }
-                                  }}
-                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  style={{ textAlign: "right" }}
-                                  key={`packs-${line.id}`}
-                                />
-                              ) : (
-                                <input
-                                  ref={(el) => { if (el) qtyRefs.current[line.id] = el; }}
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={0}
-                                  step={1}
-                                  defaultValue={line.actualQty || ""}
-                                  onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Tab") {
-                                      e.preventDefault();
-                                      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-                                      if (nextIdx >= 0 && nextIdx < formState.lines.length) {
-                                        const nextId = formState.lines[nextIdx].id;
-                                        qtyRefs.current[nextId]?.focus();
-                                        qtyRefs.current[nextId]?.select();
-                                      }
-                                    }
-                                  }}
-                                  placeholder="g"
-                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  style={{ textAlign: "right" }}
-                                  key={`g-${line.id}`}
-                                />
-                              )
-                            ) : (
-                              <span className="font-mono">{packSize > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}</span>
-                            )}
-                          </td>
-                          {/* WEIGHT (g) — secondary amber input */}
-                          <td className={`${tableTokens.dataCell} text-right`}>
-                            {canEdit && packSize > 0 ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={0}
-                                  step={1}
-                                  defaultValue={line.actualQty || ""}
-                                  onBlur={(e) => {
-                                    const grams = Number(e.target.value) || 0;
-                                    if (grams > 0) {
-                                      handleLineUpdate(line.id, "actualQty", grams);
-                                    }
-                                  }}
-                                  placeholder="override"
-                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  style={{ textAlign: "right" }}
-                                  key={`wt-${line.id}`}
-                                />
-                                <div className="text-xs text-muted-foreground mt-0.5">
-                                  est. {formatNumber(currentPacks * packSize, 0)}g
-                                </div>
-                              </div>
-                            ) : packSize === 0 ? (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            ) : (
-                              <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
-                            )}
-                          </td>
-                          <td className={`${tableTokens.dataCell} text-center`}>
-                            <UnitLabel unit={line.uom} />
-                          </td>
-                          <td className={tableTokens.dataCell}>
-                            {canEdit ? (
-                              <Input
-                                defaultValue={line.note}
-                                onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
-                                className="h-8 text-xs"
-                                placeholder="Note..."
-                              />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">{line.note || ""}</span>
-                            )}
-                          </td>
-                          <td className={`${tableTokens.dataCell} text-center`}>
-                            <div className="flex items-center justify-center gap-0.5">
-                              {packSize > 0 && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => handleToggleExpand(line.id, line.skuId)}
-                                  title="Lot assignment"
-                                >
-                                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                </Button>
-                              )}
-                              {canEdit && !line.trLineId && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive hover:text-destructive"
-                                  onClick={() => handleDeleteLine(line.id)}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* ── Lot assignment sub-row ── */}
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={8} className="p-0">
-                              <div className="bg-muted/30 px-5 py-3 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                                    <Package className="w-3.5 h-3.5" />
-                                    Lot Assignment
-                                  </span>
-                                  {(() => {
-                                    const y = currentPacks;
-                                    if (y === 0) return <span className="text-xs text-muted-foreground">Enter packs above to track lots</span>;
-                                    const colorCls = assignedPacks < y ? "text-warning" : assignedPacks === y ? "text-success" : "text-destructive";
-                                    return <span className={`text-xs font-mono font-medium ${colorCls}`}>{assignedPacks} / {y} packs assigned</span>;
-                                  })()}
-                                </div>
-
-                                {lineLots.map((lot, lotIdx) => {
-                                  const selRecord = skuRecords.find((r) => r.id === lot.productionRecordId);
-                                  return (
-                                    <div key={lotIdx} className="flex items-center gap-3 text-sm">
-                                      {/* Production date selector */}
-                                      <select
-                                        className="h-8 rounded-md border border-input bg-background px-2 text-xs min-w-[180px]"
-                                        defaultValue={lot.productionRecordId}
-                                        onChange={(e) => {
-                                          const rec = skuRecords.find((r) => r.id === e.target.value);
-                                          if (!rec) return;
-                                          const updated: LotLineLocal = { ...lot, productionRecordId: rec.id, productionDate: rec.productionDate, packWeightG: packSize };
-                                          setLotLines((prev) => {
-                                            const arr = [...(prev[line.id] || [])];
-                                            arr[lotIdx] = updated;
-                                            return { ...prev, [line.id]: arr };
-                                          });
-                                          handleLotLineSave(line.id, lotIdx, updated);
-                                        }}
-                                      >
-                                        {skuRecords.map((r) => (
-                                          <option key={r.id} value={r.id}>
-                                            {new Date(r.productionDate + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} — {r.batchesProduced} batches
-                                          </option>
-                                        ))}
-                                      </select>
-
-                                      {/* Packs input */}
-                                      <input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min={0}
-                                        step={1}
-                                        defaultValue={lot.packs || ""}
-                                        placeholder="Packs"
-                                        onBlur={(e) => {
-                                          const packs = Math.round(Number(e.target.value) || 0);
-                                          const updated: LotLineLocal = { ...lot, packs };
-                                          setLotLines((prev) => {
-                                            const arr = [...(prev[line.id] || [])];
-                                            arr[lotIdx] = updated;
-                                            return { ...prev, [line.id]: arr };
-                                          });
-                                          handleLotLineSave(line.id, lotIdx, updated);
-                                        }}
-                                        className="h-8 w-16 text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        style={{ textAlign: "right" }}
-                                        key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
-                                      />
-
-                                      {/* Pack weight display */}
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        ~{formatNumber(lot.packWeightG, 0)}g/pack
-                                      </span>
-
-                                      {/* Total g */}
-                                      <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                                        = {formatNumber(lot.packs * lot.packWeightG, 0)}g
-                                      </span>
-
-                                      {/* Delete */}
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-destructive hover:text-destructive"
-                                        onClick={() => handleDeleteLotLine(line.id, lotIdx)}
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </Button>
+                      return (
+                        <React.Fragment key={line.id}>
+                          <tr className={tableTokens.dataRow}>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
+                            <td className={tableTokens.truncatedCell} title={line.skuName}>
+                              {line.skuName}
+                            </td>
+                            {/* REQUESTED — packs primary, grams secondary */}
+                            <td className={`${tableTokens.dataCell} text-right align-middle`}>
+                              {line.trLineId ? (
+                                packSize > 0 ? (
+                                  <div>
+                                    <span className="font-mono text-sm">{formatNumber(requestedPacks, 0)}</span>
+                                    <div className="text-xs text-muted-foreground">
+                                      {formatNumber(line.plannedQty, 0)}g
                                     </div>
-                                  );
-                                })}
-
-                                {skuRecords.length === 0 && (
-                                  <span className="text-xs text-muted-foreground">No production records found for this SKU</span>
-                                )}
-
-                                {/* Add lot button */}
-                                {skuRecords.length > 0 && (
-                                  <button
-                                    onClick={() => handleAddLotLine(line.id, line.skuId)}
-                                    className="w-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary rounded-md py-1.5 text-xs transition-colors flex items-center justify-center gap-1"
+                                  </div>
+                                ) : (
+                                  <span className="font-mono text-sm text-muted-foreground">
+                                    {formatNumber(line.plannedQty, 0)}g
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            {/* PACKS — primary amber input */}
+                            <td className={`${tableTokens.dataCell} text-right align-middle`}>
+                              {canEdit ? (
+                                packSize > 0 ? (
+                                  <input
+                                    ref={(el) => {
+                                      if (el) qtyRefs.current[line.id] = el;
+                                    }}
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={currentPacks || ""}
+                                    onBlur={(e) => {
+                                      const packs = Math.round(Number(e.target.value) || 0);
+                                      const grams = packs * packSize;
+                                      handleLineUpdate(line.id, "actualQty", grams);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Tab") {
+                                        e.preventDefault();
+                                        const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                        if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                          const nextId = formState.lines[nextIdx].id;
+                                          qtyRefs.current[nextId]?.focus();
+                                          qtyRefs.current[nextId]?.select();
+                                        }
+                                      }
+                                    }}
+                                    className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    style={{ textAlign: "right" }}
+                                    key={`packs-${line.id}`}
+                                  />
+                                ) : (
+                                  <input
+                                    ref={(el) => {
+                                      if (el) qtyRefs.current[line.id] = el;
+                                    }}
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={line.actualQty || ""}
+                                    onBlur={(e) => handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Tab") {
+                                        e.preventDefault();
+                                        const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+                                        if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                          const nextId = formState.lines[nextIdx].id;
+                                          qtyRefs.current[nextId]?.focus();
+                                          qtyRefs.current[nextId]?.select();
+                                        }
+                                      }
+                                    }}
+                                    placeholder="g"
+                                    className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    style={{ textAlign: "right" }}
+                                    key={`g-${line.id}`}
+                                  />
+                                )
+                              ) : (
+                                <span className="font-mono">
+                                  {packSize > 0 ? formatNumber(currentPacks, 0) : formatNumber(line.actualQty, 0)}
+                                </span>
+                              )}
+                            </td>
+                            {/* WEIGHT (g) — secondary amber input */}
+                            <td className={`${tableTokens.dataCell} text-right align-middle`}>
+                              {canEdit && packSize > 0 ? (
+                                <div>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={line.actualQty || ""}
+                                    onBlur={(e) => {
+                                      const grams = Number(e.target.value) || 0;
+                                      if (grams > 0) {
+                                        handleLineUpdate(line.id, "actualQty", grams);
+                                      }
+                                    }}
+                                    placeholder="override"
+                                    className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    style={{ textAlign: "right" }}
+                                    key={`wt-${line.id}`}
+                                  />
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    est. {formatNumber(currentPacks * packSize, 0)}g
+                                  </div>
+                                </div>
+                              ) : packSize === 0 ? (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              ) : (
+                                <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
+                              )}
+                            </td>
+                            <td className={`${tableTokens.dataCell} text-center`}>
+                              <UnitLabel unit={line.uom} />
+                            </td>
+                            <td className={tableTokens.dataCell}>
+                              {canEdit ? (
+                                <Input
+                                  defaultValue={line.note}
+                                  onBlur={(e) => handleLineUpdate(line.id, "note", e.target.value)}
+                                  className="h-8 text-xs"
+                                  placeholder="Note..."
+                                />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">{line.note || ""}</span>
+                              )}
+                            </td>
+                            <td className={`${tableTokens.dataCell} text-center`}>
+                              <div className="flex items-center justify-center gap-0.5">
+                                {packSize > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleToggleExpand(line.id, line.skuId)}
+                                    title="Lot assignment"
                                   >
-                                    <Plus className="w-3 h-3" /> Add lot
-                                  </button>
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                {canEdit && !line.trLineId && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteLine(line.id)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
                                 )}
                               </div>
                             </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+                          {/* ── Lot assignment sub-row ── */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={8} className="p-0">
+                                <div className="bg-muted/30 px-5 py-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                      <Package className="w-3.5 h-3.5" />
+                                      Lot Assignment
+                                    </span>
+                                    {(() => {
+                                      const y = currentPacks;
+                                      if (y === 0)
+                                        return (
+                                          <span className="text-xs text-muted-foreground">
+                                            Enter packs above to track lots
+                                          </span>
+                                        );
+                                      const colorCls =
+                                        assignedPacks < y
+                                          ? "text-warning"
+                                          : assignedPacks === y
+                                            ? "text-success"
+                                            : "text-destructive";
+                                      return (
+                                        <span className={`text-xs font-mono font-medium ${colorCls}`}>
+                                          {assignedPacks} / {y} packs assigned
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+
+                                  {lineLots.map((lot, lotIdx) => {
+                                    const selRecord = skuRecords.find((r) => r.id === lot.productionRecordId);
+                                    return (
+                                      <div key={lotIdx} className="flex items-center gap-3 text-sm">
+                                        {/* Production date selector */}
+                                        <select
+                                          className="h-8 rounded-md border border-input bg-background px-2 text-xs min-w-[180px]"
+                                          defaultValue={lot.productionRecordId}
+                                          onChange={(e) => {
+                                            const rec = skuRecords.find((r) => r.id === e.target.value);
+                                            if (!rec) return;
+                                            const updated: LotLineLocal = {
+                                              ...lot,
+                                              productionRecordId: rec.id,
+                                              productionDate: rec.productionDate,
+                                              packWeightG: packSize,
+                                            };
+                                            setLotLines((prev) => {
+                                              const arr = [...(prev[line.id] || [])];
+                                              arr[lotIdx] = updated;
+                                              return { ...prev, [line.id]: arr };
+                                            });
+                                            handleLotLineSave(line.id, lotIdx, updated);
+                                          }}
+                                        >
+                                          {skuRecords.map((r) => (
+                                            <option key={r.id} value={r.id}>
+                                              {new Date(r.productionDate + "T00:00:00").toLocaleDateString("en-GB", {
+                                                day: "2-digit",
+                                                month: "short",
+                                                year: "numeric",
+                                              })}{" "}
+                                              — {r.batchesProduced} batches
+                                            </option>
+                                          ))}
+                                        </select>
+
+                                        {/* Packs input */}
+                                        <input
+                                          type="number"
+                                          inputMode="numeric"
+                                          min={0}
+                                          step={1}
+                                          defaultValue={lot.packs || ""}
+                                          placeholder="Packs"
+                                          onBlur={(e) => {
+                                            const packs = Math.round(Number(e.target.value) || 0);
+                                            const updated: LotLineLocal = { ...lot, packs };
+                                            setLotLines((prev) => {
+                                              const arr = [...(prev[line.id] || [])];
+                                              arr[lotIdx] = updated;
+                                              return { ...prev, [line.id]: arr };
+                                            });
+                                            handleLotLineSave(line.id, lotIdx, updated);
+                                          }}
+                                          className="h-8 w-16 text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          style={{ textAlign: "right" }}
+                                          key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
+                                        />
+
+                                        {/* Pack weight display */}
+                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                          ~{formatNumber(lot.packWeightG, 0)}g/pack
+                                        </span>
+
+                                        {/* Total g */}
+                                        <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                                          = {formatNumber(lot.packs * lot.packWeightG, 0)}g
+                                        </span>
+
+                                        {/* Delete */}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive hover:text-destructive"
+                                          onClick={() => handleDeleteLotLine(line.id, lotIdx)}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {skuRecords.length === 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      No production records found for this SKU
+                                    </span>
+                                  )}
+
+                                  {/* Add lot button */}
+                                  {skuRecords.length > 0 && (
+                                    <button
+                                      onClick={() => handleAddLotLine(line.id, line.skuId)}
+                                      className="w-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary rounded-md py-1.5 text-xs transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add lot
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -1211,129 +1272,129 @@ export default function TransferOrderPage({
         {/* History table */}
         <div className={tableTokens.wrapper}>
           <div className="overflow-y-auto max-h-[65vh]">
-          <table className={tableTokens.base}>
-            <colgroup>
-              <col style={{ width: 150 }} />
-              <col style={{ width: 110 }} />
-              <col />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 60 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 90 }} />
-            </colgroup>
-            <thead className="sticky top-0 z-[5]">
-              <tr className={tableTokens.headerRow}>
-                <th className={thSortable} onClick={() => handleSort("toNumber")}>
-                  <span className={`inline-flex items-center ${sortKey === "toNumber" ? "text-foreground" : ""}`}>
-                    {t("to.colToNumber")}
-                    <SortIcon col="toNumber" />
-                  </span>
-                </th>
-                <th className={thSortable} onClick={() => handleSort("date")}>
-                  <span className={`inline-flex items-center ${sortKey === "date" ? "text-foreground" : ""}`}>
-                    {t("col.date")}
-                    <SortIcon col="date" />
-                  </span>
-                </th>
-                <th className={thSortable} onClick={() => handleSort("branch")}>
-                  <span className={`inline-flex items-center ${sortKey === "branch" ? "text-foreground" : ""}`}>
-                    {t("col.branch")}
-                    <SortIcon col="branch" />
-                  </span>
-                </th>
-                <th className={tableTokens.headerCell}>{t("to.colTrRef")}</th>
-                <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
-                <th className={`${tableTokens.headerCell} text-right`}>{t("to.totalValue")}</th>
-                <th className={thSortable} onClick={() => handleSort("status")}>
-                  <span className={`inline-flex items-center ${sortKey === "status" ? "text-foreground" : ""}`}>
-                    {t("col.status")}
-                    <SortIcon col="status" />
-                  </span>
-                </th>
-                <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className={tableTokens.dataRow}>
-                    {Array.from({ length: 8 }).map((_, j) => (
-                      <td key={j} className={tableTokens.dataCell}>
-                        <Skeleton className="h-4 w-full" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : sortedHistory.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                    {t("to.noResults")}
-                  </td>
+            <table className={tableTokens.base}>
+              <colgroup>
+                <col style={{ width: 150 }} />
+                <col style={{ width: 110 }} />
+                <col />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 90 }} />
+              </colgroup>
+              <thead className="sticky top-0 z-[5]">
+                <tr className={tableTokens.headerRow}>
+                  <th className={thSortable} onClick={() => handleSort("toNumber")}>
+                    <span className={`inline-flex items-center ${sortKey === "toNumber" ? "text-foreground" : ""}`}>
+                      {t("to.colToNumber")}
+                      <SortIcon col="toNumber" />
+                    </span>
+                  </th>
+                  <th className={thSortable} onClick={() => handleSort("date")}>
+                    <span className={`inline-flex items-center ${sortKey === "date" ? "text-foreground" : ""}`}>
+                      {t("col.date")}
+                      <SortIcon col="date" />
+                    </span>
+                  </th>
+                  <th className={thSortable} onClick={() => handleSort("branch")}>
+                    <span className={`inline-flex items-center ${sortKey === "branch" ? "text-foreground" : ""}`}>
+                      {t("col.branch")}
+                      <SortIcon col="branch" />
+                    </span>
+                  </th>
+                  <th className={tableTokens.headerCell}>{t("to.colTrRef")}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
+                  <th className={`${tableTokens.headerCell} text-right`}>{t("to.totalValue")}</th>
+                  <th className={thSortable} onClick={() => handleSort("status")}>
+                    <span className={`inline-flex items-center ${sortKey === "status" ? "text-foreground" : ""}`}>
+                      {t("col.status")}
+                      <SortIcon col="status" />
+                    </span>
+                  </th>
+                  <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
                 </tr>
-              ) : (
-                sortedHistory.map((to) => (
-                  <tr key={to.id} className={tableTokens.dataRow}>
-                    <td
-                      className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
-                      onClick={() => handleViewDetail(to)}
-                    >
-                      {to.toNumber}
+              </thead>
+              <tbody>
+                {historyLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i} className={tableTokens.dataRow}>
+                      {Array.from({ length: 8 }).map((_, j) => (
+                        <td key={j} className={tableTokens.dataCell}>
+                          <Skeleton className="h-4 w-full" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : sortedHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                      {t("to.noResults")}
                     </td>
-                    <td className={tableTokens.dataCell}>{to.deliveryDate}</td>
-                    <td className={tableTokens.truncatedCell} title={to.branchName}>
-                      {to.branchName}
-                    </td>
-                    <td className={`${tableTokens.dataCell} font-mono text-xs text-muted-foreground`}>{to.trRef}</td>
-                    <td className={tableTokens.dataCellMono}>{to.itemCount}</td>
-                    <td className={tableTokens.dataCellMono}>฿{formatNumber(to.totalValue, 0)}</td>
-                    <td className={tableTokens.dataCell}>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${toStatusBadge[to.status] || ""}`}
+                  </tr>
+                ) : (
+                  sortedHistory.map((to) => (
+                    <tr key={to.id} className={tableTokens.dataRow}>
+                      <td
+                        className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
+                        onClick={() => handleViewDetail(to)}
                       >
-                        {to.status}
-                      </span>
-                    </td>
-                    <td className={`${tableTokens.dataCell} text-center`}>
-                      <div className="flex items-center justify-center gap-1">
-                        {canEdit && to.status === "Draft" && (
+                        {to.toNumber}
+                      </td>
+                      <td className={tableTokens.dataCell}>{to.deliveryDate}</td>
+                      <td className={tableTokens.truncatedCell} title={to.branchName}>
+                        {to.branchName}
+                      </td>
+                      <td className={`${tableTokens.dataCell} font-mono text-xs text-muted-foreground`}>{to.trRef}</td>
+                      <td className={tableTokens.dataCellMono}>{to.itemCount}</td>
+                      <td className={tableTokens.dataCellMono}>฿{formatNumber(to.totalValue, 0)}</td>
+                      <td className={tableTokens.dataCell}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${toStatusBadge[to.status] || ""}`}
+                        >
+                          {to.status}
+                        </span>
+                      </td>
+                      <td className={`${tableTokens.dataCell} text-center`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {canEdit && to.status === "Draft" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleEditDraft(to)}
+                              title="Edit draft"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => handleEditDraft(to)}
-                            title="Edit draft"
+                            onClick={() => handleViewDetail(to)}
+                            title="View"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleViewDetail(to)}
-                          title="View"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {isManagement && to.status !== "Cancelled" && to.status !== "Received" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => cancelTO(to.id)}
-                            title="Cancel"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                          {isManagement && to.status !== "Cancelled" && to.status !== "Received" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => cancelTO(to.id)}
+                              title="Cancel"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1402,36 +1463,36 @@ export default function TransferOrderPage({
                       {detailLines.map((l) => {
                         const detailPackSize = smSkus.find((s) => s.id === l.skuId)?.packSize ?? 0;
                         return (
-                        <tr key={l.id} className={tableTokens.dataRow}>
-                          <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
-                          <td className={tableTokens.truncatedCell} title={l.skuName}>
-                            {l.skuName}
-                          </td>
-                          <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
-                            {detailPackSize > 0 ? (
-                              <div>
-                                <span>{Math.round(l.plannedQty / detailPackSize)} packs</span>
-                                <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
-                              </div>
-                            ) : (
-                              formatNumber(l.plannedQty, 0) + "g"
-                            )}
-                          </td>
-                          <td className={`${tableTokens.dataCellMono} font-medium`}>
-                            {detailPackSize > 0 ? (
-                              <div>
-                                <span>{Math.round(l.actualQty / detailPackSize)} packs</span>
-                                <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
-                              </div>
-                            ) : (
-                              formatNumber(l.actualQty, 0) + "g"
-                            )}
-                          </td>
-                          <td className={`${tableTokens.dataCell} text-center`}>
-                            <UnitLabel unit={l.uom} />
-                          </td>
-                          <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 2)}</td>
-                        </tr>
+                          <tr key={l.id} className={tableTokens.dataRow}>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
+                            <td className={tableTokens.truncatedCell} title={l.skuName}>
+                              {l.skuName}
+                            </td>
+                            <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
+                              {detailPackSize > 0 ? (
+                                <div>
+                                  <span>{Math.round(l.plannedQty / detailPackSize)} packs</span>
+                                  <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
+                                </div>
+                              ) : (
+                                formatNumber(l.plannedQty, 0) + "g"
+                              )}
+                            </td>
+                            <td className={`${tableTokens.dataCellMono} font-medium`}>
+                              {detailPackSize > 0 ? (
+                                <div>
+                                  <span>{Math.round(l.actualQty / detailPackSize)} packs</span>
+                                  <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
+                                </div>
+                              ) : (
+                                formatNumber(l.actualQty, 0) + "g"
+                              )}
+                            </td>
+                            <td className={`${tableTokens.dataCell} text-center`}>
+                              <UnitLabel unit={l.uom} />
+                            </td>
+                            <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 2)}</td>
+                          </tr>
                         );
                       })}
                     </tbody>
