@@ -1399,22 +1399,41 @@ export default function TransferOrderPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {detailLines.map((l) => (
+                      {detailLines.map((l) => {
+                        const detailPackSize = smSkus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+                        return (
                         <tr key={l.id} className={tableTokens.dataRow}>
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
                           <td className={tableTokens.truncatedCell} title={l.skuName}>
                             {l.skuName}
                           </td>
                           <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
-                            {formatNumber(l.plannedQty, 0)}
+                            {detailPackSize > 0 ? (
+                              <div>
+                                <span>{Math.round(l.plannedQty / detailPackSize)} packs</span>
+                                <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
+                              </div>
+                            ) : (
+                              formatNumber(l.plannedQty, 0) + "g"
+                            )}
                           </td>
-                          <td className={`${tableTokens.dataCellMono} font-medium`}>{formatNumber(l.actualQty, 0)}</td>
+                          <td className={`${tableTokens.dataCellMono} font-medium`}>
+                            {detailPackSize > 0 ? (
+                              <div>
+                                <span>{Math.round(l.actualQty / detailPackSize)} packs</span>
+                                <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
+                              </div>
+                            ) : (
+                              formatNumber(l.actualQty, 0) + "g"
+                            )}
+                          </td>
                           <td className={`${tableTokens.dataCell} text-center`}>
                             <UnitLabel unit={l.uom} />
                           </td>
                           <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 2)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
