@@ -958,7 +958,11 @@ export default function TransferOrderPage({
                             </td>
                             <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               <div className="truncate">{line.skuName}</div>
-                              {lotSummary ? <div className="text-xs mt-0.5">{lotSummary}</div> : <div className="text-xs mt-0.5 invisible">·</div>}
+                              {lotSummary ? (
+                                <div className="text-xs mt-0.5">{lotSummary}</div>
+                              ) : (
+                                <div className="text-xs mt-0.5 invisible">·</div>
+                              )}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
@@ -1106,7 +1110,7 @@ export default function TransferOrderPage({
                                     key={`wt-${line.id}`}
                                   />
                                   <div className="text-xs text-muted-foreground mt-0.5">
-                                    est. {formatNumber(currentPacks * packSize, 0)}g
+                                    est. {formatNumber(currentPacks * packSize, 0)} {sku.purchaseUom || "g"}
                                   </div>
                                 </div>
                               ) : packSize === 0 ? (
