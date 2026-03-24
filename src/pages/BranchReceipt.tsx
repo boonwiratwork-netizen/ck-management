@@ -1359,9 +1359,6 @@ export default function BranchReceiptPage({
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </td>
-                          <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                            {isPacksMode ? packUnit : sku.usageUom}
-                          </td>
                           <td className="px-1 py-1 align-middle">
                             <div className="flex items-center gap-1">
                               <input
