@@ -987,7 +987,7 @@ export default function TransferOrderPage({
                                 <span className="font-mono text-sm">{formatNumber(line.actualQty, 0)}</span>
                               )}
                             </td>
-                            <td className={`${tableTokens.dataCell} text-center`}>
+                            <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <UnitLabel unit={line.uom} />
                             </td>
                             <td className={tableTokens.dataCell}>
