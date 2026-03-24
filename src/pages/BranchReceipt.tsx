@@ -1030,7 +1030,10 @@ export default function BranchReceiptPage({
                               <div className="text-xs text-muted-foreground">{line.plannedQty.toLocaleString()}g</div>
                             </div>
                           ) : (
-                            <span>{line.plannedQty.toLocaleString()}</span>
+                            <div>
+                              <span>{line.plannedQty.toLocaleString()}</span>
+                              <div className="text-xs mt-0.5 invisible">·</div>
+                            </div>
                           )}
                         </td>
                         {/* PACKS — primary amber input */}
