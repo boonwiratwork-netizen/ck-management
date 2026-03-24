@@ -600,7 +600,7 @@ export default function TransferOrderPage({
   const handleAddLotLine = useCallback((toLineId: string, skuId: string) => {
     const records = prodRecordsMap[skuId];
     const first = records?.[0];
-    const pwg = first && first.batchesProduced > 0 ? first.actualOutputG / first.batchesProduced : 0;
+    const packSize = smSkus.find((s) => s.id === skuId)?.packSize ?? 0;
     setLotLines((prev) => ({
       ...prev,
       [toLineId]: [
@@ -609,11 +609,11 @@ export default function TransferOrderPage({
           productionRecordId: first?.id || "",
           productionDate: first?.productionDate || toLocalDateStr(new Date()),
           packs: 0,
-          packWeightG: pwg,
+          packWeightG: packSize,
         },
       ],
     }));
-  }, [prodRecordsMap]);
+  }, [prodRecordsMap, smSkus]);
 
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
