@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ArrowUpDown,
   Pencil,
+  Package,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -916,69 +917,42 @@ export default function TransferOrderPage({
                       const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
                       const skuRecords = prodRecordsMap[line.skuId] || [];
 
-                      const activeLots = lineLots.filter((l) => l.packs > 0);
-                      const showLotChips = packSize > 0;
-                      const noRecordsWarning = packSize > 0 && skuRecords.length === 0 && currentPacks > 0;
+                      // Inline lot summary
+                      const lotSummary = (() => {
+                        if (packSize === 0) return null;
+                        if (skuRecords.length === 0) {
+                          return currentPacks > 0 ? (
+                            <span className="text-warning flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> No production records
+                            </span>
+                          ) : null;
+                        }
+                        const activeLots = lineLots.filter((l) => l.packs > 0);
+                        if (activeLots.length === 0) {
+                          return currentPacks > 0 ? (
+                            <span className="text-muted-foreground italic">No lots assigned</span>
+                          ) : null;
+                        }
+                        const parts = activeLots.map((l) => {
+                          const d = new Date(l.productionDate + "T00:00:00");
+                          return `${d.getDate()}/${d.getMonth() + 1}×${l.packs}`;
+                        });
+                        const colorCls =
+                          assignedPacks === currentPacks
+                            ? "text-success"
+                            : assignedPacks < currentPacks
+                              ? "text-warning"
+                              : "text-destructive";
+                        return <span className={`${colorCls} font-mono`}>{parts.join(", ")}</span>;
+                      })();
 
                       return (
                         <React.Fragment key={line.id}>
-                          <tr className={`${tableTokens.dataRow}`}>
+                          <tr className={`${tableTokens.dataRow} align-top`}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
                             <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               <div className="truncate">{line.skuName}</div>
-                              {showLotChips && (
-                                <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                                  {activeLots.map((lot, lotIdx) => {
-                                    const d = new Date(lot.productionDate + "T00:00:00");
-                                    return (
-                                      <button
-                                        key={lotIdx}
-                                        type="button"
-                                        onClick={() => {
-                                          if (!isExpanded) handleToggleExpand(line.id, line.skuId);
-                                          else setExpandedLines((prev) => ({ ...prev, [line.id]: false }));
-                                        }}
-                                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted hover:bg-muted/70 text-[10px] font-mono text-foreground transition-colors cursor-pointer"
-                                      >
-                                        {d.getDate()}/{d.getMonth() + 1} · {lot.packs}
-                                      </button>
-                                    );
-                                  })}
-                                  {skuRecords.length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (!isExpanded) {
-                                          handleToggleExpand(line.id, line.skuId);
-                                        } else {
-                                          handleAddLotLine(line.id, line.skuId);
-                                        }
-                                      }}
-                                      className="inline-flex items-center px-1 py-0.5 rounded text-[10px] text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
-                                    >
-                                      <Plus className="w-2.5 h-2.5 mr-0.5" />lot
-                                    </button>
-                                  )}
-                                  {currentPacks > 0 && (
-                                    <span
-                                      className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded ${
-                                        assignedPacks === currentPacks
-                                          ? "text-success bg-success/10"
-                                          : assignedPacks < currentPacks
-                                            ? "text-warning bg-warning/10"
-                                            : "text-destructive bg-destructive/10"
-                                      }`}
-                                    >
-                                      {assignedPacks}/{currentPacks}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {noRecordsWarning && (
-                                <span className="text-warning flex items-center gap-1 text-xs mt-0.5">
-                                  <AlertTriangle className="w-3 h-3" /> No production records
-                                </span>
-                              )}
+                              {lotSummary && <div className="text-xs mt-0.5">{lotSummary}</div>}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
                             <td className={`${tableTokens.dataCell} text-right align-middle`}>
@@ -1152,6 +1126,21 @@ export default function TransferOrderPage({
                             </td>
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <div className="flex items-center justify-center gap-0.5">
+                                {packSize > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleToggleExpand(line.id, line.skuId)}
+                                    title="Lot assignment"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                )}
                                 {canEdit && !line.trLineId && (
                                   <Button
                                     variant="ghost"
@@ -1166,10 +1155,38 @@ export default function TransferOrderPage({
                             </td>
                           </tr>
 
+                          {/* ── Lot assignment sub-row ── */}
                           {isExpanded && (
                             <tr>
                               <td colSpan={8} className="p-0">
-                                <div className="bg-muted/30 px-5 py-2 space-y-1.5">
+                                <div className="bg-muted/30 px-5 py-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                      <Package className="w-3.5 h-3.5" />
+                                      Lot Assignment
+                                    </span>
+                                    {(() => {
+                                      const y = currentPacks;
+                                      if (y === 0)
+                                        return (
+                                          <span className="text-xs text-muted-foreground">
+                                            Enter packs above to track lots
+                                          </span>
+                                        );
+                                      const colorCls =
+                                        assignedPacks < y
+                                          ? "text-warning"
+                                          : assignedPacks === y
+                                            ? "text-success"
+                                            : "text-destructive";
+                                      return (
+                                        <span className={`text-xs font-mono font-medium ${colorCls}`}>
+                                          {assignedPacks} / {y} packs assigned
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+
                                   {lineLots.map((lot, lotIdx) => {
                                     const selRecord = skuRecords.find((r) => r.id === lot.productionRecordId);
                                     return (
@@ -1226,8 +1243,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                          ~{formatNumber(lot.packWeightG ?? 0, 0)}g ·{" "}
-                                          {formatNumber((lot.packs ?? 0) * (lot.packWeightG ?? 0), 0)}g
+                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
+                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
@@ -1247,10 +1264,11 @@ export default function TransferOrderPage({
                                     </span>
                                   )}
 
+                                  {/* Add lot button */}
                                   {skuRecords.length > 0 && (
                                     <button
                                       onClick={() => handleAddLotLine(line.id, line.skuId)}
-                                      className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 pt-0.5"
+                                      className="w-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary rounded-md py-1.5 text-xs transition-colors flex items-center justify-center gap-1"
                                     >
                                       <Plus className="w-3 h-3" /> Add lot
                                     </button>
