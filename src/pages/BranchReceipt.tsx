@@ -1451,9 +1451,7 @@ export default function BranchReceiptPage({
                             <th className={thClass}>{t("col.sku")}</th>
                             <th className={`${thClass} text-right`}>PACKS</th>
                             <th className={`${thClass} text-right`}>WEIGHT</th>
-                            <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                             <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
-                            <th className={thClass}>{t("col.note")}</th>
                             <th className={`${thClass} text-center`}></th>
                           </tr>
                         </thead>
