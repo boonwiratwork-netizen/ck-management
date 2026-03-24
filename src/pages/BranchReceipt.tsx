@@ -980,13 +980,11 @@ export default function BranchReceiptPage({
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col style={{ width: 88 }} />
-                  <col />
-                  <col style={{ width: 95 }} />
-                  <col style={{ width: 110 }} />
-                  <col style={{ width: 95 }} />
-                  <col style={{ width: 55 }} />
-                  <col style={{ width: 100 }} />
+                  <col style={{ width: 88 }} /> // SKU CODE
+                  <col /> // SKU NAME — flex
+                  <col style={{ width: 110 }} /> // PLANNED
+                  <col style={{ width: 110 }} /> // PACKS
+                  <col style={{ width: 100 }} /> // WEIGHT
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
@@ -997,8 +995,6 @@ export default function BranchReceiptPage({
                       PACKS
                     </th>
                     <th className={`${thClass} text-right`}>WEIGHT (g)</th>
-                    <th className={`${thClass} text-center`}>{t("col.uom")}</th>
-                    <th className={thClass}>{t("col.note")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1121,20 +1117,6 @@ export default function BranchReceiptPage({
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </td>
-                        <td className={`${tdReadOnly} text-center text-muted-foreground align-middle`}>
-                          {isPacksMode ? packUnit : sku?.usageUom || line.uom}
-                        </td>
-                        <td className="px-1 py-1 align-middle">
-                          <input
-                            type="text"
-                            defaultValue={line.note}
-                            key={`ck-note-${line.toLineId}-${savedCount}`}
-                            tabIndex={-1}
-                            onBlur={(e) => updateCkLine(line.toLineId, { note: e.target.value })}
-                            className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
-                            placeholder="Note"
-                          />
-                        </td>
                       </tr>
                     );
                   })}
@@ -1156,7 +1138,7 @@ export default function BranchReceiptPage({
                         return `${totalPacks} packs · ${totalG.toLocaleString()}g`;
                       })()}
                     </td>
-                    <td colSpan={4} />
+                    <td colSpan={2} />
                   </tr>
                 </tfoot>
               </table>
@@ -1169,27 +1151,26 @@ export default function BranchReceiptPage({
               <div className="overflow-y-auto max-h-[65vh]">
                 <table className="w-full text-sm table-fixed">
                   <colgroup>
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 220 }} />
-                    <col style={{ width: 120 }} />
+                    <col style={{ width: 100 }} />
+                    <col />
+                    <col style={{ width: 140 }} />
                     <col style={{ width: 110 }} />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 70 }} />
                     <col style={{ width: 70 }} />
-                    <col style={{ width: 80 }} />
+                    <col style={{ width: 90 }} />
                     <col style={{ width: 80 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
                     <tr className="bg-table-header border-b">
-                      <th className={thClass}>{t("col.date")}</th>
                       <th className={thClass}>{t("col.sku")}</th>
+                      <th className={thClass}>{t("col.skuName")}</th>
                       <th className={thClass}>{t("col.supplier")}</th>
                       <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
                         PACKS
                       </th>
                       <th className={`${thClass} text-right`}>WEIGHT</th>
-                      <th className={`${thClass} text-center`}>{t("col.uom")}</th>
                       <th className={`${thClass} text-right`}>
                         <TooltipProvider>
                           <Tooltip>
@@ -1233,32 +1214,15 @@ export default function BranchReceiptPage({
                             hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-40",
                           )}
                         >
-                          <td className={`${tdReadOnly} text-muted-foreground align-middle`}>{dateStr}</td>
-                          <td className={`${tdReadOnly} align-middle`}>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="truncate">
-                                    <span
-                                      className={cn(
-                                        "font-mono text-xs",
-                                        hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground",
-                                      )}
-                                    >
-                                      {sku.skuId}
-                                    </span>
-                                    <span className={cn("ml-1", hasQty ? "font-semibold text-foreground" : "")}>
-                                      {sku.name}
-                                    </span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="font-medium">
-                                    {sku.skuId} — {sku.name}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                          <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
+                            <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
+                              {sku.skuId}
+                            </span>
+                          </td>
+                          <td className={`${tdReadOnly} align-middle`} title={sku.name}>
+                            <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                              {sku.name}
+                            </span>
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
                             {selectedSupplier?.name}
@@ -1359,6 +1323,7 @@ export default function BranchReceiptPage({
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </td>
+
                           <td className="px-1 py-1 align-middle">
                             <div className="flex items-center gap-1">
                               <input
@@ -1441,8 +1406,8 @@ export default function BranchReceiptPage({
                       <table className="w-full text-sm table-fixed">
                         <colgroup>
                           <col style={{ width: 240 }} />
-                          <col style={{ width: 80 }} />
-                          <col style={{ width: 80 }} />
+                          <col style={{ width: 110 }} />
+                          <col style={{ width: 100 }} />
                           <col style={{ width: 90 }} />
                           <col style={{ width: 50 }} />
                         </colgroup>
@@ -1544,6 +1509,7 @@ export default function BranchReceiptPage({
                                     <span className="text-muted-foreground text-xs">—</span>
                                   )}
                                 </td>
+
                                 <td className="px-1 py-1 align-middle">
                                   <input
                                     type="number"
@@ -1559,6 +1525,7 @@ export default function BranchReceiptPage({
                                     placeholder="0.00"
                                   />
                                 </td>
+
                                 <td className="px-1 py-1 text-center align-middle">
                                   <Button
                                     variant="ghost"
