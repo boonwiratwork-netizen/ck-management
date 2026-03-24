@@ -1111,7 +1111,7 @@ export default function BranchReceiptPage({
                               />
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 est. {(currentPacks * packSize).toLocaleString()}
-                                {sku.usageUom || "g"}
+                                {sku.purchaseUom || "g"}
                               </div>
                             </div>
                           ) : (
@@ -1318,7 +1318,7 @@ export default function BranchReceiptPage({
                                 />
                                 <div className="text-xs text-muted-foreground mt-0.5">
                                   est. {(currentPacks * packSize).toLocaleString()}
-                                  {sku.usageUom || "g"}
+                                  {sku.purchaseUom || "g"}
                                 </div>
                               </div>
                             ) : (
@@ -1505,7 +1505,7 @@ export default function BranchReceiptPage({
                                       />
                                       <div className="text-xs text-muted-foreground mt-0.5">
                                         est. {(currentPacks * packSize).toLocaleString()}
-                                        {sku.usageUom || "g"}
+                                        {sku.purchaseUom || "g"}
                                       </div>
                                     </div>
                                   ) : (
