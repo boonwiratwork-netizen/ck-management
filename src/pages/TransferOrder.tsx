@@ -130,6 +130,7 @@ export default function TransferOrderPage({
   const [skuSearchOpen, setSkuSearchOpen] = useState(false);
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM" && s.status === "Active"), [skus]);
+  const distributableRmSkus = useMemo(() => skus.filter((s) => s.type === "RM" && s.status === "Active" && s.isDistributable), [skus]);
 
   // BOM-filtered SKU IDs
   const [bomSkuIds, setBomSkuIds] = useState<Set<string>>(new Set());
