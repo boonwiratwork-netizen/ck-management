@@ -177,7 +177,6 @@ export default function TransferOrderPage({
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
     if (!formState || formState.lines.length === 0) {
-      setAvgPackWeightMap({});
       setProdRecordsMap({});
       setLotLines({});
       setExpandedLines({});
@@ -186,7 +185,7 @@ export default function TransferOrderPage({
     const skuIds = formState.lines.map((l) => l.skuId);
     const lineIds = formState.lines.map((l) => l.id);
 
-    // Query A: avg pack weight + production records
+    // Query A: production records per SKU (for lot date dropdown)
     supabase
       .from("production_records")
       .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
@@ -194,12 +193,8 @@ export default function TransferOrderPage({
       .order("production_date", { ascending: true })
       .then(({ data }) => {
         if (!data) return;
-        const bySkuAgg: Record<string, { totalG: number; totalBatches: number }> = {};
         const bySkuRecords: Record<string, ProdRecord[]> = {};
         for (const r of data) {
-          if (!bySkuAgg[r.sm_sku_id]) bySkuAgg[r.sm_sku_id] = { totalG: 0, totalBatches: 0 };
-          bySkuAgg[r.sm_sku_id].totalG += r.actual_output_g;
-          bySkuAgg[r.sm_sku_id].totalBatches += r.batches_produced;
           if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
           bySkuRecords[r.sm_sku_id].push({
             id: r.id,
@@ -208,11 +203,6 @@ export default function TransferOrderPage({
             batchesProduced: r.batches_produced,
           });
         }
-        const weightMap: Record<string, number> = {};
-        for (const [skuId, agg] of Object.entries(bySkuAgg)) {
-          weightMap[skuId] = agg.totalBatches > 0 ? agg.totalG / agg.totalBatches : 0;
-        }
-        setAvgPackWeightMap(weightMap);
         setProdRecordsMap(bySkuRecords);
       });
 
