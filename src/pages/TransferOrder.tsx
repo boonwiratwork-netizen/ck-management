@@ -973,7 +973,7 @@ export default function TransferOrderPage({
                           </td>
                           <td className={`${tableTokens.dataCell} text-center`}>
                             <div className="flex items-center justify-center gap-0.5">
-                              {skuRecords.length > 0 && (
+                              {packSize > 0 && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
