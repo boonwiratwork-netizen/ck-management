@@ -990,7 +990,7 @@ export default function TransferOrderPage({
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <UnitLabel unit={line.uom} />
                             </td>
-                            <td className={tableTokens.dataCell}>
+                            <td className={`${tableTokens.dataCell} align-middle`}>
                               {canEdit ? (
                                 <Input
                                   defaultValue={line.note}
