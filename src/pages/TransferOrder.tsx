@@ -1232,8 +1232,8 @@ export default function TransferOrderPage({
                                           key={`lot-packs-${line.id}-${lotIdx}-${lot.id || "new"}`}
                                         />
                                         <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                          ~{formatNumber(lot.packWeightG, 0)}g ·{" "}
-                                          {formatNumber(lot.packs * lot.packWeightG, 0)}g
+~{formatNumber(lot.packWeightG ?? 0, 0)}g ·{" "}
+                                          {formatNumber((lot.packs ?? 0) * (lot.packWeightG ?? 0), 0)}g
                                         </span>
                                         <Button
                                           variant="ghost"
