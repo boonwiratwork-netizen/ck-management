@@ -554,7 +554,7 @@ export default function TransferOrderPage({
     async (toLineId: string, idx: number, lot: LotLineLocal) => {
       if (lot.packs <= 0 && !lot.id) return; // Don't save empty new lots
       const lockKey = `${toLineId}-${idx}`;
-      if (savingLotLines.has(lockKey)) return; // Prevent duplicate concurrent saves
+      if (savingLotLinesRef.current.has(lockKey)) return; // Prevent duplicate concurrent saves
       setSavingLotLines((prev) => new Set(prev).add(lockKey));
       try {
         if (lot.id) {
