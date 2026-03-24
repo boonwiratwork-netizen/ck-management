@@ -1106,10 +1106,10 @@ export default function BranchReceiptPage({
                                   }
                                 }}
                                 onFocus={(e) => e.target.select()}
-                                placeholder="override"
+                                placeholder="ยอดนับจริง"
                                 className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
-                              <div className="text-xs text-muted-foreground mt-0.5">
+                              <div className="text-xs text-muted-foreground mt-0.5 text-right">
                                 est. {(currentPacks * packSize).toLocaleString()}
                                 {sku.purchaseUom || "g"}
                               </div>
@@ -1326,9 +1326,9 @@ export default function BranchReceiptPage({
                                   }}
                                   onFocus={(e) => e.target.select()}
                                   placeholder="override"
-                                  className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
-                                <div className="text-xs text-muted-foreground mt-0.5">
+                                <div className="text-xs text-muted-foreground mt-0.5 text-right">
                                   est. {(currentPacks * packSize).toLocaleString()}
                                   {sku.purchaseUom || "g"}
                                 </div>
@@ -1527,10 +1527,10 @@ export default function BranchReceiptPage({
                                           if (grams > 0) updateAdHoc(row.tempId, { qty: grams });
                                         }}
                                         onFocus={(e) => e.target.select()}
-                                        placeholder="override"
-                                        className="h-8 w-full text-xs font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="ยอดนับจริง"
+                                        className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
-                                      <div className="text-xs text-muted-foreground mt-0.5">
+                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
                                         est. {(currentPacks * packSize).toLocaleString()}
                                         {sku.purchaseUom || "g"}
                                       </div>
