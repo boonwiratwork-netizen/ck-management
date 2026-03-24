@@ -176,6 +176,14 @@ export default function TransferOrderPage({
   // ─── Duplicate lot save guard ───
   const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
 
+  // Refs to avoid stale closures in onBlur handlers
+  const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
+  const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
+  const savingLotLinesRef = useRef<Set<string>>(new Set());
+  useEffect(() => { lotLinesRef.current = lotLines; }, [lotLines]);
+  useEffect(() => { prodRecordsMapRef.current = prodRecordsMap; }, [prodRecordsMap]);
+  useEffect(() => { savingLotLinesRef.current = savingLotLines; }, [savingLotLines]);
+
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
     if (!formState || formState.lines.length === 0) {
