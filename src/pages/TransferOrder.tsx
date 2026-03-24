@@ -517,12 +517,8 @@ export default function TransferOrderPage({
 
   const hasLinesWithQty = useMemo(() => {
     if (!formState) return false;
-    return formState.lines.some((l) => {
-      const apw = avgPackWeightMap[l.skuId] || 0;
-      if (apw === 0) return l.actualQty > 0;
-      return l.actualQty > 0;
-    });
-  }, [formState?.lines, avgPackWeightMap]);
+    return formState.lines.some((l) => l.actualQty > 0);
+  }, [formState?.lines]);
 
   // Lot line helpers
   const handleToggleExpand = useCallback((lineId: string, skuId: string) => {
