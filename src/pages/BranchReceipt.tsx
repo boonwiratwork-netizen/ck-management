@@ -1234,9 +1234,6 @@ export default function BranchReceiptPage({
                           )}
                         >
                           <td className={`${tdReadOnly} text-muted-foreground align-middle`}>{dateStr}</td>
-                          <td className={`${tdReadOnly} text-center font-mono text-muted-foreground align-middle`}>
-                            {weekNum}
-                          </td>
                           <td className={`${tdReadOnly} align-middle`}>
                             <TooltipProvider>
                               <Tooltip>
