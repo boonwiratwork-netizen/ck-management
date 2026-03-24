@@ -460,60 +460,11 @@ export function StockCard({
             supabase
               .from("transfer_order_lines")
               .select(
-                "actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
+                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
               )
               .eq("sku_id", skuId)
               .in("transfer_orders.status", ["Sent", "Received"])
               .gte("transfer_orders.delivery_date", fromDate),
-            supabase
-              .from("stock_adjustments")
-              .select("adjustment_date, quantity, reason, created_at")
-              .eq("sku_id", skuId)
-              .eq("stock_type", "SM")
-              .gte("adjustment_date", fromDate)
-              .order("adjustment_date", { ascending: true })
-              .order("created_at", { ascending: true }),
-          ]);
-          if (cancelled) return;
-
-          const openingQty = obRes.data?.quantity ?? 0;
-
-          const mvts: Movement[] = [
-            {
-              date: "—",
-              sortKey: "0000-00-00",
-              type: "Opening",
-              reference: "—",
-              qtyIn: openingQty > 0 ? openingQty : null,
-              qtyOut: null,
-            },
-          ];
-
-          (prodRes.data ?? []).forEach((p) => {
-            mvts.push({
-              date: p.production_date,
-              sortKey: `${p.production_date}|${p.created_at}`,
-              type: "Production",
-              reference: `${p.batches_produced} batch${p.batches_produced > 1 ? "es" : ""}`,
-              qtyIn: p.actual_output_g,
-              qtyOut: null,
-            });
-          });
-
-          (toRes.data ?? []).forEach((line: any) => {
-            const to = line.transfer_orders;
-            if (!to) return;
-            const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
-            const branchName = to.branches?.branch_name ?? "";
-            mvts.push({
-              date: to.delivery_date,
-              sortKey: `${to.delivery_date}|${to.delivery_date}`,
-              type: "Delivery",
-              reference: `${to.to_number} · ${branchName}`,
-              qtyIn: null,
-              qtyOut: qty,
-            });
-          });
 
           (adjRes.data ?? []).forEach((a) => {
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
