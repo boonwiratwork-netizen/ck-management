@@ -1136,7 +1136,7 @@ export default function BranchReceiptPage({
                           return s + (ps > 1 && pu ? Math.round(l.receivedQty / ps) : 0);
                         }, 0);
                         const totalG = ckLines.reduce((s, l) => s + l.receivedQty, 0);
-                        return `${totalPacks} packs · ${totalG.toLocaleString()}g`;
+                        return `${totalPacks} packs`;
                       })()}
                     </td>
                     <td colSpan={2} />
