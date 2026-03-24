@@ -866,8 +866,8 @@ export default function TransferOrderPage({
                       return (
                         <React.Fragment key={line.id}>
                           <tr className={`${tableTokens.dataRow}`}>
-                            <td className={`${tableTokens.dataCell} font-mono text-xs`}>{line.skuCode}</td>
-                            <td className={tableTokens.truncatedCell} title={line.skuName}>
+                            <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>{line.skuCode}</td>
+                            <td className={`${tableTokens.truncatedCell} align-middle`} title={line.skuName}>
                               {line.skuName}
                             </td>
                             {/* REQUESTED — packs primary, grams secondary */}
