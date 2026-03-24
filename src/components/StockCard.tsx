@@ -29,6 +29,7 @@ interface Movement {
   qtyOut: number | null;
   runningBalance?: number;
   isProductionUse?: boolean;
+  lotText?: string;
 }
 
 interface BranchCountRow {
