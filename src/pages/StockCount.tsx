@@ -590,7 +590,7 @@ export default function StockCountPage({
                         >
                           <TableCell className="px-3 py-2 text-sm font-medium">{sku?.name ?? line.skuId}</TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                            {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {Math.max(0, line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">
                             {line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
