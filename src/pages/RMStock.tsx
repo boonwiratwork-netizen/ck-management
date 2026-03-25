@@ -393,7 +393,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
                       {row.sku.name}
                     </td>
                     <td className={cn(table.dataCellMono, "font-semibold")}>
-                      {Math.round(Math.max(0, row.currentStock)).toLocaleString()}
+                      {row.currentStock > 0 ? Math.round(row.currentStock).toLocaleString() : "—"}
                     </td>
                     <td className={cn(table.dataCellCenter, "text-xs font-medium text-primary")}>{row.sku.usageUom}</td>
                     <td className={table.dataCellMono}>
