@@ -1804,39 +1804,45 @@ export default function BranchReceiptPage({
                             return (
                               <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
                                 <td className="px-1 py-1 align-middle">
-                                  <SearchableSelect
-                                    value={row.skuId}
-                                    onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
-                                    options={rmSkus.map((s) => ({
-                                      value: s.id,
-                                      label: `${s.skuId} — ${s.name}`,
-                                      sublabel: s.skuId,
-                                    }))}
-                                    placeholder="Select SKU"
-                                    triggerClassName="h-8 text-xs truncate"
-                                  />
+                                  <div>
+                                    <SearchableSelect
+                                      value={row.skuId}
+                                      onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                                      options={rmSkus.map((s) => ({
+                                        value: s.id,
+                                        label: `${s.skuId} — ${s.name}`,
+                                        sublabel: s.skuId,
+                                      }))}
+                                      placeholder="Select SKU"
+                                      triggerClassName="h-8 text-xs truncate"
+                                    />
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
                                 <td className="px-1 py-1 align-middle">
                                   {isPacksMode ? (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min={0}
-                                        step={1}
-                                        defaultValue={currentPacks || ""}
-                                        key={`batch-adhoc-packs-${row.tempId}-${row.skuId}`}
-                                        onBlur={(e) => {
-                                          const packs = Math.round(Number(e.target.value) || 0);
-                                          updateAdHoc(row.tempId, { qty: packs * packSize });
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        placeholder="0"
-                                      />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
-                                        {packUnit}
-                                      </span>
+                                    <div>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          inputMode="numeric"
+                                          min={0}
+                                          step={1}
+                                          defaultValue={currentPacks || ""}
+                                          key={`batch-adhoc-packs-${row.tempId}-${row.skuId}`}
+                                          onBlur={(e) => {
+                                            const packs = Math.round(Number(e.target.value) || 0);
+                                            updateAdHoc(row.tempId, { qty: packs * packSize });
+                                          }}
+                                          onFocus={(e) => e.target.select()}
+                                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="0"
+                                        />
+                                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                          {packUnit}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs mt-0.5 invisible">·</div>
                                     </div>
                                   ) : (
                                     <div>
@@ -1909,14 +1915,17 @@ export default function BranchReceiptPage({
                                   </div>
                                 </td>
                                 <td className="px-1 py-1 text-center align-middle">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={() => deleteAdHoc(row.tempId)}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
+                                  <div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => deleteAdHoc(row.tempId)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -2250,39 +2259,45 @@ export default function BranchReceiptPage({
                             return (
                               <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
                                 <td className="px-1 py-1 align-middle">
-                                  <SearchableSelect
-                                    value={row.skuId}
-                                    onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
-                                    options={rmSkus.map((s) => ({
-                                      value: s.id,
-                                      label: `${s.skuId} — ${s.name}`,
-                                      sublabel: s.skuId,
-                                    }))}
-                                    placeholder="Select SKU"
-                                    triggerClassName="h-8 text-xs truncate"
-                                  />
+                                  <div>
+                                    <SearchableSelect
+                                      value={row.skuId}
+                                      onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                                      options={rmSkus.map((s) => ({
+                                        value: s.id,
+                                        label: `${s.skuId} — ${s.name}`,
+                                        sublabel: s.skuId,
+                                      }))}
+                                      placeholder="Select SKU"
+                                      triggerClassName="h-8 text-xs truncate"
+                                    />
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
                                 <td className="px-1 py-1 align-middle">
                                   {isPacksMode ? (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min={0}
-                                        step={1}
-                                        defaultValue={currentPacks || ""}
-                                        key={`adhoc-packs-${row.tempId}-${row.skuId}`}
-                                        onBlur={(e) => {
-                                          const packs = Math.round(Number(e.target.value) || 0);
-                                          updateAdHoc(row.tempId, { qty: packs * packSize });
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        placeholder="0"
-                                      />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
-                                        {packUnit}
-                                      </span>
+                                    <div>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          inputMode="numeric"
+                                          min={0}
+                                          step={1}
+                                          defaultValue={currentPacks || ""}
+                                          key={`adhoc-packs-${row.tempId}-${row.skuId}`}
+                                          onBlur={(e) => {
+                                            const packs = Math.round(Number(e.target.value) || 0);
+                                            updateAdHoc(row.tempId, { qty: packs * packSize });
+                                          }}
+                                          onFocus={(e) => e.target.select()}
+                                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="0"
+                                        />
+                                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                          {packUnit}
+                                        </span>
+                                        <div className="text-xs mt-0.5 invisible">·</div>
+                                      </div>
                                     </div>
                                   ) : (
                                     <div>
@@ -2357,14 +2372,17 @@ export default function BranchReceiptPage({
                                 </td>
 
                                 <td className="px-1 py-1 text-center align-middle">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={() => deleteAdHoc(row.tempId)}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
+                                  <div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => deleteAdHoc(row.tempId)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
                               </tr>
                             );
