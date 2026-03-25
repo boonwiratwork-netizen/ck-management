@@ -288,14 +288,26 @@ export default function StoreStockPage({
         .is("transfer_order_id", null)
         .gt("receipt_date", earliestSnap)
         .lte("receipt_date", today),
-      // Step 7 — Sales
-      supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .gt("sale_date", earliestSnap)
-        .lte("sale_date", today)
-        .limit(5000),
+      // Step 7 — Sales (paginated)
+      (async () => {
+        let allSales: any[] = [];
+        const PAGE = 1000;
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("sales_entries")
+            .select("menu_code, menu_name, qty, sale_date")
+            .eq("branch_id", branchId)
+            .gt("sale_date", earliestSnap)
+            .lte("sale_date", today)
+            .range(from, from + PAGE - 1);
+          if (error || !data || data.length === 0) break;
+          allSales = allSales.concat(data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        return { data: allSales, error: null };
+      })(),
     ]);
 
     // Build CK receipt totals per SKU per date
