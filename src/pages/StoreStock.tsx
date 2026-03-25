@@ -227,14 +227,26 @@ export default function StoreStockPage({
     });
     setPriceMap(pm);
 
-    // Step 3 — Most recent physical_count per SKU from daily_stock_counts
-    const { data: countData } = await supabase
-      .from("daily_stock_counts")
-      .select("sku_id, physical_count, count_date")
-      .eq("branch_id", branchId)
-      .lte("count_date", today)
-      .order("count_date", { ascending: false })
-      .limit(5000);
+    // Step 3 — Most recent physical_count per SKU from daily_stock_counts (paginated)
+    let allCountData: any[] = [];
+    {
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("daily_stock_counts")
+          .select("sku_id, physical_count, count_date")
+          .eq("branch_id", branchId)
+          .lte("count_date", today)
+          .order("count_date", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allCountData = allCountData.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+    }
+    const countData = allCountData;
 
     const lastSnapBySku = new Map<string, { balance: number; date: string }>();
     (countData || []).forEach((r: any) => {
