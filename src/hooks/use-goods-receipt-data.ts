@@ -21,16 +21,37 @@ const toLocal = (row: any): GoodsReceipt => ({
   note: row.note,
 });
 
+function getNinetyDaysAgo(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  return d.toISOString().split('T')[0];
+}
+
 export function useGoodsReceiptData() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
+  const [isFullHistory, setIsFullHistory] = useState(false);
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+
+  const fetchReceipts = useCallback(async (fullHistory: boolean) => {
+    let query = supabase.from('goods_receipts').select('*').order('created_at', { ascending: false });
+    if (!fullHistory) {
+      query = query.gte('receipt_date', getNinetyDaysAgo());
+    }
+    const { data, error } = await query;
+    if (error) { toast.error('Failed to load goods receipts'); return; }
+    setReceipts((data || []).map(toLocal));
+    setIsFullHistory(fullHistory);
+  }, []);
 
   useEffect(() => {
-    supabase.from('goods_receipts').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load goods receipts'); return; }
-        setReceipts((data || []).map(toLocal));
-      });
-  }, []);
+    fetchReceipts(false);
+  }, [fetchReceipts]);
+
+  const loadAllHistory = useCallback(async () => {
+    setIsLoadingAll(true);
+    await fetchReceipts(true);
+    setIsLoadingAll(false);
+  }, [fetchReceipts]);
 
   const getStdUnitPrice = (skuId: string, supplierId: string, prices: Price[]): number => {
     const active = prices.find(p => p.skuId === skuId && p.supplierId === supplierId && p.isActive);
@@ -90,5 +111,5 @@ export function useGoodsReceiptData() {
     setReceipts(prev => prev.filter(r => r.id !== id));
   }, []);
 
-  return { receipts, addReceipt, updateReceipt, deleteReceipt };
+  return { receipts, addReceipt, updateReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll };
 }
