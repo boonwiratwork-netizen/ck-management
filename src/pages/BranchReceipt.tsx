@@ -1839,21 +1839,24 @@ export default function BranchReceiptPage({
                                       </span>
                                     </div>
                                   ) : (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        step="any"
-                                        defaultValue={row.qty || ""}
-                                        key={`batch-adhoc-qty-${row.tempId}-${row.skuId}`}
-                                        onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
-                                        onFocus={(e) => e.target.select()}
-                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        placeholder="0"
-                                      />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
-                                        {sku?.usageUom || "—"}
-                                      </span>
+                                    <div>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="any"
+                                          defaultValue={row.qty || ""}
+                                          key={`batch-adhoc-qty-${row.tempId}-${row.skuId}`}
+                                          onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                          onFocus={(e) => e.target.select()}
+                                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="0"
+                                        />
+                                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                          {sku?.usageUom || "—"}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs mt-0.5 invisible">·</div>
                                     </div>
                                   )}
                                 </td>
@@ -1881,7 +1884,10 @@ export default function BranchReceiptPage({
                                       </div>
                                     </div>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">—</span>
+                                    <div>
+                                      <span className="text-muted-foreground text-xs">—</span>
+                                      <div className="text-xs mt-0.5 invisible">·</div>
+                                    </div>
                                   )}
                                 </td>
                                 <td className="px-1 py-1 align-middle">
@@ -2276,21 +2282,24 @@ export default function BranchReceiptPage({
                                       </span>
                                     </div>
                                   ) : (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        step="any"
-                                        defaultValue={row.qty || ""}
-                                        key={`adhoc-qty-${row.tempId}-${row.skuId}`}
-                                        onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
-                                        onFocus={(e) => e.target.select()}
-                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        placeholder="0"
-                                      />
-                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
-                                        {sku?.usageUom || "—"}
-                                      </span>
+                                    <div>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="any"
+                                          defaultValue={row.qty || ""}
+                                          key={`adhoc-qty-${row.tempId}-${row.skuId}`}
+                                          onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                          onFocus={(e) => e.target.select()}
+                                          className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="0"
+                                        />
+                                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                          {sku?.usageUom || "—"}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs mt-0.5 invisible">·</div>
                                     </div>
                                   )}
                                 </td>
@@ -2318,7 +2327,10 @@ export default function BranchReceiptPage({
                                       </div>
                                     </div>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">—</span>
+                                    <div>
+                                      <span className="text-muted-foreground text-xs">—</span>
+                                      <div className="text-xs mt-0.5 invisible">·</div>
+                                    </div>
                                   )}
                                 </td>
 
