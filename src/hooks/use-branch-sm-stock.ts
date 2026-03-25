@@ -47,19 +47,15 @@ export function useBranchSmStock(branchId: string | null) {
 
       // 2. Get active menus for this brand + branch overrides
       const [menusRes, overridesRes] = await Promise.all([
-        supabase
-          .from("menus")
-          .select("id")
-          .eq("brand_name", branch.brand_name)
-          .eq("status", "Active"),
+        supabase.from("menus").select("id").eq("brand_name", branch.brand_name).eq("status", "Active"),
         supabase
           .from("branch_menu_overrides")
           .select("menu_id, is_active")
           .eq("branch_id", branchId)
           .eq("is_active", false),
       ]);
-      const suppressedMenuIds = new Set((overridesRes.data || []).map(o => o.menu_id));
-      const menuIds = (menusRes.data || []).map((m) => m.id).filter(id => !suppressedMenuIds.has(id));
+      const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
+      const menuIds = (menusRes.data || []).map((m) => m.id).filter((id) => !suppressedMenuIds.has(id));
       if (menuIds.length === 0) {
         setSmStock({});
         setSmSkuList([]);
@@ -141,7 +137,7 @@ export function useBranchSmStock(branchId: string | null) {
       if (salesMenuIds.length > 0) {
         const { data: bom } = await supabase
           .from("menu_bom")
-          .select("menu_id, sku_id, qty_per_serving")
+          .select("menu_id, sku_id, effective_qty")
           .in("menu_id", salesMenuIds)
           .in("sku_id", skuIds);
         bomRows = bom || [];
@@ -152,7 +148,7 @@ export function useBranchSmStock(branchId: string | null) {
       for (const bom of bomRows) {
         const soldQty = qtySoldByMenuId[bom.menu_id] || 0;
         if (soldQty === 0) continue;
-        totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.qty_per_serving;
+        totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
       }
 
       // 6. Get latest stock on hand from daily_stock_counts
