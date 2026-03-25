@@ -1891,19 +1891,22 @@ export default function BranchReceiptPage({
                                   )}
                                 </td>
                                 <td className="px-1 py-1 align-middle">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    defaultValue={row.actualTotal || ""}
-                                    key={`batch-adhoc-actual-${row.tempId}`}
-                                    onBlur={(e) =>
-                                      updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
-                                    placeholder="0.00"
-                                  />
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="any"
+                                      defaultValue={row.actualTotal || ""}
+                                      key={`batch-adhoc-actual-${row.tempId}`}
+                                      onBlur={(e) =>
+                                        updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
+                                      placeholder="0.00"
+                                    />
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
                                 <td className="px-1 py-1 text-center align-middle">
                                   <Button
@@ -2335,19 +2338,22 @@ export default function BranchReceiptPage({
                                 </td>
 
                                 <td className="px-1 py-1 align-middle">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    defaultValue={row.actualTotal || ""}
-                                    key={`adhoc-actual-${row.tempId}`}
-                                    onBlur={(e) =>
-                                      updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
-                                    placeholder="0.00"
-                                  />
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="any"
+                                      defaultValue={row.actualTotal || ""}
+                                      key={`adhoc-actual-${row.tempId}`}
+                                      onBlur={(e) =>
+                                        updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
+                                      placeholder="0.00"
+                                    />
+                                    <div className="text-xs mt-0.5 invisible">·</div>
+                                  </div>
                                 </td>
 
                                 <td className="px-1 py-1 text-center align-middle">
