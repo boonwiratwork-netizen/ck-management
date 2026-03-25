@@ -533,9 +533,7 @@ export default function BranchReceiptPage({
 
         const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
 
-        const updatePromises: Promise<any>[] = [
-          supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId),
-        ];
+        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
 
         if (selectedTO) {
           const { data: toData } = await supabase
@@ -544,13 +542,9 @@ export default function BranchReceiptPage({
             .eq("id", selectedTOId)
             .single();
           if (toData?.tr_id) {
-            updatePromises.push(
-              supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id),
-            );
+            await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
           }
         }
-
-        await Promise.all(updatePromises);
 
         setSavedCount(count);
         setSelectedTOId("");
