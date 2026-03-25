@@ -166,7 +166,10 @@ export default function BranchReceiptPage({
 
   // Fetch pending PR items for batch receive
   const fetchPendingPRItems = useCallback(async () => {
-    if (!branchId) { setPendingPRItems([]); return; }
+    if (!branchId) {
+      setPendingPRItems([]);
+      return;
+    }
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = format(yesterday, "yyyy-MM-dd");
@@ -180,9 +183,12 @@ export default function BranchReceiptPage({
       .gte("required_date", yesterdayStr)
       .lte("required_date", todayStr);
 
-    if (!prs || prs.length === 0) { setPendingPRItems([]); return; }
+    if (!prs || prs.length === 0) {
+      setPendingPRItems([]);
+      return;
+    }
 
-    const prIds = prs.map(p => p.id);
+    const prIds = prs.map((p) => p.id);
     const prNumberMap: Record<string, string> = {};
     for (const p of prs) prNumberMap[p.id] = p.pr_number;
 
@@ -191,16 +197,27 @@ export default function BranchReceiptPage({
       .select("pr_id, sku_id, requested_qty, pack_size, supplier_id")
       .in("pr_id", prIds);
 
-    if (!lines || lines.length === 0) { setPendingPRItems([]); return; }
+    if (!lines || lines.length === 0) {
+      setPendingPRItems([]);
+      return;
+    }
 
-    const supplierIds = [...new Set(lines.map(l => l.supplier_id).filter(Boolean) as string[])];
+    const supplierIds = [...new Set(lines.map((l) => l.supplier_id).filter(Boolean) as string[])];
     let supplierNameMap: Record<string, string> = {};
     if (supplierIds.length > 0) {
       const { data: sups } = await supabase.from("suppliers").select("id, name").in("id", supplierIds);
       for (const s of sups || []) supplierNameMap[s.id] = s.name;
     }
 
-    const groups: Record<string, { supplierName: string; prIds: Set<string>; prNumbers: Set<string>; lineMap: Record<string, { suggestedQty: number; packSize: number }> }> = {};
+    const groups: Record<
+      string,
+      {
+        supplierName: string;
+        prIds: Set<string>;
+        prNumbers: Set<string>;
+        lineMap: Record<string, { suggestedQty: number; packSize: number }>;
+      }
+    > = {};
     for (const l of lines) {
       const sid = l.supplier_id;
       if (!sid) continue;
@@ -212,20 +229,31 @@ export default function BranchReceiptPage({
       if (groups[sid].lineMap[l.sku_id]) {
         groups[sid].lineMap[l.sku_id].suggestedQty += Number(l.requested_qty) || 0;
       } else {
-        groups[sid].lineMap[l.sku_id] = { suggestedQty: Number(l.requested_qty) || 0, packSize: Number(l.pack_size) || 1 };
+        groups[sid].lineMap[l.sku_id] = {
+          suggestedQty: Number(l.requested_qty) || 0,
+          packSize: Number(l.pack_size) || 1,
+        };
       }
     }
 
-    setPendingPRItems(Object.entries(groups).map(([sid, g]) => ({
-      supplierId: sid,
-      supplierName: g.supplierName,
-      prIds: [...g.prIds],
-      prNumbers: [...g.prNumbers].filter(Boolean),
-      lines: Object.entries(g.lineMap).map(([skuId, v]) => ({ skuId, suggestedQty: v.suggestedQty, packSize: v.packSize })),
-    })));
+    setPendingPRItems(
+      Object.entries(groups).map(([sid, g]) => ({
+        supplierId: sid,
+        supplierName: g.supplierName,
+        prIds: [...g.prIds],
+        prNumbers: [...g.prNumbers].filter(Boolean),
+        lines: Object.entries(g.lineMap).map(([skuId, v]) => ({
+          skuId,
+          suggestedQty: v.suggestedQty,
+          packSize: v.packSize,
+        })),
+      })),
+    );
   }, [branchId]);
 
-  useEffect(() => { fetchPendingPRItems(); }, [fetchPendingPRItems, prRefreshKey]);
+  useEffect(() => {
+    fetchPendingPRItems();
+  }, [fetchPendingPRItems, prRefreshKey]);
 
   const pendingPRSupplierCount = pendingPRItems.length;
   const pendingPRSkuCount = pendingPRItems.reduce((s, g) => s + g.lines.length, 0);
@@ -464,13 +492,14 @@ export default function BranchReceiptPage({
   }, []);
 
   // Batch receive helpers
-  const getBatchEdit = (skuId: string): BatchRowEdit =>
-    batchRowEdits[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false };
+  const getBatchEdit = (supplierId: string, skuId: string): BatchRowEdit =>
+    batchRowEdits[`${supplierId}-${skuId}`] || { qty: 0, actualTotal: 0, actualManuallyEdited: false };
 
-  const updateBatchEdit = useCallback((skuId: string, updates: Partial<BatchRowEdit>) => {
+  const updateBatchEdit = useCallback((supplierId: string, skuId: string, updates: Partial<BatchRowEdit>) => {
+    const key = `${supplierId}-${skuId}`;
     setBatchRowEdits((prev) => ({
       ...prev,
-      [skuId]: { ...(prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false }), ...updates },
+      [key]: { ...(prev[key] || { qty: 0, actualTotal: 0, actualManuallyEdited: false }), ...updates },
     }));
   }, []);
 
@@ -648,7 +677,7 @@ export default function BranchReceiptPage({
 
     for (const group of pendingPRItems) {
       for (const line of group.lines) {
-        const edit = batchRowEdits[line.skuId];
+        const edit = batchRowEdits[`${group.supplierId}-${line.skuId}`];
         if (!edit || edit.qty <= 0) continue;
         const sku = skuMap[line.skuId];
         const stdUnit = getStdUnitPrice(line.skuId);
@@ -673,7 +702,10 @@ export default function BranchReceiptPage({
           transferOrderId: null,
         });
       }
-      allPrIds.push(...group.prIds);
+      const groupHasQty = group.lines.some(
+        (line) => (batchRowEdits[`${group.supplierId}-${line.skuId}`]?.qty ?? 0) > 0,
+      );
+      if (groupHasQty) allPrIds.push(...group.prIds);
     }
 
     // Ad-hoc rows
@@ -719,7 +751,7 @@ export default function BranchReceiptPage({
       setIsBatchMode(false);
       setBatchRowEdits({});
       setAdHocRows([]);
-      setPrRefreshKey(k => k + 1);
+      setPrRefreshKey((k) => k + 1);
       setTimeout(() => setSavedCount(null), 4000);
     }
     setBatchSaving(false);
@@ -861,7 +893,7 @@ export default function BranchReceiptPage({
     let total = 0;
     for (const group of pendingPRItems) {
       for (const line of group.lines) {
-        const edit = batchRowEdits[line.skuId];
+        const edit = batchRowEdits[`${group.supplierId}-${line.skuId}`];
         if (!edit || edit.qty <= 0) continue;
         const stdUnit = getStdUnitPrice(line.skuId);
         const stdTotal = stdUnit * edit.qty;
@@ -936,7 +968,8 @@ export default function BranchReceiptPage({
             <div className="flex items-center gap-2">
               <StatusDot status="amber" size="md" />
               <span className="text-sm font-semibold">
-                {pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item{pendingPRSkuCount !== 1 ? "s" : ""} pending delivery today
+                {pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item
+                {pendingPRSkuCount !== 1 ? "s" : ""} pending delivery today
               </span>
             </div>
             <Button
@@ -1236,7 +1269,10 @@ export default function BranchReceiptPage({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Scope:</span>
-                <span className="font-medium">{pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item{pendingPRSkuCount !== 1 ? "s" : ""}</span>
+                <span className="font-medium">
+                  {pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item
+                  {pendingPRSkuCount !== 1 ? "s" : ""}
+                </span>
               </div>
             </div>
           ) : (
@@ -1482,7 +1518,7 @@ export default function BranchReceiptPage({
                         {group.lines.map((line) => {
                           const sku = skuMap[line.skuId];
                           if (!sku) return null;
-                          const edit = getBatchEdit(line.skuId);
+                          const edit = getBatchEdit(group.supplierId, line.skuId);
                           const packSize = sku.packSize ?? 0;
                           const packUnit = sku.packUnit ?? "";
                           const isPacksMode = packSize > 1 && packUnit.length > 0;
@@ -1493,8 +1529,11 @@ export default function BranchReceiptPage({
                           const unitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
                           const variance = actualTotal - stdTotal;
                           const hasQty = edit.qty > 0;
-                          const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
-                          const suggestedPacks = isPacksMode ? Math.round(line.suggestedQty / packSize) : line.suggestedQty;
+                          const actualMatchesStd =
+                            !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
+                          const suggestedPacks = isPacksMode
+                            ? Math.round(line.suggestedQty / packSize)
+                            : line.suggestedQty;
 
                           return (
                             <tr
@@ -1539,9 +1578,10 @@ export default function BranchReceiptPage({
                                         onBlur={(e) => {
                                           const packs = Math.round(Number(e.target.value) || 0);
                                           const grams = packs * packSize;
-                                          updateBatchEdit(line.skuId, {
+                                          updateBatchEdit(group.supplierId, line.skuId, {
                                             qty: grams,
-                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                            ...(!batchRowEdits[`${group.supplierId}-${line.skuId}`]
+                                              ?.actualManuallyEdited
                                               ? { actualTotal: stdUnit * grams }
                                               : {}),
                                           });
@@ -1572,9 +1612,10 @@ export default function BranchReceiptPage({
                                         key={`batch-qty-${group.supplierId}-${line.skuId}-${savedCount}`}
                                         onBlur={(e) => {
                                           const val = Number(e.target.value) || 0;
-                                          updateBatchEdit(line.skuId, {
+                                          updateBatchEdit(group.supplierId, line.skuId, {
                                             qty: val,
-                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                            ...(!batchRowEdits[`${group.supplierId}-${line.skuId}`]
+                                              ?.actualManuallyEdited
                                               ? { actualTotal: stdUnit * val }
                                               : {}),
                                           });
@@ -1610,9 +1651,10 @@ export default function BranchReceiptPage({
                                       onBlur={(e) => {
                                         const grams = Number(e.target.value) || 0;
                                         if (grams > 0) {
-                                          updateBatchEdit(line.skuId, {
+                                          updateBatchEdit(group.supplierId, line.skuId, {
                                             qty: grams,
-                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                            ...(!batchRowEdits[`${group.supplierId}-${line.skuId}`]
+                                              ?.actualManuallyEdited
                                               ? { actualTotal: stdUnit * grams }
                                               : {}),
                                           });
@@ -1644,7 +1686,10 @@ export default function BranchReceiptPage({
                                       tabIndex={-1}
                                       onBlur={(e) => {
                                         const val = Number(e.target.value) || 0;
-                                        updateBatchEdit(line.skuId, { actualTotal: val, actualManuallyEdited: true });
+                                        updateBatchEdit(group.supplierId, line.skuId, {
+                                          actualTotal: val,
+                                          actualManuallyEdited: true,
+                                        });
                                       }}
                                       onFocus={(e) => e.target.select()}
                                       className={cn(
@@ -1682,7 +1727,10 @@ export default function BranchReceiptPage({
                               <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                                 <div>
                                   {stdTotal > 0
-                                    ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                                    ? stdTotal.toLocaleString(undefined, {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0,
+                                      })
                                     : "—"}
                                   {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
@@ -1692,14 +1740,21 @@ export default function BranchReceiptPage({
                                 className={cn(
                                   `${tdReadOnly} text-right font-mono align-middle`,
                                   hasQty && variance !== 0 ? "font-bold" : "font-semibold",
-                                  variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
+                                  variance < 0
+                                    ? "text-success"
+                                    : variance > 0
+                                      ? "text-destructive"
+                                      : "text-muted-foreground",
                                 )}
                               >
                                 <div>
                                   {hasQty ? (
                                     <>
                                       {variance > 0 ? "+" : ""}
-                                      {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      {variance.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
                                     </>
                                   ) : (
                                     "—"
