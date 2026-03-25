@@ -124,7 +124,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         const sku = skuMap[p.skuId];
         if (!sku || sku.type !== "RM") return null;
         // FIX 2: Only include SKUs that are BOM ingredients
-        if (!bomIngredientSkuIds.has(p.skuId)) return null;
+        if (!bomIngredientSkuIds.has(p.skuId) && !sku.isDistributable) return null;
         return { priceId: p.id, skuId: p.skuId, sku, stdUnitPrice: p.pricePerUsageUom };
       })
       .filter(Boolean)
@@ -364,9 +364,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 GR-{dateStr.replace(/-/g, "").slice(2)}
               </span>
               <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {preloadedRows.length} items
-              </span>
+              <span className="text-xs text-muted-foreground">{preloadedRows.length} items</span>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -654,7 +652,10 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           {hasQty ? (
                             <>
                               {variance > 0 ? "+" : ""}
-                              {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {variance.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
                             </>
                           ) : (
                             "—"
@@ -1090,9 +1091,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
             {displayHistory.length} of {receipts.length} receipts shown
-            {!receiptData.isFullHistory && (
-              <> · Last 90 days</>
-            )}
+            {!receiptData.isFullHistory && <> · Last 90 days</>}
           </p>
           {!receiptData.isFullHistory && (
             <Button
