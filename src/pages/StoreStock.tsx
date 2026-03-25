@@ -227,14 +227,26 @@ export default function StoreStockPage({
     });
     setPriceMap(pm);
 
-    // Step 3 — Most recent physical_count per SKU from daily_stock_counts
-    const { data: countData } = await supabase
-      .from("daily_stock_counts")
-      .select("sku_id, physical_count, count_date")
-      .eq("branch_id", branchId)
-      .lte("count_date", today)
-      .order("count_date", { ascending: false })
-      .limit(5000);
+    // Step 3 — Most recent physical_count per SKU from daily_stock_counts (paginated)
+    let allCountData: any[] = [];
+    {
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("daily_stock_counts")
+          .select("sku_id, physical_count, count_date")
+          .eq("branch_id", branchId)
+          .lte("count_date", today)
+          .order("count_date", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allCountData = allCountData.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+    }
+    const countData = allCountData;
 
     const lastSnapBySku = new Map<string, { balance: number; date: string }>();
     (countData || []).forEach((r: any) => {
@@ -276,14 +288,26 @@ export default function StoreStockPage({
         .is("transfer_order_id", null)
         .gt("receipt_date", earliestSnap)
         .lte("receipt_date", today),
-      // Step 7 — Sales
-      supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .gt("sale_date", earliestSnap)
-        .lte("sale_date", today)
-        .limit(5000),
+      // Step 7 — Sales (paginated)
+      (async () => {
+        let allSales: any[] = [];
+        const PAGE = 1000;
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("sales_entries")
+            .select("menu_code, menu_name, qty, sale_date")
+            .eq("branch_id", branchId)
+            .gt("sale_date", earliestSnap)
+            .lte("sale_date", today)
+            .range(from, from + PAGE - 1);
+          if (error || !data || data.length === 0) break;
+          allSales = allSales.concat(data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        return { data: allSales, error: null };
+      })(),
     ]);
 
     // Build CK receipt totals per SKU per date
@@ -398,14 +422,24 @@ export default function StoreStockPage({
     const since = sevenDaysAgo.toISOString().split("T")[0];
 
     const run = async () => {
-      const { data: salesData } = await supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty")
-        .eq("branch_id", effectiveBranchId)
-        .gte("sale_date", since)
-        .limit(5000);
+      let allSalesData: any[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty")
+          .eq("branch_id", effectiveBranchId)
+          .gte("sale_date", since)
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allSalesData = allSalesData.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
 
-      if (!salesData) return;
+      const salesData = allSalesData;
+      if (!salesData.length) return;
 
       const sales = salesData.map((s: any) => ({
         menu_code: s.menu_code,

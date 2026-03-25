@@ -1087,9 +1087,25 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             </table>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {displayHistory.length} of {receipts.length} receipts shown
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            {displayHistory.length} of {receipts.length} receipts shown
+            {!receiptData.isFullHistory && (
+              <> · Last 90 days</>
+            )}
+          </p>
+          {!receiptData.isFullHistory && (
+            <Button
+              variant="link"
+              size="sm"
+              className="text-xs h-auto p-0"
+              disabled={receiptData.isLoadingAll}
+              onClick={receiptData.loadAllHistory}
+            >
+              {receiptData.isLoadingAll ? "Loading…" : "Load all history"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog

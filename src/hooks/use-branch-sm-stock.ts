@@ -133,14 +133,14 @@ export function useBranchSmStock(branchId: string | null) {
       const salesMenuIds = Object.keys(qtySoldByMenuId);
 
       // Get menu_bom for those menus — SM SKUs only
-      let bomRows: { menu_id: string; sku_id: string; qty_per_serving: number }[] = [];
+      let bomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
       if (salesMenuIds.length > 0) {
         const { data: bom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, effective_qty")
           .in("menu_id", salesMenuIds)
           .in("sku_id", skuIds);
-        bomRows = bom || [];
+        bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
       // Calculate total usage per SM SKU over 7 days
