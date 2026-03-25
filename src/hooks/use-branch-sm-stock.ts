@@ -102,13 +102,14 @@ export function useBranchSmStock(branchId: string | null) {
 
       // 5. Get avg daily usage from sales_entries (last 7 days)
       const today = new Date();
+      const todayStr = toLocalDateStr(today);
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const dateFrom = toLocalDateStr(sevenDaysAgo);
 
       const { data: salesRows } = await supabase
         .from("sales_entries")
-        .select("menu_code, qty")
+        .select("menu_code, menu_name, qty")
         .eq("branch_id", branchId)
         .gte("sale_date", dateFrom);
 
@@ -151,22 +152,123 @@ export function useBranchSmStock(branchId: string | null) {
         totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
       }
 
-      // 6. Get latest stock on hand from daily_stock_counts
-      const { data: latestCounts } = await supabase
+      // 6. Snap + ledger balance: find most recent physical_count per SKU
+      const { data: countData } = await supabase
         .from("daily_stock_counts")
-        .select("sku_id, physical_count, calculated_balance")
+        .select("sku_id, physical_count, count_date")
         .eq("branch_id", branchId)
-        .eq("is_submitted", true)
+        .lte("count_date", todayStr)
         .in("sku_id", skuIds)
         .order("count_date", { ascending: false });
 
-      const latestBySkuId: Record<string, { physical_count: number | null; calculated_balance: number }> = {};
-      for (const row of latestCounts || []) {
-        if (!latestBySkuId[row.sku_id]) {
-          latestBySkuId[row.sku_id] = {
-            physical_count: row.physical_count,
-            calculated_balance: Number(row.calculated_balance),
-          };
+      const snapBySku: Record<string, { balance: number; date: string }> = {};
+      for (const row of countData || []) {
+        if (snapBySku[row.sku_id]) continue; // already have more recent
+        if (row.physical_count !== null) {
+          snapBySku[row.sku_id] = { balance: Number(row.physical_count), date: row.count_date };
+        }
+      }
+
+      // Find earliest snap date for transaction queries
+      let earliestSnap = "2020-01-01";
+      const snapValues = Object.values(snapBySku);
+      if (snapValues.length > 0) {
+        earliestSnap = snapValues.reduce((min, s) => (s.date < min ? s.date : min), snapValues[0].date);
+      }
+
+      // 6b. Fetch CK receipts (transfer_order_lines) and external receipts after snap
+      const [ckRes, extRes, postSnapSalesRes] = await Promise.all([
+        supabase
+          .from("transfer_order_lines")
+          .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
+          .eq("transfer_orders.branch_id", branchId)
+          .gt("transfer_orders.delivery_date", earliestSnap)
+          .lte("transfer_orders.delivery_date", todayStr)
+          .in("transfer_orders.status", ["Sent", "Received", "Partially Received"])
+          .in("sku_id", skuIds),
+        supabase
+          .from("branch_receipts")
+          .select("sku_id, qty_received, receipt_date")
+          .eq("branch_id", branchId)
+          .is("transfer_order_id", null)
+          .gt("receipt_date", earliestSnap)
+          .lte("receipt_date", todayStr)
+          .in("sku_id", skuIds),
+        supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty, sale_date")
+          .eq("branch_id", branchId)
+          .gt("sale_date", earliestSnap)
+          .lte("sale_date", todayStr),
+      ]);
+
+      // Build CK receipt totals per SKU after each SKU's snap date
+      const ckInBySku: Record<string, number> = {};
+      for (const line of ckRes.data || []) {
+        const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
+        const deliveryDate = (line.transfer_orders as any).delivery_date;
+        const snap = snapBySku[line.sku_id];
+        if (snap && deliveryDate <= snap.date) continue;
+        ckInBySku[line.sku_id] = (ckInBySku[line.sku_id] || 0) + qty;
+      }
+
+      // Build external receipt totals per SKU after snap date
+      const extInBySku: Record<string, number> = {};
+      for (const r of extRes.data || []) {
+        const snap = snapBySku[r.sku_id];
+        if (snap && r.receipt_date <= snap.date) continue;
+        extInBySku[r.sku_id] = (extInBySku[r.sku_id] || 0) + Number(r.qty_received);
+      }
+
+      // Build usage per SKU after snap from post-snap sales
+      const postSnapUsageBySku: Record<string, number> = {};
+      {
+        // Group sales by date
+        const salesByDate = new Map<string, { menu_code: string; qty: number }[]>();
+        for (const s of postSnapSalesRes.data || []) {
+          const arr = salesByDate.get(s.sale_date) || [];
+          arr.push({ menu_code: s.menu_code, qty: Number(s.qty) });
+          salesByDate.set(s.sale_date, arr);
+        }
+
+        // Get all menu_bom for SM skuIds
+        let allBomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
+        const allSalesMenuCodes = [...new Set((postSnapSalesRes.data || []).map((s: any) => s.menu_code))];
+        if (allSalesMenuCodes.length > 0) {
+          const { data: menuLookup } = await supabase.from("menus").select("id, menu_code").in("menu_code", allSalesMenuCodes);
+          const codeToId: Record<string, string> = {};
+          for (const m of menuLookup || []) codeToId[m.menu_code] = m.id;
+
+          const allMenuIds = [...new Set(Object.values(codeToId))];
+          if (allMenuIds.length > 0) {
+            const { data: bom } = await supabase
+              .from("menu_bom")
+              .select("menu_id, sku_id, effective_qty")
+              .in("menu_id", allMenuIds)
+              .in("sku_id", skuIds);
+            allBomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
+          }
+
+          // Calculate usage per SKU per date, only counting after that SKU's snap
+          const bomByMenuId = new Map<string, { sku_id: string; effective_qty: number }[]>();
+          for (const b of allBomRows) {
+            const arr = bomByMenuId.get(b.menu_id) || [];
+            arr.push({ sku_id: b.sku_id, effective_qty: b.effective_qty });
+            bomByMenuId.set(b.menu_id, arr);
+          }
+
+          for (const [date, dateSales] of salesByDate) {
+            for (const sale of dateSales) {
+              const mid = codeToId[sale.menu_code];
+              if (!mid) continue;
+              const lines = bomByMenuId.get(mid) || [];
+              for (const line of lines) {
+                const snap = snapBySku[line.sku_id];
+                if (snap && date <= snap.date) continue;
+                postSnapUsageBySku[line.sku_id] = (postSnapUsageBySku[line.sku_id] || 0) + line.effective_qty * sale.qty;
+              }
+            }
+          }
         }
       }
 
@@ -183,15 +285,15 @@ export function useBranchSmStock(branchId: string | null) {
       const result: Record<string, BranchSmStockEntry> = {};
 
       for (const skuId of skuIds) {
-        const skuInfo = skuRecords.find((s) => s.id === skuId);
-        const packSize = Number(skuInfo?.pack_size) || 1;
         const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / 7;
-        const latest = latestBySkuId[skuId];
-        const stockOnHand = latest
-          ? latest.physical_count != null
-            ? Number(latest.physical_count)
-            : latest.calculated_balance
-          : 0;
+
+        // Snap + ledger balance
+        const snap = snapBySku[skuId];
+        const base = snap?.balance ?? 0;
+        const ckIn = ckInBySku[skuId] || 0;
+        const extIn = extInBySku[skuId] || 0;
+        const usageOut = postSnapUsageBySku[skuId] || 0;
+        const stockOnHand = Math.max(0, base + ckIn + extIn - usageOut);
 
         const rop = avgDailyUsage * leadTime;
         const parstock = avgDailyUsage * (leadTime * 2);
