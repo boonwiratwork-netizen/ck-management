@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, Fragment } from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { useSortableTable } from "@/hooks/use-sortable-table";
 import { SortableHeader } from "@/components/SortableHeader";
@@ -101,6 +101,20 @@ interface CKLineEdit {
   note: string;
 }
 
+interface PendingPRGroup {
+  supplierId: string;
+  supplierName: string;
+  prIds: string[];
+  prNumbers: string[];
+  lines: { skuId: string; suggestedQty: number; packSize: number }[];
+}
+
+interface BatchRowEdit {
+  qty: number;
+  actualTotal: number;
+  actualManuallyEdited: boolean;
+}
+
 function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEdit {
   return prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
 }
@@ -142,6 +156,79 @@ export default function BranchReceiptPage({
     }
     prHook.getPendingPRCountsBySupplier(branchId).then(setPendingPRCounts);
   }, [branchId]);
+
+  // Batch receive state
+  const [pendingPRItems, setPendingPRItems] = useState<PendingPRGroup[]>([]);
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [batchRowEdits, setBatchRowEdits] = useState<Record<string, BatchRowEdit>>({});
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [prRefreshKey, setPrRefreshKey] = useState(0);
+
+  // Fetch pending PR items for batch receive
+  const fetchPendingPRItems = useCallback(async () => {
+    if (!branchId) { setPendingPRItems([]); return; }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = format(yesterday, "yyyy-MM-dd");
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+
+    const { data: prs } = await supabase
+      .from("purchase_requests")
+      .select("id, pr_number")
+      .eq("branch_id", branchId)
+      .in("status", ["Submitted", "Acknowledged"])
+      .gte("required_date", yesterdayStr)
+      .lte("required_date", todayStr);
+
+    if (!prs || prs.length === 0) { setPendingPRItems([]); return; }
+
+    const prIds = prs.map(p => p.id);
+    const prNumberMap: Record<string, string> = {};
+    for (const p of prs) prNumberMap[p.id] = p.pr_number;
+
+    const { data: lines } = await supabase
+      .from("purchase_request_lines")
+      .select("pr_id, sku_id, requested_qty, pack_size, supplier_id")
+      .in("pr_id", prIds);
+
+    if (!lines || lines.length === 0) { setPendingPRItems([]); return; }
+
+    const supplierIds = [...new Set(lines.map(l => l.supplier_id).filter(Boolean) as string[])];
+    let supplierNameMap: Record<string, string> = {};
+    if (supplierIds.length > 0) {
+      const { data: sups } = await supabase.from("suppliers").select("id, name").in("id", supplierIds);
+      for (const s of sups || []) supplierNameMap[s.id] = s.name;
+    }
+
+    const groups: Record<string, { supplierName: string; prIds: Set<string>; prNumbers: Set<string>; lineMap: Record<string, { suggestedQty: number; packSize: number }> }> = {};
+    for (const l of lines) {
+      const sid = l.supplier_id;
+      if (!sid) continue;
+      if (!groups[sid]) {
+        groups[sid] = { supplierName: supplierNameMap[sid] || "", prIds: new Set(), prNumbers: new Set(), lineMap: {} };
+      }
+      groups[sid].prIds.add(l.pr_id);
+      groups[sid].prNumbers.add(prNumberMap[l.pr_id] || "");
+      if (groups[sid].lineMap[l.sku_id]) {
+        groups[sid].lineMap[l.sku_id].suggestedQty += Number(l.requested_qty) || 0;
+      } else {
+        groups[sid].lineMap[l.sku_id] = { suggestedQty: Number(l.requested_qty) || 0, packSize: Number(l.pack_size) || 1 };
+      }
+    }
+
+    setPendingPRItems(Object.entries(groups).map(([sid, g]) => ({
+      supplierId: sid,
+      supplierName: g.supplierName,
+      prIds: [...g.prIds],
+      prNumbers: [...g.prNumbers].filter(Boolean),
+      lines: Object.entries(g.lineMap).map(([skuId, v]) => ({ skuId, suggestedQty: v.suggestedQty, packSize: v.packSize })),
+    })));
+  }, [branchId]);
+
+  useEffect(() => { fetchPendingPRItems(); }, [fetchPendingPRItems, prRefreshKey]);
+
+  const pendingPRSupplierCount = pendingPRItems.length;
+  const pendingPRSkuCount = pendingPRItems.reduce((s, g) => s + g.lines.length, 0);
 
   // TO integration state
   const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
@@ -307,9 +394,10 @@ export default function BranchReceiptPage({
   }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap, isCKSupplier]);
 
   const hasAnyQty = useMemo(() => {
+    if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -349,6 +437,8 @@ export default function BranchReceiptPage({
     setSavedCount(null);
     setSelectedTOId("");
     setCkLines([]);
+    setIsBatchMode(false);
+    setBatchRowEdits({});
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
@@ -371,6 +461,17 @@ export default function BranchReceiptPage({
 
   const updateCkLine = useCallback((toLineId: string, updates: Partial<CKLineEdit>) => {
     setCkLines((prev) => prev.map((l) => (l.toLineId === toLineId ? { ...l, ...updates } : l)));
+  }, []);
+
+  // Batch receive helpers
+  const getBatchEdit = (skuId: string): BatchRowEdit =>
+    batchRowEdits[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false };
+
+  const updateBatchEdit = useCallback((skuId: string, updates: Partial<BatchRowEdit>) => {
+    setBatchRowEdits((prev) => ({
+      ...prev,
+      [skuId]: { ...(prev[skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false }), ...updates },
+    }));
   }, []);
 
   // Save all — handles both external and CK receipts
@@ -417,7 +518,6 @@ export default function BranchReceiptPage({
 
       const count = await saveReceipts(rows);
       if (count) {
-        // Update TO status based on received vs planned
         const selectedTO = pendingTOs.find((t) => t.id === selectedTOId);
         let allReceived = true;
         let anyPartial = false;
@@ -432,9 +532,9 @@ export default function BranchReceiptPage({
         }
 
         const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
+
         await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
 
-        // Update TR status if linked
         if (selectedTO) {
           const { data: toData } = await supabase
             .from("transfer_orders")
@@ -538,6 +638,93 @@ export default function BranchReceiptPage({
     fetchPendingTOs,
   ]);
 
+  // Batch save all
+  const handleBatchSaveAll = useCallback(async () => {
+    if (!branchId) return;
+    setBatchSaving(true);
+
+    const allRows: Omit<BranchReceipt, "id" | "createdAt">[] = [];
+    const allPrIds: string[] = [];
+
+    for (const group of pendingPRItems) {
+      for (const line of group.lines) {
+        const edit = batchRowEdits[line.skuId];
+        if (!edit || edit.qty <= 0) continue;
+        const sku = skuMap[line.skuId];
+        const stdUnit = getStdUnitPrice(line.skuId);
+        const stdTotal = stdUnit * edit.qty;
+        const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
+        const actualUnitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
+        const priceVariance = actualTotal - stdTotal;
+
+        allRows.push({
+          branchId,
+          receiptDate: dateStr,
+          skuId: line.skuId,
+          supplierName: group.supplierName,
+          qtyReceived: edit.qty,
+          uom: sku?.purchaseUom || "",
+          actualUnitPrice,
+          actualTotal,
+          stdUnitPrice: stdUnit,
+          stdTotal,
+          priceVariance,
+          notes: "",
+          transferOrderId: null,
+        });
+      }
+      allPrIds.push(...group.prIds);
+    }
+
+    // Ad-hoc rows
+    for (const r of adHocRows) {
+      if (r.skuId && r.qty > 0) {
+        const sku = skuMap[r.skuId];
+        const stdUnit = getStdUnitPrice(r.skuId);
+        const stdTotal = stdUnit * r.qty;
+        const actualTotal = r.actualTotal || stdTotal;
+        const actualUnitPrice = r.qty > 0 ? actualTotal / r.qty : 0;
+        const priceVariance = actualTotal - stdTotal;
+        allRows.push({
+          branchId,
+          receiptDate: dateStr,
+          skuId: r.skuId,
+          supplierName: "",
+          qtyReceived: r.qty,
+          uom: sku?.purchaseUom || "",
+          actualUnitPrice,
+          actualTotal,
+          stdUnitPrice: stdUnit,
+          stdTotal,
+          priceVariance,
+          notes: "",
+          transferOrderId: null,
+        });
+      }
+    }
+
+    if (allRows.length === 0) {
+      toast.error("No rows with quantity to save");
+      setBatchSaving(false);
+      return;
+    }
+
+    const count = await saveReceipts(allRows);
+    if (count) {
+      // Mark PRs as Fulfilled
+      if (allPrIds.length > 0) {
+        await supabase.from("purchase_requests").update({ status: "Fulfilled" }).in("id", allPrIds);
+      }
+      setSavedCount(count);
+      setIsBatchMode(false);
+      setBatchRowEdits({});
+      setAdHocRows([]);
+      setPrRefreshKey(k => k + 1);
+      setTimeout(() => setSavedCount(null), 4000);
+    }
+    setBatchSaving(false);
+  }, [branchId, pendingPRItems, batchRowEdits, adHocRows, skuMap, getStdUnitPrice, dateStr, saveReceipts]);
+
   // Ad-hoc
   const handleAddAdHoc = useCallback(() => {
     setAdHocRows((prev) => [...prev, { tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
@@ -626,6 +813,15 @@ export default function BranchReceiptPage({
     return c;
   }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines]);
 
+  const batchSavableCount = useMemo(() => {
+    if (!isBatchMode) return 0;
+    let c = Object.values(batchRowEdits).filter((e) => e.qty > 0).length;
+    for (const r of adHocRows) {
+      if (r.skuId && r.qty > 0) c++;
+    }
+    return c;
+  }, [isBatchMode, batchRowEdits, adHocRows]);
+
   const SaveButton = () => (
     <div className="flex items-center gap-2">
       <Button
@@ -652,12 +848,31 @@ export default function BranchReceiptPage({
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet;
+  const isFormActive = showCKSheet || showExternalSheet || isBatchMode;
 
   // Source label for header strip
   const formSourceLabel = isCKSupplier
     ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
     : selectedSupplier?.name || "";
+
+  // Batch total value
+  const batchTotalValue = useMemo(() => {
+    if (!isBatchMode) return 0;
+    let total = 0;
+    for (const group of pendingPRItems) {
+      for (const line of group.lines) {
+        const edit = batchRowEdits[line.skuId];
+        if (!edit || edit.qty <= 0) continue;
+        const stdUnit = getStdUnitPrice(line.skuId);
+        const stdTotal = stdUnit * edit.qty;
+        total += edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
+      }
+    }
+    for (const r of adHocRows) {
+      if (r.skuId && r.qty > 0) total += r.actualTotal;
+    }
+    return total;
+  }, [isBatchMode, pendingPRItems, batchRowEdits, adHocRows, getStdUnitPrice]);
 
   return (
     <div className="space-y-6">
@@ -710,6 +925,32 @@ export default function BranchReceiptPage({
                 </Button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 2b. PENDING PR BATCH RECEIVE BANNER ── */}
+      {branchId && pendingPRSupplierCount > 0 && !isFormActive && (
+        <div className="rounded-lg border border-warning/30 border-l-4 border-l-warning bg-warning/[0.06] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <StatusDot status="amber" size="md" />
+              <span className="text-sm font-semibold">
+                {pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item{pendingPRSkuCount !== 1 ? "s" : ""} pending delivery today
+              </span>
+            </div>
+            <Button
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+              size="sm"
+              onClick={() => {
+                setIsBatchMode(true);
+                setBatchRowEdits({});
+                setAdHocRows([]);
+                setSavedCount(null);
+              }}
+            >
+              Receive All
+            </Button>
           </div>
         </div>
       )}
@@ -913,78 +1154,125 @@ export default function BranchReceiptPage({
       {isFormActive && (
         <div className="rounded-lg border-2 border-primary/20 bg-card overflow-hidden">
           {/* Header strip */}
-          <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
-            <div className="flex items-center gap-4">
-              <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
-              <span className="text-sm font-medium flex items-center gap-1.5">
-                {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
-                {formSourceLabel}
-              </span>
-              {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
+          {isBatchMode ? (
+            <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
+                <span className="text-sm font-medium">Batch Receive</span>
+                {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsBatchMode(false);
+                    setBatchRowEdits({});
+                    setAdHocRows([]);
+                    setSavedCount(null);
+                  }}
+                >
+                  <X className="w-4 h-4 mr-1" /> Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleBatchSaveAll}
+                  disabled={batchSavableCount === 0 || batchSaving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {batchSaving ? "Saving..." : `Confirm All (${batchSavableCount})`}
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSupplierId("");
-                  setSelectedTOId("");
-                  setCkLines([]);
-                  setRowEdits({});
-                  setAdHocRows([]);
-                  setSavedCount(null);
-                }}
-              >
-                <X className="w-4 h-4 mr-1" /> Cancel
-              </Button>
-              <Button variant="outline" size="sm" disabled={savableCount === 0}>
-                <Save className="w-4 h-4 mr-1" /> Save Draft
-              </Button>
-              <Button
-                size="sm"
-                className="bg-success hover:bg-success/90 text-success-foreground"
-                onClick={handleSaveAll}
-                disabled={savableCount === 0 || saving}
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
-              </Button>
+          ) : (
+            <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
+                <span className="text-sm font-medium flex items-center gap-1.5">
+                  {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
+                  {formSourceLabel}
+                </span>
+                {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSupplierId("");
+                    setSelectedTOId("");
+                    setCkLines([]);
+                    setRowEdits({});
+                    setAdHocRows([]);
+                    setSavedCount(null);
+                  }}
+                >
+                  <X className="w-4 h-4 mr-1" /> Cancel
+                </Button>
+                <Button variant="outline" size="sm" disabled={savableCount === 0}>
+                  <Save className="w-4 h-4 mr-1" /> Save Draft
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleSaveAll}
+                  disabled={savableCount === 0 || saving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Meta bar */}
-          <div className="flex items-center gap-6 px-5 py-2.5 border-b bg-muted/30 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Date:</span>
-              <span className="font-medium">{dateStr}</span>
-              <span className="text-xs text-muted-foreground ml-1">W{weekNum}</span>
+          {isBatchMode ? (
+            <div className="flex items-center gap-6 px-5 py-2.5 border-b bg-muted/30 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Date:</span>
+                <span className="font-medium">{dateStr}</span>
+                <span className="text-xs text-muted-foreground ml-1">W{weekNum}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Scope:</span>
+                <span className="font-medium">{pendingPRSupplierCount} supplier{pendingPRSupplierCount !== 1 ? "s" : ""} · {pendingPRSkuCount} item{pendingPRSkuCount !== 1 ? "s" : ""}</span>
+              </div>
             </div>
-            {isCKSupplier && selectedTOId && (
+          ) : (
+            <div className="flex items-center gap-6 px-5 py-2.5 border-b bg-muted/30 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">TO Ref:</span>
-                <span className="font-mono text-xs font-medium">
-                  {pendingTOs.find((to) => to.id === selectedTOId)?.toNumber}
-                </span>
+                <span className="text-xs text-muted-foreground">Date:</span>
+                <span className="font-medium">{dateStr}</span>
+                <span className="text-xs text-muted-foreground ml-1">W{weekNum}</span>
               </div>
-            )}
-            {!isCKSupplier && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Items:</span>
-                <span className="font-medium">{preloadedRows.length} SKUs</span>
-              </div>
-            )}
-          </div>
+              {isCKSupplier && selectedTOId && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">TO Ref:</span>
+                  <span className="font-mono text-xs font-medium">
+                    {pendingTOs.find((to) => to.id === selectedTOId)?.toNumber}
+                  </span>
+                </div>
+              )}
+              {!isCKSupplier && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Items:</span>
+                  <span className="font-medium">{preloadedRows.length} SKUs</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* CK Receipt sheet from TO */}
           {showCKSheet && (
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col style={{ width: 100 }} /> // SKU CODE
-                  <col /> // SKU NAME
-                  <col style={{ width: 140 }} /> // PLANNED
-                  <col style={{ width: 140 }} /> // PACKS
-                  <col style={{ width: 140 }} /> // WEIGHT
+                  <col style={{ width: 100 }} />
+                  <col />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
                 </colgroup>
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
@@ -1111,7 +1399,7 @@ export default function BranchReceiptPage({
                               />
                               <div className="text-xs text-muted-foreground mt-0.5 text-right">
                                 est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                <span className="font-bold">{sku.purchaseUom || "g"}</span>
+                                <span className="font-bold">{sku?.purchaseUom || "g"}</span>
                               </div>
                             </div>
                           ) : (
@@ -1135,7 +1423,6 @@ export default function BranchReceiptPage({
                           const pu = sku?.packUnit ?? "";
                           return s + (ps > 1 && pu ? Math.round(l.receivedQty / ps) : 0);
                         }, 0);
-                        const totalG = ckLines.reduce((s, l) => s + l.receivedQty, 0);
                         return `${totalPacks} packs`;
                       })()}
                     </td>
@@ -1144,6 +1431,446 @@ export default function BranchReceiptPage({
                 </tfoot>
               </table>
             </div>
+          )}
+
+          {/* ── BATCH RECEIVE SHEET ── */}
+          {isBatchMode && (
+            <>
+              <div className="overflow-y-auto max-h-[65vh]">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col style={{ width: 100 }} />
+                    <col />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
+                  </colgroup>
+                  <thead className="sticky top-0 z-[5]">
+                    <tr className="bg-table-header border-b">
+                      <th className={thClass}>SKU CODE</th>
+                      <th className={thClass}>SKU NAME</th>
+                      <th className={thClass}>SUPPLIER</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                        PACKS
+                      </th>
+                      <th className={`${thClass} text-right`}>WEIGHT</th>
+                      <th className={`${thClass} text-right`}>ACTUAL TOTAL</th>
+                      <th className={`${thClass} text-right`}>ACTUAL UNIT</th>
+                      <th className={`${thClass} text-right`}>STD UNIT</th>
+                      <th className={`${thClass} text-right`}>STD TOTAL</th>
+                      <th className={`${thClass} text-right`}>VARIANCE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingPRItems.map((group) => (
+                      <Fragment key={group.supplierId}>
+                        {/* Section divider */}
+                        <tr className="bg-muted/40">
+                          <td colSpan={10} className="px-3 py-2">
+                            <span className="font-semibold text-sm">{group.supplierName}</span>
+                            <span className="font-mono text-xs text-muted-foreground ml-2">
+                              {group.prNumbers.join(", ")}
+                            </span>
+                          </td>
+                        </tr>
+                        {/* SKU lines */}
+                        {group.lines.map((line) => {
+                          const sku = skuMap[line.skuId];
+                          if (!sku) return null;
+                          const edit = getBatchEdit(line.skuId);
+                          const packSize = sku.packSize ?? 0;
+                          const packUnit = sku.packUnit ?? "";
+                          const isPacksMode = packSize > 1 && packUnit.length > 0;
+                          const currentPacks = isPacksMode ? Math.round(edit.qty / packSize) : 0;
+                          const stdUnit = getStdUnitPrice(line.skuId);
+                          const stdTotal = stdUnit * edit.qty;
+                          const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
+                          const unitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
+                          const variance = actualTotal - stdTotal;
+                          const hasQty = edit.qty > 0;
+                          const actualMatchesStd = !edit.actualManuallyEdited || Math.abs(actualTotal - stdTotal) < 0.01;
+                          const suggestedPacks = isPacksMode ? Math.round(line.suggestedQty / packSize) : line.suggestedQty;
+
+                          return (
+                            <tr
+                              key={`${group.supplierId}-${line.skuId}`}
+                              className={cn(
+                                "border-b last:border-0 transition-colors",
+                                hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
+                              )}
+                            >
+                              <td className={`${tdReadOnly} font-mono text-xs align-middle`}>
+                                <div>
+                                  {sku.skuId}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              <td className={`${tdReadOnly} align-middle`} title={sku.name}>
+                                <div>
+                                  <span className={cn("block truncate", hasQty ? "font-semibold" : "")}>
+                                    {sku.name}
+                                  </span>
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
+                                <div>
+                                  {group.supplierName}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              {/* PACKS */}
+                              <td className="px-1 py-1 align-middle">
+                                {isPacksMode ? (
+                                  <div>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        defaultValue=""
+                                        key={`batch-packs-${group.supplierId}-${line.skuId}-${savedCount}`}
+                                        onBlur={(e) => {
+                                          const packs = Math.round(Number(e.target.value) || 0);
+                                          const grams = packs * packSize;
+                                          updateBatchEdit(line.skuId, {
+                                            qty: grams,
+                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                              ? { actualTotal: stdUnit * grams }
+                                              : {}),
+                                          });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        className={cn(
+                                          "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                          hasQty && "border-success font-bold text-success",
+                                        )}
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                        {packUnit}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      แนะนำ {suggestedPacks} {packUnit}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        defaultValue=""
+                                        key={`batch-qty-${group.supplierId}-${line.skuId}-${savedCount}`}
+                                        onBlur={(e) => {
+                                          const val = Number(e.target.value) || 0;
+                                          updateBatchEdit(line.skuId, {
+                                            qty: val,
+                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                              ? { actualTotal: stdUnit * val }
+                                              : {}),
+                                          });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        className={cn(
+                                          "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                          hasQty && "border-success font-bold text-success",
+                                        )}
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                        {sku.usageUom}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      แนะนำ {line.suggestedQty.toLocaleString()} {sku.usageUom}
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              {/* WEIGHT */}
+                              <td className="px-1 py-1 align-middle">
+                                {isPacksMode ? (
+                                  <div>
+                                    <input
+                                      type="number"
+                                      inputMode="numeric"
+                                      min={0}
+                                      step={1}
+                                      defaultValue={edit.qty || ""}
+                                      key={`batch-wt-${group.supplierId}-${line.skuId}-${savedCount}-${edit.qty}`}
+                                      onBlur={(e) => {
+                                        const grams = Number(e.target.value) || 0;
+                                        if (grams > 0) {
+                                          updateBatchEdit(line.skuId, {
+                                            qty: grams,
+                                            ...(!batchRowEdits[line.skuId]?.actualManuallyEdited
+                                              ? { actualTotal: stdUnit * grams }
+                                              : {}),
+                                          });
+                                        }
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      placeholder="ยอดนับจริง"
+                                      className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                      est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                      <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </td>
+                              {/* ACTUAL TOTAL */}
+                              <td className="px-1 py-1 align-middle">
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="any"
+                                      defaultValue={actualTotal ? Number(actualTotal).toFixed(2) : ""}
+                                      key={`batch-actual-${line.skuId}-${edit.qty}-${edit.actualManuallyEdited ? "m" : "a"}-${savedCount}`}
+                                      tabIndex={-1}
+                                      onBlur={(e) => {
+                                        const val = Number(e.target.value) || 0;
+                                        updateBatchEdit(line.skuId, { actualTotal: val, actualManuallyEdited: true });
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      className={cn(
+                                        "h-8 text-xs text-right font-mono px-2 py-1 border rounded-md outline-none min-w-0 flex-1",
+                                        hasQty && !actualMatchesStd
+                                          ? "bg-warning/10 border-warning/40 focus:border-warning"
+                                          : "bg-warning/5 border-warning/20 focus:border-primary",
+                                      )}
+                                      placeholder="0.00"
+                                    />
+                                    {hasQty && actualMatchesStd && (
+                                      <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                                        = STD
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              {/* ACTUAL UNIT */}
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                                <div>
+                                  {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              {/* STD UNIT */}
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                                <div>
+                                  {stdUnit > 0 ? stdUnit.toFixed(2) : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              {/* STD TOTAL */}
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                                <div>
+                                  {stdTotal > 0
+                                    ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                                    : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                              {/* VARIANCE */}
+                              <td
+                                className={cn(
+                                  `${tdReadOnly} text-right font-mono align-middle`,
+                                  hasQty && variance !== 0 ? "font-bold" : "font-semibold",
+                                  variance < 0 ? "text-success" : variance > 0 ? "text-destructive" : "text-muted-foreground",
+                                )}
+                              >
+                                <div>
+                                  {hasQty ? (
+                                    <>
+                                      {variance > 0 ? "+" : ""}
+                                      {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </>
+                                  ) : (
+                                    "—"
+                                  )}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Ad-hoc rows for batch mode */}
+              <div className="px-4 py-3 space-y-2 border-t">
+                {adHocRows.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-muted-foreground">Ad-hoc items (not in active PRs)</p>
+                    <div className="rounded-lg border bg-card overflow-hidden">
+                      <table className="w-full text-sm table-fixed">
+                        <colgroup>
+                          <col style={{ width: 240 }} />
+                          <col style={{ width: 110 }} />
+                          <col style={{ width: 100 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 50 }} />
+                        </colgroup>
+                        <thead>
+                          <tr className="bg-table-header border-b">
+                            <th className={thClass}>{t("col.sku")}</th>
+                            <th className={`${thClass} text-right`}>PACKS</th>
+                            <th className={`${thClass} text-right`}>WEIGHT</th>
+                            <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                            <th className={`${thClass} text-center`}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adHocRows.map((row) => {
+                            const sku = skuMap[row.skuId];
+                            const packSize = sku?.packSize ?? 0;
+                            const packUnit = sku?.packUnit ?? "";
+                            const isPacksMode = sku && packSize > 1 && packUnit.length > 0;
+                            const currentPacks = isPacksMode ? Math.round(row.qty / packSize) : 0;
+                            return (
+                              <tr key={row.tempId} className="border-b last:border-0 bg-accent/50">
+                                <td className="px-1 py-1 align-middle">
+                                  <SearchableSelect
+                                    value={row.skuId}
+                                    onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                                    options={rmSkus.map((s) => ({
+                                      value: s.id,
+                                      label: `${s.skuId} — ${s.name}`,
+                                      sublabel: s.skuId,
+                                    }))}
+                                    placeholder="Select SKU"
+                                    triggerClassName="h-8 text-xs truncate"
+                                  />
+                                </td>
+                                <td className="px-1 py-1 align-middle">
+                                  {isPacksMode ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        defaultValue={currentPacks || ""}
+                                        key={`batch-adhoc-packs-${row.tempId}-${row.skuId}`}
+                                        onBlur={(e) => {
+                                          const packs = Math.round(Number(e.target.value) || 0);
+                                          updateAdHoc(row.tempId, { qty: packs * packSize });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                        {packUnit}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        defaultValue={row.qty || ""}
+                                        key={`batch-adhoc-qty-${row.tempId}-${row.skuId}`}
+                                        onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                        onFocus={(e) => e.target.select()}
+                                        className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                        {sku?.usageUom || "—"}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-1 py-1 align-middle">
+                                  {isPacksMode ? (
+                                    <div>
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        defaultValue={row.qty || ""}
+                                        key={`batch-adhoc-wt-${row.tempId}-${row.skuId}-${row.qty}`}
+                                        onBlur={(e) => {
+                                          const grams = Number(e.target.value) || 0;
+                                          if (grams > 0) updateAdHoc(row.tempId, { qty: grams });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        placeholder="ยอดนับจริง"
+                                        className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      />
+                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
+                                </td>
+                                <td className="px-1 py-1 align-middle">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    defaultValue={row.actualTotal || ""}
+                                    key={`batch-adhoc-actual-${row.tempId}`}
+                                    onBlur={(e) =>
+                                      updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })
+                                    }
+                                    onFocus={(e) => e.target.select()}
+                                    className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                                <td className="px-1 py-1 text-center align-middle">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteAdHoc(row.tempId)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAddAdHoc}
+                  className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
+                </button>
+              </div>
+            </>
           )}
 
           {/* External supplier sheet */}
@@ -1532,7 +2259,7 @@ export default function BranchReceiptPage({
                                       />
                                       <div className="text-xs text-muted-foreground mt-0.5 text-right">
                                         est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                        <span className="font-bold">{sku.purchaseUom || "g"}</span>
+                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
                                       </div>
                                     </div>
                                   ) : (
@@ -1586,42 +2313,68 @@ export default function BranchReceiptPage({
           )}
 
           {/* Footer bar */}
-          <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
-              <span className="text-lg font-heading font-bold">
-                ฿
-                {(isCKSupplier
-                  ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                  : preloadedRows.reduce((s, row) => {
-                      const edit = getRowEdit(row.skuId);
-                      const stdTotal = row.stdUnitPrice * edit.qty;
-                      return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
-                    }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
-                ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {savedCount !== null && (
-                <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
-                  <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+          {isBatchMode ? (
+            <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+                <span className="text-lg font-heading font-bold">
+                  ฿{batchTotalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
-              )}
-              <Button
-                className="bg-success hover:bg-success/90 text-success-foreground"
-                onClick={handleSaveAll}
-                disabled={savableCount === 0 || saving}
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
-              </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                {savedCount !== null && (
+                  <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
+                    <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+                  </span>
+                )}
+                <Button
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleBatchSaveAll}
+                  disabled={batchSavableCount === 0 || batchSaving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {batchSaving ? "Saving..." : `Confirm All (${batchSavableCount})`}
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+                <span className="text-lg font-heading font-bold">
+                  ฿
+                  {(isCKSupplier
+                    ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                    : preloadedRows.reduce((s, row) => {
+                        const edit = getRowEdit(row.skuId);
+                        const stdTotal = row.stdUnitPrice * edit.qty;
+                        return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
+                      }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {savedCount !== null && (
+                  <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
+                    <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+                  </span>
+                )}
+                <Button
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleSaveAll}
+                  disabled={savableCount === 0 || saving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* ── 4. EMPTY STATE ── */}
-      {!isFormActive && branchId && pendingTOCount === 0 && (
+      {!isFormActive && branchId && pendingTOCount === 0 && pendingPRSupplierCount === 0 && (
         <div className="rounded-lg border bg-card py-16 flex flex-col items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
             <PackageOpen className="w-7 h-7 text-success" />
