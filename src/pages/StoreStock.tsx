@@ -422,14 +422,24 @@ export default function StoreStockPage({
     const since = sevenDaysAgo.toISOString().split("T")[0];
 
     const run = async () => {
-      const { data: salesData } = await supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty")
-        .eq("branch_id", effectiveBranchId)
-        .gte("sale_date", since)
-        .limit(5000);
+      let allSalesData: any[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty")
+          .eq("branch_id", effectiveBranchId)
+          .gte("sale_date", since)
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allSalesData = allSalesData.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
 
-      if (!salesData) return;
+      const salesData = allSalesData;
+      if (!salesData.length) return;
 
       const sales = salesData.map((s: any) => ({
         menu_code: s.menu_code,
