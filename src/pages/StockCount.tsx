@@ -272,9 +272,9 @@ export default function StockCountPage({
                   <td className="px-3 py-2 text-sm font-medium">{sku.name}</td>
                   <td className="px-3 py-2 text-sm">{sku.storageCondition}</td>
                   <td className="px-3 py-2 text-right font-mono text-sm">
-                    {(line.type === "SM" ? Math.max(0, line.systemQty) : line.systemQty).toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}
+                    <span className={line.systemQty < 0 ? "text-destructive" : ""}>
+                      {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
                     <UnitLabel unit={sku.usageUom} />
                   </td>
                   <td className="px-1.5 py-1.5 text-right">
@@ -590,7 +590,7 @@ export default function StockCountPage({
                         >
                           <TableCell className="px-3 py-2 text-sm font-medium">{sku?.name ?? line.skuId}</TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                            {Math.max(0, line.systemQty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {line.systemQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">
                             {line.physicalQty?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
