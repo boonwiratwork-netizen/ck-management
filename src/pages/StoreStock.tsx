@@ -227,26 +227,18 @@ export default function StoreStockPage({
     });
     setPriceMap(pm);
 
-    // Step 3 — Most recent physical_count per SKU from daily_stock_counts (paginated)
-    let allCountData: any[] = [];
-    {
-      const PAGE = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("daily_stock_counts")
-          .select("sku_id, physical_count, count_date")
-          .eq("branch_id", branchId)
-          .lte("count_date", today)
-          .order("count_date", { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        allCountData = allCountData.concat(data);
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
-    }
-    const countData = allCountData;
+    // Step 3 — Most recent physical_count per SKU (last 90 days only)
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
+
+    const { data: countData } = await supabase
+      .from("daily_stock_counts")
+      .select("sku_id, physical_count, count_date")
+      .eq("branch_id", branchId)
+      .gte("count_date", ninetyDaysAgoStr)
+      .lte("count_date", today)
+      .order("count_date", { ascending: false });
 
     const lastSnapBySku = new Map<string, { balance: number; date: string }>();
     (countData || []).forEach((r: any) => {
@@ -403,6 +395,20 @@ export default function StoreStockPage({
     }
 
     setRows(resultRows);
+    // Compute live daily usage from already-fetched sales (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const since = sevenDaysAgo.toISOString().split("T")[0];
+    const recentSales: { menu_code: string; menu_name: string; qty: number }[] = [];
+    for (const [date, dateSales] of salesByDate) {
+      if (date > since) recentSales.push(...dateSales);
+    }
+    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+    const daily: Record<string, number> = {};
+    for (const [skuId, total] of Object.entries(totalUsage)) {
+      daily[skuId] = total / 7;
+    }
+    setLiveDailyUsage(daily);
     setLoading(false);
   }, [noBranch, effectiveBranchId, skus, menus, menuBomLines, modifierRules, spBomLines]);
 
