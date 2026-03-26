@@ -189,9 +189,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const handleSaveAll = useCallback(async () => {
     if (isSaving) return;
     setIsSaving(true);
-    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string }[] = [];
+    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; overrideSupplierId?: string; overridePriceVariance?: number }[] = [];
 
-    // Pre-loaded rows with qty > 0
+    // Pre-loaded rows with qty > 0 (supplier mode only)
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
       if (edit && edit.qty > 0) {
@@ -202,23 +202,42 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     // Ad-hoc rows with qty > 0
     for (const r of adHocRows) {
       if (r.skuId && r.qty > 0) {
-        rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note });
+        if (isSkuMode) {
+          // Resolve supplier for SKU mode
+          const typedName = (r.supplierName || "").trim();
+          const matchedSupplier = suppliers.find((s) => s.name.toLowerCase() === typedName.toLowerCase());
+          if (matchedSupplier) {
+            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, overrideSupplierId: matchedSupplier.id });
+          } else if (r.resolvedSupplierId) {
+            // Free text — store typed name in notes, variance = 0
+            const noteWithSupplier = typedName ? `[Supplier: ${typedName}] ${r.note}`.trim() : r.note;
+            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: noteWithSupplier, overrideSupplierId: r.resolvedSupplierId, overridePriceVariance: 0 });
+          } else {
+            toast.error(`No supplier resolved for SKU ${skuMap[r.skuId]?.name || r.skuId}`);
+            setIsSaving(false);
+            return;
+          }
+        } else {
+          rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note });
+        }
       }
     }
 
     if (rowsToSave.length === 0) {
       toast.error("No rows with quantity to save");
+      setIsSaving(false);
       return;
     }
 
     let count = 0;
     for (const row of rowsToSave) {
       const sku = skuMap[row.skuId];
+      const effectiveSupplierId = row.overrideSupplierId || supplierId;
       await addReceipt(
         {
           receiptDate: dateStr,
           skuId: row.skuId,
-          supplierId,
+          supplierId: effectiveSupplierId,
           quantityReceived: row.qty,
           actualTotal: row.actualTotal,
           note: row.note,
@@ -230,11 +249,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     }
 
     setIsSaving(false);
-    setSavedCount(count);
-    setRowEdits({});
-    setAdHocRows([]);
-    setTimeout(() => setSavedCount(null), 4000);
-  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving]);
+    if (count > 0) {
+      setSavedCount(count);
+      toast.success(`${count} items saved`);
+      // Auto-close: reset to idle state
+      setSupplierId("");
+      setIsSkuMode(false);
+      setRowEdits({});
+      setAdHocRows([]);
+      setTimeout(() => setSavedCount(null), 4000);
+    }
+  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving, isSkuMode, suppliers]);
 
   // Ad-hoc row management
   const handleAddAdHoc = useCallback(() => {
