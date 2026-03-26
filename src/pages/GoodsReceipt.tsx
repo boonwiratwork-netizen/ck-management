@@ -43,6 +43,10 @@ interface AdHocRow {
   qty: number;
   actualTotal: number;
   note: string;
+  // SKU-mode fields
+  supplierName?: string;
+  resolvedSupplierId?: string;
+  stdUnitPrice?: number;
 }
 
 export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices, bomLines = [] }: Props) {
