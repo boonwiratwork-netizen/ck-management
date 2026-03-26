@@ -14,8 +14,8 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, profile } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+  const { user, sessionLoading, profile } = useAuth();
+  if (sessionLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (profile?.status === 'Inactive') return (
     <div className="min-h-screen flex items-center justify-center text-muted-foreground">
