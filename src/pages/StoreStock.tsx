@@ -540,7 +540,7 @@ export default function StoreStockPage({
   }, [rows, skuMap, relevantSmIds, relevantRmIds, search, typeFilter]);
 
   // Display count helper
-  const getDisplayCount = (row: CountRow) => Math.max(0, row.calculated_balance);
+  const getDisplayCount = (row: CountRow) => row.calculated_balance;
 
   // Summary cards
   const totalSkus = filteredRows.length;
