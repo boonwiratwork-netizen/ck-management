@@ -55,6 +55,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [supplierId, setSupplierId] = useState<string>("");
+  const [isSkuMode, setIsSkuMode] = useState(false);
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
