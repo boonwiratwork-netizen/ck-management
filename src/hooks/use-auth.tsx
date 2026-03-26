@@ -34,14 +34,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchUserData = async (userId: string) => {
-    const [profileRes, roleRes, brandRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
-      supabase.from('user_roles').select('role').eq('user_id', userId).single(),
-      supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
-    ]);
-    setProfile(profileRes.data || null);
-    setRole((roleRes.data?.role as AppRole) || null);
-    setBrandAssignments((brandRes.data || []).map(b => b.brand));
+    setProfileLoading(true);
+    try {
+      const [profileRes, roleRes, brandRes] = await Promise.all([
+        supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
+        supabase.from('user_roles').select('role').eq('user_id', userId).single(),
+        supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
+      ]);
+      setProfile(profileRes.data || null);
+      setRole((roleRes.data?.role as AppRole) || null);
+      setBrandAssignments((brandRes.data || []).map(b => b.brand));
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -49,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setSessionLoading(false);
         if (session?.user) {
           setTimeout(() => fetchUserData(session.user.id), 0);
         } else {
@@ -56,17 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(null);
           setBrandAssignments([]);
         }
-        setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setSessionLoading(false);
       if (session?.user) {
         fetchUserData(session.user.id);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
