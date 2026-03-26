@@ -451,7 +451,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               labelPosition="above"
               align="start"
             />
-            {/* Supplier selector */}
+            {/* Supplier selector — only in supplier mode */}
+            {!isSkuMode && (
             <div className="relative" ref={supplierDropdownRef}>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
                 {t("col.supplier")}
@@ -527,6 +528,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 </div>
               )}
             </div>
+            )}
             <div className="kbd-hint">
               <kbd>Tab</kbd> — next QTY · <kbd>Enter</kbd> — save · <kbd>Esc</kbd> — cancel
             </div>
