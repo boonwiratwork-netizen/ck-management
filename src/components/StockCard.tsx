@@ -145,19 +145,7 @@ export function StockCard({
           // Branch context: reconstruct day-by-day ledger from raw transactions
 
           // Step 1 — Find earliest snap date
-          const { data: firstSnap } = await supabase
-            .from("daily_stock_counts")
-            .select("count_date")
-            .eq("branch_id", branchId!)
-            .eq("sku_id", skuId)
-            .not("physical_count", "is", null)
-            .order("count_date", { ascending: true })
-            .limit(1);
-          if (cancelled) return;
-
-          const snapDate = firstSnap && firstSnap.length > 0 ? firstSnap[0].count_date : "2020-01-01";
-          // Use whichever is later: snap date or fromDate (daysBack limit)
-          const resolvedStartDate = snapDate > fromDate ? snapDate : fromDate;
+          const resolvedStartDate = fromDate;
 
           // Step 2 — Fetch all data in parallel
           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
