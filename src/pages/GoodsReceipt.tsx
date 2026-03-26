@@ -43,6 +43,10 @@ interface AdHocRow {
   qty: number;
   actualTotal: number;
   note: string;
+  // SKU-mode fields
+  supplierName?: string;
+  resolvedSupplierId?: string;
+  stdUnitPrice?: number;
 }
 
 export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices, bomLines = [] }: Props) {
@@ -51,6 +55,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [supplierId, setSupplierId] = useState<string>("");
+  const [isSkuMode, setIsSkuMode] = useState(false);
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
@@ -184,9 +189,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const handleSaveAll = useCallback(async () => {
     if (isSaving) return;
     setIsSaving(true);
-    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string }[] = [];
+    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; overrideSupplierId?: string; overridePriceVariance?: number }[] = [];
 
-    // Pre-loaded rows with qty > 0
+    // Pre-loaded rows with qty > 0 (supplier mode only)
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
       if (edit && edit.qty > 0) {
@@ -197,23 +202,42 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     // Ad-hoc rows with qty > 0
     for (const r of adHocRows) {
       if (r.skuId && r.qty > 0) {
-        rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note });
+        if (isSkuMode) {
+          // Resolve supplier for SKU mode
+          const typedName = (r.supplierName || "").trim();
+          const matchedSupplier = suppliers.find((s) => s.name.toLowerCase() === typedName.toLowerCase());
+          if (matchedSupplier) {
+            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, overrideSupplierId: matchedSupplier.id });
+          } else if (r.resolvedSupplierId) {
+            // Free text — store typed name in notes, variance = 0
+            const noteWithSupplier = typedName ? `[Supplier: ${typedName}] ${r.note}`.trim() : r.note;
+            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: noteWithSupplier, overrideSupplierId: r.resolvedSupplierId, overridePriceVariance: 0 });
+          } else {
+            toast.error(`No supplier resolved for SKU ${skuMap[r.skuId]?.name || r.skuId}`);
+            setIsSaving(false);
+            return;
+          }
+        } else {
+          rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note });
+        }
       }
     }
 
     if (rowsToSave.length === 0) {
       toast.error("No rows with quantity to save");
+      setIsSaving(false);
       return;
     }
 
     let count = 0;
     for (const row of rowsToSave) {
       const sku = skuMap[row.skuId];
+      const effectiveSupplierId = row.overrideSupplierId || supplierId;
       await addReceipt(
         {
           receiptDate: dateStr,
           skuId: row.skuId,
-          supplierId,
+          supplierId: effectiveSupplierId,
           quantityReceived: row.qty,
           actualTotal: row.actualTotal,
           note: row.note,
@@ -225,11 +249,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     }
 
     setIsSaving(false);
-    setSavedCount(count);
-    setRowEdits({});
-    setAdHocRows([]);
-    setTimeout(() => setSavedCount(null), 4000);
-  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving]);
+    if (count > 0) {
+      setSavedCount(count);
+      toast.success(`${count} items saved`);
+      // Auto-close: reset to idle state
+      setSupplierId("");
+      setIsSkuMode(false);
+      setRowEdits({});
+      setAdHocRows([]);
+      setTimeout(() => setSavedCount(null), 4000);
+    }
+  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving, isSkuMode, suppliers]);
 
   // Ad-hoc row management
   const handleAddAdHoc = useCallback(() => {
@@ -237,8 +267,26 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   }, []);
 
   const updateAdHoc = useCallback((tempId: string, updates: Partial<AdHocRow>) => {
-    setAdHocRows((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, ...updates } : r)));
-  }, []);
+    setAdHocRows((prev) => prev.map((r) => {
+      if (r.tempId !== tempId) return r;
+      const updated = { ...r, ...updates };
+      // In SKU mode, auto-fill supplier when SKU changes
+      if (isSkuMode && updates.skuId && updates.skuId !== r.skuId) {
+        const activePrice = prices.find((p) => p.skuId === updates.skuId && p.isActive);
+        if (activePrice) {
+          const sup = supplierMap[activePrice.supplierId];
+          updated.supplierName = sup?.name || "";
+          updated.resolvedSupplierId = activePrice.supplierId;
+          updated.stdUnitPrice = activePrice.pricePerUsageUom;
+        } else {
+          updated.supplierName = "";
+          updated.resolvedSupplierId = "";
+          updated.stdUnitPrice = 0;
+        }
+      }
+      return updated;
+    }));
+  }, [isSkuMode, prices, supplierMap]);
 
   const deleteAdHoc = useCallback((tempId: string) => {
     setAdHocRows((prev) => prev.filter((r) => r.tempId !== tempId));
@@ -331,7 +379,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     </div>
   );
 
-  const isFormActive = !!supplierId;
+  const isFormActive = !!supplierId || isSkuMode;
 
   return (
     <div className="space-y-6">
@@ -342,15 +390,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <p className="text-sm text-muted-foreground mt-0.5">{t("gr.subtitle")}</p>
         </div>
         {!isFormActive && (
-          <Button
-            className="bg-success hover:bg-success/90 text-success-foreground"
-            onClick={() => {
-              /* Focus supplier dropdown to start a new receipt */
-              setSupplierDropdownOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-1" /> New Receipt
-          </Button>
+          <div className="flex items-center gap-2">
+            <DatePicker
+              value={receiptDate}
+              onChange={(d) => d && setReceiptDate(d)}
+              defaultToday
+              align="end"
+            />
+          </div>
         )}
       </div>
 
@@ -363,8 +410,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <span className="font-mono text-sm font-semibold text-foreground bg-muted px-2.5 py-1 rounded">
                 GR-{dateStr.replace(/-/g, "").slice(2)}
               </span>
-              <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
-              <span className="text-xs text-muted-foreground">{preloadedRows.length} items</span>
+              {isSkuMode ? (
+                <span className="text-sm font-medium text-foreground">Receive by SKU</span>
+              ) : (
+                <>
+                  <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
+                  <span className="text-xs text-muted-foreground">{preloadedRows.length} items</span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -372,6 +425,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 size="sm"
                 onClick={() => {
                   setSupplierId("");
+                  setIsSkuMode(false);
                   setRowEdits({});
                   setAdHocRows([]);
                   setSavedCount(null);
@@ -397,7 +451,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               labelPosition="above"
               align="start"
             />
-            {/* Supplier selector */}
+            {/* Supplier selector — only in supplier mode */}
+            {!isSkuMode && (
             <div className="relative" ref={supplierDropdownRef}>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
                 {t("col.supplier")}
@@ -473,13 +528,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 </div>
               )}
             </div>
+            )}
             <div className="kbd-hint">
               <kbd>Tab</kbd> — next QTY · <kbd>Enter</kbd> — save · <kbd>Esc</kbd> — cancel
             </div>
           </div>
 
-          {/* SKU spreadsheet table */}
-          {preloadedRows.length > 0 && (
+          {/* SKU spreadsheet table — supplier mode only */}
+          {!isSkuMode && preloadedRows.length > 0 && (
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
@@ -684,13 +740,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <div className="px-5 py-3 space-y-2 border-t">
             {adHocRows.length > 0 && (
               <>
-                <p className="text-xs font-medium text-muted-foreground">{t("gr.adHocItems")}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {isSkuMode ? "Items" : t("gr.adHocItems")}
+                </p>
                 <div className="rounded-lg border bg-card overflow-hidden">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
-                      <col style={{ width: 240 }} />
+                      <col style={{ width: 220 }} />
+                      {isSkuMode && <col style={{ width: 150 }} />}
                       <col style={{ width: 80 }} />
                       <col style={{ width: 50 }} />
+                      {isSkuMode && <col style={{ width: 70 }} />}
                       <col style={{ width: 90 }} />
                       <col style={{ width: 100 }} />
                       <col style={{ width: 50 }} />
@@ -698,8 +758,10 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                     <thead>
                       <tr className="bg-table-header border-b">
                         <th className={thClass}>{t("col.sku")}</th>
+                        {isSkuMode && <th className={thClass}>{t("col.supplier")}</th>}
                         <th className={`${thClass} text-right`}>{t("col.qty")}</th>
                         <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                        {isSkuMode && <th className={`${thClass} text-right`}>{t("gr.colStdBaht")}</th>}
                         <th className={`${thClass} text-right`}>{t("gr.colActualBaht")}</th>
                         <th className={thClass}>{t("col.note")}</th>
                         <th className={`${thClass} text-center`}></th>
@@ -723,6 +785,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                                 triggerClassName="h-8 text-xs truncate"
                               />
                             </td>
+                            {isSkuMode && (
+                              <td className="px-1 py-1">
+                                <input
+                                  type="text"
+                                  value={row.supplierName ?? ""}
+                                  onChange={(e) => updateAdHoc(row.tempId, { supplierName: e.target.value })}
+                                  className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                                  placeholder="Supplier"
+                                />
+                              </td>
+                            )}
                             <td className="px-1 py-1">
                               <input
                                 type="number"
@@ -739,6 +812,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             <td className={`${tdReadOnly} text-center text-muted-foreground`}>
                               {sku?.purchaseUom || "—"}
                             </td>
+                            {isSkuMode && (
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                                {(row.stdUnitPrice ?? 0) > 0 ? row.stdUnitPrice!.toFixed(2) : "—"}
+                              </td>
+                            )}
                             <td className="px-1 py-1">
                               <input
                                 type="number"
@@ -801,7 +879,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           </div>
         </div>
       ) : (
-        /* ── Empty State — no form active ── */
+        /* ── Empty State — two mode buttons ── */
         <div className="rounded-lg border bg-card">
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
@@ -809,70 +887,82 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             </div>
             <div className="text-center">
               <p className="font-medium text-foreground">No active receipt</p>
-              <p className="text-sm text-muted-foreground mt-1">Select a supplier to start logging a delivery</p>
+              <p className="text-sm text-muted-foreground mt-1">Choose a receiving mode to start</p>
             </div>
-            {/* Inline supplier selector for quick start */}
-            <div className="relative mt-2" ref={!isFormActive ? supplierDropdownRef : undefined}>
-              <button
-                type="button"
-                onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
-                className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            <div className="flex items-center gap-3 mt-2">
+              {/* Receive by Supplier — triggers existing supplier dropdown */}
+              <div className="relative" ref={!isFormActive ? supplierDropdownRef : undefined}>
+                <button
+                  type="button"
+                  onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
+                  className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Receive by Supplier
+                </button>
+                {supplierDropdownOpen && (
+                  <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
+                    <div className="p-2 border-b">
+                      <input
+                        type="text"
+                        value={supplierSearch}
+                        onChange={(e) => setSupplierSearch(e.target.value)}
+                        placeholder="Search supplier..."
+                        className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {filteredGroupedSuppliers.ck.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.ckSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.ck.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.other.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.otherSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.other.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
+                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Receive by SKU */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsSkuMode(true);
+                  setAdHocRows([{ tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
+                }}
               >
-                <Plus className="w-4 h-4" /> New Receipt
-              </button>
-              {supplierDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
-                  <div className="p-2 border-b">
-                    <input
-                      type="text"
-                      value={supplierSearch}
-                      onChange={(e) => setSupplierSearch(e.target.value)}
-                      placeholder="Search supplier..."
-                      className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {filteredGroupedSuppliers.ck.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.ckSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.ck.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.other.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.otherSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.other.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
-                    )}
-                  </div>
-                </div>
-              )}
+                <Search className="w-4 h-4 mr-1" /> Receive by SKU
+              </Button>
             </div>
           </div>
         </div>
