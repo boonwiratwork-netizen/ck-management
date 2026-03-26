@@ -491,7 +491,7 @@ export function useDailyStockCount({
         fetchReceiptTotals(branchId, date),
         calculateExpectedUsage(branchId, date),
       ]);
-      setLoading(false);
+
       if (sheetResult.error) {
         toast.error("Failed to load count sheet");
         return;
@@ -584,7 +584,7 @@ export function useDailyStockCount({
         const { data: inserted } = await supabase.from("daily_stock_counts").insert(newSkuRows).select();
         if (inserted) insertedRows = inserted;
       }
-
+      setLoading(false);
       setRows([...patched, ...insertedRows].map(toLocal));
     },
     [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap],
