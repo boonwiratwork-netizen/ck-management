@@ -390,15 +390,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <p className="text-sm text-muted-foreground mt-0.5">{t("gr.subtitle")}</p>
         </div>
         {!isFormActive && (
-          <Button
-            className="bg-success hover:bg-success/90 text-success-foreground"
-            onClick={() => {
-              /* Focus supplier dropdown to start a new receipt */
-              setSupplierDropdownOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-1" /> New Receipt
-          </Button>
+          <div className="flex items-center gap-2">
+            <DatePicker
+              value={receiptDate}
+              onChange={(d) => d && setReceiptDate(d)}
+              defaultToday
+              align="end"
+            />
+          </div>
         )}
       </div>
 
