@@ -336,7 +336,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     </div>
   );
 
-  const isFormActive = !!supplierId;
+  const isFormActive = !!supplierId || isSkuMode;
 
   return (
     <div className="space-y-6">
