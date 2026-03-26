@@ -76,9 +76,10 @@ export function useDailyStockCount({
     [skus],
   );
 
-  // Helper: calculate expected usage from sales across a date range using BOM+SP+Modifier Rules
-  const calculateExpectedUsageRange = useCallback(
-    async (branchId: string, fromDate: string, toDate: string): Promise<Record<string, number>> => {
+  // Helper: calculate expected usage from sales across a date range, broken down by date
+  // Returns: Record<saleDate, Record<skuId, usageQty>>
+  const calculateExpectedUsageRangeByDate = useCallback(
+    async (branchId: string, fromDate: string, toDate: string): Promise<Record<string, Record<string, number>>> => {
       const [salesRes, overridesRes] = await Promise.all([
         supabase
           .from("sales_entries")
@@ -120,15 +121,18 @@ export function useDailyStockCount({
       const skuMap = new Map<string, SKU>();
       skus.forEach((s) => skuMap.set(s.id, s));
 
-      const usage: Record<string, number> = {};
-      const addUsage = (skuId: string, qty: number) => {
-        usage[skuId] = (usage[skuId] || 0) + qty;
+      // Per-date usage: date → skuId → qty
+      const usageByDate: Record<string, Record<string, number>> = {};
+      const addUsage = (date: string, skuId: string, qty: number) => {
+        if (!usageByDate[date]) usageByDate[date] = {};
+        usageByDate[date][skuId] = (usageByDate[date][skuId] || 0) + qty;
       };
 
       for (const sale of sales) {
         const qty = Number(sale.qty) || 0;
         if (qty === 0) continue;
 
+        const saleDate = sale.sale_date;
         const menuCode = sale.menu_code;
         const menuName = sale.menu_name || "";
         const menu = menuByCode.get(menuCode);
@@ -141,10 +145,10 @@ export function useDailyStockCount({
             if (sku && sku.type === "SP") {
               const spLines = spBomBySpSku.get(line.skuId) || [];
               for (const spLine of spLines) {
-                addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty);
+                addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty);
               }
             } else {
-              addUsage(line.skuId, ingredientQty);
+              addUsage(saleDate, line.skuId, ingredientQty);
             }
           }
 
@@ -156,7 +160,7 @@ export function useDailyStockCount({
                   const bomLines2 = bomByMenuId.get(menu.id) || [];
                   for (const line of bomLines2) {
                     if (line.skuId === rule.swapSkuId) {
-                      addUsage(rule.swapSkuId, -(line.effectiveQty * qty));
+                      addUsage(saleDate, rule.swapSkuId, -(line.effectiveQty * qty));
                     }
                   }
                 }
@@ -165,10 +169,10 @@ export function useDailyStockCount({
                 if (modSku && modSku.type === "SP") {
                   const spLines = spBomBySpSku.get(rule.skuId) || [];
                   for (const spLine of spLines) {
-                    addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+                    addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
                   }
                 } else {
-                  addUsage(rule.skuId, modQty);
+                  addUsage(saleDate, rule.skuId, modQty);
                 }
               } else if (rule.ruleType === "submenu") {
                 if (rule.submenuId) {
@@ -179,10 +183,10 @@ export function useDailyStockCount({
                     if (sku2 && sku2.type === "SP") {
                       const spLines = spBomBySpSku.get(line.skuId) || [];
                       for (const spLine of spLines) {
-                        addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
+                        addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
                       }
                     } else {
-                      addUsage(line.skuId, ingredientQty2);
+                      addUsage(saleDate, line.skuId, ingredientQty2);
                     }
                   }
                 }
@@ -192,10 +196,10 @@ export function useDailyStockCount({
                 if (modSku && modSku.type === "SP") {
                   const spLines = spBomBySpSku.get(rule.skuId) || [];
                   for (const spLine of spLines) {
-                    addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
+                    addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
                   }
                 } else {
-                  addUsage(rule.skuId, modQty);
+                  addUsage(saleDate, rule.skuId, modQty);
                 }
               }
             }
@@ -203,7 +207,7 @@ export function useDailyStockCount({
         }
       }
 
-      return usage;
+      return usageByDate;
     },
     [menus, menuBomLines, modifierRules, spBomLines, skus],
   );
@@ -250,8 +254,8 @@ export function useDailyStockCount({
             )
           : beforeDate;
 
-      // Step 3 — Fetch gap transactions + calculate usage from raw sales
-      const [gapToLinesRes, gapExtLinesRes, gapUsageBySku] = await Promise.all([
+      // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date)
+      const [gapToLinesRes, gapExtLinesRes, gapUsageByDate] = await Promise.all([
         supabase
           .from("transfer_order_lines")
           .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
@@ -261,24 +265,44 @@ export function useDailyStockCount({
           .in("transfer_orders.status", ["Sent", "Received", "Partially Received"]),
         supabase
           .from("branch_receipts")
-          .select("sku_id, qty_received")
+          .select("sku_id, qty_received, receipt_date")
           .eq("branch_id", branchId)
           .is("transfer_order_id", null)
           .gt("receipt_date", gapStartDate)
           .lt("receipt_date", beforeDate),
-        calculateExpectedUsageRange(branchId, gapStartDate, beforeDate),
+        calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
       ]);
 
+      // Build per-SKU gap totals filtered by each SKU's own anchor date
+      // CK receipts: group by sku, only include lines where delivery_date > SKU's anchor
       const gapCkBySku: Record<string, number> = {};
       (gapToLinesRes.data || []).forEach((line: any) => {
+        const deliveryDate = line.transfer_orders?.delivery_date;
+        const anchor = lastCountDate[line.sku_id];
+        if (anchor && deliveryDate && deliveryDate <= anchor) return; // skip if before/on anchor
         const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
         gapCkBySku[line.sku_id] = (gapCkBySku[line.sku_id] || 0) + qty;
       });
 
+      // External receipts: group by sku, only include lines where receipt_date > SKU's anchor
       const gapExtBySku: Record<string, number> = {};
-      (gapExtLinesRes.data || []).forEach((r) => {
+      (gapExtLinesRes.data || []).forEach((r: any) => {
+        const anchor = lastCountDate[r.sku_id];
+        if (anchor && r.receipt_date && r.receipt_date <= anchor) return;
         gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
       });
+
+      // Usage: sum per-date usage only for dates > SKU's anchor
+      const gapUsageBySku: Record<string, number> = {};
+      const allUsageSkuIds = new Set<string>();
+      for (const dateStr of Object.keys(gapUsageByDate)) {
+        for (const skuId of Object.keys(gapUsageByDate[dateStr])) {
+          allUsageSkuIds.add(skuId);
+          const anchor = lastCountDate[skuId];
+          if (anchor && dateStr <= anchor) continue; // skip if before/on anchor
+          gapUsageBySku[skuId] = (gapUsageBySku[skuId] || 0) + gapUsageByDate[dateStr][skuId];
+        }
+      }
 
       // waste from gap = 0 (no count sheet data available for it)
 
@@ -302,7 +326,7 @@ export function useDailyStockCount({
 
       return result;
     },
-    [getSkuConverter, calculateExpectedUsageRange],
+    [getSkuConverter, calculateExpectedUsageRangeByDate],
   );
 
   // Fetch live receipt totals for a branch+date
