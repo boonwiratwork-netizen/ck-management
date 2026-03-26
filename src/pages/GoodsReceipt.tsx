@@ -738,13 +738,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <div className="px-5 py-3 space-y-2 border-t">
             {adHocRows.length > 0 && (
               <>
-                <p className="text-xs font-medium text-muted-foreground">{t("gr.adHocItems")}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {isSkuMode ? "Items" : t("gr.adHocItems")}
+                </p>
                 <div className="rounded-lg border bg-card overflow-hidden">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
-                      <col style={{ width: 240 }} />
+                      <col style={{ width: 220 }} />
+                      {isSkuMode && <col style={{ width: 150 }} />}
                       <col style={{ width: 80 }} />
                       <col style={{ width: 50 }} />
+                      {isSkuMode && <col style={{ width: 70 }} />}
                       <col style={{ width: 90 }} />
                       <col style={{ width: 100 }} />
                       <col style={{ width: 50 }} />
@@ -752,8 +756,10 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                     <thead>
                       <tr className="bg-table-header border-b">
                         <th className={thClass}>{t("col.sku")}</th>
+                        {isSkuMode && <th className={thClass}>{t("col.supplier")}</th>}
                         <th className={`${thClass} text-right`}>{t("col.qty")}</th>
                         <th className={`${thClass} text-center`}>{t("col.uom")}</th>
+                        {isSkuMode && <th className={`${thClass} text-right`}>{t("gr.colStdBaht")}</th>}
                         <th className={`${thClass} text-right`}>{t("gr.colActualBaht")}</th>
                         <th className={thClass}>{t("col.note")}</th>
                         <th className={`${thClass} text-center`}></th>
@@ -777,6 +783,17 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                                 triggerClassName="h-8 text-xs truncate"
                               />
                             </td>
+                            {isSkuMode && (
+                              <td className="px-1 py-1">
+                                <input
+                                  type="text"
+                                  value={row.supplierName ?? ""}
+                                  onChange={(e) => updateAdHoc(row.tempId, { supplierName: e.target.value })}
+                                  className="h-8 text-xs w-full px-2 py-1 border rounded-md bg-background focus:border-primary outline-none"
+                                  placeholder="Supplier"
+                                />
+                              </td>
+                            )}
                             <td className="px-1 py-1">
                               <input
                                 type="number"
@@ -793,6 +810,11 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             <td className={`${tdReadOnly} text-center text-muted-foreground`}>
                               {sku?.purchaseUom || "—"}
                             </td>
+                            {isSkuMode && (
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
+                                {(row.stdUnitPrice ?? 0) > 0 ? row.stdUnitPrice!.toFixed(2) : "—"}
+                              </td>
+                            )}
                             <td className="px-1 py-1">
                               <input
                                 type="number"
