@@ -30,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string; status: string; branch_id: string | null } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [brandAssignments, setBrandAssignments] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     const [profileRes, roleRes, brandRes] = await Promise.all([
