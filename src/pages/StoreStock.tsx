@@ -715,7 +715,9 @@ export default function StoreStockPage({
                       {showDash ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        <span className={isPhysical ? "font-semibold" : ""}>{Math.round(dc).toLocaleString()}</span>
+                        <span className={cn(isPhysical ? "font-semibold" : "", dc < 0 ? "text-destructive" : "")}>
+                          {Math.round(dc).toLocaleString()}
+                        </span>
                       )}
                     </td>
                     <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
