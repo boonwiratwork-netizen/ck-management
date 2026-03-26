@@ -189,7 +189,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const handleSaveAll = useCallback(async () => {
     if (isSaving) return;
     setIsSaving(true);
-    const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; overrideSupplierId?: string; overridePriceVariance?: number }[] = [];
+    const rowsToSave: {
+      skuId: string;
+      qty: number;
+      actualTotal: number;
+      note: string;
+      overrideSupplierId?: string;
+      overridePriceVariance?: number;
+    }[] = [];
 
     // Pre-loaded rows with qty > 0 (supplier mode only)
     for (const row of preloadedRows) {
@@ -207,11 +214,24 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           const typedName = (r.supplierName || "").trim();
           const matchedSupplier = suppliers.find((s) => s.name.toLowerCase() === typedName.toLowerCase());
           if (matchedSupplier) {
-            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, overrideSupplierId: matchedSupplier.id });
+            rowsToSave.push({
+              skuId: r.skuId,
+              qty: r.qty,
+              actualTotal: r.actualTotal,
+              note: r.note,
+              overrideSupplierId: matchedSupplier.id,
+            });
           } else if (r.resolvedSupplierId) {
             // Free text — store typed name in notes, variance = 0
             const noteWithSupplier = typedName ? `[Supplier: ${typedName}] ${r.note}`.trim() : r.note;
-            rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: noteWithSupplier, overrideSupplierId: r.resolvedSupplierId, overridePriceVariance: 0 });
+            rowsToSave.push({
+              skuId: r.skuId,
+              qty: r.qty,
+              actualTotal: r.actualTotal,
+              note: noteWithSupplier,
+              overrideSupplierId: r.resolvedSupplierId,
+              overridePriceVariance: 0,
+            });
           } else {
             toast.error(`No supplier resolved for SKU ${skuMap[r.skuId]?.name || r.skuId}`);
             setIsSaving(false);
@@ -259,34 +279,51 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       setAdHocRows([]);
       setTimeout(() => setSavedCount(null), 4000);
     }
-  }, [preloadedRows, rowEdits, adHocRows, dateStr, supplierId, skuMap, prices, addReceipt, isSaving, isSkuMode, suppliers]);
+  }, [
+    preloadedRows,
+    rowEdits,
+    adHocRows,
+    dateStr,
+    supplierId,
+    skuMap,
+    prices,
+    addReceipt,
+    isSaving,
+    isSkuMode,
+    suppliers,
+  ]);
 
   // Ad-hoc row management
   const handleAddAdHoc = useCallback(() => {
     setAdHocRows((prev) => [...prev, { tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
   }, []);
 
-  const updateAdHoc = useCallback((tempId: string, updates: Partial<AdHocRow>) => {
-    setAdHocRows((prev) => prev.map((r) => {
-      if (r.tempId !== tempId) return r;
-      const updated = { ...r, ...updates };
-      // In SKU mode, auto-fill supplier when SKU changes
-      if (isSkuMode && updates.skuId && updates.skuId !== r.skuId) {
-        const activePrice = prices.find((p) => p.skuId === updates.skuId && p.isActive);
-        if (activePrice) {
-          const sup = supplierMap[activePrice.supplierId];
-          updated.supplierName = sup?.name || "";
-          updated.resolvedSupplierId = activePrice.supplierId;
-          updated.stdUnitPrice = activePrice.pricePerUsageUom;
-        } else {
-          updated.supplierName = "";
-          updated.resolvedSupplierId = "";
-          updated.stdUnitPrice = 0;
-        }
-      }
-      return updated;
-    }));
-  }, [isSkuMode, prices, supplierMap]);
+  const updateAdHoc = useCallback(
+    (tempId: string, updates: Partial<AdHocRow>) => {
+      setAdHocRows((prev) =>
+        prev.map((r) => {
+          if (r.tempId !== tempId) return r;
+          const updated = { ...r, ...updates };
+          // In SKU mode, auto-fill supplier when SKU changes
+          if (isSkuMode && updates.skuId && updates.skuId !== r.skuId) {
+            const activePrice = prices.find((p) => p.skuId === updates.skuId && p.isActive);
+            if (activePrice) {
+              const sup = supplierMap[activePrice.supplierId];
+              updated.supplierName = sup?.name || "";
+              updated.resolvedSupplierId = activePrice.supplierId;
+              updated.stdUnitPrice = activePrice.pricePerUsageUom;
+            } else {
+              updated.supplierName = "";
+              updated.resolvedSupplierId = "";
+              updated.stdUnitPrice = 0;
+            }
+          }
+          return updated;
+        }),
+      );
+    },
+    [isSkuMode, prices, supplierMap],
+  );
 
   const deleteAdHoc = useCallback((tempId: string) => {
     setAdHocRows((prev) => prev.filter((r) => r.tempId !== tempId));
@@ -391,12 +428,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         </div>
         {!isFormActive && (
           <div className="flex items-center gap-2">
-            <DatePicker
-              value={receiptDate}
-              onChange={(d) => d && setReceiptDate(d)}
-              defaultToday
-              align="end"
-            />
+            <DatePicker value={receiptDate} onChange={(d) => d && setReceiptDate(d)} defaultToday align="end" />
           </div>
         )}
       </div>
@@ -453,81 +485,83 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             />
             {/* Supplier selector — only in supplier mode */}
             {!isSkuMode && (
-            <div className="relative" ref={supplierDropdownRef}>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-                {t("col.supplier")}
-              </label>
-              <button
-                type="button"
-                onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
-                className={cn(
-                  "flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors",
-                  !supplierId && "text-muted-foreground",
+              <div className="relative" ref={supplierDropdownRef}>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                  {t("col.supplier")}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
+                  className={cn(
+                    "flex items-center justify-between w-[240px] h-9 px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors",
+                    !supplierId && "text-muted-foreground",
+                  )}
+                >
+                  <span className="truncate">{selectedSupplier?.name || "— Select supplier —"}</span>
+                  <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
+                </button>
+                {supplierDropdownOpen && (
+                  <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
+                    <div className="p-2 border-b">
+                      <input
+                        type="text"
+                        value={supplierSearch}
+                        onChange={(e) => setSupplierSearch(e.target.value)}
+                        placeholder="Search supplier..."
+                        className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {filteredGroupedSuppliers.ck.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.ckSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.ck.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className={cn(
+                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                                s.id === supplierId && "bg-accent font-medium",
+                              )}
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.other.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.otherSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.other.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className={cn(
+                                "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
+                                s.id === supplierId && "bg-accent font-medium",
+                              )}
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
+                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                          {t("gr.noSuppliersFound")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
-              >
-                <span className="truncate">{selectedSupplier?.name || "— Select supplier —"}</span>
-                <Search className="w-3.5 h-3.5 ml-2 shrink-0 text-muted-foreground" />
-              </button>
-              {supplierDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 w-[280px] bg-popover border rounded-lg shadow-lg">
-                  <div className="p-2 border-b">
-                    <input
-                      type="text"
-                      value={supplierSearch}
-                      onChange={(e) => setSupplierSearch(e.target.value)}
-                      placeholder="Search supplier..."
-                      className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {filteredGroupedSuppliers.ck.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.ckSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.ck.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className={cn(
-                              "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
-                              s.id === supplierId && "bg-accent font-medium",
-                            )}
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.other.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.otherSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.other.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className={cn(
-                              "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
-                              s.id === supplierId && "bg-accent font-medium",
-                            )}
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
             )}
             <div className="kbd-hint">
               <kbd>Tab</kbd> — next QTY · <kbd>Enter</kbd> — save · <kbd>Esc</kbd> — cancel
@@ -740,9 +774,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <div className="px-5 py-3 space-y-2 border-t">
             {adHocRows.length > 0 && (
               <>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {isSkuMode ? "Items" : t("gr.adHocItems")}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground">{isSkuMode ? "Items" : t("gr.adHocItems")}</p>
                 <div className="rounded-lg border bg-card overflow-hidden">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
@@ -814,7 +846,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             </td>
                             {isSkuMode && (
                               <td className={`${tdReadOnly} text-right font-mono text-muted-foreground`}>
-                                {(row.stdUnitPrice ?? 0) > 0 ? row.stdUnitPrice!.toFixed(2) : "—"}
+                                {(row.stdUnitPrice ?? 0) > 0 && row.qty > 0
+                                  ? (row.stdUnitPrice! * row.qty).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })
+                                  : (row.stdUnitPrice ?? 0) > 0
+                                    ? row.stdUnitPrice!.toFixed(2)
+                                    : "—"}
                               </td>
                             )}
                             <td className="px-1 py-1">
@@ -947,7 +986,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                         </>
                       )}
                       {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
+                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                          {t("gr.noSuppliersFound")}
+                        </p>
                       )}
                     </div>
                   </div>
