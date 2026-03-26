@@ -15,6 +15,8 @@ interface AuthContextType {
   isCkManager: boolean;
   brandAssignments: string[];
   loading: boolean;
+  sessionLoading: boolean;
+  profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
