@@ -410,8 +410,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <span className="font-mono text-sm font-semibold text-foreground bg-muted px-2.5 py-1 rounded">
                 GR-{dateStr.replace(/-/g, "").slice(2)}
               </span>
-              <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
-              <span className="text-xs text-muted-foreground">{preloadedRows.length} items</span>
+              {isSkuMode ? (
+                <span className="text-sm font-medium text-foreground">Receive by SKU</span>
+              ) : (
+                <>
+                  <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
+                  <span className="text-xs text-muted-foreground">{preloadedRows.length} items</span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -419,6 +425,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 size="sm"
                 onClick={() => {
                   setSupplierId("");
+                  setIsSkuMode(false);
                   setRowEdits({});
                   setAdHocRows([]);
                   setSavedCount(null);
