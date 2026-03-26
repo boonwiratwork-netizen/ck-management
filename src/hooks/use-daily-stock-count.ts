@@ -254,8 +254,8 @@ export function useDailyStockCount({
             )
           : beforeDate;
 
-      // Step 3 — Fetch gap transactions + calculate usage from raw sales
-      const [gapToLinesRes, gapExtLinesRes, gapUsageBySku] = await Promise.all([
+      // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date)
+      const [gapToLinesRes, gapExtLinesRes, gapUsageByDate] = await Promise.all([
         supabase
           .from("transfer_order_lines")
           .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
@@ -265,24 +265,44 @@ export function useDailyStockCount({
           .in("transfer_orders.status", ["Sent", "Received", "Partially Received"]),
         supabase
           .from("branch_receipts")
-          .select("sku_id, qty_received")
+          .select("sku_id, qty_received, receipt_date")
           .eq("branch_id", branchId)
           .is("transfer_order_id", null)
           .gt("receipt_date", gapStartDate)
           .lt("receipt_date", beforeDate),
-        calculateExpectedUsageRange(branchId, gapStartDate, beforeDate),
+        calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
       ]);
 
+      // Build per-SKU gap totals filtered by each SKU's own anchor date
+      // CK receipts: group by sku, only include lines where delivery_date > SKU's anchor
       const gapCkBySku: Record<string, number> = {};
       (gapToLinesRes.data || []).forEach((line: any) => {
+        const deliveryDate = line.transfer_orders?.delivery_date;
+        const anchor = lastCountDate[line.sku_id];
+        if (anchor && deliveryDate && deliveryDate <= anchor) return; // skip if before/on anchor
         const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
         gapCkBySku[line.sku_id] = (gapCkBySku[line.sku_id] || 0) + qty;
       });
 
+      // External receipts: group by sku, only include lines where receipt_date > SKU's anchor
       const gapExtBySku: Record<string, number> = {};
-      (gapExtLinesRes.data || []).forEach((r) => {
+      (gapExtLinesRes.data || []).forEach((r: any) => {
+        const anchor = lastCountDate[r.sku_id];
+        if (anchor && r.receipt_date && r.receipt_date <= anchor) return;
         gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
       });
+
+      // Usage: sum per-date usage only for dates > SKU's anchor
+      const gapUsageBySku: Record<string, number> = {};
+      const allUsageSkuIds = new Set<string>();
+      for (const dateStr of Object.keys(gapUsageByDate)) {
+        for (const skuId of Object.keys(gapUsageByDate[dateStr])) {
+          allUsageSkuIds.add(skuId);
+          const anchor = lastCountDate[skuId];
+          if (anchor && dateStr <= anchor) continue; // skip if before/on anchor
+          gapUsageBySku[skuId] = (gapUsageBySku[skuId] || 0) + gapUsageByDate[dateStr][skuId];
+        }
+      }
 
       // waste from gap = 0 (no count sheet data available for it)
 
@@ -306,7 +326,7 @@ export function useDailyStockCount({
 
       return result;
     },
-    [getSkuConverter, calculateExpectedUsageRange],
+    [getSkuConverter, calculateExpectedUsageRangeByDate],
   );
 
   // Fetch live receipt totals for a branch+date
