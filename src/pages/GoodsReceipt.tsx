@@ -267,8 +267,26 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   }, []);
 
   const updateAdHoc = useCallback((tempId: string, updates: Partial<AdHocRow>) => {
-    setAdHocRows((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, ...updates } : r)));
-  }, []);
+    setAdHocRows((prev) => prev.map((r) => {
+      if (r.tempId !== tempId) return r;
+      const updated = { ...r, ...updates };
+      // In SKU mode, auto-fill supplier when SKU changes
+      if (isSkuMode && updates.skuId && updates.skuId !== r.skuId) {
+        const activePrice = prices.find((p) => p.skuId === updates.skuId && p.isActive);
+        if (activePrice) {
+          const sup = supplierMap[activePrice.supplierId];
+          updated.supplierName = sup?.name || "";
+          updated.resolvedSupplierId = activePrice.supplierId;
+          updated.stdUnitPrice = activePrice.pricePerUsageUom;
+        } else {
+          updated.supplierName = "";
+          updated.resolvedSupplierId = "";
+          updated.stdUnitPrice = 0;
+        }
+      }
+      return updated;
+    }));
+  }, [isSkuMode, prices, supplierMap]);
 
   const deleteAdHoc = useCallback((tempId: string) => {
     setAdHocRows((prev) => prev.filter((r) => r.tempId !== tempId));
