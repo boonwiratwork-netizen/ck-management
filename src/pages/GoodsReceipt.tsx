@@ -855,7 +855,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           </div>
         </div>
       ) : (
-        /* ── Empty State — no form active ── */
+        /* ── Empty State — two mode buttons ── */
         <div className="rounded-lg border bg-card">
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
@@ -863,70 +863,82 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             </div>
             <div className="text-center">
               <p className="font-medium text-foreground">No active receipt</p>
-              <p className="text-sm text-muted-foreground mt-1">Select a supplier to start logging a delivery</p>
+              <p className="text-sm text-muted-foreground mt-1">Choose a receiving mode to start</p>
             </div>
-            {/* Inline supplier selector for quick start */}
-            <div className="relative mt-2" ref={!isFormActive ? supplierDropdownRef : undefined}>
-              <button
-                type="button"
-                onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
-                className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            <div className="flex items-center gap-3 mt-2">
+              {/* Receive by Supplier — triggers existing supplier dropdown */}
+              <div className="relative" ref={!isFormActive ? supplierDropdownRef : undefined}>
+                <button
+                  type="button"
+                  onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
+                  className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Receive by Supplier
+                </button>
+                {supplierDropdownOpen && (
+                  <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
+                    <div className="p-2 border-b">
+                      <input
+                        type="text"
+                        value={supplierSearch}
+                        onChange={(e) => setSupplierSearch(e.target.value)}
+                        placeholder="Search supplier..."
+                        className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {filteredGroupedSuppliers.ck.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.ckSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.ck.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.other.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t("gr.otherSuppliers")}
+                          </div>
+                          {filteredGroupedSuppliers.other.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSupplierChange(s.id)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
+                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Receive by SKU */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsSkuMode(true);
+                  setAdHocRows([{ tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
+                }}
               >
-                <Plus className="w-4 h-4" /> New Receipt
-              </button>
-              {supplierDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
-                  <div className="p-2 border-b">
-                    <input
-                      type="text"
-                      value={supplierSearch}
-                      onChange={(e) => setSupplierSearch(e.target.value)}
-                      placeholder="Search supplier..."
-                      className="w-full h-8 px-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {filteredGroupedSuppliers.ck.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.ckSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.ck.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.other.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("gr.otherSuppliers")}
-                        </div>
-                        {filteredGroupedSuppliers.other.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleSupplierChange(s.id)}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {filteredGroupedSuppliers.ck.length === 0 && filteredGroupedSuppliers.other.length === 0 && (
-                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">{t("gr.noSuppliersFound")}</p>
-                    )}
-                  </div>
-                </div>
-              )}
+                <Search className="w-4 h-4 mr-1" /> Receive by SKU
+              </Button>
             </div>
           </div>
         </div>
