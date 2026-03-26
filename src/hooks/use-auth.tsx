@@ -15,6 +15,8 @@ interface AuthContextType {
   isCkManager: boolean;
   brandAssignments: string[];
   loading: boolean;
+  sessionLoading: boolean;
+  profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -28,17 +30,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string; status: string; branch_id: string | null } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [brandAssignments, setBrandAssignments] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchUserData = async (userId: string) => {
-    const [profileRes, roleRes, brandRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
-      supabase.from('user_roles').select('role').eq('user_id', userId).single(),
-      supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
-    ]);
-    setProfile(profileRes.data || null);
-    setRole((roleRes.data?.role as AppRole) || null);
-    setBrandAssignments((brandRes.data || []).map(b => b.brand));
+    setProfileLoading(true);
+    try {
+      const [profileRes, roleRes, brandRes] = await Promise.all([
+        supabase.from('profiles').select('full_name, status, branch_id').eq('user_id', userId).single(),
+        supabase.from('user_roles').select('role').eq('user_id', userId).single(),
+        supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
+      ]);
+      setProfile(profileRes.data || null);
+      setRole((roleRes.data?.role as AppRole) || null);
+      setBrandAssignments((brandRes.data || []).map(b => b.brand));
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setSessionLoading(false);
         if (session?.user) {
           setTimeout(() => fetchUserData(session.user.id), 0);
         } else {
@@ -53,17 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(null);
           setBrandAssignments([]);
         }
-        setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setSessionLoading(false);
       if (session?.user) {
         fetchUserData(session.user.id);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -104,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAreaManager: role === 'area_manager',
         isCkManager: role === 'ck_manager',
         brandAssignments,
-        loading,
+        loading: sessionLoading || profileLoading,
+        sessionLoading,
+        profileLoading,
         signIn,
         signOut,
         resetPassword,
