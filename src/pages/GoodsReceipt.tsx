@@ -534,8 +534,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             </div>
           </div>
 
-          {/* SKU spreadsheet table */}
-          {preloadedRows.length > 0 && (
+          {/* SKU spreadsheet table — supplier mode only */}
+          {!isSkuMode && preloadedRows.length > 0 && (
             <div className="overflow-y-auto max-h-[65vh]">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
