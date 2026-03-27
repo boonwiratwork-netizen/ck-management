@@ -616,9 +616,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <h2 className="text-lg font-semibold">Import Sales Data</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Select value={selectedProfileId} onValueChange={handleProfileChange}>
-                <SelectTrigger className="h-10 w-52">
+                <SelectTrigger className="h-10 w-44">
                   <SelectValue placeholder="Select POS Profile" />
                 </SelectTrigger>
                 <SelectContent>
