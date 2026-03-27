@@ -100,7 +100,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   // ── Shared aggregation logic ────────────────────────────────────────────
 
   const aggregate = useCallback((cached: CachedData, bowlsOverrides: Record<string, number> | null) => {
-    const { allBranches, forecastByBranch, salesByBranch, menuCodeToId, bomByMenu, smSkuMap } = cached;
+    const { allBranches, forecastByBranch, salesByBranch, menuCodeToId, bomByMenu, smSkuMap, menuMixByBranch, daysWithSalesByBranch } = cached;
 
     const weeklyDemandBySku = new Map<string, number>();
     const resultBranches: PlanningBranch[] = [];
@@ -116,8 +116,9 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       let forecastSource: PlanningBranch["forecastSource"] = "historical";
       let misconfigured = false;
 
-      // ── Determine bowlsPerDay ───────────────────────────────────────
+      // ── Determine bowlsPerDay & weekly demand ───────────────────────
       if (forecast) {
+        // Forecast branch — use bowls/day × grams_per_bowl as before
         if (forecast.forecast_unit === "thb_per_day") {
           if (!avgPrice || avgPrice <= 0) {
             misconfigured = true;
@@ -129,55 +130,82 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
           bowlsPerDay = forecast.forecast_value;
           forecastSource = "forecast";
         }
+
+        // Apply override if provided
+        if (bowlsOverrides && branchId in bowlsOverrides) {
+          bowlsPerDay = bowlsOverrides[branchId];
+        }
+
+        // For forecast branches with assumption_mix, use grams_per_bowl approach
+        if (forecast.assumption_mix && !hasSalesHistory) {
+          forecastSource = "assumption";
+          const mix = forecast.assumption_mix as Record<string, number>;
+          if (!misconfigured) {
+            for (const [skuId, gpb] of Object.entries(mix)) {
+              if (typeof gpb === "number") {
+                const weeklyG = gpb * bowlsPerDay * 7;
+                weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
+              }
+            }
+          }
+        } else if (hasSalesHistory && !misconfigured) {
+          // Forecast branch WITH sales history — use menu mix for SM demand
+          const mixMap = menuMixByBranch.get(branchId);
+          if (mixMap) {
+            for (const [menuId, ratio] of mixMap) {
+              const ingredients = bomByMenu.get(menuId);
+              if (!ingredients) continue;
+              for (const ing of ingredients) {
+                const weeklyG = ratio * bowlsPerDay * 7 * ing.effectiveQty;
+                weeklyDemandBySku.set(ing.skuId, (weeklyDemandBySku.get(ing.skuId) ?? 0) + weeklyG);
+              }
+            }
+          }
+        }
       } else if (hasSalesHistory) {
-        const totalQty = branchSales.reduce((sum, s) => sum + s.qty, 0);
-        bowlsPerDay = totalQty / 7;
+        // ── Historical branch — direct SM grams from sales × BOM ──────
         forecastSource = "historical";
-      }
+        const daysWithSales = daysWithSalesByBranch.get(branchId) ?? 7;
 
-      // Apply override if provided
-      if (bowlsOverrides && branchId in bowlsOverrides) {
-        bowlsPerDay = bowlsOverrides[branchId];
-      }
-
-      // ── SM demand for this branch ───────────────────────────────────
-      const smGramsPerBowl = new Map<string, number>();
-
-      if (hasSalesHistory) {
-        let totalBowls = 0;
+        // Sum SM grams directly and count ramen bowls
         const totalSmGrams = new Map<string, number>();
+        let totalRamenBowls = 0;
 
         for (const sale of branchSales) {
           const menuId = menuCodeToId.get(sale.menu_code);
           if (!menuId) continue;
-          totalBowls += sale.qty;
           const ingredients = bomByMenu.get(menuId);
           if (!ingredients) continue;
+          // This menu has SM BOM entries — it's a "ramen" menu
+          totalRamenBowls += sale.qty;
           for (const ing of ingredients) {
             totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + sale.qty * ing.effectiveQty);
           }
         }
 
-        if (totalBowls > 0) {
-          for (const [skuId, grams] of totalSmGrams) {
-            smGramsPerBowl.set(skuId, grams / totalBowls);
-          }
-        }
-      } else if (forecast && forecast.assumption_mix) {
-        forecastSource = "assumption";
-        const mix = forecast.assumption_mix as Record<string, number>;
-        for (const [skuId, gpb] of Object.entries(mix)) {
-          if (typeof gpb === "number") {
-            smGramsPerBowl.set(skuId, gpb);
-          }
-        }
-      }
+        bowlsPerDay = daysWithSales > 0 ? totalRamenBowls / daysWithSales : 0;
 
-      // Weekly demand = grams_per_bowl × bowls_per_day × 7
-      if (!misconfigured) {
-        for (const [skuId, gpb] of smGramsPerBowl) {
-          const weeklyG = gpb * bowlsPerDay * 7;
-          weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
+        // Apply override if provided — recalculate using menu mix ratios
+        if (bowlsOverrides && branchId in bowlsOverrides) {
+          const overrideBowls = bowlsOverrides[branchId];
+          bowlsPerDay = overrideBowls;
+          const mixMap = menuMixByBranch.get(branchId);
+          if (mixMap) {
+            for (const [menuId, ratio] of mixMap) {
+              const ingredients = bomByMenu.get(menuId);
+              if (!ingredients) continue;
+              for (const ing of ingredients) {
+                const weeklyG = ratio * overrideBowls * 7 * ing.effectiveQty;
+                weeklyDemandBySku.set(ing.skuId, (weeklyDemandBySku.get(ing.skuId) ?? 0) + weeklyG);
+              }
+            }
+          }
+        } else {
+          // No override — weekly demand = (totalGrams / daysWithSales) × 7
+          for (const [skuId, grams] of totalSmGrams) {
+            const weeklyG = daysWithSales > 0 ? (grams / daysWithSales) * 7 : 0;
+            weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
+          }
         }
       }
 
