@@ -369,6 +369,35 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       }
       setMenuBomByMenuId(derivedMenuBom);
 
+      // ── Precompute per-branch menu mix ratios & days with sales ──────
+      const menuMixByBranch = new Map<string, Map<string, number>>();
+      const daysWithSalesByBranch = new Map<string, number>();
+
+      for (const [branchId, sales] of salesByBranch) {
+        // Count distinct sale dates
+        const dateSet = new Set(sales.map(s => s.sale_date));
+        daysWithSalesByBranch.set(branchId, dateSet.size);
+
+        // Count ramen bowls per menu (menus with SM BOM entries)
+        const qtyByMenu = new Map<string, number>();
+        let totalRamenBowls = 0;
+        for (const sale of sales) {
+          const menuId = menuCodeToId.get(sale.menu_code);
+          if (!menuId) continue;
+          if (!bomByMenu.has(menuId)) continue;
+          qtyByMenu.set(menuId, (qtyByMenu.get(menuId) ?? 0) + sale.qty);
+          totalRamenBowls += sale.qty;
+        }
+
+        if (totalRamenBowls > 0) {
+          const ratioMap = new Map<string, number>();
+          for (const [menuId, qty] of qtyByMenu) {
+            ratioMap.set(menuId, qty / totalRamenBowls);
+          }
+          menuMixByBranch.set(branchId, ratioMap);
+        }
+      }
+
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
@@ -378,6 +407,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
         bomByMenu,
         smSkuMap,
         menuBrandMap,
+        menuMixByBranch,
+        daysWithSalesByBranch,
       };
       cachedDataRef.current = cached;
 
