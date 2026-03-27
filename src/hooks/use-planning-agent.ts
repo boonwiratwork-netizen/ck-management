@@ -71,6 +71,11 @@ interface CachedData {
   bomByMenu: Map<string, Array<{ skuId: string; effectiveQty: number }>>;
   smSkuMap: Map<string, { code: string; name: string }>;
   menuBrandMap: Map<string, string>; // menuId → brand_name
+  // Per-branch ramen menu mix ratios for override recalculation
+  // branchId → Map<menuId, ratio> where ratio = menuQty / totalRamenBowls
+  menuMixByBranch: Map<string, Map<string, number>>;
+  // Per-branch days with sales for scaling
+  daysWithSalesByBranch: Map<string, number>;
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
