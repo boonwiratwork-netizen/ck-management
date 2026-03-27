@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toLocalDateStr } from '@/lib/utils';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toLocalDateStr } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ export interface PlanningBranch {
   branchId: string;
   branchName: string;
   brandName: string;
-  forecastSource: 'forecast' | 'historical' | 'assumption';
+  forecastSource: "forecast" | "historical" | "assumption";
   bowlsPerDay: number;
   forecastValue?: number;
   forecastUnit?: string;
@@ -85,17 +85,16 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [smSkusByBrand, setSmSkusByBrand] = useState<Record<string, SmSkuInfo[]>>({});
   const [menusByBrand, setMenusByBrand] = useState<Record<string, MenuInfo[]>>({});
-  const [menuBomByMenuId, setMenuBomByMenuId] = useState<Record<string, Array<{ skuId: string; effectiveQty: number }>>>({});
+  const [menuBomByMenuId, setMenuBomByMenuId] = useState<
+    Record<string, Array<{ skuId: string; effectiveQty: number }>>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const cachedDataRef = useRef<CachedData | null>(null);
 
   // ── Shared aggregation logic ────────────────────────────────────────────
 
-  const aggregate = useCallback((
-    cached: CachedData,
-    bowlsOverrides: Record<string, number> | null,
-  ) => {
+  const aggregate = useCallback((cached: CachedData, bowlsOverrides: Record<string, number> | null) => {
     const { allBranches, forecastByBranch, salesByBranch, menuCodeToId, bomByMenu, smSkuMap } = cached;
 
     const weeklyDemandBySku = new Map<string, number>();
@@ -109,26 +108,26 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const avgPrice = br.avg_selling_price ?? 0;
 
       let bowlsPerDay = 0;
-      let forecastSource: PlanningBranch['forecastSource'] = 'historical';
+      let forecastSource: PlanningBranch["forecastSource"] = "historical";
       let misconfigured = false;
 
       // ── Determine bowlsPerDay ───────────────────────────────────────
       if (forecast) {
-        if (forecast.forecast_unit === 'thb_per_day') {
+        if (forecast.forecast_unit === "thb_per_day") {
           if (!avgPrice || avgPrice <= 0) {
             misconfigured = true;
           } else {
             bowlsPerDay = forecast.forecast_value / avgPrice;
-            forecastSource = 'forecast';
+            forecastSource = "forecast";
           }
         } else {
           bowlsPerDay = forecast.forecast_value;
-          forecastSource = 'forecast';
+          forecastSource = "forecast";
         }
       } else if (hasSalesHistory) {
         const totalQty = branchSales.reduce((sum, s) => sum + s.qty, 0);
         bowlsPerDay = totalQty / 7;
-        forecastSource = 'historical';
+        forecastSource = "historical";
       }
 
       // Apply override if provided
@@ -160,10 +159,10 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
           }
         }
       } else if (forecast && forecast.assumption_mix) {
-        forecastSource = 'assumption';
+        forecastSource = "assumption";
         const mix = forecast.assumption_mix as Record<string, number>;
         for (const [skuId, gpb] of Object.entries(mix)) {
-          if (typeof gpb === 'number') {
+          if (typeof gpb === "number") {
             smGramsPerBowl.set(skuId, gpb);
           }
         }
@@ -192,7 +191,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     }
 
     // ── Stock balance map ───────────────────────────────────────────────
-    const stockMap = new Map(smStockRef.current.map(s => [s.skuId, s.currentStock]));
+    const stockMap = new Map(smStockRef.current.map((s) => [s.skuId, s.currentStock]));
 
     // ── Build suggestions ───────────────────────────────────────────────
     const resultSuggestions: PlanSuggestion[] = [];
@@ -236,12 +235,20 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const sevenAgoStr = toLocalDateStr(sevenAgo);
 
       const [branchRes, forecastRes, salesRes, menuRes, bomRes, skuRes] = await Promise.all([
-        supabase.from('branches').select('id, branch_name, brand_name, avg_selling_price').eq('status', 'Active'),
-        supabase.from('branch_forecasts').select('*').gte('expires_at', todayStr).order('created_at', { ascending: false }),
-        supabase.from('sales_entries').select('menu_code, qty, branch_id, sale_date').gte('sale_date', sevenAgoStr).lte('sale_date', todayStr),
-        supabase.from('menus').select('id, menu_code, menu_name, brand_name'),
-        supabase.from('menu_bom').select('menu_id, sku_id, effective_qty'),
-        supabase.from('skus').select('id, sku_id, name, type').eq('type', 'SM'),
+        supabase.from("branches").select("id, branch_name, brand_name, avg_selling_price").eq("status", "Active"),
+        supabase
+          .from("branch_forecasts")
+          .select("*")
+          .gte("expires_at", todayStr)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("sales_entries")
+          .select("menu_code, qty, branch_id, sale_date")
+          .gte("sale_date", sevenAgoStr)
+          .lte("sale_date", todayStr),
+        supabase.from("menus").select("id, menu_code, menu_name, brand_name"),
+        supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
+        supabase.from("skus").select("id, sku_id, name, type").eq("type", "SM"),
       ]);
 
       if (branchRes.error) throw branchRes.error;
@@ -259,12 +266,12 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const smSkus = skuRes.data ?? [];
 
       // ── Lookup maps ─────────────────────────────────────────────────────
-      const smSkuIdSet = new Set(smSkus.map(s => s.id));
-      const smSkuMap = new Map(smSkus.map(s => [s.id, { code: s.sku_id, name: s.name }]));
-      const menuCodeToId = new Map(allMenus.map(m => [m.menu_code, m.id]));
-      const menuBrandMap = new Map(allMenus.map(m => [m.id, m.brand_name]));
+      const smSkuIdSet = new Set(smSkus.map((s) => s.id));
+      const smSkuMap = new Map(smSkus.map((s) => [s.id, { code: s.sku_id, name: s.name }]));
+      const menuCodeToId = new Map(allMenus.map((m) => [m.menu_code, m.id]));
+      const menuBrandMap = new Map(allMenus.map((m) => [m.id, m.brand_name]));
 
-      const smBom = allBom.filter(b => smSkuIdSet.has(b.sku_id));
+      const smBom = allBom.filter((b) => smSkuIdSet.has(b.sku_id));
       const bomByMenu = new Map<string, Array<{ skuId: string; effectiveQty: number }>>();
       for (const b of smBom) {
         const arr = bomByMenu.get(b.menu_id) ?? [];
@@ -298,7 +305,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const derivedSmSkusByBrand: Record<string, SmSkuInfo[]> = {};
       for (const [brand, skuIds] of brandSkuSet) {
         derivedSmSkusByBrand[brand] = Array.from(skuIds)
-          .map(id => {
+          .map((id) => {
             const info = smSkuMap.get(id);
             return info ? { skuId: id, skuCode: info.code, skuName: info.name } : null;
           })
@@ -312,6 +319,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       for (const m of allMenus) {
         const brand = m.brand_name;
         if (!brand) continue;
+        if (!bomByMenu.has(m.id)) continue;
         const arr = derivedMenusByBrand[brand] ?? [];
         arr.push({ menuId: m.id, menuCode: m.menu_code, menuName: m.menu_name });
         derivedMenusByBrand[brand] = arr;
@@ -345,23 +353,38 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       setBranches(resultBranches);
       setSuggestions(resultSuggestions);
     } catch (err: any) {
-      setError(err.message ?? 'Failed to calculate planning data');
+      setError(err.message ?? "Failed to calculate planning data");
     } finally {
       setIsLoading(false);
     }
   }, [aggregate]);
 
-  useEffect(() => { calculate(); }, [calculate]);
+  useEffect(() => {
+    calculate();
+  }, [calculate]);
 
   // ── Recalculate with bowlsPerDay overrides (no re-fetch) ──────────────
 
-  const recalculateWithOverrides = useCallback((overrides: Record<string, number>) => {
-    const cached = cachedDataRef.current;
-    if (!cached) return;
-    const { resultBranches, resultSuggestions } = aggregate(cached, overrides);
-    setBranches(resultBranches);
-    setSuggestions(resultSuggestions);
-  }, [aggregate]);
+  const recalculateWithOverrides = useCallback(
+    (overrides: Record<string, number>) => {
+      const cached = cachedDataRef.current;
+      if (!cached) return;
+      const { resultBranches, resultSuggestions } = aggregate(cached, overrides);
+      setBranches(resultBranches);
+      setSuggestions(resultSuggestions);
+    },
+    [aggregate],
+  );
 
-  return { branches, suggestions, smSkusByBrand, menusByBrand, menuBomByMenuId, isLoading, error, refetch: calculate, recalculateWithOverrides };
+  return {
+    branches,
+    suggestions,
+    smSkusByBrand,
+    menusByBrand,
+    menuBomByMenuId,
+    isLoading,
+    error,
+    refetch: calculate,
+    recalculateWithOverrides,
+  };
 }
