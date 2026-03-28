@@ -996,7 +996,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   />
                 </div>
                 <div className="w-24">
-                  <label className="text-xs text-muted-foreground">Unit Price</label>
+                  <label className="text-xs text-muted-foreground">{t("se.unitPriceFieldLabel")}</label>
                   <div
                     className={cn(
                       "h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm tabular-nums",
