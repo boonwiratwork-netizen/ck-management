@@ -629,7 +629,7 @@ export default function TransferRequestPage() {
             {effectiveBranchId && (
               <div className="relative" ref={supplierDropdownRef}>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Supplier <span className="text-destructive">*</span>
+                  {t("tr.supplierLabel")} <span className="text-destructive">*</span>
                 </label>
                 <button
                   type="button"
