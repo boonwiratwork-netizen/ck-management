@@ -733,7 +733,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "gr.history": { th: "ประวัติการรับของ", en: "GR HISTORY" },
   "gr.showingReceipts": { th: "แสดง {a} จาก {b} รายการ", en: "Showing {a} of {b} receipts" },
   "gr.searchSkuSupplier": { th: "ค้นหา SKU หรือซัพพลายเออร์...", en: "Search SKU or supplier..." },
-  "gr.noReceiptsFound": { th: "ไม่พบรายการรับของ", en: "No receipts found" },
   "gr.allSuppliers": { th: "ทุกซัพพลายเออร์", en: "All suppliers" },
   "gr.modeReceiveBySku": { th: "รับตาม SKU", en: "Receive by SKU" },
   "gr.modeReceiveBySupplier": { th: "รับตามซัพพลายเออร์", en: "Receive by Supplier" },
@@ -826,8 +825,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "tr.cancel": { th: "ยกเลิก", en: "Cancel" },
   "tr.saveDraft": { th: "บันทึกแบบร่าง", en: "Save Draft" },
   "tr.supplierLabel": { th: "ซัพพลายเออร์", en: "Supplier" },
-  "tr.colRop": { th: "ROP", en: "ROP" },
-  "tr.colParstock": { th: "PARSTOCK", en: "PARSTOCK" },
 
   // Branch Receipt additions
   "br.confirmReceipt": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
