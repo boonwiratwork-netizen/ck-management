@@ -1022,7 +1022,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                     <CheckCircle2 className="w-4 h-4 text-success animate-in fade-in zoom-in" />
                   ) : (
                     <>
-                      <Plus className="w-4 h-4" /> Add
+                      <Plus className="w-4 h-4" /> {t("se.addBtn")}
                     </>
                   )}
                 </Button>
