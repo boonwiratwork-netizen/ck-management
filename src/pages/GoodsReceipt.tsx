@@ -936,7 +936,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
                   className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  <Plus className="w-4 h-4" /> Receive by Supplier
+                  <Plus className="w-4 h-4" /> {t("gr.receiveBySupplier")}
                 </button>
                 {supplierDropdownOpen && (
                   <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
