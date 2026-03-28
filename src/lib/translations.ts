@@ -765,7 +765,7 @@ const translations: Record<string, Record<Lang, string>> = {
   },
   "se.noRecentEntries": { th: "ยังไม่มีรายการ", en: "No recent entries" },
   "se.pressApplyHint": { th: "กด Apply เพื่อโหลดประวัติ", en: "Press Apply to load filtered history" },
-  "se.manualEntryTitle": { th: "+ บันทึกด้วยมือ", en: "+ Manual Entry" },
+  "se.manualEntryTitle": { th: "บันทึกทีละรายการ", en: "Manual Entry" },
   "se.dateLabel": { th: "วันที่", en: "Date" },
   "se.branchFieldLabel": { th: "สาขา", en: "Branch" },
   "se.menuFieldLabel": { th: "เมนู", en: "Menu" },
