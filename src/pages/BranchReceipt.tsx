@@ -1253,7 +1253,7 @@ export default function BranchReceiptPage({
                   disabled={savableCount === 0 || saving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
+                   {saving ? "Saving..." : t("br.confirmReceipt").replace("{n}", String(savableCount))}
                 </Button>
               </div>
             </div>
