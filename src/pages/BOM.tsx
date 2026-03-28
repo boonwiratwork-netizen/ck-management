@@ -1217,7 +1217,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                   <DollarSign className="w-3 h-3" />
-                  Cost per Gram
+                  Cost per {selectedSkuUom}
                 </p>
                 <p className="text-xl font-bold text-primary font-mono">
                   ฿{(hasByproducts ? allocatedMainCpg : multiStepData.costPerGram).toFixed(4)}
