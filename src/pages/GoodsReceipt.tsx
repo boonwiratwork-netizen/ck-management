@@ -1002,7 +1002,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   setAdHocRows([{ tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
                 }}
               >
-                <Search className="w-4 h-4 mr-1" /> Receive by SKU
+                <Search className="w-4 h-4 mr-1" /> {t("gr.receiveBySku")}
               </Button>
             </div>
           </div>
