@@ -798,7 +798,7 @@ export default function TransferOrderPage({
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setStandaloneOpen(false)}>
-                Cancel
+                {t("to.cancel")}
               </Button>
               <Button onClick={handleCreateStandalone} disabled={!standaloneBranch || !standaloneDate}>
                 {t("to.createTO")}
