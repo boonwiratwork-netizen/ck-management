@@ -781,7 +781,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "br.receive": { th: "รับของ", en: "Receive" },
   "br.receiptHistory": { th: "ประวัติการรับของ", en: "RECEIPT HISTORY" },
   "br.noReceiptsFound": { th: "ไม่พบรายการรับของ", en: "No receipts found" },
-  "br.newReceipt": { th: "+ รับของใหม่", en: "+ New Receipt" },
+  "br.newReceipt": { th: "เพิ่มรายการรับของ", en: "New Receipt" },
 
   // ─── Production (missing keys) ───
   "prod.planningMode": { th: "วางแผน", en: "Planning" },
