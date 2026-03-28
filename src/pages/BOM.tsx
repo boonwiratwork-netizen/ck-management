@@ -831,7 +831,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </div>
             <div className="text-center p-4 rounded-lg bg-[#E6F1FB]">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
-              <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
+              <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)} {selectedSkuUom}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-[#EAF3DE]">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
