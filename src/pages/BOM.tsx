@@ -1622,7 +1622,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     {headerForm.bomMode === "simple" && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-muted-foreground">Batch Size (grams)</label>
+                          <label className="text-xs font-medium text-muted-foreground">Batch Size ({getSkuById(headerForm.smSkuId)?.usageUom ?? "g"})</label>
                           <Input
                             type="number"
                             value={headerForm.batchSize || ""}
