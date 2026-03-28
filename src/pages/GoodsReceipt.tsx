@@ -1012,7 +1012,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       {/* ── GR History — separated by divider ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">GR History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("gr.history")}</span>
       </div>
 
       <div className="space-y-4">
