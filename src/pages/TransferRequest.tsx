@@ -569,7 +569,7 @@ export default function TransferRequestPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCloseForm}>
-                <X className="w-4 h-4 mr-1" /> Cancel
+                <X className="w-4 h-4 mr-1" /> {t("tr.cancel")}
               </Button>
               <Button variant="outline" size="sm" disabled>
                 Save Draft
