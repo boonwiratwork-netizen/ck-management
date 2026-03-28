@@ -820,7 +820,7 @@ export default function TransferOrderPage({
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCancelForm}>
-                Cancel
+                {t("to.cancel")}
               </Button>
               <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={formSaving}>
                 <Save className="w-4 h-4 mr-1" />
