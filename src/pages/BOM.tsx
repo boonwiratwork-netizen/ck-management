@@ -937,7 +937,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-bold font-mono text-primary">฿{simpleTotalCost.toFixed(2)}</span>
               </p>
               <p className="text-sm">
-                Cost/gram: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span>
+                Cost/{selectedSkuUom}: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span>
               </p>
             </div>
           )}
