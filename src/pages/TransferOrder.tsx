@@ -1361,7 +1361,7 @@ export default function TransferOrderPage({
                 <SelectValue placeholder="All branches" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All branches</SelectItem>
+                <SelectItem value="__all__">{t("to.allBranches")}</SelectItem>
                 {activeBranches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.branchName}
