@@ -928,7 +928,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   />
                 </div>
                 <div className="w-48">
-                  <label className="text-xs text-muted-foreground">Branch</label>
+                  <label className="text-xs text-muted-foreground">{t("se.branchFieldLabel")}</label>
                   <Select value={manualBranch} onValueChange={setManualBranch}>
                     <SelectTrigger tabIndex={2}>
                       <SelectValue placeholder="Select branch" />
