@@ -1358,7 +1358,7 @@ export default function TransferOrderPage({
             <label className="text-sm text-muted-foreground">{t("col.branch")}</label>
             <Select value={filterBranch || "__all__"} onValueChange={(v) => setFilterBranch(v === "__all__" ? "" : v)}>
               <SelectTrigger className="w-[200px] h-9">
-                <SelectValue placeholder="All branches" />
+                <SelectValue placeholder={t("to.allBranches")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">{t("to.allBranches")}</SelectItem>
