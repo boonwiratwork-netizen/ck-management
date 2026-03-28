@@ -2483,7 +2483,7 @@ export default function BranchReceiptPage({
       {/* ── 5. RECEIPT HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Receipt History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("br.receiptHistory")}</span>
       </div>
 
       <div className="space-y-4">
