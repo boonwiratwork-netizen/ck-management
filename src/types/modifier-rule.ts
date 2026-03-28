@@ -1,4 +1,4 @@
-export type ModifierRuleType = 'add' | 'swap' | 'submenu';
+export type ModifierRuleType = "add" | "swap" | "submenu";
 
 export interface ModifierRule {
   id: string;
@@ -8,23 +8,24 @@ export interface ModifierRule {
   uom: string;
   description: string;
   isActive: boolean;
-  menuId: string | null;       // kept for backward compat, but deprecated
-  menuIds: string[];            // NEW: from junction table
+  menuId: string | null; // kept for backward compat, but deprecated
+  menuIds: string[]; // NEW: from junction table
   ruleType: ModifierRuleType;
   swapSkuId: string | null;
   submenuId: string | null;
 }
 
-export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, 'id'> = {
-  keyword: '',
-  skuId: '',
+export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, "id"> = {
+  keyword: "",
+  skuId: "",
   qtyPerMatch: 0,
-  uom: '',
-  description: '',
+  uom: "",
+  description: "",
   isActive: true,
   menuId: null,
   menuIds: [],
-  ruleType: 'add',
+  ruleType: "add",
   swapSkuId: null,
   submenuId: null,
+  branchIds: [],
 };
