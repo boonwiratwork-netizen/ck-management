@@ -909,7 +909,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           {/* Footer bar */}
           <div className="flex items-center justify-between px-5 py-3 bg-muted/30 border-t">
             <div className="text-sm text-muted-foreground">
-              Total Value:{" "}
+               Total Value:{" "}
               <span className="font-mono font-semibold text-foreground">
                 ฿{totalActualValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
