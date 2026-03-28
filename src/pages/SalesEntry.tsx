@@ -615,7 +615,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h2 className="text-lg font-semibold">Import Sales Data</h2>
+            <h2 className="text-lg font-semibold">{t("se.importSalesData")}</h2>
             <div className="flex items-center gap-2 min-w-0">
               <Select value={selectedProfileId} onValueChange={handleProfileChange}>
                 <SelectTrigger className="h-10 w-44">
@@ -908,7 +908,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
             <CardHeader className="cursor-pointer hover:bg-accent transition-colors">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <Plus className="w-5 h-5" />
-                Manual Entry
+                {t("se.manualEntryTitle")}
                 <ChevronDown className={cn("w-4 h-4 ml-auto transition-transform", manualOpen && "rotate-180")} />
               </CardTitle>
             </CardHeader>
@@ -921,14 +921,14 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                     value={manualDate ? new Date(manualDate + "T00:00:00") : undefined}
                     onChange={(d) => setManualDate(d ? toLocalDateStr(d) : "")}
                     defaultToday
-                    label="Date"
+                    label={t("se.dateLabel")}
                     required
                     labelPosition="above"
                     align="start"
                   />
                 </div>
                 <div className="w-48">
-                  <label className="text-xs text-muted-foreground">Branch</label>
+                  <label className="text-xs text-muted-foreground">{t("se.branchFieldLabel")}</label>
                   <Select value={manualBranch} onValueChange={setManualBranch}>
                     <SelectTrigger tabIndex={2}>
                       <SelectValue placeholder="Select branch" />
@@ -943,7 +943,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   </Select>
                 </div>
                 <div className="w-64 relative">
-                  <label className="text-xs text-muted-foreground">Menu</label>
+                  <label className="text-xs text-muted-foreground">{t("se.menuFieldLabel")}</label>
                   <Input
                     ref={menuInputRef}
                     placeholder="Search code or name..."
@@ -985,7 +985,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   )}
                 </div>
                 <div className="w-20">
-                  <label className="text-xs text-muted-foreground">Qty</label>
+                  <label className="text-xs text-muted-foreground">{t("se.qtyFieldLabel")}</label>
                   <Input
                     type="number"
                     value={manualQty}
@@ -996,7 +996,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   />
                 </div>
                 <div className="w-24">
-                  <label className="text-xs text-muted-foreground">Unit Price</label>
+                  <label className="text-xs text-muted-foreground">{t("se.unitPriceFieldLabel")}</label>
                   <div
                     className={cn(
                       "h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm tabular-nums",
@@ -1007,7 +1007,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   </div>
                 </div>
                 <div className="w-28">
-                  <label className="text-xs text-muted-foreground">Net Amount</label>
+                  <label className="text-xs text-muted-foreground">{t("se.netAmountFieldLabel")}</label>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm font-medium tabular-nums">
                     {manualMenuId ? `฿${manualNetAmount.toFixed(2)}` : "—"}
                   </div>
@@ -1022,7 +1022,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                     <CheckCircle2 className="w-4 h-4 text-success animate-in fade-in zoom-in" />
                   ) : (
                     <>
-                      <Plus className="w-4 h-4" /> Add
+                      <Plus className="w-4 h-4" /> {t("se.addBtn")}
                     </>
                   )}
                 </Button>
@@ -1118,7 +1118,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
           {/* Preview banner — before Apply */}
           {!appliedOnce && !loading && (
             <div className="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
-              Showing last 25 recent entries. Select filters and press Apply to load full history.
+              {t("se.recentEntriesBanner")}
             </div>
           )}
 

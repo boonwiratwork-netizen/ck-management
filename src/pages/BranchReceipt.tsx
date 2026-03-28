@@ -922,7 +922,7 @@ export default function BranchReceiptPage({
             }}
             disabled={!branchId}
           >
-            <Plus className="w-4 h-4 mr-1" /> New Receipt
+            <Plus className="w-4 h-4 mr-1" /> {t("br.newReceipt")}
           </Button>
         )}
       </div>
@@ -933,7 +933,7 @@ export default function BranchReceiptPage({
           <div className="flex items-center gap-2">
             <StatusDot status="green" size="md" />
             <span className="text-sm font-semibold">
-              {pendingTOCount} Delivery{pendingTOCount !== 1 ? "ies" : ""} Pending
+              {t("br.deliveriesPending").replace("{n}", String(pendingTOCount))}
             </span>
           </div>
           <div className="space-y-2">
@@ -953,7 +953,7 @@ export default function BranchReceiptPage({
                     setSelectedTOId(to.id);
                   }}
                 >
-                  Receive
+                   {t("br.receive")}
                 </Button>
               </div>
             ))}
@@ -1191,7 +1191,7 @@ export default function BranchReceiptPage({
             <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
               <div className="flex items-center gap-4">
                 <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
-                <span className="text-sm font-medium">Batch Receive</span>
+                <span className="text-sm font-medium">{t("br.batchReceive")}</span>
                 {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
               </div>
               <div className="flex items-center gap-2">
@@ -1205,7 +1205,7 @@ export default function BranchReceiptPage({
                     setSavedCount(null);
                   }}
                 >
-                  <X className="w-4 h-4 mr-1" /> Cancel
+                   <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
                 </Button>
                 <Button
                   size="sm"
@@ -1214,7 +1214,7 @@ export default function BranchReceiptPage({
                   disabled={batchSavableCount === 0 || batchSaving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {batchSaving ? "Saving..." : `Confirm All (${batchSavableCount})`}
+                   {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
                 </Button>
               </div>
             </div>
@@ -1241,10 +1241,10 @@ export default function BranchReceiptPage({
                     setSavedCount(null);
                   }}
                 >
-                  <X className="w-4 h-4 mr-1" /> Cancel
+                  <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
                 </Button>
                 <Button variant="outline" size="sm" disabled={savableCount === 0}>
-                  <Save className="w-4 h-4 mr-1" /> Save Draft
+                  <Save className="w-4 h-4 mr-1" /> {t("to.saveDraft")}
                 </Button>
                 <Button
                   size="sm"
@@ -1253,7 +1253,7 @@ export default function BranchReceiptPage({
                   disabled={savableCount === 0 || saving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
+                   {saving ? "Saving..." : t("br.confirmReceipt").replace("{n}", String(savableCount))}
                 </Button>
               </div>
             </div>
@@ -2407,7 +2407,7 @@ export default function BranchReceiptPage({
           {isBatchMode ? (
             <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
                 <span className="text-lg font-heading font-bold">
                   ฿{batchTotalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
@@ -2424,14 +2424,14 @@ export default function BranchReceiptPage({
                   disabled={batchSavableCount === 0 || batchSaving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {batchSaving ? "Saving..." : `Confirm All (${batchSavableCount})`}
+                  {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
                 </Button>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
                 <span className="text-lg font-heading font-bold">
                   ฿
                   {(isCKSupplier
@@ -2456,7 +2456,7 @@ export default function BranchReceiptPage({
                   disabled={savableCount === 0 || saving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {saving ? "Saving..." : `Confirm Receipt (${savableCount})`}
+                  {saving ? "Saving..." : t("br.confirmReceipt").replace("{n}", String(savableCount))}
                 </Button>
               </div>
             </div>
@@ -2483,7 +2483,7 @@ export default function BranchReceiptPage({
       {/* ── 5. RECEIPT HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Receipt History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("br.receiptHistory")}</span>
       </div>
 
       <div className="space-y-4">
@@ -2704,7 +2704,7 @@ export default function BranchReceiptPage({
                 {filteredHistory.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
-                      No receipts found
+                      {t("br.noReceiptsFound")}
                     </td>
                   </tr>
                 )}
@@ -2716,19 +2716,19 @@ export default function BranchReceiptPage({
         {filteredHistory.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Actual Spend</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalActualSpend")}</p>
               <p className="text-2xl font-heading font-bold mt-1">
                 ฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Std Spend</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalStdSpend")}</p>
               <p className="text-2xl font-heading font-bold mt-1">
                 ฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Variance</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalVariance")}</p>
               <p
                 className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? "text-destructive" : "text-success"}`}
               >

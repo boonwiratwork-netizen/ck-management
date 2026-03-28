@@ -406,7 +406,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         disabled={savableCount === 0 || isSaving}
         className="bg-success hover:bg-success/90 text-success-foreground"
       >
-        <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+        <CheckCircle className="w-4 h-4 mr-1" /> {t("gr.confirmReceiptBtn").replace("{n}", String(savableCount))}
       </Button>
       {savedCount !== null && (
         <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
@@ -443,7 +443,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 GR-{dateStr.replace(/-/g, "").slice(2)}
               </span>
               {isSkuMode ? (
-                <span className="text-sm font-medium text-foreground">Receive by SKU</span>
+                <span className="text-sm font-medium text-foreground">{t("gr.receiveBySku")}</span>
               ) : (
                 <>
                   <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
@@ -463,10 +463,10 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   setSavedCount(null);
                 }}
               >
-                Cancel
+                {t("gr.cancel")}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
+                <Save className="w-3.5 h-3.5 mr-1" /> {t("gr.saveDraft")}
               </Button>
               <ConfirmReceiptButton />
             </div>
@@ -909,7 +909,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           {/* Footer bar */}
           <div className="flex items-center justify-between px-5 py-3 bg-muted/30 border-t">
             <div className="text-sm text-muted-foreground">
-              Total Value:{" "}
+               {t("gr.totalValue")}{" "}
               <span className="font-mono font-semibold text-foreground">
                 ฿{totalActualValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
@@ -925,8 +925,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <PackageOpen className="w-7 h-7 text-success" />
             </div>
             <div className="text-center">
-              <p className="font-medium text-foreground">No active receipt</p>
-              <p className="text-sm text-muted-foreground mt-1">Choose a receiving mode to start</p>
+               <p className="font-medium text-foreground">{t("gr.noActiveReceipt")}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("gr.chooseMode")}</p>
             </div>
             <div className="flex items-center gap-3 mt-2">
               {/* Receive by Supplier — triggers existing supplier dropdown */}
@@ -936,7 +936,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   onClick={() => setSupplierDropdownOpen(!supplierDropdownOpen)}
                   className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-success-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  <Plus className="w-4 h-4" /> Receive by Supplier
+                  <Plus className="w-4 h-4" /> {t("gr.receiveBySupplier")}
                 </button>
                 {supplierDropdownOpen && (
                   <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 w-[280px] bg-popover border rounded-lg shadow-lg">
@@ -1002,7 +1002,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                   setAdHocRows([{ tempId: crypto.randomUUID(), skuId: "", qty: 0, actualTotal: 0, note: "" }]);
                 }}
               >
-                <Search className="w-4 h-4 mr-1" /> Receive by SKU
+                <Search className="w-4 h-4 mr-1" /> {t("gr.receiveBySku")}
               </Button>
             </div>
           </div>
@@ -1012,7 +1012,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
       {/* ── GR History — separated by divider ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">GR History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("gr.history")}</span>
       </div>
 
       <div className="space-y-4">

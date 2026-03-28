@@ -713,13 +713,13 @@ export default function ProductionPage({
                 className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("planning")}
               >
-                <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
+                <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> {t("prod.planningMode")}
               </button>
               <button
                 className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("recording")}
               >
-                <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
+                <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> {t("prod.recordingMode")}
               </button>
             </div>
 
@@ -766,15 +766,15 @@ export default function ProductionPage({
                     <th className={table.headerCell}>{t("prod.colName")}</th>
                     {/* 1C — UOM header centered */}
                     <th className={table.headerCellCenter}>UOM</th>
-                    <th className={table.headerCellNumeric}>g/batch</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colGBatch")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
-                    <th className={table.headerCellNumeric}>SUGGEST</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colSuggest")}</th>
                     <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
                       {t("prod.colPlanBatch")}
                     </th>
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
-                    <th className={table.headerCellNumeric}>COVER DAY NOW</th>
-                    <th className={table.headerCellNumeric}>COVER DAY AFTER</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colCoverDayNow")}</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colCoverDayAfter")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -996,7 +996,7 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG_exec")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colProduced")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colRemaining")}</th>
-                    <th className={table.headerCellCenter}>Progress</th>
+                    <th className={table.headerCellCenter}>{t("prod.colProgress")}</th>
                     <th className={table.headerCellCenter}>{t("prod.colActions")}</th>
                   </tr>
                 </thead>
@@ -1194,7 +1194,7 @@ export default function ProductionPage({
             </Badge>
           </div>
           {weekRecords.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("prod.noRecordsThisWeek")}</p>
           ) : (
             <div className={table.wrapper}>
               <table className={table.base}>
@@ -1275,7 +1275,7 @@ export default function ProductionPage({
                 {recordSku ? `${recordSku.skuId} — ${recordSku.name}` : "—"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Recording for Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
+                {t("prod.recordingForWeek").replace("{week}", String(weekNumber)).replace("{start}", formatDate(weekStart)).replace("{end}", formatDate(weekEnd))}
               </p>
             </div>
 
