@@ -1275,7 +1275,7 @@ export default function ProductionPage({
                 {recordSku ? `${recordSku.skuId} — ${recordSku.name}` : "—"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Recording for Week {weekNumber} · {formatDate(weekStart)} – {formatDate(weekEnd)}
+                {t("prod.recordingForWeek").replace("{week}", String(weekNumber)).replace("{start}", formatDate(weekStart)).replace("{end}", formatDate(weekEnd))}
               </p>
             </div>
 
