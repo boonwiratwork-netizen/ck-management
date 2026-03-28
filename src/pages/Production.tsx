@@ -996,7 +996,7 @@ export default function ProductionPage({
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG_exec")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colProduced")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colRemaining")}</th>
-                    <th className={table.headerCellCenter}>Progress</th>
+                    <th className={table.headerCellCenter}>{t("prod.colProgress")}</th>
                     <th className={table.headerCellCenter}>{t("prod.colActions")}</th>
                   </tr>
                 </thead>
