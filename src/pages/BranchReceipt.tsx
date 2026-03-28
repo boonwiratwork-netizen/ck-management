@@ -933,7 +933,7 @@ export default function BranchReceiptPage({
           <div className="flex items-center gap-2">
             <StatusDot status="green" size="md" />
             <span className="text-sm font-semibold">
-              {pendingTOCount} Delivery{pendingTOCount !== 1 ? "ies" : ""} Pending
+              {t("br.deliveriesPending").replace("{n}", String(pendingTOCount))}
             </span>
           </div>
           <div className="space-y-2">
