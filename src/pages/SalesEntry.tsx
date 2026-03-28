@@ -943,7 +943,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   </Select>
                 </div>
                 <div className="w-64 relative">
-                  <label className="text-xs text-muted-foreground">Menu</label>
+                  <label className="text-xs text-muted-foreground">{t("se.menuFieldLabel")}</label>
                   <Input
                     ref={menuInputRef}
                     placeholder="Search code or name..."
