@@ -2407,7 +2407,7 @@ export default function BranchReceiptPage({
           {isBatchMode ? (
             <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Value:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
                 <span className="text-lg font-heading font-bold">
                   ฿{batchTotalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
