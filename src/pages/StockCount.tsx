@@ -232,7 +232,7 @@ export default function StockCountPage({
               />
             </th>
             <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide !bg-foreground text-background">
-              Physical QTY (Usage UOM)
+              {t("sc.colPhysicalQty")}
             </th>
             <th
               className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
