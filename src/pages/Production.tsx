@@ -766,7 +766,7 @@ export default function ProductionPage({
                     <th className={table.headerCell}>{t("prod.colName")}</th>
                     {/* 1C — UOM header centered */}
                     <th className={table.headerCellCenter}>UOM</th>
-                    <th className={table.headerCellNumeric}>g/batch</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colGBatch")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
                     <th className={table.headerCellNumeric}>SUGGEST</th>
                     <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
