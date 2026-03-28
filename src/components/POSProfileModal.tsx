@@ -128,7 +128,7 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
           <DialogTitle>{profile ? "Edit POS Profile" : "New POS Profile"}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 pr-2">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
           <div className="space-y-4 pb-2">
             {/* Profile Name */}
             <div>
@@ -243,7 +243,7 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex-row justify-between sm:justify-between gap-2 pt-4 border-t">
           <div>
