@@ -2704,7 +2704,7 @@ export default function BranchReceiptPage({
                 {filteredHistory.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
-                      No receipts found
+                      {t("br.noReceiptsFound")}
                     </td>
                   </tr>
                 )}
