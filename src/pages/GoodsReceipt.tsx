@@ -925,8 +925,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <PackageOpen className="w-7 h-7 text-success" />
             </div>
             <div className="text-center">
-              <p className="font-medium text-foreground">No active receipt</p>
-              <p className="text-sm text-muted-foreground mt-1">Choose a receiving mode to start</p>
+               <p className="font-medium text-foreground">{t("gr.noActiveReceipt")}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("gr.chooseMode")}</p>
             </div>
             <div className="flex items-center gap-3 mt-2">
               {/* Receive by Supplier — triggers existing supplier dropdown */}
