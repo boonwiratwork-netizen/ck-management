@@ -953,7 +953,7 @@ export default function BranchReceiptPage({
                     setSelectedTOId(to.id);
                   }}
                 >
-                  Receive
+                   {t("br.receive")}
                 </Button>
               </div>
             ))}
