@@ -572,7 +572,7 @@ export default function TransferRequestPage() {
                 <X className="w-4 h-4 mr-1" /> {t("tr.cancel")}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Save Draft
+                {t("tr.saveDraft")}
               </Button>
               {isCKSelected ? (
                 <Button
