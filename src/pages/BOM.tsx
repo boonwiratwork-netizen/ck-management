@@ -823,7 +823,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <div className="grid grid-cols-4 gap-4 mt-4">
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Size</p>
-              <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()}g</p>
+              <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()} {selectedSkuUom}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
