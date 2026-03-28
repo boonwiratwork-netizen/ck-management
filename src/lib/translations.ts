@@ -758,7 +758,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "se.branchLabel": { th: "สาขา", en: "Branch" },
   "se.pasteBtn": { th: "วาง", en: "Paste" },
   "se.uploadCsvBtn": { th: "อัพโหลด CSV", en: "Upload CSV" },
-  "se.pastePlaceholder": { th: "วางข้อมูล POS ที่นี่ (Ctrl+V)...", en: "Paste POS data here (Ctrl+V)..." },
   "se.dropCsvHint": { th: "วางไฟล์ CSV ที่นี่ หรือคลิกเพื่อเลือกไฟล์", en: "Drop CSV file here or click to browse" },
   "se.recentEntriesBanner": {
     th: "แสดง 25 รายการล่าสุด กดใช้งานเพื่อดูประวัติทั้งหมด",
