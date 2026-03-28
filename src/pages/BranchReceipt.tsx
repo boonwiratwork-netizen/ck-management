@@ -922,7 +922,7 @@ export default function BranchReceiptPage({
             }}
             disabled={!branchId}
           >
-            <Plus className="w-4 h-4 mr-1" /> New Receipt
+            <Plus className="w-4 h-4 mr-1" /> {t("br.newReceipt")}
           </Button>
         )}
       </div>
