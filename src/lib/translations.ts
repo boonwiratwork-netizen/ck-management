@@ -721,6 +721,113 @@ const translations: Record<string, Record<Lang, string>> = {
     th: "ยังไม่ได้กำหนดสาขา กรุณาติดต่อผู้จัดการ",
     en: "No branch assigned to your account. Contact your manager.",
   },
+
+  // ─── ADD THESE TO translations.ts ───
+  // Paste this entire block inside the translations object, before the closing };
+
+  // ─── Goods Receipt (missing keys) ───
+  "gr.noActiveReceipt": { th: "ยังไม่มีการรับของ", en: "No active receipt" },
+  "gr.chooseMode": { th: "เลือกโหมดการรับของ", en: "Choose a receiving mode to start" },
+  "gr.receiveBySupplier": { th: "+ รับตามซัพพลายเออร์", en: "+ Receive by Supplier" },
+  "gr.receiveBySku": { th: "รับตาม SKU", en: "Receive by SKU" },
+  "gr.history": { th: "ประวัติการรับของ", en: "GR HISTORY" },
+  "gr.showingReceipts": { th: "แสดง {a} จาก {b} รายการ", en: "Showing {a} of {b} receipts" },
+  "gr.searchSkuSupplier": { th: "ค้นหา SKU หรือซัพพลายเออร์...", en: "Search SKU or supplier..." },
+  "gr.noReceiptsFound": { th: "ไม่พบรายการรับของ", en: "No receipts found" },
+  "gr.allSuppliers": { th: "ทุกซัพพลายเออร์", en: "All suppliers" },
+  "gr.modeReceiveBySku": { th: "รับตาม SKU", en: "Receive by SKU" },
+  "gr.modeReceiveBySupplier": { th: "รับตามซัพพลายเออร์", en: "Receive by Supplier" },
+  "gr.colSku": { th: "SKU", en: "SKU" },
+  "gr.colSupplier": { th: "ซัพพลายเออร์", en: "Supplier" },
+  "gr.colNote": { th: "หมายเหตุ", en: "Note" },
+  "gr.colItems": { th: "รายการ", en: "Items" },
+  "gr.keyboardHint": {
+    th: "Tab → รายการถัดไป · Enter → บันทึก · Esc → ยกเลิก",
+    en: "Tab — next QTY · Enter — save · Esc — cancel",
+  },
+  "gr.totalValue": { th: "มูลค่ารวม:", en: "Total Value:" },
+  "gr.confirmReceipt": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
+  "gr.saveDraft": { th: "บันทึกแบบร่าง", en: "Save Draft" },
+  "gr.cancel": { th: "ยกเลิก", en: "Cancel" },
+  "gr.addRow": { th: "+ เพิ่มแถว", en: "+ Add Row" },
+  "gr.notePlaceholder": { th: "หมายเหตุ", en: "Note" },
+  "gr.supplierPlaceholder": { th: "ซัพพลายเออร์", en: "Supplier" },
+  "gr.selectSku": { th: "เลือก SKU", en: "Select SKU" },
+
+  // ─── Sales Entry (missing keys) ───
+  "se.importSalesDataTitle": { th: "นำเข้าข้อมูลยอดขาย", en: "Import Sales Data" },
+  "se.branchLabel": { th: "สาขา", en: "Branch" },
+  "se.pasteBtn": { th: "วาง", en: "Paste" },
+  "se.uploadCsvBtn": { th: "อัพโหลด CSV", en: "Upload CSV" },
+  "se.pastePlaceholder": { th: "วางข้อมูล POS ที่นี่ (Ctrl+V)...", en: "Paste POS data here (Ctrl+V)..." },
+  "se.dropCsvHint": { th: "วางไฟล์ CSV ที่นี่ หรือคลิกเพื่อเลือกไฟล์", en: "Drop CSV file here or click to browse" },
+  "se.recentEntriesBanner": {
+    th: "แสดง 25 รายการล่าสุด กดใช้งานเพื่อดูประวัติทั้งหมด",
+    en: "Showing last 25 recent entries. Select filters and press Apply to load full history.",
+  },
+  "se.noRecentEntries": { th: "ยังไม่มีรายการ", en: "No recent entries" },
+  "se.pressApplyHint": { th: "กด Apply เพื่อโหลดประวัติ", en: "Press Apply to load filtered history" },
+  "se.manualEntryTitle": { th: "+ บันทึกด้วยมือ", en: "+ Manual Entry" },
+  "se.dateLabel": { th: "วันที่", en: "Date" },
+  "se.branchFieldLabel": { th: "สาขา", en: "Branch" },
+  "se.menuFieldLabel": { th: "เมนู", en: "Menu" },
+  "se.qtyFieldLabel": { th: "จำนวน", en: "Qty" },
+  "se.unitPriceFieldLabel": { th: "ราคา/หน่วย", en: "Unit Price" },
+  "se.netAmountFieldLabel": { th: "ยอดสุทธิ", en: "Net Amount" },
+  "se.addBtn": { th: "เพิ่ม", en: "Add" },
+  "se.searchMenuPlaceholder": { th: "ค้นหารหัสหรือชื่อเมนู...", en: "Search code or name..." },
+  "se.noPrice": { th: "ไม่มีราคา", en: "No price" },
+
+  // ─── Branch Receipt (missing keys) ───
+  "br.deliveriesPending": { th: "{n} รายการจากครัวกลางกำลังมา", en: "{n} Deliveries Pending" },
+  "br.receive": { th: "รับของ", en: "Receive" },
+  "br.receiptHistory": { th: "ประวัติการรับของ", en: "RECEIPT HISTORY" },
+  "br.noReceiptsFound": { th: "ไม่พบรายการรับของ", en: "No receipts found" },
+  "br.newReceipt": { th: "+ รับของใหม่", en: "+ New Receipt" },
+
+  // ─── Production (missing keys) ───
+  "prod.planningMode": { th: "วางแผน", en: "Planning" },
+  "prod.recordingMode": { th: "บันทึกผลผลิต", en: "Recording" },
+  "prod.colSuggest": { th: "แนะนำ", en: "SUGGEST" },
+  "prod.colGBatch": { th: "ก./แบทช์", en: "G/BATCH" },
+  "prod.colCoverDayNow": { th: "COVER DAY ตอนนี้", en: "COVER DAY NOW" },
+  "prod.colCoverDayAfter": { th: "COVER DAY หลังผลิต", en: "COVER DAY AFTER" },
+  "prod.noRecordsThisWeek": { th: "ยังไม่มีบันทึกการผลิตสัปดาห์นี้", en: "No production records for this week." },
+  "prod.colProgress": { th: "ความคืบหน้า", en: "PROGRESS" },
+  "prod.recordingForWeek": {
+    th: "บันทึกสัปดาห์ที่ {week} · {start} – {end}",
+    en: "Recording for Week {week} · {start} – {end}",
+  },
+
+  // ─── Stock Count (missing keys) ───
+  "sc.subtitle": { th: "นับสต๊อกจริงและปรับปรุงผลต่าง", en: "Physical inventory counts and variance adjustments" },
+  "sc.ckItemsOnly": { th: "เฉพาะ CK", en: "CK Items Only" },
+  "sc.allStorage": { th: "ทุกวิธีเก็บ", en: "All Storage" },
+  "sc.colSystemQty": { th: "จำนวนในระบบ", en: "SYSTEM QTY" },
+  "sc.colPhysicalQty": { th: "จำนวนนับจริง (หน่วยใช้)", en: "PHYSICAL QTY (USAGE UOM)" },
+  "sc.optional": { th: "ไม่บังคับ", en: "Optional" },
+  "sc.sessionCreated": { th: "สร้างใบนับสต๊อกแล้ว", en: "Stock count session created" },
+
+  // ─── Daily Stock Count (missing keys) ───
+  "dsc.usageUomSuffix": { th: "(หน่วยใช้)", en: "(USAGE UOM)" },
+
+  // ─── Transfer Order (missing keys) ───
+  "to.cancel": { th: "ยกเลิก", en: "Cancel" },
+  "to.allBranches": { th: "ทุกสาขา", en: "All branches" },
+  "to.allStatus": { th: "ทุกสถานะ", en: "All" },
+  "to.statusDraft": { th: "แบบร่าง", en: "Draft" },
+  "to.statusSentLabel": { th: "ส่งแล้ว", en: "Sent" },
+  "to.statusCancelledLabel": { th: "ยกเลิกแล้ว", en: "Cancelled" },
+  "to.filterFrom": { th: "จาก", en: "From" },
+  "to.filterTo": { th: "ถึง", en: "To" },
+  "to.filterBtn": { th: "กรอง", en: "Filter" },
+
+  // ─── PR/TR (missing keys) ───
+  "tr.cancel": { th: "ยกเลิก", en: "Cancel" },
+  "tr.saveDraft": { th: "บันทึกแบบร่าง", en: "Save Draft" },
+  "tr.supplierLabel": { th: "ซัพพลายเออร์", en: "Supplier" },
+  "tr.colRop": { th: "ROP", en: "ROP" },
+  "tr.colParstock": { th: "PARSTOCK", en: "PARSTOCK" },
 };
 
 export default translations;
