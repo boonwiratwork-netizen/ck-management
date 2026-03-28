@@ -332,7 +332,7 @@ export default function StockCountPage({
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("title.stockCount")}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t("sc.subtitle")}</p>
       </div>
 
       {/* Top control bar */}
