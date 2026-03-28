@@ -1481,7 +1481,7 @@ export default function TransferRequestPage() {
                 ) : prHook.history.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                      No purchase requests found.
+                      {t("pr.noResults")}
                     </td>
                   </tr>
                 ) : (
