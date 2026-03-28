@@ -985,7 +985,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   )}
                 </div>
                 <div className="w-20">
-                  <label className="text-xs text-muted-foreground">Qty</label>
+                  <label className="text-xs text-muted-foreground">{t("se.qtyFieldLabel")}</label>
                   <Input
                     type="number"
                     value={manualQty}
