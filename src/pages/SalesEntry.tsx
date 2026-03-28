@@ -1007,7 +1007,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   </div>
                 </div>
                 <div className="w-28">
-                  <label className="text-xs text-muted-foreground">Net Amount</label>
+                  <label className="text-xs text-muted-foreground">{t("se.netAmountFieldLabel")}</label>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm font-medium tabular-nums">
                     {manualMenuId ? `฿${manualNetAmount.toFixed(2)}` : "—"}
                   </div>
