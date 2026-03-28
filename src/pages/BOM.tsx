@@ -1212,7 +1212,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Final Output</p>
-                <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)}g</p>
+                <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)} {selectedSkuUom}</p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
