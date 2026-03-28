@@ -921,7 +921,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                     value={manualDate ? new Date(manualDate + "T00:00:00") : undefined}
                     onChange={(d) => setManualDate(d ? toLocalDateStr(d) : "")}
                     defaultToday
-                    label="Date"
+                    label={t("se.dateLabel")}
                     required
                     labelPosition="above"
                     align="start"
