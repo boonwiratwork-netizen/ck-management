@@ -1191,7 +1191,7 @@ export default function BranchReceiptPage({
             <div className="flex items-center justify-between px-5 py-3 bg-primary/[0.06] border-b border-primary/10">
               <div className="flex items-center gap-4">
                 <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
-                <span className="text-sm font-medium">Batch Receive</span>
+                <span className="text-sm font-medium">{t("br.batchReceive")}</span>
                 {selectedBranch && <span className="text-xs text-muted-foreground">→ {selectedBranch.branchName}</span>}
               </div>
               <div className="flex items-center gap-2">
