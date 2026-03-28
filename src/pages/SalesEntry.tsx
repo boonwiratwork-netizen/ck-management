@@ -615,7 +615,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h2 className="text-lg font-semibold">Import Sales Data</h2>
+            <h2 className="text-lg font-semibold">{t("se.importSalesData")}</h2>
             <div className="flex items-center gap-2 min-w-0">
               <Select value={selectedProfileId} onValueChange={handleProfileChange}>
                 <SelectTrigger className="h-10 w-44">
