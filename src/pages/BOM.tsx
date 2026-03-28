@@ -1646,7 +1646,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         <FlaskConical className="w-4 h-4 text-muted-foreground" />
                         Output per batch:{" "}
                         <span className="font-semibold font-mono">
-                          {(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)}g
+                          {(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)} {getSkuById(headerForm.smSkuId)?.usageUom ?? "g"}
                         </span>
                       </div>
                     )}
