@@ -1303,7 +1303,7 @@ export default function ProductionPage({
             />
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground">{t("prod.actualOutputLabel")}</label>
+              <label className="text-xs font-medium text-muted-foreground">{`Actual output (${recordSku?.usageUom ?? "g"})`}</label>
               <Input
                 type="number"
                 step="1"

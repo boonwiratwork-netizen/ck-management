@@ -166,6 +166,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const selectedHeader = headers.find((h) => h.id === selectedHeaderId) ?? null;
+  const selectedSkuUom = getSkuById(selectedHeader?.smSkuId ?? "")?.usageUom ?? "g";
   const selectedLines = selectedHeaderId ? getLinesForHeader(selectedHeaderId) : [];
   const selectedSteps = selectedHeaderId ? getStepsForHeader(selectedHeaderId) : [];
 
@@ -822,7 +823,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
           <div className="grid grid-cols-4 gap-4 mt-4">
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Batch Size</p>
-              <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()}g</p>
+              <p className="text-lg font-bold font-mono">{selectedHeader!.batchSize.toLocaleString()} {selectedSkuUom}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yield</p>
@@ -830,12 +831,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             </div>
             <div className="text-center p-4 rounded-lg bg-[#E6F1FB]">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Output</p>
-              <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)}g</p>
+              <p className="text-lg font-bold font-mono">{outputQty.toFixed(0)} {selectedSkuUom}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-[#EAF3DE]">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                 <DollarSign className="w-3 h-3" />
-                Cost/gram
+                Cost/{selectedSkuUom}
               </p>
               <p className="text-lg font-bold text-primary font-mono">
                 ฿{(hasByproducts ? allocatedMainCpg : simpleCostPerGram).toFixed(4)}
@@ -936,7 +937,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-bold font-mono text-primary">฿{simpleTotalCost.toFixed(2)}</span>
               </p>
               <p className="text-sm">
-                Cost/gram: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span>
+                Cost/{selectedSkuUom}: <span className="font-bold font-mono text-primary">฿{simpleCostPerGram.toFixed(4)}</span>
               </p>
             </div>
           )}
@@ -1021,7 +1022,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <div className="flex items-center gap-5 mt-3 px-1 py-2 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Input:</span>
-                    <span className="font-semibold text-sm font-mono">{sd.inputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm font-mono">{sd.inputQty.toFixed(0)} {selectedSkuUom}</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
@@ -1046,7 +1047,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Output:</span>
-                    <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)} {selectedSkuUom}</span>
                   </div>
                   {sd.stepCost > 0 && (
                     <Badge variant="secondary" className="text-xs ml-auto font-mono">
@@ -1211,12 +1212,12 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Final Output</p>
-                <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)}g</p>
+                <p className="text-xl font-bold font-mono">{multiStepData.finalOutput.toFixed(0)} {selectedSkuUom}</p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-1">
                   <DollarSign className="w-3 h-3" />
-                  Cost per Gram
+                  Cost per {selectedSkuUom}
                 </p>
                 <p className="text-xl font-bold text-primary font-mono">
                   ฿{(hasByproducts ? allocatedMainCpg : multiStepData.costPerGram).toFixed(4)}
@@ -1376,7 +1377,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Main product cost/gram</span>
+                <span className="text-muted-foreground">Main product cost/{selectedSkuUom}</span>
                 <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
               </div>
               {!allocationValid && (
@@ -1516,7 +1517,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {hLines.length} ingredients · {h.bomMode === "multistep" ? "Multi-step" : "Simple"} ·{" "}
-                                  {hOutput.toFixed(0)}g
+                                  {hOutput.toFixed(0)} {getSkuById(h.smSkuId)?.usageUom ?? "g"}
                                 </p>
                                 {isByproductSku && (
                                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -1621,7 +1622,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     {headerForm.bomMode === "simple" && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-muted-foreground">Batch Size (grams)</label>
+                          <label className="text-xs font-medium text-muted-foreground">Batch Size ({getSkuById(headerForm.smSkuId)?.usageUom ?? "g"})</label>
                           <Input
                             type="number"
                             value={headerForm.batchSize || ""}
@@ -1645,7 +1646,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         <FlaskConical className="w-4 h-4 text-muted-foreground" />
                         Output per batch:{" "}
                         <span className="font-semibold font-mono">
-                          {(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)}g
+                          {(headerForm.batchSize * headerForm.yieldPercent).toFixed(0)} {getSkuById(headerForm.smSkuId)?.usageUom ?? "g"}
                         </span>
                       </div>
                     )}
