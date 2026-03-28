@@ -1712,7 +1712,7 @@ export default function TransferRequestPage() {
                 )}
               </div>
               {prDetailLoading ? (
-                <div className="text-center py-6 text-muted-foreground text-sm">Loading lines...</div>
+                <div className="text-center py-6 text-muted-foreground text-sm">{t("tr.loadingLines")}</div>
               ) : (
                 <div className={tableTokens.wrapper}>
                   <table className={tableTokens.base}>
