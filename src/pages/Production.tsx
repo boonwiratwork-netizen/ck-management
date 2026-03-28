@@ -719,7 +719,7 @@ export default function ProductionPage({
                 className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("recording")}
               >
-                <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> Recording
+                <PlayCircle className="w-3.5 h-3.5 mr-1.5 inline" /> {t("prod.recordingMode")}
               </button>
             </div>
 
