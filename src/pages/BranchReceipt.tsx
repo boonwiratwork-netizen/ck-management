@@ -1244,7 +1244,7 @@ export default function BranchReceiptPage({
                   <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
                 </Button>
                 <Button variant="outline" size="sm" disabled={savableCount === 0}>
-                  <Save className="w-4 h-4 mr-1" /> Save Draft
+                  <Save className="w-4 h-4 mr-1" /> {t("to.saveDraft")}
                 </Button>
                 <Button
                   size="sm"
