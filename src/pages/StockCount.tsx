@@ -453,7 +453,7 @@ export default function StockCountPage({
                   <div className="flex items-center gap-2">
                     <Switch id="ck-items-toggle" checked={ckItemsOnly} onCheckedChange={setCkItemsOnly} />
                     <label htmlFor="ck-items-toggle" className="text-xs font-medium cursor-pointer">
-                      CK Items Only
+                      {t("sc.ckItemsOnly")}
                     </label>
                   </div>
                 )}
