@@ -908,7 +908,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
             <CardHeader className="cursor-pointer hover:bg-accent transition-colors">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <Plus className="w-5 h-5" />
-                Manual Entry
+                {t("se.manualEntryTitle")}
                 <ChevronDown className={cn("w-4 h-4 ml-auto transition-transform", manualOpen && "rotate-180")} />
               </CardTitle>
             </CardHeader>
