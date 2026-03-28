@@ -2716,7 +2716,7 @@ export default function BranchReceiptPage({
         {filteredHistory.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Actual Spend</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalActualSpend")}</p>
               <p className="text-2xl font-heading font-bold mt-1">
                 ฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
