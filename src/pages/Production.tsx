@@ -1194,7 +1194,7 @@ export default function ProductionPage({
             </Badge>
           </div>
           {weekRecords.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No production records for this week.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("prod.noRecordsThisWeek")}</p>
           ) : (
             <div className={table.wrapper}>
               <table className={table.base}>
