@@ -826,8 +826,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "tr.cancel": { th: "ยกเลิก", en: "Cancel" },
   "tr.saveDraft": { th: "บันทึกแบบร่าง", en: "Save Draft" },
   "tr.supplierLabel": { th: "ซัพพลายเออร์", en: "Supplier" },
-  "tr.colRop": { th: "ROP", en: "ROP" },
-  "tr.colParstock": { th: "PARSTOCK", en: "PARSTOCK" },
 
   // Branch Receipt additions
   "br.confirmReceipt": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
