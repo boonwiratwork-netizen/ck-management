@@ -466,7 +466,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 {t("gr.cancel")}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
+                <Save className="w-3.5 h-3.5 mr-1" /> {t("gr.saveDraft")}
               </Button>
               <ConfirmReceiptButton />
             </div>
