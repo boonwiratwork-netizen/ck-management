@@ -443,7 +443,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 GR-{dateStr.replace(/-/g, "").slice(2)}
               </span>
               {isSkuMode ? (
-                <span className="text-sm font-medium text-foreground">Receive by SKU</span>
+                <span className="text-sm font-medium text-foreground">{t("gr.receiveBySku")}</span>
               ) : (
                 <>
                   <span className="text-sm font-medium text-foreground">{selectedSupplier?.name}</span>
