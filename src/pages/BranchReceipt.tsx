@@ -2728,7 +2728,7 @@ export default function BranchReceiptPage({
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Variance</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalVariance")}</p>
               <p
                 className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? "text-destructive" : "text-success"}`}
               >
