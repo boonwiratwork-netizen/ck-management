@@ -1047,7 +1047,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Output:</span>
-                    <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm text-primary font-mono">{sd.outputQty.toFixed(0)} {selectedSkuUom}</span>
                   </div>
                   {sd.stepCost > 0 && (
                     <Badge variant="secondary" className="text-xs ml-auto font-mono">
