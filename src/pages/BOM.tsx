@@ -1377,7 +1377,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <span className="font-mono font-medium">{mainProductPct.toFixed(1)}%</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Main product cost/gram</span>
+                <span className="text-muted-foreground">Main product cost/{selectedSkuUom}</span>
                 <span className="font-mono font-bold text-primary">฿{allocatedMainCpg.toFixed(4)}</span>
               </div>
               {!allocationValid && (
