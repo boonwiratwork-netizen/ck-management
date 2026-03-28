@@ -728,7 +728,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // ─── Goods Receipt (missing keys) ───
   "gr.noActiveReceipt": { th: "ยังไม่มีการรับของ", en: "No active receipt" },
   "gr.chooseMode": { th: "เลือกโหมดการรับของ", en: "Choose a receiving mode to start" },
-  "gr.receiveBySupplier": { th: "+ รับตามซัพพลายเออร์", en: "+ Receive by Supplier" },
+  "gr.receiveBySupplier": { th: "รับตามซัพพลายเออร์", en: "Receive by Supplier" },
   "gr.receiveBySku": { th: "รับตาม SKU", en: "Receive by SKU" },
   "gr.history": { th: "ประวัติการรับของ", en: "GR HISTORY" },
   "gr.showingReceipts": { th: "แสดง {a} จาก {b} รายการ", en: "Showing {a} of {b} receipts" },
