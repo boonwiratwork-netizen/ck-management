@@ -773,8 +773,8 @@ export default function ProductionPage({
                       {t("prod.colPlanBatch")}
                     </th>
                     <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
-                    <th className={table.headerCellNumeric}>COVER DAY NOW</th>
-                    <th className={table.headerCellNumeric}>COVER DAY AFTER</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colCoverDayNow")}</th>
+                    <th className={table.headerCellNumeric}>{t("prod.colCoverDayAfter")}</th>
                   </tr>
                 </thead>
                 <tbody>
