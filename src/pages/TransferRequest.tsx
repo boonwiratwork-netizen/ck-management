@@ -1461,10 +1461,10 @@ export default function TransferRequestPage() {
               </colgroup>
               <thead className="sticky top-0 z-[5]">
                 <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>PR Number</th>
+                  <th className={tableTokens.headerCell}>{t("pr.colPrNumber")}</th>
                   <th className={tableTokens.headerCell}>{t("col.date")}</th>
                   <th className={tableTokens.headerCell}>วันส่งสินค้า</th>
-                  <th className={tableTokens.headerCell}>Supplier</th>
+                  <th className={tableTokens.headerCell}>{t("col.supplier")}</th>
                   <th className={tableTokens.headerCell}>{t("col.branch")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
                   <th className={tableTokens.headerCell}>{t("col.status")}</th>
