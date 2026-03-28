@@ -648,7 +648,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
         <CardContent className="space-y-4">
           {/* Branch selector */}
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium whitespace-nowrap label-required">Branch</label>
+            <label className="text-sm font-medium whitespace-nowrap label-required">{t("se.branchLabel")}</label>
             <Select
               value={selectedBranch}
               onValueChange={(v) => {
@@ -673,16 +673,16 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
           <Tabs defaultValue="paste">
             <TabsList>
               <TabsTrigger value="paste" className="gap-1.5">
-                <ClipboardPaste className="w-4 h-4" /> Paste
+                <ClipboardPaste className="w-4 h-4" /> {t("se.pasteBtn")}
               </TabsTrigger>
               <TabsTrigger value="upload" className="gap-1.5">
-                <FileUp className="w-4 h-4" /> Upload CSV
+                <FileUp className="w-4 h-4" /> {t("se.uploadCsvBtn")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="paste">
               <Textarea
-                placeholder="Paste POS data here (Ctrl+V)..."
+                placeholder={t("se.pastePlaceholder")}
                 value={pastedText}
                 onChange={(e) => handlePaste(e.target.value)}
                 rows={6}
@@ -1064,7 +1064,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
           <div className="flex flex-wrap items-end gap-3">
             {isManagement && (
               <div>
-                <label className="text-xs text-muted-foreground">Branch</label>
+                <label className="text-xs text-muted-foreground">{t("col.branch")}</label>
                 <Select value={filterBranch} onValueChange={setFilterBranch}>
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -1334,7 +1334,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                 {/* Filters */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
-                    <label className="text-xs text-muted-foreground">Branch</label>
+                    <label className="text-xs text-muted-foreground">{t("col.branch")}</label>
                     <Select value={mgmtBranch} onValueChange={setMgmtBranch}>
                       <SelectTrigger className="w-48 h-10">
                         <SelectValue placeholder="Select branch" />
