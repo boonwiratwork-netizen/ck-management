@@ -223,7 +223,7 @@ export default function StockCountPage({
               onClick={() => scHandleSort("systemQty")}
             >
               <SortableHeader
-                label="System Qty"
+                label={t("sc.colSystemQty")}
                 sortKey="systemQty"
                 activeSortKey={scSortKey}
                 sortDir={scSortDir}
