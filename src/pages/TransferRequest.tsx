@@ -569,10 +569,10 @@ export default function TransferRequestPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCloseForm}>
-                <X className="w-4 h-4 mr-1" /> Cancel
+                <X className="w-4 h-4 mr-1" /> {t("tr.cancel")}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Save Draft
+                {t("tr.saveDraft")}
               </Button>
               {isCKSelected ? (
                 <Button
@@ -629,7 +629,7 @@ export default function TransferRequestPage() {
             {effectiveBranchId && (
               <div className="relative" ref={supplierDropdownRef}>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Supplier <span className="text-destructive">*</span>
+                  {t("tr.supplierLabel")} <span className="text-destructive">*</span>
                 </label>
                 <button
                   type="button"
@@ -1060,18 +1060,18 @@ export default function TransferRequestPage() {
                       <thead className="sticky top-0 z-[5]">
                         <tr className={tableTokens.headerRow}>
                           <th className={tableTokens.headerCellCenter}></th>
-                          <th className={tableTokens.headerCell}>SKU Code</th>
-                          <th className={tableTokens.headerCell}>SKU Name</th>
-                          <th className={tableTokens.headerCell}>Pack Size</th>
-                          <th className={tableTokens.headerCellNumeric}>Stock Now</th>
-                          <th className={tableTokens.headerCellNumeric}>ROP</th>
-                          <th className={tableTokens.headerCellNumeric}>Parstock</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
                           <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
-                                    Suggested
+                                    {t("tr.colSuggested")}
                                     <Info className="w-3 h-3 opacity-50" />
                                   </span>
                                 </TooltipTrigger>
@@ -1224,8 +1224,8 @@ export default function TransferRequestPage() {
             <ClipboardList className="w-7 h-7 text-warning" />
           </div>
           <div className="text-center">
-            <p className="font-medium text-foreground">No active request</p>
-            <p className="text-sm text-muted-foreground mt-1">Create a new transfer or purchase request</p>
+            <p className="font-medium text-foreground">{t("pr.emptyState")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("pr.emptyHint")}</p>
           </div>
           <Button onClick={handleOpenForm} className="mt-2 bg-warning hover:bg-warning/90 text-warning-foreground">
             <Plus className="w-4 h-4 mr-1" /> New PR / TR
@@ -1236,7 +1236,7 @@ export default function TransferRequestPage() {
       {/* ── 4. TR HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">TR History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("tr.history")}</span>
       </div>
 
       <div className="space-y-3">
@@ -1389,7 +1389,7 @@ export default function TransferRequestPage() {
       {/* ── 5. PR HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">PR History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("pr.history")}</span>
       </div>
 
       <div className="space-y-3">
@@ -1461,10 +1461,10 @@ export default function TransferRequestPage() {
               </colgroup>
               <thead className="sticky top-0 z-[5]">
                 <tr className={tableTokens.headerRow}>
-                  <th className={tableTokens.headerCell}>PR Number</th>
+                  <th className={tableTokens.headerCell}>{t("pr.colPrNumber")}</th>
                   <th className={tableTokens.headerCell}>{t("col.date")}</th>
                   <th className={tableTokens.headerCell}>วันส่งสินค้า</th>
-                  <th className={tableTokens.headerCell}>Supplier</th>
+                  <th className={tableTokens.headerCell}>{t("col.supplier")}</th>
                   <th className={tableTokens.headerCell}>{t("col.branch")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
                   <th className={tableTokens.headerCell}>{t("col.status")}</th>
@@ -1481,7 +1481,7 @@ export default function TransferRequestPage() {
                 ) : prHook.history.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                      No purchase requests found.
+                      {t("pr.noResults")}
                     </td>
                   </tr>
                 ) : (
@@ -1689,19 +1689,19 @@ export default function TransferRequestPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Branch: </span>
+                  <span className="text-muted-foreground">{t("pr.detailBranch")} </span>
                   <span className="font-medium">{detailPR.branchName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Supplier: </span>
+                  <span className="text-muted-foreground">{t("pr.detailSupplier")} </span>
                   <span className="font-medium">{detailPR.supplierName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Requested: </span>
+                  <span className="text-muted-foreground">{t("pr.detailRequested")} </span>
                   <span>{detailPR.requestedDate}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Required: </span>
+                  <span className="text-muted-foreground">{t("pr.detailRequired")} </span>
                   <span>{detailPR.requiredDate}</span>
                 </div>
                 {detailPR.notes && (
@@ -1712,7 +1712,7 @@ export default function TransferRequestPage() {
                 )}
               </div>
               {prDetailLoading ? (
-                <div className="text-center py-6 text-muted-foreground text-sm">Loading lines...</div>
+                <div className="text-center py-6 text-muted-foreground text-sm">{t("tr.loadingLines")}</div>
               ) : (
                 <div className={tableTokens.wrapper}>
                   <table className={tableTokens.base}>

@@ -798,7 +798,7 @@ export default function TransferOrderPage({
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setStandaloneOpen(false)}>
-                Cancel
+                {t("to.cancel")}
               </Button>
               <Button onClick={handleCreateStandalone} disabled={!standaloneBranch || !standaloneDate}>
                 {t("to.createTO")}
@@ -820,7 +820,7 @@ export default function TransferOrderPage({
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCancelForm}>
-                Cancel
+                {t("to.cancel")}
               </Button>
               <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={formSaving}>
                 <Save className="w-4 h-4 mr-1" />
@@ -1358,10 +1358,10 @@ export default function TransferOrderPage({
             <label className="text-sm text-muted-foreground">{t("col.branch")}</label>
             <Select value={filterBranch || "__all__"} onValueChange={(v) => setFilterBranch(v === "__all__" ? "" : v)}>
               <SelectTrigger className="w-[200px] h-9">
-                <SelectValue placeholder="All branches" />
+                <SelectValue placeholder={t("to.allBranches")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All branches</SelectItem>
+                <SelectItem value="__all__">{t("to.allBranches")}</SelectItem>
                 {activeBranches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.branchName}
@@ -1377,11 +1377,12 @@ export default function TransferOrderPage({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["All", "Draft", "Sent", "Received", "Partially Received", "Cancelled"].map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
+                <SelectItem value="All">{t("to.allStatus")}</SelectItem>
+                <SelectItem value="Draft">{t("to.statusDraft")}</SelectItem>
+                <SelectItem value="Sent">{t("to.statusSentLabel")}</SelectItem>
+                <SelectItem value="Received">Received</SelectItem>
+                <SelectItem value="Partially Received">Partially Received</SelectItem>
+                <SelectItem value="Cancelled">{t("to.statusCancelledLabel")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

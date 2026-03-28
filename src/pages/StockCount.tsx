@@ -223,7 +223,7 @@ export default function StockCountPage({
               onClick={() => scHandleSort("systemQty")}
             >
               <SortableHeader
-                label="System Qty"
+                label={t("sc.colSystemQty")}
                 sortKey="systemQty"
                 activeSortKey={scSortKey}
                 sortDir={scSortDir}
@@ -232,7 +232,7 @@ export default function StockCountPage({
               />
             </th>
             <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide !bg-foreground text-background">
-              Physical QTY (Usage UOM)
+              {t("sc.colPhysicalQty")}
             </th>
             <th
               className={`${thClass} text-right cursor-pointer hover:bg-muted/50`}
@@ -311,7 +311,7 @@ export default function StockCountPage({
                     <Input
                       defaultValue={line.note}
                       key={`note-${line.id}-${line.note}`}
-                      placeholder="Optional"
+                      placeholder={t("sc.optional")}
                       onBlur={(e) => {
                         if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
                       }}
@@ -332,7 +332,7 @@ export default function StockCountPage({
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("title.stockCount")}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Physical inventory counts and variance adjustments</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t("sc.subtitle")}</p>
       </div>
 
       {/* Top control bar */}
@@ -453,7 +453,7 @@ export default function StockCountPage({
                   <div className="flex items-center gap-2">
                     <Switch id="ck-items-toggle" checked={ckItemsOnly} onCheckedChange={setCkItemsOnly} />
                     <label htmlFor="ck-items-toggle" className="text-xs font-medium cursor-pointer">
-                      CK Items Only
+                      {t("sc.ckItemsOnly")}
                     </label>
                   </div>
                 )}
@@ -463,7 +463,7 @@ export default function StockCountPage({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Storage</SelectItem>
+                    <SelectItem value="all">{t("sc.allStorage")}</SelectItem>
                     {(["Frozen", "Chilled", "Ambient"] as StorageCondition[]).map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
