@@ -1118,7 +1118,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
           {/* Preview banner — before Apply */}
           {!appliedOnce && !loading && (
             <div className="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
-              Showing last 25 recent entries. Select filters and press Apply to load full history.
+              {t("se.recentEntriesBanner")}
             </div>
           )}
 
