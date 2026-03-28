@@ -166,6 +166,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const selectedHeader = headers.find((h) => h.id === selectedHeaderId) ?? null;
+  const selectedSkuUom = getSkuById(selectedHeader?.smSkuId ?? "")?.usageUom ?? "g";
   const selectedLines = selectedHeaderId ? getLinesForHeader(selectedHeaderId) : [];
   const selectedSteps = selectedHeaderId ? getStepsForHeader(selectedHeaderId) : [];
 
