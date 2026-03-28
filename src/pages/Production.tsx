@@ -713,7 +713,7 @@ export default function ProductionPage({
                 className={mode === "planning" ? buttons.modeToggleActive : buttons.modeToggleInactive}
                 onClick={() => handleModeSwitch("planning")}
               >
-                <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> Planning
+                <CalendarDays className="w-3.5 h-3.5 mr-1.5 inline" /> {t("prod.planningMode")}
               </button>
               <button
                 className={mode === "recording" ? buttons.modeToggleActive : buttons.modeToggleInactive}
