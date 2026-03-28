@@ -1022,7 +1022,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                 <div className="flex items-center gap-5 mt-3 px-1 py-2 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs font-medium">Input:</span>
-                    <span className="font-semibold text-sm font-mono">{sd.inputQty.toFixed(0)}g</span>
+                    <span className="font-semibold text-sm font-mono">{sd.inputQty.toFixed(0)} {selectedSkuUom}</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <div className="flex items-center gap-2">
