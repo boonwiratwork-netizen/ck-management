@@ -1224,8 +1224,8 @@ export default function TransferRequestPage() {
             <ClipboardList className="w-7 h-7 text-warning" />
           </div>
           <div className="text-center">
-            <p className="font-medium text-foreground">No active request</p>
-            <p className="text-sm text-muted-foreground mt-1">Create a new transfer or purchase request</p>
+            <p className="font-medium text-foreground">{t("pr.emptyState")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("pr.emptyHint")}</p>
           </div>
           <Button onClick={handleOpenForm} className="mt-2 bg-warning hover:bg-warning/90 text-warning-foreground">
             <Plus className="w-4 h-4 mr-1" /> New PR / TR
