@@ -828,6 +828,29 @@ const translations: Record<string, Record<Lang, string>> = {
   "tr.supplierLabel": { th: "ซัพพลายเออร์", en: "Supplier" },
   "tr.colRop": { th: "ROP", en: "ROP" },
   "tr.colParstock": { th: "PARSTOCK", en: "PARSTOCK" },
+
+  // Branch Receipt additions
+  "br.confirmReceipt": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
+  "br.confirmAll": { th: "ยืนยันทั้งหมด ({n})", en: "Confirm All ({n})" },
+  "br.batchReceive": { th: "รับพร้อมกัน", en: "Batch Receive" },
+  "br.totalActualSpend": { th: "ยอดจ่ายจริงรวม", en: "Total Actual Spend" },
+  "br.totalStdSpend": { th: "ยอดมาตรฐานรวม", en: "Total Std Spend" },
+  "br.totalVariance": { th: "ผลต่างรวม", en: "Total Variance" },
+  "br.colWeight": { th: "น้ำหนัก", en: "WEIGHT" },
+
+  // PR/TR additions
+  "pr.history": { th: "ประวัติใบสั่งซื้อ", en: "PR History" },
+  "pr.colPrNumber": { th: "เลขที่ใบสั่งซื้อ", en: "PR Number" },
+  "pr.noResults": { th: "ไม่พบใบสั่งซื้อ", en: "No purchase requests found." },
+  "pr.detailBranch": { th: "สาขา:", en: "Branch:" },
+  "pr.detailSupplier": { th: "ซัพพลายเออร์:", en: "Supplier:" },
+  "pr.detailRequested": { th: "วันที่ขอ:", en: "Requested:" },
+  "pr.detailRequired": { th: "วันที่ต้องการ:", en: "Required:" },
+  "pr.emptyState": { th: "ยังไม่มีคำขอ", en: "No active request" },
+  "pr.emptyHint": { th: "สร้างคำขอโอนหรือสั่งซื้อใหม่", en: "Create a new transfer or purchase request" },
+
+  // Goods Receipt additions
+  "gr.confirmReceiptBtn": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
 };
 
 export default translations;
