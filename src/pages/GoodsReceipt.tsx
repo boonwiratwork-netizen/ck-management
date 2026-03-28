@@ -406,7 +406,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         disabled={savableCount === 0 || isSaving}
         className="bg-success hover:bg-success/90 text-success-foreground"
       >
-        <CheckCircle className="w-4 h-4 mr-1" /> Confirm Receipt ({savableCount})
+        <CheckCircle className="w-4 h-4 mr-1" /> {t("gr.confirmReceiptBtn").replace("{n}", String(savableCount))}
       </Button>
       {savedCount !== null && (
         <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
