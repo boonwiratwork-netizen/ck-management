@@ -1214,7 +1214,7 @@ export default function BranchReceiptPage({
                   disabled={batchSavableCount === 0 || batchSaving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  {batchSaving ? "Saving..." : `Confirm All (${batchSavableCount})`}
+                   {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
                 </Button>
               </div>
             </div>
