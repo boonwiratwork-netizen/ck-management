@@ -311,7 +311,7 @@ export default function StockCountPage({
                     <Input
                       defaultValue={line.note}
                       key={`note-${line.id}-${line.note}`}
-                      placeholder="Optional"
+                      placeholder={t("sc.optional")}
                       onBlur={(e) => {
                         if (e.target.value !== line.note) updateLine(line.id, line.physicalQty, e.target.value);
                       }}

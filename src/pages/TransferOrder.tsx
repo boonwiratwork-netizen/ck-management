@@ -1377,11 +1377,12 @@ export default function TransferOrderPage({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["All", "Draft", "Sent", "Received", "Partially Received", "Cancelled"].map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
+                <SelectItem value="All">{t("to.allStatus")}</SelectItem>
+                <SelectItem value="Draft">{t("to.statusDraft")}</SelectItem>
+                <SelectItem value="Sent">{t("to.statusSentLabel")}</SelectItem>
+                <SelectItem value="Received">Received</SelectItem>
+                <SelectItem value="Partially Received">Partially Received</SelectItem>
+                <SelectItem value="Cancelled">{t("to.statusCancelledLabel")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

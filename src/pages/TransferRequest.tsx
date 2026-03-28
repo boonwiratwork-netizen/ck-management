@@ -1060,18 +1060,18 @@ export default function TransferRequestPage() {
                       <thead className="sticky top-0 z-[5]">
                         <tr className={tableTokens.headerRow}>
                           <th className={tableTokens.headerCellCenter}></th>
-                          <th className={tableTokens.headerCell}>SKU Code</th>
-                          <th className={tableTokens.headerCell}>SKU Name</th>
-                          <th className={tableTokens.headerCell}>Pack Size</th>
-                          <th className={tableTokens.headerCellNumeric}>Stock Now</th>
-                          <th className={tableTokens.headerCellNumeric}>ROP</th>
-                          <th className={tableTokens.headerCellNumeric}>Parstock</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuCode")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
+                          <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
+                          <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
                           <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="inline-flex items-center gap-0.5 cursor-help justify-end">
-                                    Suggested
+                                    {t("tr.colSuggested")}
                                     <Info className="w-3 h-3 opacity-50" />
                                   </span>
                                 </TooltipTrigger>

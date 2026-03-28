@@ -355,31 +355,31 @@ export default function DailyStockCountPage({
                       <th className={thClass}>{t("dsc.colUnit")}</th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.opening")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("dsc.colReceived")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.expUsage")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.waste")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.calcBalance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass} !bg-foreground !text-background font-semibold`}>
                         <div>{t("col.physical")}</div>
-                        <div className="text-xs font-normal opacity-60">(Usage UOM)</div>
+                        <div className="text-xs font-normal opacity-60">{t("dsc.usageUomSuffix")}</div>
                       </th>
                       <th className={`text-right ${thClass}`}>
                         <div>{t("col.variance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">(Usage UOM)</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                       </th>
                     </tr>
                   </thead>
