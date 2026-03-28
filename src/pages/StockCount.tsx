@@ -463,7 +463,7 @@ export default function StockCountPage({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Storage</SelectItem>
+                    <SelectItem value="all">{t("sc.allStorage")}</SelectItem>
                     {(["Frozen", "Chilled", "Ambient"] as StorageCondition[]).map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
