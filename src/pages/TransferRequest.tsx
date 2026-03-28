@@ -1689,19 +1689,19 @@ export default function TransferRequestPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Branch: </span>
+                  <span className="text-muted-foreground">{t("pr.detailBranch")} </span>
                   <span className="font-medium">{detailPR.branchName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Supplier: </span>
+                  <span className="text-muted-foreground">{t("pr.detailSupplier")} </span>
                   <span className="font-medium">{detailPR.supplierName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Requested: </span>
+                  <span className="text-muted-foreground">{t("pr.detailRequested")} </span>
                   <span>{detailPR.requestedDate}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Required: </span>
+                  <span className="text-muted-foreground">{t("pr.detailRequired")} </span>
                   <span>{detailPR.requiredDate}</span>
                 </div>
                 {detailPR.notes && (
