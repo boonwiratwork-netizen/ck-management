@@ -1236,7 +1236,7 @@ export default function TransferRequestPage() {
       {/* ── 4. TR HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">TR History</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("tr.history")}</span>
       </div>
 
       <div className="space-y-3">
