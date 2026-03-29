@@ -33,6 +33,7 @@ interface ModifierRulesPageProps {
   menus: Menu[];
   menuBomLines?: MenuBomLine[];
   readOnly?: boolean;
+  branches?: Branch[];
 }
 
 // Multi-menu selector component with checkboxes, portal-based dropdown
