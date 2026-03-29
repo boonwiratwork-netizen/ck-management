@@ -345,3 +345,78 @@
     padding-bottom: 0.625rem;
   }
 }
+
+/* ── Print stock counting sheet ── */
+@media print {
+  /* Column widths — adjust here only */
+  :root {
+    --col-sku: 10%;
+    --col-name: 32%;
+    --col-type: 8%;
+    --col-unit: 8%;
+    --col-balance: 12%;
+    --col-waste: 15%;
+    --col-count: 15%;
+  }
+
+  /* Hide everything except print layout */
+  body > *:not(#root) { display: none !important; }
+  #root > * { display: none !important; }
+  .print-stock-sheet { display: block !important; }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm;
+    @bottom-right { content: "หน้า " counter(page); font-size: 9px; }
+  }
+
+  .print-stock-sheet {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: #000;
+  }
+
+  .print-header { margin-bottom: 8px; }
+  .print-header-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .print-branch { font-weight: 700; font-size: 14px; }
+  .print-date { font-size: 11px; }
+  .print-title { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .print-meta { font-size: 9px; color: #666; margin-top: 2px; }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    page-break-inside: auto;
+  }
+
+  .print-table thead { display: table-header-group; }
+
+  .print-table th {
+    border: 1px solid #999;
+    padding: 3px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: left;
+    background: #eee;
+  }
+
+  .print-table td {
+    border: 1px solid #ccc;
+    padding: 4px 4px;
+    font-size: 11px;
+    vertical-align: middle;
+  }
+
+  .print-table tr { page-break-inside: avoid; }
+  .print-table .alt-row { background: #f9f9f9; }
+  .print-table .mono { font-family: 'DM Mono', monospace; font-size: 10px; }
+  .print-table .center { text-align: center; }
+  .print-table .right { text-align: right; }
+
+  .write-box {
+    border: 1px solid #ccc;
+    min-height: 20px;
+    border-radius: 2px;
+  }
+}
