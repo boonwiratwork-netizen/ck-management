@@ -3,6 +3,7 @@ import { ModifierRule, ModifierRuleType } from "@/types/modifier-rule";
 import { SKU } from "@/types/sku";
 import { Menu } from "@/types/menu";
 import { MenuBomLine } from "@/types/menu-bom";
+import { Branch } from "@/types/branch";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
