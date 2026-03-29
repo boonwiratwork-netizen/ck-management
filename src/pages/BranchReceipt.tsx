@@ -218,7 +218,7 @@ export default function BranchReceiptPage({
       for (const s of sups || []) supplierNameMap[s.id] = s.name;
     }
 
-    const groups: Record
+    const groups: Record<
       string,
       {
         supplierName: string;
@@ -232,7 +232,7 @@ export default function BranchReceiptPage({
       const sid = l.supplier_id;
       if (!sid) continue;
       const requested = Number(l.requested_qty) || 0;
-      const alreadyReceived = (receivedMap[l.pr_id]?.[l.sku_id] || 0);
+      const alreadyReceived = receivedMap[l.pr_id]?.[l.sku_id] || 0;
       const remaining = Math.max(0, requested - alreadyReceived);
       if (remaining <= 0) continue; // รับครบแล้ว ไม่แสดง
 
@@ -787,12 +787,8 @@ export default function BranchReceiptPage({
             receivedMap[r.sku_id] = (receivedMap[r.sku_id] || 0) + Number(r.qty_received);
           }
 
-          const allFulfilled = (prLines || []).every(
-            (l) => (receivedMap[l.sku_id] || 0) >= Number(l.requested_qty)
-          );
-          const anyReceived = (prLines || []).some(
-            (l) => (receivedMap[l.sku_id] || 0) > 0
-          );
+          const allFulfilled = (prLines || []).every((l) => (receivedMap[l.sku_id] || 0) >= Number(l.requested_qty));
+          const anyReceived = (prLines || []).some((l) => (receivedMap[l.sku_id] || 0) > 0);
 
           const newStatus = allFulfilled ? "Fulfilled" : anyReceived ? "Partially Fulfilled" : null;
           if (newStatus) {
