@@ -64,6 +64,35 @@ export function useDailyStockCount({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // Helper: compute branch-relevant SKU IDs from menus → BOM → SP expansion
+  const getBranchRelevantSkuIds = useCallback(
+    (branchId: string): Set<string> => {
+      const branch = branches.find((b) => b.id === branchId);
+      if (!branch) return new Set();
+      const brandName = branch.brandName;
+      const brandMenuIds = new Set(
+        menus.filter((m) => m.brandName === brandName && m.status === "Active").map((m) => m.id),
+      );
+      const filteredLines = menuBomLines.filter(
+        (l) => brandMenuIds.has(l.menuId) && (l.branchId === null || l.branchId === branchId),
+      );
+      const relevantSkuIds = new Set<string>();
+      const skuMap = new Map<string, SKU>();
+      skus.forEach((s) => skuMap.set(s.id, s));
+      for (const line of filteredLines) {
+        const sku = skuMap.get(line.skuId);
+        if (sku && sku.type === "SP") {
+          const spLines = spBomLines.filter((l) => l.spSkuId === line.skuId);
+          for (const spLine of spLines) relevantSkuIds.add(spLine.ingredientSkuId);
+        } else {
+          relevantSkuIds.add(line.skuId);
+        }
+      }
+      return relevantSkuIds;
+    },
+    [branches, menus, menuBomLines, spBomLines, skus],
+  );
+
   // Helper: get converter for purchase→usage UOM conversion
   const getSkuConverter = useCallback(
     (skuId: string): number => {
@@ -102,7 +131,7 @@ export function useDailyStockCount({
       const menuByCode = new Map<string, Menu>();
       menus.forEach((m) => menuByCode.set(m.menuCode, m));
 
-      const filteredLines = menuBomLines.filter(l => l.branchId === null || l.branchId === branchId);
+      const filteredLines = menuBomLines.filter((l) => l.branchId === null || l.branchId === branchId);
       const bomByMenuId = new Map<string, MenuBomLine[]>();
       filteredLines.forEach((l) => {
         const arr = bomByMenuId.get(l.menuId) || [];
@@ -188,7 +217,11 @@ export function useDailyStockCount({
                     if (sku2 && sku2.type === "SP") {
                       const spLines = spBomBySpSku.get(line.skuId) || [];
                       for (const spLine of spLines) {
-                        addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
+                        addUsage(
+                          saleDate,
+                          spLine.ingredientSkuId,
+                          (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2,
+                        );
                       }
                     } else {
                       addUsage(saleDate, line.skuId, ingredientQty2);
@@ -392,7 +425,7 @@ export function useDailyStockCount({
       const menuByCode = new Map<string, Menu>();
       menus.forEach((m) => menuByCode.set(m.menuCode, m));
 
-      const filteredLines = menuBomLines.filter(l => l.branchId === null || l.branchId === branchId);
+      const filteredLines = menuBomLines.filter((l) => l.branchId === null || l.branchId === branchId);
       const bomByMenuId = new Map<string, MenuBomLine[]>();
       filteredLines.forEach((l) => {
         const arr = bomByMenuId.get(l.menuId) || [];
@@ -584,7 +617,10 @@ export function useDailyStockCount({
 
       // Add new SKU rows if BOM changes introduced new ingredients
       const existingSkuIds = new Set(data.map((r) => r.sku_id));
-      const activeSkus = skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
+      const relevantSkuIds = getBranchRelevantSkuIds(branchId);
+      const activeSkus = skus.filter(
+        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM") && relevantSkuIds.has(s.id),
+      );
       const newSkuRows: any[] = [];
       for (const sku of activeSkus) {
         if (
@@ -650,7 +686,10 @@ export function useDailyStockCount({
 
       const openingBySku = await computeOpeningWithGap(branchId, date);
 
-      const activeSkus = skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
+      const relevantSkuIds = getBranchRelevantSkuIds(branchId);
+      const activeSkus = skus.filter(
+        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM") && relevantSkuIds.has(s.id),
+      );
 
       const insertRows = activeSkus.map((sku) => {
         const opening = openingBySku[sku.id] ?? 0;
