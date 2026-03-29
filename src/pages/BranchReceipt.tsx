@@ -2061,6 +2061,17 @@ export default function BranchReceiptPage({
                                       });
                                     }}
                                     onFocus={(e) => e.target.select()}
+                                    ref={(el) => {
+                                      qtyRefs.current[row.skuId] = el;
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
+                                        const nextRow = preloadedRows[idx + 1];
+                                        if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
+                                      }
+                                    }}
                                     className={cn(
                                       "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                       hasQty && "border-success font-bold text-success",
