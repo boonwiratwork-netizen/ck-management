@@ -180,7 +180,7 @@ export default function MenuBOMPage({
         }
 
         // Delete existing BOM lines for this menu
-        const { error: delErr } = await supabase.from("menu_bom").delete().eq("menu_id", menu.id);
+        const { error: delErr } = await supabase.from("menu_bom").delete().eq("menu_id", menu.id).is("branch_id", null);
         if (delErr) {
           failed += menuRows.length;
           continue;
