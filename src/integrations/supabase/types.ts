@@ -1917,6 +1917,38 @@ export type Database = {
         }
         Relationships: []
       }
+      user_sort_preferences: {
+        Row: {
+          branch_id: string | null
+          id: string
+          sku_order: Json
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          id?: string
+          sku_order?: Json
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          id?: string
+          sku_order?: Json
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sort_preferences_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_plan_lines: {
         Row: {
           created_at: string
