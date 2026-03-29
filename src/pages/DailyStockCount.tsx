@@ -329,9 +329,10 @@ export default function DailyStockCountPage({
   const allBranchSkus = useMemo(() => {
     // Use rows from the loaded count sheet — already branch-filtered by generateSheet/loadSheet
     // Both active and unused rows combined = full branch-relevant SKU population
+    if (rows.length === 0) return [];
     const allRows = [...activeRows, ...unusedRows];
     return allRows.map((r) => skuMap.get(r.skuId)).filter((s): s is SKU => !!s);
-  }, [activeRows, unusedRows, skuMap]);
+  }, [rows.length, activeRows, unusedRows, skuMap]);
 
   const enterArrangeMode = useCallback(() => {
     // Build initial order: if customSkuOrder exists, use it; else default type→skuCode
