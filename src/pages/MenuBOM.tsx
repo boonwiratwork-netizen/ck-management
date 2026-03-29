@@ -307,6 +307,7 @@ export default function MenuBOMPage({
     setFormQty(line.qtyPerServing);
     setFormUom(line.uom);
     setFormYield(line.yieldPct);
+    setFormBranchId(line.branchId ?? null);
     setEditingLineId(line.id);
     setAddingLine(false);
   };
