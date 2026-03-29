@@ -171,12 +171,18 @@ export default function BranchReceiptPage({
       setPendingPRItems([]);
       return;
     }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = format(yesterday, "yyyy-MM-dd");
+    const todayStr = format(new Date(), "yyyy-MM-dd");
 
     const { data: prs } = await supabase
       .from("purchase_requests")
       .select("id, pr_number")
       .eq("branch_id", branchId)
-      .in("status", ["Submitted", "Acknowledged", "Partially Fulfilled"]);
+      .in("status", ["Submitted", "Acknowledged"])
+      .gte("required_date", yesterdayStr)
+      .lte("required_date", todayStr);
 
     if (!prs || prs.length === 0) {
       setPendingPRItems([]);
@@ -197,20 +203,6 @@ export default function BranchReceiptPage({
       return;
     }
 
-    // Fetch already received qty per sku per pr
-    const { data: existingReceipts } = await supabase
-      .from("branch_receipts")
-      .select("purchase_request_id, sku_id, qty_received")
-      .in("purchase_request_id", prIds);
-
-    const receivedMap: Record<string, Record<string, number>> = {};
-    for (const r of existingReceipts || []) {
-      if (!r.purchase_request_id) continue;
-      if (!receivedMap[r.purchase_request_id]) receivedMap[r.purchase_request_id] = {};
-      receivedMap[r.purchase_request_id][r.sku_id] =
-        (receivedMap[r.purchase_request_id][r.sku_id] || 0) + Number(r.qty_received);
-    }
-
     const supplierIds = [...new Set(lines.map((l) => l.supplier_id).filter(Boolean) as string[])];
     let supplierNameMap: Record<string, string> = {};
     if (supplierIds.length > 0) {
@@ -227,34 +219,22 @@ export default function BranchReceiptPage({
         lineMap: Record<string, { suggestedQty: number; packSize: number }>;
       }
     > = {};
-
     for (const l of lines) {
       const sid = l.supplier_id;
       if (!sid) continue;
-      const requested = Number(l.requested_qty) || 0;
-      const alreadyReceived = receivedMap[l.pr_id]?.[l.sku_id] || 0;
-      const remaining = Math.max(0, requested - alreadyReceived);
-      if (remaining <= 0) continue; // รับครบแล้ว ไม่แสดง
-
       if (!groups[sid]) {
         groups[sid] = { supplierName: supplierNameMap[sid] || "", prIds: new Set(), prNumbers: new Set(), lineMap: {} };
       }
       groups[sid].prIds.add(l.pr_id);
       groups[sid].prNumbers.add(prNumberMap[l.pr_id] || "");
       if (groups[sid].lineMap[l.sku_id]) {
-        groups[sid].lineMap[l.sku_id].suggestedQty += remaining;
+        groups[sid].lineMap[l.sku_id].suggestedQty += Number(l.requested_qty) || 0;
       } else {
         groups[sid].lineMap[l.sku_id] = {
-          suggestedQty: remaining,
+          suggestedQty: Number(l.requested_qty) || 0,
           packSize: Number(l.pack_size) || 1,
         };
       }
-    }
-
-    // ถ้าทุก line ของ PR รับครบหมดแล้ว groups จะว่าง
-    if (Object.keys(groups).length === 0) {
-      setPendingPRItems([]);
-      return;
     }
 
     setPendingPRItems(
@@ -693,8 +673,8 @@ export default function BranchReceiptPage({
     if (!branchId) return;
     setBatchSaving(true);
 
-    const allRows: (Omit<BranchReceipt, "id" | "createdAt"> & { purchaseRequestId?: string })[] = [];
-    const prIdToReceivedSkus: Record<string, Set<string>> = {};
+    const allRows: Omit<BranchReceipt, "id" | "createdAt">[] = [];
+    const allPrIds: string[] = [];
 
     for (const group of pendingPRItems) {
       for (const line of group.lines) {
@@ -706,9 +686,6 @@ export default function BranchReceiptPage({
         const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : stdTotal;
         const actualUnitPrice = edit.qty > 0 ? actualTotal / edit.qty : 0;
         const priceVariance = actualTotal - stdTotal;
-
-        // หา prId ที่ line นี้มาจาก
-        const prId = group.prIds[0];
 
         allRows.push({
           branchId,
@@ -724,17 +701,15 @@ export default function BranchReceiptPage({
           priceVariance,
           notes: "",
           transferOrderId: null,
-          purchaseRequestId: prId,
         });
-
-        if (prId) {
-          if (!prIdToReceivedSkus[prId]) prIdToReceivedSkus[prId] = new Set();
-          prIdToReceivedSkus[prId].add(line.skuId);
-        }
       }
+      const groupHasQty = group.lines.some(
+        (line) => (batchRowEdits[`${group.supplierId}-${line.skuId}`]?.qty ?? 0) > 0,
+      );
+      if (groupHasQty) allPrIds.push(...group.prIds);
     }
 
-    // Ad-hoc rows (ไม่มี PR ref)
+    // Ad-hoc rows
     for (const r of adHocRows) {
       if (r.skuId && r.qty > 0) {
         const sku = skuMap[r.skuId];
@@ -769,34 +744,10 @@ export default function BranchReceiptPage({
 
     const count = await saveReceipts(allRows);
     if (count) {
-      // ตรวจสอบแต่ละ PR ว่ารับครบหรือยัง
-      for (const group of pendingPRItems) {
-        for (const prId of group.prIds) {
-          const { data: prLines } = await supabase
-            .from("purchase_request_lines")
-            .select("sku_id, requested_qty")
-            .eq("pr_id", prId);
-
-          const { data: receipts } = await supabase
-            .from("branch_receipts")
-            .select("sku_id, qty_received")
-            .eq("purchase_request_id", prId);
-
-          const receivedMap: Record<string, number> = {};
-          for (const r of receipts || []) {
-            receivedMap[r.sku_id] = (receivedMap[r.sku_id] || 0) + Number(r.qty_received);
-          }
-
-          const allFulfilled = (prLines || []).every((l) => (receivedMap[l.sku_id] || 0) >= Number(l.requested_qty));
-          const anyReceived = (prLines || []).some((l) => (receivedMap[l.sku_id] || 0) > 0);
-
-          const newStatus = allFulfilled ? "Fulfilled" : anyReceived ? "Partially Fulfilled" : null;
-          if (newStatus) {
-            await supabase.from("purchase_requests").update({ status: newStatus }).eq("id", prId);
-          }
-        }
+      // Mark PRs as Fulfilled
+      if (allPrIds.length > 0) {
+        await supabase.from("purchase_requests").update({ status: "Fulfilled" }).in("id", allPrIds);
       }
-
       setSavedCount(count);
       setIsBatchMode(false);
       setBatchRowEdits({});
@@ -1384,7 +1335,7 @@ export default function BranchReceiptPage({
                         key={line.toLineId}
                         className={cn(
                           "border-b last:border-0 transition-colors",
-                          line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-70",
+                          line.receivedQty > 0 ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                         )}
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
@@ -1590,7 +1541,7 @@ export default function BranchReceiptPage({
                               key={`${group.supplierId}-${line.skuId}`}
                               className={cn(
                                 "border-b last:border-0 transition-colors",
-                                hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-70",
+                                hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                               )}
                             >
                               <td className={`${tdReadOnly} font-mono text-xs align-middle`}>
@@ -2062,7 +2013,7 @@ export default function BranchReceiptPage({
                           key={row.skuId}
                           className={cn(
                             "border-b last:border-0 transition-colors",
-                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-70",
+                            hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
                           )}
                         >
                           <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
