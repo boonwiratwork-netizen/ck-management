@@ -962,7 +962,7 @@ export default function TransferRequestPage() {
                                   min={0}
                                   step={1}
                                   defaultValue=""
-                                  placeholder="0"
+                                  placeholder=""
                                   onBlur={(e) => {
                                     const v = Math.max(0, Math.round(Number(e.target.value) || 0));
                                     setBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
@@ -1144,7 +1144,7 @@ export default function TransferRequestPage() {
                                   min={0}
                                   step={1}
                                   defaultValue=""
-                                  placeholder="0"
+                                  placeholder=""
                                   onBlur={(e) => {
                                     const v = Math.max(0, Math.round(Number(e.target.value) || 0));
                                     setPrBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
