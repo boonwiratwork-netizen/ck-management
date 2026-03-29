@@ -406,6 +406,7 @@ export default function ModifierRulesPage({
       ruleType: rule.ruleType,
       swapSkuId: rule.swapSkuId ?? "",
       submenuId: rule.submenuId ?? "",
+      branchIds: rule.branchIds ?? [],
     });
     setModalOpen(true);
   };
@@ -423,6 +424,7 @@ export default function ModifierRulesPage({
       ruleType: rule.ruleType,
       swapSkuId: rule.swapSkuId ?? "",
       submenuId: rule.submenuId ?? "",
+      branchIds: [...(rule.branchIds ?? [])],
     });
     setModalOpen(true);
   };
