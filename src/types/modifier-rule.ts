@@ -13,6 +13,7 @@ export interface ModifierRule {
   ruleType: ModifierRuleType;
   swapSkuId: string | null;
   submenuId: string | null;
+  branchIds: string[];
 }
 
 export const EMPTY_MODIFIER_RULE: Omit<ModifierRule, "id"> = {
