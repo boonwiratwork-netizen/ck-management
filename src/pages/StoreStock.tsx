@@ -408,7 +408,7 @@ export default function StoreStockPage({
     for (const [date, dateSales] of salesByDate) {
       if (date > since) recentSales.push(...dateSales);
     }
-    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
       daily[skuId] = total / 7;
