@@ -323,6 +323,7 @@ export default function ModifierRulesPage({
   menus,
   menuBomLines = [],
   readOnly = false,
+  branches = [],
 }: ModifierRulesPageProps) {
   const { isManagement } = useAuth();
   const { t } = useLanguage();
