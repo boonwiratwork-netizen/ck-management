@@ -522,7 +522,12 @@ export default function DailyStockCountPage({
                       รีเซ็ตลำดับ
                     </button>
                   </>
-                )}
+            )}
+            {rows.length > 0 && !arrangeMode && (
+              <Button variant="outline" onClick={() => setPrintModalOpen(true)}>
+                <Printer className="w-4 h-4" /> พิมพ์ใบนับ
+              </Button>
+            )}
               </div>
             )}
             {rows.length > 0 && !isSubmitted && !arrangeMode && (
