@@ -32,12 +32,7 @@ import {
   GripVertical,
   Printer,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -522,12 +517,12 @@ export default function DailyStockCountPage({
                       รีเซ็ตลำดับ
                     </button>
                   </>
-            )}
-            {rows.length > 0 && !arrangeMode && (
-              <Button variant="outline" onClick={() => setPrintModalOpen(true)}>
-                <Printer className="w-4 h-4" /> พิมพ์ใบนับ
-              </Button>
-            )}
+                )}
+                {rows.length > 0 && !arrangeMode && (
+                  <Button variant="outline" onClick={() => setPrintModalOpen(true)}>
+                    <Printer className="w-4 h-4" /> พิมพ์ใบนับ
+                  </Button>
+                )}
               </div>
             )}
             {rows.length > 0 && !isSubmitted && !arrangeMode && (
@@ -903,7 +898,9 @@ export default function DailyStockCountPage({
             >
               <div className="font-semibold text-sm">วันนี้</div>
               <div className="text-xs text-muted-foreground mt-1">เฉพาะ SKU ที่มีการเคลื่อนไหววันนี้</div>
-              <Badge variant="secondary" className="mt-2 text-xs">{activeRows.length} รายการ</Badge>
+              <Badge variant="secondary" className="mt-2 text-xs">
+                {activeRows.length} รายการ
+              </Badge>
             </button>
             <button
               type="button"
@@ -912,7 +909,9 @@ export default function DailyStockCountPage({
             >
               <div className="font-semibold text-sm">สิ้นเดือน</div>
               <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีการเคลื่อนไหวในเดือนนี้</div>
-              <Badge variant="secondary" className="mt-2 text-xs">{activeRows.length + unusedRows.length} รายการ</Badge>
+              <Badge variant="secondary" className="mt-2 text-xs">
+                {activeRows.length + unusedRows.length} รายการ
+              </Badge>
             </button>
           </div>
           <Button
@@ -928,20 +927,19 @@ export default function DailyStockCountPage({
       </Dialog>
 
       {/* ── Print-only layout ── */}
-      <div className="print-stock-sheet hidden print:block">
+      <div id="ck-print-section" className="print-stock-sheet hidden">
         <div className="print-header">
           <div className="print-header-row">
-            <span className="print-branch">{branches.find(b => b.id === selectedBranch)?.branchName ?? ""}</span>
+            <span className="print-branch">{branches.find((b) => b.id === selectedBranch)?.branchName ?? ""}</span>
             <span className="print-date">
-              วันที่: {selectedDate ? `${selectedDate.slice(8, 10)}/${selectedDate.slice(5, 7)}/${selectedDate.slice(0, 4)}` : ""}
+              วันที่:{" "}
+              {selectedDate
+                ? `${selectedDate.slice(8, 10)}/${selectedDate.slice(5, 7)}/${selectedDate.slice(0, 4)}`
+                : ""}
             </span>
           </div>
-          <div className="print-title">
-            {printScope === "today" ? "ใบนับสต็อกประจำวัน" : "ใบนับสต็อกสิ้นเดือน"}
-          </div>
-          <div className="print-meta">
-            พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}
-          </div>
+          <div className="print-title">{printScope === "today" ? "ใบนับสต็อกประจำวัน" : "ใบนับสต็อกสิ้นเดือน"}</div>
+          <div className="print-meta">พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}</div>
         </div>
         <table className="print-table">
           <thead>
@@ -966,14 +964,46 @@ export default function DailyStockCountPage({
                   <td className="center">{sku.type}</td>
                   <td className="center">{sku.usageUom}</td>
                   <td className="right">{Math.round(Math.max(0, row.calculatedBalance))}</td>
-                  <td><div className="write-box" /></td>
-                  <td><div className="write-box" /></td>
+                  <td>
+                    <div className="write-box" />
+                  </td>
+                  <td>
+                    <div className="write-box" />
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #ck-print-section { display: block !important; visibility: visible !important; }
+          #ck-print-section * { visibility: visible !important; }
+          :root {
+            --col-sku: 10%;
+            --col-name: 32%;
+            --col-type: 8%;
+            --col-unit: 8%;
+            --col-balance: 12%;
+            --col-waste: 15%;
+            --col-count: 15%;
+          }
+          .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          .print-table th, .print-table td { border: 1px solid #ccc; padding: 4px 6px; }
+          .print-table th { background: #f0f0f0; font-weight: 600; }
+          .alt-row { background: #f9f9f9; }
+          .write-box { min-height: 20px; width: 100%; }
+          .mono { font-family: monospace; }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .print-header { margin-bottom: 12px; }
+          .print-header-row { display: flex; justify-content: space-between; font-size: 12px; }
+          .print-title { font-size: 16px; font-weight: bold; margin: 4px 0; }
+          .print-meta { font-size: 10px; color: #666; }
+        }
+      `}</style>
     </div>
   );
 }
