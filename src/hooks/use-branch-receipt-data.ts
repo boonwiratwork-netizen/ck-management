@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface BranchReceipt {
   id: string;
@@ -18,6 +18,7 @@ export interface BranchReceipt {
   notes: string;
   createdAt: string;
   transferOrderId: string | null;
+  purchaseRequestId?: string | null;
 }
 
 const toLocal = (row: any): BranchReceipt => ({
@@ -36,6 +37,7 @@ const toLocal = (row: any): BranchReceipt => ({
   notes: row.notes,
   createdAt: row.created_at,
   transferOrderId: row.transfer_order_id,
+  purchaseRequestId: row.purchase_request_id ?? null,
 });
 
 export function useBranchReceiptData() {
@@ -45,42 +47,58 @@ export function useBranchReceiptData() {
   const fetchReceipts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('branch_receipts')
-      .select('*')
-      .order('receipt_date', { ascending: false });
-    if (error) { toast.error('Failed to load branch receipts'); setLoading(false); return; }
+      .from("branch_receipts")
+      .select("*")
+      .order("receipt_date", { ascending: false });
+    if (error) {
+      toast.error("Failed to load branch receipts");
+      setLoading(false);
+      return;
+    }
     setReceipts((data || []).map(toLocal));
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchReceipts(); }, [fetchReceipts]);
-
-  const saveReceipts = useCallback(async (rows: Omit<BranchReceipt, 'id' | 'createdAt'>[]) => {
-    const inserts = rows.map(r => ({
-      branch_id: r.branchId,
-      receipt_date: r.receiptDate,
-      sku_id: r.skuId,
-      supplier_name: r.supplierName,
-      qty_received: r.qtyReceived,
-      uom: r.uom,
-      actual_unit_price: r.actualUnitPrice,
-      actual_total: r.actualTotal,
-      std_unit_price: r.stdUnitPrice,
-      std_total: r.stdTotal,
-      price_variance: r.priceVariance,
-      notes: r.notes,
-      transfer_order_id: r.transferOrderId || null,
-    }));
-    const { error } = await supabase.from('branch_receipts').insert(inserts);
-    if (error) { toast.error('Failed to save receipts: ' + error.message); return 0; }
-    await fetchReceipts();
-    return inserts.length;
+  useEffect(() => {
+    fetchReceipts();
   }, [fetchReceipts]);
 
+  const saveReceipts = useCallback(
+    async (rows: Omit<BranchReceipt, "id" | "createdAt">[]) => {
+      const inserts = rows.map((r) => ({
+        branch_id: r.branchId,
+        receipt_date: r.receiptDate,
+        sku_id: r.skuId,
+        supplier_name: r.supplierName,
+        qty_received: r.qtyReceived,
+        uom: r.uom,
+        actual_unit_price: r.actualUnitPrice,
+        actual_total: r.actualTotal,
+        std_unit_price: r.stdUnitPrice,
+        std_total: r.stdTotal,
+        price_variance: r.priceVariance,
+        notes: r.notes,
+        transfer_order_id: r.transferOrderId || null,
+        purchase_request_id: r.purchaseRequestId || null,
+      }));
+      const { error } = await supabase.from("branch_receipts").insert(inserts);
+      if (error) {
+        toast.error("Failed to save receipts: " + error.message);
+        return 0;
+      }
+      await fetchReceipts();
+      return inserts.length;
+    },
+    [fetchReceipts],
+  );
+
   const deleteReceipt = useCallback(async (id: string) => {
-    const { error } = await supabase.from('branch_receipts').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete receipt'); return; }
-    setReceipts(prev => prev.filter(r => r.id !== id));
+    const { error } = await supabase.from("branch_receipts").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete receipt");
+      return;
+    }
+    setReceipts((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
   return { receipts, loading, saveReceipts, deleteReceipt, fetchReceipts };
