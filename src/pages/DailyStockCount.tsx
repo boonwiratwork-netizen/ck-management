@@ -984,11 +984,14 @@ export default function DailyStockCountPage({
           <Button className="no-print w-full mt-2" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> พิมพ์
           </Button>
-        </DialogContent>
-        <style>{`
-        @media print { .no-print { display: none !important; } }
+          <style>{`
+        @media print { .no-print { display: none !important; } 
+        [data-radix-popper-content-wrapper] { display: none !important; }
+              [data-radix-dialog-overlay] { display: none !important; }
+            }
         @media screen { .only-print { display: none; } }
       `}</style>
+        </DialogContent>
       </Dialog>
     </div>
   );
