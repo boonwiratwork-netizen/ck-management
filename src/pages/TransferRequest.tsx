@@ -1003,7 +1003,7 @@ export default function TransferRequestPage() {
                                     trHook.updateLineQty(line.skuId, v);
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Tab") {
+                                    if (e.key === "Tab" || e.key === "Enter") {
                                       e.preventDefault();
                                       const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
                                       if (nextIdx >= 0 && nextIdx < sortedTRLines.length) {
@@ -1184,7 +1184,7 @@ export default function TransferRequestPage() {
                                     setPrBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Tab") {
+                                    if (e.key === "Tab" || e.key === "Enter") {
                                       e.preventDefault();
                                       const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
                                       if (nextIdx >= 0 && nextIdx < filteredPrLines.length) {
