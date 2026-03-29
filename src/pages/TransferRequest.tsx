@@ -746,7 +746,7 @@ export default function TransferRequestPage() {
                   onClick={() => setSkuFinderOpen(true)}
                 >
                   <Search className="w-3.5 h-3.5 mr-1.5" />
-                  🔍 เสิร์จ SKU
+                  เสิร์จ SKU
                 </Button>
               </div>
             )}
@@ -788,7 +788,7 @@ export default function TransferRequestPage() {
                         setSkuFinderResults(unique.slice(0, 15));
                         setSkuFinderLoading(false);
                       }}
-                      placeholder="Type SKU code or name..."
+                      placeholder="พิมพ์ชื่อ หรือ รหัสวัตถุดิบ..."
                       className="w-[220px] h-10 pl-8 pr-2 text-sm border border-input rounded-md bg-background focus:border-primary outline-none"
                       autoFocus
                     />
