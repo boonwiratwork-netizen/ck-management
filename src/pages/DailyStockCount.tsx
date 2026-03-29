@@ -886,7 +886,7 @@ export default function DailyStockCountPage({
 
       {/* Print options modal */}
       <Dialog open={printModalOpen} onOpenChange={setPrintModalOpen}>
-        <DialogContent className="max-w-4xl print:max-w-full print:shadow-none">
+        <DialogContent className="max-w-4xl print:max-w-full print:shadow-none" style={{ overflow: "visible" }}>
           <DialogHeader className="no-print">
             <DialogTitle>พิมพ์ใบนับสต็อก</DialogTitle>
           </DialogHeader>
