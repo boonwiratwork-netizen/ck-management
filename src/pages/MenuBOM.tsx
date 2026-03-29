@@ -74,6 +74,11 @@ export default function MenuBOMPage({
   const [formQty, setFormQty] = useState(0);
   const [formUom, setFormUom] = useState("");
   const [formYield, setFormYield] = useState(100);
+  const [formBranchId, setFormBranchId] = useState<string | null>(null);
+
+  // Branch filter
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
 
   // CSV import config
   const csvColumns: CSVColumnDef[] = [
