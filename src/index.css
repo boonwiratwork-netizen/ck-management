@@ -359,10 +359,20 @@
     --col-count: 15%;
   }
 
-  /* Hide everything except print layout */
-  body > *:not(#root) { display: none !important; }
-  #root > * { display: none !important; }
-  .print-stock-sheet { display: block !important; }
+  /* Hide everything, then reveal only the print sheet */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-stock-sheet,
+  .print-stock-sheet * {
+    visibility: visible !important;
+  }
+  .print-stock-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
 
   @page {
     size: A4 portrait;
