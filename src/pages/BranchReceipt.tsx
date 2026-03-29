@@ -181,7 +181,6 @@ export default function BranchReceiptPage({
       .select("id, pr_number")
       .eq("branch_id", branchId)
       .in("status", ["Submitted", "Acknowledged"])
-      .gte("required_date", yesterdayStr)
       .lte("required_date", todayStr);
 
     if (!prs || prs.length === 0) {
