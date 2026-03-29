@@ -568,6 +568,27 @@ export default function MenuBOMPage({
                 </CardContent>
               </Card>
 
+              {/* Branch filter tabs */}
+              {activeBranches.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    onClick={() => setBranchFilter("all")}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${branchFilter === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                  >
+                    All Lines
+                  </button>
+                  {activeBranches.map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => setBranchFilter(b.id)}
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${branchFilter === b.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                      {b.branchName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Ingredients table */}
               <Card>
                 <CardContent className="p-0 overflow-hidden">
