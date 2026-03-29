@@ -789,7 +789,7 @@ export default function TransferRequestPage() {
                         setSkuFinderLoading(false);
                       }}
                       placeholder="Type SKU code or name..."
-                      className="w-[220px] h-8 pl-7 pr-2 text-sm border rounded-md bg-background focus:border-primary outline-none"
+                      className="w-[220px] h-10 pl-8 pr-2 text-sm border border-input rounded-md bg-background focus:border-primary outline-none"
                       autoFocus
                     />
                   </div>
