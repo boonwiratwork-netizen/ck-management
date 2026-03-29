@@ -887,14 +887,14 @@ export default function DailyStockCountPage({
       {/* Print options modal */}
       <Dialog open={printModalOpen} onOpenChange={setPrintModalOpen}>
         <DialogContent className="max-w-4xl print:max-w-full print:shadow-none">
-          <DialogHeader>
+          <DialogHeader className="no-print">
             <DialogTitle>พิมพ์ใบนับสต็อก</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setPrintScope("today")}
-              className={`print:hidden rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              className={`no-print rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">วันนี้</div>
               <div className="text-xs text-muted-foreground mt-1">เฉพาะ SKU ที่มีการเคลื่อนไหววันนี้</div>
@@ -905,7 +905,7 @@ export default function DailyStockCountPage({
             <button
               type="button"
               onClick={() => setPrintScope("month")}
-              className={`print:hidden rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              className={`no-print rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">สิ้นเดือน</div>
               <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีการเคลื่อนไหวในเดือนนี้</div>
@@ -914,7 +914,7 @@ export default function DailyStockCountPage({
               </Badge>
             </button>
           </div>
-          <div className="print:block hidden mt-4">
+          <div className="only-print mt-4">
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
                 <span className="font-bold text-base">
@@ -941,7 +941,7 @@ export default function DailyStockCountPage({
                 <col style={{ width: "15%" }} />
                 <col style={{ width: "15%" }} />
               </colgroup>
-              <thead>
+              <thead style={{ display: "table-header-group" }}>
                 <tr style={{ background: "#eee" }}>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>รหัส SKU</th>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>ชื่อ SKU</th>
@@ -981,10 +981,14 @@ export default function DailyStockCountPage({
               </tbody>
             </table>
           </div>
-          <Button className="print:hidden w-full mt-2" onClick={() => window.print()}>
+          <Button className="no-print w-full mt-2" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> พิมพ์
           </Button>
         </DialogContent>
+        <style>{`
+        @media print { .no-print { display: none !important; } }
+        @media screen { .only-print { display: none; } }
+      `}</style>
       </Dialog>
     </div>
   );
