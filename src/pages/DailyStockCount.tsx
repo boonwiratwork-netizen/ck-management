@@ -145,6 +145,10 @@ export default function DailyStockCountPage({
   const [customSkuOrder, setCustomSkuOrder] = useState<string[] | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
+  // Print state
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printScope, setPrintScope] = useState<"today" | "month">("today");
+
   const handleSort = useCallback(
     (key: SortKey) => {
       if (arrangeMode) return; // disabled in arrange mode
