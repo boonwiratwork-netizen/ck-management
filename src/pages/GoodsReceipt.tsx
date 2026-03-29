@@ -684,6 +684,14 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               });
                             }}
                             onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
+                                const nextRow = preloadedRows[idx + 1];
+                                if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
+                              }
+                            }}
                             className={cn(
                               "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
                               hasQty ? "border-success font-bold text-success" : "border-primary/30",
@@ -909,7 +917,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           {/* Footer bar */}
           <div className="flex items-center justify-between px-5 py-3 bg-muted/30 border-t">
             <div className="text-sm text-muted-foreground">
-               {t("gr.totalValue")}{" "}
+              {t("gr.totalValue")}{" "}
               <span className="font-mono font-semibold text-foreground">
                 ฿{totalActualValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
@@ -925,7 +933,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <PackageOpen className="w-7 h-7 text-success" />
             </div>
             <div className="text-center">
-               <p className="font-medium text-foreground">{t("gr.noActiveReceipt")}</p>
+              <p className="font-medium text-foreground">{t("gr.noActiveReceipt")}</p>
               <p className="text-sm text-muted-foreground mt-1">{t("gr.chooseMode")}</p>
             </div>
             <div className="flex items-center gap-3 mt-2">
