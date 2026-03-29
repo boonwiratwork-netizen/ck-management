@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500&family=DM+Mono:wght@300;400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500&family=DM+Mono:wght@300;400;500&display=swap");
 
 @layer base {
   :root {
@@ -126,13 +126,26 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family:
+      "DM Sans",
+      system-ui,
+      -apple-system,
+      sans-serif;
     font-size: 14px;
     line-height: 1.6;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Syne', system-ui, -apple-system, sans-serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family:
+      "Syne",
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 }
 
@@ -168,7 +181,7 @@
 
   /* Required field asterisk */
   .label-required::after {
-    content: ' *';
+    content: " *";
     color: hsl(var(--destructive));
     font-weight: 500;
   }
@@ -226,18 +239,32 @@
   }
 
   /* Daily stock count variance */
-  .var-neutral { color: hsl(var(--muted-foreground)); }
-  .var-good { color: hsl(142 71% 35%); background-color: hsl(142 71% 35% / 0.08); }
-  .var-great { color: hsl(142 71% 25%); background-color: hsl(142 71% 25% / 0.12); }
-  .var-minor-loss { color: hsl(24 94% 53%); background-color: hsl(24 94% 53% / 0.08); }
-  .var-major-loss { color: hsl(0 72% 51%); background-color: hsl(0 72% 51% / 0.1); }
+  .var-neutral {
+    color: hsl(var(--muted-foreground));
+  }
+  .var-good {
+    color: hsl(142 71% 35%);
+    background-color: hsl(142 71% 35% / 0.08);
+  }
+  .var-great {
+    color: hsl(142 71% 25%);
+    background-color: hsl(142 71% 25% / 0.12);
+  }
+  .var-minor-loss {
+    color: hsl(24 94% 53%);
+    background-color: hsl(24 94% 53% / 0.08);
+  }
+  .var-major-loss {
+    color: hsl(0 72% 51%);
+    background-color: hsl(0 72% 51% / 0.1);
+  }
 
   /* Unsaved row indicator */
   .row-unsaved {
     position: relative;
   }
   .row-unsaved::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 50%;
@@ -324,7 +351,9 @@
     background-color: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius);
-    box-shadow: 0 1px 3px 0 rgba(15, 14, 12, 0.06), 0 1px 2px -1px rgba(15, 14, 12, 0.04);
+    box-shadow:
+      0 1px 3px 0 rgba(15, 14, 12, 0.06),
+      0 1px 2px -1px rgba(15, 14, 12, 0.04);
   }
 
   /* Rectangular status badge */
@@ -336,97 +365,12 @@
     padding: 2px 7px;
     border-radius: 4px;
     white-space: nowrap;
-    font-family: 'DM Sans', sans-serif;
+    font-family: "DM Sans", sans-serif;
   }
 
   /* Table row comfortable spacing */
   .table-row-comfortable td {
     padding-top: 0.625rem;
     padding-bottom: 0.625rem;
-  }
-}
-
-/* ── Print stock counting sheet ── */
-@media print {
-  /* Column widths — adjust here only */
-  :root {
-    --col-sku: 10%;
-    --col-name: 32%;
-    --col-type: 8%;
-    --col-unit: 8%;
-    --col-balance: 12%;
-    --col-waste: 15%;
-    --col-count: 15%;
-  }
-
-  /* Hide everything, then reveal only the print sheet */
-  body * {
-    visibility: hidden !important;
-  }
-  .print-stock-sheet,
-  .print-stock-sheet * {
-    visibility: visible !important;
-  }
-  .print-stock-sheet {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
-
-  @page {
-    size: A4 portrait;
-    margin: 12mm 10mm;
-    @bottom-right { content: "หน้า " counter(page); font-size: 9px; }
-  }
-
-  .print-stock-sheet {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 11px;
-    color: #000;
-  }
-
-  .print-header { margin-bottom: 8px; }
-  .print-header-row { display: flex; justify-content: space-between; align-items: baseline; }
-  .print-branch { font-weight: 700; font-size: 14px; }
-  .print-date { font-size: 11px; }
-  .print-title { font-size: 13px; font-weight: 600; margin-top: 2px; }
-  .print-meta { font-size: 9px; color: #666; margin-top: 2px; }
-
-  .print-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 6px;
-    page-break-inside: auto;
-  }
-
-  .print-table thead { display: table-header-group; }
-
-  .print-table th {
-    border: 1px solid #999;
-    padding: 3px 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-align: left;
-    background: #eee;
-  }
-
-  .print-table td {
-    border: 1px solid #ccc;
-    padding: 4px 4px;
-    font-size: 11px;
-    vertical-align: middle;
-  }
-
-  .print-table tr { page-break-inside: avoid; }
-  .print-table .alt-row { background: #f9f9f9; }
-  .print-table .mono { font-family: 'DM Mono', monospace; font-size: 10px; }
-  .print-table .center { text-align: center; }
-  .print-table .right { text-align: right; }
-
-  .write-box {
-    border: 1px solid #ccc;
-    min-height: 20px;
-    border-radius: 2px;
   }
 }
