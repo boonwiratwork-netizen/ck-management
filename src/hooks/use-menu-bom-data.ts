@@ -41,6 +41,7 @@ export function useMenuBomData() {
       yield_pct: data.yieldPct,
       effective_qty: data.effectiveQty,
       cost_per_serving: data.costPerServing,
+      branch_id: data.branchId ?? null,
     }).select().single();
     if (error) { toast.error('Failed to add ingredient: ' + error.message); return; }
     setLines(prev => [...prev, toLocal(row)]);
