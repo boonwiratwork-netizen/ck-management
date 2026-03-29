@@ -685,6 +685,7 @@ export type Database = {
       }
       menu_modifier_rules: {
         Row: {
+          branch_ids: string[]
           created_at: string
           description: string
           id: string
@@ -699,6 +700,7 @@ export type Database = {
           uom: string
         }
         Insert: {
+          branch_ids?: string[]
           created_at?: string
           description?: string
           id?: string
@@ -713,6 +715,7 @@ export type Database = {
           uom?: string
         }
         Update: {
+          branch_ids?: string[]
           created_at?: string
           description?: string
           id?: string

@@ -175,7 +175,11 @@ export default function FoodCostPage({
     return m;
   }, [spBomLines]);
 
-  const activeRules = useMemo(() => modifierRules.filter((r) => r.isActive), [modifierRules]);
+  const activeRules = useMemo(() => modifierRules.filter((r) => {
+    if (!r.isActive) return false;
+    if (r.branchIds && r.branchIds.length > 0 && selectedBranch !== 'all' && !r.branchIds.includes(selectedBranch)) return false;
+    return true;
+  }), [modifierRules, selectedBranch]);
 
   const calcUsage = useCallback(
     (sales: any[]): Record<string, number> => {

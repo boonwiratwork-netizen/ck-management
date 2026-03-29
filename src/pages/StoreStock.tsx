@@ -51,6 +51,7 @@ function calculateUsageFromSales(
   modifierRules: ModifierRule[],
   spBomLines: SpBomLine[],
   skus: SKU[],
+  branchId?: string,
 ): Record<string, number> {
   const menuByCode = new Map<string, Menu>();
   menus.forEach((m) => menuByCode.set(m.menuCode, m));
@@ -62,7 +63,11 @@ function calculateUsageFromSales(
     bomByMenuId.set(l.menuId, arr);
   });
 
-  const activeRules = modifierRules.filter((r) => r.isActive);
+  const activeRules = modifierRules.filter((r) => {
+    if (!r.isActive) return false;
+    if (r.branchIds && r.branchIds.length > 0 && branchId && !r.branchIds.includes(branchId)) return false;
+    return true;
+  });
 
   const spBomBySpSku = new Map<string, SpBomLine[]>();
   spBomLines.forEach((l) => {
@@ -333,7 +338,7 @@ export default function StoreStockPage({
 
     const usageBySkuDate = new Map<string, Map<string, number>>();
     for (const [date, dateSales] of salesByDate) {
-      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
       for (const [skuId, qty] of Object.entries(dayUsage)) {
         if (!usageBySkuDate.has(skuId)) usageBySkuDate.set(skuId, new Map());
         const m = usageBySkuDate.get(skuId)!;
@@ -403,7 +408,7 @@ export default function StoreStockPage({
     for (const [date, dateSales] of salesByDate) {
       if (date > since) recentSales.push(...dateSales);
     }
-    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
       daily[skuId] = total / 7;
@@ -453,7 +458,7 @@ export default function StoreStockPage({
         qty: Number(s.qty),
       }));
 
-      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus);
+      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
 
       // Divide by 7 for daily average
       const daily: Record<string, number> = {};
