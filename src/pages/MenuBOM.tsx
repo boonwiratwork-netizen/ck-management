@@ -388,7 +388,20 @@ export default function MenuBOMPage({
         />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
-        {formSkuId ? getSkuById(formSkuId)?.name : "—"}
+        <div>{formSkuId ? getSkuById(formSkuId)?.name : "—"}</div>
+        {editingLineId && (
+          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
+            <SelectTrigger className="h-7 text-xs mt-1" style={{ width: 130 }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Branches</SelectItem>
+              {activeBranches.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </TableCell>
       <TableCell>
         <Input
