@@ -51,6 +51,7 @@ function calculateUsageFromSales(
   modifierRules: ModifierRule[],
   spBomLines: SpBomLine[],
   skus: SKU[],
+  branchId?: string,
 ): Record<string, number> {
   const menuByCode = new Map<string, Menu>();
   menus.forEach((m) => menuByCode.set(m.menuCode, m));
