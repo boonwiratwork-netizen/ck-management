@@ -339,6 +339,7 @@ export default function MenuBOMPage({
         yieldPct: formYield,
         effectiveQty,
         costPerServing,
+        branchId: formBranchId,
       });
       toast.success("Ingredient updated");
       setEditingLineId(null);
@@ -351,6 +352,7 @@ export default function MenuBOMPage({
         yieldPct: formYield,
         effectiveQty,
         costPerServing,
+        branchId: null,
       });
       toast.success("Ingredient added");
       // Auto-continue: reset form for next ingredient
