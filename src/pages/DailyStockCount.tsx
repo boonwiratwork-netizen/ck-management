@@ -888,6 +888,92 @@ export default function DailyStockCountPage({
       ) : selectedBranch ? (
         <EmptyState icon={ClipboardList} title={t("dsc.emptyTitle")} description={t("dsc.emptyHint")} />
       ) : null}
+
+      {/* Print options modal */}
+      <Dialog open={printModalOpen} onOpenChange={setPrintModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>พิมพ์ใบนับสต็อก</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setPrintScope("today")}
+              className={`rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+            >
+              <div className="font-semibold text-sm">วันนี้</div>
+              <div className="text-xs text-muted-foreground mt-1">เฉพาะ SKU ที่มีการเคลื่อนไหววันนี้</div>
+              <Badge variant="secondary" className="mt-2 text-xs">{activeRows.length} รายการ</Badge>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrintScope("month")}
+              className={`rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+            >
+              <div className="font-semibold text-sm">สิ้นเดือน</div>
+              <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีการเคลื่อนไหวในเดือนนี้</div>
+              <Badge variant="secondary" className="mt-2 text-xs">{activeRows.length + unusedRows.length} รายการ</Badge>
+            </button>
+          </div>
+          <Button
+            className="w-full mt-2"
+            onClick={() => {
+              setPrintModalOpen(false);
+              setTimeout(() => window.print(), 300);
+            }}
+          >
+            <Printer className="w-4 h-4" /> พิมพ์
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Print-only layout ── */}
+      <div className="print-stock-sheet hidden print:block">
+        <div className="print-header">
+          <div className="print-header-row">
+            <span className="print-branch">{branches.find(b => b.id === selectedBranch)?.branchName ?? ""}</span>
+            <span className="print-date">
+              วันที่: {selectedDate ? `${selectedDate.slice(8, 10)}/${selectedDate.slice(5, 7)}/${selectedDate.slice(0, 4)}` : ""}
+            </span>
+          </div>
+          <div className="print-title">
+            {printScope === "today" ? "ใบนับสต็อกประจำวัน" : "ใบนับสต็อกสิ้นเดือน"}
+          </div>
+          <div className="print-meta">
+            พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}
+          </div>
+        </div>
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "var(--col-sku)" }}>รหัส SKU</th>
+              <th style={{ width: "var(--col-name)" }}>ชื่อ SKU</th>
+              <th style={{ width: "var(--col-type)" }}>ประเภท</th>
+              <th style={{ width: "var(--col-unit)" }}>หน่วย</th>
+              <th style={{ width: "var(--col-balance)" }}>คงเหลือ</th>
+              <th style={{ width: "var(--col-waste)" }}>ของเสีย</th>
+              <th style={{ width: "var(--col-count)" }}>นับจริง</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(printScope === "today" ? activeRows : [...activeRows, ...unusedRows]).map((row, idx) => {
+              const sku = skuMap.get(row.skuId);
+              if (!sku) return null;
+              return (
+                <tr key={row.id} className={idx % 2 === 1 ? "alt-row" : ""}>
+                  <td className="mono">{sku.skuId}</td>
+                  <td>{sku.name}</td>
+                  <td className="center">{sku.type}</td>
+                  <td className="center">{sku.usageUom}</td>
+                  <td className="right">{Math.round(Math.max(0, row.calculatedBalance))}</td>
+                  <td><div className="write-box" /></td>
+                  <td><div className="write-box" /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
