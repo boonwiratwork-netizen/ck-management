@@ -461,7 +461,7 @@ const Index = () => {
                   menus={menuData.menus}
                   menuBomLines={menuBomData.lines}
                   readOnly={!isManagement}
-                  branches={branches}
+                  branches={branchData.branches}
                 />
               ) : activeTab === 'sales-entry' ? (
                 <SalesEntryPage branches={isAreaManager ? areaManagerBranches : branchData.branches} menus={menuData.menus} modifierRules={modifierRuleData.rules} />
