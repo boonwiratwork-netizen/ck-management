@@ -976,34 +976,6 @@ export default function DailyStockCountPage({
           </tbody>
         </table>
       </div>
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #ck-print-section { display: block !important; visibility: visible !important; }
-          #ck-print-section * { visibility: visible !important; }
-          :root {
-            --col-sku: 10%;
-            --col-name: 32%;
-            --col-type: 8%;
-            --col-unit: 8%;
-            --col-balance: 12%;
-            --col-waste: 15%;
-            --col-count: 15%;
-          }
-          .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-          .print-table th, .print-table td { border: 1px solid #ccc; padding: 4px 6px; }
-          .print-table th { background: #f0f0f0; font-weight: 600; }
-          .alt-row { background: #f9f9f9; }
-          .write-box { min-height: 20px; width: 100%; }
-          .mono { font-family: monospace; }
-          .center { text-align: center; }
-          .right { text-align: right; }
-          .print-header { margin-bottom: 12px; }
-          .print-header-row { display: flex; justify-content: space-between; font-size: 12px; }
-          .print-title { font-size: 16px; font-weight: bold; margin: 4px 0; }
-          .print-meta { font-size: 10px; color: #666; }
-        }
-      `}</style>
     </div>
   );
 }
