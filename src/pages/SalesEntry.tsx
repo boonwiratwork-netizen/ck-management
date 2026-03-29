@@ -114,12 +114,13 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const [mgmtSelectedIds, setMgmtSelectedIds] = useState<Set<string>>(new Set());
   const [mgmtDeleteType, setMgmtDeleteType] = useState<"selected" | "all" | null>(null);
 
-  // Auto-select first profile
+  // Load saved POS profile preference per branch, fallback to first profile
   useEffect(() => {
-    if (profiles.length > 0 && !selectedProfileId) {
-      setSelectedProfileId(profiles[0].id);
-    }
-  }, [profiles, selectedProfileId]);
+    if (profiles.length === 0) return;
+    const saved = selectedBranch ? localStorage.getItem(`pos_profile_${selectedBranch}`) : null;
+    const match = saved && profiles.find((p) => p.id === saved);
+    setSelectedProfileId(match ? match.id : profiles[0].id);
+  }, [profiles, selectedBranch]);
 
   const selectedProfile = useMemo(
     () => profiles.find((p) => p.id === selectedProfileId) || null,
@@ -587,13 +588,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
       setProfileModalOpen(true);
     } else {
       setSelectedProfileId(val);
-    }
-  };
-
-  const handleEditProfile = () => {
-    if (selectedProfile) {
-      setEditingProfile(selectedProfile);
-      setProfileModalOpen(true);
+      if (selectedBranch) {
+        localStorage.setItem(`pos_profile_${selectedBranch}`, val);
+      }
     }
   };
 
