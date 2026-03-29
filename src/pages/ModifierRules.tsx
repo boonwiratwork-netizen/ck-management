@@ -379,6 +379,7 @@ export default function ModifierRulesPage({
     setFormDesc(overrides?.description ?? "");
     setFormActive(overrides?.isActive ?? true);
     setFormMenuIds(overrides?.menuIds ?? []);
+    setFormBranchIds(overrides?.branchIds ?? []);
     setFormRuleType(overrides?.ruleType ?? "add");
     setFormSwapSkuId(overrides?.swapSkuId ?? "");
     setFormSubmenuId(overrides?.submenuId ?? "");
