@@ -742,13 +742,13 @@ export default function TransferRequestPage() {
             {effectiveBranchId && !skuFinderOpen && (
               <div className="self-end">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  className="h-9 px-3 border-primary text-primary font-semibold hover:bg-primary hover:text-primary-foreground"
                   onClick={() => setSkuFinderOpen(true)}
                 >
                   <Search className="w-3.5 h-3.5 mr-1.5" />
-                  เสิร์จ SKU
+                  🔍 เสิร์จ SKU
                 </Button>
               </div>
             )}
