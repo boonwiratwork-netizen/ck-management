@@ -145,6 +145,7 @@ export default function BranchReceiptPage({
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
+  const qtyRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Pending PR counts per supplier
   const prHook = usePurchaseRequest(branchId || null);
@@ -953,7 +954,7 @@ export default function BranchReceiptPage({
                     setSelectedTOId(to.id);
                   }}
                 >
-                   {t("br.receive")}
+                  {t("br.receive")}
                 </Button>
               </div>
             ))}
@@ -1205,7 +1206,7 @@ export default function BranchReceiptPage({
                     setSavedCount(null);
                   }}
                 >
-                   <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
+                  <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
                 </Button>
                 <Button
                   size="sm"
@@ -1214,7 +1215,7 @@ export default function BranchReceiptPage({
                   disabled={batchSavableCount === 0 || batchSaving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                   {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
+                  {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
                 </Button>
               </div>
             </div>
@@ -1253,7 +1254,7 @@ export default function BranchReceiptPage({
                   disabled={savableCount === 0 || saving}
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
-                   {saving ? "Saving..." : t("br.confirmReceipt").replace("{n}", String(savableCount))}
+                  {saving ? "Saving..." : t("br.confirmReceipt").replace("{n}", String(savableCount))}
                 </Button>
               </div>
             </div>
@@ -2483,7 +2484,9 @@ export default function BranchReceiptPage({
       {/* ── 5. RECEIPT HISTORY ── */}
       <div className="pt-2">
         <Separator className="mb-3" />
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("br.receiptHistory")}</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {t("br.receiptHistory")}
+        </span>
       </div>
 
       <div className="space-y-4">
@@ -2716,19 +2719,25 @@ export default function BranchReceiptPage({
         {filteredHistory.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalActualSpend")}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {t("br.totalActualSpend")}
+              </p>
               <p className="text-2xl font-heading font-bold mt-1">
                 ฿{totalActual.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalStdSpend")}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {t("br.totalStdSpend")}
+              </p>
               <p className="text-2xl font-heading font-bold mt-1">
                 ฿{totalStd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("br.totalVariance")}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {t("br.totalVariance")}
+              </p>
               <p
                 className={`text-2xl font-heading font-bold mt-1 ${totalVariance > 0 ? "text-destructive" : "text-success"}`}
               >

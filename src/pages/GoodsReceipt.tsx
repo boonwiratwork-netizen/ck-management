@@ -696,7 +696,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               "h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 rounded-md bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none",
                               hasQty ? "border-success font-bold text-success" : "border-primary/30",
                             )}
-                            placeholder="0"
+                            placeholder=""
                           />
                         </td>
                         <td className={`${tdReadOnly} text-center text-muted-foreground`}>{row.sku.purchaseUom}</td>
@@ -846,7 +846,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                                 onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                                 onFocus={(e) => e.target.select()}
                                 className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-background focus:border-primary outline-none"
-                                placeholder="0"
+                                placeholder=""
                               />
                             </td>
                             <td className={`${tdReadOnly} text-center text-muted-foreground`}>
