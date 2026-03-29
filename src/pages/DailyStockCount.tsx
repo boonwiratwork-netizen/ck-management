@@ -751,7 +751,7 @@ export default function DailyStockCountPage({
                                   if (val !== row.waste) updateWaste(row.id, val);
                                 }}
                                 className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
-                                placeholder="0"
+                                placeholder=""
                                 style={{ textAlign: "right" }}
                               />
                             )}
@@ -784,7 +784,7 @@ export default function DailyStockCountPage({
                                 }}
                                 onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
                                 className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
-                                placeholder="0"
+                                placeholder=""
                                 style={{ textAlign: "right" }}
                               />
                             )}
