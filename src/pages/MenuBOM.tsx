@@ -649,7 +649,7 @@ export default function MenuBOMPage({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLines.length === 0 && !addingLine && (
+                      {filteredLines.length === 0 && !addingLine && (
                         <TableRow>
                           <TableCell colSpan={canEdit ? 9 : 8} className="py-16">
                             <div className="flex flex-col items-center justify-center gap-3">
