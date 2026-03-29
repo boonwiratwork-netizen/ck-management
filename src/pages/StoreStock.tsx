@@ -338,7 +338,7 @@ export default function StoreStockPage({
 
     const usageBySkuDate = new Map<string, Map<string, number>>();
     for (const [date, dateSales] of salesByDate) {
-      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus);
+      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
       for (const [skuId, qty] of Object.entries(dayUsage)) {
         if (!usageBySkuDate.has(skuId)) usageBySkuDate.set(skuId, new Map());
         const m = usageBySkuDate.get(skuId)!;
