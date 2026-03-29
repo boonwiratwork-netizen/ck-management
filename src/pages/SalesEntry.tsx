@@ -594,6 +594,13 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     }
   };
 
+  const handleEditProfile = () => {
+    if (selectedProfile) {
+      setEditingProfile(selectedProfile);
+      setProfileModalOpen(true);
+    }
+  };
+
   const handleProfileSave = async (p: Omit<POSMappingProfile, "id"> & { id?: string }) => {
     const success = await saveProfile(p);
     if (success && !p.id) {
