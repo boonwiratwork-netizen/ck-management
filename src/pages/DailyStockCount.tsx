@@ -79,11 +79,21 @@ function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
         <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
       </td>
       <td className="font-mono text-xs px-2 py-1.5">{sku.skuId}</td>
-      <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>{sku.name}</td>
+      <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>
+        {sku.name}
+      </td>
       <td className="px-2 py-1.5">
-        <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
-          sku.type === "RM" ? "bg-warning/15 text-warning" : sku.type === "SM" ? "bg-info/15 text-info" : "bg-muted text-muted-foreground"
-        }`}>{sku.type}</span>
+        <span
+          className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
+            sku.type === "RM"
+              ? "bg-warning/15 text-warning"
+              : sku.type === "SM"
+                ? "bg-info/15 text-info"
+                : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {sku.type}
+        </span>
       </td>
       <td className="px-2 py-1.5 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
       {/* Placeholder cells for remaining columns — muted */}
@@ -128,17 +138,20 @@ export default function DailyStockCountPage({
   const [customSkuOrder, setCustomSkuOrder] = useState<string[] | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
-  const handleSort = useCallback((key: SortKey) => {
-    if (arrangeMode) return; // disabled in arrange mode
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      if (arrangeMode) return; // disabled in arrange mode
+      setSortKey((prev) => {
+        if (prev === key) {
+          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+          return key;
+        }
+        setSortDir("asc");
         return key;
-      }
-      setSortDir("asc");
-      return key;
-    });
-  }, [arrangeMode]);
+      });
+    },
+    [arrangeMode],
+  );
 
   const {
     rows,
@@ -314,9 +327,11 @@ export default function DailyStockCountPage({
 
   // ── Arrange mode logic ──
   const allBranchSkus = useMemo(() => {
-    // Same population as generateSheet: active RM or SM
-    return skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
-  }, [skus]);
+    // Use rows from the loaded count sheet — already branch-filtered by generateSheet/loadSheet
+    // Both active and unused rows combined = full branch-relevant SKU population
+    const allRows = [...activeRows, ...unusedRows];
+    return allRows.map((r) => skuMap.get(r.skuId)).filter((s): s is SKU => !!s);
+  }, [activeRows, unusedRows, skuMap]);
 
   const enterArrangeMode = useCallback(() => {
     // Build initial order: if customSkuOrder exists, use it; else default type→skuCode
@@ -387,11 +402,7 @@ export default function DailyStockCountPage({
 
   const resetOrder = useCallback(async () => {
     if (!user?.id || !selectedBranch) return;
-    await supabase
-      .from("user_sort_preferences")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("branch_id", selectedBranch);
+    await supabase.from("user_sort_preferences").delete().eq("user_id", user.id).eq("branch_id", selectedBranch);
     setCustomSkuOrder(null);
     toast.success("รีเซ็ตเป็นลำดับเริ่มต้นแล้ว");
   }, [user?.id, selectedBranch]);
@@ -548,7 +559,9 @@ export default function DailyStockCountPage({
             <CardContent className="p-0">
               <div className="overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2 border-b bg-muted/50">
-                  <p className="text-xs text-muted-foreground">ลากแถวเพื่อจัดลำดับ SKU ตามตำแหน่งในครัว · ลำดับนี้จะใช้กับทุกวันสำหรับสาขานี้</p>
+                  <p className="text-xs text-muted-foreground">
+                    ลากแถวเพื่อจัดลำดับ SKU ตามตำแหน่งในครัว · ลำดับนี้จะใช้กับทุกวันสำหรับสาขานี้
+                  </p>
                 </div>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <table className="w-full table-fixed text-xs">
