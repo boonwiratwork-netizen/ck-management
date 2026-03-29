@@ -297,6 +297,7 @@ export default function MenuBOMPage({
     setFormQty(0);
     setFormUom("");
     setFormYield(100);
+    setFormBranchId(null);
     setAddingLine(true);
     setEditingLineId(null);
   };
