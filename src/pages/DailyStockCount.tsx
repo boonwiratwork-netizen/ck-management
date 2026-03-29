@@ -914,7 +914,7 @@ export default function DailyStockCountPage({
               </Badge>
             </button>
           </div>
-          <div className="only-print mt-4">
+          <div className="only-print" style={{ pageBreakBefore: "always", paddingTop: "8px" }}>
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
                 <span className="font-bold text-base">
