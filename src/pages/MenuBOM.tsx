@@ -670,15 +670,19 @@ export default function MenuBOMPage({
                           </TableCell>
                         </TableRow>
                       )}
-                      {selectedLines.map((line) => {
+                      {filteredLines.map((line) => {
                         const sku = getSkuById(line.skuId);
                         const unitCost = getActiveCost(line.skuId);
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
+                        const branchName = line.branchId ? branches.find(b => b.id === line.branchId)?.branchName : null;
                         return (
                           <TableRow key={line.id} className="h-9">
                             <TableCell className="text-sm font-mono py-2 px-3">{sku?.skuId ?? "—"}</TableCell>
                             <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
-                              {sku?.name ?? "—"}
+                              <div>{sku?.name ?? "—"}</div>
+                              <span className={`inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full ${line.branchId ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
+                                {branchName ?? "All"}
+                              </span>
                             </TableCell>
                             <TableCell className="text-sm text-right font-mono py-2 px-3">
                               {line.qtyPerServing}
