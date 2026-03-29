@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
@@ -73,6 +74,11 @@ export default function MenuBOMPage({
   const [formQty, setFormQty] = useState(0);
   const [formUom, setFormUom] = useState("");
   const [formYield, setFormYield] = useState(100);
+  const [formBranchId, setFormBranchId] = useState<string | null>(null);
+
+  // Branch filter
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
 
   // CSV import config
   const csvColumns: CSVColumnDef[] = [
@@ -174,7 +180,7 @@ export default function MenuBOMPage({
         }
 
         // Delete existing BOM lines for this menu
-        const { error: delErr } = await supabase.from("menu_bom").delete().eq("menu_id", menu.id);
+        const { error: delErr } = await supabase.from("menu_bom").delete().eq("menu_id", menu.id).is("branch_id", null);
         if (delErr) {
           failed += menuRows.length;
           continue;
@@ -247,6 +253,10 @@ export default function MenuBOMPage({
 
   const selectedMenu = menus.find((m) => m.id === selectedMenuId) ?? null;
   const selectedLines = selectedMenuId ? menuBomData.getLinesForMenu(selectedMenuId) : [];
+  const filteredLines = useMemo(() => {
+    if (branchFilter === "all") return selectedLines;
+    return selectedLines.filter(l => l.branchId === null || l.branchId === branchFilter);
+  }, [selectedLines, branchFilter]);
   // Always compute cost from live prices (auto-recalc)
   const totalCost = selectedLines.reduce((sum, l) => {
     const effQty = calcEffectiveQty(l.qtyPerServing, l.yieldPct);
@@ -287,6 +297,7 @@ export default function MenuBOMPage({
     setFormQty(0);
     setFormUom("");
     setFormYield(100);
+    setFormBranchId(null);
     setAddingLine(true);
     setEditingLineId(null);
   };
@@ -296,6 +307,7 @@ export default function MenuBOMPage({
     setFormQty(line.qtyPerServing);
     setFormUom(line.uom);
     setFormYield(line.yieldPct);
+    setFormBranchId(line.branchId ?? null);
     setEditingLineId(line.id);
     setAddingLine(false);
   };
@@ -327,6 +339,7 @@ export default function MenuBOMPage({
         yieldPct: formYield,
         effectiveQty,
         costPerServing,
+        branchId: formBranchId,
       });
       toast.success("Ingredient updated");
       setEditingLineId(null);
@@ -339,6 +352,7 @@ export default function MenuBOMPage({
         yieldPct: formYield,
         effectiveQty,
         costPerServing,
+        branchId: null,
       });
       toast.success("Ingredient added");
       // Auto-continue: reset form for next ingredient
@@ -374,7 +388,20 @@ export default function MenuBOMPage({
         />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
-        {formSkuId ? getSkuById(formSkuId)?.name : "—"}
+        <div>{formSkuId ? getSkuById(formSkuId)?.name : "—"}</div>
+        {editingLineId && (
+          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
+            <SelectTrigger className="h-7 text-xs mt-1" style={{ width: 130 }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Branches</SelectItem>
+              {activeBranches.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </TableCell>
       <TableCell>
         <Input
@@ -541,6 +568,27 @@ export default function MenuBOMPage({
                 </CardContent>
               </Card>
 
+              {/* Branch filter tabs */}
+              {activeBranches.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    onClick={() => setBranchFilter("all")}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${branchFilter === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                  >
+                    All Lines
+                  </button>
+                  {activeBranches.map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => setBranchFilter(b.id)}
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${branchFilter === b.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                      {b.branchName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Ingredients table */}
               <Card>
                 <CardContent className="p-0 overflow-hidden">
@@ -601,7 +649,7 @@ export default function MenuBOMPage({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLines.length === 0 && !addingLine && (
+                      {filteredLines.length === 0 && !addingLine && (
                         <TableRow>
                           <TableCell colSpan={canEdit ? 9 : 8} className="py-16">
                             <div className="flex flex-col items-center justify-center gap-3">
@@ -622,15 +670,19 @@ export default function MenuBOMPage({
                           </TableCell>
                         </TableRow>
                       )}
-                      {selectedLines.map((line) => {
+                      {filteredLines.map((line) => {
                         const sku = getSkuById(line.skuId);
                         const unitCost = getActiveCost(line.skuId);
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
+                        const branchName = line.branchId ? branches.find(b => b.id === line.branchId)?.branchName : null;
                         return (
                           <TableRow key={line.id} className="h-9">
                             <TableCell className="text-sm font-mono py-2 px-3">{sku?.skuId ?? "—"}</TableCell>
                             <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
-                              {sku?.name ?? "—"}
+                              <div>{sku?.name ?? "—"}</div>
+                              <span className={`inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full ${line.branchId ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
+                                {branchName ?? "All"}
+                              </span>
                             </TableCell>
                             <TableCell className="text-sm text-right font-mono py-2 px-3">
                               {line.qtyPerServing}

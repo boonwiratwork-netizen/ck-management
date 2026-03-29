@@ -12,6 +12,7 @@ const toLocal = (row: any): MenuBomLine => ({
   yieldPct: Number(row.yield_pct),
   effectiveQty: Number(row.effective_qty),
   costPerServing: Number(row.cost_per_serving),
+  branchId: row.branch_id ?? null,
 });
 
 export function useMenuBomData() {
@@ -40,6 +41,7 @@ export function useMenuBomData() {
       yield_pct: data.yieldPct,
       effective_qty: data.effectiveQty,
       cost_per_serving: data.costPerServing,
+      branch_id: data.branchId ?? null,
     }).select().single();
     if (error) { toast.error('Failed to add ingredient: ' + error.message); return; }
     setLines(prev => [...prev, toLocal(row)]);
@@ -53,6 +55,7 @@ export function useMenuBomData() {
     if (data.yieldPct !== undefined) dbData.yield_pct = data.yieldPct;
     if (data.effectiveQty !== undefined) dbData.effective_qty = data.effectiveQty;
     if (data.costPerServing !== undefined) dbData.cost_per_serving = data.costPerServing;
+    if (data.branchId !== undefined) dbData.branch_id = data.branchId;
 
     const { error } = await supabase.from('menu_bom').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update ingredient: ' + error.message); return; }

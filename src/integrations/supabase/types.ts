@@ -616,6 +616,7 @@ export type Database = {
       }
       menu_bom: {
         Row: {
+          branch_id: string | null
           cost_per_serving: number
           created_at: string
           effective_qty: number
@@ -627,6 +628,7 @@ export type Database = {
           yield_pct: number
         }
         Insert: {
+          branch_id?: string | null
           cost_per_serving?: number
           created_at?: string
           effective_qty?: number
@@ -638,6 +640,7 @@ export type Database = {
           yield_pct?: number
         }
         Update: {
+          branch_id?: string | null
           cost_per_serving?: number
           created_at?: string
           effective_qty?: number
@@ -649,6 +652,13 @@ export type Database = {
           yield_pct?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_bom_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_bom_menu_id_fkey"
             columns: ["menu_id"]
