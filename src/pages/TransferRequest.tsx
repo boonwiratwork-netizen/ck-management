@@ -204,8 +204,14 @@ export default function TransferRequestPage() {
         smIds.forEach((id) => ingredientSkuIds.add(id));
       }
 
-      // Get supplier IDs from those SKUs
+      // Send request data from supabase
       const relevantSupplierIds = new Set<string>();
+      const [suppliersResult, counts] = await Promise.all([
+        supabase.from("suppliers").select("id, name, is_central_kitchen, status").eq("status", "Active"),
+        prHook.getPendingPRCountsBySupplier(effectiveBranchId),
+      ]);
+      const allSuppliers = suppliersResult.data;
+
       if (ingredientSkuIds.size > 0) {
         const { data: priceData } = await supabase
           .from("prices")
@@ -217,14 +223,6 @@ export default function TransferRequestPage() {
         });
       }
 
-      // Get all active suppliers
-      const { data: allSuppliers } = await supabase
-        .from("suppliers")
-        .select("id, name, is_central_kitchen, status")
-        .eq("status", "Active");
-
-      // Get pending PR counts
-      const counts = await prHook.getPendingPRCountsBySupplier(effectiveBranchId);
       setPendingPRCounts(counts);
 
       const opts: SupplierOption[] = [];
