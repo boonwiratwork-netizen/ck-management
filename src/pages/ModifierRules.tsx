@@ -342,6 +342,7 @@ export default function ModifierRulesPage({
   const [formDesc, setFormDesc] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [formMenuIds, setFormMenuIds] = useState<string[]>([]);
+  const [formBranchIds, setFormBranchIds] = useState<string[]>([]);
   const [formRuleType, setFormRuleType] = useState<ModifierRuleType>("add");
   const [formSwapSkuId, setFormSwapSkuId] = useState("");
   const [formSubmenuId, setFormSubmenuId] = useState("");
