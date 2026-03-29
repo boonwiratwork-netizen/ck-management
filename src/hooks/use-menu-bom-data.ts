@@ -55,6 +55,7 @@ export function useMenuBomData() {
     if (data.yieldPct !== undefined) dbData.yield_pct = data.yieldPct;
     if (data.effectiveQty !== undefined) dbData.effective_qty = data.effectiveQty;
     if (data.costPerServing !== undefined) dbData.cost_per_serving = data.costPerServing;
+    if (data.branchId !== undefined) dbData.branch_id = data.branchId;
 
     const { error } = await supabase.from('menu_bom').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update ingredient: ' + error.message); return; }

@@ -7,6 +7,7 @@ export interface MenuBomLine {
   yieldPct: number;
   effectiveQty: number;
   costPerServing: number;
+  branchId?: string | null;
 }
 
 export const EMPTY_MENU_BOM_LINE: Omit<MenuBomLine, 'id' | 'effectiveQty' | 'costPerServing'> = {
