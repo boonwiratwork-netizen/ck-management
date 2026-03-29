@@ -398,7 +398,11 @@ export function useDailyStockCount({
         bomByMenuId.set(l.menuId, arr);
       });
 
-      const activeRules = modifierRules.filter((r) => r.isActive);
+      const activeRules = modifierRules.filter((r) => {
+        if (!r.isActive) return false;
+        if (r.branchIds && r.branchIds.length > 0 && !r.branchIds.includes(branchId)) return false;
+        return true;
+      });
 
       const spBomBySpSku = new Map<string, SpBomLine[]>();
       spBomLines.forEach((l) => {

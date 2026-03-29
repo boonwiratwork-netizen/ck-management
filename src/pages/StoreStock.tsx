@@ -458,7 +458,7 @@ export default function StoreStockPage({
         qty: Number(s.qty),
       }));
 
-      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus);
+      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
 
       // Divide by 7 for daily average
       const daily: Record<string, number> = {};

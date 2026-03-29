@@ -705,6 +705,49 @@ export default function ModifierRulesPage({
               <MultiMenuSelector selectedMenuIds={formMenuIds} onChangeMenuIds={setFormMenuIds} menus={menus} />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Apply to branches (optional)</label>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setFormBranchIds([])}
+                  className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent/50 transition-colors"
+                >
+                  <span className={cn("truncate", formBranchIds.length === 0 && "text-muted-foreground")}>
+                    {formBranchIds.length === 0 ? 'All branches (global rule)' : `${formBranchIds.length} branch(es) selected`}
+                  </span>
+                </button>
+                {formBranchIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {formBranchIds.map(id => {
+                      const b = branches.find(br => br.id === id);
+                      return (
+                        <Badge key={id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                          {b?.branchName ?? id}
+                          <button type="button" onClick={() => setFormBranchIds(prev => prev.filter(x => x !== id))} className="hover:bg-muted rounded-full p-0.5">
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {branches.filter(b => !formBranchIds.includes(b.id)).map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setFormBranchIds(prev => [...prev, b.id])}
+                      className="text-xs px-2 py-1 rounded-md border border-dashed border-primary/40 text-primary hover:bg-primary/5 transition-colors"
+                    >
+                      + {b.branchName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Leave empty to apply to all branches</p>
+            </div>
+
             {/* ADD type fields */}
             {formRuleType === "add" && (
               <>
