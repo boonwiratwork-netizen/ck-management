@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SkeletonTable } from "@/components/SkeletonTable";
 import { EmptyState } from "@/components/EmptyState";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ClipboardCheck,
   Loader2,
@@ -28,8 +29,26 @@ import {
   ChevronUp,
   PartyPopper,
   ClipboardList,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface DailyStockCountPageProps {
   skus: SKU[];
@@ -45,6 +64,40 @@ type SortDir = "asc" | "desc";
 
 const TYPE_ORDER: Record<string, number> = { SM: 0, RM: 1, PK: 2 };
 
+/* ── Sortable row wrapper for arrange mode ── */
+function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: skuId });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className="border-b border-table-border bg-background">
+      <td className="w-8 px-1 py-1.5" {...attributes} {...listeners}>
+        <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+      </td>
+      <td className="font-mono text-xs px-2 py-1.5">{sku.skuId}</td>
+      <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>{sku.name}</td>
+      <td className="px-2 py-1.5">
+        <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
+          sku.type === "RM" ? "bg-warning/15 text-warning" : sku.type === "SM" ? "bg-info/15 text-info" : "bg-muted text-muted-foreground"
+        }`}>{sku.type}</span>
+      </td>
+      <td className="px-2 py-1.5 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
+      {/* Placeholder cells for remaining columns — muted */}
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+      <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
+    </tr>
+  );
+}
+
 export default function DailyStockCountPage({
   skus,
   menuBomLines,
@@ -53,7 +106,7 @@ export default function DailyStockCountPage({
   menus,
   branches,
 }: DailyStockCountPageProps) {
-  const { isManagement, isStoreManager, profile } = useAuth();
+  const { isManagement, isStoreManager, profile, user } = useAuth();
   const { t } = useLanguage();
   const today = toLocalDateStr(new Date());
 
@@ -69,7 +122,14 @@ export default function DailyStockCountPage({
   const [sortKey, setSortKey] = useState<SortKey>("type");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  // Arrange mode state
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const [arrangeOrder, setArrangeOrder] = useState<string[]>([]);
+  const [customSkuOrder, setCustomSkuOrder] = useState<string[] | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+
   const handleSort = useCallback((key: SortKey) => {
+    if (arrangeMode) return; // disabled in arrange mode
     setSortKey((prev) => {
       if (prev === key) {
         setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -78,7 +138,7 @@ export default function DailyStockCountPage({
       setSortDir("asc");
       return key;
     });
-  }, []);
+  }, [arrangeMode]);
 
   const {
     rows,
@@ -103,6 +163,27 @@ export default function DailyStockCountPage({
       loadSheet(selectedBranch, selectedDate);
     }
   }, [selectedBranch, selectedDate, loadSheet]);
+
+  // Load custom order preference on branch change
+  useEffect(() => {
+    if (!selectedBranch || !user?.id) {
+      setCustomSkuOrder(null);
+      return;
+    }
+    supabase
+      .from("user_sort_preferences")
+      .select("sku_order")
+      .eq("user_id", user.id)
+      .eq("branch_id", selectedBranch)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.sku_order && Array.isArray(data.sku_order)) {
+          setCustomSkuOrder(data.sku_order as string[]);
+        } else {
+          setCustomSkuOrder(null);
+        }
+      });
+  }, [selectedBranch, user?.id]);
 
   const skuMap = useMemo(() => {
     const m = new Map<string, SKU>();
@@ -155,6 +236,19 @@ export default function DailyStockCountPage({
   // Comparator helper
   const compareRows = useCallback(
     (a: DailyStockCountRow, b: DailyStockCountRow): number => {
+      // Custom order takes priority
+      if (customSkuOrder && customSkuOrder.length > 0) {
+        const idxA = customSkuOrder.indexOf(a.skuId);
+        const idxB = customSkuOrder.indexOf(b.skuId);
+        const posA = idxA >= 0 ? idxA : 999999;
+        const posB = idxB >= 0 ? idxB : 999999;
+        if (posA !== posB) return posA - posB;
+        // Both not in custom order → fall back to skuCode
+        const skuA = skuMap.get(a.skuId);
+        const skuB = skuMap.get(b.skuId);
+        return (skuA?.skuId ?? "").localeCompare(skuB?.skuId ?? "");
+      }
+
       const skuA = skuMap.get(a.skuId);
       const skuB = skuMap.get(b.skuId);
       if (!skuA || !skuB) return 0;
@@ -175,7 +269,7 @@ export default function DailyStockCountPage({
       }
       return 0;
     },
-    [skuMap, sortKey, sortDir],
+    [skuMap, sortKey, sortDir, customSkuOrder],
   );
 
   // Sort and separate active vs unused rows
@@ -218,16 +312,120 @@ export default function DailyStockCountPage({
     else physicalCountRefs.current.delete(id);
   };
 
+  // ── Arrange mode logic ──
+  const allBranchSkus = useMemo(() => {
+    // Same population as generateSheet: active RM or SM
+    return skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
+  }, [skus]);
+
+  const enterArrangeMode = useCallback(() => {
+    // Build initial order: if customSkuOrder exists, use it; else default type→skuCode
+    const skuIds = allBranchSkus.map((s) => s.id);
+    if (customSkuOrder && customSkuOrder.length > 0) {
+      const ordered: string[] = [];
+      // First: items in customSkuOrder that exist in allBranchSkus
+      const skuIdSet = new Set(skuIds);
+      for (const id of customSkuOrder) {
+        if (skuIdSet.has(id)) ordered.push(id);
+      }
+      // Then: remaining items not in customSkuOrder
+      for (const id of skuIds) {
+        if (!ordered.includes(id)) ordered.push(id);
+      }
+      setArrangeOrder(ordered);
+    } else {
+      // Default sort: type order then skuCode
+      const sorted = [...allBranchSkus].sort((a, b) => {
+        const ta = TYPE_ORDER[a.type] ?? 9;
+        const tb = TYPE_ORDER[b.type] ?? 9;
+        if (ta !== tb) return ta - tb;
+        return a.skuId.localeCompare(b.skuId);
+      });
+      setArrangeOrder(sorted.map((s) => s.id));
+    }
+    setArrangeMode(true);
+  }, [allBranchSkus, customSkuOrder]);
+
+  const cancelArrangeMode = useCallback(() => {
+    setArrangeMode(false);
+    setArrangeOrder([]);
+  }, []);
+
+  const saveArrangeOrder = useCallback(async () => {
+    if (!user?.id || !selectedBranch) return;
+    setSavingOrder(true);
+    try {
+      // Check if preference exists
+      const { data: existing } = await supabase
+        .from("user_sort_preferences")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("branch_id", selectedBranch)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("user_sort_preferences")
+          .update({ sku_order: arrangeOrder as unknown as any, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("user_sort_preferences")
+          .insert({ user_id: user.id, branch_id: selectedBranch, sku_order: arrangeOrder as unknown as any });
+      }
+
+      setCustomSkuOrder(arrangeOrder);
+      setArrangeMode(false);
+      setArrangeOrder([]);
+      toast.success("บันทึกลำดับแล้ว");
+    } catch {
+      toast.error("ไม่สามารถบันทึกลำดับได้");
+    } finally {
+      setSavingOrder(false);
+    }
+  }, [user?.id, selectedBranch, arrangeOrder]);
+
+  const resetOrder = useCallback(async () => {
+    if (!user?.id || !selectedBranch) return;
+    await supabase
+      .from("user_sort_preferences")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("branch_id", selectedBranch);
+    setCustomSkuOrder(null);
+    toast.success("รีเซ็ตเป็นลำดับเริ่มต้นแล้ว");
+  }, [user?.id, selectedBranch]);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setArrangeOrder((prev) => {
+        const oldIndex = prev.indexOf(active.id as string);
+        const newIndex = prev.indexOf(over.id as string);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  }, []);
+
+  const canArrange = (isManagement || isStoreManager) && !!selectedBranch;
+
   const thClass = "px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap";
 
   // Sortable header helper
   const renderSortableHeader = (key: SortKey, label: string, extraClass = "") => {
     const isActive = sortKey === key;
-    const Icon = isActive ? (sortDir === "asc" ? ChevronUp : ChevronDown) : null;
+    const disabled = arrangeMode || !!customSkuOrder;
+    const Icon = isActive && !customSkuOrder ? (sortDir === "asc" ? ChevronUp : ChevronDown) : null;
     return (
       <span
-        className={`inline-flex items-center cursor-pointer select-none ${isActive ? "text-foreground" : "text-muted-foreground"} ${extraClass}`}
-        onClick={() => handleSort(key)}
+        className={`inline-flex items-center select-none ${disabled ? "text-muted-foreground/50 cursor-default" : "cursor-pointer"} ${isActive && !disabled ? "text-foreground" : "text-muted-foreground"} ${extraClass}`}
+        onClick={() => !disabled && handleSort(key)}
       >
         {label}
         {Icon && <Icon className="w-3 h-3 ml-0.5" />}
@@ -283,7 +481,28 @@ export default function DailyStockCountPage({
                 </>
               )}
             </Button>
-            {rows.length > 0 && !isSubmitted && (
+            {canArrange && !arrangeMode && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={enterArrangeMode} disabled={!selectedBranch}>
+                  <GripVertical className="w-4 h-4" /> จัดลำดับแถว
+                </Button>
+                {customSkuOrder && (
+                  <>
+                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-xs">
+                      ลำดับกำหนดเอง
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={resetOrder}
+                      className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
+                    >
+                      รีเซ็ตลำดับ
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {rows.length > 0 && !isSubmitted && !arrangeMode && (
               <Button
                 onClick={handleSubmit}
                 disabled={!hasAnyPhysicalCount}
@@ -297,7 +516,7 @@ export default function DailyStockCountPage({
       </Card>
 
       {/* Submitted banner */}
-      {isSubmitted && (
+      {isSubmitted && !arrangeMode && (
         <div className="flex items-center justify-between bg-success/5 border border-success/20 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="w-5 h-5" />
@@ -322,8 +541,74 @@ export default function DailyStockCountPage({
         </div>
       )}
 
-      {/* Count sheet table */}
-      {loading ? (
+      {/* ── Arrange mode view ── */}
+      {arrangeMode ? (
+        <>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-auto max-h-[70vh]">
+                <div className="px-4 py-2 border-b bg-muted/50">
+                  <p className="text-xs text-muted-foreground">ลากแถวเพื่อจัดลำดับ SKU ตามตำแหน่งในครัว · ลำดับนี้จะใช้กับทุกวันสำหรับสาขานี้</p>
+                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <table className="w-full table-fixed text-xs">
+                    <colgroup>
+                      <col style={{ width: 32 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 150 }} />
+                      <col style={{ width: 50 }} />
+                      <col style={{ width: 60 }} />
+                      <col style={{ width: 80 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 80 }} />
+                      <col style={{ width: 80 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 80 }} />
+                    </colgroup>
+                    <thead className="sticky-thead">
+                      <tr className="bg-table-header border-b">
+                        <th className={thClass}></th>
+                        <th className={`${thClass} text-muted-foreground/50`}>{t("col.skuCode")}</th>
+                        <th className={`${thClass} text-muted-foreground/50`}>{t("col.skuName")}</th>
+                        <th className={`${thClass} text-muted-foreground/50`}>{t("col.type")}</th>
+                        <th className={`${thClass} text-muted-foreground/50`}>{t("dsc.colUnit")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.opening")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("dsc.colReceived")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.expUsage")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.waste")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.calcBalance")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.physical")}</th>
+                        <th className={`${thClass} opacity-40`}>{t("col.variance")}</th>
+                      </tr>
+                    </thead>
+                    <SortableContext items={arrangeOrder} strategy={verticalListSortingStrategy}>
+                      <tbody>
+                        {arrangeOrder.map((skuId) => {
+                          const sku = skuMap.get(skuId);
+                          if (!sku) return null;
+                          return <SortableArrangeRow key={skuId} skuId={skuId} sku={sku} />;
+                        })}
+                      </tbody>
+                    </SortableContext>
+                  </table>
+                </DndContext>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Floating action bar */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-3 bg-background border border-border rounded-lg shadow-lg px-5 py-3">
+            <Button onClick={saveArrangeOrder} disabled={savingOrder} className="gap-2">
+              {savingOrder && <Loader2 className="w-4 h-4 animate-spin" />}
+              บันทึกลำดับ
+            </Button>
+            <Button variant="ghost" onClick={cancelArrangeMode} disabled={savingOrder}>
+              ยกเลิก
+            </Button>
+          </div>
+        </>
+      ) : loading ? (
         <SkeletonTable columns={11} rows={12} />
       ) : rows.length > 0 ? (
         <>
