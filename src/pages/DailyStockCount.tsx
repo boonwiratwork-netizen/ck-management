@@ -886,7 +886,7 @@ export default function DailyStockCountPage({
 
       {/* Print options modal */}
       <Dialog open={printModalOpen} onOpenChange={setPrintModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl print:max-w-full print:shadow-none">
           <DialogHeader>
             <DialogTitle>พิมพ์ใบนับสต็อก</DialogTitle>
           </DialogHeader>
@@ -894,7 +894,7 @@ export default function DailyStockCountPage({
             <button
               type="button"
               onClick={() => setPrintScope("today")}
-              className={`rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              className={`print:hidden rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">วันนี้</div>
               <div className="text-xs text-muted-foreground mt-1">เฉพาะ SKU ที่มีการเคลื่อนไหววันนี้</div>
@@ -905,7 +905,7 @@ export default function DailyStockCountPage({
             <button
               type="button"
               onClick={() => setPrintScope("month")}
-              className={`rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              className={`print:hidden rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">สิ้นเดือน</div>
               <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีการเคลื่อนไหวในเดือนนี้</div>
@@ -914,68 +914,78 @@ export default function DailyStockCountPage({
               </Badge>
             </button>
           </div>
-          <Button
-            className="w-full mt-2"
-            onClick={() => {
-              setPrintModalOpen(false);
-              setTimeout(() => window.print(), 300);
-            }}
-          >
+          <div className="print:block hidden mt-4">
+            <div className="mb-3">
+              <div className="flex justify-between items-baseline">
+                <span className="font-bold text-base">
+                  {branches.find((b) => b.id === selectedBranch)?.branchName ?? ""}
+                </span>
+                <span className="text-sm">
+                  {selectedDate
+                    ? `${selectedDate.slice(8, 10)}/${selectedDate.slice(5, 7)}/${selectedDate.slice(0, 4)}`
+                    : ""}
+                </span>
+              </div>
+              <div className="font-semibold mt-0.5">
+                {printScope === "today" ? "ใบนับสต็อกประจำวัน" : "ใบนับสต็อกสิ้นเดือน"}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}</div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+              <colgroup>
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "32%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "15%" }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: "#eee" }}>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>รหัส SKU</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>ชื่อ SKU</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>ประเภท</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>หน่วย</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "right" }}>คงเหลือ</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>ของเสีย</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>นับจริง</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(printScope === "today" ? activeRows : [...activeRows, ...unusedRows]).map((row, idx) => {
+                  const sku = skuMap.get(row.skuId);
+                  if (!sku) return null;
+                  return (
+                    <tr key={row.id} style={{ background: idx % 2 === 1 ? "#f9f9f9" : "white" }}>
+                      <td
+                        style={{ border: "1px solid #ccc", padding: "4px", fontFamily: "monospace", fontSize: "10px" }}
+                      >
+                        {sku.skuId}
+                      </td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px" }}>{sku.name}</td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{sku.type}</td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{sku.usageUom}</td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "right" }}>
+                        {Math.round(Math.max(0, row.calculatedBalance))}
+                      </td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px" }}>
+                        <div style={{ border: "1px solid #ccc", minHeight: "20px", borderRadius: "2px" }} />
+                      </td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px" }}>
+                        <div style={{ border: "1px solid #ccc", minHeight: "20px", borderRadius: "2px" }} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Button className="print:hidden w-full mt-2" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> พิมพ์
           </Button>
         </DialogContent>
       </Dialog>
-
-      {/* ── Print-only layout ── */}
-      <div id="ck-print-section" className="print-stock-sheet hidden">
-        <div className="print-header">
-          <div className="print-header-row">
-            <span className="print-branch">{branches.find((b) => b.id === selectedBranch)?.branchName ?? ""}</span>
-            <span className="print-date">
-              วันที่:{" "}
-              {selectedDate
-                ? `${selectedDate.slice(8, 10)}/${selectedDate.slice(5, 7)}/${selectedDate.slice(0, 4)}`
-                : ""}
-            </span>
-          </div>
-          <div className="print-title">{printScope === "today" ? "ใบนับสต็อกประจำวัน" : "ใบนับสต็อกสิ้นเดือน"}</div>
-          <div className="print-meta">พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}</div>
-        </div>
-        <table className="print-table">
-          <thead>
-            <tr>
-              <th style={{ width: "var(--col-sku)" }}>รหัส SKU</th>
-              <th style={{ width: "var(--col-name)" }}>ชื่อ SKU</th>
-              <th style={{ width: "var(--col-type)" }}>ประเภท</th>
-              <th style={{ width: "var(--col-unit)" }}>หน่วย</th>
-              <th style={{ width: "var(--col-balance)" }}>คงเหลือ</th>
-              <th style={{ width: "var(--col-waste)" }}>ของเสีย</th>
-              <th style={{ width: "var(--col-count)" }}>นับจริง</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(printScope === "today" ? activeRows : [...activeRows, ...unusedRows]).map((row, idx) => {
-              const sku = skuMap.get(row.skuId);
-              if (!sku) return null;
-              return (
-                <tr key={row.id} className={idx % 2 === 1 ? "alt-row" : ""}>
-                  <td className="mono">{sku.skuId}</td>
-                  <td>{sku.name}</td>
-                  <td className="center">{sku.type}</td>
-                  <td className="center">{sku.usageUom}</td>
-                  <td className="right">{Math.round(Math.max(0, row.calculatedBalance))}</td>
-                  <td>
-                    <div className="write-box" />
-                  </td>
-                  <td>
-                    <div className="write-box" />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
