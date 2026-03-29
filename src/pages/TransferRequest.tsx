@@ -348,6 +348,21 @@ export default function TransferRequestPage() {
       toast.error(result.error);
     } else {
       toast.success(`Transfer Request ${result.trNumber} submitted`);
+      navigator.clipboard
+        .writeText(
+          [
+            `📦 [${branchName}] - สั่งวัตถุดิบ`,
+            `วันส่งสินค้า: ${trHook.requiredDate ? toLocalDateStr(trHook.requiredDate) : ""}`,
+            ``,
+            `🧾 รายการ:`,
+            ...sortedTRLines
+              .filter((l) => (batchInputs[l.skuId] ?? 0) > 0)
+              .map((l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${batchInputs[l.skuId]} แพ็ค`),
+            ``,
+            `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
+          ].join("\n"),
+        )
+        .then(() => toast.success("📋 Copied LINE message!"));
       setFormOpen(false);
       setBatchInputs({});
     }
@@ -418,6 +433,7 @@ export default function TransferRequestPage() {
       }
 
       toast.success(`Purchase Request ${prNumber} submitted`);
+      navigator.clipboard.writeText([`📦 [${branchName}] - สั่งวัตถุดิบ`,`วันส่งสินค้า: ${toLocalDateStr(requiredDate!)}`,..( notes ? [`หมายเหตุ: ${notes}`] : []),``,`🧾 รายการ:`,...prLines.filter((l) => (prBatchInputs[l.skuId] || 0) > 0).map((l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.usageUom} x ${prBatchInputs[l.skuId]} ${l.packUnit}`),``,`🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`].join("\n")).then(() => toast.success("📋 Copied LINE message!"));
       setFormOpen(false);
       setPrBatchInputs({});
       setNotes("");
