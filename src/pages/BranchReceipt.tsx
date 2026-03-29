@@ -1378,7 +1378,7 @@ export default function BranchReceiptPage({
                                     "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                     line.receivedQty > 0 && "border-success font-bold text-success",
                                   )}
-                                  placeholder="0"
+                                  placeholder=""
                                 />
                                 <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {packUnit}
@@ -1403,7 +1403,7 @@ export default function BranchReceiptPage({
                                     "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                     line.receivedQty > 0 && "border-success font-bold text-success",
                                   )}
-                                  placeholder="0"
+                                  placeholder=""
                                 />
                                 <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {sku?.usageUom || line.uom}
@@ -1592,7 +1592,7 @@ export default function BranchReceiptPage({
                                           "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                           hasQty && "border-success font-bold text-success",
                                         )}
-                                        placeholder="0"
+                                        placeholder=""
                                       />
                                       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                         {packUnit}
@@ -1626,7 +1626,7 @@ export default function BranchReceiptPage({
                                           "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                           hasQty && "border-success font-bold text-success",
                                         )}
-                                        placeholder="0"
+                                        placeholder=""
                                       />
                                       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                         {sku.usageUom}
@@ -1837,7 +1837,7 @@ export default function BranchReceiptPage({
                                           }}
                                           onFocus={(e) => e.target.select()}
                                           className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          placeholder="0"
+                                          placeholder=""
                                         />
                                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                           {packUnit}
@@ -1857,7 +1857,7 @@ export default function BranchReceiptPage({
                                           onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                                           onFocus={(e) => e.target.select()}
                                           className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          placeholder="0"
+                                          placeholder=""
                                         />
                                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                           {sku?.usageUom || "—"}
@@ -2065,7 +2065,7 @@ export default function BranchReceiptPage({
                                       "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                       hasQty && "border-success font-bold text-success",
                                     )}
-                                    placeholder="0"
+                                    placeholder=""
                                   />
                                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                     {packUnit}
@@ -2095,7 +2095,7 @@ export default function BranchReceiptPage({
                                     "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                                     hasQty && "border-success font-bold text-success",
                                   )}
-                                  placeholder="0"
+                                  placeholder=""
                                 />
                                 <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                   {sku.usageUom}
@@ -2292,7 +2292,7 @@ export default function BranchReceiptPage({
                                           }}
                                           onFocus={(e) => e.target.select()}
                                           className="h-8 text-xs text-right w-full font-mono px-2 py-1 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          placeholder="0"
+                                          placeholder=""
                                         />
                                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                           {packUnit}
@@ -2312,7 +2312,7 @@ export default function BranchReceiptPage({
                                           onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
                                           onFocus={(e) => e.target.select()}
                                           className="h-8 text-xs text-right w-full font-mono px-2 py-1 border-2 border-primary/30 rounded-md bg-amber-50 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          placeholder="0"
+                                          placeholder=""
                                         />
                                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
                                           {sku?.usageUom || "—"}
