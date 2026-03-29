@@ -12,6 +12,7 @@ const toLocal = (row: any): MenuBomLine => ({
   yieldPct: Number(row.yield_pct),
   effectiveQty: Number(row.effective_qty),
   costPerServing: Number(row.cost_per_serving),
+  branchId: row.branch_id ?? null,
 });
 
 export function useMenuBomData() {
