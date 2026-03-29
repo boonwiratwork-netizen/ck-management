@@ -392,8 +392,9 @@ export function useDailyStockCount({
       const menuByCode = new Map<string, Menu>();
       menus.forEach((m) => menuByCode.set(m.menuCode, m));
 
+      const filteredLines = menuBomLines.filter(l => l.branchId === null || l.branchId === branchId);
       const bomByMenuId = new Map<string, MenuBomLine[]>();
-      menuBomLines.forEach((l) => {
+      filteredLines.forEach((l) => {
         const arr = bomByMenuId.get(l.menuId) || [];
         arr.push(l);
         bomByMenuId.set(l.menuId, arr);

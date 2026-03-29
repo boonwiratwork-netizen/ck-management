@@ -156,14 +156,15 @@ export default function FoodCostPage({
   }, [menus]);
 
   const bomByMenuId = useMemo(() => {
+    const filtered = menuBomLines.filter(l => l.branchId === null || (selectedBranch !== 'all' && l.branchId === selectedBranch));
     const m = new Map<string, MenuBomLine[]>();
-    menuBomLines.forEach((l) => {
+    filtered.forEach((l) => {
       const arr = m.get(l.menuId) || [];
       arr.push(l);
       m.set(l.menuId, arr);
     });
     return m;
-  }, [menuBomLines]);
+  }, [menuBomLines, selectedBranch]);
 
   const spBomBySpSku = useMemo(() => {
     const m = new Map<string, SpBomLine[]>();
