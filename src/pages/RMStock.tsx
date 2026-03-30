@@ -67,13 +67,16 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
         .then(({ data }) => {
           if (!data) return;
           const usage: Record<string, number> = {};
+          const productionDates = new Set(data.map((rec: any) => rec.production_date));
+          const activeDays = Math.max(1, productionDates.size);
           data.forEach((rec: any) => {
             const header = bomHeaders.find((h) => h.smSkuId === rec.sm_sku_id);
             if (!header) return;
             bomLines
               .filter((l) => l.bomHeaderId === header.id)
               .forEach((line) => {
-                usage[line.rmSkuId] = (usage[line.rmSkuId] || 0) + (rec.batches_produced * line.qtyPerBatch) / 7;
+                usage[line.rmSkuId] =
+                  (usage[line.rmSkuId] || 0) + (rec.batches_produced * line.qtyPerBatch) / activeDays;
               });
           });
           setRmDailyUsage(usage);
