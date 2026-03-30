@@ -1034,10 +1034,11 @@ export default function TransferOrderPage({
                                         }
                                       }}
                                       onKeyDown={(e) => {
-                                        if (e.key === "Tab") {
+                                        if (e.key === "Tab" || e.key === "Enter") {
                                           e.preventDefault();
                                           const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
                                           if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                            (e.target as HTMLInputElement).blur();
                                             const nextId = formState.lines[nextIdx].id;
                                             qtyRefs.current[nextId]?.focus();
                                             qtyRefs.current[nextId]?.select();
@@ -1065,10 +1066,11 @@ export default function TransferOrderPage({
                                         handleLineUpdate(line.id, "actualQty", Number(e.target.value) || 0)
                                       }
                                       onKeyDown={(e) => {
-                                        if (e.key === "Tab") {
+                                        if (e.key === "Tab" || e.key === "Enter") {
                                           e.preventDefault();
                                           const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
                                           if (nextIdx >= 0 && nextIdx < formState.lines.length) {
+                                            (e.target as HTMLInputElement).blur();
                                             const nextId = formState.lines[nextIdx].id;
                                             qtyRefs.current[nextId]?.focus();
                                             qtyRefs.current[nextId]?.select();
