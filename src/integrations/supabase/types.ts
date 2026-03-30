@@ -287,6 +287,7 @@ export type Database = {
           id: string
           notes: string
           price_variance: number
+          purchase_request_id: string | null
           qty_received: number
           receipt_date: string
           sku_id: string
@@ -304,6 +305,7 @@ export type Database = {
           id?: string
           notes?: string
           price_variance?: number
+          purchase_request_id?: string | null
           qty_received?: number
           receipt_date?: string
           sku_id: string
@@ -321,6 +323,7 @@ export type Database = {
           id?: string
           notes?: string
           price_variance?: number
+          purchase_request_id?: string | null
           qty_received?: number
           receipt_date?: string
           sku_id?: string
@@ -336,6 +339,13 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_receipts_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
             referencedColumns: ["id"]
           },
           {

@@ -178,7 +178,7 @@ export default function ProductionPage({
   const [globalTarget, setGlobalTarget] = useState(7);
   const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
-  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string }[]>([]);
+  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadedWeek, setLoadedWeek] = useState<string | null>(null);
   const [mode, setMode] = useState<"planning" | "recording">("planning");
@@ -260,12 +260,12 @@ export default function ProductionPage({
     sevenDaysAgo.setDate(today.getDate() - 7);
     supabase
       .from("sales_entries")
-      .select("menu_code, qty")
+      .select("menu_code, qty, sale_date, branch_id")
       .gte("sale_date", toLocalDateStr(sevenDaysAgo))
       .lte("sale_date", toLocalDateStr(today))
       .then(({ data }) => {
         if (data)
-          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date })));
+          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date, branchId: r.branch_id })));
       });
   }, []);
 
@@ -297,16 +297,32 @@ export default function ProductionPage({
   const directForecast = useMemo(() => {
     const menuCodeToId = new Map(menus.map((m) => [m.menuCode, m.id]));
     const smSkuIds = new Set(smSkus.map((s) => s.id));
-    const usage: Record<string, number> = {};
+
+    // Group sales by branch, then compute daily rate per branch per SKU
+    // key: `${skuId}__${branchId}` → { totalConsumption, activeDates }
+    const branchSkuData: Record<string, { total: number; dates: Set<string> }> = {};
+
     salesData.forEach((sale) => {
       const menuId = menuCodeToId.get(sale.menuCode);
       if (!menuId) return;
       menuBomLines
         .filter((l) => l.menuId === menuId && smSkuIds.has(l.skuId))
         .forEach((line) => {
-          usage[line.skuId] = (usage[line.skuId] || 0) + line.effectiveQty * sale.qty;
+          const key = `${line.skuId}__${sale.branchId}`;
+          if (!branchSkuData[key]) branchSkuData[key] = { total: 0, dates: new Set() };
+          branchSkuData[key].total += line.effectiveQty * sale.qty;
+          branchSkuData[key].dates.add(sale.saleDate);
         });
     });
+
+    // Sum daily rate per branch → total daily need per SKU
+    const usage: Record<string, number> = {};
+    Object.entries(branchSkuData).forEach(([key, { total, dates }]) => {
+      const skuId = key.split("__")[0];
+      const activeDays = Math.max(1, dates.size);
+      usage[skuId] = (usage[skuId] || 0) + total / activeDays;
+    });
+
     return usage;
   }, [salesData, menus, menuBomLines, smSkus]);
 
@@ -384,13 +400,7 @@ export default function ProductionPage({
       .map((sku) => {
         const hasBom = bomHeaders.some((h) => h.smSkuId === sku.id);
         const forecastWeek = totalForecast[sku.id] || 0;
-        const activeDaysForSku = (() => {
-          const skuMenuIds = new Set(menuBomLines.filter((l) => l.skuId === sku.id).map((l) => l.menuId));
-          const menuCodes = new Set(menus.filter((m) => skuMenuIds.has(m.id)).map((m) => m.menuCode));
-          const dates = new Set(salesData.filter((s) => menuCodes.has(s.menuCode)).map((s) => s.saleDate));
-          return Math.max(1, dates.size);
-        })();
-        const dailyNeed = forecastWeek / activeDaysForSku;
+        const dailyNeed = forecastWeek;
         const stockNow = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         const target = skuTargets[sku.id] ?? globalTarget;
         const outputPerBatch = getOutputPerBatch(sku.id);
