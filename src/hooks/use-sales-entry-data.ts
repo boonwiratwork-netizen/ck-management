@@ -289,10 +289,8 @@ export function useSalesEntryData() {
       return todayRows.map((r) => ({ ...r, isDuplicate: false }));
     }
 
-    // Get unique dates from historical rows
     const dates = [...new Set(historicalRows.map((r) => r.saleDate))];
 
-    // Query existing entries for those dates + branch
     const { data: existing } = await supabase
       .from("sales_entries")
       .select("sale_date,receipt_no,menu_code,menu_name")
@@ -300,26 +298,32 @@ export function useSalesEntryData() {
       .in("sale_date", dates)
       .limit(5000);
 
-    const existingSet = new Set(
-      (existing || []).map((e) => `${e.sale_date}|${e.receipt_no}|${e.menu_code}|${e.menu_name}`),
-    );
+    // นับว่าใน DB มี key นี้กี่ row
+    const existingCount = new Map<string, number>();
+    for (const e of existing || []) {
+      const key = `${e.sale_date}|${e.receipt_no}|${e.menu_code}|${e.menu_name}`;
+      existingCount.set(key, (existingCount.get(key) || 0) + 1);
+    }
 
-    const markedHistorical = historicalRows.map((r) => ({
-      ...r,
-      isDuplicate: existingSet.has(`${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`),
-    }));
+    // นับว่าใน batch ที่กำลัง import เจอ key นี้กี่ครั้งแล้ว
+    const batchCount = new Map<string, number>();
+    const markedHistorical = historicalRows.map((r) => {
+      const key = `${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`;
+      const seen = (batchCount.get(key) || 0) + 1;
+      batchCount.set(key, seen);
+      const inDb = existingCount.get(key) || 0;
+      // ถ้า seen ครั้งนี้ <= จำนวนที่มีใน DB แปลว่าซ้ำ
+      return { ...r, isDuplicate: seen <= inDb };
+    });
 
     const markedToday = todayRows.map((r) => ({ ...r, isDuplicate: false }));
-
     return [...markedHistorical, ...markedToday];
   }, []);
 
   const bulkInsert = useCallback(async (branchId: string, rows: Omit<SalesEntry, "id" | "branchId">[]) => {
     // 1) Deduplicate within current import batch by composite key
-    const dedupedRows = Array.from(
-      new Map(rows.map((r) => [`${branchId}|${r.saleDate}|${r.receiptNo}|${r.menuCode}|${r.menuName}`, r])).values(),
-    );
-    const intraBatchSkipped = rows.length - dedupedRows.length;
+    const dedupedRows = rows;
+    const intraBatchSkipped = 0;
 
     const insertRows = dedupedRows.map((r) => ({
       branch_id: branchId,
@@ -357,13 +361,20 @@ export function useSalesEntryData() {
     }
 
     // 3) Build key set from existing rows and keep only new rows
-    const existingSet = new Set(
-      (existingRows || []).map((r) => `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`),
-    );
+    const existingCount = new Map<string, number>();
+    for (const r of existingRows || []) {
+      const key = `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`;
+      existingCount.set(key, (existingCount.get(key) || 0) + 1);
+    }
 
-    const newRows = insertRows.filter(
-      (r) => !existingSet.has(`${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`),
-    );
+    const batchCount = new Map<string, number>();
+    const newRows = insertRows.filter((r) => {
+      const key = `${r.branch_id}|${r.sale_date}|${r.receipt_no}|${r.menu_code}|${r.menu_name}`;
+      const seen = (batchCount.get(key) || 0) + 1;
+      batchCount.set(key, seen);
+      const inDb = existingCount.get(key) || 0;
+      return seen > inDb;
+    });
 
     const existingSkipped = insertRows.length - newRows.length;
     const skipped = intraBatchSkipped + existingSkipped;
