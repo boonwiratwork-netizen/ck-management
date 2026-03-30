@@ -353,8 +353,8 @@ export default function ProductionPage({
       if (outputPerBatch <= 0) return;
       const children = childrenOf.get(sku.id) || [];
       children.forEach(({ childSmId, qtyPerBatch }) => {
-        const childDemand = planned * qtyPerBatch; // planned batches × ingredient qty per batch
-        indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
+        const childDemandDaily = (planned * qtyPerBatch) / 7; // convert weekly total to daily rate
+        indirect[childSmId] = (indirect[childSmId] || 0) + childDemandDaily;
       });
     });
 
