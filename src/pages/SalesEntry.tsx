@@ -563,6 +563,42 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const mgmtFromStr = mgmtDateFrom ? toLocalDateStr(mgmtDateFrom) : "";
   const mgmtToStr = mgmtDateTo ? toLocalDateStr(mgmtDateTo) : "";
   const mgmtBranchName = branchMap[mgmtBranch] || "";
+  const handleCopyHistory = useCallback(() => {
+    const showEntries = appliedOnce ? filteredEntries : previewEntries;
+    if (showEntries.length === 0) return;
+
+    const headers = [
+      "Date",
+      "Receipt No",
+      "Menu Code",
+      "Menu Name",
+      "Order Type",
+      "Qty",
+      "Unit Price",
+      "Net Amount",
+      "Channel",
+      "Branch",
+    ];
+    const rows = showEntries.map((e) =>
+      [
+        e.saleDate,
+        e.receiptNo,
+        e.menuCode,
+        `"${e.menuName.replace(/"/g, '""')}"`,
+        e.orderType,
+        e.qty,
+        e.unitPrice.toFixed(2),
+        e.netAmount.toFixed(2),
+        e.channel,
+        branchMap[e.branchId] || "",
+      ].join("\t"),
+    );
+
+    const text = [headers.join("\t"), ...rows].join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success(`Copied ${showEntries.length} entries to clipboard`);
+    });
+  }, [appliedOnce, filteredEntries, previewEntries, branchMap]);
 
   const toggleMgmtRow = useCallback((id: string) => {
     setMgmtSelectedIds((prev) => {
@@ -1062,7 +1098,19 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
       {/* ═══ SECTION 2: SALES HISTORY ═══ */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("title.salesHistory")}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>{t("title.salesHistory")}</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={handleCopyHistory}
+              disabled={(appliedOnce ? filteredEntries : previewEntries).length === 0}
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+              Copy to Clipboard
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -1147,6 +1195,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                             {t("col.date")}
                             <SeSortIcon col="saleDate" />
                           </span>
+                        </th>
+                        <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Receipt No
                         </th>
                         <th
                           className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:bg-muted/50 transition-colors"
@@ -1252,6 +1303,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                         showEntries.map((e) => (
                           <tr key={e.id} className={tableTokens.dataRow}>
                             <td className="px-3 py-2 text-sm whitespace-nowrap">{e.saleDate}</td>
+                            <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{e.receiptNo}</td>
                             <td className="px-3 py-2 font-mono text-xs">{e.menuCode}</td>
                             <td className="px-3 py-2 text-sm max-w-[200px] truncate" title={e.menuName}>
                               {e.menuName}
