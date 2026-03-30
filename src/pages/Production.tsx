@@ -400,13 +400,7 @@ export default function ProductionPage({
       .map((sku) => {
         const hasBom = bomHeaders.some((h) => h.smSkuId === sku.id);
         const forecastWeek = totalForecast[sku.id] || 0;
-        const activeDaysForSku = (() => {
-          const skuMenuIds = new Set(menuBomLines.filter((l) => l.skuId === sku.id).map((l) => l.menuId));
-          const menuCodes = new Set(menus.filter((m) => skuMenuIds.has(m.id)).map((m) => m.menuCode));
-          const dates = new Set(salesData.filter((s) => menuCodes.has(s.menuCode)).map((s) => s.saleDate));
-          return Math.max(1, dates.size);
-        })();
-        const dailyNeed = forecastWeek / activeDaysForSku;
+        const dailyNeed = forecastWeek;
         const stockNow = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         const target = skuTargets[sku.id] ?? globalTarget;
         const outputPerBatch = getOutputPerBatch(sku.id);
