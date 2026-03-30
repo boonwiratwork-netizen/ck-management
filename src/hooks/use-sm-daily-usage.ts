@@ -33,7 +33,9 @@ export function useSmDailyUsage(skus: SKU[]) {
           .data!.filter((l: any) => l.menu_id === menuId && smSkuIds.has(l.sku_id))
           .forEach((line: any) => {
             if (!skuActiveDays[line.sku_id]) skuActiveDays[line.sku_id] = new Set();
-            skuActiveDays[line.sku_id].add(sale.sale_date);
+            skuActiveDays[`${line.sku_id}__${sale.branch_id}`] =
+              skuActiveDays[`${line.sku_id}__${sale.branch_id}`] || new Set();
+            skuActiveDays[`${line.sku_id}__${sale.branch_id}`].add(sale.sale_date);
           });
       });
 
@@ -43,7 +45,7 @@ export function useSmDailyUsage(skus: SKU[]) {
         bomRes
           .data!.filter((l: any) => l.menu_id === menuId && smSkuIds.has(l.sku_id))
           .forEach((line: any) => {
-            const activeDays = Math.max(1, skuActiveDays[line.sku_id]?.size ?? 1);
+            const activeDays = Math.max(1, skuActiveDays[`${line.sku_id}__${sale.branch_id}`]?.size ?? 1);
             usage[line.sku_id] = (usage[line.sku_id] || 0) + (line.effective_qty * Number(sale.qty)) / activeDays;
           });
       });
