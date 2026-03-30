@@ -264,7 +264,8 @@ export default function ProductionPage({
       .gte("sale_date", toLocalDateStr(sevenDaysAgo))
       .lte("sale_date", toLocalDateStr(today))
       .then(({ data }) => {
-        if (data) setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty) })));
+        if (data)
+          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date })));
       });
   }, []);
 
@@ -383,7 +384,13 @@ export default function ProductionPage({
       .map((sku) => {
         const hasBom = bomHeaders.some((h) => h.smSkuId === sku.id);
         const forecastWeek = totalForecast[sku.id] || 0;
-        const dailyNeed = forecastWeek / 7;
+        const activeDaysForSku = (() => {
+          const skuMenuIds = new Set(menuBomLines.filter((l) => l.skuId === sku.id).map((l) => l.menuId));
+          const menuCodes = new Set(menus.filter((m) => skuMenuIds.has(m.id)).map((m) => m.menuCode));
+          const dates = new Set(salesData.filter((s) => menuCodes.has(s.menuCode)).map((s) => s.saleDate));
+          return Math.max(1, dates.size);
+        })();
+        const dailyNeed = forecastWeek / activeDaysForSku;
         const stockNow = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         const target = skuTargets[sku.id] ?? globalTarget;
         const outputPerBatch = getOutputPerBatch(sku.id);
@@ -800,9 +807,11 @@ export default function ProductionPage({
                       <tr
                         key={row.sku.id}
                         className={cn(
-                          row.coverNowColor === "red" ? table.criticalRow
-                            : row.coverNowColor === "amber" ? table.lowRow
-                            : table.dataRow,
+                          row.coverNowColor === "red"
+                            ? table.criticalRow
+                            : row.coverNowColor === "amber"
+                              ? table.lowRow
+                              : table.dataRow,
                           isAdHoc ? table.dataRowLocked : "",
                           isSufficient && !isAdHoc && "opacity-60",
                           !isAdHoc && borderClass,
@@ -1275,7 +1284,10 @@ export default function ProductionPage({
                 {recordSku ? `${recordSku.skuId} — ${recordSku.name}` : "—"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {t("prod.recordingForWeek").replace("{week}", String(weekNumber)).replace("{start}", formatDate(weekStart)).replace("{end}", formatDate(weekEnd))}
+                {t("prod.recordingForWeek")
+                  .replace("{week}", String(weekNumber))
+                  .replace("{start}", formatDate(weekStart))
+                  .replace("{end}", formatDate(weekEnd))}
               </p>
             </div>
 
