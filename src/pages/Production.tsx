@@ -260,12 +260,12 @@ export default function ProductionPage({
     sevenDaysAgo.setDate(today.getDate() - 7);
     supabase
       .from("sales_entries")
-      .select("menu_code, qty")
+      .select("menu_code, qty, sale_date, branch_id")
       .gte("sale_date", toLocalDateStr(sevenDaysAgo))
       .lte("sale_date", toLocalDateStr(today))
       .then(({ data }) => {
         if (data)
-          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date })));
+          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date, branchId: r.branch_id })));
       });
   }, []);
 
