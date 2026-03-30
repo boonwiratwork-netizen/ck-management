@@ -62,7 +62,7 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     import("@/integrations/supabase/client").then(({ supabase }) => {
       supabase
         .from("production_records")
-        .select("sm_sku_id, batches_produced")
+        .select("sm_sku_id, batches_produced, production_date")
         .gte("production_date", sevenDaysAgo.toISOString().split("T")[0])
         .then(({ data }) => {
           if (!data) return;
