@@ -178,7 +178,9 @@ export default function ProductionPage({
   const [globalTarget, setGlobalTarget] = useState(7);
   const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
-  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>([]);
+  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>(
+    [],
+  );
   const [saving, setSaving] = useState(false);
   const [loadedWeek, setLoadedWeek] = useState<string | null>(null);
   const [mode, setMode] = useState<"planning" | "recording">("planning");
@@ -265,7 +267,14 @@ export default function ProductionPage({
       .lte("sale_date", toLocalDateStr(today))
       .then(({ data }) => {
         if (data)
-          setSalesData(data.map((r: any) => ({ menuCode: r.menu_code, qty: Number(r.qty), saleDate: r.sale_date, branchId: r.branch_id })));
+          setSalesData(
+            data.map((r: any) => ({
+              menuCode: r.menu_code,
+              qty: Number(r.qty),
+              saleDate: r.sale_date,
+              branchId: r.branch_id,
+            })),
+          );
       });
   }, []);
 
@@ -353,8 +362,8 @@ export default function ProductionPage({
       if (outputPerBatch <= 0) return;
       const children = childrenOf.get(sku.id) || [];
       children.forEach(({ childSmId, qtyPerBatch }) => {
-        const childDemandDaily = (planned * qtyPerBatch) / 7; // convert weekly total to daily rate
-        indirect[childSmId] = (indirect[childSmId] || 0) + childDemandDaily;
+        const childDemand = planned * qtyPerBatch; // planned batches × ingredient qty per batch
+        indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
       });
     });
 
@@ -480,13 +489,15 @@ export default function ProductionPage({
   }, []);
 
   const handlePlanKeyDown = (e: React.KeyboardEvent, skuId: string) => {
-    if (e.key === "Tab") {
+    if (e.key === "Tab" || e.key === "Enter") {
       e.preventDefault();
       const currentRows = planLocked ? displayedBomRows : bomRows;
       const idx = currentRows.findIndex((r) => r.sku.id === skuId);
       const next = e.shiftKey ? idx - 1 : idx + 1;
       if (next >= 0 && next < currentRows.length) {
+        (e.target as HTMLInputElement).blur();
         planInputRefs.current[currentRows[next].sku.id]?.focus();
+        planInputRefs.current[currentRows[next].sku.id]?.select();
       }
     }
   };
