@@ -16,7 +16,7 @@ export function useSmDailyUsage(skus: SKU[]) {
     const dateStr = sevenDaysAgo.toISOString().split("T")[0];
 
     Promise.all([
-      supabase.from("sales_entries").select("menu_code, qty, sale_date").gte("sale_date", dateStr),
+      supabase.from("sales_entries").select("menu_code, qty, sale_date, branch_id").gte("sale_date", dateStr),
       supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
       supabase.from("menus").select("id, menu_code"),
     ]).then(([salesRes, bomRes, menusRes]) => {
@@ -32,7 +32,6 @@ export function useSmDailyUsage(skus: SKU[]) {
         bomRes
           .data!.filter((l: any) => l.menu_id === menuId && smSkuIds.has(l.sku_id))
           .forEach((line: any) => {
-            if (!skuActiveDays[line.sku_id]) skuActiveDays[line.sku_id] = new Set();
             skuActiveDays[`${line.sku_id}__${sale.branch_id}`] =
               skuActiveDays[`${line.sku_id}__${sale.branch_id}`] || new Set();
             skuActiveDays[`${line.sku_id}__${sale.branch_id}`].add(sale.sale_date);
