@@ -328,54 +328,44 @@ export default function ProductionPage({
 
   const { totalForecast } = useMemo(() => {
     const smSkuIds = new Set(smSkus.map((s) => s.id));
-    const parentChildMap = new Map<string, { childSmId: string; qtyPerBatch: number }[]>();
 
+    // STEP 1 — Build parent→child SM ingredient map
+    const childrenOf = new Map<string, { childSmId: string; qtyPerBatch: number }[]>();
     bomHeaders.forEach((header) => {
       if (!smSkuIds.has(header.smSkuId)) return;
       bomLines
         .filter((l) => l.bomHeaderId === header.id)
         .forEach((line) => {
           if (smSkuIds.has(line.rmSkuId)) {
-            const existing = parentChildMap.get(header.smSkuId) || [];
-            existing.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
-            parentChildMap.set(header.smSkuId, existing);
+            const arr = childrenOf.get(header.smSkuId) || [];
+            arr.push({ childSmId: line.rmSkuId, qtyPerBatch: line.qtyPerBatch });
+            childrenOf.set(header.smSkuId, arr);
           }
         });
     });
 
+    // STEP 2 — Calculate indirect demand driven by planBatches
     const indirect: Record<string, number> = {};
-    const visited = new Set<string>();
-
-    const computeIndirect = (parentId: string, parentWeeklyForecast: number, depth: number) => {
-      if (depth > 3 || visited.has(parentId)) return;
-      visited.add(parentId);
-      const children = parentChildMap.get(parentId) || [];
-      const outputPerBatch = getOutputPerBatch(parentId);
-      if (outputPerBatch <= 0) {
-        visited.delete(parentId);
-        return;
-      }
-      const batchesNeeded = parentWeeklyForecast / outputPerBatch;
-      children.forEach(({ childSmId, qtyPerBatch }) => {
-        const childDemand = batchesNeeded * qtyPerBatch;
-        indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
-        computeIndirect(childSmId, childDemand, depth + 1);
-      });
-      visited.delete(parentId);
-    };
-
     smSkus.forEach((sku) => {
-      const direct = directForecast[sku.id] || 0;
-      if (direct > 0) computeIndirect(sku.id, direct, 0);
+      const planned = planBatches[sku.id] ?? 0;
+      if (planned <= 0) return;
+      const outputPerBatch = getOutputPerBatch(sku.id);
+      if (outputPerBatch <= 0) return;
+      const children = childrenOf.get(sku.id) || [];
+      children.forEach(({ childSmId, qtyPerBatch }) => {
+        const childDemand = planned * qtyPerBatch; // planned batches × ingredient qty per batch
+        indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
+      });
     });
 
+    // STEP 3 — Merge direct + indirect
     const total: Record<string, number> = {};
     smSkus.forEach((sku) => {
       total[sku.id] = (directForecast[sku.id] || 0) + (indirect[sku.id] || 0);
     });
 
     return { totalForecast: total };
-  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch]);
+  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch, planBatches]);
 
   // Production records for selected week per SKU
   const weekRecordsBySku = useMemo(() => {
