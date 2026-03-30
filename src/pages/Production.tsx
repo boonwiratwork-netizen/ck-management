@@ -178,7 +178,7 @@ export default function ProductionPage({
   const [globalTarget, setGlobalTarget] = useState(7);
   const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
-  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string }[]>([]);
+  const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadedWeek, setLoadedWeek] = useState<string | null>(null);
   const [mode, setMode] = useState<"planning" | "recording">("planning");
