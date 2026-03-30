@@ -297,16 +297,32 @@ export default function ProductionPage({
   const directForecast = useMemo(() => {
     const menuCodeToId = new Map(menus.map((m) => [m.menuCode, m.id]));
     const smSkuIds = new Set(smSkus.map((s) => s.id));
-    const usage: Record<string, number> = {};
+
+    // Group sales by branch, then compute daily rate per branch per SKU
+    // key: `${skuId}__${branchId}` → { totalConsumption, activeDates }
+    const branchSkuData: Record<string, { total: number; dates: Set<string> }> = {};
+
     salesData.forEach((sale) => {
       const menuId = menuCodeToId.get(sale.menuCode);
       if (!menuId) return;
       menuBomLines
         .filter((l) => l.menuId === menuId && smSkuIds.has(l.skuId))
         .forEach((line) => {
-          usage[line.skuId] = (usage[line.skuId] || 0) + line.effectiveQty * sale.qty;
+          const key = `${line.skuId}__${sale.branchId}`;
+          if (!branchSkuData[key]) branchSkuData[key] = { total: 0, dates: new Set() };
+          branchSkuData[key].total += line.effectiveQty * sale.qty;
+          branchSkuData[key].dates.add(sale.saleDate);
         });
     });
+
+    // Sum daily rate per branch → total daily need per SKU
+    const usage: Record<string, number> = {};
+    Object.entries(branchSkuData).forEach(([key, { total, dates }]) => {
+      const skuId = key.split("__")[0];
+      const activeDays = Math.max(1, dates.size);
+      usage[skuId] = (usage[skuId] || 0) + total / activeDays;
+    });
+
     return usage;
   }, [salesData, menus, menuBomLines, smSkus]);
 
