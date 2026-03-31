@@ -179,12 +179,12 @@ export function useBranchSmStock(branchId: string | null) {
       // 6b. Fetch CK receipts (transfer_order_lines) and external receipts after snap
       const [ckRes, extRes, postSnapSalesRes] = await Promise.all([
         supabase
-          .from("transfer_order_lines")
-          .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
-          .eq("transfer_orders.branch_id", branchId)
-          .gt("transfer_orders.delivery_date", earliestSnap)
-          .lte("transfer_orders.delivery_date", todayStr)
-          .in("transfer_orders.status", ["Sent", "Received", "Partially Received"])
+          .from("branch_receipts")
+          .select("sku_id, qty_received, receipt_date")
+          .eq("branch_id", branchId)
+          .not("transfer_order_id", "is", null)
+          .gt("receipt_date", earliestSnap)
+          .lte("receipt_date", todayStr)
           .in("sku_id", skuIds),
         supabase
           .from("branch_receipts")
@@ -205,11 +205,9 @@ export function useBranchSmStock(branchId: string | null) {
       // Build CK receipt totals per SKU after each SKU's snap date
       const ckInBySku: Record<string, number> = {};
       for (const line of ckRes.data || []) {
-        const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
-        const deliveryDate = (line.transfer_orders as any).delivery_date;
         const snap = snapBySku[line.sku_id];
-        if (snap && deliveryDate <= snap.date) continue;
-        ckInBySku[line.sku_id] = (ckInBySku[line.sku_id] || 0) + qty;
+        if (snap && line.receipt_date <= snap.date) continue;
+        ckInBySku[line.sku_id] = (ckInBySku[line.sku_id] || 0) + Number(line.qty_received);
       }
 
       // Build external receipt totals per SKU after snap date
@@ -235,7 +233,10 @@ export function useBranchSmStock(branchId: string | null) {
         let allBomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
         const allSalesMenuCodes = [...new Set((postSnapSalesRes.data || []).map((s: any) => s.menu_code))];
         if (allSalesMenuCodes.length > 0) {
-          const { data: menuLookup } = await supabase.from("menus").select("id, menu_code").in("menu_code", allSalesMenuCodes);
+          const { data: menuLookup } = await supabase
+            .from("menus")
+            .select("id, menu_code")
+            .in("menu_code", allSalesMenuCodes);
           const codeToId: Record<string, string> = {};
           for (const m of menuLookup || []) codeToId[m.menu_code] = m.id;
 
@@ -265,7 +266,8 @@ export function useBranchSmStock(branchId: string | null) {
               for (const line of lines) {
                 const snap = snapBySku[line.sku_id];
                 if (snap && date <= snap.date) continue;
-                postSnapUsageBySku[line.sku_id] = (postSnapUsageBySku[line.sku_id] || 0) + line.effective_qty * sale.qty;
+                postSnapUsageBySku[line.sku_id] =
+                  (postSnapUsageBySku[line.sku_id] || 0) + line.effective_qty * sale.qty;
               }
             }
           }
