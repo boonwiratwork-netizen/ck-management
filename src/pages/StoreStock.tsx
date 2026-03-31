@@ -56,7 +56,7 @@ function calculateUsageFromSales(
   const menuByCode = new Map<string, Menu>();
   menus.forEach((m) => menuByCode.set(m.menuCode, m));
 
-  const filteredLines = menuBomLines.filter(l => l.branchId === null || l.branchId === branchId);
+  const filteredLines = menuBomLines.filter((l) => l.branchId === null || l.branchId === branchId);
   const bomByMenuId = new Map<string, MenuBomLine[]>();
   filteredLines.forEach((l) => {
     const arr = bomByMenuId.get(l.menuId) || [];
@@ -270,14 +270,14 @@ export default function StoreStockPage({
     );
 
     const [ckRes, extRes, salesRes] = await Promise.all([
-      // Step 5 — CK receipts (transfer_order_lines)
+      // Step 5 — CK receipts (branch_receipts where transfer_order_id IS NOT NULL)
       supabase
-        .from("transfer_order_lines")
-        .select("sku_id, actual_qty, planned_qty, transfer_orders!inner(branch_id, delivery_date, status)")
-        .eq("transfer_orders.branch_id", branchId)
-        .gt("transfer_orders.delivery_date", earliestSnap)
-        .lte("transfer_orders.delivery_date", today)
-        .in("transfer_orders.status", ["Sent", "Received", "Partially Received"]),
+        .from("branch_receipts")
+        .select("sku_id, qty_received, receipt_date")
+        .eq("branch_id", branchId)
+        .not("transfer_order_id", "is", null)
+        .gt("receipt_date", earliestSnap)
+        .lte("receipt_date", today),
       // Step 6 — External receipts (branch_receipts)
       supabase
         .from("branch_receipts")
@@ -311,11 +311,10 @@ export default function StoreStockPage({
     // Build CK receipt totals per SKU per date
     const ckBySkuDate = new Map<string, Map<string, number>>();
     (ckRes.data || []).forEach((line: any) => {
-      const qty = Number(line.actual_qty) > 0 ? Number(line.actual_qty) : Number(line.planned_qty);
-      const deliveryDate = (line.transfer_orders as any).delivery_date;
+      const qty = Number(line.qty_received);
       if (!ckBySkuDate.has(line.sku_id)) ckBySkuDate.set(line.sku_id, new Map());
       const m = ckBySkuDate.get(line.sku_id)!;
-      m.set(deliveryDate, (m.get(deliveryDate) || 0) + qty);
+      m.set(line.receipt_date, (m.get(line.receipt_date) || 0) + qty);
     });
 
     // Build external receipt totals per SKU per date (with converter)
@@ -339,7 +338,15 @@ export default function StoreStockPage({
 
     const usageBySkuDate = new Map<string, Map<string, number>>();
     for (const [date, dateSales] of salesByDate) {
-      const dayUsage = calculateUsageFromSales(dateSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
+      const dayUsage = calculateUsageFromSales(
+        dateSales,
+        menus,
+        menuBomLines,
+        modifierRules,
+        spBomLines,
+        skus,
+        effectiveBranchId ?? undefined,
+      );
       for (const [skuId, qty] of Object.entries(dayUsage)) {
         if (!usageBySkuDate.has(skuId)) usageBySkuDate.set(skuId, new Map());
         const m = usageBySkuDate.get(skuId)!;
@@ -409,7 +416,15 @@ export default function StoreStockPage({
     for (const [date, dateSales] of salesByDate) {
       if (date > since) recentSales.push(...dateSales);
     }
-    const totalUsage = calculateUsageFromSales(recentSales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
+    const totalUsage = calculateUsageFromSales(
+      recentSales,
+      menus,
+      menuBomLines,
+      modifierRules,
+      spBomLines,
+      skus,
+      effectiveBranchId ?? undefined,
+    );
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
       daily[skuId] = total / 7;
@@ -459,7 +474,15 @@ export default function StoreStockPage({
         qty: Number(s.qty),
       }));
 
-      const totalUsage = calculateUsageFromSales(sales, menus, menuBomLines, modifierRules, spBomLines, skus, effectiveBranchId ?? undefined);
+      const totalUsage = calculateUsageFromSales(
+        sales,
+        menus,
+        menuBomLines,
+        modifierRules,
+        spBomLines,
+        skus,
+        effectiveBranchId ?? undefined,
+      );
 
       // Divide by 7 for daily average
       const daily: Record<string, number> = {};
