@@ -65,7 +65,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "title.smStockOverview": { th: "ภาพรวมสต๊อก SM", en: "SM Stock Overview" },
   "title.dailyTrend": { th: "แนวโน้มรายวัน", en: "Daily Trend" },
   "title.quickActions": { th: "ทางลัด", en: "Quick Actions" },
-  "title.totalRevenue": { th: "รายได้รวม", en: "Total Revenue" },
+  "title.totalRevenue": { th: "รายได้รวม (หัก DC, ไม่นับ SC & VAT)", en: "Total Revenue (Excl. SC & VAT, Net of DC)" },
   "title.stdFoodCost": { th: "ต้นทุนมาตรฐาน", en: "Standard Food Cost" },
   "title.stdFcPct": { th: "FC% มาตรฐาน", en: "Standard FC%" },
   "title.fcStatus": { th: "สถานะ FC%", en: "FC% Status" },
