@@ -427,7 +427,8 @@ export default function StoreStockPage({
     );
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
-      daily[skuId] = total / 7;
+      const activeDays = Math.max(1, salesByDate.size);
+      daily[skuId] = total / activeDays;
     }
     setLiveDailyUsage(daily);
     setLoading(false);
@@ -436,63 +437,6 @@ export default function StoreStockPage({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Live daily usage from last 7 days sales with full Modifier Rules
-  useEffect(() => {
-    if (!effectiveBranchId) {
-      setLiveDailyUsage({});
-      return;
-    }
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const since = sevenDaysAgo.toISOString().split("T")[0];
-
-    const run = async () => {
-      let allSalesData: any[] = [];
-      const PAGE = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("sales_entries")
-          .select("menu_code, menu_name, qty")
-          .eq("branch_id", effectiveBranchId)
-          .gte("sale_date", since)
-          .range(from, from + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        allSalesData = allSalesData.concat(data);
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
-
-      const salesData = allSalesData;
-      if (!salesData.length) return;
-
-      const sales = salesData.map((s: any) => ({
-        menu_code: s.menu_code,
-        menu_name: s.menu_name || "",
-        qty: Number(s.qty),
-      }));
-
-      const totalUsage = calculateUsageFromSales(
-        sales,
-        menus,
-        menuBomLines,
-        modifierRules,
-        spBomLines,
-        skus,
-        effectiveBranchId ?? undefined,
-      );
-
-      // Divide by 7 for daily average
-      const daily: Record<string, number> = {};
-      for (const [skuId, total] of Object.entries(totalUsage)) {
-        daily[skuId] = total / 7;
-      }
-      setLiveDailyUsage(daily);
-    };
-    run();
-  }, [effectiveBranchId, menus, menuBomLines, modifierRules, spBomLines, skus]);
 
   // Relevant SKU filter based on branch brand menus
   const { relevantSmIds, relevantRmIds } = useMemo(() => {
