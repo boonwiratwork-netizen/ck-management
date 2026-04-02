@@ -351,16 +351,17 @@ export default function ProductionPage({
         });
     });
 
-    // STEP 2 — Calculate indirect demand driven by planBatches
+    // STEP 2 — Calculate indirect demand driven by planQtyUom
     const indirect: Record<string, number> = {};
     smSkus.forEach((sku) => {
-      const planned = planBatches[sku.id] ?? 0;
-      if (planned <= 0) return;
+      const plannedUom = planQtyUom[sku.id] ?? 0;
+      if (plannedUom <= 0) return;
       const outputPerBatch = getOutputPerBatch(sku.id);
       if (outputPerBatch <= 0) return;
+      const plannedBatches = plannedUom / outputPerBatch;
       const children = childrenOf.get(sku.id) || [];
       children.forEach(({ childSmId, qtyPerBatch }) => {
-        const childDemand = planned * qtyPerBatch; // planned batches × ingredient qty per batch
+        const childDemand = (plannedBatches * qtyPerBatch) / 7;
         indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
       });
     });
@@ -372,7 +373,7 @@ export default function ProductionPage({
     });
 
     return { totalForecast: total };
-  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch, planBatches]);
+  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch, planQtyUom]);
 
   // Production records for selected week per SKU
   const weekRecordsBySku = useMemo(() => {
