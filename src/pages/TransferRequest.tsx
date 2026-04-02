@@ -169,6 +169,11 @@ export default function TransferRequestPage() {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }, []);
 
+  const today = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }, []);
+
   // ─── Load relevant suppliers for the selected branch ───
   useEffect(() => {
     if (!effectiveBranchId) {
