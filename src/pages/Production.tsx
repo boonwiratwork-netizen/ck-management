@@ -290,12 +290,12 @@ export default function ProductionPage({
         const map: Record<string, number> = {};
         if (data && data.length > 0) {
           (data as any[]).forEach((r) => {
-            map[r.sku_id] = Number(r.planned_batches);
+            map[r.sku_id] = Number(r.planned_qty_uom);
           });
           setPlanLocked(true);
           setSavedWeek(getISOWeekNumber(weekStart));
         }
-        setPlanBatches(map);
+        setPlanQtyUom(map);
         setLoadedWeek(weekStart);
       });
   }, [weekStart]);
