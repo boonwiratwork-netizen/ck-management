@@ -500,7 +500,7 @@ export default function ProductionPage({
     setGlobalTarget(value);
     if (!planLocked) {
       setSuggestedInitialized(false);
-      setPlanBatches({});
+      setPlanQtyUom({});
     }
     await supabase
       .from("global_settings" as any)
