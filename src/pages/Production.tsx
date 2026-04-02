@@ -537,7 +537,7 @@ export default function ProductionPage({
   };
 
   const handleSavePlan = () => {
-    const criticalCount = bomRows.filter((r) => r.coverAfterColor === "red" && r.plannedBatches === 0).length;
+    const criticalCount = bomRows.filter((r) => r.coverAfterColor === "red" && r.planG === 0).length;
     if (criticalCount > 0) {
       setCriticalWarning(criticalCount);
       return;
