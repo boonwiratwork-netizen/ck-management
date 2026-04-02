@@ -66,6 +66,11 @@ type SortDir = "asc" | "desc";
 
 const TYPE_ORDER: Record<string, number> = { SM: 0, RM: 1, PK: 2 };
 
+const fmtPackSize = (sku: SKU): string => {
+  if (!sku.packSize || !sku.packUnit) return "—";
+  return `${sku.packSize.toLocaleString()} ${sku.packUnit}/${sku.purchaseUom}`;
+};
+
 /* ── Sortable row wrapper for arrange mode ── */
 function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: skuId });
@@ -80,23 +85,11 @@ function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
       <td className="w-8 px-1 py-1.5" {...attributes} {...listeners}>
         <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
       </td>
-      <td className="font-mono text-xs px-2 py-1.5">{sku.skuId}</td>
+      <td className={`font-mono text-xs px-2 py-1.5 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
       <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>
         {sku.name}
       </td>
-      <td className="px-2 py-1.5">
-        <span
-          className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
-            sku.type === "RM"
-              ? "bg-warning/15 text-warning"
-              : sku.type === "SM"
-                ? "bg-info/15 text-info"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {sku.type}
-        </span>
-      </td>
+      <td className="px-2 py-1.5 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
       <td className="px-2 py-1.5 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
       {/* Placeholder cells for remaining columns — muted */}
       <td className="px-2 py-1.5 opacity-40 text-right text-sm">—</td>
@@ -126,7 +119,6 @@ export default function DailyStockCountPage({
   const [selectedBranch, setSelectedBranch] = useState<string>(
     isStoreManager && profile?.branch_id ? profile.branch_id : "",
   );
-  const [showUnused, setShowUnused] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
@@ -238,20 +230,6 @@ export default function DailyStockCountPage({
     unlockSheet(selectedBranch, selectedDate);
   }, [selectedBranch, selectedDate, unlockSheet]);
 
-  // Variance color based on percentage thresholds
-  const getVarianceClass = (variance: number, physicalCount: number | null, calculatedBalance: number) => {
-    if (physicalCount === null) return "var-neutral";
-    if (variance === 0) return "var-neutral";
-    const pct = calculatedBalance !== 0 ? (variance / calculatedBalance) * 100 : 0;
-    if (variance < 0) {
-      if (Math.abs(pct) >= 10) return "var-great";
-      return "var-good";
-    } else {
-      if (pct >= 10) return "var-major-loss";
-      return "var-minor-loss";
-    }
-  };
-
   // Comparator helper
   const compareRows = useCallback(
     (a: DailyStockCountRow, b: DailyStockCountRow): number => {
@@ -291,25 +269,9 @@ export default function DailyStockCountPage({
     [skuMap, sortKey, sortDir, customSkuOrder],
   );
 
-  // Sort and separate active vs unused rows
-  const { activeRows, unusedRows } = useMemo(() => {
-    const sorted = [...rows].sort(compareRows);
-
-    const active: typeof sorted = [];
-    const unused: typeof sorted = [];
-
-    sorted.forEach((row) => {
-      const isUnused =
-        row.openingBalance === 0 &&
-        row.receivedFromCk === 0 &&
-        row.receivedExternal === 0 &&
-        row.expectedUsage === 0 &&
-        row.physicalCount === null;
-      if (isUnused) unused.push(row);
-      else active.push(row);
-    });
-
-    return { activeRows: active, unusedRows: unused };
+  // Single sorted list — no active/unused split
+  const displayRows = useMemo(() => {
+    return [...rows].sort(compareRows);
   }, [rows, compareRows]);
 
   const hasAnyPhysicalCount = rows.some((r) => r.physicalCount !== null);
@@ -318,7 +280,7 @@ export default function DailyStockCountPage({
   const handlePhysicalCountKeyDown = (e: React.KeyboardEvent, rowId: string, index: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      const nextRow = activeRows[index + 1];
+      const nextRow = displayRows[index + 1];
       if (nextRow) {
         const nextRef = physicalCountRefs.current.get(nextRow.id);
         if (nextRef) nextRef.focus();
@@ -333,30 +295,23 @@ export default function DailyStockCountPage({
 
   // ── Arrange mode logic ──
   const allBranchSkus = useMemo(() => {
-    // Use rows from the loaded count sheet — already branch-filtered by generateSheet/loadSheet
-    // Both active and unused rows combined = full branch-relevant SKU population
     if (rows.length === 0) return [];
-    const allRows = [...activeRows, ...unusedRows];
-    return allRows.map((r) => skuMap.get(r.skuId)).filter((s): s is SKU => !!s);
-  }, [rows.length, activeRows, unusedRows, skuMap]);
+    return displayRows.map((r) => skuMap.get(r.skuId)).filter((s): s is SKU => !!s);
+  }, [rows.length, displayRows, skuMap]);
 
   const enterArrangeMode = useCallback(() => {
-    // Build initial order: if customSkuOrder exists, use it; else default type→skuCode
     const skuIds = allBranchSkus.map((s) => s.id);
     if (customSkuOrder && customSkuOrder.length > 0) {
       const ordered: string[] = [];
-      // First: items in customSkuOrder that exist in allBranchSkus
       const skuIdSet = new Set(skuIds);
       for (const id of customSkuOrder) {
         if (skuIdSet.has(id)) ordered.push(id);
       }
-      // Then: remaining items not in customSkuOrder
       for (const id of skuIds) {
         if (!ordered.includes(id)) ordered.push(id);
       }
       setArrangeOrder(ordered);
     } else {
-      // Default sort: type order then skuCode
       const sorted = [...allBranchSkus].sort((a, b) => {
         const ta = TYPE_ORDER[a.type] ?? 9;
         const tb = TYPE_ORDER[b.type] ?? 9;
@@ -377,7 +332,6 @@ export default function DailyStockCountPage({
     if (!user?.id || !selectedBranch) return;
     setSavingOrder(true);
     try {
-      // Check if preference exists
       const { data: existing } = await supabase
         .from("user_sort_preferences")
         .select("id")
@@ -581,7 +535,7 @@ export default function DailyStockCountPage({
                       <col style={{ width: 32 }} />
                       <col style={{ width: 90 }} />
                       <col style={{ width: 150 }} />
-                      <col style={{ width: 50 }} />
+                      <col style={{ width: 90 }} />
                       <col style={{ width: 60 }} />
                       <col style={{ width: 80 }} />
                       <col style={{ width: 90 }} />
@@ -596,7 +550,7 @@ export default function DailyStockCountPage({
                         <th className={thClass}></th>
                         <th className={`${thClass} text-muted-foreground/50`}>{t("col.skuCode")}</th>
                         <th className={`${thClass} text-muted-foreground/50`}>{t("col.skuName")}</th>
-                        <th className={`${thClass} text-muted-foreground/50`}>{t("col.type")}</th>
+                        <th className={`${thClass} text-muted-foreground/50`}>Pack Size</th>
                         <th className={`${thClass} text-muted-foreground/50`}>{t("dsc.colUnit")}</th>
                         <th className={`${thClass} opacity-40`}>{t("col.opening")}</th>
                         <th className={`${thClass} opacity-40`}>{t("dsc.colReceived")}</th>
@@ -636,250 +590,154 @@ export default function DailyStockCountPage({
       ) : loading ? (
         <SkeletonTable columns={11} rows={12} />
       ) : rows.length > 0 ? (
-        <>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-auto max-h-[70vh]">
-                <div className="px-4 py-2 border-b bg-muted/50">
-                  <p className="kbd-hint">{t("dsc.keyboardHint")}</p>
-                </div>
-                <table className="w-full table-fixed text-xs">
-                  <colgroup>
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 150 }} />
-                    <col style={{ width: 50 }} />
-                    <col style={{ width: 60 }} />
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 80 }} />
-                  </colgroup>
-                  <thead className="sticky-thead">
-                    <tr className="bg-table-header border-b">
-                      <th className={thClass}>{renderSortableHeader("skuCode", t("col.skuCode"))}</th>
-                      <th className={thClass}>{renderSortableHeader("skuName", t("col.skuName"))}</th>
-                      <th className={thClass}>{renderSortableHeader("type", t("col.type"))}</th>
-                      <th className={thClass}>{t("dsc.colUnit")}</th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("col.opening")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("dsc.colReceived")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("col.expUsage")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("col.waste")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("col.calcBalance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass} !bg-foreground !text-background font-semibold`}>
-                        <div>{t("col.physical")}</div>
-                        <div className="text-xs font-normal opacity-60">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                      <th className={`text-right ${thClass}`}>
-                        <div>{t("col.variance")}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeRows.map((row, idx) => {
-                      const sku = skuMap.get(row.skuId);
-                      if (!sku) return null;
-                      const varClass = getVarianceClass(row.variance, row.physicalCount, row.calculatedBalance);
-
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
-                        >
-                          <td className="font-mono text-xs px-2 py-1">{sku.skuId}</td>
-                          <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>
-                            {sku.name}
-                          </td>
-                          <td className="px-2 py-1">
-                            <span
-                              className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
-                                sku.type === "RM"
-                                  ? "bg-warning/15 text-warning"
-                                  : sku.type === "SM"
-                                    ? "bg-info/15 text-info"
-                                    : sku.type === "SP"
-                                      ? "bg-primary/15 text-primary"
-                                      : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {sku.type}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
-                          <td className="text-right font-mono text-sm px-2 py-1">
-                            {(() => {
-                              const totalReceived = row.receivedFromCk + row.receivedExternal * getConverter(row.skuId);
-                              return totalReceived > 0 ? (
-                                fmt0(totalReceived)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              );
-                            })()}
-                          </td>
-                          <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
-                          <td className="px-1.5 py-1 text-right">
-                            {isSubmitted ? (
-                              <span className="text-sm font-mono">{fmt0(row.waste)}</span>
-                            ) : (
-                              <Input
-                                type="number"
-                                min={0}
-                                step="any"
-                                defaultValue={row.waste || ""}
-                                key={`waste-${row.id}-${row.waste}`}
-                                onBlur={(e) => {
-                                  const val = Number(e.target.value) || 0;
-                                  if (val !== row.waste) updateWaste(row.id, val);
-                                }}
-                                className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
-                                placeholder=""
-                                style={{ textAlign: "right" }}
-                              />
-                            )}
-                          </td>
-                          <td className="text-right font-mono text-sm font-medium px-2 py-1">
-                            {fmt0(Math.max(0, row.calculatedBalance))}
-                          </td>
-                          <td className="px-1.5 py-1 text-right">
-                            {isSubmitted ? (
-                              <span className="text-sm font-mono">
-                                {row.physicalCount !== null ? fmt0(row.physicalCount) : "—"}
-                              </span>
-                            ) : (
-                              <Input
-                                ref={(el) => setRef(row.id, el)}
-                                type="number"
-                                min={0}
-                                step="any"
-                                defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
-                                key={`phys-${row.id}-${row.physicalCount}`}
-                                onBlur={(e) => {
-                                  if (e.target.value === "") {
-                                    if (row.physicalCount !== null) updatePhysicalCount(row.id, null);
-                                    return;
-                                  }
-                                  const val = Number(e.target.value);
-                                  const clamped = val < 0 ? 0 : val;
-                                  if (val < 0) e.target.value = "0";
-                                  if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
-                                }}
-                                onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
-                                className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
-                                placeholder=""
-                                style={{ textAlign: "right" }}
-                              />
-                            )}
-                          </td>
-                          <td className={`text-right font-mono text-sm font-medium px-2 py-1 ${varClass}`}>
-                            {row.physicalCount !== null ? fmt0(row.variance) : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[70vh]">
+              <div className="px-4 py-2 border-b bg-muted/50">
+                <p className="kbd-hint">{t("dsc.keyboardHint")}</p>
               </div>
-            </CardContent>
-          </Card>
+              <table className="w-full table-fixed text-xs">
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 60 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 80 }} />
+                </colgroup>
+                <thead className="sticky-thead">
+                  <tr className="bg-table-header border-b">
+                    <th className={thClass}>{renderSortableHeader("skuCode", t("col.skuCode"))}</th>
+                    <th className={thClass}>{renderSortableHeader("skuName", t("col.skuName"))}</th>
+                    <th className={thClass}>Pack Size</th>
+                    <th className={thClass}>{t("dsc.colUnit")}</th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("col.opening")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("dsc.colReceived")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("col.expUsage")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("col.waste")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("col.calcBalance")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass} !bg-foreground !text-background font-semibold`}>
+                      <div>{t("col.physical")}</div>
+                      <div className="text-xs font-normal opacity-60">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                    <th className={`text-right ${thClass}`}>
+                      <div>{t("col.variance")}</div>
+                      <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayRows.map((row, idx) => {
+                    const sku = skuMap.get(row.skuId);
+                    if (!sku) return null;
 
-          {/* Unused SKUs toggle */}
-          {unusedRows.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowUnused(!showUnused)}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showUnused ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showUnused ? t("dsc.hideUnused") : t("dsc.showUnused")} {t("dsc.unusedSkus")} ({unusedRows.length})
-            </button>
-          )}
-
-          {showUnused && unusedRows.length > 0 && (
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-auto max-h-[50vh]">
-                  <Table>
-                    <TableHeader className="sticky-thead">
-                      <TableRow className="bg-table-header border-b">
-                        <TableHead className={thClass}>{t("col.skuCode")}</TableHead>
-                        <TableHead className={thClass}>{t("col.skuName")}</TableHead>
-                        <TableHead className={thClass}>{t("col.type")}</TableHead>
-                        <TableHead className={`text-right ${thClass}`}>{t("col.physical")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {unusedRows.map((row) => {
-                        const sku = skuMap.get(row.skuId);
-                        if (!sku) return null;
-
-                        return (
-                          <TableRow
-                            key={row.id}
-                            className="border-b border-table-border text-muted-foreground hover:bg-table-hover transition-colors"
-                          >
-                            <TableCell className="px-2 py-1 font-mono text-xs">{sku.skuId}</TableCell>
-                            <TableCell className="px-2 py-1 text-sm">{sku.name}</TableCell>
-                            <TableCell className="px-2 py-1">
-                              <span
-                                className={`inline-flex px-1.5 py-0.5 rounded text-xs font-semibold ${
-                                  sku.type === "RM" ? "bg-warning/15 text-warning" : "bg-info/15 text-info"
-                                }`}
-                              >
-                                {sku.type}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right w-28 px-2 py-1">
-                              {!isSubmitted && (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="0.01"
-                                  defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
-                                  key={`phys-unused-${row.id}-${row.physicalCount}`}
-                                  onBlur={(e) => {
-                                    if (e.target.value === "") {
-                                      if (row.physicalCount !== null) updatePhysicalCount(row.id, null);
-                                      return;
-                                    }
-                                    const val = Number(e.target.value);
-                                    const clamped = val < 0 ? 0 : val;
-                                    if (val < 0) e.target.value = "0";
-                                    if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
-                                  }}
-                                  className="h-8 w-24 text-sm"
-                                  placeholder="—"
-                                />
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
+                      >
+                        <td className={`font-mono text-xs px-2 py-1 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
+                        <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>
+                          {sku.name}
+                        </td>
+                        <td className="px-2 py-1 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
+                        <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
+                        <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.openingBalance)}</td>
+                        <td className="text-right font-mono text-sm px-2 py-1">
+                          {(() => {
+                            const totalReceived = row.receivedFromCk + row.receivedExternal * getConverter(row.skuId);
+                            return totalReceived > 0 ? (
+                              fmt0(totalReceived)
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="text-right font-mono text-sm px-2 py-1">{fmt0(row.expectedUsage)}</td>
+                        <td className="px-1.5 py-1 text-right">
+                          {isSubmitted ? (
+                            <span className="text-sm font-mono">{fmt0(row.waste)}</span>
+                          ) : (
+                            <Input
+                              type="number"
+                              min={0}
+                              step="any"
+                              defaultValue={row.waste || ""}
+                              key={`waste-${row.id}-${row.waste}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                if (val !== row.waste) updateWaste(row.id, val);
+                              }}
+                              className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
+                              placeholder=""
+                              style={{ textAlign: "right" }}
+                            />
+                          )}
+                        </td>
+                        <td className="text-right font-mono text-sm font-medium px-2 py-1">
+                          {fmt0(Math.max(0, row.calculatedBalance))}
+                        </td>
+                        <td className="px-1.5 py-1 text-right">
+                          {isSubmitted ? (
+                            <span className="text-sm font-mono">
+                              {row.physicalCount !== null ? fmt0(row.physicalCount) : "—"}
+                            </span>
+                          ) : (
+                            <Input
+                              ref={(el) => setRef(row.id, el)}
+                              type="number"
+                              min={0}
+                              step="any"
+                              defaultValue={row.physicalCount !== null ? row.physicalCount : ""}
+                              key={`phys-${row.id}-${row.physicalCount}`}
+                              onBlur={(e) => {
+                                if (e.target.value === "") {
+                                  if (row.physicalCount !== null) updatePhysicalCount(row.id, null);
+                                  return;
+                                }
+                                const val = Number(e.target.value);
+                                const clamped = val < 0 ? 0 : val;
+                                if (val < 0) e.target.value = "0";
+                                if (clamped !== row.physicalCount) updatePhysicalCount(row.id, clamped);
+                              }}
+                              onKeyDown={(e) => handlePhysicalCountKeyDown(e, row.id, idx)}
+                              className="h-8 text-xs w-[80px] font-mono text-right pr-2 text-right"
+                              placeholder=""
+                              style={{ textAlign: "right" }}
+                            />
+                          )}
+                        </td>
+                        <td className="text-right font-mono text-sm font-medium px-2 py-1">
+                          {row.physicalCount !== null ? fmt0(row.variance) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       ) : selectedBranch ? (
         <EmptyState icon={ClipboardList} title={t("dsc.emptyTitle")} description={t("dsc.emptyHint")} />
       ) : null}
@@ -897,9 +755,9 @@ export default function DailyStockCountPage({
               className={`no-print rounded-lg border-2 p-4 text-left transition-colors ${printScope === "today" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">วันนี้</div>
-              <div className="text-xs text-muted-foreground mt-1">เฉพาะ SKU ที่มีการเคลื่อนไหววันนี้</div>
+              <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีในใบนับ</div>
               <Badge variant="secondary" className="mt-2 text-xs">
-                {activeRows.length} รายการ
+                {displayRows.length} รายการ
               </Badge>
             </button>
             <button
@@ -908,9 +766,9 @@ export default function DailyStockCountPage({
               className={`no-print rounded-lg border-2 p-4 text-left transition-colors ${printScope === "month" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-semibold text-sm">สิ้นเดือน</div>
-              <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีการเคลื่อนไหวในเดือนนี้</div>
+              <div className="text-xs text-muted-foreground mt-1">ทุก SKU ที่มีในใบนับ</div>
               <Badge variant="secondary" className="mt-2 text-xs">
-                {activeRows.length + unusedRows.length} รายการ
+                {displayRows.length} รายการ
               </Badge>
             </button>
           </div>
@@ -945,7 +803,7 @@ export default function DailyStockCountPage({
                 <tr style={{ background: "#eee" }}>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>รหัส SKU</th>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "left" }}>ชื่อ SKU</th>
-                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>ประเภท</th>
+                  <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>Pack Size</th>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>หน่วย</th>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "right" }}>คงเหลือ</th>
                   <th style={{ border: "1px solid #999", padding: "3px 4px", textAlign: "center" }}>ของเสีย</th>
@@ -953,7 +811,7 @@ export default function DailyStockCountPage({
                 </tr>
               </thead>
               <tbody>
-                {(printScope === "today" ? activeRows : [...activeRows, ...unusedRows]).map((row, idx) => {
+                {displayRows.map((row, idx) => {
                   const sku = skuMap.get(row.skuId);
                   if (!sku) return null;
                   return (
@@ -964,7 +822,7 @@ export default function DailyStockCountPage({
                         {sku.skuId}
                       </td>
                       <td style={{ border: "1px solid #ccc", padding: "4px" }}>{sku.name}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{sku.type}</td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{fmtPackSize(sku)}</td>
                       <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{sku.usageUom}</td>
                       <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "right" }}>
                         {Math.round(Math.max(0, row.calculatedBalance))}
