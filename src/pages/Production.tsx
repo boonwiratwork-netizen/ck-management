@@ -406,10 +406,7 @@ export default function ProductionPage({
 
         const coverNow = dailyNeed > 0 ? stockNow / dailyNeed : Infinity;
         const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
-        const suggestedBatches =
-          outputPerBatch > 0 && produceTarget > 0 ? Math.ceil(produceTarget / outputPerBatch) : 0;
-        const plannedBatches = planBatches[sku.id] ?? 0;
-        const planG = plannedBatches * outputPerBatch;
+        const planG = planQtyUom[sku.id] ?? 0;
         const stockAfter = stockNow + planG;
         const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
         const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
@@ -423,8 +420,6 @@ export default function ProductionPage({
           target,
           coverNow,
           produceTarget,
-          suggestedBatches,
-          plannedBatches,
           outputPerBatch,
           planG,
           stockAfter,
@@ -440,7 +435,7 @@ export default function ProductionPage({
     bomHeaders,
     totalForecast,
     smStockBalances,
-    planBatches,
+    planQtyUom,
     skuTargets,
     globalTarget,
     getOutputPerBatch,
