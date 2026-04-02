@@ -478,8 +478,8 @@ export default function ProductionPage({
     setWeekStart(toLocalDateStr(d));
   };
 
-  const handlePlanChange = useCallback((skuId: string, val: string) => {
-    setPlanBatches((prev) => ({ ...prev, [skuId]: Number(val) || 0 }));
+  const handlePlanChange = useCallback((skuId: string, val: number) => {
+    setPlanQtyUom((prev) => ({ ...prev, [skuId]: val }));
   }, []);
 
   const handlePlanKeyDown = (e: React.KeyboardEvent, skuId: string) => {
