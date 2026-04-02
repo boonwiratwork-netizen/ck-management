@@ -1394,7 +1394,7 @@ export default function ProductionPage({
         isLoading={planningAgent.isLoading}
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}
-        onApplyPlan={(plan) => setPlanBatches((prev) => ({ ...prev, ...plan }))}
+        onApplyPlan={(plan) => setPlanQtyUom((prev) => ({ ...prev, ...plan }))}
         onRefetch={planningAgent.refetch}
       />
     </TooltipProvider>
