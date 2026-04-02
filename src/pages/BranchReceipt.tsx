@@ -518,6 +518,8 @@ export default function BranchReceiptPage({
         setSaving(false);
         return;
       }
+      const capturedTOId = selectedTOId;
+      const capturedTOLines = pendingTOs.find((t) => t.id === selectedTOId)?.lines ?? [];
       const linesToSave = ckLines.filter((l) => l.receivedQty > 0);
       if (linesToSave.length === 0) {
         toast.error("No items with quantity to save");
