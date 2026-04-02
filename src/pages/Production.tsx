@@ -757,17 +757,15 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
-                {/* 1A — Planning colgroup (11 cols), Name=220px */}
+                {/* Planning colgroup (9 cols) */}
                 <colgroup>
                   <col style={{ width: "28px" }} />
                   <col style={{ width: "72px" }} />
-                  <col style={{ width: "220px" }} />
+                  <col style={{ width: "260px" }} />
                   <col style={{ width: "48px" }} />
-                  <col style={{ width: "68px" }} />
                   <col style={{ width: "85px" }} />
                   <col style={{ width: "68px" }} />
-                  <col style={{ width: "78px" }} />
-                  <col style={{ width: "85px" }} />
+                  <col style={{ width: "120px" }} />
                   <col style={{ width: "85px" }} />
                   <col style={{ width: "85px" }} />
                 </colgroup>
@@ -776,26 +774,21 @@ export default function ProductionPage({
                     <th className={table.headerCellCenter}></th>
                     <th className={table.headerCell}>{t("prod.colCode")}</th>
                     <th className={table.headerCell}>{t("prod.colName")}</th>
-                    {/* 1C — UOM header centered */}
                     <th className={table.headerCellCenter}>UOM</th>
-                    <th className={table.headerCellNumeric}>{t("prod.colGBatch")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colSuggest")}</th>
                     <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
-                      {t("prod.colPlanBatch")}
+                      {t("prod.colPlanUom")}
                     </th>
-                    <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colCoverDayNow")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colCoverDayAfter")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* 2C — Use displayedBomRows instead of bomRows */}
                   {displayedBomRows.map((row) => {
                     const isSufficient = row.produceTarget === 0;
 
-                    // FIX 6 — Status dot: use coverAfterColor only when CK manager explicitly entered a value
-                    const hasExplicitPlan = planBatches[row.sku.id] !== undefined && planBatches[row.sku.id] > 0;
+                    const hasExplicitPlan = planQtyUom[row.sku.id] !== undefined && planQtyUom[row.sku.id] > 0;
                     const dotColor = hasExplicitPlan ? row.coverAfterColor : row.coverNowColor;
 
                     const borderClass = hasExplicitPlan
@@ -804,9 +797,8 @@ export default function ProductionPage({
                         : table.productionRowInProgress
                       : "";
 
-                    // 2C — Ad-hoc produced row (weekRecordsBySku > 0 but not planned)
                     const isAdHoc =
-                      planLocked && (planBatches[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
+                      planLocked && (planQtyUom[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
 
                     return (
                       <tr
@@ -822,15 +814,10 @@ export default function ProductionPage({
                           !isAdHoc && borderClass,
                         )}
                       >
-                        {/* STATUS DOT */}
                         <td className={table.dataCellCompactCenter}>
                           <StatusDot status={dotColor} />
                         </td>
-
-                        {/* CODE */}
                         <td className={cn(table.dataCellCompact, "font-mono truncate")}>{row.sku.skuId}</td>
-
-                        {/* NAME */}
                         <td className={table.truncatedCellCompact}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -851,28 +838,15 @@ export default function ProductionPage({
                             </TooltipContent>
                           </Tooltip>
                         </td>
-
-                        {/* 1C — UOM centered */}
                         <td className={table.dataCellCompactCenter}>
                           <span className="text-xs font-medium text-primary">{row.sku.usageUom || "g"}</span>
                         </td>
-
-                        {/* g/BATCH */}
-                        <td className={table.dataCellCompactMono}>
-                          {row.outputPerBatch > 0 ? fmtG(row.outputPerBatch) : "—"}
-                        </td>
-
-                        {/* STOCK NOW — pure number */}
                         <td className={table.dataCellCompactMono}>{fmtG(row.stockNow)}</td>
-
-                        {/* SUGGEST */}
                         <td className={table.dataCellCompactMono}>
                           <span className="text-muted-foreground">
-                            {row.suggestedBatches > 0 ? row.suggestedBatches : "—"}
+                            {row.produceTarget > 0 ? fmtG(row.produceTarget) : "—"}
                           </span>
                         </td>
-
-                        {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
                           {isAdHoc ? (
                             <div className="h-8 flex items-center justify-center font-mono text-muted-foreground">
@@ -884,7 +858,7 @@ export default function ProductionPage({
                             </div>
                           ) : planLocked ? (
                             <div className="h-8 flex items-center justify-center font-semibold font-mono">
-                              {row.plannedBatches || "—"}
+                              {planQtyUom[row.sku.id] ? fmtG(planQtyUom[row.sku.id]) : "—"}
                             </div>
                           ) : (
                             <input
@@ -892,28 +866,20 @@ export default function ProductionPage({
                                 planInputRefs.current[row.sku.id] = el;
                               }}
                               type="number"
+                              step="1"
                               className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
-                              defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
+                              defaultValue={planQtyUom[row.sku.id] > 0 ? planQtyUom[row.sku.id] : ""}
                               key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
-                              onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
+                              onBlur={(e) => handlePlanChange(row.sku.id, Math.round(Number(e.target.value) || 0))}
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePlanKeyDown(e, row.sku.id)}
                               min={0}
                             />
                           )}
                         </td>
-
-                        {/* PLAN (g) — pure number */}
-                        <td className={cn(table.dataCellCompactMono, "text-muted-foreground")}>
-                          {row.planG > 0 ? fmtG(row.planG) : "—"}
-                        </td>
-
-                        {/* COVER DAY NOW */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
-
-                        {/* COVER DAY AFTER */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
@@ -923,7 +889,7 @@ export default function ProductionPage({
 
                   {displayedBomRows.length === 0 && (
                     <tr>
-                      <td colSpan={10} className={table.emptyState}>
+                      <td colSpan={9} className={table.emptyState}>
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
