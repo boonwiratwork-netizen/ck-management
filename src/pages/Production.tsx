@@ -174,7 +174,7 @@ export default function ProductionPage({
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
   const [globalTarget, setGlobalTarget] = useState(7);
-  const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
+  const [planQtyUom, setPlanQtyUom] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
   const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>(
     [],
