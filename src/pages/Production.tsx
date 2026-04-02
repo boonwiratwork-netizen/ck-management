@@ -448,23 +448,23 @@ export default function ProductionPage({
   // 2C — Plan-aware displayed rows for Planning table
   const displayedBomRows = useMemo(() => {
     if (!planLocked) return bomRows;
-    return bomRows.filter((r) => (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0);
-  }, [bomRows, planLocked, planBatches, weekRecordsBySku]);
+    return bomRows.filter((r) => (planQtyUom[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0);
+  }, [bomRows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // 1E — Recording rows: stable sort by SKU code only, with plan-aware filtering
   const recordingRows = useMemo(() => {
     const inScope = (r: PlanRow) =>
-      !planLocked || (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
+      !planLocked || (planQtyUom[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
     return [...rows].filter((r) => r.hasBom && inScope(r)).sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [rows, planLocked, planBatches, weekRecordsBySku]);
+  }, [rows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // 2B — Unplanned rows for expandable section
   const unplannedRows = useMemo(() => {
     if (!planLocked) return [];
     return [...rows]
-      .filter((r) => r.hasBom && (planBatches[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0)
+      .filter((r) => r.hasBom && (planQtyUom[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0)
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [rows, planLocked, planBatches, weekRecordsBySku]);
+  }, [rows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // ─── Handlers ───
   const prevWeek = () => {
