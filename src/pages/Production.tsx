@@ -137,8 +137,6 @@ interface PlanRow {
   target: number;
   coverNow: number;
   produceTarget: number;
-  suggestedBatches: number;
-  plannedBatches: number;
   outputPerBatch: number;
   planG: number;
   stockAfter: number;
