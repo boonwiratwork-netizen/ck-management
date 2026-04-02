@@ -550,7 +550,7 @@ export default function BranchReceiptPage({
         const selectedTO = pendingTOs.find((t) => t.id === selectedTOId);
         let allReceived = true;
         let anyPartial = false;
-        for (const toLine of selectedTO?.lines || []) {
+        for (const toLine of capturedTOLines || []) {
           const ckLine = ckLines.find((l) => l.toLineId === toLine.id);
           const received = ckLine?.receivedQty || 0;
           const planned = toLine.plannedQty;
@@ -562,13 +562,13 @@ export default function BranchReceiptPage({
 
         const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
 
-        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", selectedTOId);
+        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", capturedTOId);
 
         if (selectedTO) {
           const { data: toData } = await supabase
             .from("transfer_orders")
             .select("tr_id")
-            .eq("id", selectedTOId)
+            .eq("id", capturedTOId)
             .single();
           if (toData?.tr_id) {
             await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", toData.tr_id);
