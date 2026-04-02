@@ -137,8 +137,6 @@ interface PlanRow {
   target: number;
   coverNow: number;
   produceTarget: number;
-  suggestedBatches: number;
-  plannedBatches: number;
   outputPerBatch: number;
   planG: number;
   stockAfter: number;
@@ -176,7 +174,7 @@ export default function ProductionPage({
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
   const [globalTarget, setGlobalTarget] = useState(7);
-  const [planBatches, setPlanBatches] = useState<Record<string, number>>({});
+  const [planQtyUom, setPlanQtyUom] = useState<Record<string, number>>({});
   const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
   const [salesData, setSalesData] = useState<{ menuCode: string; qty: number; saleDate: string; branchId: string }[]>(
     [],
@@ -292,12 +290,12 @@ export default function ProductionPage({
         const map: Record<string, number> = {};
         if (data && data.length > 0) {
           (data as any[]).forEach((r) => {
-            map[r.sku_id] = Number(r.planned_batches);
+            map[r.sku_id] = Number(r.planned_qty_uom);
           });
           setPlanLocked(true);
           setSavedWeek(getISOWeekNumber(weekStart));
         }
-        setPlanBatches(map);
+        setPlanQtyUom(map);
         setLoadedWeek(weekStart);
       });
   }, [weekStart]);
@@ -353,16 +351,17 @@ export default function ProductionPage({
         });
     });
 
-    // STEP 2 — Calculate indirect demand driven by planBatches
+    // STEP 2 — Calculate indirect demand driven by planQtyUom
     const indirect: Record<string, number> = {};
     smSkus.forEach((sku) => {
-      const planned = planBatches[sku.id] ?? 0;
-      if (planned <= 0) return;
+      const plannedUom = planQtyUom[sku.id] ?? 0;
+      if (plannedUom <= 0) return;
       const outputPerBatch = getOutputPerBatch(sku.id);
       if (outputPerBatch <= 0) return;
+      const plannedBatches = plannedUom / outputPerBatch;
       const children = childrenOf.get(sku.id) || [];
       children.forEach(({ childSmId, qtyPerBatch }) => {
-        const childDemand = planned * qtyPerBatch; // planned batches × ingredient qty per batch
+        const childDemand = (plannedBatches * qtyPerBatch) / 7;
         indirect[childSmId] = (indirect[childSmId] || 0) + childDemand;
       });
     });
@@ -374,7 +373,7 @@ export default function ProductionPage({
     });
 
     return { totalForecast: total };
-  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch, planBatches]);
+  }, [directForecast, smSkus, bomHeaders, bomLines, getOutputPerBatch, planQtyUom]);
 
   // Production records for selected week per SKU
   const weekRecordsBySku = useMemo(() => {
@@ -407,10 +406,7 @@ export default function ProductionPage({
 
         const coverNow = dailyNeed > 0 ? stockNow / dailyNeed : Infinity;
         const produceTarget = dailyNeed > 0 ? Math.max(0, dailyNeed * target - stockNow) : 0;
-        const suggestedBatches =
-          outputPerBatch > 0 && produceTarget > 0 ? Math.ceil(produceTarget / outputPerBatch) : 0;
-        const plannedBatches = planBatches[sku.id] ?? 0;
-        const planG = plannedBatches * outputPerBatch;
+        const planG = planQtyUom[sku.id] ?? 0;
         const stockAfter = stockNow + planG;
         const coverAfter = dailyNeed > 0 ? stockAfter / dailyNeed : Infinity;
         const coverNowColor = getCoverColor(coverNow, target, dailyNeed);
@@ -424,8 +420,6 @@ export default function ProductionPage({
           target,
           coverNow,
           produceTarget,
-          suggestedBatches,
-          plannedBatches,
           outputPerBatch,
           planG,
           stockAfter,
@@ -441,7 +435,7 @@ export default function ProductionPage({
     bomHeaders,
     totalForecast,
     smStockBalances,
-    planBatches,
+    planQtyUom,
     skuTargets,
     globalTarget,
     getOutputPerBatch,
@@ -454,23 +448,23 @@ export default function ProductionPage({
   // 2C — Plan-aware displayed rows for Planning table
   const displayedBomRows = useMemo(() => {
     if (!planLocked) return bomRows;
-    return bomRows.filter((r) => (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0);
-  }, [bomRows, planLocked, planBatches, weekRecordsBySku]);
+    return bomRows.filter((r) => (planQtyUom[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0);
+  }, [bomRows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // 1E — Recording rows: stable sort by SKU code only, with plan-aware filtering
   const recordingRows = useMemo(() => {
     const inScope = (r: PlanRow) =>
-      !planLocked || (planBatches[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
+      !planLocked || (planQtyUom[r.sku.id] ?? 0) > 0 || (weekRecordsBySku[r.sku.id] ?? 0) > 0;
     return [...rows].filter((r) => r.hasBom && inScope(r)).sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [rows, planLocked, planBatches, weekRecordsBySku]);
+  }, [rows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // 2B — Unplanned rows for expandable section
   const unplannedRows = useMemo(() => {
     if (!planLocked) return [];
     return [...rows]
-      .filter((r) => r.hasBom && (planBatches[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0)
+      .filter((r) => r.hasBom && (planQtyUom[r.sku.id] ?? 0) === 0 && (weekRecordsBySku[r.sku.id] ?? 0) === 0)
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [rows, planLocked, planBatches, weekRecordsBySku]);
+  }, [rows, planLocked, planQtyUom, weekRecordsBySku]);
 
   // ─── Handlers ───
   const prevWeek = () => {
@@ -484,8 +478,8 @@ export default function ProductionPage({
     setWeekStart(toLocalDateStr(d));
   };
 
-  const handlePlanChange = useCallback((skuId: string, val: string) => {
-    setPlanBatches((prev) => ({ ...prev, [skuId]: Number(val) || 0 }));
+  const handlePlanChange = useCallback((skuId: string, val: number) => {
+    setPlanQtyUom((prev) => ({ ...prev, [skuId]: val }));
   }, []);
 
   const handlePlanKeyDown = (e: React.KeyboardEvent, skuId: string) => {
@@ -506,7 +500,7 @@ export default function ProductionPage({
     setGlobalTarget(value);
     if (!planLocked) {
       setSuggestedInitialized(false);
-      setPlanBatches({});
+      setPlanQtyUom({});
     }
     await supabase
       .from("global_settings" as any)
@@ -518,11 +512,11 @@ export default function ProductionPage({
   const doSavePlan = async () => {
     setSaving(true);
     const planRows = smSkus
-      .filter((s) => (planBatches[s.id] || 0) > 0)
+      .filter((s) => (planQtyUom[s.id] || 0) > 0)
       .map((s) => ({
         week_start: weekStart,
         sku_id: s.id,
-        planned_batches: planBatches[s.id] || 0,
+        planned_qty_uom: planQtyUom[s.id] || 0,
       }));
     await supabase
       .from("weekly_plan_lines" as any)
@@ -543,7 +537,7 @@ export default function ProductionPage({
   };
 
   const handleSavePlan = () => {
-    const criticalCount = bomRows.filter((r) => r.coverAfterColor === "red" && r.plannedBatches === 0).length;
+    const criticalCount = bomRows.filter((r) => r.coverAfterColor === "red" && r.planG === 0).length;
     if (criticalCount > 0) {
       setCriticalWarning(criticalCount);
       return;
@@ -763,17 +757,15 @@ export default function ProductionPage({
           <>
             <div className={table.wrapper}>
               <table className={table.base}>
-                {/* 1A — Planning colgroup (11 cols), Name=220px */}
+                {/* Planning colgroup (9 cols) */}
                 <colgroup>
                   <col style={{ width: "28px" }} />
                   <col style={{ width: "72px" }} />
-                  <col style={{ width: "220px" }} />
+                  <col style={{ width: "260px" }} />
                   <col style={{ width: "48px" }} />
-                  <col style={{ width: "68px" }} />
                   <col style={{ width: "85px" }} />
                   <col style={{ width: "68px" }} />
-                  <col style={{ width: "78px" }} />
-                  <col style={{ width: "85px" }} />
+                  <col style={{ width: "120px" }} />
                   <col style={{ width: "85px" }} />
                   <col style={{ width: "85px" }} />
                 </colgroup>
@@ -782,26 +774,21 @@ export default function ProductionPage({
                     <th className={table.headerCellCenter}></th>
                     <th className={table.headerCell}>{t("prod.colCode")}</th>
                     <th className={table.headerCell}>{t("prod.colName")}</th>
-                    {/* 1C — UOM header centered */}
                     <th className={table.headerCellCenter}>UOM</th>
-                    <th className={table.headerCellNumeric}>{t("prod.colGBatch")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colStockNow")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colSuggest")}</th>
                     <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-center bg-primary/5 border-x border-primary/20 font-semibold text-primary">
-                      {t("prod.colPlanBatch")}
+                      {t("prod.colPlanUom")}
                     </th>
-                    <th className={table.headerCellNumeric}>{t("prod.colPlanG")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colCoverDayNow")}</th>
                     <th className={table.headerCellNumeric}>{t("prod.colCoverDayAfter")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* 2C — Use displayedBomRows instead of bomRows */}
                   {displayedBomRows.map((row) => {
                     const isSufficient = row.produceTarget === 0;
 
-                    // FIX 6 — Status dot: use coverAfterColor only when CK manager explicitly entered a value
-                    const hasExplicitPlan = planBatches[row.sku.id] !== undefined && planBatches[row.sku.id] > 0;
+                    const hasExplicitPlan = planQtyUom[row.sku.id] !== undefined && planQtyUom[row.sku.id] > 0;
                     const dotColor = hasExplicitPlan ? row.coverAfterColor : row.coverNowColor;
 
                     const borderClass = hasExplicitPlan
@@ -810,9 +797,8 @@ export default function ProductionPage({
                         : table.productionRowInProgress
                       : "";
 
-                    // 2C — Ad-hoc produced row (weekRecordsBySku > 0 but not planned)
                     const isAdHoc =
-                      planLocked && (planBatches[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
+                      planLocked && (planQtyUom[row.sku.id] ?? 0) === 0 && (weekRecordsBySku[row.sku.id] ?? 0) > 0;
 
                     return (
                       <tr
@@ -828,15 +814,10 @@ export default function ProductionPage({
                           !isAdHoc && borderClass,
                         )}
                       >
-                        {/* STATUS DOT */}
                         <td className={table.dataCellCompactCenter}>
                           <StatusDot status={dotColor} />
                         </td>
-
-                        {/* CODE */}
                         <td className={cn(table.dataCellCompact, "font-mono truncate")}>{row.sku.skuId}</td>
-
-                        {/* NAME */}
                         <td className={table.truncatedCellCompact}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -857,28 +838,15 @@ export default function ProductionPage({
                             </TooltipContent>
                           </Tooltip>
                         </td>
-
-                        {/* 1C — UOM centered */}
                         <td className={table.dataCellCompactCenter}>
                           <span className="text-xs font-medium text-primary">{row.sku.usageUom || "g"}</span>
                         </td>
-
-                        {/* g/BATCH */}
-                        <td className={table.dataCellCompactMono}>
-                          {row.outputPerBatch > 0 ? fmtG(row.outputPerBatch) : "—"}
-                        </td>
-
-                        {/* STOCK NOW — pure number */}
                         <td className={table.dataCellCompactMono}>{fmtG(row.stockNow)}</td>
-
-                        {/* SUGGEST */}
                         <td className={table.dataCellCompactMono}>
                           <span className="text-muted-foreground">
-                            {row.suggestedBatches > 0 ? row.suggestedBatches : "—"}
+                            {row.produceTarget > 0 ? fmtG(row.produceTarget) : "—"}
                           </span>
                         </td>
-
-                        {/* PLAN (batches) - PRIMARY INPUT */}
                         <td className="px-0.5 py-0.5 bg-background border-x border-primary/10">
                           {isAdHoc ? (
                             <div className="h-8 flex items-center justify-center font-mono text-muted-foreground">
@@ -890,7 +858,7 @@ export default function ProductionPage({
                             </div>
                           ) : planLocked ? (
                             <div className="h-8 flex items-center justify-center font-semibold font-mono">
-                              {row.plannedBatches || "—"}
+                              {planQtyUom[row.sku.id] ? fmtG(planQtyUom[row.sku.id]) : "—"}
                             </div>
                           ) : (
                             <input
@@ -898,28 +866,20 @@ export default function ProductionPage({
                                 planInputRefs.current[row.sku.id] = el;
                               }}
                               type="number"
+                              step="1"
                               className="h-8 w-full text-sm text-center font-semibold font-mono border-2 border-primary/30 rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none"
-                              defaultValue={planBatches[row.sku.id] > 0 ? planBatches[row.sku.id] : ""}
+                              defaultValue={planQtyUom[row.sku.id] > 0 ? planQtyUom[row.sku.id] : ""}
                               key={`${row.sku.id}-${weekStart}-${planLocked}-${globalTarget}`}
-                              onBlur={(e) => handlePlanChange(row.sku.id, e.target.value)}
+                              onBlur={(e) => handlePlanChange(row.sku.id, Math.round(Number(e.target.value) || 0))}
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePlanKeyDown(e, row.sku.id)}
                               min={0}
                             />
                           )}
                         </td>
-
-                        {/* PLAN (g) — pure number */}
-                        <td className={cn(table.dataCellCompactMono, "text-muted-foreground")}>
-                          {row.planG > 0 ? fmtG(row.planG) : "—"}
-                        </td>
-
-                        {/* COVER DAY NOW */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverNow, row.coverNowColor, row.dailyNeed)}
                         </td>
-
-                        {/* COVER DAY AFTER */}
                         <td className={table.dataCellCompactMono}>
                           {coverDisplayFn(row.coverAfter, row.coverAfterColor, row.dailyNeed)}
                         </td>
@@ -929,7 +889,7 @@ export default function ProductionPage({
 
                   {displayedBomRows.length === 0 && (
                     <tr>
-                      <td colSpan={10} className={table.emptyState}>
+                      <td colSpan={9} className={table.emptyState}>
                         No active SM SKUs with BOM found.
                       </td>
                     </tr>
@@ -1400,7 +1360,7 @@ export default function ProductionPage({
         isLoading={planningAgent.isLoading}
         weekStart={weekStart}
         onRecalculate={planningAgent.recalculateWithOverrides}
-        onApplyPlan={(plan) => setPlanBatches((prev) => ({ ...prev, ...plan }))}
+        onApplyPlan={(plan) => setPlanQtyUom((prev) => ({ ...prev, ...plan }))}
         onRefetch={planningAgent.refetch}
       />
     </TooltipProvider>

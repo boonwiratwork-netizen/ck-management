@@ -1963,7 +1963,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          planned_batches: number
+          planned_qty_uom: number
           sku_id: string
           updated_at: string
           week_start: string
@@ -1971,7 +1971,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          planned_batches?: number
+          planned_qty_uom?: number
           sku_id: string
           updated_at?: string
           week_start: string
@@ -1979,7 +1979,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          planned_batches?: number
+          planned_qty_uom?: number
           sku_id?: string
           updated_at?: string
           week_start?: string
