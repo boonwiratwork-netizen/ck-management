@@ -844,7 +844,6 @@ export default function TransferRequestPage() {
               label={t("tr.requiredDate")}
               required
               labelPosition="above"
-              minDate={tomorrow}
               placeholder="Select date"
             />
             <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
