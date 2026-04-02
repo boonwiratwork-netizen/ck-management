@@ -512,11 +512,11 @@ export default function ProductionPage({
   const doSavePlan = async () => {
     setSaving(true);
     const planRows = smSkus
-      .filter((s) => (planBatches[s.id] || 0) > 0)
+      .filter((s) => (planQtyUom[s.id] || 0) > 0)
       .map((s) => ({
         week_start: weekStart,
         sku_id: s.id,
-        planned_batches: planBatches[s.id] || 0,
+        planned_qty_uom: planQtyUom[s.id] || 0,
       }));
     await supabase
       .from("weekly_plan_lines" as any)
