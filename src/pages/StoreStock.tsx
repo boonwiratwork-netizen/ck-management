@@ -416,6 +416,8 @@ export default function StoreStockPage({
     for (const [date, dateSales] of salesByDate) {
       if (date > since) recentSales.push(...dateSales);
     }
+    const activeDays = [...salesByDate.keys()].filter((d) => d > since).length;
+    const divisor = activeDays > 0 ? activeDays : 7;
     const totalUsage = calculateUsageFromSales(
       recentSales,
       menus,
@@ -427,7 +429,7 @@ export default function StoreStockPage({
     );
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
-      daily[skuId] = total / 7;
+      daily[skuId] = total / divisor;
     }
     setLiveDailyUsage(daily);
     setLoading(false);
