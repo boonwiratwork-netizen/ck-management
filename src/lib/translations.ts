@@ -263,7 +263,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "col.fcPct": { th: "FC%", en: "FC%" },
 
   // Dashboard
-  "col.coverDays": { th: "เหลือกี่วัน", en: "Cover Days" },
+  "col.coverDays": { th: "พอขายกี่วัน", en: "Cover Days" },
   "col.stockKg": { th: "สต๊อก", en: "Stock" },
   "col.value": { th: "มูลค่า", en: "Value" },
   "col.stock": { th: "สต๊อก", en: "Stock" },
@@ -308,7 +308,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // ─── Production Page ───
   "prod.title": { th: "การผลิต", en: "Production" },
   "prod.subtitle": { th: "แผนการผลิตและบันทึกผลผลิต", en: "Production planning and output recording" },
-  "prod.targetCoverDays": { th: "Target Cover Days", en: "Target Cover Days" },
+  "prod.targetCoverDays": { th: "เป้า Cover Days", en: "Target Cover Days" },
   "prod.modePlanning": { th: "📋 วางแผน", en: "📋 Planning" },
   "prod.modeExecution": { th: "✅ บันทึกผลผลิต", en: "✅ Record Output" },
   "prod.savePlan": { th: "บันทึกแผน", en: "Save Plan" },
@@ -707,13 +707,13 @@ const translations: Record<string, Record<Lang, string>> = {
   "ss.subtitle": { th: "ยอดสต๊อกระดับสาขาจากใบนับรายวัน", en: "Branch-level stock balances from daily count sheets" },
   "ss.totalSkus": { th: "SKU ทั้งหมด", en: "Total SKUs" },
   "ss.totalStockValue": { th: "มูลค่าสต๊อกรวม", en: "Total Stock Value" },
-  "ss.coverByStorage": { th: "Cover Day ตามประเภทเก็บ", en: "Cover Day By Storage" },
+  "ss.coverByStorage": { th: "พอขายกี่วัน ตามประเภทเก็บ", en: "Cover Day By Storage" },
   "ss.colSkuId": { th: "รหัส SKU", en: "SKU ID" },
   "ss.colName": { th: "ชื่อ", en: "Name" },
   "ss.colCurrentStock": { th: "สต๊อกปัจจุบัน", en: "Current Stock" },
   "ss.colStockValue": { th: "มูลค่าสต๊อก", en: "Stock Value" },
   "ss.colLastCount": { th: "นับล่าสุด", en: "Last Count" },
-  "ss.colCoverDay": { th: "Cover Day", en: "Cover Day" },
+  "ss.colCoverDay": { th: "พอขายกี่วัน", en: "Cover Day" },
   "ss.colAvgWeek": { th: "เฉลี่ย/สัปดาห์", en: "Avg/Week" },
   "ss.selectBranchPrompt": { th: "เลือกสาขาเพื่อดูสต๊อก", en: "Select a branch to view stock" },
   "ss.noStockData": { th: "ไม่พบข้อมูลสต๊อกสำหรับสาขานี้", en: "No stock data found for this branch" },
