@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ClipboardCheck,
+  Clock,
   Loader2,
   Lock,
   Unlock,
@@ -32,6 +33,7 @@ import {
   GripVertical,
   Printer,
 } from "lucide-react";
+import { StockCard } from "@/components/StockCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -120,6 +122,7 @@ export default function DailyStockCountPage({
     isStoreManager && profile?.branch_id ? profile.branch_id : "",
   );
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [stockCardSkuId, setStockCardSkuId] = useState<string | null>(null);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   // Sort state — default: TYPE column, SM→RM→PK
@@ -657,8 +660,15 @@ export default function DailyStockCountPage({
                         className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
                       >
                         <td className={`font-mono text-xs px-2 py-1 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
-                        <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>
-                          {sku.name}
+                        <td className="max-w-[150px] px-2 py-1 text-sm" title={sku.name}>
+                          <span className="truncate">{sku.name}</span>
+                          <button
+                            type="button"
+                            className="ml-1 inline-flex opacity-40 hover:opacity-100 transition-opacity cursor-pointer align-middle"
+                            onClick={(e) => { e.stopPropagation(); setStockCardSkuId(row.skuId); }}
+                          >
+                            <Clock className="w-3 h-3" />
+                          </button>
                         </td>
                         <td className="px-2 py-1 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
                         <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
@@ -851,6 +861,25 @@ export default function DailyStockCountPage({
       `}</style>
         </DialogContent>
       </Dialog>
+      {stockCardSkuId && (() => {
+        const sku = skuMap.get(stockCardSkuId);
+        const row = rows.find(r => r.skuId === stockCardSkuId);
+        if (!sku) return null;
+        return (
+          <StockCard
+            skuId={sku.id}
+            skuType={sku.type as "RM" | "SM"}
+            sku={sku}
+            skus={skus}
+            currentStock={row?.calculatedBalance ?? 0}
+            stockValue={0}
+            onClose={() => setStockCardSkuId(null)}
+            context="branch"
+            branchId={selectedBranch}
+            disableMismatchCheck={true}
+          />
+        );
+      })()}
     </div>
   );
 }
