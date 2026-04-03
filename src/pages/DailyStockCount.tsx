@@ -861,6 +861,25 @@ export default function DailyStockCountPage({
       `}</style>
         </DialogContent>
       </Dialog>
+      {stockCardSkuId && (() => {
+        const sku = skuMap.get(stockCardSkuId);
+        const row = rows.find(r => r.skuId === stockCardSkuId);
+        if (!sku) return null;
+        return (
+          <StockCard
+            skuId={sku.id}
+            skuType={sku.type as "RM" | "SM"}
+            sku={sku}
+            skus={skus}
+            currentStock={row?.calculatedBalance ?? 0}
+            stockValue={0}
+            onClose={() => setStockCardSkuId(null)}
+            context="branch"
+            branchId={selectedBranch}
+            disableMismatchCheck={true}
+          />
+        );
+      })()}
     </div>
   );
 }
