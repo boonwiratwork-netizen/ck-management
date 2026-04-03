@@ -122,6 +122,7 @@ export default function DailyStockCountPage({
     isStoreManager && profile?.branch_id ? profile.branch_id : "",
   );
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [stockCardSkuId, setStockCardSkuId] = useState<string | null>(null);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   // Sort state — default: TYPE column, SM→RM→PK
