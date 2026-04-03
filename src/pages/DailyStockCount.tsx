@@ -659,8 +659,15 @@ export default function DailyStockCountPage({
                         className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
                       >
                         <td className={`font-mono text-xs px-2 py-1 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
-                        <td className="max-w-[150px] truncate px-2 py-1 text-sm" title={sku.name}>
-                          {sku.name}
+                        <td className="max-w-[150px] px-2 py-1 text-sm" title={sku.name}>
+                          <span className="truncate">{sku.name}</span>
+                          <button
+                            type="button"
+                            className="ml-1 inline-flex opacity-40 hover:opacity-100 transition-opacity cursor-pointer align-middle"
+                            onClick={(e) => { e.stopPropagation(); setStockCardSkuId(row.skuId); }}
+                          >
+                            <Clock className="w-3 h-3" />
+                          </button>
                         </td>
                         <td className="px-2 py-1 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
                         <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
