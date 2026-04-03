@@ -87,7 +87,11 @@ function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
       <td className="w-8 px-1 py-1.5" {...attributes} {...listeners}>
         <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
       </td>
-      <td className={`font-mono text-xs px-2 py-1.5 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
+      <td
+        className={`font-mono text-xs px-2 py-1.5 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}
+      >
+        {sku.skuId}
+      </td>
       <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>
         {sku.name}
       </td>
@@ -659,16 +663,23 @@ export default function DailyStockCountPage({
                         key={row.id}
                         className={`border-b border-table-border hover:bg-table-hover transition-colors ${idx % 2 === 1 ? "bg-table-alt" : ""}`}
                       >
-                        <td className={`font-mono text-xs px-2 py-1 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}>{sku.skuId}</td>
-                        <td className="max-w-[150px] px-2 py-1 text-sm" title={sku.name}>
-                          <span className="truncate">{sku.name}</span>
+                        <td
+                          className={`font-mono text-xs px-2 py-1 ${sku.type === "SM" ? "text-info" : sku.type === "RM" ? "text-warning" : "text-muted-foreground"}`}
+                        >
+                          {sku.skuId}
                           <button
                             type="button"
                             className="ml-1 inline-flex opacity-40 hover:opacity-100 transition-opacity cursor-pointer align-middle"
-                            onClick={(e) => { e.stopPropagation(); setStockCardSkuId(row.skuId); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStockCardSkuId(row.skuId);
+                            }}
                           >
                             <Clock className="w-3 h-3" />
                           </button>
+                        </td>
+                        <td className="max-w-[150px] px-2 py-1 text-sm" title={sku.name}>
+                          <span className="truncate">{sku.name}</span>
                         </td>
                         <td className="px-2 py-1 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
                         <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
@@ -832,7 +843,9 @@ export default function DailyStockCountPage({
                         {sku.skuId}
                       </td>
                       <td style={{ border: "1px solid #ccc", padding: "4px" }}>{sku.name}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{fmtPackSize(sku)}</td>
+                      <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>
+                        {fmtPackSize(sku)}
+                      </td>
                       <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center" }}>{sku.usageUom}</td>
                       <td style={{ border: "1px solid #ccc", padding: "4px", textAlign: "right" }}>
                         {Math.round(Math.max(0, row.calculatedBalance))}
@@ -861,25 +874,26 @@ export default function DailyStockCountPage({
       `}</style>
         </DialogContent>
       </Dialog>
-      {stockCardSkuId && (() => {
-        const sku = skuMap.get(stockCardSkuId);
-        const row = rows.find(r => r.skuId === stockCardSkuId);
-        if (!sku) return null;
-        return (
-          <StockCard
-            skuId={sku.id}
-            skuType={sku.type as "RM" | "SM"}
-            sku={sku}
-            skus={skus}
-            currentStock={row?.calculatedBalance ?? 0}
-            stockValue={0}
-            onClose={() => setStockCardSkuId(null)}
-            context="branch"
-            branchId={selectedBranch}
-            disableMismatchCheck={true}
-          />
-        );
-      })()}
+      {stockCardSkuId &&
+        (() => {
+          const sku = skuMap.get(stockCardSkuId);
+          const row = rows.find((r) => r.skuId === stockCardSkuId);
+          if (!sku) return null;
+          return (
+            <StockCard
+              skuId={sku.id}
+              skuType={sku.type as "RM" | "SM"}
+              sku={sku}
+              skus={skus}
+              currentStock={row?.calculatedBalance ?? 0}
+              stockValue={0}
+              onClose={() => setStockCardSkuId(null)}
+              context="branch"
+              branchId={selectedBranch}
+              disableMismatchCheck={true}
+            />
+          );
+        })()}
     </div>
   );
 }
