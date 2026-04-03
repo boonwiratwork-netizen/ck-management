@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ClipboardCheck,
+  Clock,
   Loader2,
   Lock,
   Unlock,
@@ -32,6 +33,7 @@ import {
   GripVertical,
   Printer,
 } from "lucide-react";
+import { StockCard } from "@/components/StockCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
