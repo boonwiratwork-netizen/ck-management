@@ -426,8 +426,14 @@ export default function StoreStockPage({
       effectiveBranchId ?? undefined,
     );
     const daily: Record<string, number> = {};
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const since = sevenDaysAgo.toISOString().split("T")[0];
+
+    const activeDaysCount = [...salesByDate.keys()].filter((d) => d > since).length;
+    const activeDays = Math.max(1, activeDaysCount);
+
     for (const [skuId, total] of Object.entries(totalUsage)) {
-      const activeDays = Math.max(1, salesByDate.size);
       daily[skuId] = total / activeDays;
     }
     setLiveDailyUsage(daily);
