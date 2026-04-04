@@ -1629,7 +1629,7 @@ export default function TransferOrderPage({
                             <td className={`${tableTokens.dataCell} text-center`}>
                               <UnitLabel unit={l.uom} />
                             </td>
-                            <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 2)}</td>
+                            <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 0)}</td>
                           </tr>
                         );
                       })}
