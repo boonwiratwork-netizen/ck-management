@@ -435,14 +435,42 @@ export function StockCard({
 
           setMovements(sorted);
         } else {
-          // SM
+          // SM — anchor-based ledger matching useSmStockData logic
+          // Step 1: Find latest completed stock count for this SKU
+          const { data: anchorRows } = await supabase
+            .from("stock_count_lines")
+            .select("physical_qty, stock_count_sessions!inner(count_date, status, deleted_at)")
+            .eq("sku_id", skuId)
+            .eq("type", "SM")
+            .eq("stock_count_sessions.status", "Completed")
+            .is("stock_count_sessions.deleted_at", null)
+            .not("physical_qty", "is", null);
+          if (cancelled) return;
+
+          // Find the latest anchor
+          let anchorDate: string | null = null;
+          let anchorQty = 0;
+          for (const row of anchorRows ?? []) {
+            const session = row.stock_count_sessions as any;
+            const cd = session.count_date as string;
+            if (!anchorDate || cd > anchorDate) {
+              anchorDate = cd;
+              anchorQty = row.physical_qty!;
+            }
+          }
+
+          // Step 2: Determine the date filter for transactions
+          const effectiveFromDate = anchorDate ?? fromDate;
+
           const [obRes, prodRes, toRes, adjRes] = await Promise.all([
-            supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
+            anchorDate
+              ? Promise.resolve({ data: null })
+              : supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
             supabase
               .from("production_records")
               .select("production_date, actual_output_g, batches_produced, created_at")
               .eq("sm_sku_id", skuId)
-              .gte("production_date", fromDate)
+              .gt("production_date", effectiveFromDate)
               .order("production_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
@@ -452,30 +480,42 @@ export function StockCard({
               )
               .eq("sku_id", skuId)
               .in("transfer_orders.status", ["Sent", "Received"])
-              .gte("transfer_orders.delivery_date", fromDate),
+              .gt("transfer_orders.delivery_date", effectiveFromDate),
             supabase
               .from("stock_adjustments")
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "SM")
-              .gte("adjustment_date", fromDate)
+              .gt("adjustment_date", effectiveFromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
           ]);
           if (cancelled) return;
 
-          const openingQty = obRes.data?.quantity ?? 0;
+          const mvts: Movement[] = [];
 
-          const mvts: Movement[] = [
-            {
+          if (anchorDate) {
+            // Anchor-based: start from physical count
+            mvts.push({
+              date: anchorDate,
+              sortKey: `${anchorDate}|0000`,
+              type: "StockCount",
+              reference: "Physical count",
+              qtyIn: anchorQty,
+              qtyOut: null,
+            });
+          } else {
+            // Fallback: opening balance
+            const openingQty = obRes.data?.quantity ?? 0;
+            mvts.push({
               date: "—",
               sortKey: "0000-00-00",
               type: "Opening",
               reference: "—",
               qtyIn: openingQty > 0 ? openingQty : null,
               qtyOut: null,
-            },
-          ];
+            });
+          }
 
           (prodRes.data ?? []).forEach((p) => {
             mvts.push({
@@ -532,14 +572,16 @@ export function StockCard({
             });
           });
 
+          // Filter out Stock Count adjustments when anchor exists
           (adjRes.data ?? []).forEach((a) => {
+            if (anchorDate && (a.reason || "").includes("Stock Count")) return;
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
             mvts.push({ ...classified, date: a.adjustment_date, sortKey: `${a.adjustment_date}|${a.created_at}` });
           });
 
-          const opening = mvts[0];
+          const first = mvts[0];
           const rest = mvts.slice(1).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-          const sorted = [opening, ...rest];
+          const sorted = [first, ...rest];
 
           let bal = 0;
           sorted.forEach((m) => {
@@ -548,6 +590,8 @@ export function StockCard({
           });
 
           setMovements(sorted);
+          // Store anchor date for footer display
+          setSmAnchorDate(anchorDate);
         }
       } finally {
         if (!cancelled) setLoading(false);
