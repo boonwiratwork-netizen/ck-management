@@ -30,6 +30,7 @@ interface Movement {
   runningBalance?: number;
   isProductionUse?: boolean;
   lotText?: string;
+  timestamp?: string;
 }
 
 interface BranchCountRow {
@@ -50,13 +51,18 @@ const STORAGE_BADGES: Record<string, string> = {
   Ambient: "bg-muted text-muted-foreground",
 };
 
-function formatDateCompact(iso: string): string {
+function formatDateCompact(iso: string, timeIso?: string): string {
   if (!iso || iso === "—") return "—";
   const d = new Date(iso);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  const base = `${dd}/${mm}/${yy}`;
+  if (!timeIso) return base;
+  const t = new Date(timeIso);
+  const hh = String(t.getHours()).padStart(2, "0");
+  const min = String(t.getMinutes()).padStart(2, "0");
+  return `${base} ${hh}:${min}`;
 }
 
 const fmt0 = (v: number) => Math.round(v).toLocaleString();
@@ -414,12 +420,18 @@ export function StockCard({
               reference: supplierMap.get(r.supplier_id) ?? "—",
               qtyIn: r.quantity_received * converter,
               qtyOut: null,
+              timestamp: r.created_at,
             });
           });
 
           (adjRes.data ?? []).forEach((a) => {
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
-            mvts.push({ ...classified, date: a.adjustment_date, sortKey: `${a.adjustment_date}|${a.created_at}` });
+            mvts.push({
+              ...classified,
+              date: a.adjustment_date,
+              sortKey: `${a.adjustment_date}|${a.created_at}`,
+              timestamp: a.created_at,
+            });
           });
 
           // Sort (keep Opening first)
@@ -521,6 +533,7 @@ export function StockCard({
               reference: "Physical count",
               qtyIn: anchorQty,
               qtyOut: null,
+              timestamp: anchorCompletedAt ?? undefined,
             });
           } else {
             // Fallback: opening balance
@@ -536,6 +549,7 @@ export function StockCard({
           }
 
           (prodRes.data ?? []).forEach((p) => {
+            if (anchorDate && p.production_date < anchorDate) return;
             mvts.push({
               date: p.production_date,
               sortKey: `${p.production_date}|${p.created_at}`,
@@ -543,6 +557,7 @@ export function StockCard({
               reference: `${p.batches_produced} batch${p.batches_produced > 1 ? "es" : ""}`,
               qtyIn: p.actual_output_g,
               qtyOut: null,
+              timestamp: p.created_at,
             });
           });
 
@@ -566,6 +581,7 @@ export function StockCard({
           toLines.forEach((line: any) => {
             const to = line.transfer_orders;
             if (!to) return;
+            if (anchorDate && to.delivery_date < anchorDate) return;
             const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
             const branchName = to.branches?.branch_name ?? "";
             const lots = lotLookup[line.id] ?? [];
@@ -587,14 +603,20 @@ export function StockCard({
               qtyIn: null,
               qtyOut: qty,
               lotText: lotText || undefined,
+              timestamp: to.updated_at ?? undefined,
             });
           });
 
           // Filter out Stock Count adjustments when anchor exists
           (adjRes.data ?? []).forEach((a) => {
-            if (anchorDate && (a.reason || "").includes("Stock Count")) return;
+            if (anchorDate && a.adjustment_date < anchorDate) return;
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
-            mvts.push({ ...classified, date: a.adjustment_date, sortKey: `${a.adjustment_date}|${a.created_at}` });
+            mvts.push({
+              ...classified,
+              date: a.adjustment_date,
+              sortKey: `${a.adjustment_date}|${a.created_at}`,
+              timestamp: a.created_at,
+            });
           });
 
           const sorted = [...mvts].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
@@ -638,7 +660,7 @@ export function StockCard({
   return (
     <>
       <div className="fixed top-0 bottom-0 left-0 right-0 z-[999] bg-black/25" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[1000] flex flex-col bg-background border-l shadow-xl w-[620px]">
+      <div className="fixed inset-y-0 right-0 z-[1000] flex flex-col bg-background border-l shadow-xl w-[660px]">
         <div className="px-5 pt-5 pb-0 flex items-start justify-between">
           <div>
             {/* Line 1 */}
@@ -819,7 +841,7 @@ export function StockCard({
             <>
               <table className="w-full table-fixed text-xs">
                 <colgroup>
-                  <col style={{ width: "72px" }} />
+                  <col style={{ width: "100px" }} />
                   <col style={{ width: "88px" }} />
                   <col />
                   <col style={{ width: "65px" }} />
@@ -839,7 +861,7 @@ export function StockCard({
                 <tbody>
                   {movements.map((m, i) => (
                     <tr key={i} className={table.dataRow}>
-                      <td className={table.dataCellCompact}>{formatDateCompact(m.date)}</td>
+                      <td className={table.dataCellCompact}>{formatDateCompact(m.date, m.timestamp)}</td>
                       <td className={table.dataCellCompact}>
                         <span
                           className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full ${
