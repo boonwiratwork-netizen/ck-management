@@ -437,32 +437,42 @@ export function StockCard({
           setMovements(sorted);
         } else {
           // SM — anchor-based ledger matching useSmStockData logic
-          // Step 1: Find latest completed stock count for this SKU
-          const { data: anchorRows } = await supabase
-            .from("stock_count_lines")
-            .select("physical_qty, stock_count_sessions!inner(count_date, status, deleted_at)")
-            .eq("sku_id", skuId)
-            .eq("type", "SM")
-            .eq("stock_count_sessions.status", "Completed")
-            .is("stock_count_sessions.deleted_at", null)
-            .not("physical_qty", "is", null);
+          // Step 1: Find latest completed stock count for this SKU (two-step query)
+          const { data: completedSessions } = await supabase
+            .from("stock_count_sessions")
+            .select("id, count_date")
+            .eq("status", "Completed")
+            .is("deleted_at", null);
           if (cancelled) return;
 
-          // Find the latest anchor
+          const sessionIds = (completedSessions || []).map((s: any) => s.id);
+          const sessionDateMap: Record<string, string> = {};
+          for (const s of completedSessions || []) sessionDateMap[s.id] = s.count_date;
+
           let anchorDate: string | null = null;
           let anchorQty = 0;
-          for (const row of anchorRows ?? []) {
-            const session = row.stock_count_sessions as any;
-            const cd = session.count_date as string;
-            if (!anchorDate || cd > anchorDate) {
-              anchorDate = cd;
-              anchorQty = row.physical_qty!;
+
+          if (sessionIds.length > 0) {
+            const { data: anchorLines } = await supabase
+              .from("stock_count_lines")
+              .select("physical_qty, session_id")
+              .eq("sku_id", skuId)
+              .eq("type", "SM")
+              .in("session_id", sessionIds)
+              .not("physical_qty", "is", null);
+            if (cancelled) return;
+
+            for (const row of anchorLines ?? []) {
+              const cd = sessionDateMap[row.session_id];
+              if (!cd) continue;
+              if (!anchorDate || cd > anchorDate) {
+                anchorDate = cd;
+                anchorQty = row.physical_qty!;
+              }
             }
           }
 
-          // Step 2: Determine the date filter for transactions
-          const effectiveFromDate = anchorDate ?? fromDate;
-
+          // Step 2: Fetch all transactions within daysBack window
           const [obRes, prodRes, toRes, adjRes] = await Promise.all([
             anchorDate
               ? Promise.resolve({ data: null })
@@ -471,23 +481,23 @@ export function StockCard({
               .from("production_records")
               .select("production_date, actual_output_g, batches_produced, created_at")
               .eq("sm_sku_id", skuId)
-              .gt("production_date", effectiveFromDate)
+              .gte("production_date", fromDate)
               .order("production_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase
               .from("transfer_order_lines")
               .select(
-                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, branches(branch_name))",
+                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, updated_at, branches(branch_name))",
               )
               .eq("sku_id", skuId)
               .in("transfer_orders.status", ["Sent", "Received"])
-              .gt("transfer_orders.delivery_date", effectiveFromDate),
+              .gte("transfer_orders.delivery_date", fromDate),
             supabase
               .from("stock_adjustments")
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "SM")
-              .gt("adjustment_date", effectiveFromDate)
+              .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
           ]);
