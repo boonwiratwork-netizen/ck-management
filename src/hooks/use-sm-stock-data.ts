@@ -18,6 +18,11 @@ export interface SMStockBalance {
   currentStock: number;
 }
 
+interface AnchorData {
+  physical_qty: number;
+  count_date: string;
+}
+
 export function useSmStockData(
   skus: SKU[],
   productionRecords: ProductionRecord[],
@@ -31,29 +36,50 @@ export function useSmStockData(
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [isStockDataReady, setIsStockDataReady] = useState(false);
-  // TO-based delivered quantities per SKU
   const [toDelivered, setToDelivered] = useState<Record<string, number>>({});
-  // Local production records for immediate refresh after addRecord
+  // TO lines with delivery dates for anchor filtering
+  const [toLineDetails, setToLineDetails] = useState<Array<{ sku_id: string; qty: number; delivery_date: string }>>([]);
   const [localProductionRecords, setLocalProductionRecords] = useState<ProductionRecord[]>(productionRecords);
+  const [anchorMap, setAnchorMap] = useState<Record<string, AnchorData>>({});
 
-  // Sync from prop when it changes
   useEffect(() => {
     setLocalProductionRecords(productionRecords);
   }, [productionRecords]);
+
+  const fetchAnchorData = useCallback(async () => {
+    const { data } = await supabase
+      .from('stock_count_lines')
+      .select('sku_id, physical_qty, stock_count_sessions!inner(count_date, status, deleted_at)')
+      .eq('stock_count_sessions.status', 'Completed')
+      .is('stock_count_sessions.deleted_at', null)
+      .eq('type', 'SM')
+      .not('physical_qty', 'is', null);
+
+    const map: Record<string, AnchorData> = {};
+    for (const row of data || []) {
+      const session = row.stock_count_sessions as any;
+      const countDate = session.count_date as string;
+      const existing = map[row.sku_id];
+      if (!existing || countDate > existing.count_date) {
+        map[row.sku_id] = { physical_qty: row.physical_qty!, count_date: countDate };
+      }
+    }
+    setAnchorMap(map);
+  }, []);
 
   useEffect(() => {
     setIsStockDataReady(false);
     Promise.all([
       supabase.from('stock_opening_balances').select('*'),
       supabase.from('stock_adjustments').select('*').eq('stock_type', 'SM').order('created_at', { ascending: false }),
-      // Fetch TO lines with their parent TO status
       supabase
         .from('transfer_order_lines')
         .select('sku_id, planned_qty, actual_qty, to_id'),
       supabase
         .from('transfer_orders')
-        .select('id, status')
+        .select('id, status, delivery_date')
         .in('status', ['Sent', 'Received']),
+      fetchAnchorData(),
     ]).then(([obRes, adjRes, toLineRes, toRes]) => {
       if (obRes.data) {
         const map: Record<string, number> = {};
@@ -66,21 +92,25 @@ export function useSmStockData(
         })));
       }
 
-      // Calculate TO-based delivered quantities
       const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
       const toStatusMap: Record<string, string> = {};
+      const toDateMap: Record<string, string> = {};
       for (const t of toRes.data || []) {
         toStatusMap[t.id] = t.status;
+        toDateMap[t.id] = t.delivery_date;
       }
 
       const delivered: Record<string, number> = {};
+      const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
       for (const line of toLineRes.data || []) {
         if (!validToIds.has(line.to_id)) continue;
         const qty = (line.actual_qty > 0) ? line.actual_qty
           : (toStatusMap[line.to_id] === 'Sent' ? line.planned_qty : 0);
         delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
+        lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
       }
       setToDelivered(delivered);
+      setToLineDetails(lineDetails);
 
       setIsStockDataReady(true);
     });
@@ -90,16 +120,45 @@ export function useSmStockData(
 
   const stockBalances = useMemo((): SMStockBalance[] => {
     return smSkus.map(sku => {
+      const anchor = anchorMap[sku.id];
+
+      if (anchor) {
+        // Anchor-based: balance = anchor physical_qty + production after anchor - deliveries after anchor + non-StockCount adjustments after anchor
+        const producedAfter = localProductionRecords
+          .filter(r => r.smSkuId === sku.id && r.productionDate > anchor.count_date)
+          .reduce((sum, r) => sum + r.actualOutputG, 0);
+
+        const deliveredAfter = toLineDetails
+          .filter(l => l.sku_id === sku.id && l.delivery_date > anchor.count_date)
+          .reduce((sum, l) => sum + l.qty, 0);
+
+        const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
+        const adjustmentsAfter = skuAdjustments
+          .filter(a => a.date > anchor.count_date && !a.reason.includes('Stock Count'))
+          .reduce((sum, a) => sum + a.quantity, 0);
+
+        const currentStock = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
+
+        return {
+          skuId: sku.id,
+          openingStock: anchor.physical_qty,
+          totalProduced: producedAfter,
+          totalDelivered: deliveredAfter,
+          adjustments: skuAdjustments,
+          currentStock,
+        };
+      }
+
+      // Fallback: no anchor — use original calculation
       const opening = openingStocks[sku.id] ?? 0;
       const totalProduced = localProductionRecords.filter(r => r.smSkuId === sku.id).reduce((sum, r) => sum + r.actualOutputG, 0);
-      // Use TO-based delivery instead of deliveries table
       const totalDelivered = toDelivered[sku.id] ?? 0;
       const skuAdjustments = adjustments.filter(a => a.skuId === sku.id);
       const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
       const currentStock = opening + totalProduced - totalDelivered + netAdjustment;
       return { skuId: sku.id, openingStock: opening, totalProduced, totalDelivered, adjustments: skuAdjustments, currentStock };
     });
-  }, [smSkus, localProductionRecords, toDelivered, openingStocks, adjustments]);
+  }, [smSkus, localProductionRecords, toDelivered, toLineDetails, openingStocks, adjustments, anchorMap]);
 
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase.from('stock_opening_balances').upsert(
@@ -172,7 +231,6 @@ export function useSmStockData(
     return recs.reduce((latest, r) => r.productionDate > latest ? r.productionDate : latest, recs[0].productionDate);
   }, [localProductionRecords]);
 
-  // Re-fetch production records from DB for immediate stock update
   const refreshProductionRecords = useCallback(async () => {
     const [prodRes, adjRes] = await Promise.all([
       supabase.from('production_records').select('*').order('created_at', { ascending: false }),
@@ -189,25 +247,33 @@ export function useSmStockData(
         id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason,
       })));
     }
-  }, []);
+    // Also refresh anchor data
+    await fetchAnchorData();
+  }, [fetchAnchorData]);
 
-  // Refresh TO delivered data (call after sending a TO)
   const refreshToDelivered = useCallback(async () => {
     const [toLineRes, toRes] = await Promise.all([
       supabase.from('transfer_order_lines').select('sku_id, planned_qty, actual_qty, to_id'),
-      supabase.from('transfer_orders').select('id, status').in('status', ['Sent', 'Received']),
+      supabase.from('transfer_orders').select('id, status, delivery_date').in('status', ['Sent', 'Received']),
     ]);
     const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
     const toStatusMap: Record<string, string> = {};
-    for (const t of toRes.data || []) toStatusMap[t.id] = t.status;
+    const toDateMap: Record<string, string> = {};
+    for (const t of toRes.data || []) {
+      toStatusMap[t.id] = t.status;
+      toDateMap[t.id] = t.delivery_date;
+    }
     const delivered: Record<string, number> = {};
+    const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
     for (const line of toLineRes.data || []) {
       if (!validToIds.has(line.to_id)) continue;
       const qty = (line.actual_qty > 0) ? line.actual_qty
         : (toStatusMap[line.to_id] === 'Sent' ? line.planned_qty : 0);
       delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
+      lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
     }
     setToDelivered(delivered);
+    setToLineDetails(lineDetails);
   }, []);
 
   return { stockBalances, setOpeningStock, addAdjustment, getBomCostPerGram, getLastProductionDate, openingStocks, isStockDataReady, refreshToDelivered, refreshProductionRecords };

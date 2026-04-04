@@ -154,6 +154,7 @@ const Index = () => {
     addRmAdjustment: stockData.addAdjustment,
     addSmAdjustment: smStockData.addAdjustment,
     getStdUnitPrice: stockData.getStdUnitPrice,
+    refreshSmStock: smStockData.refreshProductionRecords,
   });
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
