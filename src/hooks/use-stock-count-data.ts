@@ -34,6 +34,7 @@ interface UseStockCountDataProps {
   addRmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   addSmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   getStdUnitPrice: (skuId: string) => number;
+  refreshSmStock?: () => Promise<void>;
 }
 
 export function useStockCountData({
@@ -43,6 +44,7 @@ export function useStockCountData({
   addRmAdjustment,
   addSmAdjustment,
   getStdUnitPrice,
+  refreshSmStock,
 }: UseStockCountDataProps) {
   const [sessions, setSessions] = useState<StockCountSession[]>([]);
   const [lines, setLines] = useState<StockCountLine[]>([]);
@@ -63,7 +65,6 @@ export function useStockCountData({
 
   const createSession = useCallback(
     async (date: string, note: string): Promise<string> => {
-      // Check if a session already exists for this date
       const { data: existing } = await supabase
         .from("stock_count_sessions")
         .select("id")
@@ -91,7 +92,6 @@ export function useStockCountData({
 
       const id = sessionRow.id;
 
-      // Fetch BOM header SKU IDs (SM with BOM) and BOM line RM SKU IDs (CK ingredients)
       const [bomHeaderRes, bomLineRes] = await Promise.all([
         supabase.from("bom_headers").select("sm_sku_id"),
         supabase.from("bom_lines").select("rm_sku_id"),
@@ -99,16 +99,12 @@ export function useStockCountData({
       const smWithBom = new Set((bomHeaderRes.data || []).map((h: any) => h.sm_sku_id));
       const rmInBom = new Set((bomLineRes.data || []).map((l: any) => l.rm_sku_id));
 
-      // RM: only CK ingredients (appear in bom_lines)
-      // SM: only SKUs with a BOM header
-      // PK: all active
-      // SP: excluded
       const activeSkus = skus.filter((s) => {
         if (s.status !== "Active") return false;
         if (s.type === "RM") return rmInBom.has(s.id) || s.isDistributable === true;
         if (s.type === "SM") return smWithBom.has(s.id);
         if (s.type === "PK") return true;
-        return false; // SP and others excluded
+        return false;
       });
 
       const newLines = activeSkus.map((sku) => {
@@ -118,7 +114,6 @@ export function useStockCountData({
         } else if (sku.type === "SM") {
           systemQty = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         }
-        // SP and PK: systemQty stays 0 (no stock tracking for them yet)
         return {
           session_id: id,
           sku_id: sku.id,
@@ -178,14 +173,46 @@ export function useStockCountData({
 
   const confirmSession = useCallback(
     async (sessionId: string) => {
-      const sessionLines = lines.filter((l) => l.sessionId === sessionId);
       const session = sessions.find((s) => s.id === sessionId);
       if (!session || session.status === "Completed") return;
 
-      for (const line of sessionLines) {
-        if (line.variance === 0 || line.physicalQty === null) continue;
+      // Fix 1: DB-level lock — atomically set status to Completed only if still Draft
+      const { data: lockResult, error: lockError } = await supabase
+        .from("stock_count_sessions")
+        .update({
+          status: "Completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", sessionId)
+        .eq("status", "Draft")
+        .select();
+
+      if (lockError) {
+        toast.error("Failed to confirm session: " + lockError.message);
+        return;
+      }
+      if (!lockResult || lockResult.length === 0) {
+        toast.info("Session already confirmed or no longer Draft");
+        return;
+      }
+
+      // Fix 2: Read fresh lines from DB, not React state
+      const { data: dbLines, error: linesError } = await supabase
+        .from("stock_count_lines")
+        .select("*")
+        .eq("session_id", sessionId);
+
+      if (linesError) {
+        toast.error("Failed to fetch count lines: " + linesError.message);
+        return;
+      }
+
+      const freshLines = (dbLines || [])
+        .filter((l: any) => l.physical_qty !== null && l.variance !== 0);
+
+      for (const line of freshLines) {
         const adj: Omit<StockAdjustment, "id"> = {
-          skuId: line.skuId,
+          skuId: line.sku_id,
           date: session.date,
           quantity: line.variance,
           reason: `Stock Count ${session.date}${line.note ? ": " + line.note : ""}`,
@@ -197,24 +224,19 @@ export function useStockCountData({
         }
       }
 
-      const { error } = await supabase
-        .from("stock_count_sessions")
-        .update({
-          status: "Completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", sessionId);
-      if (error) {
-        toast.error("Failed to confirm session: " + error.message);
-        return;
-      }
+      // Update local state
       setSessions((prev) =>
         prev.map((s) =>
           s.id === sessionId ? { ...s, status: "Completed" as const, completedAt: new Date().toISOString() } : s,
         ),
       );
+
+      // Fix 3: Refresh SM stock so balance recalculates with new anchor
+      if (refreshSmStock) {
+        await refreshSmStock();
+      }
     },
-    [lines, sessions, addRmAdjustment, addSmAdjustment],
+    [sessions, addRmAdjustment, addSmAdjustment, refreshSmStock],
   );
 
   const softDeleteSession = useCallback(
@@ -222,7 +244,6 @@ export function useStockCountData({
       const session = sessions.find((s) => s.id === sessionId);
       if (!session) return;
 
-      // If session was Completed, reverse the stock adjustments
       if (session.status === "Completed") {
         const sessionLines = lines.filter((l) => l.sessionId === sessionId);
         for (const line of sessionLines) {
@@ -255,8 +276,12 @@ export function useStockCountData({
 
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       setLines((prev) => prev.filter((l) => l.sessionId !== sessionId));
+
+      if (refreshSmStock) {
+        await refreshSmStock();
+      }
     },
-    [sessions, lines, addRmAdjustment, addSmAdjustment],
+    [sessions, lines, addRmAdjustment, addSmAdjustment, refreshSmStock],
   );
 
   const getLinesForSession = useCallback(
