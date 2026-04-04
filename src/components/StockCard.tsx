@@ -451,6 +451,7 @@ export function StockCard({
 
           let anchorDate: string | null = null;
           let anchorQty = 0;
+          let anchorCompletedAt: string | null = null;
 
           if (sessionIds.length > 0) {
             const { data: anchorLines } = await supabase
@@ -462,12 +463,18 @@ export function StockCard({
               .not("physical_qty", "is", null);
             if (cancelled) return;
 
+            const sessionCompletedAtMap: Record<string, string> = {};
+            for (const s of completedSessions || []) {
+              if (s.completed_at) sessionCompletedAtMap[s.id] = s.completed_at;
+            }
+
             for (const row of anchorLines ?? []) {
               const cd = sessionDateMap[row.session_id];
               if (!cd) continue;
               if (!anchorDate || cd > anchorDate) {
                 anchorDate = cd;
                 anchorQty = row.physical_qty!;
+                anchorCompletedAt = sessionCompletedAtMap[row.session_id] ?? null;
               }
             }
           }
