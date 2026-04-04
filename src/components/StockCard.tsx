@@ -890,7 +890,9 @@ export function StockCard({
               )}
 
               <div className="mt-3 text-xs text-muted-foreground">
-                {daysBack === 14 ? (
+                {skuType === "SM" && smAnchorDate ? (
+                  <>Showing movements since last count · {formatDateCompact(smAnchorDate)}</>
+                ) : daysBack === 14 ? (
                   <>
                     Showing last 14 days ·{" "}
                     <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
