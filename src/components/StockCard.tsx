@@ -440,7 +440,7 @@ export function StockCard({
           // Step 1: Find latest completed stock count for this SKU (two-step query)
           const { data: completedSessions } = await supabase
             .from("stock_count_sessions")
-            .select("id, count_date")
+            .select("id, count_date, completed_at")
             .eq("status", "Completed")
             .is("deleted_at", null);
           if (cancelled) return;
@@ -509,7 +509,7 @@ export function StockCard({
             // Anchor-based: start from physical count
             mvts.push({
               date: anchorDate,
-              sortKey: `${anchorDate}|0000`,
+              sortKey: `${anchorDate}|${anchorCompletedAt ?? anchorDate}`,
               type: "StockCount",
               reference: "Physical count",
               qtyIn: anchorQty,
@@ -590,9 +590,7 @@ export function StockCard({
             mvts.push({ ...classified, date: a.adjustment_date, sortKey: `${a.adjustment_date}|${a.created_at}` });
           });
 
-          const first = mvts[0];
-          const rest = mvts.slice(1).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-          const sorted = [first, ...rest];
+          const sorted = [...mvts].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
           let bal = 0;
           sorted.forEach((m) => {
