@@ -574,7 +574,7 @@ export function StockCard({
             }
             mvts.push({
               date: to.delivery_date,
-              sortKey: `${to.delivery_date}|${to.delivery_date}`,
+              sortKey: `${to.delivery_date}|${to.updated_at ?? to.delivery_date}`,
               type: "Delivery",
               reference: `${to.to_number} · ${branchName}`,
               qtyIn: null,
