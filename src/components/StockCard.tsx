@@ -128,6 +128,7 @@ export function StockCard({
   const [movements, setMovements] = useState<Movement[]>([]);
   const [branchRows, setBranchRows] = useState<BranchCountRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [smAnchorDate, setSmAnchorDate] = useState<string | null>(null);
   const [daysBack, setDaysBack] = useState(14);
 
   useEffect(() => {
