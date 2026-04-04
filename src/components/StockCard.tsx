@@ -609,6 +609,7 @@ export function StockCard({
 
           // Filter out Stock Count adjustments when anchor exists
           (adjRes.data ?? []).forEach((a) => {
+            if (anchorDate && a.adjustment_date <= anchorDate && (a.reason || "").includes("Stock Count")) return;
             if (anchorDate && a.adjustment_date < anchorDate) return;
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
             mvts.push({
