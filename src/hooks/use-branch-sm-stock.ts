@@ -144,6 +144,7 @@ export function useBranchSmStock(branchId: string | null) {
         bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
+      const totalUsageBySkuId: Record<string, number> = {};
       // Usage per day per SKU
       const usageByDateBySku: Record<string, Record<string, number>> = {};
       for (const bom of bomRows) {
