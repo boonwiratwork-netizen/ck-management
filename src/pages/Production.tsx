@@ -795,7 +795,7 @@ export default function ProductionPage({
         {/* ═══ PLANNING MODE ═══ */}
         {mode === "planning" && loadedWeek === weekStart && (
           <>
-            <div className={table.wrapper}>
+            <div className={cn(table.wrapper, "overflow-y-auto max-h-[70vh]")}>
               <table className={table.base}>
                 {/* Planning colgroup (9 cols) */}
                 <colgroup>
@@ -992,7 +992,7 @@ export default function ProductionPage({
         {/* ═══ RECORDING MODE ═══ */}
         {mode === "recording" && loadedWeek === weekStart && (
           <>
-            <div className={table.wrapper}>
+            <div className={cn(table.wrapper, "overflow-y-auto max-h-[70vh]")}>
               <table className={table.base}>
                 {/* 1A, 1B — Recording colgroup (9 cols), Name=220px, Actions=100px */}
                 <colgroup>
