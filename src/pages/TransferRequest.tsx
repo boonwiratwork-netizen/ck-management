@@ -334,6 +334,7 @@ export default function TransferRequestPage() {
 
   // ─── TR form state ───
   const [submitting, setSubmitting] = useState(false);
+  const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
   const [coverDayInputs, setCoverDayInputs] = useState<Record<string, number>>({});
   const qtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const prQtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
