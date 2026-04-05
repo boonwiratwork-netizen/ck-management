@@ -1492,8 +1492,10 @@ export default function TransferOrderPage({
                         {to.toNumber}
                       </td>
                       <td className={tableTokens.dataCell}>
-                        <div>{to.deliveryDate}</div>
-                        <div className="text-xs text-muted-foreground font-mono">{formatTOTimestamp(to.updatedAt)}</div>
+                        {to.deliveryDate}{" "}
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {formatTOTimestamp(to.updatedAt)}
+                        </span>
                       </td>
                       <td className={tableTokens.truncatedCell} title={to.branchName}>
                         {to.branchName}
