@@ -334,12 +334,16 @@ export default function TransferRequestPage() {
 
   // ─── TR form state ───
   const [submitting, setSubmitting] = useState(false);
-  const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
+  const [coverDayInputs, setCoverDayInputs] = useState<Record<string, number>>({});
   const qtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const prQtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
 
   // PR items to order
   const prItemsToOrder = useMemo(() => Object.values(prBatchInputs).filter((v) => v > 0).length, [prBatchInputs]);
+  const calcCoverDay = (stockOnHand: number, avgDailyUsage: number, extraQty: number = 0) => {
+    if (avgDailyUsage <= 0) return null;
+    return (stockOnHand + extraQty) / avgDailyUsage;
+  };
   const canSubmitPR = !!requiredDate && prItemsToOrder > 0;
 
   // ─── Handlers ───
@@ -908,8 +912,9 @@ export default function TransferRequestPage() {
                         <col style={{ width: 72 }} />
                         <col style={{ width: 72 }} />
                         <col style={{ width: 76 }} />
-                        <col style={{ width: 88 }} />
-                        <col style={{ width: 88 }} />
+                        <col style={{ width: 88 }} /> {/* แนะนำ */}
+                        <col style={{ width: 72 }} /> {/* cover day */}
+                        <col style={{ width: 88 }} /> {/* request */}
                         <col style={{ width: 72 }} />
                         <col style={{ width: 52 }} />
                       </colgroup>
@@ -937,6 +942,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
+                          <th className={tableTokens.headerCellNumeric}>พอขาย</th>
                           <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
                             {t("tr.colRequestBatch")}
                           </th>
@@ -989,6 +995,21 @@ export default function TransferRequestPage() {
                               >
                                 {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
                               </td>
+                              {/* Cover Day */}
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {(() => {
+                                  const extra = (coverDayInputs[line.skuId] ?? 0) * line.packSize;
+                                  const cd = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
+                                  if (cd === null) return <span className="text-muted-foreground">—</span>;
+                                  const color =
+                                    cd >= line.parstock / line.avgDailyUsage
+                                      ? "text-success"
+                                      : cd >= line.rop / line.avgDailyUsage
+                                        ? "text-warning"
+                                        : "text-destructive";
+                                  return <span className={color}>{cd.toFixed(1)} วัน</span>;
+                                })()}
+                              </td>
                               <td className={`${tableTokens.dataCellCompact} text-right`}>
                                 <input
                                   ref={(el) => {
@@ -1003,6 +1024,7 @@ export default function TransferRequestPage() {
                                   onBlur={(e) => {
                                     const v = Math.max(0, Math.round(Number(e.target.value) || 0));
                                     setBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
+                                    setCoverDayInputs((prev) => ({ ...prev, [line.skuId]: v }));
                                     trHook.updateLineQty(line.skuId, v);
                                   }}
                                   onKeyDown={(e) => {
@@ -1090,6 +1112,7 @@ export default function TransferRequestPage() {
                         <col style={{ width: 72 }} />
                         <col style={{ width: 68 }} />
                         <col style={{ width: 72 }} />
+                        <col style={{ width: 72 }} />
                         <col style={{ width: 80 }} />
                         <col style={{ width: 72 }} />
                         <col style={{ width: 52 }} />
@@ -1119,6 +1142,7 @@ export default function TransferRequestPage() {
                               </Tooltip>
                             </TooltipProvider>
                           </th>
+                          <th className={tableTokens.headerCellNumeric}>พอขาย</th>
                           <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-right !bg-foreground text-background">
                             Request
                           </th>
@@ -1172,6 +1196,21 @@ export default function TransferRequestPage() {
                               >
                                 {isNoData ? "—" : line.suggestedBatches <= 0 ? 0 : line.suggestedBatches}
                               </td>
+                              {/* Cover Day */}
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {(() => {
+                                  const extra = (coverDayInputs[line.skuId] ?? 0) * line.packSize;
+                                  const cd = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
+                                  if (cd === null) return <span className="text-muted-foreground">—</span>;
+                                  const color =
+                                    cd >= line.parstock / line.avgDailyUsage
+                                      ? "text-success"
+                                      : cd >= line.rop / line.avgDailyUsage
+                                        ? "text-warning"
+                                        : "text-destructive";
+                                  return <span className={color}>{cd.toFixed(1)} วัน</span>;
+                                })()}
+                              </td>
                               <td className={`${tableTokens.dataCellCompact} text-right`}>
                                 <input
                                   ref={(el) => {
@@ -1186,6 +1225,7 @@ export default function TransferRequestPage() {
                                   onBlur={(e) => {
                                     const v = Math.max(0, Math.round(Number(e.target.value) || 0));
                                     setPrBatchInputs((prev) => ({ ...prev, [line.skuId]: v }));
+                                    setCoverDayInputs((prev) => ({ ...prev, [line.skuId]: v }));
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Tab" || e.key === "Enter") {
