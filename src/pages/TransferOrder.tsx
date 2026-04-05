@@ -50,6 +50,18 @@ interface ProdRecord {
   actualOutputG: number;
   batchesProduced: number;
 }
+
+function formatTOTimestamp(isoStr?: string): string {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(2);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+}
+
 const toStatusBadge: Record<string, string> = {
   Draft: "bg-[#F1EFE8] text-[#5F5E5A]",
   Sent: "bg-[#FAEEDA] text-[#633806]",
@@ -1479,7 +1491,10 @@ export default function TransferOrderPage({
                       >
                         {to.toNumber}
                       </td>
-                      <td className={tableTokens.dataCell}>{to.deliveryDate}</td>
+                      <td className={tableTokens.dataCell}>
+                        <div>{to.deliveryDate}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{formatTOTimestamp(to.updatedAt)}</div>
+                      </td>
                       <td className={tableTokens.truncatedCell} title={to.branchName}>
                         {to.branchName}
                       </td>
@@ -1551,6 +1566,12 @@ export default function TransferOrderPage({
                 </span>
               )}
             </DialogTitle>
+            <p className="text-sm text-muted-foreground font-normal mt-1">
+              Created: {formatTOTimestamp(detailTO?.createdAt)}
+              {detailTO?.status !== "Draft" && detailTO?.updatedAt
+                ? ` · Sent: ${formatTOTimestamp(detailTO.updatedAt)}`
+                : ""}
+            </p>
           </DialogHeader>
 
           {detailTO && (
