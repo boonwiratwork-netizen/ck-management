@@ -168,7 +168,8 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         const { data: bom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, qty_per_serving, effective_qty")
-          .in("menu_id", salesMenuIds);
+          .in("menu_id", salesMenuIds)
+          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
         bomRows = bom || [];
       }
       const spSkuIdsInBom = bomRows.filter((b) => !skuIds.includes(b.sku_id)).map((b) => b.sku_id);
@@ -214,7 +215,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
         ruleMenuMap[rm.rule_id].push(rm.menu_id);
       }
-      const modifierRules = (modRulesRes.data || []).map(r => ({
+      const modifierRules = (modRulesRes.data || []).map((r) => ({
         id: r.id,
         keyword: r.keyword,
         skuId: r.sku_id,
@@ -227,20 +228,25 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       }));
 
       // For submenu rules, fetch BOM lines + SP expansion for RM ingredients
-      const submenuIdList = [...new Set(modifierRules
-        .filter(r => r.ruleType === "submenu" && r.submenuId)
-        .map(r => r.submenuId!))];
+      const submenuIdList = [
+        ...new Set(modifierRules.filter((r) => r.ruleType === "submenu" && r.submenuId).map((r) => r.submenuId!)),
+      ];
       let submenuBomAll: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
-      let submenuSpBom: { sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number; batch_yield_qty: number }[] = [];
+      let submenuSpBom: {
+        sp_sku_id: string;
+        ingredient_sku_id: string;
+        qty_per_batch: number;
+        batch_yield_qty: number;
+      }[] = [];
       if (submenuIdList.length > 0) {
         const { data: sbom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, effective_qty")
           .in("menu_id", submenuIdList);
         submenuBomAll = (sbom || []) as any[];
-        const submenuSpSkuIds = [...new Set(submenuBomAll
-          .filter(b => !skuIds.includes(b.sku_id))
-          .map(b => b.sku_id))];
+        const submenuSpSkuIds = [
+          ...new Set(submenuBomAll.filter((b) => !skuIds.includes(b.sku_id)).map((b) => b.sku_id)),
+        ];
         if (submenuSpSkuIds.length > 0) {
           const { data: sspb } = await supabase
             .from("sp_bom")
@@ -267,10 +273,11 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
               if (skuIds.includes(sbom.sku_id)) {
                 totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
               } else {
-                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                const spLines = submenuSpBom.filter((sp) => sp.sp_sku_id === sbom.sku_id);
                 for (const sp of spLines) {
                   const batchYield = Number(sp.batch_yield_qty) || 1;
-                  totalUsageBySkuId[sp.ingredient_sku_id] = (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
+                  totalUsageBySkuId[sp.ingredient_sku_id] =
+                    (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
                     saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
                 }
               }
@@ -278,9 +285,10 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           } else if (rule.ruleType === "swap") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
-                totalUsageBySkuId[rule.swapSkuId] = (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
+                totalUsageBySkuId[rule.swapSkuId] =
+                  (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
               }
             }
             if (rule.skuId && skuIds.includes(rule.skuId)) {
@@ -310,7 +318,8 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       for (const row of wasteRows || []) {
         totalWasteBySkuId[row.sku_id] = (totalWasteBySkuId[row.sku_id] || 0) + Number(row.waste);
         if (!dailyWasteBySkuId[row.sku_id]) dailyWasteBySkuId[row.sku_id] = {};
-        dailyWasteBySkuId[row.sku_id][row.count_date] = (dailyWasteBySkuId[row.sku_id][row.count_date] || 0) + Number(row.waste);
+        dailyWasteBySkuId[row.sku_id][row.count_date] =
+          (dailyWasteBySkuId[row.sku_id][row.count_date] || 0) + Number(row.waste);
       }
 
       // Add waste to total usage
@@ -332,13 +341,15 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           if (bom.menu_id !== mid) continue;
           if (skuIds.includes(bom.sku_id)) {
             if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
-            dailyUsageBySkuId[bom.sku_id][date] = (dailyUsageBySkuId[bom.sku_id][date] || 0) + saleQty * bom.effective_qty;
+            dailyUsageBySkuId[bom.sku_id][date] =
+              (dailyUsageBySkuId[bom.sku_id][date] || 0) + saleQty * bom.effective_qty;
           } else {
-            const spLines = spBomRows.filter(sb => sb.sp_sku_id === bom.sku_id);
+            const spLines = spBomRows.filter((sb) => sb.sp_sku_id === bom.sku_id);
             for (const sp of spLines) {
               const batchYield = Number(sp.batch_yield_qty) || 1;
               if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
-              dailyUsageBySkuId[sp.ingredient_sku_id][date] = (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+              dailyUsageBySkuId[sp.ingredient_sku_id][date] =
+                (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
                 saleQty * bom.effective_qty * (sp.qty_per_batch / batchYield);
             }
           }
@@ -353,13 +364,15 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
               if (sbom.menu_id !== rule.submenuId) continue;
               if (skuIds.includes(sbom.sku_id)) {
                 if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
-                dailyUsageBySkuId[sbom.sku_id][date] = (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+                dailyUsageBySkuId[sbom.sku_id][date] =
+                  (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
               } else {
-                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                const spLines = submenuSpBom.filter((sp) => sp.sp_sku_id === sbom.sku_id);
                 for (const sp of spLines) {
                   const batchYield = Number(sp.batch_yield_qty) || 1;
                   if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
-                  dailyUsageBySkuId[sp.ingredient_sku_id][date] = (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+                  dailyUsageBySkuId[sp.ingredient_sku_id][date] =
+                    (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
                     saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
                 }
               }
@@ -367,21 +380,24 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           } else if (rule.ruleType === "swap") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
                 if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
-                dailyUsageBySkuId[rule.swapSkuId][date] = (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
+                dailyUsageBySkuId[rule.swapSkuId][date] =
+                  (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
               }
             }
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+              dailyUsageBySkuId[rule.skuId][date] =
+                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
             }
           } else if (rule.ruleType === "add") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+              dailyUsageBySkuId[rule.skuId][date] =
+                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
             }
           }
         }
