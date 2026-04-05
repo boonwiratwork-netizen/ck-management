@@ -206,6 +206,71 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         spBomRows = spb || [];
       }
 
+      // Fetch modifier rules
+      const [modRulesRes, modRuleMenusRes] = await Promise.all([
+        supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
+        supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
+      ]);
+      const ruleMenuMap: Record<string, string[]> = {};
+      for (const rm of modRuleMenusRes.data || []) {
+        if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
+        ruleMenuMap[rm.rule_id].push(rm.menu_id);
+      }
+      const modifierRules = (modRulesRes.data || []).map(r => ({
+        id: r.id,
+        keyword: r.keyword,
+        skuId: r.sku_id,
+        qtyPerMatch: Number(r.qty_per_match),
+        ruleType: r.rule_type as string,
+        swapSkuId: r.swap_sku_id,
+        submenuId: r.submenu_id,
+        menuIds: ruleMenuMap[r.id] || [],
+        branchIds: (r.branch_ids || []) as string[],
+      }));
+
+      // For submenu rules, fetch BOM lines + SP expansion for RM ingredients
+      const submenuIdList = [...new Set(modifierRules
+        .filter(r => r.ruleType === "submenu" && r.submenuId)
+        .map(r => r.submenuId!))];
+      let submenuBomAll: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
+      let submenuSpBom: { sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number; batch_yield_qty: number }[] = [];
+      if (submenuIdList.length > 0) {
+        const { data: sbom } = await supabase
+          .from("menu_bom")
+          .select("menu_id, sku_id, effective_qty")
+          .in("menu_id", submenuIdList);
+        submenuBomAll = (sbom || []) as any[];
+        const submenuSpSkuIds = [...new Set(submenuBomAll
+          .filter(b => !skuIds.includes(b.sku_id))
+          .map(b => b.sku_id))];
+        if (submenuSpSkuIds.length > 0) {
+          const { data: sspb } = await supabase
+            .from("sp_bom")
+            .select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty")
+            .in("sp_sku_id", submenuSpSkuIds)
+            .in("ingredient_sku_id", skuIds);
+          submenuSpBom = sspb || [];
+        }
+      }
+
+      // Fetch waste from daily_stock_counts
+      const todayStr = toLocalDateStr(today);
+      const { data: wasteRows } = await supabase
+        .from("daily_stock_counts")
+        .select("sku_id, waste, count_date")
+        .eq("branch_id", branchId)
+        .gte("count_date", dateFrom)
+        .lte("count_date", todayStr)
+        .gt("waste", 0)
+        .in("sku_id", skuIds);
+      const totalWasteBySkuId: Record<string, number> = {};
+      const dailyWasteBySkuId: Record<string, Record<string, number>> = {};
+      for (const row of wasteRows || []) {
+        totalWasteBySkuId[row.sku_id] = (totalWasteBySkuId[row.sku_id] || 0) + Number(row.waste);
+        if (!dailyWasteBySkuId[row.sku_id]) dailyWasteBySkuId[row.sku_id] = {};
+        dailyWasteBySkuId[row.sku_id][row.count_date] = (dailyWasteBySkuId[row.sku_id][row.count_date] || 0) + Number(row.waste);
+      }
+
       // Calculate avg daily usage per RM SKU
       const totalUsageBySkuId: Record<string, number> = {};
 
