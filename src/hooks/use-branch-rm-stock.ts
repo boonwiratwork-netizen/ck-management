@@ -178,11 +178,11 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       const salesMenuIds = Object.keys(qtySoldByMenuId);
 
       // Get menu_bom for those menus
-      let bomRows: { menu_id: string; sku_id: string; qty_per_serving: number }[] = [];
+      let bomRows: { menu_id: string; sku_id: string; qty_per_serving: number; effective_qty: number }[] = [];
       if (salesMenuIds.length > 0) {
         const { data: bom } = await supabase
           .from("menu_bom")
-          .select("menu_id, sku_id, qty_per_serving")
+          .select("menu_id, sku_id, qty_per_serving, effective_qty")
           .in("menu_id", salesMenuIds);
         bomRows = bom || [];
       }
@@ -220,7 +220,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
 
         if (skuIds.includes(bom.sku_id)) {
           // Direct RM in menu_bom
-          totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.qty_per_serving;
+          totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
         } else {
           // SP SKU — explode via sp_bom
           const spLines = spBomRows.filter((sb) => sb.sp_sku_id === bom.sku_id);
@@ -228,7 +228,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
             const spBatchSize = spBatchSizeMap[sp.sp_sku_id] || 1;
             totalUsageBySkuId[sp.ingredient_sku_id] =
               (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
-              soldQty * bom.qty_per_serving * (sp.qty_per_batch / spBatchSize);
+              soldQty * bom.effective_qty * (sp.qty_per_batch / spBatchSize);
           }
         }
       }
@@ -274,7 +274,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
           if (skuIds.includes(bom.sku_id)) {
             if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
             dailyUsageBySkuId[bom.sku_id][date] =
-              (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.qty_per_serving;
+              (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.effective_qty;
           } else {
             const spLines = spBomRows.filter((sb) => sb.sp_sku_id === bom.sku_id);
             for (const sp of spLines) {
@@ -282,7 +282,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
               const spBatchSize = spBatchSizeMap[sp.sp_sku_id] || 1;
               dailyUsageBySkuId[sp.ingredient_sku_id][date] =
                 (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
-                Number(sale.qty) * bom.qty_per_serving * (sp.qty_per_batch / spBatchSize);
+                Number(sale.qty) * bom.effective_qty * (sp.qty_per_batch / spBatchSize);
             }
           }
         }
