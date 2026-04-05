@@ -204,6 +204,197 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         }
       }
 
+      // Fetch modifier rules
+      const [modRulesRes, modRuleMenusRes] = await Promise.all([
+        supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
+        supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
+      ]);
+      const ruleMenuMap: Record<string, string[]> = {};
+      for (const rm of modRuleMenusRes.data || []) {
+        if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
+        ruleMenuMap[rm.rule_id].push(rm.menu_id);
+      }
+      const modifierRules = (modRulesRes.data || []).map(r => ({
+        id: r.id,
+        keyword: r.keyword,
+        skuId: r.sku_id,
+        qtyPerMatch: Number(r.qty_per_match),
+        ruleType: r.rule_type as string,
+        swapSkuId: r.swap_sku_id,
+        submenuId: r.submenu_id,
+        menuIds: ruleMenuMap[r.id] || [],
+        branchIds: (r.branch_ids || []) as string[],
+      }));
+
+      // For submenu rules, fetch BOM lines + SP expansion for RM ingredients
+      const submenuIdList = [...new Set(modifierRules
+        .filter(r => r.ruleType === "submenu" && r.submenuId)
+        .map(r => r.submenuId!))];
+      let submenuBomAll: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
+      let submenuSpBom: { sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number; batch_yield_qty: number }[] = [];
+      if (submenuIdList.length > 0) {
+        const { data: sbom } = await supabase
+          .from("menu_bom")
+          .select("menu_id, sku_id, effective_qty")
+          .in("menu_id", submenuIdList);
+        submenuBomAll = (sbom || []) as any[];
+        const submenuSpSkuIds = [...new Set(submenuBomAll
+          .filter(b => !skuIds.includes(b.sku_id))
+          .map(b => b.sku_id))];
+        if (submenuSpSkuIds.length > 0) {
+          const { data: sspb } = await supabase
+            .from("sp_bom")
+            .select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty")
+            .in("sp_sku_id", submenuSpSkuIds)
+            .in("ingredient_sku_id", skuIds);
+          submenuSpBom = sspb || [];
+        }
+      }
+
+      // Apply modifier rules to total usage
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[sale.menu_code];
+        if (!mid) continue;
+        const menuName = (sale.menu_name || "").toLowerCase();
+        const saleQty = Number(sale.qty);
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if (sale.menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomAll) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              if (skuIds.includes(sbom.sku_id)) {
+                totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
+              } else {
+                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                for (const sp of spLines) {
+                  const batchYield = Number(sp.batch_yield_qty) || 1;
+                  totalUsageBySkuId[sp.ingredient_sku_id] = (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
+                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                }
+              }
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                totalUsageBySkuId[rule.swapSkuId] = (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
+      // Fetch waste from daily_stock_counts
+      const todayStr = toLocalDateStr(today);
+      const { data: wasteRows } = await supabase
+        .from("daily_stock_counts")
+        .select("sku_id, waste, count_date")
+        .eq("branch_id", branchId)
+        .gte("count_date", dateFrom)
+        .lte("count_date", todayStr)
+        .gt("waste", 0)
+        .in("sku_id", skuIds);
+      const totalWasteBySkuId: Record<string, number> = {};
+      const dailyWasteBySkuId: Record<string, Record<string, number>> = {};
+      for (const row of wasteRows || []) {
+        totalWasteBySkuId[row.sku_id] = (totalWasteBySkuId[row.sku_id] || 0) + Number(row.waste);
+        if (!dailyWasteBySkuId[row.sku_id]) dailyWasteBySkuId[row.sku_id] = {};
+        dailyWasteBySkuId[row.sku_id][row.count_date] = (dailyWasteBySkuId[row.sku_id][row.count_date] || 0) + Number(row.waste);
+      }
+
+      // Add waste to total usage
+      for (const [wSkuId, wTotal] of Object.entries(totalWasteBySkuId)) {
+        totalUsageBySkuId[wSkuId] = (totalUsageBySkuId[wSkuId] || 0) + wTotal;
+      }
+
+      // Build daily usage by SKU for peak calculation
+      const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[sale.menu_code];
+        if (!mid) continue;
+        const date = sale.sale_date;
+        if (!date) continue;
+        const saleQty = Number(sale.qty);
+        const menuName = (sale.menu_name || "").toLowerCase();
+        // BOM usage
+        for (const bom of bomRows) {
+          if (bom.menu_id !== mid) continue;
+          if (skuIds.includes(bom.sku_id)) {
+            if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
+            dailyUsageBySkuId[bom.sku_id][date] = (dailyUsageBySkuId[bom.sku_id][date] || 0) + saleQty * bom.effective_qty;
+          } else {
+            const spLines = spBomRows.filter(sb => sb.sp_sku_id === bom.sku_id);
+            for (const sp of spLines) {
+              const batchYield = Number(sp.batch_yield_qty) || 1;
+              if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
+              dailyUsageBySkuId[sp.ingredient_sku_id][date] = (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+                saleQty * bom.effective_qty * (sp.qty_per_batch / batchYield);
+            }
+          }
+        }
+        // Modifier rules daily
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if (sale.menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomAll) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              if (skuIds.includes(sbom.sku_id)) {
+                if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
+                dailyUsageBySkuId[sbom.sku_id][date] = (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+              } else {
+                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                for (const sp of spLines) {
+                  const batchYield = Number(sp.batch_yield_qty) || 1;
+                  if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
+                  dailyUsageBySkuId[sp.ingredient_sku_id][date] = (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                }
+              }
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
+                dailyUsageBySkuId[rule.swapSkuId][date] = (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
+      // Add waste to daily usage
+      for (const [wSkuId, dates] of Object.entries(dailyWasteBySkuId)) {
+        if (!dailyUsageBySkuId[wSkuId]) dailyUsageBySkuId[wSkuId] = {};
+        for (const [date, waste] of Object.entries(dates)) {
+          dailyUsageBySkuId[wSkuId][date] = (dailyUsageBySkuId[wSkuId][date] || 0) + waste;
+        }
+      }
+
       // Latest stock on hand
       const { data: latestCounts } = await supabase
         .from("daily_stock_counts")
