@@ -207,6 +207,41 @@ export function useBranchSmStock(branchId: string | null) {
         totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
       }
 
+      // Apply modifier rules to total usage
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[sale.menu_code];
+        if (!mid) continue;
+        const menuName = (sale.menu_name || "").toLowerCase();
+        const saleQty = Number(sale.qty);
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if (sale.menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomLines) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                totalUsageBySkuId[rule.swapSkuId] = (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
       // Build daily usage map for peak calculation
       const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
       for (const sale of salesRows || []) {
