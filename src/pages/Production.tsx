@@ -725,8 +725,8 @@ export default function ProductionPage({
               )}
             </div>
             <Select value={weekStart} onValueChange={setWeekStart}>
-              <SelectTrigger className="h-8 w-8 border-0 bg-transparent p-0 shadow-none [&>svg]:hidden focus:ring-0">
-                <ChevronDown className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+              <SelectTrigger className="h-8 px-2 border border-input bg-background text-xs gap-1 focus:ring-0 w-auto">
+                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
               </SelectTrigger>
               <SelectContent align="end">
                 {weekOptions.map((ws) => {
