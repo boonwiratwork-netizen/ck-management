@@ -2681,11 +2681,9 @@ export default function BranchReceiptPage({
                       </td>
                       <td className={`${tdReadOnly} truncate`}>
                         {isCK ? (
-                          <span className="flex items-center gap-1">
-                            Central Kitchen
-                            <span className="bg-primary/10 text-primary text-xs rounded px-1 font-medium shrink-0">
-                              CK
-                            </span>
+                          <span className="bg-primary/10 text-primary text-xs rounded px-1 font-medium shrink-0">
+                            CK
+                            <span className="flex items-center gap-1">Central Kitchen</span>
                           </span>
                         ) : (
                           r.supplierName || "—"
