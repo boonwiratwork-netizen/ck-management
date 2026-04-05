@@ -144,12 +144,27 @@ export function useBranchSmStock(branchId: string | null) {
         bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
-      // Calculate total usage per SM SKU over 7 days
-      const totalUsageBySkuId: Record<string, number> = {};
+      // Usage per day per SKU
+      const usageByDateBySku: Record<string, Record<string, number>> = {};
       for (const bom of bomRows) {
         const soldQty = qtySoldByMenuId[bom.menu_id] || 0;
         if (soldQty === 0) continue;
         totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
+      }
+
+      // Build daily usage map for peak calculation
+      // salesRows has sale_date — aggregate usage per SKU per date
+      const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[sale.menu_code];
+        if (!mid) continue;
+        const dateBoms = bomRows.filter((b) => b.menu_id === mid);
+        for (const bom of dateBoms) {
+          if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
+          const date = (sale as any).sale_date || dateFrom;
+          dailyUsageBySkuId[bom.sku_id][date] =
+            (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.effective_qty;
+        }
       }
 
       // 6. Snap + ledger balance: find most recent physical_count per SKU
@@ -287,7 +302,11 @@ export function useBranchSmStock(branchId: string | null) {
       const result: Record<string, BranchSmStockEntry> = {};
 
       for (const skuId of skuIds) {
-        const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / 7;
+        const activeDays = new Set((salesRows || []).map((s: any) => s.sale_date)).size || 1;
+        const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / activeDays;
+        const dailyValues = Object.values(dailyUsageBySkuId[skuId] || {});
+        const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
+        const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
 
         // Snap + ledger balance
         const snap = snapBySku[skuId];
@@ -297,8 +316,8 @@ export function useBranchSmStock(branchId: string | null) {
         const usageOut = postSnapUsageBySku[skuId] || 0;
         const stockOnHand = Math.max(0, base + ckIn + extIn - usageOut);
 
-        const rop = avgDailyUsage * leadTime;
-        const parstock = avgDailyUsage * (leadTime * 2);
+        const rop = avgDailyUsage * leadTime + safetyStock;
+        const parstock = avgDailyUsage + peakDailyUsage * leadTime;
         const suggestedOrder = Math.max(0, parstock - stockOnHand);
 
         let status: BranchSmStockStatus;
@@ -311,7 +330,7 @@ export function useBranchSmStock(branchId: string | null) {
         result[skuId] = {
           stockOnHand,
           avgDailyUsage: Math.round(avgDailyUsage * 100) / 100,
-          peakDailyUsage: 0,
+          peakDailyUsage: Math.round(peakDailyUsage * 100) / 100,
           rop: Math.round(rop * 100) / 100,
           parstock: Math.round(parstock * 100) / 100,
           suggestedOrder: Math.round(suggestedOrder * 100) / 100,
