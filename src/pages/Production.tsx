@@ -153,6 +153,14 @@ function getCoverColor(cover: number, target: number, dailyNeed: number): "red" 
   return "green";
 }
 
+function formatProdTimestamp(isoStr?: string): string {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${min}`;
+}
+
 export default function ProductionPage({
   productionData,
   skus,
@@ -1198,7 +1206,14 @@ export default function ProductionPage({
                 <tbody>
                   {weekRecords.map((rec) => (
                     <tr key={rec.id} className={table.dataRow}>
-                      <td className={table.dataCellCompact}>{rec.productionDate}</td>
+                      <td className={table.dataCellCompact}>
+                        {rec.productionDate}
+                        {rec.createdAt && (
+                          <span className="text-xs text-muted-foreground font-mono ml-1">
+                            {formatProdTimestamp(rec.createdAt)}
+                          </span>
+                        )}
+                      </td>
                       <td className={cn(table.dataCellCompact, "font-mono")}>{getSkuCode(rec.smSkuId)}</td>
                       <td className={table.truncatedCellCompact} title={getSkuName(rec.smSkuId)}>
                         {getSkuName(rec.smSkuId)}
