@@ -144,6 +144,42 @@ export function useBranchSmStock(branchId: string | null) {
         bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
+      // Fetch modifier rules
+      const [modRulesRes, modRuleMenusRes] = await Promise.all([
+        supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
+        supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
+      ]);
+      const ruleMenuMap: Record<string, string[]> = {};
+      for (const rm of modRuleMenusRes.data || []) {
+        if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
+        ruleMenuMap[rm.rule_id].push(rm.menu_id);
+      }
+      const modifierRules = (modRulesRes.data || []).map(r => ({
+        id: r.id,
+        keyword: r.keyword,
+        skuId: r.sku_id,
+        qtyPerMatch: Number(r.qty_per_match),
+        ruleType: r.rule_type as string,
+        swapSkuId: r.swap_sku_id,
+        submenuId: r.submenu_id,
+        menuIds: ruleMenuMap[r.id] || [],
+        branchIds: (r.branch_ids || []) as string[],
+      }));
+
+      // For submenu rules, fetch BOM lines for submenu menus (SM SKUs only)
+      const submenuIdList = [...new Set(modifierRules
+        .filter(r => r.ruleType === "submenu" && r.submenuId)
+        .map(r => r.submenuId!))];
+      let submenuBomLines: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
+      if (submenuIdList.length > 0) {
+        const { data: sbom } = await supabase
+          .from("menu_bom")
+          .select("menu_id, sku_id, effective_qty")
+          .in("menu_id", submenuIdList)
+          .in("sku_id", skuIds);
+        submenuBomLines = (sbom || []) as any[];
+      }
+
       // Fetch waste per SKU per day for the same 7-day window
       const { data: wasteRows } = await supabase
         .from("daily_stock_counts")
