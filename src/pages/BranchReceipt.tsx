@@ -2566,9 +2566,9 @@ export default function BranchReceiptPage({
                 <col style={{ width: 130 }} /> {/* TO ref */}
                 <col style={{ width: 70 }} /> {/* qty */}
                 <col style={{ width: 70 }} /> {/* uom */}
-                <col style={{ width: 100 }} /> {/* actual */}
-                <col style={{ width: 100 }} /> {/* std */}
-                <col style={{ width: 110 }} /> {/* variance */}
+                <col style={{ width: 90 }} /> {/* actual */}
+                <col style={{ width: 90 }} /> {/* std */}
+                <col style={{ width: 100 }} /> {/* variance */}
                 {isManagement && <col style={{ width: 90 }} />} {/* branch */}
                 {isManagement && <col style={{ width: 50 }} />} {/* actions */}
               </colgroup>
