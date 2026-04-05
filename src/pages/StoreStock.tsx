@@ -447,17 +447,22 @@ export default function StoreStockPage({
       skus,
       effectiveBranchId ?? undefined,
     );
-    const rm0017id = skus.find((s) => s.skuId === "RM-0017")?.id ?? "";
-    console.log(
-      "[StoreStock] since:",
-      since,
-      "activeDays:",
-      activeDays,
-      "divisor:",
-      divisor,
-      "RM-0017 total:",
-      totalUsage[rm0017id] ?? 0,
-    );
+    // Add waste from daily_stock_counts to totalUsage
+    const { data: wasteRows } = await supabase
+      .from("daily_stock_counts")
+      .select("sku_id, waste")
+      .eq("branch_id", branchId)
+      .gte("count_date", since)
+      .lte("count_date", today2)
+      .gt("waste", 0)
+      .not("waste", "is", null);
+
+    if (wasteRows) {
+      for (const w of wasteRows) {
+        totalUsage[w.sku_id] = (totalUsage[w.sku_id] || 0) + Number(w.waste);
+      }
+    }
+
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
       daily[skuId] = total / divisor;
