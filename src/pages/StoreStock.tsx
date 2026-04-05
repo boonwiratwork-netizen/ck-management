@@ -110,7 +110,11 @@ function calculateUsageFromSales(
     const menuName = sale.menu_name || "";
     for (const rule of activeRules) {
       if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-      if (!menuName.includes(rule.keyword)) continue;
+      if (rule.ruleType === "submenu") {
+        if (sale.menu_code !== rule.keyword) continue;
+      } else {
+        if (!menuName.includes(rule.keyword)) continue;
+      }
 
       if (rule.ruleType === "swap") {
         if (rule.swapSkuId) {
