@@ -2562,8 +2562,8 @@ export default function BranchReceiptPage({
                 <col style={{ width: 85 }} /> {/* date */}
                 <col style={{ width: 80 }} /> {/* sku */}
                 <col style={{ width: 200 }} /> {/* name */}
-                <col style={{ width: 95 }} /> {/* supplier */}
-                <col style={{ width: 95 }} /> {/* TO ref */}
+                <col style={{ width: 100 }} /> {/* supplier */}
+                <col style={{ width: 100 }} /> {/* TO ref */}
                 <col style={{ width: 65 }} /> {/* qty */}
                 <col style={{ width: 60 }} /> {/* uom */}
                 <col style={{ width: 80 }} /> {/* actual */}
