@@ -2559,7 +2559,7 @@ export default function BranchReceiptPage({
           <div className="overflow-y-auto max-h-[65vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 90 }} /> {/* date */}
+                <col style={{ width: 85 }} /> {/* date */}
                 <col style={{ width: 80 }} /> {/* sku */}
                 <col style={{ width: 210 }} /> {/* name */}
                 <col style={{ width: 95 }} /> {/* supplier */}
