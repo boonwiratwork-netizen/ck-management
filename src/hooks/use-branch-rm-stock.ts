@@ -53,16 +53,8 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
 
       // 2. Get active menus for this brand + branch overrides
       const [menusRes, overridesRes] = await Promise.all([
-        supabase
-          .from("menus")
-          .select("id")
-          .eq("brand_name", branch.brand_name)
-          .eq("status", "Active"),
-        supabase
-          .from("branch_menu_overrides")
-          .select("menu_id")
-          .eq("branch_id", branchId)
-          .eq("is_active", false),
+        supabase.from("menus").select("id").eq("brand_name", branch.brand_name).eq("status", "Active"),
+        supabase.from("branch_menu_overrides").select("menu_id").eq("branch_id", branchId).eq("is_active", false),
       ]);
       const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
       const menuIds = (menusRes.data || []).map((m) => m.id).filter((id) => !suppressedMenuIds.has(id));
@@ -161,7 +153,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       // Get sales for this branch last 7 days
       const { data: salesRows } = await supabase
         .from("sales_entries")
-        .select("menu_code, qty")
+        .select("menu_code, qty, sale_date")
         .eq("branch_id", branchId)
         .gte("sale_date", dateFrom);
 
@@ -258,11 +250,36 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       // 8. Calculate per SKU
       const result: Record<string, BranchRmStockEntry> = {};
 
+      // Peak daily usage per SKU
+      const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
+      for (const bom of bomRows) {
+        const mid = bom.menu_id;
+        for (const sale of salesRows || []) {
+          const saleMenuId = menuCodeToId[(sale as any).menu_code];
+          if (saleMenuId !== mid) continue;
+          const date = (sale as any).sale_date || dateFrom;
+          if (skuIds.includes(bom.sku_id)) {
+            if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
+            dailyUsageBySkuId[bom.sku_id][date] =
+              (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.qty_per_serving;
+          } else {
+            const spLines = spBomRows.filter((sb) => sb.sp_sku_id === bom.sku_id);
+            for (const sp of spLines) {
+              if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
+              dailyUsageBySkuId[sp.ingredient_sku_id][date] =
+                (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+                Number(sale.qty) * bom.qty_per_serving * sp.qty_per_batch;
+            }
+          }
+        }
+      }
+
       for (const skuId of skuIds) {
         const skuInfo = filtered.find((s) => s.id === skuId);
         const packSize = Number(skuInfo?.pack_size) || 1;
         const leadTime = ltMap[skuId] || 1;
-        const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / 7;
+        const activeDays = new Set((salesRows || []).map((s: any) => s.sale_date)).size || 1;
+        const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / activeDays;
         const latest = latestBySkuId[skuId];
         const stockOnHand = latest
           ? latest.physical_count != null
@@ -270,8 +287,11 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
             : latest.calculated_balance
           : 0;
 
-        const rop = avgDailyUsage * leadTime;
-        const parstock = avgDailyUsage * (leadTime * 2);
+        const dailyValues = Object.values(dailyUsageBySkuId[skuId] || {});
+        const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
+        const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
+        const rop = avgDailyUsage * leadTime + safetyStock;
+        const parstock = avgDailyUsage + peakDailyUsage * leadTime;
         const suggestedOrder = Math.max(0, parstock - stockOnHand);
         const suggestedBatches = suggestedOrder > 0 ? Math.ceil(suggestedOrder / packSize) : 0;
 
@@ -285,7 +305,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         result[skuId] = {
           stockOnHand,
           avgDailyUsage: Math.round(avgDailyUsage * 100) / 100,
-          peakDailyUsage: 0,
+          peakDailyUsage: Math.round(peakDailyUsage * 100) / 100,
           rop: Math.round(rop * 100) / 100,
           parstock: Math.round(parstock * 100) / 100,
           suggestedOrder: Math.round(suggestedOrder * 100) / 100,
