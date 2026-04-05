@@ -1425,7 +1425,7 @@ export default function TransferOrderPage({
             <table className={tableTokens.base}>
               <colgroup>
                 <col style={{ width: 150 }} />
-                <col style={{ width: 110 }} />
+                <col style={{ width: 140 }} />
                 <col />
                 <col style={{ width: 130 }} />
                 <col style={{ width: 60 }} />
