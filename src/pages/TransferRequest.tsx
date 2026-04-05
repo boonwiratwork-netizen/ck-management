@@ -906,7 +906,7 @@ export default function TransferRequestPage() {
                         <col style={{ width: 200 }} />
                         <col style={{ width: 110 }} />
                         <col style={{ width: 72 }} />
-                        <col style={{ width: 60 }} />
+                        <col style={{ width: 72 }} />
                         <col style={{ width: 76 }} />
                         <col style={{ width: 88 }} />
                         <col style={{ width: 88 }} />
@@ -920,7 +920,7 @@ export default function TransferRequestPage() {
                           <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
                           <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
-                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
+                          <th className={tableTokens.headerCellNumeric}>เฉลี่ย/วัน</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
                           <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
@@ -978,8 +978,9 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompactMono}>
                                 {formatNumber(Math.max(0, line.stockOnHand), 0)}
                               </td>
-                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                                {formatNumber(line.rop, 0)}
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {line.avgDailyUsage > 0 ? formatNumber(line.avgDailyUsage, 0) : "—"}
+                                <span className="text-muted-foreground text-xs ml-0.5">{line.uom}/วัน</span>
                               </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(line.parstock, 0)}
@@ -1087,7 +1088,7 @@ export default function TransferRequestPage() {
                         <col style={{ width: 200 }} />
                         <col style={{ width: 90 }} />
                         <col style={{ width: 72 }} />
-                        <col style={{ width: 60 }} />
+                        <col style={{ width: 72 }} />
                         <col style={{ width: 68 }} />
                         <col style={{ width: 72 }} />
                         <col style={{ width: 80 }} />
@@ -1101,7 +1102,8 @@ export default function TransferRequestPage() {
                           <th className={tableTokens.headerCell}>{t("tr.colSkuName")}</th>
                           <th className={tableTokens.headerCell}>{t("tr.colBatchSize")}</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colStockNow")}</th>
-                          <th className={tableTokens.headerCellNumeric}>{t("tr.colRop")}</th>
+
+                          <th className={tableTokens.headerCellNumeric}>เฉลี่ย/วัน</th>
                           <th className={tableTokens.headerCellNumeric}>{t("tr.colParstock")}</th>
                           <th className={tableTokens.headerCellNumeric}>
                             <TooltipProvider>
@@ -1160,8 +1162,9 @@ export default function TransferRequestPage() {
                                 <span className="whitespace-nowrap truncate block">{packLabel}</span>
                               </td>
                               <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 0)}</td>
-                              <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
-                                {formatNumber(ropInPurchase, 0)}
+                              <td className={tableTokens.dataCellCompactMono}>
+                                {line.avgDailyUsage > 0 ? formatNumber(line.avgDailyUsage, 0) : "—"}
+                                <span className="text-muted-foreground text-xs ml-0.5">{line.usageUom}/วัน</span>
                               </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(parstockInPurchase, 0)}
