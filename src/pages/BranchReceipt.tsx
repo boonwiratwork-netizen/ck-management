@@ -2569,7 +2569,7 @@ export default function BranchReceiptPage({
                 <col style={{ width: 100 }} />
                 <col style={{ width: 100 }} />
                 <col style={{ width: 110 }} />
-                {isManagement && <col style={{ width: 110 }} />}
+                {isManagement && <col style={{ width: 50 }} />}
                 {isManagement && <col style={{ width: 50 }} />}
               </colgroup>
               <thead className="sticky top-0 z-[5]">
