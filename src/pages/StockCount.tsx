@@ -60,7 +60,7 @@ export default function StockCountPage({
 
   const today = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
-  const [activeTab, setActiveTab] = useState<string>("RM");
+  const [activeTab, setActiveTab] = useState<string>("SM");
   const [filterStorage, setFilterStorage] = useState<string>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
