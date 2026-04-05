@@ -133,14 +133,15 @@ export function useBranchSmStock(branchId: string | null) {
 
       const salesMenuIds = Object.keys(qtySoldByMenuId);
 
-      // Get menu_bom for those menus — SM SKUs only
+      // Get menu_bom for those menus — SM SKUs only, filter by branch
       let bomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
       if (salesMenuIds.length > 0) {
         const { data: bom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, effective_qty")
           .in("menu_id", salesMenuIds)
-          .in("sku_id", skuIds);
+          .in("sku_id", skuIds)
+          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
         bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
@@ -154,7 +155,7 @@ export function useBranchSmStock(branchId: string | null) {
         if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
         ruleMenuMap[rm.rule_id].push(rm.menu_id);
       }
-      const modifierRules = (modRulesRes.data || []).map(r => ({
+      const modifierRules = (modRulesRes.data || []).map((r) => ({
         id: r.id,
         keyword: r.keyword,
         skuId: r.sku_id,
@@ -167,9 +168,9 @@ export function useBranchSmStock(branchId: string | null) {
       }));
 
       // For submenu rules, fetch BOM lines for submenu menus (SM SKUs only)
-      const submenuIdList = [...new Set(modifierRules
-        .filter(r => r.ruleType === "submenu" && r.submenuId)
-        .map(r => r.submenuId!))];
+      const submenuIdList = [
+        ...new Set(modifierRules.filter((r) => r.ruleType === "submenu" && r.submenuId).map((r) => r.submenuId!)),
+      ];
       let submenuBomLines: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
       if (submenuIdList.length > 0) {
         const { data: sbom } = await supabase
@@ -225,9 +226,10 @@ export function useBranchSmStock(branchId: string | null) {
           } else if (rule.ruleType === "swap") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
-                totalUsageBySkuId[rule.swapSkuId] = (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
+                totalUsageBySkuId[rule.swapSkuId] =
+                  (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
               }
             }
             if (rule.skuId && skuIds.includes(rule.skuId)) {
@@ -273,26 +275,30 @@ export function useBranchSmStock(branchId: string | null) {
             for (const sbom of submenuBomLines) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
-              dailyUsageBySkuId[sbom.sku_id][date] = (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+              dailyUsageBySkuId[sbom.sku_id][date] =
+                (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
             }
           } else if (rule.ruleType === "swap") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
                 if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
-                dailyUsageBySkuId[rule.swapSkuId][date] = (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
+                dailyUsageBySkuId[rule.swapSkuId][date] =
+                  (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
               }
             }
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+              dailyUsageBySkuId[rule.skuId][date] =
+                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
             }
           } else if (rule.ruleType === "add") {
             if (!menuName.includes(rule.keyword.toLowerCase())) continue;
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+              dailyUsageBySkuId[rule.skuId][date] =
+                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
             }
           }
         }
