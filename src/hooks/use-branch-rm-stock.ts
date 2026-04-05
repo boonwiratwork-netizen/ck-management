@@ -293,6 +293,55 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         }
       }
 
+      // Apply modifier rules to total usage
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[(sale as any).menu_code];
+        if (!mid) continue;
+        const menuName = ((sale as any).menu_name || "").toLowerCase();
+        const saleQty = Number(sale.qty);
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if ((sale as any).menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomAll) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              if (skuIds.includes(sbom.sku_id)) {
+                totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
+              } else {
+                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                for (const sp of spLines) {
+                  const batchYield = Number(sp.batch_yield_qty) || 1;
+                  totalUsageBySkuId[sp.ingredient_sku_id] = (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
+                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                }
+              }
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                totalUsageBySkuId[rule.swapSkuId] = (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
+      // Add waste to total usage
+      for (const [wSkuId, wTotal] of Object.entries(totalWasteBySkuId)) {
+        totalUsageBySkuId[wSkuId] = (totalUsageBySkuId[wSkuId] || 0) + wTotal;
+      }
+
       // 7. Get latest stock on hand from daily_stock_counts
       const { data: latestCounts } = await supabase
         .from("daily_stock_counts")
