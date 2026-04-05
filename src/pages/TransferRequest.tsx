@@ -906,7 +906,7 @@ export default function TransferRequestPage() {
                   <div className="overflow-y-auto max-h-[65vh]">
                     <table className={tableTokens.base}>
                       <colgroup>
-                        <col style={{ width: 26 }} />
+                        <col style={{ width: 50 }} />
                         <col style={{ width: 76 }} />
                         <col style={{ width: 200 }} />
                         <col style={{ width: 110 }} />
@@ -968,12 +968,34 @@ export default function TransferRequestPage() {
                               data-sku-id={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
-                              <td className={tableTokens.dataCellCompactCenter}>
-                                {dotStatus ? (
-                                  <StatusDot status={dotStatus} size="sm" />
-                                ) : (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-muted" />
-                                )}
+                              <td className={tableTokens.dataCellCompact}>
+                                {(() => {
+                                  if (line.status === "no-data")
+                                    return <span className="text-xs text-muted-foreground">—</span>;
+                                  if (line.avgDailyUsage > 0) {
+                                    const coverDay = line.stockOnHand / line.avgDailyUsage;
+                                    const ropDays = line.rop / line.avgDailyUsage;
+                                    const parstockDays = line.parstock / line.avgDailyUsage;
+                                    if (coverDay < ropDays)
+                                      return (
+                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
+                                          ต้องสั่ง
+                                        </span>
+                                      );
+                                    if (coverDay < parstockDays)
+                                      return (
+                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
+                                          พอใช้
+                                        </span>
+                                      );
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                        พอใช้
+                                      </span>
+                                    );
+                                  }
+                                  return <span className="text-xs text-muted-foreground">—</span>;
+                                })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
                               <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
@@ -1105,7 +1127,7 @@ export default function TransferRequestPage() {
                   <div className="overflow-y-auto max-h-[65vh]">
                     <table className={tableTokens.base}>
                       <colgroup>
-                        <col style={{ width: 26 }} />
+                        <col style={{ width: 50 }} />
                         <col style={{ width: 76 }} />
                         <col style={{ width: 200 }} />
                         <col style={{ width: 90 }} />
@@ -1171,12 +1193,34 @@ export default function TransferRequestPage() {
                               data-sku-id={line.skuId}
                               className={`${tableTokens.dataRow} ${isSufficient ? "opacity-60" : ""}`}
                             >
-                              <td className={tableTokens.dataCellCompactCenter}>
-                                {dotStatus ? (
-                                  <StatusDot status={dotStatus} size="sm" />
-                                ) : (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-muted" />
-                                )}
+                              <td className={tableTokens.dataCellCompact}>
+                                {(() => {
+                                  if (line.status === "no-data")
+                                    return <span className="text-xs text-muted-foreground">—</span>;
+                                  if (line.avgDailyUsage > 0) {
+                                    const coverDay = line.stockOnHand / line.avgDailyUsage;
+                                    const ropDays = line.rop / line.avgDailyUsage;
+                                    const parstockDays = line.parstock / line.avgDailyUsage;
+                                    if (coverDay < ropDays)
+                                      return (
+                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
+                                          ต้องสั่ง
+                                        </span>
+                                      );
+                                    if (coverDay < parstockDays)
+                                      return (
+                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
+                                          พอใช้
+                                        </span>
+                                      );
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                        พอใช้
+                                      </span>
+                                    );
+                                  }
+                                  return <span className="text-xs text-muted-foreground">—</span>;
+                                })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
                               <td className={tableTokens.truncatedCellCompact} title={line.skuName}>
