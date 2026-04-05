@@ -1643,8 +1643,8 @@ export default function TransferRequestPage() {
                 <col style={{ width: 150 }} />
                 <col style={{ width: 110 }} />
                 <col style={{ width: 110 }} />
-                <col style={{ width: 140 }} />
                 <col />
+                <col style={{ width: 140 }} />
                 <col style={{ width: 70 }} />
                 <col style={{ width: 120 }} />
                 <col style={{ width: 100 }} />
@@ -1654,8 +1654,8 @@ export default function TransferRequestPage() {
                   <th className={tableTokens.headerCell}>{t("pr.colPrNumber")}</th>
                   <th className={tableTokens.headerCell}>{t("col.date")}</th>
                   <th className={tableTokens.headerCell}>วันส่งสินค้า</th>
-                  <th className={tableTokens.headerCell}>{t("col.supplier")}</th>
                   <th className={tableTokens.headerCell}>{t("col.branch")}</th>
+                  <th className={tableTokens.headerCell}>{t("col.supplier")}</th>
                   <th className={`${tableTokens.headerCell} text-right`}>{t("tr.colItems")}</th>
                   <th className={tableTokens.headerCell}>{t("col.status")}</th>
                   <th className={`${tableTokens.headerCell} text-center`}>{t("col.actions")}</th>
@@ -1685,11 +1685,12 @@ export default function TransferRequestPage() {
                       </td>
                       <td className={tableTokens.dataCell}>{pr.requestedDate}</td>
                       <td className={tableTokens.dataCell}>{pr.requiredDate}</td>
-                      <td className={tableTokens.truncatedCell} title={pr.supplierName}>
-                        {pr.supplierName}
-                      </td>
+
                       <td className={tableTokens.truncatedCell} title={pr.branchName}>
                         {pr.branchName}
+                      </td>
+                      <td className={tableTokens.truncatedCell} title={pr.supplierName}>
+                        {pr.supplierName}
                       </td>
                       <td className={tableTokens.dataCellMono}>{pr.itemCount}</td>
                       <td className={tableTokens.dataCell}>
