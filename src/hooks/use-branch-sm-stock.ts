@@ -109,7 +109,7 @@ export function useBranchSmStock(branchId: string | null) {
 
       const { data: salesRows } = await supabase
         .from("sales_entries")
-        .select("menu_code, menu_name, qty")
+        .select("menu_code, menu_name, qty, sale_date")
         .eq("branch_id", branchId)
         .gte("sale_date", dateFrom);
 
@@ -154,15 +154,15 @@ export function useBranchSmStock(branchId: string | null) {
       }
 
       // Build daily usage map for peak calculation
-      // salesRows has sale_date — aggregate usage per SKU per date
       const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
       for (const sale of salesRows || []) {
-        const mid = menuCodeToId[sale.menu_code];
+        const mid = menuCodeToId[(sale as any).menu_code];
         if (!mid) continue;
-        const dateBoms = bomRows.filter((b) => b.menu_id === mid);
-        for (const bom of dateBoms) {
+        const date = (sale as any).sale_date;
+        if (!date) continue;
+        const relatedBoms = bomRows.filter((b) => b.menu_id === mid);
+        for (const bom of relatedBoms) {
           if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
-          const date = (sale as any).sale_date || dateFrom;
           dailyUsageBySkuId[bom.sku_id][date] =
             (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.effective_qty;
         }
