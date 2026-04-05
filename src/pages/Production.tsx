@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ChevronLeft,
@@ -474,6 +475,21 @@ export default function ProductionPage({
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
   }, [rows, planLocked, planQtyUom, weekRecordsBySku]);
 
+  const weekOptions = useMemo(() => {
+    const weeks = new Set<string>();
+    productionData.records.forEach((r) => {
+      const d = new Date(r.productionDate);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      weeks.add(toLocalDateStr(d));
+    });
+    productionData.plans.forEach((p) => weeks.add(p.weekStartDate));
+    weeks.add(getCurrentWeekMonday());
+    weeks.add(getNextWeekMonday());
+    return [...weeks].sort((a, b) => b.localeCompare(a));
+  }, [productionData.records, productionData.plans]);
+
   // ─── Handlers ───
   const prevWeek = () => {
     const d = new Date(weekStart);
@@ -708,6 +724,22 @@ export default function ProductionPage({
                 </Badge>
               )}
             </div>
+            <Select value={weekStart} onValueChange={setWeekStart}>
+              <SelectTrigger className="h-8 w-8 border-0 bg-transparent p-0 shadow-none [&>svg]:hidden focus:ring-0">
+                <ChevronDown className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {weekOptions.map((ws) => {
+                  const we = getWeekEndDate(ws);
+                  const wn = getISOWeekNumber(ws);
+                  return (
+                    <SelectItem key={ws} value={ws} className="text-xs font-mono">
+                      Week {wn} · {formatDate(ws)} – {formatDate(we)}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextWeek}>
               <ChevronRight className="w-4 h-4" />
             </Button>
