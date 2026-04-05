@@ -153,7 +153,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       // Get sales for this branch last 7 days
       const { data: salesRows } = await supabase
         .from("sales_entries")
-        .select("menu_code, qty, sale_date")
+        .select("menu_code, menu_name, qty, sale_date")
         .eq("branch_id", branchId)
         .gte("sale_date", dateFrom);
 
