@@ -144,9 +144,27 @@ export function useBranchSmStock(branchId: string | null) {
         bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
       }
 
+      // Fetch waste per SKU per day for the same 7-day window
+      const { data: wasteRows } = await supabase
+        .from("daily_stock_counts")
+        .select("sku_id, waste, count_date")
+        .eq("branch_id", branchId)
+        .gte("count_date", dateFrom)
+        .lte("count_date", todayStr)
+        .in("sku_id", skuIds);
+
+      // Build waste map: skuId → { date → waste }
+      const dailyWasteBySkuId: Record<string, Record<string, number>> = {};
+      const totalWasteBySkuId: Record<string, number> = {};
+      for (const row of wasteRows || []) {
+        if (!row.waste || row.waste === 0) continue;
+        totalWasteBySkuId[row.sku_id] = (totalWasteBySkuId[row.sku_id] || 0) + Number(row.waste);
+        if (!dailyWasteBySkuId[row.sku_id]) dailyWasteBySkuId[row.sku_id] = {};
+        dailyWasteBySkuId[row.sku_id][row.count_date] = Number(row.waste);
+      }
+
       const totalUsageBySkuId: Record<string, number> = {};
-      // Usage per day per SKU
-      const usageByDateBySku: Record<string, Record<string, number>> = {};
+
       for (const bom of bomRows) {
         const soldQty = qtySoldByMenuId[bom.menu_id] || 0;
         if (soldQty === 0) continue;
@@ -304,8 +322,14 @@ export function useBranchSmStock(branchId: string | null) {
 
       for (const skuId of skuIds) {
         const activeDays = new Set((salesRows || []).map((s: any) => s.sale_date)).size || 1;
-        const avgDailyUsage = (totalUsageBySkuId[skuId] || 0) / activeDays;
-        const dailyValues = Object.values(dailyUsageBySkuId[skuId] || {});
+        const totalConsumption = (totalUsageBySkuId[skuId] || 0) + (totalWasteBySkuId[skuId] || 0);
+        const avgDailyUsage = totalConsumption / activeDays;
+        // Merge sales daily + waste daily for peak calculation
+        const mergedDaily: Record<string, number> = { ...dailyUsageBySkuId[skuId] };
+        for (const [date, w] of Object.entries(dailyWasteBySkuId[skuId] || {})) {
+          mergedDaily[date] = (mergedDaily[date] || 0) + w;
+        }
+        const dailyValues = Object.values(mergedDaily);
         const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
         const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
 
