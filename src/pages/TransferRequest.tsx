@@ -1159,7 +1159,7 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompact} title={packLabel}>
                                 <span className="whitespace-nowrap truncate block">{packLabel}</span>
                               </td>
-                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 1)}</td>
+                              <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 0)}</td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(ropInPurchase, 0)}
                               </td>
