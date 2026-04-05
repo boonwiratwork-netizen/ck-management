@@ -2559,16 +2559,16 @@ export default function BranchReceiptPage({
           <div className="overflow-y-auto max-h-[65vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 95 }} /> {/* date */}
+                <col style={{ width: 90 }} /> {/* date */}
                 <col style={{ width: 80 }} /> {/* sku */}
                 <col style={{ width: 210 }} /> {/* name */}
-                <col style={{ width: 105 }} /> {/* supplier */}
-                <col style={{ width: 90 }} /> {/* TO ref */}
+                <col style={{ width: 95 }} /> {/* supplier */}
+                <col style={{ width: 95 }} /> {/* TO ref */}
                 <col style={{ width: 65 }} /> {/* qty */}
                 <col style={{ width: 60 }} /> {/* uom */}
                 <col style={{ width: 80 }} /> {/* actual */}
                 <col style={{ width: 80 }} /> {/* std */}
-                <col style={{ width: 85 }} /> {/* variance */}
+                <col style={{ width: 80 }} /> {/* variance */}
                 {isManagement && <col style={{ width: 55 }} />} {/* branch */}
                 {isManagement && <col style={{ width: 50 }} />} {/* actions */}
               </colgroup>
