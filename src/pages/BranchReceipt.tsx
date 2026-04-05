@@ -2655,7 +2655,7 @@ export default function BranchReceiptPage({
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="block truncate">{sku?.skuId || "—"}</span>
+                              <span className="truncate">{sku?.skuId || "—"}</span>
                             </TooltipTrigger>
                             {sku?.skuId && (
                               <TooltipContent side="top">
