@@ -418,16 +418,6 @@ export default function StoreStockPage({
     }
     const activeDays = [...salesByDate.keys()].filter((d) => d >= since).length;
     const divisor = activeDays > 0 ? activeDays : 7;
-    console.log(
-      "[StoreStock] since:",
-      since,
-      "activeDays:",
-      activeDays,
-      "divisor:",
-      divisor,
-      "RM-0017 total:",
-      totalUsage[Object.keys(totalUsage).find((k) => k === (skus.find((s) => s.skuId === "RM-0017")?.id ?? "")) ?? ""],
-    );
     const totalUsage = calculateUsageFromSales(
       recentSales,
       menus,
@@ -436,6 +426,17 @@ export default function StoreStockPage({
       spBomLines,
       skus,
       effectiveBranchId ?? undefined,
+    );
+    const rm0017id = skus.find((s) => s.skuId === "RM-0017")?.id ?? "";
+    console.log(
+      "[StoreStock] since:",
+      since,
+      "activeDays:",
+      activeDays,
+      "divisor:",
+      divisor,
+      "RM-0017 total:",
+      totalUsage[rm0017id] ?? 0,
     );
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
