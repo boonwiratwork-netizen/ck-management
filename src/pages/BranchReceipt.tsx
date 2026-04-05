@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Save, Plus, Trash2, CheckCircle, Search, Truck, Zap, PackageOpen, X } from "lucide-react";
+import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -131,7 +131,7 @@ export default function BranchReceiptPage({
 }: Props) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const { t } = useLanguage();
-  const { receipts, saveReceipts, deleteReceipt, fetchReceipts } = useBranchReceiptData();
+  const { receipts, saveReceipts, updateReceipt, deleteReceipt, fetchReceipts } = useBranchReceiptData();
 
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(isStoreManager && profile?.branch_id ? profile.branch_id : "");
@@ -784,6 +784,10 @@ export default function BranchReceiptPage({
   }, [receipts, historyBranch, historyDateFrom, historyDateTo, isStoreManager, profile]);
 
   // TO number lookup for history
+
+  const [editReceipt, setEditReceipt] = useState<BranchReceipt | null>(null);
+  const [editForm, setEditForm] = useState({ qtyReceived: 0, actualTotal: 0, notes: "" });
+  const [editSaving, setEditSaving] = useState(false);
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
   useEffect(() => {
     const toIds = [...new Set(receipts.filter((r) => r.transferOrderId).map((r) => r.transferOrderId!))];
@@ -2711,17 +2715,30 @@ export default function BranchReceiptPage({
                       {isManagement && <td className={tdReadOnly}>{branch?.branchName || "—"}</td>}
                       {isManagement && (
                         <td className={`${tdReadOnly} text-center`}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => {
-                              deleteReceipt(r.id);
-                              toast.success("Deleted");
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <span className="inline-flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => {
+                                setEditReceipt(r);
+                                setEditForm({ qtyReceived: r.qtyReceived, actualTotal: r.actualTotal, notes: r.notes });
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                deleteReceipt(r.id);
+                                toast.success("Deleted");
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </span>
                         </td>
                       )}
                     </tr>
@@ -2771,6 +2788,70 @@ export default function BranchReceiptPage({
           </div>
         )}
       </div>
+
+      <Dialog
+        open={!!editReceipt}
+        onOpenChange={(open) => {
+          if (!open) setEditReceipt(null);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Qty Received</label>
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                value={editForm.qtyReceived}
+                onChange={(e) => setEditForm((f) => ({ ...f, qtyReceived: Number(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Actual Total (฿)</label>
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                value={editForm.actualTotal}
+                onChange={(e) => setEditForm((f) => ({ ...f, actualTotal: Number(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Notes</label>
+              <Input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditReceipt(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={editSaving}
+              onClick={async () => {
+                if (!editReceipt) return;
+                setEditSaving(true);
+                const ok = await updateReceipt(editReceipt.id, {
+                  qtyReceived: editForm.qtyReceived,
+                  actualTotal: editForm.actualTotal,
+                  notes: editForm.notes,
+                  stdUnitPrice: editReceipt.stdUnitPrice,
+                });
+                setEditSaving(false);
+                if (ok) {
+                  setEditReceipt(null);
+                  toast.success("Receipt updated");
+                }
+              }}
+            >
+              {editSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmOpen}
