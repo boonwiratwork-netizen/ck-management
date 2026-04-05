@@ -336,14 +336,15 @@ export default function TransferRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [batchInputs, setBatchInputs] = useState<Record<string, number>>({});
   const [coverDayInputs, setCoverDayInputs] = useState<Record<string, number>>({});
+  const [pendingQtyBySkuId, setPendingQtyBySkuId] = useState<Record<string, number>>({});
   const qtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
   const prQtyInputRefs = useRef<Record<string, HTMLInputElement>>({});
 
   // PR items to order
   const prItemsToOrder = useMemo(() => Object.values(prBatchInputs).filter((v) => v > 0).length, [prBatchInputs]);
-  const calcCoverDay = (stockOnHand: number, avgDailyUsage: number, extraQty: number = 0) => {
+  const calcCoverDay = (stockOnHand: number, avgDailyUsage: number, extraQty: number = 0, pendingQty: number = 0) => {
     if (avgDailyUsage <= 0) return null;
-    return (stockOnHand + extraQty) / avgDailyUsage;
+    return (stockOnHand + pendingQty + extraQty) / avgDailyUsage;
   };
   const canSubmitPR = !!requiredDate && prItemsToOrder > 0;
 
@@ -562,15 +563,39 @@ export default function TransferRequestPage() {
   }, []);
 
   // When form opens, reset
+  const fetchPendingQty = useCallback(async () => {
+    if (!effectiveBranchId) return;
+    const [trRes, prRes] = await Promise.all([
+      supabase
+        .from("transfer_request_lines")
+        .select("sku_id, requested_qty, transfer_requests!inner(branch_id, status)")
+        .eq("transfer_requests.branch_id", effectiveBranchId)
+        .in("transfer_requests.status", ["Submitted", "Acknowledged"]),
+      supabase
+        .from("purchase_request_lines")
+        .select("sku_id, requested_qty, purchase_requests!inner(branch_id, status)")
+        .eq("purchase_requests.branch_id", effectiveBranchId)
+        .in("purchase_requests.status", ["Submitted", "Acknowledged"]),
+    ]);
+    const map: Record<string, number> = {};
+    for (const row of trRes.data || []) {
+      map[row.sku_id] = (map[row.sku_id] || 0) + Number(row.requested_qty);
+    }
+    for (const row of prRes.data || []) {
+      map[row.sku_id] = (map[row.sku_id] || 0) + Number(row.requested_qty);
+    }
+    setPendingQtyBySkuId(map);
+  }, [effectiveBranchId]);
+
   const handleOpenForm = useCallback(() => {
     setFormOpen(true);
     setBatchInputs({});
     setPrBatchInputs({});
     setNotes("");
     setRequiredDate(undefined);
-    // Default to CK
     setSelectedSupplierId(CK_SUPPLIER_ID);
-  }, []);
+    fetchPendingQty();
+  }, [fetchPendingQty]);
 
   const handleCloseForm = useCallback(() => {
     setFormOpen(false);
@@ -970,31 +995,36 @@ export default function TransferRequestPage() {
                             >
                               <td className={tableTokens.dataCellCompact}>
                                 {(() => {
-                                  if (line.status === "no-data")
+                                  if (line.status === "no-data" || line.avgDailyUsage <= 0)
                                     return <span className="text-xs text-muted-foreground">—</span>;
-                                  if (line.avgDailyUsage > 0) {
-                                    const coverDay = line.stockOnHand / line.avgDailyUsage;
-                                    const ropDays = line.rop / line.avgDailyUsage;
-                                    const parstockDays = line.parstock / line.avgDailyUsage;
-                                    if (coverDay < ropDays)
-                                      return (
-                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
-                                          ต้องสั่ง
-                                        </span>
-                                      );
-                                    if (coverDay < parstockDays)
-                                      return (
-                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
-                                          พอใช้
-                                        </span>
-                                      );
+                                  const pending = pendingQtyBySkuId[line.skuId] || 0;
+                                  const cdWithout = line.stockOnHand / line.avgDailyUsage;
+                                  const cdWith = (line.stockOnHand + pending) / line.avgDailyUsage;
+                                  const ropDays = line.rop / line.avgDailyUsage;
+                                  const parstockDays = line.parstock / line.avgDailyUsage;
+                                  if (pending > 0 && cdWithout < ropDays && cdWith >= ropDays)
                                     return (
-                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#E6F1FB] text-[#0C447C]">
+                                        กำลังสั่ง
+                                      </span>
+                                    );
+                                  if (cdWith < ropDays)
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
+                                        ต้องสั่ง
+                                      </span>
+                                    );
+                                  if (cdWith < parstockDays)
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
                                         พอใช้
                                       </span>
                                     );
-                                  }
-                                  return <span className="text-xs text-muted-foreground">—</span>;
+                                  return (
+                                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                      พอใช้
+                                    </span>
+                                  );
                                 })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
