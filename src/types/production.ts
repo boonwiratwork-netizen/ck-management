@@ -1,35 +1,39 @@
-import { toLocalDateStr } from '@/lib/utils';
+import { toLocalDateStr } from "@/lib/utils";
 
-export type PlanStatus = 'Planned' | 'In Progress' | 'Done';
+export type PlanStatus = "Planned" | "In Progress" | "Done";
 
 export interface ProductionPlan {
   id: string;
   weekNumber: number;
-  weekStartDate: string;     // ISO date (Monday)
-  weekEndDate: string;       // ISO date (Sunday)
-  smSkuId: string;           // references SKU.id (SM type only)
-  targetQtyKg: number;       // target output in kg
-  numBatches: number;        // auto-calculated: targetQtyKg * 1000 / outputPerBatch
+  weekStartDate: string; // ISO date (Monday)
+  weekEndDate: string; // ISO date (Sunday)
+  smSkuId: string; // references SKU.id (SM type only)
+  targetQtyKg: number; // target output in kg
+  numBatches: number; // auto-calculated: targetQtyKg * 1000 / outputPerBatch
   status: PlanStatus;
 }
 
 export interface ProductionRecord {
   id: string;
-  planId: string;            // references ProductionPlan.id
-  productionDate: string;    // ISO date
-  smSkuId: string;           // auto-filled from plan
+  planId: string; // references ProductionPlan.id
+  productionDate: string; // ISO date
+  smSkuId: string; // auto-filled from plan
   batchesProduced: number;
-  actualOutputG: number;     // actual output in grams
+  actualOutputG: number; // actual output in grams
+  createdAt?: string; // ISO datetime
 }
 
-export const EMPTY_PRODUCTION_PLAN: Omit<ProductionPlan, 'id' | 'numBatches' | 'weekNumber' | 'weekStartDate' | 'weekEndDate'> = {
-  smSkuId: '',
+export const EMPTY_PRODUCTION_PLAN: Omit<
+  ProductionPlan,
+  "id" | "numBatches" | "weekNumber" | "weekStartDate" | "weekEndDate"
+> = {
+  smSkuId: "",
   targetQtyKg: 0,
-  status: 'Planned',
+  status: "Planned",
 };
 
-export const EMPTY_PRODUCTION_RECORD: Omit<ProductionRecord, 'id' | 'smSkuId'> = {
-  planId: '',
+export const EMPTY_PRODUCTION_RECORD: Omit<ProductionRecord, "id" | "smSkuId"> = {
+  planId: "",
   productionDate: toLocalDateStr(new Date()),
   batchesProduced: 0,
   actualOutputG: 0,
