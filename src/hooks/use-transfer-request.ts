@@ -146,7 +146,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
 
       const { data: salesRows } = await supabase
         .from("sales_entries")
-        .select("menu_code, qty, sale_date")
+        .select("menu_code, menu_name, qty, sale_date")
         .eq("branch_id", branchId)
         .gte("sale_date", dateFrom);
       const menuCodes = [...new Set((salesRows || []).map((s) => s.menu_code))];
