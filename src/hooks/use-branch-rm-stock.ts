@@ -250,14 +250,15 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       // 8. Calculate per SKU
       const result: Record<string, BranchRmStockEntry> = {};
 
-      // Peak daily usage per SKU
+      // Peak daily usage per SKU — salesRows as outer loop to prevent double-count
       const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
-      for (const bom of bomRows) {
-        const mid = bom.menu_id;
-        for (const sale of salesRows || []) {
-          const saleMenuId = menuCodeToId[(sale as any).menu_code];
-          if (saleMenuId !== mid) continue;
-          const date = (sale as any).sale_date || dateFrom;
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[(sale as any).menu_code];
+        if (!mid) continue;
+        const date = (sale as any).sale_date;
+        if (!date) continue;
+        for (const bom of bomRows) {
+          if (bom.menu_id !== mid) continue;
           if (skuIds.includes(bom.sku_id)) {
             if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
             dailyUsageBySkuId[bom.sku_id][date] =
