@@ -1052,15 +1052,31 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompactMono}>
                                 {(() => {
                                   const extra = (coverDayInputs[line.skuId] ?? 0) * line.packSize;
-                                  const cd = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
-                                  if (cd === null) return <span className="text-muted-foreground">—</span>;
+                                  const pending = pendingQtyBySkuId[line.skuId] || 0;
+                                  const cdBase = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
+                                  const cdWithPending = calcCoverDay(
+                                    line.stockOnHand,
+                                    line.avgDailyUsage,
+                                    extra,
+                                    pending,
+                                  );
+                                  if (cdWithPending === null) return <span className="text-muted-foreground">—</span>;
                                   const color =
-                                    cd >= line.parstock / line.avgDailyUsage
+                                    cdWithPending >= line.parstock / line.avgDailyUsage
                                       ? "text-success"
-                                      : cd >= line.rop / line.avgDailyUsage
+                                      : cdWithPending >= line.rop / line.avgDailyUsage
                                         ? "text-warning"
                                         : "text-destructive";
-                                  return <span className={color}>{cd.toFixed(1)} วัน</span>;
+                                  return (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <span className={color}>{cdWithPending.toFixed(1)} วัน</span>
+                                      {pending > 0 && cdBase !== null && (
+                                        <span className="text-xs text-muted-foreground">
+                                          → {cdBase.toFixed(1)} ไม่รวมรอรับ
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
                                 })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} text-right`}>
@@ -1225,31 +1241,36 @@ export default function TransferRequestPage() {
                             >
                               <td className={tableTokens.dataCellCompact}>
                                 {(() => {
-                                  if (line.status === "no-data")
+                                  if (line.status === "no-data" || line.avgDailyUsage <= 0)
                                     return <span className="text-xs text-muted-foreground">—</span>;
-                                  if (line.avgDailyUsage > 0) {
-                                    const coverDay = line.stockOnHand / line.avgDailyUsage;
-                                    const ropDays = line.rop / line.avgDailyUsage;
-                                    const parstockDays = line.parstock / line.avgDailyUsage;
-                                    if (coverDay < ropDays)
-                                      return (
-                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
-                                          ต้องสั่ง
-                                        </span>
-                                      );
-                                    if (coverDay < parstockDays)
-                                      return (
-                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
-                                          พอใช้
-                                        </span>
-                                      );
+                                  const pending = pendingQtyBySkuId[line.skuId] || 0;
+                                  const cdWithout = line.stockOnHand / line.avgDailyUsage;
+                                  const cdWith = (line.stockOnHand + pending) / line.avgDailyUsage;
+                                  const ropDays = line.rop / line.avgDailyUsage;
+                                  const parstockDays = line.parstock / line.avgDailyUsage;
+                                  if (pending > 0 && cdWithout < ropDays && cdWith >= ropDays)
                                     return (
-                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#E6F1FB] text-[#0C447C]">
+                                        กำลังสั่ง
+                                      </span>
+                                    );
+                                  if (cdWith < ropDays)
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FCEBEB] text-[#791F1F]">
+                                        ต้องสั่ง
+                                      </span>
+                                    );
+                                  if (cdWith < parstockDays)
+                                    return (
+                                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#FAEEDA] text-[#633806]">
                                         พอใช้
                                       </span>
                                     );
-                                  }
-                                  return <span className="text-xs text-muted-foreground">—</span>;
+                                  return (
+                                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[#EAF3DE] text-[#27500A]">
+                                      พอใช้
+                                    </span>
+                                  );
                                 })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} font-mono`}>{line.skuCode}</td>
@@ -1275,15 +1296,31 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompactMono}>
                                 {(() => {
                                   const extra = (coverDayInputs[line.skuId] ?? 0) * line.packSize;
-                                  const cd = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
-                                  if (cd === null) return <span className="text-muted-foreground">—</span>;
+                                  const pending = pendingQtyBySkuId[line.skuId] || 0;
+                                  const cdBase = calcCoverDay(line.stockOnHand, line.avgDailyUsage, extra);
+                                  const cdWithPending = calcCoverDay(
+                                    line.stockOnHand,
+                                    line.avgDailyUsage,
+                                    extra,
+                                    pending,
+                                  );
+                                  if (cdWithPending === null) return <span className="text-muted-foreground">—</span>;
                                   const color =
-                                    cd >= line.parstock / line.avgDailyUsage
+                                    cdWithPending >= line.parstock / line.avgDailyUsage
                                       ? "text-success"
-                                      : cd >= line.rop / line.avgDailyUsage
+                                      : cdWithPending >= line.rop / line.avgDailyUsage
                                         ? "text-warning"
                                         : "text-destructive";
-                                  return <span className={color}>{cd.toFixed(1)} วัน</span>;
+                                  return (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <span className={color}>{cdWithPending.toFixed(1)} วัน</span>
+                                      {pending > 0 && cdBase !== null && (
+                                        <span className="text-xs text-muted-foreground">
+                                          → {cdBase.toFixed(1)} ไม่รวมรอรับ
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
                                 })()}
                               </td>
                               <td className={`${tableTokens.dataCellCompact} text-right`}>
