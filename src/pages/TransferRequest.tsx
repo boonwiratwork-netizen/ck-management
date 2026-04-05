@@ -980,7 +980,6 @@ export default function TransferRequestPage() {
                               </td>
                               <td className={tableTokens.dataCellCompactMono}>
                                 {line.avgDailyUsage > 0 ? formatNumber(line.avgDailyUsage, 0) : "—"}
-                                <span className="text-muted-foreground text-xs ml-0.5">{line.uom}/วัน</span>
                               </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(line.parstock, 0)}
@@ -1164,7 +1163,6 @@ export default function TransferRequestPage() {
                               <td className={tableTokens.dataCellCompactMono}>{formatNumber(stockInPurchase, 0)}</td>
                               <td className={tableTokens.dataCellCompactMono}>
                                 {line.avgDailyUsage > 0 ? formatNumber(line.avgDailyUsage, 0) : "—"}
-                                <span className="text-muted-foreground text-xs ml-0.5">{line.usageUom}/วัน</span>
                               </td>
                               <td className={`${tableTokens.dataCellCompactMono} text-muted-foreground`}>
                                 {formatNumber(parstockInPurchase, 0)}
