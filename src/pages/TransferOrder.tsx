@@ -1492,15 +1492,7 @@ export default function TransferOrderPage({
                         {to.toNumber}
                       </td>
                       <td className={tableTokens.dataCell}>
-                        <span className="font-mono">
-                          {(() => {
-                            const [y, m, d] = to.deliveryDate.split("-");
-                            return `${d}/${m}/${y.slice(2)}`;
-                          })()}
-                        </span>{" "}
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {formatTOTimestamp(to.updatedAt)}
-                        </span>
+                        <span className="font-mono">{formatTOTimestamp(to.updatedAt)}</span>
                       </td>
                       <td className={tableTokens.truncatedCell} title={to.branchName}>
                         {to.branchName}
