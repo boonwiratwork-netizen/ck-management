@@ -178,7 +178,10 @@ export function StockCard({
               .eq("branch_id", branchId!)
               .gte("sale_date", resolvedStartDate)
               .order("sale_date", { ascending: true }),
-            supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
+            supabase
+              .from("menu_bom")
+              .select("menu_id, sku_id, effective_qty")
+              .or(`branch_id.is.null,branch_id.eq.${branchId}`),
             supabase.from("menus").select("id, menu_code"),
             supabase.from("sp_bom").select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty"),
             supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
