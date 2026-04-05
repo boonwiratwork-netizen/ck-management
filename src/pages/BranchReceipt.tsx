@@ -2651,7 +2651,7 @@ export default function BranchReceiptPage({
                       className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors"
                     >
                       <td className={tdReadOnly}>{r.receiptDate}</td>
-                      <td className={`${tdReadOnly} font-mono truncate`}>
+                      <td className={`${tdReadOnly} truncate`}>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
