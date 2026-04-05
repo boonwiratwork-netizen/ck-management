@@ -414,9 +414,9 @@ export default function StoreStockPage({
     const since = sevenDaysAgo.toISOString().split("T")[0];
     const recentSales: { menu_code: string; menu_name: string; qty: number }[] = [];
     for (const [date, dateSales] of salesByDate) {
-      if (date > since) recentSales.push(...dateSales);
+      if (date >= since) recentSales.push(...dateSales);
     }
-    const activeDays = [...salesByDate.keys()].filter((d) => d > since).length;
+    const activeDays = [...salesByDate.keys()].filter((d) => d >= since).length;
     const divisor = activeDays > 0 ? activeDays : 7;
     const totalUsage = calculateUsageFromSales(
       recentSales,
