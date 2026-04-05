@@ -212,7 +212,10 @@ export default function FoodCostPage({
         for (const rule of activeRules) {
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           const menuName = sale.menu_name || "";
-          if (menuName.includes(rule.keyword)) {
+          const ruleMatches = rule.ruleType === "submenu"
+            ? sale.menu_code === rule.keyword
+            : menuName.includes(rule.keyword);
+          if (ruleMatches) {
             if (rule.ruleType === "swap") {
               if (rule.swapSkuId) {
                 const bomLines2 = bomByMenuId.get(menu.id) || [];
