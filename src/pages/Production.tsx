@@ -1188,7 +1188,7 @@ export default function ProductionPage({
               <table className={table.base}>
                 {/* History colgroup (5 cols) */}
                 <colgroup>
-                  <col style={{ width: "90px" }} />
+                  <col style={{ width: "150px" }} />
                   <col style={{ width: "72px" }} />
                   <col />
                   <col style={{ width: "110px" }} />
