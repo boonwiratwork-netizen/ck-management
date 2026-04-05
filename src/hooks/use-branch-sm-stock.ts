@@ -257,6 +257,47 @@ export function useBranchSmStock(branchId: string | null) {
         }
       }
 
+      // Apply modifier rules to daily usage
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[sale.menu_code];
+        if (!mid) continue;
+        const date = sale.sale_date;
+        if (!date) continue;
+        const menuName = (sale.menu_name || "").toLowerCase();
+        const saleQty = Number(sale.qty);
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if (sale.menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomLines) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
+              dailyUsageBySkuId[sbom.sku_id][date] = (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
+                dailyUsageBySkuId[rule.swapSkuId][date] = (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
       // 6. Snap + ledger balance: find most recent physical_count per SKU
       const { data: countData } = await supabase
         .from("daily_stock_counts")

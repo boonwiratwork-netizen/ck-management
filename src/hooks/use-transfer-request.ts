@@ -425,8 +425,18 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
             ? Number(latest.physical_count)
             : latest.calculated_balance
           : 0;
-        const rop = avgDailyUsage * leadTime;
-        const parstock = avgDailyUsage * (leadTime * 2);
+
+        // Merge daily usage + waste for peak
+        const mergedDaily: Record<string, number> = { ...(dailyUsageBySkuId[s.id] || {}) };
+        for (const [d, w] of Object.entries(dailyWasteBySkuId[s.id] || {})) {
+          mergedDaily[d] = (mergedDaily[d] || 0) + w;
+        }
+        const dailyValues = Object.values(mergedDaily);
+        const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
+
+        const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
+        const rop = avgDailyUsage * leadTime + safetyStock;
+        const parstock = avgDailyUsage + peakDailyUsage * leadTime;
         const suggestedOrder = Math.max(0, parstock - stockOnHand);
         const suggestedBatches = suggestedOrder > 0 ? Math.ceil(suggestedOrder / ps) : 0;
 
@@ -448,7 +458,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           suggestedBatches,
           stockOnHand,
           avgDailyUsage: Math.round(avgDailyUsage * 100) / 100,
-          peakDailyUsage: 0,
+          peakDailyUsage: Math.round(peakDailyUsage * 100) / 100,
           rop: Math.round(rop * 100) / 100,
           parstock: Math.round(parstock * 100) / 100,
           status,

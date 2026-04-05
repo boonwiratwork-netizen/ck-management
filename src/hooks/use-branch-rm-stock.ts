@@ -397,6 +397,65 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         }
       }
 
+      // Apply modifier rules to daily usage
+      for (const sale of salesRows || []) {
+        const mid = menuCodeToId[(sale as any).menu_code];
+        if (!mid) continue;
+        const date = (sale as any).sale_date;
+        if (!date) continue;
+        const menuName = ((sale as any).menu_name || "").toLowerCase();
+        const saleQty = Number(sale.qty);
+        for (const rule of modifierRules) {
+          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+          if (rule.ruleType === "submenu") {
+            if ((sale as any).menu_code !== rule.keyword) continue;
+            for (const sbom of submenuBomAll) {
+              if (sbom.menu_id !== rule.submenuId) continue;
+              if (skuIds.includes(sbom.sku_id)) {
+                if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
+                dailyUsageBySkuId[sbom.sku_id][date] = (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+              } else {
+                const spLines = submenuSpBom.filter(sp => sp.sp_sku_id === sbom.sku_id);
+                for (const sp of spLines) {
+                  const batchYield = Number(sp.batch_yield_qty) || 1;
+                  if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
+                  dailyUsageBySkuId[sp.ingredient_sku_id][date] = (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
+                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                }
+              }
+            }
+          } else if (rule.ruleType === "swap") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+              const swapBom = bomRows.find(b => b.menu_id === mid && b.sku_id === rule.swapSkuId);
+              if (swapBom) {
+                if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
+                dailyUsageBySkuId[rule.swapSkuId][date] = (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
+              }
+            }
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          } else if (rule.ruleType === "add") {
+            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (rule.skuId && skuIds.includes(rule.skuId)) {
+              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
+              dailyUsageBySkuId[rule.skuId][date] = (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
+            }
+          }
+        }
+      }
+
+      // Add waste to daily usage
+      for (const [wSkuId, dates] of Object.entries(dailyWasteBySkuId)) {
+        if (!dailyUsageBySkuId[wSkuId]) dailyUsageBySkuId[wSkuId] = {};
+        for (const [date, waste] of Object.entries(dates)) {
+          dailyUsageBySkuId[wSkuId][date] = (dailyUsageBySkuId[wSkuId][date] || 0) + waste;
+        }
+      }
+
       for (const skuId of skuIds) {
         const skuInfo = filtered.find((s) => s.id === skuId);
         const packSize = Number(skuInfo?.pack_size) || 1;
