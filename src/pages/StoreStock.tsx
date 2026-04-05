@@ -408,15 +408,31 @@ export default function StoreStockPage({
     }
 
     setRows(resultRows);
-    // Compute live daily usage from already-fetched sales (last 7 days)
+    // Compute live daily usage — fetch last 7 days independently (salesByDate only covers since earliestSnap)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const since = sevenDaysAgo.toISOString().split("T")[0];
-    const recentSales: { menu_code: string; menu_name: string; qty: number }[] = [];
-    for (const [date, dateSales] of salesByDate) {
-      if (date >= since) recentSales.push(...dateSales);
+    const today2 = new Date().toISOString().split("T")[0];
+
+    const { data: recentSalesRaw } = await supabase
+      .from("sales_entries")
+      .select("menu_code, menu_name, qty, sale_date")
+      .eq("branch_id", branchId)
+      .gte("sale_date", since)
+      .lte("sale_date", today2);
+
+    const recentSalesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
+    for (const s of recentSalesRaw || []) {
+      const arr = recentSalesByDate.get(s.sale_date) || [];
+      arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
+      recentSalesByDate.set(s.sale_date, arr);
     }
-    const activeDays = [...salesByDate.keys()].filter((d) => d >= since).length;
+
+    const recentSales: { menu_code: string; menu_name: string; qty: number }[] = [];
+    for (const dateSales of recentSalesByDate.values()) {
+      recentSales.push(...dateSales);
+    }
+    const activeDays = recentSalesByDate.size;
     const divisor = activeDays > 0 ? activeDays : 7;
     const totalUsage = calculateUsageFromSales(
       recentSales,
