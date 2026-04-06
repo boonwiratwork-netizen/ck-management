@@ -1351,11 +1351,13 @@ export default function BranchReceiptPage({
                         {/* PLANNED */}
                         <td className={`${tdReadOnly} text-right font-mono align-middle`}>
                           {isPacksMode ? (
-                            <div className="text-right">
-                              <span className="text-sm font-medium">{plannedPacks}</span>
+                            <span className="text-sm font-medium">
+                              {plannedPacks}
                               <span className="text-xs text-muted-foreground ml-1">{packUnit}</span>
-                              <div className="text-xs text-muted-foreground">{line.plannedQty.toLocaleString()} g</div>
-                            </div>
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({line.plannedQty.toLocaleString()} g)
+                              </span>
+                            </span>
                           ) : (
                             <span className="font-mono text-sm">{line.plannedQty.toLocaleString()}</span>
                           )}
