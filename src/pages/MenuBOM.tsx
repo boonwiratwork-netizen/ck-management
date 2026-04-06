@@ -378,7 +378,7 @@ export default function MenuBOMPage({
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
-      <TableCell className="py-2 px-3 text-sm font-mono text-muted-foreground">
+      <TableCell className="py-2 px-3 text-sm font-mono text-muted-foreground" style={{ width: '88px', minWidth: '88px' }}>
         {formSkuId ? getSkuById(formSkuId)?.skuId : "—"}
       </TableCell>
       <TableCell className="py-2 px-3">
@@ -390,22 +390,26 @@ export default function MenuBOMPage({
           triggerClassName="h-8 text-sm w-full"
         />
         {editingLineId && (
-          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
-            <SelectTrigger className="h-7 text-xs mt-1 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Branches</SelectItem>
-              {activeBranches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 flex-wrap mt-1">
+            <button
+              onClick={() => setFormBranchId(null)}
+              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${formBranchId === null ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            >
+              All
+            </button>
+            {activeBranches.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setFormBranchId(b.id)}
+                className={`px-2 py-0.5 text-xs rounded-full transition-colors ${formBranchId === b.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              >
+                {b.branchName}
+              </button>
+            ))}
+          </div>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '80px', minWidth: '80px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -413,10 +417,10 @@ export default function MenuBOMPage({
           onChange={(e) => setFormQty(Number(e.target.value))}
         />
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '60px', minWidth: '60px' }}>
         <Input className="h-8 w-full text-sm" value={formUom} onChange={(e) => setFormUom(e.target.value)} />
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '72px', minWidth: '72px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -424,8 +428,8 @@ export default function MenuBOMPage({
           onChange={(e) => setFormYield(Number(e.target.value) || 100)}
         />
       </TableCell>
-      <TableCell className="text-sm text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
-      <TableCell className="text-sm text-right font-mono">
+      <TableCell className="text-sm text-right font-mono" style={{ width: '80px', minWidth: '80px' }}>{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
+      <TableCell className="text-sm text-right font-mono" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId
           ? (() => {
               const c = getActiveCost(formSkuId);
@@ -433,7 +437,7 @@ export default function MenuBOMPage({
             })()
           : "—"}
       </TableCell>
-      <TableCell className="text-sm text-right font-mono font-medium">
+      <TableCell className="text-sm text-right font-mono font-medium" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId && previewCost > 0 ? (
           `฿${previewCost.toFixed(2)}`
         ) : formSkuId ? (
@@ -442,7 +446,7 @@ export default function MenuBOMPage({
           "—"
         )}
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '64px', minWidth: '64px' }}>
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}>
             <Check className="w-3.5 h-3.5 text-success" />
