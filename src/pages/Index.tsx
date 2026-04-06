@@ -13,6 +13,7 @@ import { useProductionData } from '@/hooks/use-production-data';
 import { useSmStockData } from '@/hooks/use-sm-stock-data';
 import { useSmDailyUsage } from '@/hooks/use-sm-daily-usage';
 import { useDeliveryData } from '@/hooks/use-delivery-data';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 import { useBranchData } from '@/hooks/use-branch-data';
 import { useStockCountData } from '@/hooks/use-stock-count-data';
 import { useMenuData } from '@/hooks/use-menu-data';
