@@ -463,19 +463,6 @@ export default function StoreStockPage({
       }
     }
 
-    const rm0171id = skus.find((s) => s.skuId === "RM-0171")?.id ?? "";
-    console.log(
-      "[SS-debug] activeDays:",
-      activeDays,
-      "divisor:",
-      divisor,
-      "RM-0171 total:",
-      totalUsage[rm0171id] ?? 0,
-      "since:",
-      since,
-      "today2:",
-      today2,
-    );
     const daily: Record<string, number> = {};
     for (const [skuId, total] of Object.entries(totalUsage)) {
       daily[skuId] = total / divisor;
