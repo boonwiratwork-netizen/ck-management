@@ -1412,7 +1412,6 @@ export default function BranchReceiptPage({
                                   {sku?.usageUom || line.uom}
                                 </span>
                               </div>
-                              <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
                           )}
                         </td>
