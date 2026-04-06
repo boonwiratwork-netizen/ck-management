@@ -414,7 +414,7 @@ export default function StoreStockPage({
     setRows(resultRows);
     // Compute live daily usage — fetch last 7 days independently (salesByDate only covers since earliestSnap)
     const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     const since = sevenDaysAgo.toISOString().split("T")[0];
     const today2 = new Date().toISOString().split("T")[0];
 
