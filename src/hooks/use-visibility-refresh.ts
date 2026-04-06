@@ -8,10 +8,7 @@ import { useEffect, useRef, useCallback } from "react";
  * Add to any page component that needs auto-refresh on tab focus.
  * Default stale time: 5 minutes.
  */
-export function useVisibilityRefresh(
-  callbacks: (() => void | Promise<void>)[],
-  staleAfterMs: number = 5 * 60 * 1000,
-) {
+export function useVisibilityRefresh(callbacks: (() => void | Promise<void>)[], staleAfterMs: number = 5 * 1000) {
   const lastRefresh = useRef(Date.now());
 
   const refreshIfStale = useCallback(() => {
