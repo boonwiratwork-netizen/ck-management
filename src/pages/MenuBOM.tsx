@@ -698,11 +698,11 @@ export default function MenuBOMPage({
                             </TableCell>
                             <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
                               <div>{sku?.name ?? "—"}</div>
-                              <span
-                                className={`inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full ${line.branchId ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}
-                              >
-                                {branchName ?? "All"}
-                              </span>
+                              {branchName && (
+                                <span className="inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full bg-amber-100 text-amber-800">
+                                  {branchName}
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell
                               className="text-sm text-right font-mono py-2 px-3"
