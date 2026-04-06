@@ -374,7 +374,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           onValueChange={handleSkuChange}
           options={rmSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
           placeholder="Select RM SKU"
-          triggerClassName="h-8 text-xs w-full"
+          triggerClassName="h-8 text-sm w-full"
         />
       </TableCell>
       <TableCell className="text-sm text-muted-foreground truncate overflow-hidden py-1 px-2">
