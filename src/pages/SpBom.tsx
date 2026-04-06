@@ -368,7 +368,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
-      <TableCell className="py-1 px-2 text-sm font-mono text-muted-foreground">
+      <TableCell className="py-1 px-2 text-sm font-mono text-muted-foreground" style={{ width: '88px', minWidth: '88px' }}>
         {formSkuId ? getSkuById(formSkuId)?.skuId : "—"}
       </TableCell>
       <TableCell className="py-1 px-2">
@@ -380,7 +380,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           triggerClassName="h-8 text-sm w-full"
         />
       </TableCell>
-      <TableCell className="py-1 px-2">
+      <TableCell className="py-1 px-2" style={{ width: '80px', minWidth: '80px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -388,8 +388,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           onChange={(e) => setFormQty(Number(e.target.value))}
         />
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground py-1 px-2">{formUom || "—"}</TableCell>
-      <TableCell className="py-1 px-2">
+      <TableCell className="text-sm text-muted-foreground py-1 px-2" style={{ width: '60px', minWidth: '60px' }}>{formUom || "—"}</TableCell>
+      <TableCell className="py-1 px-2" style={{ width: '72px', minWidth: '72px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -397,10 +397,10 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           onChange={(e) => setFormYieldPct(Number(e.target.value) || 100)}
         />
       </TableCell>
-      <TableCell className="text-sm text-right font-mono py-1 px-2">
+      <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '80px', minWidth: '80px' }}>
         {formSkuId ? previewEffQty.toFixed(2) : "—"}
       </TableCell>
-      <TableCell className="text-sm text-right font-mono py-1 px-2">
+      <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId
           ? (() => {
               const c = getActiveCost(formSkuId);
@@ -408,7 +408,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
             })()
           : "—"}
       </TableCell>
-      <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
+      <TableCell className="text-sm text-right font-mono font-medium py-1 px-2" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId && previewLineCost > 0 ? (
           `฿${previewLineCost.toFixed(2)}`
         ) : formSkuId ? (
@@ -417,7 +417,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           "—"
         )}
       </TableCell>
-      <TableCell className="py-1 px-2">
+      <TableCell className="py-1 px-2" style={{ width: '64px', minWidth: '64px' }}>
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}>
             <Check className="w-3.5 h-3.5 text-success" />
