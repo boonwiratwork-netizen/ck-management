@@ -111,5 +111,5 @@ export function useGoodsReceiptData() {
     setReceipts(prev => prev.filter(r => r.id !== id));
   }, []);
 
-  return { receipts, addReceipt, updateReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll };
+  return { receipts, addReceipt, updateReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };
 }
