@@ -1436,10 +1436,7 @@ export default function BranchReceiptPage({
                                 placeholder="ยอดนับจริง"
                                 className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
-                              <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                <span className="font-bold">{sku?.purchaseUom || "g"}</span>
-                              </div>
+                              
                             </div>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
@@ -1665,10 +1662,7 @@ export default function BranchReceiptPage({
                                       placeholder="ยอดนับจริง"
                                       className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
-                                    <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                      est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                      <span className="font-bold">{sku?.purchaseUom || "g"}</span>
-                                    </div>
+                                    
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">—</span>
@@ -1870,10 +1864,7 @@ export default function BranchReceiptPage({
                                         placeholder="ยอดนับจริง"
                                         className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
-                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
-                                      </div>
+                                     
                                     </div>
                                   ) : (
                                     <div>
@@ -2132,10 +2123,7 @@ export default function BranchReceiptPage({
                                   placeholder="ยอดนับจริง"
                                   className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
-                                <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                  est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                  <span className="font-bold">{sku.purchaseUom || "g"}</span>
-                                </div>
+                                
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
@@ -2327,10 +2315,7 @@ export default function BranchReceiptPage({
                                         placeholder="ยอดนับจริง"
                                         className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
-                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
-                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
-                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
-                                      </div>
+                                                                            </div>
                                     </div>
                                   ) : (
                                     <div>
