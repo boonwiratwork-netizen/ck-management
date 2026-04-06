@@ -1483,9 +1483,8 @@ export default function BranchReceiptPage({
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 140 }} />
-                    <col style={{ width: 100 }} />
-                    <col style={{ width: 100 }} />
+                    <col style={{ width: 160 }} />
+
                     <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                   </colgroup>
@@ -1499,8 +1498,7 @@ export default function BranchReceiptPage({
                       </th>
                       <th className={`${thClass} text-right`}>WEIGHT</th>
                       <th className={`${thClass} text-right`}>ACTUAL TOTAL</th>
-                      <th className={`${thClass} text-right`}>ACTUAL UNIT</th>
-                      <th className={`${thClass} text-right`}>STD UNIT</th>
+
                       <th className={`${thClass} text-right`}>STD TOTAL</th>
                       <th className={`${thClass} text-right`}>VARIANCE</th>
                     </tr>
@@ -1510,7 +1508,7 @@ export default function BranchReceiptPage({
                       <Fragment key={group.supplierId}>
                         {/* Section divider */}
                         <tr className="bg-muted/40">
-                          <td colSpan={10} className="px-3 py-2">
+                          <td colSpan={8} className="px-3 py-2">
                             <span className="font-semibold text-sm">{group.supplierName}</span>
                             <span className="font-mono text-xs text-muted-foreground ml-2">
                               {group.prNumbers.join(", ")}
@@ -1703,29 +1701,14 @@ export default function BranchReceiptPage({
                                       )}
                                       placeholder="0.00"
                                     />
-                                    {hasQty && actualMatchesStd && (
-                                      <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
-                                        = STD
-                                      </span>
-                                    )}
                                   </div>
                                   {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               {/* ACTUAL UNIT */}
-                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                                <div>
-                                  {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                                </div>
-                              </td>
+
                               {/* STD UNIT */}
-                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                                <div>
-                                  {stdUnit > 0 ? stdUnit.toFixed(2) : "—"}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                                </div>
-                              </td>
+
                               {/* STD TOTAL */}
                               <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                                 <div>
@@ -1960,9 +1943,7 @@ export default function BranchReceiptPage({
                     <col style={{ width: 130 }} />
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 140 }} />
-                    <col style={{ width: 100 }} />
-                    <col style={{ width: 100 }} />
+                    <col style={{ width: 160 }} />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                   </colgroup>
@@ -1989,8 +1970,6 @@ export default function BranchReceiptPage({
                           </Tooltip>
                         </TooltipProvider>
                       </th>
-                      <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
-                      <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
                       <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
                       <th className={`${thClass} text-right`}>{t("col.variance")}</th>
                     </tr>
@@ -2186,27 +2165,11 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0.00"
                                 />
-                                {hasQty && actualMatchesStd && (
-                                  <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
-                                    = STD
-                                  </span>
-                                )}
                               </div>
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
-                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                            <div>
-                              {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                            </div>
-                          </td>
-                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
-                            <div>
-                              {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                            </div>
-                          </td>
+
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                             <div>
                               {stdTotal > 0
