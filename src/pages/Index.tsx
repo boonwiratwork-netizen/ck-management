@@ -147,7 +147,7 @@ const Index = () => {
   useVisibilityRefresh([
     () => smStockData.refreshProductionRecords(),
     () => smStockData.refreshToDelivered(),
-    () => receiptData.fetchReceipts(),
+    () => receiptData.loadAllHistory(),
   ]);
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
