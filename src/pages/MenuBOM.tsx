@@ -387,7 +387,7 @@ export default function MenuBOMPage({
           triggerClassName="h-8 text-sm w-full"
         />
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
+      <TableCell className="text-sm text-muted-foreground truncate overflow-hidden">
         <div>{formSkuId ? getSkuById(formSkuId)?.name : "—"}</div>
         {editingLineId && (
           <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
@@ -408,18 +408,18 @@ export default function MenuBOMPage({
       <TableCell>
         <Input
           type="number"
-          className="h-8 w-full text-xs text-right font-mono"
+          className="h-8 w-full text-sm text-right font-mono"
           value={formQty || ""}
           onChange={(e) => setFormQty(Number(e.target.value))}
         />
       </TableCell>
       <TableCell>
-        <Input className="h-8 w-full text-xs" value={formUom} onChange={(e) => setFormUom(e.target.value)} />
+        <Input className="h-8 w-full text-sm" value={formUom} onChange={(e) => setFormUom(e.target.value)} />
       </TableCell>
       <TableCell>
         <Input
           type="number"
-          className="h-8 w-full text-xs text-right font-mono"
+          className="h-8 w-full text-sm text-right font-mono"
           value={formYield}
           onChange={(e) => setFormYield(Number(e.target.value) || 100)}
         />
@@ -433,7 +433,7 @@ export default function MenuBOMPage({
             })()
           : "—"}
       </TableCell>
-      <TableCell className="text-xs text-right font-mono font-medium">
+      <TableCell className="text-sm text-right font-mono font-medium">
         {formSkuId && previewCost > 0 ? (
           `฿${previewCost.toFixed(2)}`
         ) : formSkuId ? (
