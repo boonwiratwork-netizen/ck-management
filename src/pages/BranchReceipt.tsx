@@ -1351,13 +1351,11 @@ export default function BranchReceiptPage({
                         {/* PLANNED */}
                         <td className={`${tdReadOnly} text-right font-mono align-middle`}>
                           {isPacksMode ? (
-                            <span className="text-sm font-medium">
-                              {plannedPacks}
+                            <div className="text-right">
+                              <span className="text-sm font-medium">{plannedPacks}</span>
                               <span className="text-xs text-muted-foreground ml-1">{packUnit}</span>
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({line.plannedQty.toLocaleString()} g)
-                              </span>
-                            </span>
+                              <div className="text-xs text-muted-foreground">{line.plannedQty.toLocaleString()} g</div>
+                            </div>
                           ) : (
                             <span className="font-mono text-sm">{line.plannedQty.toLocaleString()}</span>
                           )}
@@ -1414,6 +1412,7 @@ export default function BranchReceiptPage({
                                   {sku?.usageUom || line.uom}
                                 </span>
                               </div>
+                              <div className="text-xs mt-0.5 invisible">·</div>
                             </div>
                           )}
                         </td>
@@ -1438,6 +1437,10 @@ export default function BranchReceiptPage({
                                 placeholder="ยอดนับจริง"
                                 className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
+                              <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                              </div>
                             </div>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
@@ -1481,8 +1484,9 @@ export default function BranchReceiptPage({
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 160 }} />
-
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                   </colgroup>
@@ -1496,7 +1500,8 @@ export default function BranchReceiptPage({
                       </th>
                       <th className={`${thClass} text-right`}>WEIGHT</th>
                       <th className={`${thClass} text-right`}>ACTUAL TOTAL</th>
-
+                      <th className={`${thClass} text-right`}>ACTUAL UNIT</th>
+                      <th className={`${thClass} text-right`}>STD UNIT</th>
                       <th className={`${thClass} text-right`}>STD TOTAL</th>
                       <th className={`${thClass} text-right`}>VARIANCE</th>
                     </tr>
@@ -1506,7 +1511,7 @@ export default function BranchReceiptPage({
                       <Fragment key={group.supplierId}>
                         {/* Section divider */}
                         <tr className="bg-muted/40">
-                          <td colSpan={8} className="px-3 py-2">
+                          <td colSpan={10} className="px-3 py-2">
                             <span className="font-semibold text-sm">{group.supplierName}</span>
                             <span className="font-mono text-xs text-muted-foreground ml-2">
                               {group.prNumbers.join(", ")}
@@ -1543,17 +1548,24 @@ export default function BranchReceiptPage({
                               )}
                             >
                               <td className={`${tdReadOnly} font-mono text-xs align-middle`}>
-                                <div>{sku.skuId}</div>
+                                <div>
+                                  {sku.skuId}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
                               </td>
                               <td className={`${tdReadOnly} align-middle`} title={sku.name}>
                                 <div>
                                   <span className={cn("block truncate", hasQty ? "font-semibold" : "")}>
                                     {sku.name}
                                   </span>
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
-                                <div>{group.supplierName}</div>
+                                <div>
+                                  {group.supplierName}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
                               </td>
                               {/* PACKS */}
                               <td className="px-1 py-1 align-middle">
@@ -1656,6 +1668,10 @@ export default function BranchReceiptPage({
                                       placeholder="ยอดนับจริง"
                                       className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
+                                    <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                      est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                      <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                    </div>
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">—</span>
@@ -1688,13 +1704,29 @@ export default function BranchReceiptPage({
                                       )}
                                       placeholder="0.00"
                                     />
+                                    {hasQty && actualMatchesStd && (
+                                      <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                                        = STD
+                                      </span>
+                                    )}
                                   </div>
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               {/* ACTUAL UNIT */}
-
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                                <div>
+                                  {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
                               {/* STD UNIT */}
-
+                              <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                                <div>
+                                  {stdUnit > 0 ? stdUnit.toFixed(2) : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                                </div>
+                              </td>
                               {/* STD TOTAL */}
                               <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                                 <div>
@@ -1704,6 +1736,7 @@ export default function BranchReceiptPage({
                                         maximumFractionDigits: 0,
                                       })
                                     : "—"}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               {/* VARIANCE */}
@@ -1730,6 +1763,7 @@ export default function BranchReceiptPage({
                                   ) : (
                                     "—"
                                   )}
+                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                             </tr>
@@ -1854,6 +1888,10 @@ export default function BranchReceiptPage({
                                         placeholder="ยอดนับจริง"
                                         className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
+                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                      </div>
                                     </div>
                                   ) : (
                                     <div>
@@ -1923,7 +1961,9 @@ export default function BranchReceiptPage({
                     <col style={{ width: 130 }} />
                     <col style={{ width: 140 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 160 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 100 }} />
                   </colgroup>
@@ -1950,6 +1990,8 @@ export default function BranchReceiptPage({
                           </Tooltip>
                         </TooltipProvider>
                       </th>
+                      <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
+                      <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
                       <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
                       <th className={`${thClass} text-right`}>{t("col.variance")}</th>
                     </tr>
@@ -1982,6 +2024,7 @@ export default function BranchReceiptPage({
                               <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
                                 {sku.skuId}
                               </span>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td className={`${tdReadOnly} align-middle`} title={sku.name}>
@@ -1989,10 +2032,14 @@ export default function BranchReceiptPage({
                               <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
                                 {sku.name}
                               </span>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
-                            <div>{selectedSupplier?.name}</div>
+                            <div>
+                              {selectedSupplier?.name}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
                           </td>
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
@@ -2107,6 +2154,10 @@ export default function BranchReceiptPage({
                                   placeholder="ยอดนับจริง"
                                   className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
+                                <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                  est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                  <span className="font-bold">{sku.purchaseUom || "g"}</span>
+                                </div>
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
@@ -2136,10 +2187,27 @@ export default function BranchReceiptPage({
                                   )}
                                   placeholder="0.00"
                                 />
+                                {hasQty && actualMatchesStd && (
+                                  <span className="text-xs text-muted-foreground bg-muted px-1 rounded whitespace-nowrap shrink-0">
+                                    = STD
+                                  </span>
+                                )}
                               </div>
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
-
+                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                            <div>
+                              {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
+                          </td>
+                          <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                            <div>
+                              {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
+                            </div>
+                          </td>
                           <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                             <div>
                               {stdTotal > 0
@@ -2148,6 +2216,7 @@ export default function BranchReceiptPage({
                                     maximumFractionDigits: 0,
                                   })
                                 : "—"}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td
@@ -2173,6 +2242,7 @@ export default function BranchReceiptPage({
                               ) : (
                                 "—"
                               )}
+                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                         </tr>
@@ -2295,6 +2365,10 @@ export default function BranchReceiptPage({
                                         placeholder="ยอดนับจริง"
                                         className="h-8 w-full text-xs font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
+                                      <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                        est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                        <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                      </div>
                                     </div>
                                   ) : (
                                     <div>
