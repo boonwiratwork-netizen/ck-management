@@ -617,19 +617,19 @@ export default function MenuBOMPage({
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: "80px", minWidth: "80px" }}
+                          style={{ width: "96px", minWidth: "96px" }}
                         >
                           {t("col.qtyPerServing")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: "60px", minWidth: "60px" }}
+                          style={{ width: "80px", minWidth: "80px" }}
                         >
                           {t("col.uom")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: "72px", minWidth: "72px" }}
+                          style={{ width: "96px", minWidth: "96px" }}
                         >
                           {t("col.yieldPct")}
                         </TableHead>
