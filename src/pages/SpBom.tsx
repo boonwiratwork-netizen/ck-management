@@ -594,7 +594,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                       <TableRow>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2"
-                          style={{ width: 120 }}
+                          style={{ width: 88 }}
                         >
                           {t("col.skuCode")}
                         </TableHead>
@@ -615,7 +615,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2"
-                          style={{ width: 70 }}
+                          style={{ width: 72 }}
                         >
                           {t("col.yieldPct")}
                         </TableHead>
@@ -627,20 +627,20 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2"
-                          style={{ width: 90 }}
+                          style={{ width: 100 }}
                         >
                           {t("col.costUnit")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2"
-                          style={{ width: 90 }}
+                          style={{ width: 100 }}
                         >
                           {t("col.lineCost")}
                         </TableHead>
                         {canEdit && (
                           <TableHead
                             className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2"
-                            style={{ width: 70 }}
+                            style={{ width: 64 }}
                           ></TableHead>
                         )}
                       </TableRow>
