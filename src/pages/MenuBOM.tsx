@@ -378,7 +378,10 @@ export default function MenuBOMPage({
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
-      <TableCell>
+      <TableCell className="py-2 px-3 text-sm font-mono text-muted-foreground">
+        {formSkuId ? getSkuById(formSkuId)?.skuId : "—"}
+      </TableCell>
+      <TableCell className="py-2 px-3">
         <SearchableSelect
           value={formSkuId}
           onValueChange={handleSkuChange}
@@ -386,24 +389,6 @@ export default function MenuBOMPage({
           placeholder="Select SKU"
           triggerClassName="h-8 text-sm w-full"
         />
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground truncate overflow-hidden">
-        <div>{formSkuId ? getSkuById(formSkuId)?.name : "—"}</div>
-        {editingLineId && (
-          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
-            <SelectTrigger className="h-7 text-xs mt-1" style={{ width: 130 }}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Branches</SelectItem>
-              {activeBranches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </TableCell>
       <TableCell>
         <Input
