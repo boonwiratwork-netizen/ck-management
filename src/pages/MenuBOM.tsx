@@ -424,8 +424,8 @@ export default function MenuBOMPage({
           onChange={(e) => setFormYield(Number(e.target.value) || 100)}
         />
       </TableCell>
-      <TableCell className="text-xs text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
-      <TableCell className="text-xs text-right font-mono">
+      <TableCell className="text-sm text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
+      <TableCell className="text-sm text-right font-mono">
         {formSkuId
           ? (() => {
               const c = getActiveCost(formSkuId);
