@@ -623,7 +623,7 @@ export default function MenuBOMPage({
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: "80px", minWidth: "80px" }}
+                          style={{ width: "72px", minWidth: "72px" }}
                         >
                           {t("col.uom")}
                         </TableHead>
