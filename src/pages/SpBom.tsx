@@ -368,6 +368,9 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
+      <TableCell className="py-1 px-2 text-sm font-mono text-muted-foreground">
+        {formSkuId ? getSkuById(formSkuId)?.skuId : "—"}
+      </TableCell>
       <TableCell className="py-1 px-2">
         <SearchableSelect
           value={formSkuId}
@@ -376,9 +379,6 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           placeholder="Select RM SKU"
           triggerClassName="h-8 text-sm w-full"
         />
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground truncate overflow-hidden py-1 px-2">
-        {formSkuId ? getSkuById(formSkuId)?.name : "—"}
       </TableCell>
       <TableCell className="py-1 px-2">
         <Input
