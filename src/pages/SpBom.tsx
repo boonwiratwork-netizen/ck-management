@@ -611,19 +611,19 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2"
-                          style={{ width: "80px", minWidth: "80px" }}
+                          style={{ width: "96px", minWidth: "96px" }}
                         >
                           {t("col.qtyPerBatch")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-2"
-                          style={{ width: "60px", minWidth: "60px" }}
+                          style={{ width: "72px", minWidth: "72px" }}
                         >
                           {t("col.uom")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right px-2"
-                          style={{ width: "72px", minWidth: "72px" }}
+                          style={{ width: "96px", minWidth: "96px" }}
                         >
                           {t("col.yieldPct")}
                         </TableHead>
