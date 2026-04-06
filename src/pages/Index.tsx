@@ -143,6 +143,12 @@ const Index = () => {
   const smStockData = useSmStockData(skuData.skus, productionData.records, deliveryData.deliveries, bomData.headers, bomData.lines, priceData.prices, bomData.steps, byproductData.byproducts);
   const smDailyUsage = useSmDailyUsage(skuData.skus);
   const branchData = useBranchData();
+
+  useVisibilityRefresh([
+    () => smStockData.refreshProductionRecords(),
+    () => smStockData.refreshToDelivered(),
+    () => receiptData.fetchReceipts(),
+  ]);
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
   const spBomData = useSpBomData();
