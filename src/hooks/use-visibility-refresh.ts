@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Silently refreshes data when the user returns to the tab after it has been
@@ -10,14 +10,19 @@ import { useEffect, useRef, useCallback } from "react";
  */
 export function useVisibilityRefresh(callbacks: (() => void | Promise<void>)[], staleAfterMs: number = 5 * 1000) {
   const lastRefresh = useRef(Date.now());
-
-  const refreshIfStale = useCallback(() => {
-    if (Date.now() - lastRefresh.current < staleAfterMs) return;
-    lastRefresh.current = Date.now();
-    callbacks.forEach((cb) => cb());
-  }, [callbacks, staleAfterMs]);
+  const callbacksRef = useRef(callbacks);
 
   useEffect(() => {
+    callbacksRef.current = callbacks;
+  });
+
+  useEffect(() => {
+    const refreshIfStale = () => {
+      if (Date.now() - lastRefresh.current < staleAfterMs) return;
+      lastRefresh.current = Date.now();
+      callbacksRef.current.forEach((cb) => cb());
+    };
+
     const onVisibility = () => {
       if (document.visibilityState === "visible") refreshIfStale();
     };
@@ -29,5 +34,5 @@ export function useVisibilityRefresh(callbacks: (() => void | Promise<void>)[], 
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
     };
-  }, [refreshIfStale]);
+  }, [staleAfterMs]);
 }
