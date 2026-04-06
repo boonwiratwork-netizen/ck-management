@@ -384,7 +384,7 @@ export default function MenuBOMPage({
           onValueChange={handleSkuChange}
           options={eligibleSkus.map((s) => ({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }))}
           placeholder="Select SKU"
-          triggerClassName="h-8 text-xs w-full"
+          triggerClassName="h-8 text-sm w-full"
         />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate overflow-hidden">
