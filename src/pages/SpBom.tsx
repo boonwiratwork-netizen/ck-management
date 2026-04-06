@@ -633,22 +633,16 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-sm font-mono py-1 px-2">{sku?.skuId ?? "—"}</TableCell>
-                            <TableCell className="text-sm truncate overflow-hidden py-1 px-2" title={sku?.name ?? "—"}>
-                              {sku?.name ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-sm text-right font-mono py-1 px-2">{line.qtyPerBatch}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground py-1 px-2">
-                              {sku?.usageUom ?? line.uom}
-                            </TableCell>
-                            <TableCell className="text-sm text-right font-mono py-1 px-2">100%</TableCell>
-                            <TableCell className="text-sm text-right font-mono py-1 px-2">
-                              {effQty.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-sm text-right font-mono py-1 px-2">
+                            <TableCell className="text-sm font-mono py-1 px-2" style={{ width: '88px', minWidth: '88px' }}>{sku?.skuId ?? "—"}</TableCell>
+                            <TableCell className="text-sm truncate overflow-hidden py-1 px-2" title={sku?.name ?? "—"}>{sku?.name ?? "—"}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '80px', minWidth: '80px' }}>{line.qtyPerBatch}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground py-1 px-2" style={{ width: '60px', minWidth: '60px' }}>{sku?.usageUom ?? line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '72px', minWidth: '72px' }}>100%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '80px', minWidth: '80px' }}>{effQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-1 px-2" style={{ width: '100px', minWidth: '100px' }}>
                               {unitPrice > 0 ? `฿${unitPrice.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono font-medium py-1 px-2">
+                            <TableCell className="text-sm text-right font-mono font-medium py-1 px-2" style={{ width: '100px', minWidth: '100px' }}>
                               {(() => {
                                 const liveLineCost = effQty * getActiveCost(line.ingredientSkuId);
                                 return liveLineCost > 0 ? (
@@ -659,22 +653,12 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                               })()}
                             </TableCell>
                             {canEdit && (
-                              <TableCell className="py-1 px-2">
+                              <TableCell className="py-1 px-2" style={{ width: '64px', minWidth: '64px' }}>
                                 <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => startEditLine(line)}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteConfirm({ id: line.id, name: sku?.name ?? "ingredient" })}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: line.id, name: sku?.name ?? "ingredient" })}>
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
