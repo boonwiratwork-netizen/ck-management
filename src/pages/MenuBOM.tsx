@@ -599,70 +599,17 @@ export default function MenuBOMPage({
               <Card>
                 <CardContent className="p-0 overflow-hidden">
                   <Table className="table-fixed">
-                    <colgroup>
-                      <col style={{ width: "88px" }} />
-                      <col />
-                      <col style={{ width: "80px" }} />
-                      <col style={{ width: "60px" }} />
-                      <col style={{ width: "72px" }} />
-                      <col style={{ width: "80px" }} />
-                      <col style={{ width: "100px" }} />
-                      <col style={{ width: "100px" }} />
-                      {canEdit && <col style={{ width: "64px" }} />}
-                    </colgroup>
                     <TableHeader>
                       <TableRow>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 88 }}
-                        >
-                          {t("col.skuCode")}
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("col.name")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 80 }}
-                        >
-                          {t("col.qtyPerServing")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 60 }}
-                        >
-                          {t("col.uom")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 72 }}
-                        >
-                          {t("col.yieldPct")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 80 }}
-                        >
-                          {t("col.effQty")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 100 }}
-                        >
-                          {t("col.costUnit")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 100 }}
-                        >
-                          {t("col.lineCost")}
-                        </TableHead>
-                        {canEdit && (
-                          <TableHead
-                            className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                            style={{ width: 64 }}
-                          ></TableHead>
-                        )}
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '88px', minWidth: '88px' }}>{t("col.skuCode")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("col.name")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '80px', minWidth: '80px' }}>{t("col.qtyPerServing")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '60px', minWidth: '60px' }}>{t("col.uom")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '72px', minWidth: '72px' }}>{t("col.yieldPct")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '80px', minWidth: '80px' }}>{t("col.effQty")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '100px', minWidth: '100px' }}>{t("col.costUnit")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '100px', minWidth: '100px' }}>{t("col.lineCost")}</TableHead>
+                        {canEdit && <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '64px', minWidth: '64px' }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
