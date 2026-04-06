@@ -590,6 +590,17 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
               <Card>
                 <CardContent className="p-0 overflow-hidden">
                   <Table className="table-fixed">
+                    <colgroup>
+                      <col style={{ width: "88px" }} />
+                      <col />
+                      <col style={{ width: "80px" }} />
+                      <col style={{ width: "60px" }} />
+                      <col style={{ width: "72px" }} />
+                      <col style={{ width: "80px" }} />
+                      <col style={{ width: "100px" }} />
+                      <col style={{ width: "100px" }} />
+                      {canEdit && <col style={{ width: "64px" }} />}
+                    </colgroup>
                     <TableHeader>
                       <TableRow>
                         <TableHead
