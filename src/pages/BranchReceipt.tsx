@@ -1541,24 +1541,17 @@ export default function BranchReceiptPage({
                               )}
                             >
                               <td className={`${tdReadOnly} font-mono text-xs align-middle`}>
-                                <div>
-                                  {sku.skuId}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                                </div>
+                                <div>{sku.skuId}</div>
                               </td>
                               <td className={`${tdReadOnly} align-middle`} title={sku.name}>
                                 <div>
                                   <span className={cn("block truncate", hasQty ? "font-semibold" : "")}>
                                     {sku.name}
                                   </span>
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
-                                <div>
-                                  {group.supplierName}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                                </div>
+                                <div>{group.supplierName}</div>
                               </td>
                               {/* PACKS */}
                               <td className="px-1 py-1 align-middle">
@@ -1694,7 +1687,6 @@ export default function BranchReceiptPage({
                                       placeholder="0.00"
                                     />
                                   </div>
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               {/* ACTUAL UNIT */}
@@ -1710,7 +1702,6 @@ export default function BranchReceiptPage({
                                         maximumFractionDigits: 0,
                                       })
                                     : "—"}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                               {/* VARIANCE */}
@@ -1737,7 +1728,6 @@ export default function BranchReceiptPage({
                                   ) : (
                                     "—"
                                   )}
-                                  {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                                 </div>
                               </td>
                             </tr>
@@ -1990,7 +1980,6 @@ export default function BranchReceiptPage({
                               <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
                                 {sku.skuId}
                               </span>
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td className={`${tdReadOnly} align-middle`} title={sku.name}>
@@ -1998,14 +1987,10 @@ export default function BranchReceiptPage({
                               <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
                                 {sku.name}
                               </span>
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
-                            <div>
-                              {selectedSupplier?.name}
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
-                            </div>
+                            <div>{selectedSupplier?.name}</div>
                           </td>
                           {/* PACKS — smart input */}
                           <td className="px-1 py-1 align-middle">
@@ -2150,7 +2135,6 @@ export default function BranchReceiptPage({
                                   placeholder="0.00"
                                 />
                               </div>
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
 
@@ -2162,7 +2146,6 @@ export default function BranchReceiptPage({
                                     maximumFractionDigits: 0,
                                   })
                                 : "—"}
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                           <td
@@ -2188,7 +2171,6 @@ export default function BranchReceiptPage({
                               ) : (
                                 "—"
                               )}
-                              {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
                         </tr>
