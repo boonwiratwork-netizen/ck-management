@@ -599,7 +599,7 @@ export default function MenuBOMPage({
                       <TableRow>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 120 }}
+                          style={{ width: 88 }}
                         >
                           {t("col.skuCode")}
                         </TableHead>
