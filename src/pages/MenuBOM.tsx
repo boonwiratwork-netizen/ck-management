@@ -389,6 +389,21 @@ export default function MenuBOMPage({
           placeholder="Select SKU"
           triggerClassName="h-8 text-sm w-full"
         />
+        {editingLineId && (
+          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
+            <SelectTrigger className="h-7 text-xs mt-1 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Branches</SelectItem>
+              {activeBranches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.branchName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </TableCell>
       <TableCell>
         <Input
@@ -580,6 +595,17 @@ export default function MenuBOMPage({
               <Card>
                 <CardContent className="p-0 overflow-hidden">
                   <Table className="table-fixed">
+                    <colgroup>
+                      <col style={{ width: "88px" }} />
+                      <col />
+                      <col style={{ width: "80px" }} />
+                      <col style={{ width: "60px" }} />
+                      <col style={{ width: "72px" }} />
+                      <col style={{ width: "80px" }} />
+                      <col style={{ width: "100px" }} />
+                      <col style={{ width: "100px" }} />
+                      {canEdit && <col style={{ width: "64px" }} />}
+                    </colgroup>
                     <TableHeader>
                       <TableRow>
                         <TableHead
