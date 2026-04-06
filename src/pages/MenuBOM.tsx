@@ -14,7 +14,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Select removed — branch selector now uses pill buttons
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
@@ -378,7 +378,7 @@ export default function MenuBOMPage({
 
   const renderInlineRow = () => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleKeyDown}>
-      <TableCell className="py-2 px-3 text-sm font-mono text-muted-foreground">
+      <TableCell className="py-2 px-3 text-sm font-mono text-muted-foreground" style={{ width: '88px', minWidth: '88px' }}>
         {formSkuId ? getSkuById(formSkuId)?.skuId : "—"}
       </TableCell>
       <TableCell className="py-2 px-3">
@@ -390,22 +390,26 @@ export default function MenuBOMPage({
           triggerClassName="h-8 text-sm w-full"
         />
         {editingLineId && (
-          <Select value={formBranchId ?? "__all__"} onValueChange={(v) => setFormBranchId(v === "__all__" ? null : v)}>
-            <SelectTrigger className="h-7 text-xs mt-1 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Branches</SelectItem>
-              {activeBranches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 flex-wrap mt-1">
+            <button
+              onClick={() => setFormBranchId(null)}
+              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${formBranchId === null ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            >
+              All
+            </button>
+            {activeBranches.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setFormBranchId(b.id)}
+                className={`px-2 py-0.5 text-xs rounded-full transition-colors ${formBranchId === b.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              >
+                {b.branchName}
+              </button>
+            ))}
+          </div>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '80px', minWidth: '80px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -413,10 +417,10 @@ export default function MenuBOMPage({
           onChange={(e) => setFormQty(Number(e.target.value))}
         />
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '60px', minWidth: '60px' }}>
         <Input className="h-8 w-full text-sm" value={formUom} onChange={(e) => setFormUom(e.target.value)} />
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '72px', minWidth: '72px' }}>
         <Input
           type="number"
           className="h-8 w-full text-sm text-right font-mono"
@@ -424,8 +428,8 @@ export default function MenuBOMPage({
           onChange={(e) => setFormYield(Number(e.target.value) || 100)}
         />
       </TableCell>
-      <TableCell className="text-sm text-right font-mono">{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
-      <TableCell className="text-sm text-right font-mono">
+      <TableCell className="text-sm text-right font-mono" style={{ width: '80px', minWidth: '80px' }}>{formSkuId ? previewEffQty.toFixed(2) : "—"}</TableCell>
+      <TableCell className="text-sm text-right font-mono" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId
           ? (() => {
               const c = getActiveCost(formSkuId);
@@ -433,7 +437,7 @@ export default function MenuBOMPage({
             })()
           : "—"}
       </TableCell>
-      <TableCell className="text-sm text-right font-mono font-medium">
+      <TableCell className="text-sm text-right font-mono font-medium" style={{ width: '100px', minWidth: '100px' }}>
         {formSkuId && previewCost > 0 ? (
           `฿${previewCost.toFixed(2)}`
         ) : formSkuId ? (
@@ -442,7 +446,7 @@ export default function MenuBOMPage({
           "—"
         )}
       </TableCell>
-      <TableCell>
+      <TableCell style={{ width: '64px', minWidth: '64px' }}>
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLine}>
             <Check className="w-3.5 h-3.5 text-success" />
@@ -595,70 +599,17 @@ export default function MenuBOMPage({
               <Card>
                 <CardContent className="p-0 overflow-hidden">
                   <Table className="table-fixed">
-                    <colgroup>
-                      <col style={{ width: "88px" }} />
-                      <col />
-                      <col style={{ width: "80px" }} />
-                      <col style={{ width: "60px" }} />
-                      <col style={{ width: "72px" }} />
-                      <col style={{ width: "80px" }} />
-                      <col style={{ width: "100px" }} />
-                      <col style={{ width: "100px" }} />
-                      {canEdit && <col style={{ width: "64px" }} />}
-                    </colgroup>
                     <TableHeader>
                       <TableRow>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 88 }}
-                        >
-                          {t("col.skuCode")}
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("col.name")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 80 }}
-                        >
-                          {t("col.qtyPerServing")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 60 }}
-                        >
-                          {t("col.uom")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 72 }}
-                        >
-                          {t("col.yieldPct")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 80 }}
-                        >
-                          {t("col.effQty")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 100 }}
-                        >
-                          {t("col.costUnit")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 100 }}
-                        >
-                          {t("col.lineCost")}
-                        </TableHead>
-                        {canEdit && (
-                          <TableHead
-                            className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                            style={{ width: 64 }}
-                          ></TableHead>
-                        )}
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '88px', minWidth: '88px' }}>{t("col.skuCode")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("col.name")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '80px', minWidth: '80px' }}>{t("col.qtyPerServing")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '60px', minWidth: '60px' }}>{t("col.uom")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '72px', minWidth: '72px' }}>{t("col.yieldPct")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '80px', minWidth: '80px' }}>{t("col.effQty")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '100px', minWidth: '100px' }}>{t("col.costUnit")}</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right" style={{ width: '100px', minWidth: '100px' }}>{t("col.lineCost")}</TableHead>
+                        {canEdit && <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: '64px', minWidth: '64px' }}></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -692,7 +643,7 @@ export default function MenuBOMPage({
                           : null;
                         return (
                           <TableRow key={line.id} className="h-9">
-                            <TableCell className="text-sm font-mono py-2 px-3">{sku?.skuId ?? "—"}</TableCell>
+                            <TableCell className="text-sm font-mono py-2 px-3" style={{ width: '88px', minWidth: '88px' }}>{sku?.skuId ?? "—"}</TableCell>
                             <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
                               <div>{sku?.name ?? "—"}</div>
                               <span
@@ -701,18 +652,14 @@ export default function MenuBOMPage({
                                 {branchName ?? "All"}
                               </span>
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono py-2 px-3">
-                              {line.qtyPerServing}
-                            </TableCell>
-                            <TableCell className="text-sm py-2 px-3">{line.uom}</TableCell>
-                            <TableCell className="text-sm text-right font-mono py-2 px-3">{line.yieldPct}%</TableCell>
-                            <TableCell className="text-sm text-right font-mono py-2 px-3">
-                              {line.effectiveQty.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-sm text-right font-mono py-2 px-3">
+                            <TableCell className="text-sm text-right font-mono py-2 px-3" style={{ width: '80px', minWidth: '80px' }}>{line.qtyPerServing}</TableCell>
+                            <TableCell className="text-sm py-2 px-3" style={{ width: '60px', minWidth: '60px' }}>{line.uom}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3" style={{ width: '72px', minWidth: '72px' }}>{line.yieldPct}%</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3" style={{ width: '80px', minWidth: '80px' }}>{line.effectiveQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-right font-mono py-2 px-3" style={{ width: '100px', minWidth: '100px' }}>
                               {unitCost > 0 ? `฿${unitCost.toFixed(4)}` : <span className="text-primary">—</span>}
                             </TableCell>
-                            <TableCell className="text-sm text-right font-mono font-medium py-2 px-3">
+                            <TableCell className="text-sm text-right font-mono font-medium py-2 px-3" style={{ width: '100px', minWidth: '100px' }}>
                               {(() => {
                                 const liveCost = calcCostPerServing(line.effectiveQty, line.skuId);
                                 return liveCost > 0 ? (
@@ -723,22 +670,12 @@ export default function MenuBOMPage({
                               })()}
                             </TableCell>
                             {canEdit && (
-                              <TableCell className="py-2 px-3">
+                              <TableCell className="py-2 px-3" style={{ width: '64px', minWidth: '64px' }}>
                                 <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => startEditLine(line)}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditLine(line)}>
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteConfirm({ id: line.id, name: sku?.name ?? "ingredient" })}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ id: line.id, name: sku?.name ?? "ingredient" })}>
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
