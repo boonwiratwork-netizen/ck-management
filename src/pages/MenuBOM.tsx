@@ -78,7 +78,7 @@ export default function MenuBOMPage({
 
   // Branch filter
   const [branchFilter, setBranchFilter] = useState<string>("all");
-  const activeBranches = useMemo(() => branches.filter(b => b.status === 'Active'), [branches]);
+  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
 
   // CSV import config
   const csvColumns: CSVColumnDef[] = [
@@ -255,7 +255,7 @@ export default function MenuBOMPage({
   const selectedLines = selectedMenuId ? menuBomData.getLinesForMenu(selectedMenuId) : [];
   const filteredLines = useMemo(() => {
     if (branchFilter === "all") return selectedLines;
-    return selectedLines.filter(l => l.branchId === null || l.branchId === branchFilter);
+    return selectedLines.filter((l) => l.branchId === null || l.branchId === branchFilter);
   }, [selectedLines, branchFilter]);
   // Always compute cost from live prices (auto-recalc)
   const totalCost = selectedLines.reduce((sum, l) => {
@@ -396,8 +396,10 @@ export default function MenuBOMPage({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Branches</SelectItem>
-              {activeBranches.map(b => (
-                <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+              {activeBranches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.branchName}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -577,7 +579,7 @@ export default function MenuBOMPage({
                   >
                     All Lines
                   </button>
-                  {activeBranches.map(b => (
+                  {activeBranches.map((b) => (
                     <button
                       key={b.id}
                       onClick={() => setBranchFilter(b.id)}
@@ -612,19 +614,19 @@ export default function MenuBOMPage({
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 70 }}
+                          style={{ width: 60 }}
                         >
                           {t("col.uom")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 80 }}
+                          style={{ width: 72 }}
                         >
                           {t("col.yieldPct")}
                         </TableHead>
                         <TableHead
                           className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right"
-                          style={{ width: 90 }}
+                          style={{ width: 80 }}
                         >
                           {t("col.effQty")}
                         </TableHead>
@@ -643,7 +645,7 @@ export default function MenuBOMPage({
                         {canEdit && (
                           <TableHead
                             className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                            style={{ width: 70 }}
+                            style={{ width: 64 }}
                           ></TableHead>
                         )}
                       </TableRow>
@@ -674,13 +676,17 @@ export default function MenuBOMPage({
                         const sku = getSkuById(line.skuId);
                         const unitCost = getActiveCost(line.skuId);
                         if (editingLineId === line.id) return <>{renderInlineRow()}</>;
-                        const branchName = line.branchId ? branches.find(b => b.id === line.branchId)?.branchName : null;
+                        const branchName = line.branchId
+                          ? branches.find((b) => b.id === line.branchId)?.branchName
+                          : null;
                         return (
                           <TableRow key={line.id} className="h-9">
                             <TableCell className="text-sm font-mono py-2 px-3">{sku?.skuId ?? "—"}</TableCell>
                             <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
                               <div>{sku?.name ?? "—"}</div>
-                              <span className={`inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full ${line.branchId ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
+                              <span
+                                className={`inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full ${line.branchId ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}
+                              >
                                 {branchName ?? "All"}
                               </span>
                             </TableCell>
