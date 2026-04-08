@@ -896,12 +896,12 @@ export default function TransferOrderPage({
                   <colgroup>
                     <col style={{ width: 90 }} />
                     <col />
-                    <col style={{ width: 100 }} />
+                    <col style={{ width: 90 }} />
                     <col style={{ width: 80 }} />
-                    <col style={{ width: 100 }} />
-                    <col style={{ width: 60 }} />
-                    <col style={{ width: 100 }} />
-                    <col style={{ width: 50 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 48 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 56 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-[5]">
                     <tr className={tableTokens.headerRow}>
@@ -962,7 +962,7 @@ export default function TransferOrderPage({
 
                       return (
                         <React.Fragment key={line.id}>
-                          <tr className={`${tableTokens.dataRow} align-top`}>
+                          <tr className={tableTokens.dataRow}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs align-middle`}>
                               <div>
                                 {line.skuCode}
@@ -1061,7 +1061,18 @@ export default function TransferOrderPage({
                                       style={{ textAlign: "right" }}
                                       key={`packs-${line.id}`}
                                     />
-                                    <div className="text-xs text-muted-foreground mt-0.5 invisible">·</div>
+                                    {(() => {
+                                      const estG = currentPacks * packSize;
+                                      if (estG > 50000) {
+                                        return (
+                                          <div className="text-xs mt-0.5 text-destructive font-medium flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            {(estG / 1000).toFixed(1)} kg — ตรวจสอบจำนวน
+                                          </div>
+                                        );
+                                      }
+                                      return <div className="text-xs mt-0.5 invisible">·</div>;
+                                    })()}
                                   </div>
                                 ) : (
                                   <div>
@@ -1124,8 +1135,8 @@ export default function TransferOrderPage({
                                     style={{ textAlign: "right" }}
                                     key={`wt-${line.id}`}
                                   />
-                                  <div className="text-xs text-muted-foreground mt-0.5">
-                                    est. {formatNumber(currentPacks * packSize, 0)} {sku?.purchaseUom || "g"}
+                                  <div className="text-xs text-muted-foreground mt-0.5 text-right font-mono">
+                                    = {formatNumber(currentPacks * packSize, 0)} g
                                   </div>
                                 </div>
                               ) : packSize === 0 ? (
