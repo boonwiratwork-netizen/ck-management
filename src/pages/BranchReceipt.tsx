@@ -578,12 +578,12 @@ export default function BranchReceiptPage({
           }
         }
 
+        await fetchPendingTOs();
         setSavedCount(count);
         setSelectedTOId("");
         setCkLines([]);
         setSupplierId("");
         setSaving(false);
-        await fetchPendingTOs();
         setTimeout(() => setSavedCount(null), 4000);
       }
       setSaving(false);
