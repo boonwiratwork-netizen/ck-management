@@ -82,6 +82,7 @@ interface TOFormState {
   trId?: string;
   trNumber?: string;
   lines: TOLine[];
+  isEditingSent?: boolean;
 }
 
 export default function TransferOrderPage({
@@ -423,10 +424,50 @@ export default function TransferOrderPage({
     [deleteTOLine],
   );
 
-  // ─── Save Draft ───
+  // ─── Save Draft / Save Sent Edit ───
   const handleSaveDraft = useCallback(async () => {
     if (!formState) return;
     setFormSaving(true);
+
+    if (formState.isEditingSent) {
+      // Update lines: actual_qty & line_value
+      for (const l of formState.lines) {
+        const lv = l.actualQty * l.unitCost;
+        await supabase
+          .from("transfer_order_lines")
+          .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note })
+          .eq("id", l.id);
+      }
+      const total = formState.lines.reduce((sum, l) => sum + l.actualQty * l.unitCost, 0);
+      await supabase.from("transfer_orders").update({ total_value: total }).eq("id", formState.toId);
+
+      // Update RM stock adjustments
+      for (const l of formState.lines) {
+        const sku = skus.find((s) => s.id === l.skuId);
+        if (sku?.type !== "RM") continue;
+        const { data: adj } = await supabase
+          .from("stock_adjustments")
+          .select("id")
+          .eq("sku_id", l.skuId)
+          .eq("stock_type", "RM")
+          .like("reason", `Distribution: ${formState.toNumber}%`)
+          .maybeSingle();
+        if (adj) {
+          await supabase
+            .from("stock_adjustments")
+            .update({ quantity: -l.actualQty })
+            .eq("id", adj.id);
+        }
+      }
+
+      setFormSaving(false);
+      toast.success("บันทึกการแก้ไขเรียบร้อย");
+      fetchHistory();
+      refreshSmStock?.();
+      return;
+    }
+
+    // Normal draft save
     for (const l of formState.lines) {
       if (l.actualQty > 0) {
         await updateTOLine(l.id, l.actualQty, l.note);
@@ -437,7 +478,7 @@ export default function TransferOrderPage({
     setFormSaving(false);
     toast.success("Draft saved");
     fetchHistory();
-  }, [formState, updateTOLine]);
+  }, [formState, updateTOLine, skus, fetchHistory, refreshSmStock]);
 
   // ─── Send TO ───
   const handleSend = useCallback(async () => {
@@ -535,6 +576,25 @@ export default function TransferOrderPage({
         trId: to.trRef !== "—" ? undefined : undefined,
         trNumber: to.trRef !== "—" ? to.trRef : undefined,
         lines,
+      });
+    },
+    [fetchTODetail],
+  );
+
+  // ─── Edit Sent TO (CK Manager) ───
+  const handleEditSent = useCallback(
+    async (to: TOHistoryRow) => {
+      const lines = await fetchTODetail(to.id);
+      setFormState({
+        toId: to.id,
+        toNumber: to.toNumber,
+        branchId: to.branchId,
+        branchName: to.branchName,
+        deliveryDate: to.deliveryDate,
+        notes: "",
+        trNumber: to.trRef !== "—" ? to.trRef : undefined,
+        lines,
+        isEditingSent: true,
       });
     },
     [fetchTODetail],
@@ -836,19 +896,31 @@ export default function TransferOrderPage({
               </Button>
               <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={formSaving}>
                 <Save className="w-4 h-4 mr-1" />
-                {formSaving ? "Saving..." : t("to.saveDraft")}
+                {formSaving ? "Saving..." : formState.isEditingSent ? "บันทึกการแก้ไข" : t("to.saveDraft")}
               </Button>
-              <Button
-                size="sm"
-                className="bg-warning hover:bg-warning/90 text-warning-foreground"
-                onClick={handleSend}
-                disabled={!hasLinesWithQty || formSending}
-              >
-                <Send className="w-4 h-4 mr-1" />
-                {formSending ? t("to.sending") : t("to.sendTO")}
-              </Button>
+              {!formState.isEditingSent && (
+                <Button
+                  size="sm"
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                  onClick={handleSend}
+                  disabled={!hasLinesWithQty || formSending}
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  {formSending ? t("to.sending") : t("to.sendTO")}
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Warning banner for editing sent TO */}
+          {formState.isEditingSent && (
+            <div className="flex items-center gap-2 px-5 py-2.5 bg-warning/15 border-b border-warning/30 text-sm">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+              <span className="text-warning-foreground font-medium">
+                กำลังแก้ไขใบโอนที่ส่งแล้ว — การเปลี่ยนแปลงจะมีผลทันที
+              </span>
+            </div>
+          )}
 
           {/* ── Secondary metadata bar ── */}
           <div className="flex flex-wrap items-center gap-4 px-5 py-2.5 bg-muted/30 border-b text-sm">
@@ -1526,6 +1598,17 @@ export default function TransferOrderPage({
                               className="h-7 w-7"
                               onClick={() => handleEditDraft(to)}
                               title="Edit draft"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {isCkManager && to.status === "Sent" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-warning"
+                              onClick={() => handleEditSent(to)}
+                              title="Edit sent TO"
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
