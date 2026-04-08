@@ -158,8 +158,9 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   // Reset modifier when menu changes
   useEffect(() => {
     setManualModifierId("");
+    setManualUnitPriceOverride(null);
   }, [manualMenuId]);
-  const manualUnitPrice = selectedMenu?.sellingPrice ?? 0;
+  const manualUnitPrice = manualUnitPriceOverride ?? selectedMenu?.sellingPrice ?? 0;
   const manualNetAmount = manualQty * manualUnitPrice;
   const hasNoPrice = manualMenuId && manualUnitPrice <= 0;
 
@@ -1037,14 +1038,22 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                 </div>
                 <div className="w-24">
                   <label className="text-xs text-muted-foreground">{t("se.unitPriceFieldLabel")}</label>
-                  <div
-                    className={cn(
-                      "h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm tabular-nums",
-                      hasNoPrice && "text-destructive border-destructive/50",
-                    )}
-                  >
-                    {!manualMenuId ? "—" : hasNoPrice ? "No price" : `฿${manualUnitPrice.toFixed(2)}`}
-                  </div>
+                  {!manualMenuId ? (
+                    <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50 text-sm tabular-nums text-muted-foreground">
+                      —
+                    </div>
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={manualUnitPrice}
+                      onChange={(e) => setManualUnitPriceOverride(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      className={cn(hasNoPrice && "border-destructive/50 text-destructive")}
+                      tabIndex={-1}
+                    />
+                  )}
                 </div>
                 <div className="w-28">
                   <label className="text-xs text-muted-foreground">{t("se.netAmountFieldLabel")}</label>
