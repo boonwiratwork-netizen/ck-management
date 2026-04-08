@@ -1602,6 +1602,17 @@ export default function TransferOrderPage({
                               <Pencil className="w-4 h-4" />
                             </Button>
                           )}
+                          {isCkManager && to.status === "Sent" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-warning"
+                              onClick={() => handleEditSent(to)}
+                              title="Edit sent TO"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
