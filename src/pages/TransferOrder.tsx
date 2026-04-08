@@ -453,10 +453,7 @@ export default function TransferOrderPage({
           .like("reason", `Distribution: ${formState.toNumber}%`)
           .maybeSingle();
         if (adj) {
-          await supabase
-            .from("stock_adjustments")
-            .update({ quantity: -l.actualQty })
-            .eq("id", adj.id);
+          await supabase.from("stock_adjustments").update({ quantity: -l.actualQty }).eq("id", adj.id);
         }
       }
 
@@ -1602,7 +1599,7 @@ export default function TransferOrderPage({
                               <Pencil className="w-4 h-4" />
                             </Button>
                           )}
-                          {isCkManager && to.status === "Sent" && (
+                          {(isCkManager || isManagement) && to.status === "Sent" && (
                             <Button
                               variant="ghost"
                               size="icon"
