@@ -82,6 +82,7 @@ interface TOFormState {
   trId?: string;
   trNumber?: string;
   lines: TOLine[];
+  isEditingSent?: boolean;
 }
 
 export default function TransferOrderPage({
