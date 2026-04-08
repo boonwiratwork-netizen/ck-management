@@ -136,6 +136,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const [manualMenuSearch, setManualMenuSearch] = useState("");
   const [manualMenuId, setManualMenuId] = useState("");
   const [manualQty, setManualQty] = useState(1);
+  const [manualUnitPriceOverride, setManualUnitPriceOverride] = useState<number | null>(null);
   const [manualModifierId, setManualModifierId] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
   const [manualSuccess, setManualSuccess] = useState(false);
