@@ -1002,7 +1002,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                   {menuDropdownOpen && (
                     <div
                       ref={menuDropdownRef}
-                      className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-popover border rounded-md shadow-lg"
+                      className="absolute z-50 top-full left-0 mt-1 w-[480px] max-h-48 overflow-y-auto bg-popover border rounded-md shadow-lg"
                     >
                       {filteredMenus.length === 0 ? (
                         <div className="px-3 py-2 text-xs text-muted-foreground">No menus found</div>
