@@ -459,6 +459,7 @@ export default function TransferOrderPage({
 
       setFormSaving(false);
       toast.success("บันทึกการแก้ไขเรียบร้อย");
+      setFormState(null);
       fetchHistory();
       refreshSmStock?.();
       return;
@@ -913,9 +914,7 @@ export default function TransferOrderPage({
           {formState.isEditingSent && (
             <div className="flex items-center gap-2 px-5 py-2.5 bg-warning/15 border-b border-warning/30 text-sm">
               <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-              <span className="text-warning-foreground font-medium">
-                กำลังแก้ไขใบโอนที่ส่งแล้ว — การเปลี่ยนแปลงจะมีผลทันที
-              </span>
+              <span className="text-amber-900 font-medium">กำลังแก้ไขใบโอนที่ส่งแล้ว — การเปลี่ยนแปลงจะมีผลทันที</span>
             </div>
           )}
 
