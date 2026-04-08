@@ -61,6 +61,7 @@ interface DailyStockCountPageProps {
   spBomLines: SpBomLine[];
   menus: Menu[];
   branches: Branch[];
+  menuBomLoading?: boolean;
 }
 
 type SortKey = "skuCode" | "skuName" | "type";
@@ -116,6 +117,7 @@ export default function DailyStockCountPage({
   spBomLines,
   menus,
   branches,
+  menuBomLoading = false,
 }: DailyStockCountPageProps) {
   const { isManagement, isStoreManager, profile, user } = useAuth();
   const { t } = useLanguage();
@@ -449,7 +451,11 @@ export default function DailyStockCountPage({
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" onClick={handleGenerate} disabled={!selectedBranch || generating}>
+            <Button
+              variant="outline"
+              onClick={handleGenerate}
+              disabled={!selectedBranch || generating || menuBomLoading}
+            >
               {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" /> {t("btn.generate")}...
