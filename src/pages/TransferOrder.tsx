@@ -896,19 +896,31 @@ export default function TransferOrderPage({
               </Button>
               <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={formSaving}>
                 <Save className="w-4 h-4 mr-1" />
-                {formSaving ? "Saving..." : t("to.saveDraft")}
+                {formSaving ? "Saving..." : formState.isEditingSent ? "บันทึกการแก้ไข" : t("to.saveDraft")}
               </Button>
-              <Button
-                size="sm"
-                className="bg-warning hover:bg-warning/90 text-warning-foreground"
-                onClick={handleSend}
-                disabled={!hasLinesWithQty || formSending}
-              >
-                <Send className="w-4 h-4 mr-1" />
-                {formSending ? t("to.sending") : t("to.sendTO")}
-              </Button>
+              {!formState.isEditingSent && (
+                <Button
+                  size="sm"
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                  onClick={handleSend}
+                  disabled={!hasLinesWithQty || formSending}
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  {formSending ? t("to.sending") : t("to.sendTO")}
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Warning banner for editing sent TO */}
+          {formState.isEditingSent && (
+            <div className="flex items-center gap-2 px-5 py-2.5 bg-warning/15 border-b border-warning/30 text-sm">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+              <span className="text-warning-foreground font-medium">
+                กำลังแก้ไขใบโอนที่ส่งแล้ว — การเปลี่ยนแปลงจะมีผลทันที
+              </span>
+            </div>
+          )}
 
           {/* ── Secondary metadata bar ── */}
           <div className="flex flex-wrap items-center gap-4 px-5 py-2.5 bg-muted/30 border-b text-sm">
