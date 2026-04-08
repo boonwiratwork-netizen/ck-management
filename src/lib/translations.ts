@@ -459,7 +459,7 @@ const translations: Record<string, Record<Lang, string>> = {
     en: "Pre-loaded from TR. Adjust quantities as needed.",
   },
   "to.addItemsHint": { th: "เพิ่มรายการที่ต้องการจัดส่ง", en: "Add items to deliver." },
-  "to.addItem": { th: "เพิ่มรายการ", en: "Add Item" },
+  "to.addItem": { th: "เพิ่ม SKU", en: "Add Item" },
   "to.itemAlreadyAdded": { th: "รายการนี้มีอยู่แล้ว", en: "Item already in list" },
   "to.qtyError": { th: "จำนวนต้องมากกว่าหรือเท่ากับ 0", en: "All quantities must be >= 0" },
   "to.sentSuccess": { th: "ส่งเรียบร้อยแล้ว", en: "sent successfully" },
