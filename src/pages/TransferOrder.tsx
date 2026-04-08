@@ -541,6 +541,25 @@ export default function TransferOrderPage({
     [fetchTODetail],
   );
 
+  // ─── Edit Sent TO (CK Manager) ───
+  const handleEditSent = useCallback(
+    async (to: TOHistoryRow) => {
+      const lines = await fetchTODetail(to.id);
+      setFormState({
+        toId: to.id,
+        toNumber: to.toNumber,
+        branchId: to.branchId,
+        branchName: to.branchName,
+        deliveryDate: to.deliveryDate,
+        notes: "",
+        trNumber: to.trRef !== "—" ? to.trRef : undefined,
+        lines,
+        isEditingSent: true,
+      });
+    },
+    [fetchTODetail],
+  );
+
   // ─── View TO detail ───
   const handleViewDetail = useCallback(
     async (to: TOHistoryRow) => {
