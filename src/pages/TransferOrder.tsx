@@ -1065,9 +1065,8 @@ export default function TransferOrderPage({
                                       const estG = currentPacks * packSize;
                                       if (estG > 50000) {
                                         return (
-                                          <div className="text-xs mt-0.5 text-destructive font-medium flex items-center gap-1">
-                                            <AlertTriangle className="w-3 h-3" />
-                                            {(estG / 1000).toFixed(1)} kg — ตรวจสอบจำนวน
+                                          <div className="text-xs mt-0.5 text-destructive font-medium text-right">
+                                            ⚠ {(estG / 1000).toFixed(1)}kg
                                           </div>
                                         );
                                       }
