@@ -366,7 +366,11 @@ export default function TransferRequestPage() {
             `🧾 รายการ:`,
             ...sortedTRLines
               .filter((l) => (batchInputs[l.skuId] ?? 0) > 0)
-              .map((l) => `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${batchInputs[l.skuId]} แพ็ค`),
+              .map((l) =>
+                l.packSize > 1
+                  ? `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${batchInputs[l.skuId]} แพ็ค`
+                  : `- ${l.skuName} — ${formatNumber((batchInputs[l.skuId] ?? 0) * l.packSize, 0)} ${l.uom}`,
+              ),
             ``,
             `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
           ].join("\n"),
@@ -1837,9 +1841,10 @@ export default function TransferRequestPage() {
                         `วันส่งสินค้า: ${detailTR.requiredDate}`,
                         ``,
                         `🧾 รายการ:`,
-                        ...detailLines.map(
-                          (l) =>
-                            `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ก. x ${formatNumber(l.requestedQty / l.packSize, 0)} แพ็ค`,
+                        ...detailLines.map((l) =>
+                          l.packSize > 1
+                            ? `- ${l.skuName} — ${formatNumber(l.packSize, 0)} ${l.uom} x ${formatNumber(l.requestedQty / l.packSize, 0)} แพ็ค`
+                            : `- ${l.skuName} — ${formatNumber(l.requestedQty, 0)} ${l.uom}`,
                         ),
                         ``,
                         `🙏 ถ้าคอนเฟิร์ม ฝากยืนยันออเดอร์ด้วยนะคะ`,
