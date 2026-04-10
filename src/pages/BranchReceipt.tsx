@@ -350,7 +350,7 @@ export default function BranchReceiptPage({
         receivedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
         uom: l.uom,
         unitCost: l.unitCost,
-        note: "",
+        note: l.notes,
       })),
     );
   }, [selectedTOId, pendingTOs]);
@@ -1353,8 +1353,12 @@ export default function BranchReceiptPage({
                         )}
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
-                        <td className={`${tdReadOnly} truncate align-middle`} title={sku?.name}>
-                          {sku?.name || "—"}
+                        <td className={`${tdReadOnly} align-middle`}>
+                          <div className="truncate" title={sku?.name}>{sku?.name || "—"}</div>
+                          {line.note && (
+                            <div className="truncate text-xs text-muted-foreground" title={line.note}>{line.note}</div>
+                          )}
+                          {!line.note && <div className="text-xs invisible">·</div>}
                         </td>
                         {/* PLANNED */}
                         <td className={`${tdReadOnly} text-right font-mono align-middle`}>
@@ -2661,18 +2665,28 @@ export default function BranchReceiptPage({
                         </TooltipProvider>
                       </td>
                       <td className={tdReadOnly}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="block truncate">{sku?.name || "—"}</span>
-                            </TooltipTrigger>
-                            {sku?.name && (
-                              <TooltipContent side="top">
-                                <p>{sku.name}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block">{sku?.name || "—"}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top"><p>{sku?.name}</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {r.notes && (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs">{r.notes}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </td>
                       <td className={`${tdReadOnly} truncate`}>
                         {isCK ? (
@@ -2683,7 +2697,19 @@ export default function BranchReceiptPage({
                           r.supplierName || "—"
                         )}
                       </td>
-                      <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>{toNum || "—"}</td>
+                      <td className={`${tdReadOnly} font-mono text-xs`}>
+                        {toNum && r.transferOrderId ? (
+                          <button
+                            type="button"
+                            className="text-primary hover:underline font-mono text-xs"
+                            onClick={() => handleTORefClick(r.transferOrderId!, toNum)}
+                          >
+                            {toNum}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
                         {r.qtyReceived.toLocaleString()}
                       </td>
