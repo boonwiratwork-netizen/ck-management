@@ -1763,6 +1763,7 @@ export default function TransferOrderPage({
                               <UnitLabel unit={l.uom} />
                             </td>
                             <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 0)}</td>
+                            <td className={`${tableTokens.dataCell} text-xs text-muted-foreground`}>{l.note || "—"}</td>
                           </tr>
                         );
                       })}
