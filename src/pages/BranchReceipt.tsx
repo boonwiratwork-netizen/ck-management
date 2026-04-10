@@ -15,7 +15,19 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X, MessageSquare } from "lucide-react";
+import {
+  Save,
+  Plus,
+  Trash2,
+  Pencil,
+  CheckCircle,
+  Search,
+  Truck,
+  Zap,
+  PackageOpen,
+  X,
+  MessageSquare,
+} from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -799,12 +811,12 @@ export default function BranchReceiptPage({
   const [editSaving, setEditSaving] = useState(false);
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
   const [toDetailOpen, setToDetailOpen] = useState(false);
-  const [toDetailData, setToDetailData] = useState<{toNumber: string; lines: any[]; toNotes: string} | null>(null);
+  const [toDetailData, setToDetailData] = useState<{ toNumber: string; lines: any[]; toNotes: string } | null>(null);
 
   const handleTORefClick = useCallback(async (toId: string, toNumber: string) => {
     const [toRes, linesRes] = await Promise.all([
       supabase.from("transfer_orders").select("notes").eq("id", toId).single(),
-      supabase.from("transfer_order_lines").select("sku_id, actual_qty, uom, unit_cost, notes").eq("to_id", toId)
+      supabase.from("transfer_order_lines").select("sku_id, actual_qty, uom, unit_cost, notes").eq("to_id", toId),
     ]);
     const skuIds = (linesRes.data || []).map((l: any) => l.sku_id);
     let skuNameMap: Record<string, string> = {};
@@ -823,7 +835,7 @@ export default function BranchReceiptPage({
         unitCost: l.unit_cost,
         lineValue: l.actual_qty * l.unit_cost,
         note: l.notes || "",
-      }))
+      })),
     });
     setToDetailOpen(true);
   }, []);
@@ -835,14 +847,17 @@ export default function BranchReceiptPage({
     }
     supabase
       .from("transfer_orders")
-      .select("id, to_number")
+      .select("id, to_number, notes")
       .in("id", toIds)
       .then(({ data }) => {
         const m: Record<string, string> = {};
+        const n: Record<string, string> = {};
         (data || []).forEach((to) => {
           m[to.id] = to.to_number;
+          n[to.id] = to.notes || "";
         });
         setToNumberMap(m);
+        setToNotesMap(n);
       });
   }, [receipts]);
 
@@ -1383,9 +1398,13 @@ export default function BranchReceiptPage({
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
                         <td className={`${tdReadOnly} align-middle`}>
-                          <div className="truncate" title={sku?.name}>{sku?.name || "—"}</div>
+                          <div className="truncate" title={sku?.name}>
+                            {sku?.name || "—"}
+                          </div>
                           {line.note && (
-                            <div className="truncate text-xs text-muted-foreground" title={line.note}>{line.note}</div>
+                            <div className="truncate text-xs text-muted-foreground" title={line.note}>
+                              {line.note}
+                            </div>
                           )}
                           {!line.note && <div className="text-xs invisible">·</div>}
                         </td>
@@ -2700,7 +2719,9 @@ export default function BranchReceiptPage({
                               <TooltipTrigger asChild>
                                 <span className="truncate block">{sku?.name || "—"}</span>
                               </TooltipTrigger>
-                              <TooltipContent side="top"><p>{sku?.name}</p></TooltipContent>
+                              <TooltipContent side="top">
+                                <p>{sku?.name}</p>
+                              </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                           {r.notes && (
@@ -2730,10 +2751,13 @@ export default function BranchReceiptPage({
                         {toNum && r.transferOrderId ? (
                           <button
                             type="button"
-                            className="text-primary hover:underline font-mono text-xs"
+                            className="text-primary hover:underline font-mono text-xs inline-flex items-center gap-1"
                             onClick={() => handleTORefClick(r.transferOrderId!, toNum)}
                           >
                             {toNum}
+                            {toNotesMap[r.transferOrderId!] && (
+                              <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
+                            )}
                           </button>
                         ) : (
                           <span className="text-muted-foreground">—</span>
