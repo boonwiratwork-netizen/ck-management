@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X } from "lucide-react";
+import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X, MessageSquare } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -350,7 +350,7 @@ export default function BranchReceiptPage({
         receivedQty: l.actualQty > 0 ? l.actualQty : l.plannedQty,
         uom: l.uom,
         unitCost: l.unitCost,
-        note: "",
+        note: l.notes,
       })),
     );
   }, [selectedTOId, pendingTOs]);
@@ -798,6 +798,35 @@ export default function BranchReceiptPage({
   const [editForm, setEditForm] = useState({ qtyReceived: 0, actualTotal: 0, notes: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
+  const [toDetailOpen, setToDetailOpen] = useState(false);
+  const [toDetailData, setToDetailData] = useState<{toNumber: string; lines: any[]; toNotes: string} | null>(null);
+
+  const handleTORefClick = useCallback(async (toId: string, toNumber: string) => {
+    const [toRes, linesRes] = await Promise.all([
+      supabase.from("transfer_orders").select("notes").eq("id", toId).single(),
+      supabase.from("transfer_order_lines").select("sku_id, actual_qty, uom, unit_cost, notes").eq("to_id", toId)
+    ]);
+    const skuIds = (linesRes.data || []).map((l: any) => l.sku_id);
+    let skuNameMap: Record<string, string> = {};
+    if (skuIds.length > 0) {
+      const { data: skuRows } = await supabase.from("skus").select("id, sku_id, name").in("id", skuIds);
+      for (const s of skuRows || []) skuNameMap[s.id] = s.name;
+    }
+    setToDetailData({
+      toNumber,
+      toNotes: toRes.data?.notes || "",
+      lines: (linesRes.data || []).map((l: any) => ({
+        skuId: l.sku_id,
+        skuName: skuNameMap[l.sku_id] || l.sku_id,
+        actualQty: l.actual_qty,
+        uom: l.uom,
+        unitCost: l.unit_cost,
+        lineValue: l.actual_qty * l.unit_cost,
+        note: l.notes || "",
+      }))
+    });
+    setToDetailOpen(true);
+  }, []);
   useEffect(() => {
     const toIds = [...new Set(receipts.filter((r) => r.transferOrderId).map((r) => r.transferOrderId!))];
     if (toIds.length === 0) {
@@ -1353,8 +1382,12 @@ export default function BranchReceiptPage({
                         )}
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
-                        <td className={`${tdReadOnly} truncate align-middle`} title={sku?.name}>
-                          {sku?.name || "—"}
+                        <td className={`${tdReadOnly} align-middle`}>
+                          <div className="truncate" title={sku?.name}>{sku?.name || "—"}</div>
+                          {line.note && (
+                            <div className="truncate text-xs text-muted-foreground" title={line.note}>{line.note}</div>
+                          )}
+                          {!line.note && <div className="text-xs invisible">·</div>}
                         </td>
                         {/* PLANNED */}
                         <td className={`${tdReadOnly} text-right font-mono align-middle`}>
@@ -2661,18 +2694,28 @@ export default function BranchReceiptPage({
                         </TooltipProvider>
                       </td>
                       <td className={tdReadOnly}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="block truncate">{sku?.name || "—"}</span>
-                            </TooltipTrigger>
-                            {sku?.name && (
-                              <TooltipContent side="top">
-                                <p>{sku.name}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block">{sku?.name || "—"}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top"><p>{sku?.name}</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {r.notes && (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs">{r.notes}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </td>
                       <td className={`${tdReadOnly} truncate`}>
                         {isCK ? (
@@ -2683,7 +2726,19 @@ export default function BranchReceiptPage({
                           r.supplierName || "—"
                         )}
                       </td>
-                      <td className={`${tdReadOnly} font-mono text-xs text-muted-foreground`}>{toNum || "—"}</td>
+                      <td className={`${tdReadOnly} font-mono text-xs`}>
+                        {toNum && r.transferOrderId ? (
+                          <button
+                            type="button"
+                            className="text-primary hover:underline font-mono text-xs"
+                            onClick={() => handleTORefClick(r.transferOrderId!, toNum)}
+                          >
+                            {toNum}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className={`${tdReadOnly} text-right font-mono font-semibold`}>
                         {r.qtyReceived.toLocaleString()}
                       </td>
@@ -2843,6 +2898,46 @@ export default function BranchReceiptPage({
               {editSaving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* TO Detail Modal */}
+      <Dialog open={toDetailOpen} onOpenChange={setToDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-mono">{toDetailData?.toNumber}</DialogTitle>
+          </DialogHeader>
+          {toDetailData?.toNotes && (
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Notes:</span> {toDetailData.toNotes}
+            </div>
+          )}
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-table-header border-b">
+                  <th className={thClass}>SKU Name</th>
+                  <th className={`${thClass} text-right`}>Actual Qty</th>
+                  <th className={`${thClass} text-center`}>UOM</th>
+                  <th className={`${thClass} text-right`}>Line Value</th>
+                  <th className={thClass}>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(toDetailData?.lines || []).map((l: any, i: number) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className={tdReadOnly}>{l.skuName}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>{l.actualQty.toLocaleString()}</td>
+                    <td className={`${tdReadOnly} text-center`}>{l.uom}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>
+                      ฿{l.lineValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className={`${tdReadOnly} text-muted-foreground text-xs`}>{l.note || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </DialogContent>
       </Dialog>
 
