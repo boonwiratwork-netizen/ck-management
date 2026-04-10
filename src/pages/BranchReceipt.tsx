@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X } from "lucide-react";
+import { Save, Plus, Trash2, Pencil, CheckCircle, Search, Truck, Zap, PackageOpen, X, MessageSquare } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
