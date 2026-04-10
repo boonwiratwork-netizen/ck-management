@@ -1734,6 +1734,7 @@ export default function TransferOrderPage({
                       {detailLines.map((l) => {
                         const detailPackSize = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
                         const detailPackUnit = skus.find((s) => s.id === l.skuId)?.packUnit || "packs";
+                        const detailUsageUom = skus.find((s) => s.id === l.skuId)?.usageUom || "g";
                         return (
                           <tr key={l.id} className={tableTokens.dataRow}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
@@ -1746,10 +1747,13 @@ export default function TransferOrderPage({
                                   <span>
                                     {Math.round(l.plannedQty / detailPackSize)} {detailPackUnit}
                                   </span>
-                                  <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatNumber(l.plannedQty, 0)}
+                                    {detailUsageUom}
+                                  </div>
                                 </div>
                               ) : (
-                                formatNumber(l.plannedQty, 0) + "g"
+                                formatNumber(l.plannedQty, 0) + detailUsageUom
                               )}
                             </td>
                             <td className={`${tableTokens.dataCellMono} font-medium`}>
@@ -1758,10 +1762,13 @@ export default function TransferOrderPage({
                                   <span>
                                     {Math.round(l.actualQty / detailPackSize)} {detailPackUnit}
                                   </span>
-                                  <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatNumber(l.actualQty, 0)}
+                                    {detailUsageUom}
+                                  </div>
                                 </div>
                               ) : (
-                                formatNumber(l.actualQty, 0) + "g"
+                                formatNumber(l.actualQty, 0) + detailUsageUom
                               )}
                             </td>
                             <td className={`${tableTokens.dataCell} text-center`}>
