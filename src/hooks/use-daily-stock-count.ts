@@ -620,10 +620,7 @@ export function useDailyStockCount({
       );
       const newSkuRows: any[] = [];
       for (const sku of activeSkus) {
-        if (
-          !existingSkuIds.has(sku.id) &&
-          (expectedUsage[sku.id] || receipts.extBySku[sku.id] || receipts.ckBySku[sku.id])
-        ) {
+        if (!existingSkuIds.has(sku.id)) {
           const expUsage = expectedUsage[sku.id] ?? 0;
           const ext = receipts.extBySku[sku.id] ?? 0;
           const ck = receipts.ckBySku[sku.id] ?? 0;
