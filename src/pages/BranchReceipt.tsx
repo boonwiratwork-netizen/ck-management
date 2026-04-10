@@ -563,9 +563,17 @@ export default function BranchReceiptPage({
           }
         }
 
-        const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Received";
+        const newStatus = allReceived ? "Received" : anyPartial ? "Partially Received" : "Sent";
 
-        await supabase.from("transfer_orders").update({ status: newStatus }).eq("id", capturedTOId);
+        const { error: toUpdateError } = await supabase
+          .from("transfer_orders")
+          .update({ status: newStatus })
+          .eq("id", capturedTOId);
+        if (toUpdateError) {
+          toast.error("รับของสำเร็จ แต่ไม่สามารถอัปเดตสถานะใบโอนได้: " + toUpdateError.message);
+          setSaving(false);
+          return;
+        }
 
         if (selectedTO) {
           const { data: toData } = await supabase
