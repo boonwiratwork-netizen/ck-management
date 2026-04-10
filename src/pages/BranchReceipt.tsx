@@ -810,6 +810,7 @@ export default function BranchReceiptPage({
   const [editForm, setEditForm] = useState({ qtyReceived: 0, actualTotal: 0, notes: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
+  const [toNotesMap, setToNotesMap] = useState<Record<string, string>>({});
   const [toDetailOpen, setToDetailOpen] = useState(false);
   const [toDetailData, setToDetailData] = useState<{ toNumber: string; lines: any[]; toNotes: string } | null>(null);
 
