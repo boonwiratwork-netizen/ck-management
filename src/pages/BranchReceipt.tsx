@@ -2901,6 +2901,46 @@ export default function BranchReceiptPage({
         </DialogContent>
       </Dialog>
 
+      {/* TO Detail Modal */}
+      <Dialog open={toDetailOpen} onOpenChange={setToDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-mono">{toDetailData?.toNumber}</DialogTitle>
+          </DialogHeader>
+          {toDetailData?.toNotes && (
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Notes:</span> {toDetailData.toNotes}
+            </div>
+          )}
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-table-header border-b">
+                  <th className={thClass}>SKU Name</th>
+                  <th className={`${thClass} text-right`}>Actual Qty</th>
+                  <th className={`${thClass} text-center`}>UOM</th>
+                  <th className={`${thClass} text-right`}>Line Value</th>
+                  <th className={thClass}>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(toDetailData?.lines || []).map((l: any, i: number) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className={tdReadOnly}>{l.skuName}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>{l.actualQty.toLocaleString()}</td>
+                    <td className={`${tdReadOnly} text-center`}>{l.uom}</td>
+                    <td className={`${tdReadOnly} text-right font-mono`}>
+                      ฿{l.lineValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className={`${tdReadOnly} text-muted-foreground text-xs`}>{l.note || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
