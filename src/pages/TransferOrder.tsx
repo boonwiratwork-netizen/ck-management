@@ -1742,7 +1742,9 @@ export default function TransferOrderPage({
                             <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>
                               {detailPackSize > 0 ? (
                                 <div>
-                                  <span>{Math.round(l.plannedQty / detailPackSize)} packs</span>
+                                  <span>
+                                    {Math.round(l.plannedQty / detailPackSize)} {detailPackUnit}
+                                  </span>
                                   <div className="text-xs text-muted-foreground">{formatNumber(l.plannedQty, 0)}g</div>
                                 </div>
                               ) : (
@@ -1752,7 +1754,9 @@ export default function TransferOrderPage({
                             <td className={`${tableTokens.dataCellMono} font-medium`}>
                               {detailPackSize > 0 ? (
                                 <div>
-                                  <span>{Math.round(l.actualQty / detailPackSize)} packs</span>
+                                  <span>
+                                    {Math.round(l.actualQty / detailPackSize)} {detailPackUnit}
+                                  </span>
                                   <div className="text-xs text-muted-foreground">{formatNumber(l.actualQty, 0)}g</div>
                                 </div>
                               ) : (
