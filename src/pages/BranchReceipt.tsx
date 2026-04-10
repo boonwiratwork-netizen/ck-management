@@ -798,6 +798,35 @@ export default function BranchReceiptPage({
   const [editForm, setEditForm] = useState({ qtyReceived: 0, actualTotal: 0, notes: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [toNumberMap, setToNumberMap] = useState<Record<string, string>>({});
+  const [toDetailOpen, setToDetailOpen] = useState(false);
+  const [toDetailData, setToDetailData] = useState<{toNumber: string; lines: any[]; toNotes: string} | null>(null);
+
+  const handleTORefClick = useCallback(async (toId: string, toNumber: string) => {
+    const [toRes, linesRes] = await Promise.all([
+      supabase.from("transfer_orders").select("notes").eq("id", toId).single(),
+      supabase.from("transfer_order_lines").select("sku_id, actual_qty, uom, unit_cost, notes").eq("to_id", toId)
+    ]);
+    const skuIds = (linesRes.data || []).map((l: any) => l.sku_id);
+    let skuNameMap: Record<string, string> = {};
+    if (skuIds.length > 0) {
+      const { data: skuRows } = await supabase.from("skus").select("id, sku_id, name").in("id", skuIds);
+      for (const s of skuRows || []) skuNameMap[s.id] = s.name;
+    }
+    setToDetailData({
+      toNumber,
+      toNotes: toRes.data?.notes || "",
+      lines: (linesRes.data || []).map((l: any) => ({
+        skuId: l.sku_id,
+        skuName: skuNameMap[l.sku_id] || l.sku_id,
+        actualQty: l.actual_qty,
+        uom: l.uom,
+        unitCost: l.unit_cost,
+        lineValue: l.actual_qty * l.unit_cost,
+        note: l.notes || "",
+      }))
+    });
+    setToDetailOpen(true);
+  }, []);
   useEffect(() => {
     const toIds = [...new Set(receipts.filter((r) => r.transferOrderId).map((r) => r.transferOrderId!))];
     if (toIds.length === 0) {
