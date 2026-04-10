@@ -1571,14 +1571,15 @@ export default function TransferOrderPage({
                       >
                         <span className="inline-flex items-center gap-1">
                           {to.toNumber}
-                          {to.notes && (
+                          {(to.notes || to.hasLineNotes) && (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                                 </TooltipTrigger>
                                 <TooltipContent side="right" className="max-w-xs">
-                                  <p className="text-xs">{to.notes}</p>
+                                  {to.notes && <p className="text-xs">{to.notes}</p>}
+                                  {to.hasLineNotes && <p className="text-xs text-muted-foreground">มี note ใน item</p>}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
