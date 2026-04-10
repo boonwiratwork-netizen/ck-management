@@ -1717,6 +1717,7 @@ export default function TransferOrderPage({
                       <col style={{ width: 90 }} />
                       <col style={{ width: 60 }} />
                       <col style={{ width: 90 }} />
+                      <col />
                     </colgroup>
                     <thead>
                       <tr className={tableTokens.headerRow}>
@@ -1726,6 +1727,7 @@ export default function TransferOrderPage({
                         <th className={`${tableTokens.headerCell} text-right`}>{t("to.colActual")}</th>
                         <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
                         <th className={`${tableTokens.headerCell} text-right`}>{t("to.colLineValue")}</th>
+                        <th className={tableTokens.headerCell}>Note</th>
                       </tr>
                     </thead>
                     <tbody>
