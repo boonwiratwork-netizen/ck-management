@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { typography, table as tableTokens, formatNumber, fmtCurrency } from "@/lib/design-tokens";
 import { toLocalDateStr } from "@/lib/utils";
 import {
@@ -33,6 +34,7 @@ import {
   Pencil,
   Package,
   AlertTriangle,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1567,7 +1569,21 @@ export default function TransferOrderPage({
                         className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
                         onClick={() => handleViewDetail(to)}
                       >
-                        {to.toNumber}
+                        <span className="inline-flex items-center gap-1">
+                          {to.toNumber}
+                          {to.notes && (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="max-w-xs">
+                                  <p className="text-xs">{to.notes}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </span>
                       </td>
                       <td className={tableTokens.dataCell}>
                         <span className="font-mono">{formatTOTimestamp(to.updatedAt)}</span>
@@ -1681,6 +1697,12 @@ export default function TransferOrderPage({
                   <span className="text-muted-foreground">{t("to.detailTotalValue")} </span>
                   <span className="font-mono font-semibold">฿{formatNumber(detailTO.totalValue, 2)}</span>
                 </div>
+                {detailTO.notes && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Notes: </span>
+                    <span>{detailTO.notes}</span>
+                  </div>
+                )}
               </div>
 
               {detailLoading ? (
@@ -1695,6 +1717,7 @@ export default function TransferOrderPage({
                       <col style={{ width: 90 }} />
                       <col style={{ width: 60 }} />
                       <col style={{ width: 90 }} />
+                      <col />
                     </colgroup>
                     <thead>
                       <tr className={tableTokens.headerRow}>
@@ -1704,6 +1727,7 @@ export default function TransferOrderPage({
                         <th className={`${tableTokens.headerCell} text-right`}>{t("to.colActual")}</th>
                         <th className={`${tableTokens.headerCell} text-center`}>UOM</th>
                         <th className={`${tableTokens.headerCell} text-right`}>{t("to.colLineValue")}</th>
+                        <th className={tableTokens.headerCell}>Note</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1739,6 +1763,7 @@ export default function TransferOrderPage({
                               <UnitLabel unit={l.uom} />
                             </td>
                             <td className={tableTokens.dataCellMono}>฿{formatNumber(l.actualQty * l.unitCost, 0)}</td>
+                            <td className={`${tableTokens.dataCell} text-xs text-muted-foreground`}>{l.note || "—"}</td>
                           </tr>
                         );
                       })}

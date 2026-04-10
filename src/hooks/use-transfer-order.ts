@@ -50,6 +50,7 @@ export interface TOHistoryRow {
   status: string;
   createdAt: string;
   updatedAt: string;
+  notes: string;
 }
 
 export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) {
@@ -366,6 +367,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           status: d.status,
           createdAt: d.created_at,
           updatedAt: d.updated_at,
+          notes: d.notes || "",
         })),
       );
       setHistoryLoading(false);
