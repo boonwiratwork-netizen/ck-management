@@ -51,6 +51,7 @@ export interface TOHistoryRow {
   createdAt: string;
   updatedAt: string;
   notes: string;
+  hasLineNotes: boolean;
 }
 
 export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) {
@@ -349,9 +350,16 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       // Line counts
       const toIds = (data || []).map((d) => d.id);
       let lineCounts: Record<string, number> = {};
+      let lineNoteCounts: Record<string, boolean> = {};
       if (toIds.length > 0) {
-        const { data: lineData } = await supabase.from("transfer_order_lines").select("to_id").in("to_id", toIds);
-        for (const l of lineData || []) lineCounts[l.to_id] = (lineCounts[l.to_id] || 0) + 1;
+        const { data: lineData } = await supabase
+          .from("transfer_order_lines")
+          .select("to_id, notes")
+          .in("to_id", toIds);
+        for (const l of lineData || []) {
+          lineCounts[l.to_id] = (lineCounts[l.to_id] || 0) + 1;
+          if (l.notes && l.notes.trim() !== "") lineNoteCounts[l.to_id] = true;
+        }
       }
 
       setToHistory(
@@ -368,6 +376,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           createdAt: d.created_at,
           updatedAt: d.updated_at,
           notes: d.notes || "",
+          hasLineNotes: lineNoteCounts[d.id] || false,
         })),
       );
       setHistoryLoading(false);
