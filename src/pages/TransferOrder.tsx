@@ -1733,6 +1733,7 @@ export default function TransferOrderPage({
                     <tbody>
                       {detailLines.map((l) => {
                         const detailPackSize = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+                        const detailPackUnit = skus.find((s) => s.id === l.skuId)?.packUnit || "packs";
                         return (
                           <tr key={l.id} className={tableTokens.dataRow}>
                             <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
