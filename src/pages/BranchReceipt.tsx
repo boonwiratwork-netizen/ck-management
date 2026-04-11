@@ -846,6 +846,24 @@ export default function BranchReceiptPage({
     });
     setToDetailOpen(true);
   }, []);
+
+  const handleDeclineTO = useCallback(async () => {
+    if (!declineTOId) return;
+    const { error } = await supabase
+      .from("transfer_orders")
+      .update({ status: "Declined", decline_reason: declineReason.trim() || null })
+      .eq("id", declineTOId);
+    if (error) {
+      toast.error("ไม่สามารถปฏิเสธใบโอนได้: " + error.message);
+      return;
+    }
+    toast.success(`ปฏิเสธใบโอน ${declineTONumber} แล้ว`);
+    setDeclineDialogOpen(false);
+    setDeclineTOId("");
+    setDeclineTONumber("");
+    setDeclineReason("");
+    await fetchPendingTOs();
+  }, [declineTOId, declineTONumber, declineReason, fetchPendingTOs]);
   useEffect(() => {
     const toIds = [...new Set(receipts.filter((r) => r.transferOrderId).map((r) => r.transferOrderId!))];
     if (toIds.length === 0) {
@@ -1011,16 +1029,30 @@ export default function BranchReceiptPage({
                   <span className="text-sm text-muted-foreground">{to.deliveryDate}</span>
                   <span className="text-xs text-muted-foreground">{to.itemCount} items</span>
                 </div>
-                <Button
-                  size="sm"
-                  className="bg-success hover:bg-success/90 text-success-foreground"
-                  onClick={() => {
-                    setSupplierId(CK_SUPPLIER_ID);
-                    setSelectedTOId(to.id);
-                  }}
-                >
-                  {t("br.receive")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDeclineTOId(to.id);
+                      setDeclineTONumber(to.toNumber);
+                      setDeclineReason("");
+                      setDeclineDialogOpen(true);
+                    }}
+                  >
+                    ปฏิเสธ
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-success hover:bg-success/90 text-success-foreground"
+                    onClick={() => {
+                      setSupplierId(CK_SUPPLIER_ID);
+                      setSelectedTOId(to.id);
+                    }}
+                  >
+                    {t("br.receive")}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
