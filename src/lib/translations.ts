@@ -366,6 +366,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "prod.recordUpdated": { th: "อัปเดตบันทึกแล้ว", en: "Record updated" },
   "prod.stockWarningTitle": { th: "⚠ สต๊อกจะติดลบ", en: "⚠ Negative Stock Warning" },
   "prod.proceedAnyway": { th: "ดำเนินการต่อ", en: "Proceed Anyway" },
+  "prod.unplannedSkus": {
+    th: "SKU นอกแผน — แตะเพื่อเพิ่ม ad-hoc batch",
+    en: "unplanned SKUs — tap to add ad-hoc batch",
+  },
 
   // Common
   "common.from": { th: "จาก", en: "From" },
