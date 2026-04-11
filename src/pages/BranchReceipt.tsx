@@ -3013,6 +3013,29 @@ export default function BranchReceiptPage({
         variant="warning"
         onConfirm={confirmSupplierChange}
       />
+      {/* Decline TO Dialog */}
+      <Dialog open={declineDialogOpen} onOpenChange={(o) => { if (!o) { setDeclineDialogOpen(false); setDeclineReason(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ปฏิเสธการรับของจาก {declineTONumber}?</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              placeholder="เหตุผล เช่น สินค้าเทส"
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeclineDialogOpen(false); setDeclineReason(""); }}>
+              ยกเลิก
+            </Button>
+            <Button variant="destructive" onClick={handleDeclineTO}>
+              ยืนยันปฏิเสธ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
