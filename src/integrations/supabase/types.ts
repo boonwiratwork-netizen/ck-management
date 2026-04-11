@@ -1709,6 +1709,7 @@ export type Database = {
           branch_id: string
           created_at: string
           created_by: string | null
+          decline_reason: string | null
           delivery_date: string
           id: string
           notes: string
@@ -1722,6 +1723,7 @@ export type Database = {
           branch_id: string
           created_at?: string
           created_by?: string | null
+          decline_reason?: string | null
           delivery_date?: string
           id?: string
           notes?: string
@@ -1735,6 +1737,7 @@ export type Database = {
           branch_id?: string
           created_at?: string
           created_by?: string | null
+          decline_reason?: string | null
           delivery_date?: string
           id?: string
           notes?: string
