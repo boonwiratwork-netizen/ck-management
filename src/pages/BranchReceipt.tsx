@@ -276,6 +276,12 @@ export default function BranchReceiptPage({
   const [selectedTOId, setSelectedTOId] = useState<string>("");
   const [ckLines, setCkLines] = useState<CKLineEdit[]>([]);
 
+  // Decline TO state
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [declineTOId, setDeclineTOId] = useState<string>("");
+  const [declineTONumber, setDeclineTONumber] = useState<string>("");
+  const [declineReason, setDeclineReason] = useState<string>("");
+
   // History filters
   const [historyDateFrom, setHistoryDateFrom] = useState<Date | undefined>(undefined);
   const [historyDateTo, setHistoryDateTo] = useState<Date | undefined>(undefined);
