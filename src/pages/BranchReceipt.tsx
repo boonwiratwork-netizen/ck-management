@@ -2609,7 +2609,7 @@ export default function BranchReceiptPage({
               <colgroup>
                 <col style={{ width: 90 }} /> {/* date */}
                 <col style={{ width: 70 }} /> {/* sku */}
-                <col style={{ width: 200 }} /> {/* name */}
+                <col style={{ width: 195 }} /> {/* name */}
                 <col style={{ width: 80 }} /> {/* supplier */}
                 <col style={{ width: 115 }} /> {/* TO ref */}
                 <col style={{ width: 65 }} /> {/* qty */}
@@ -2617,7 +2617,7 @@ export default function BranchReceiptPage({
                 <col style={{ width: 75 }} /> {/* actual */}
                 <col style={{ width: 75 }} /> {/* std */}
                 <col style={{ width: 70 }} /> {/* variance */}
-                {isManagement && <col style={{ width: 55 }} />} {/* branch */}
+                {isManagement && <col style={{ width: 50 }} />} {/* branch */}
                 {isManagement && <col style={{ width: 50 }} />} {/* actions */}
               </colgroup>
               <thead className="sticky top-0 z-[5]">
