@@ -5,7 +5,7 @@ import { toLocalDateStr } from "@/lib/utils";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
 import { useBranchRmStock, BranchRmStockStatus } from "@/hooks/use-branch-rm-stock";
 
-export type TRLineSkuType = "SM" | "RM";
+export type TRLineSkuType = "SM" | "RM" | "PK";
 
 export interface TRLine {
   skuId: string;
@@ -132,7 +132,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       // Get distributable RM SKUs that are relevant to this brand's menus
       const { data: rmSkus } = await supabase
         .from("skus")
-        .select("id, sku_id, name, usage_uom, pack_size, lead_time")
+        .select("id, sku_id, name, usage_uom, pack_size, lead_time, type")
         .in("type", ["RM", "PK"])
         .eq("status", "Active")
         .eq("is_distributable", true)
@@ -487,7 +487,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           rop: Math.round(rop * 100) / 100,
           parstock: Math.round(parstock * 100) / 100,
           status,
-          skuType: "RM" as TRLineSkuType,
+          skuType: (s.type === "PK" ? "PK" : "RM") as TRLineSkuType,
         };
       });
       setRmLines(lines);
