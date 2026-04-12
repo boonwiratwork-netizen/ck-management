@@ -146,7 +146,7 @@ export default function TransferOrderPage({
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM" && s.status === "Active"), [skus]);
   const distributableRmSkus = useMemo(
-    () => skus.filter((s) => s.type === "RM" && s.status === "Active" && s.isDistributable),
+    () => skus.filter((s) => (s.type === "RM" || s.type === "PK") && s.status === "Active" && s.isDistributable),
     [skus],
   );
 
