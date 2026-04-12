@@ -110,7 +110,12 @@ export default function SMStockPage({ skus, smStockData, smDailyUsage }: Props) 
       });
   }, [smSkus, stockBalances, getLastProductionDate, getBomCostPerGram, search, filterCategory, filterStorage]);
 
-  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, smComparators);
+  const {
+    sorted: sortedRows,
+    sortKey,
+    sortDir,
+    handleSort,
+  } = useSortableTable(filteredRows, smComparators, "skuId", "asc");
 
   const totalStockValue = useMemo(
     () => filteredRows.reduce((s, r) => s + Math.max(0, r.stockValue), 0),
