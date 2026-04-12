@@ -73,7 +73,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
   const dateStr = format(receiptDate, "yyyy-MM-dd");
   const weekNum = getWeekNumber(dateStr);
 
-  const rmSkus = useMemo(() => skus.filter((s) => s.type === "RM"), [skus]);
+  const rmSkus = useMemo(() => skus.filter((s) => s.type === "RM" || s.type === "PK"), [skus]);
   const skuMap = useMemo(() => Object.fromEntries(skus.map((s) => [s.id, s])), [skus]);
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const activeSuppliers = useMemo(() => suppliers.filter((s) => s.status === "Active"), [suppliers]);
@@ -127,7 +127,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     return activePrices
       .map((p) => {
         const sku = skuMap[p.skuId];
-        if (!sku || sku.type !== "RM") return null;
+        if (!sku || (sku.type !== "RM" && sku.type !== "PK")) return null;
         // FIX 2: Only include SKUs that are BOM ingredients
         if (!bomIngredientSkuIds.has(p.skuId) && !sku.isDistributable) return null;
         return { priceId: p.id, skuId: p.skuId, sku, stdUnitPrice: p.pricePerUsageUom };
