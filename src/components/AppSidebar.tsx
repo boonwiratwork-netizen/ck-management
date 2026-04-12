@@ -69,7 +69,8 @@ export type TabKey =
   | "daily-stock-count"
   | "store-stock"
   | "food-cost"
-  | "sku-categories";
+  | "sku-categories"
+  | "pkstock";
 
 export type TabContext = "ck" | "store" | "management" | "overview";
 
@@ -100,6 +101,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   "store-stock": "store",
   "food-cost": "store",
   "sku-categories": "management",
+  pkstock: "ck",
 };
 
 interface AppSidebarProps {
@@ -155,6 +157,7 @@ const ckGroup: NavGroup = {
     { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
     { key: "stock", labelKey: "nav.rmStock", icon: Warehouse },
     { key: "smstock", labelKey: "nav.smStock", icon: BoxesIcon },
+    { key: "pkstock", labelKey: "nav.pkStock", icon: Package },
     { subLabel: "Config" },
     { key: "bom", labelKey: "nav.bom", icon: FlaskConical },
   ],
