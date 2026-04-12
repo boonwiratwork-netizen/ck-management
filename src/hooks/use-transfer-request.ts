@@ -113,7 +113,16 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         rmFromSpBom = (spBomLines || []).map((l) => l.ingredient_sku_id);
       }
 
-      const allRelevantIds = [...new Set([...bomSkuIds, ...rmFromSpBom])];
+      // Also fetch all distributable PK SKUs directly (PK has no BOM)
+      const { data: pkSkus } = await supabase
+        .from("skus")
+        .select("id")
+        .eq("type", "PK")
+        .eq("status", "Active")
+        .eq("is_distributable", true);
+      const pkSkuIds = (pkSkus || []).map((s) => s.id);
+
+      const allRelevantIds = [...new Set([...bomSkuIds, ...rmFromSpBom, ...pkSkuIds])];
       if (allRelevantIds.length === 0) {
         setRmLines([]);
         setRmLoading(false);
@@ -124,7 +133,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       const { data: rmSkus } = await supabase
         .from("skus")
         .select("id, sku_id, name, usage_uom, pack_size, lead_time")
-        .eq("type", "RM")
+        .in("type", ["RM", "PK"])
         .eq("status", "Active")
         .eq("is_distributable", true)
         .in("id", allRelevantIds);
