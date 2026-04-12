@@ -431,7 +431,7 @@ export default function BranchReceiptPage({
     return activePrices
       .map((p) => {
         const sku = skuMap[p.skuId];
-        if (!sku || sku.type !== "RM") return null;
+        if (!sku || (sku.type !== "RM" && sku.type !== "PK")) return null;
         return { priceId: p.id, skuId: p.skuId, sku, stdUnitPrice: p.pricePerUsageUom };
       })
       .filter(Boolean)
