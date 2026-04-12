@@ -1,13 +1,11 @@
-import { GoodsReceipt } from '@/types/goods-receipt';
-import { SKU } from '@/types/sku';
-import { Supplier } from '@/types/supplier';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Search } from 'lucide-react';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { useState } from 'react';
+import { GoodsReceipt } from "@/types/goods-receipt";
+import { SKU } from "@/types/sku";
+import { Supplier } from "@/types/supplier";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pencil, Trash2, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
 
 interface Props {
   receipts: GoodsReceipt[];
@@ -18,22 +16,22 @@ interface Props {
 }
 
 export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete }: Props) {
-  const [search, setSearch] = useState('');
-  const [filterSupplier, setFilterSupplier] = useState<string>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState("");
+  const [filterSupplier, setFilterSupplier] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  const skuMap = Object.fromEntries(skus.map(s => [s.id, s]));
-  const supplierMap = Object.fromEntries(suppliers.map(s => [s.id, s]));
+  const skuMap = Object.fromEntries(skus.map((s) => [s.id, s]));
+  const supplierMap = Object.fromEntries(suppliers.map((s) => [s.id, s]));
 
-  const filtered = receipts.filter(r => {
+  const filtered = receipts.filter((r) => {
     const sku = skuMap[r.skuId];
     const supplier = supplierMap[r.supplierId];
     const matchesSearch =
-      (sku?.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (sku?.skuId || '').toLowerCase().includes(search.toLowerCase()) ||
-      (supplier?.name || '').toLowerCase().includes(search.toLowerCase());
-    const matchesSupplier = filterSupplier === 'all' || r.supplierId === filterSupplier;
+      (sku?.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (sku?.skuId || "").toLowerCase().includes(search.toLowerCase()) ||
+      (supplier?.name || "").toLowerCase().includes(search.toLowerCase());
+    const matchesSupplier = filterSupplier === "all" || r.supplierId === filterSupplier;
     const matchesDateFrom = !dateFrom || r.receiptDate >= dateFrom;
     const matchesDateTo = !dateTo || r.receiptDate <= dateTo;
     return matchesSearch && matchesSupplier && matchesDateFrom && matchesDateTo;
@@ -50,7 +48,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
           <Input
             placeholder="Search SKU or supplier..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -60,22 +58,24 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Suppliers</SelectItem>
-            {suppliers.map(s => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            {suppliers.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Input
           type="date"
           value={dateFrom}
-          onChange={e => setDateFrom(e.target.value)}
+          onChange={(e) => setDateFrom(e.target.value)}
           className="w-full sm:w-[160px]"
           placeholder="From"
         />
         <Input
           type="date"
           value={dateTo}
-          onChange={e => setDateTo(e.target.value)}
+          onChange={(e) => setDateTo(e.target.value)}
           className="w-full sm:w-[160px]"
           placeholder="To"
         />
@@ -87,59 +87,103 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
           <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-table-header border-b">
-                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
-                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Wk</th>
-                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">SKU</th>
-                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Supplier</th>
-                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Qty</th>
-                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">UOM</th>
-                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Actual ฿</th>
-                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Standard ฿</th>
-                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Variance</th>
-                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Note</th>
-                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Date
+                </th>
+                <td className="px-3 py-2 text-center text-sm font-mono">{r.weekNumber}</td>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  SKU
+                </th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Supplier
+                </th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Qty
+                </th>
+                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  UOM
+                </th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Actual ฿
+                </th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Standard ฿
+                </th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Variance
+                </th>
+                <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Note
+                </th>
+                <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
-                    {receipts.length === 0 ? 'No receipts yet. Add your first one!' : 'No receipts match your filters.'}
+                    {receipts.length === 0 ? "No receipts yet. Add your first one!" : "No receipts match your filters."}
                   </td>
                 </tr>
               ) : (
-                sorted.map(r => {
+                sorted.map((r) => {
                   const sku = skuMap[r.skuId];
                   const supplier = supplierMap[r.supplierId];
                   return (
-                    <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
+                    <tr
+                      key={r.id}
+                      className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors"
+                    >
                       <td className="px-3 py-2 text-sm">{r.receiptDate}</td>
                       <td className="px-3 py-2 text-center text-sm font-mono">{r.weekNumber}</td>
                       <td className="px-3 py-2 text-sm">
-                        <div className="font-medium truncate" title={sku?.name || '—'}>{sku?.name || '—'}</div>
-                        <div className="text-xs text-muted-foreground font-mono">{sku?.skuId || '—'}</div>
+                        <div className="font-medium truncate" title={sku?.name || "—"}>
+                          {sku?.name || "—"}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">{sku?.skuId || "—"}</div>
                       </td>
-                      <td className="px-3 py-2 text-sm truncate" title={supplier?.name || '—'}>{supplier?.name || '—'}</td>
+                      <td className="px-3 py-2 text-sm truncate" title={supplier?.name || "—"}>
+                        {supplier?.name || "—"}
+                      </td>
                       <td className="px-3 py-2 text-sm text-right font-mono">{r.quantityReceived.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{r.usageUom || '—'}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono">{r.actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{r.usageUom || "—"}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono">
+                        {r.actualTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
                       <td className="px-3 py-2 text-sm text-right font-mono">{r.standardPrice.toFixed(2)}</td>
-                      <td className={`px-3 py-2 text-sm text-right font-mono font-semibold ${
-                        r.priceVariance > 0 ? 'text-destructive' : r.priceVariance < 0 ? 'text-success' : ''
-                      }`}>
-                        <span className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
-                          r.priceVariance > 0 ? 'bg-destructive/10' : r.priceVariance < 0 ? 'bg-success/10' : ''
-                        }`}>
-                          {r.priceVariance > 0 ? '+' : ''}{r.priceVariance.toFixed(2)}
+                      <td
+                        className={`px-3 py-2 text-sm text-right font-mono font-semibold ${
+                          r.priceVariance > 0 ? "text-destructive" : r.priceVariance < 0 ? "text-success" : ""
+                        }`}
+                      >
+                        <span
+                          className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
+                            r.priceVariance > 0 ? "bg-destructive/10" : r.priceVariance < 0 ? "bg-success/10" : ""
+                          }`}
+                        >
+                          {r.priceVariance > 0 ? "+" : ""}
+                          {r.priceVariance.toFixed(2)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>{r.note}</td>
+                      <td className="px-3 py-2 text-sm text-muted-foreground max-w-[120px] truncate" title={r.note}>
+                        {r.note}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(r)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(r.id)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => onDelete(r.id)}
+                          >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -152,7 +196,9 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
           </table>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">{sorted.length} of {receipts.length} receipts shown</p>
+      <p className="text-xs text-muted-foreground">
+        {sorted.length} of {receipts.length} receipts shown
+      </p>
     </div>
   );
 }
