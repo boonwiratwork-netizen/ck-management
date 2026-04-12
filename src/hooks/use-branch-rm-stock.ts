@@ -109,7 +109,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
         .from("skus")
         .select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type, pack_unit")
         .eq("status", "Active")
-        .eq("type", "RM")
+        .in("type", ["RM", "PK"])
         .in("id", supplierSkuIds);
 
       const filtered = rmSkus || [];
