@@ -168,7 +168,12 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
     ckRmSkuIds,
   ]);
 
-  const { sorted: sortedRows, sortKey, sortDir, handleSort } = useSortableTable(filteredRows, rmComparators);
+  const {
+    sorted: sortedRows,
+    sortKey,
+    sortDir,
+    handleSort,
+  } = useSortableTable(filteredRows, rmComparators, "skuId", "asc");
   const totalStockValue = useMemo(
     () => filteredRows.reduce((s, r) => s + Math.max(0, r.stockValue), 0),
     [filteredRows],
