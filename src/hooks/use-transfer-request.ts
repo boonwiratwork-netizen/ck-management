@@ -539,10 +539,15 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         skuType: "SM" as TRLineSkuType,
       };
     });
-    // Merge SM + distributable RM
+    // Merge SM + distributable RM + PK
     const allLines = [...smLines, ...rmLines];
-    // Default sort: critical → low → sufficient → no-data
-    allLines.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+    // Sort: SM/RM by status first, PK always last
+    const typeOrder = (type: string) => (type === "PK" ? 1 : 0);
+    allLines.sort((a, b) => {
+      const typeDiff = typeOrder(a.skuType) - typeOrder(b.skuType);
+      if (typeDiff !== 0) return typeDiff;
+      return statusOrder[a.status] - statusOrder[b.status];
+    });
     setLines(allLines);
   }, [smStock, smSkuList, rmLines]);
 
