@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, lastDayOfMonth, getDaysInMonth } from "date-fns";
 import { Calculator, TrendingDown, TrendingUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +77,28 @@ interface MenuBreakdown {
   costPerServing: number;
 }
 
+interface SkuVarianceRow {
+  skuId: string;
+  skuCode: string;
+  skuName: string;
+  type: string;
+  uom: string;
+  stdQty: number;
+  stdCost: number;
+  actQty: number | null;
+  actPrice: number | null;
+  actCost: number | null;
+  qtyVar: number | null;
+  priceVarThb: number | null;
+  totalVarThb: number | null;
+  movementDetail: {
+    opening: number | null;
+    received: number;
+    closingActual: number | null;
+    closingCalc: number | null;
+  } | null;
+}
+
 export default function FoodCostPage({
   skus,
   prices,
@@ -107,6 +129,30 @@ export default function FoodCostPage({
   const [menuBreakdown, setMenuBreakdown] = useState<MenuBreakdown[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalStdCost, setTotalStdCost] = useState(0);
+
+  // Actual vs Standard Variance state
+  const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
+  const [varianceSummary, setVarianceSummary] = useState<{
+    totalVariance: number;
+    priceVariance: number;
+    usageVariance: number;
+    actualCost: number;
+  } | null>(null);
+  const [varianceDataCoverage, setVarianceDataCoverage] = useState<{
+    skusWithActual: number;
+    totalSkus: number;
+    openingDate: string;
+    closingDate: string;
+  } | null>(null);
+
+  // Check if selected period is a full calendar month
+  const isMonthlyPeriod = useMemo(() => {
+    const fromStr = format(dateFrom, "yyyy-MM-dd");
+    const toStr = format(dateTo, "yyyy-MM-dd");
+    const firstOfMonth = format(startOfMonth(dateFrom), "yyyy-MM-dd");
+    const lastOfMonth = format(endOfMonth(dateFrom), "yyyy-MM-dd");
+    return fromStr === firstOfMonth && toStr === lastOfMonth;
+  }, [dateFrom, dateTo]);
 
   // FC% threshold configuration
   const FC_GREEN_MAX = 30;
@@ -390,8 +436,199 @@ export default function FoodCostPage({
     [menuByCode, bomByMenuId, spBomBySpSku, skuMap, stdPriceMap, activeRules],
   );
 
+  const skuConverterMap = useMemo(() => {
+    const m = new Map<string, number>();
+    skus.forEach((s) => m.set(s.id, s.converter));
+    return m;
+  }, [skus]);
+
+  const fetchActualVarianceData = useCallback(
+    async (fromStr: string, toStr: string, branchId: string, skuRows: SkuBreakdown[]) => {
+      // Determine opening/closing dates
+      const fromDate = new Date(fromStr + "T00:00:00");
+      const prevMonth = subMonths(fromDate, 1);
+      const openingDate = format(lastDayOfMonth(prevMonth), "yyyy-MM-dd");
+      const closingDate = toStr;
+
+      // Fetch opening, closing, and receipts in parallel
+      const [openingRes, closingRes, receiptsRes] = await Promise.all([
+        supabase
+          .from("daily_stock_counts")
+          .select("sku_id, physical_count, calculated_balance")
+          .eq("branch_id", branchId)
+          .eq("count_date", openingDate),
+        supabase
+          .from("daily_stock_counts")
+          .select("sku_id, physical_count, calculated_balance")
+          .eq("branch_id", branchId)
+          .eq("count_date", closingDate),
+        supabase
+          .from("branch_receipts")
+          .select("sku_id, qty_received, actual_unit_price, actual_total, uom")
+          .eq("branch_id", branchId)
+          .gte("receipt_date", fromStr)
+          .lte("receipt_date", toStr),
+      ]);
+
+      // Build opening map
+      const openingBySku = new Map<string, number>();
+      for (const row of openingRes.data || []) {
+        const val = row.physical_count !== null ? row.physical_count : row.calculated_balance;
+        openingBySku.set(row.sku_id, val);
+      }
+
+      // Build closing map
+      const closingBySku = new Map<string, { actual: number | null; calc: number | null }>();
+      for (const row of closingRes.data || []) {
+        closingBySku.set(row.sku_id, {
+          actual: row.physical_count !== null ? row.physical_count : null,
+          calc: row.calculated_balance,
+        });
+      }
+
+      // Build purchase maps
+      const purchaseQtyBySku = new Map<string, number>();
+      const purchaseValueBySku = new Map<string, number>();
+      for (const row of receiptsRes.data || []) {
+        const converter = skuConverterMap.get(row.sku_id) || 1;
+        const qtyInUsage = row.qty_received * converter;
+        purchaseQtyBySku.set(row.sku_id, (purchaseQtyBySku.get(row.sku_id) || 0) + qtyInUsage);
+        const value = row.actual_unit_price * qtyInUsage;
+        purchaseValueBySku.set(row.sku_id, (purchaseValueBySku.get(row.sku_id) || 0) + value);
+      }
+
+      // For SKUs without current-month purchases, look back up to 6 months
+      const skuIdsNeedingFallback = skuRows
+        .filter((r) => !purchaseValueBySku.has(r.skuId))
+        .map((r) => r.skuId);
+
+      const fallbackPriceMap = new Map<string, number>();
+      if (skuIdsNeedingFallback.length > 0) {
+        const sixMonthsAgo = format(subMonths(fromDate, 6), "yyyy-MM-dd");
+        const { data: fallbackReceipts } = await supabase
+          .from("branch_receipts")
+          .select("sku_id, qty_received, actual_unit_price")
+          .eq("branch_id", branchId)
+          .gte("receipt_date", sixMonthsAgo)
+          .lt("receipt_date", fromStr)
+          .in("sku_id", skuIdsNeedingFallback)
+          .order("receipt_date", { ascending: false });
+
+        const fbQty = new Map<string, number>();
+        const fbVal = new Map<string, number>();
+        for (const row of fallbackReceipts || []) {
+          const converter = skuConverterMap.get(row.sku_id) || 1;
+          const qtyInUsage = row.qty_received * converter;
+          fbQty.set(row.sku_id, (fbQty.get(row.sku_id) || 0) + qtyInUsage);
+          fbVal.set(row.sku_id, (fbVal.get(row.sku_id) || 0) + row.actual_unit_price * qtyInUsage);
+        }
+        for (const [skuId, totalQty] of fbQty.entries()) {
+          if (totalQty > 0) {
+            fallbackPriceMap.set(skuId, (fbVal.get(skuId) || 0) / totalQty);
+          }
+        }
+      }
+
+      // Build variance rows
+      const varianceRows: SkuVarianceRow[] = [];
+      let sumActCost = 0;
+      let sumTotalVar = 0;
+      let sumPriceVar = 0;
+      let skusWithActual = 0;
+
+      for (const sr of skuRows) {
+        const opening = openingBySku.get(sr.skuId);
+        const closing = closingBySku.get(sr.skuId);
+        const purchases = purchaseQtyBySku.get(sr.skuId) || 0;
+
+        const hasStockData = opening !== undefined || closing !== undefined;
+
+        let actQty: number | null = null;
+        if (hasStockData) {
+          const openVal = opening ?? 0;
+          const closeVal = closing
+            ? closing.actual !== null
+              ? closing.actual
+              : closing.calc ?? 0
+            : 0;
+          actQty = openVal + purchases - closeVal;
+        }
+
+        // Determine actual price
+        let actPrice: number | null = null;
+        const pQty = purchaseQtyBySku.get(sr.skuId);
+        const pVal = purchaseValueBySku.get(sr.skuId);
+        if (pQty && pQty > 0 && pVal !== undefined) {
+          actPrice = pVal / pQty;
+        } else if (fallbackPriceMap.has(sr.skuId)) {
+          actPrice = fallbackPriceMap.get(sr.skuId)!;
+        } else {
+          actPrice = sr.stdUnitPrice;
+        }
+
+        const actCost = actQty !== null && actPrice !== null ? actQty * actPrice : null;
+        const stdPrice = sr.stdUnitPrice;
+        const qtyVar = actQty !== null ? actQty - sr.expectedUsage : null;
+        const priceVarThb =
+          actQty !== null && actPrice !== null ? (actPrice - stdPrice) * actQty : null;
+        const totalVarThb = actCost !== null ? actCost - sr.stdCost : null;
+
+        if (totalVarThb !== null) {
+          sumActCost += actCost!;
+          sumTotalVar += totalVarThb;
+          sumPriceVar += priceVarThb ?? 0;
+          skusWithActual++;
+        }
+
+        varianceRows.push({
+          skuId: sr.skuId,
+          skuCode: sr.skuCode,
+          skuName: sr.skuName,
+          type: sr.type,
+          uom: sr.uom,
+          stdQty: sr.expectedUsage,
+          stdCost: sr.stdCost,
+          actQty,
+          actPrice,
+          actCost,
+          qtyVar,
+          priceVarThb,
+          totalVarThb,
+          movementDetail: hasStockData
+            ? {
+                opening: opening ?? null,
+                received: purchases,
+                closingActual: closing?.actual ?? null,
+                closingCalc: closing?.calc ?? null,
+              }
+            : null,
+        });
+      }
+
+      setActualVarianceData(varianceRows);
+      setVarianceSummary({
+        actualCost: sumActCost,
+        totalVariance: sumTotalVar,
+        priceVariance: sumPriceVar,
+        usageVariance: sumTotalVar - sumPriceVar,
+      });
+      setVarianceDataCoverage({
+        skusWithActual,
+        totalSkus: skuRows.length,
+        openingDate,
+        closingDate,
+      });
+    },
+    [skuConverterMap, stdPriceMap],
+  );
+
   const handleCalculate = useCallback(async () => {
     setLoading(true);
+    // Reset variance data
+    setActualVarianceData(null);
+    setVarianceSummary(null);
+    setVarianceDataCoverage(null);
+
     const fromStr = format(dateFrom, "yyyy-MM-dd");
     const toStr = format(dateTo, "yyyy-MM-dd");
 
@@ -468,8 +705,14 @@ export default function FoodCostPage({
     setSkuBreakdown(skuRows);
     setMenuBreakdown(menuRows);
     setCalculated(true);
+
+    // Fetch actual variance data for monthly periods with single branch
+    if (isMonthlyPeriod && selectedBranch !== "all") {
+      await fetchActualVarianceData(fromStr, toStr, selectedBranch, skuRows);
+    }
+
     setLoading(false);
-  }, [dateFrom, dateTo, selectedBranch, calcUsage, calcMenuCosts, skuMap, stdPriceMap]);
+  }, [dateFrom, dateTo, selectedBranch, calcUsage, calcMenuCosts, skuMap, stdPriceMap, isMonthlyPeriod, fetchActualVarianceData]);
 
   // Auto-calculate when preset buttons change
   useEffect(() => {

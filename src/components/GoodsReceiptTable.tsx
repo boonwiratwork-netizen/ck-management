@@ -90,7 +90,9 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                 <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Date
                 </th>
-                <td className="px-3 py-2 text-center text-sm font-mono">{r.weekNumber}</td>
+                <th className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Wk
+                </th>
                 <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   SKU
                 </th>
