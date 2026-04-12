@@ -855,6 +855,22 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Goods Receipt additions
   "gr.confirmReceiptBtn": { th: "ยืนยันการรับของ ({n})", en: "Confirm Receipt ({n})" },
+
+  // Food Cost — Actual vs Standard Variance
+  "fc.actualCost": { th: "ต้นทุนจริง", en: "Actual Cost" },
+  "fc.totalVariance": { th: "Variance รวม", en: "Total Variance" },
+  "fc.priceVariance": { th: "Price Variance", en: "Price Variance" },
+  "fc.usageVariance": { th: "Usage Variance", en: "Usage Variance" },
+  "fc.actQty": { th: "ปริมาณจริง", en: "Actual Qty" },
+  "fc.actCost": { th: "ต้นทุนจริง", en: "Actual Cost" },
+  "fc.qtyVar": { th: "Qty Variance", en: "Qty Variance" },
+  "fc.priceVarThb": { th: "Price Var ฿", en: "Price Var ฿" },
+  "fc.totalVarThb": { th: "Total Var ฿", en: "Total Var ฿" },
+  "fc.dataCoverage": { th: "ข้อมูลจริง", en: "Actual Data" },
+  "fc.opening": { th: "Opening", en: "Opening" },
+  "fc.received": { th: "รับเข้า", en: "Received" },
+  "fc.closing": { th: "Closing", en: "Closing" },
+  "fc.actUsed": { th: "ใช้จริง", en: "Actual Used" },
 };
 
 export default translations;
