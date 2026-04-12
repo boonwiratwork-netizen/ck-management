@@ -33,6 +33,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.branches": { th: "สาขา", en: "Branches" },
   "nav.userManagement": { th: "จัดการผู้ใช้", en: "User Management" },
   "nav.skuCategories": { th: "หมวดวัตถุดิบ", en: "SKU Categories" },
+  "nav.pkStock": { th: "สต็อก PK", en: "PK Stock" },
 
   // ─── Page Titles (h1/h2) ───
   "title.dashboard": { th: "แดชบอร์ด", en: "Dashboard" },
@@ -43,6 +44,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "title.goodsReceipt": { th: "รับของเข้า", en: "Goods Receipt" },
   "title.rmStock": { th: "สต๊อก RM", en: "RM Stock" },
   "title.smStock": { th: "สต๊อก SM", en: "SM Stock" },
+  "title.pkStock": { th: "สต็อก PK", en: "PK Stock" },
   "title.stockCount": { th: "นับสต๊อก", en: "Stock Count" },
   "title.production": { th: "การผลิต", en: "Production" },
   "title.delivery": { th: "ส่งของไปสาขา", en: "Delivery to Branches" },
@@ -282,6 +284,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "summary.totalStockValue": { th: "มูลค่าสต๊อกรวม", en: "Total Stock Value" },
   "summary.outOfStock": { th: "หมดสต๊อก", en: "Out of Stock" },
   "summary.smSkus": { th: "กึ่งสำเร็จ", en: "SM SKUs" },
+  "summary.pkSkus": { th: "บรรจุภัณฑ์", en: "PK SKUs" },
   "summary.totalStockKg": { th: "สต๊อกรวม", en: "Total Stock" },
   "summary.totalSkus": { th: "SKU ทั้งหมด", en: "Total SKUs" },
   "summary.counted": { th: "นับแล้ว", en: "Counted" },
