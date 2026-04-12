@@ -568,23 +568,30 @@ export default function StoreStockPage({
 
   // Cover Day By Storage
   const coverByStorage = useMemo(() => {
-    const groups: Record<string, number[]> = { Chilled: [], Frozen: [], Ambient: [] };
+    const groups: Record<string, { totalStock: number; totalUsage: number }> = {
+      Chilled: { totalStock: 0, totalUsage: 0 },
+      Frozen: { totalStock: 0, totalUsage: 0 },
+      Ambient: { totalStock: 0, totalUsage: 0 },
+    };
     for (const row of filteredRows) {
       const sku = skuMap.get(row.sku_id);
       if (!sku) continue;
       const dc = getDisplayCount(row);
       const eu = liveDailyUsage[row.sku_id] ?? 0;
       if (dc > 0 && eu > 0) {
-        const cd = dc / eu;
         const sc = sku.storageCondition || "Ambient";
-        if (groups[sc]) groups[sc].push(cd);
+        if (groups[sc]) {
+          groups[sc].totalStock += dc;
+          groups[sc].totalUsage += eu;
+        }
       }
     }
-    const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+    const weighted = (g: { totalStock: number; totalUsage: number }) =>
+      g.totalUsage > 0 ? g.totalStock / g.totalUsage : null;
     return {
-      Chilled: avg(groups.Chilled),
-      Frozen: avg(groups.Frozen),
-      Ambient: avg(groups.Ambient),
+      Chilled: weighted(groups.Chilled),
+      Frozen: weighted(groups.Frozen),
+      Ambient: weighted(groups.Ambient),
     };
   }, [filteredRows, skuMap, liveDailyUsage]);
 
