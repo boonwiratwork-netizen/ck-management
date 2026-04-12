@@ -294,15 +294,22 @@ export default function TransferRequestPage() {
 
   const sortedTRLines = useMemo(() => {
     const arr = [...trHook.lines];
+    const pkLast = (type: string) => (type === "PK" ? 1 : 0);
     if (sortMode === "priority") {
       arr.sort((a, b) => {
+        const typeDiff = pkLast(a.skuType) - pkLast(b.skuType);
+        if (typeDiff !== 0) return typeDiff;
         const sa = statusOrder[a.status] ?? 9;
         const sb = statusOrder[b.status] ?? 9;
         if (sa !== sb) return sa - sb;
         return a.skuCode.localeCompare(b.skuCode);
       });
     } else {
-      arr.sort((a, b) => a.skuCode.localeCompare(b.skuCode));
+      arr.sort((a, b) => {
+        const typeDiff = pkLast(a.skuType) - pkLast(b.skuType);
+        if (typeDiff !== 0) return typeDiff;
+        return a.skuCode.localeCompare(b.skuCode);
+      });
     }
     return arr;
   }, [trHook.lines, sortMode]);
