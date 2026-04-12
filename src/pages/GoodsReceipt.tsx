@@ -574,8 +574,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col style={{ width: 90 }} />
-                  <col style={{ width: 36 }} />
-                  <col style={{ width: 200 }} />
+
+                  <col style={{ width: 240 }} />
                   <col style={{ width: 120 }} />
                   <col style={{ width: 80 }} />
                   <col style={{ width: 50 }} />
@@ -589,7 +589,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <thead className="sticky top-0 z-[5]">
                   <tr className="bg-table-header border-b">
                     <th className={thClass}>{t("col.date")}</th>
-                    <th className={`${thClass} text-center`}>{t("col.week")}</th>
+
                     <th className={thClass}>{t("col.sku")}</th>
                     <th className={thClass}>{t("col.supplier")}</th>
                     <th className={`${thClass} text-right !bg-foreground !text-background font-semibold`}>
@@ -636,7 +636,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                         )}
                       >
                         <td className={`${tdReadOnly} text-muted-foreground`}>{dateStr}</td>
-                        <td className={`${tdReadOnly} text-center font-mono text-muted-foreground`}>{weekNum}</td>
+
                         <td className={tdReadOnly}>
                           <TooltipProvider>
                             <Tooltip>
@@ -1054,8 +1054,8 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             <table className="w-full text-sm table-fixed">
               <colgroup>
                 <col style={{ width: 90 }} />
-                <col style={{ width: 36 }} />
-                <col style={{ width: 200 }} />
+
+                <col style={{ width: 240 }} />
                 <col style={{ width: 120 }} />
                 <col style={{ width: 70 }} />
                 <col style={{ width: 50 }} />
@@ -1078,15 +1078,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       onSort={hHandleSort}
                     />
                   </th>
-                  <th className={`${thClass} text-center cursor-pointer`} onClick={() => hHandleSort("week")}>
-                    <SortableHeader
-                      label={t("col.week")}
-                      sortKey="week"
-                      activeSortKey={hSortKey}
-                      sortDir={hSortDir}
-                      onSort={hHandleSort}
-                    />
-                  </th>
+
                   <th className={`${thClass} cursor-pointer`} onClick={() => hHandleSort("sku")}>
                     <SortableHeader
                       label={t("col.sku")}
@@ -1158,7 +1150,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                       <TooltipProvider key={r.id}>
                         <tr className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                           <td className={tdReadOnly}>{r.receiptDate}</td>
-                          <td className={`${tdReadOnly} text-center font-mono`}>{r.weekNumber}</td>
+
                           <td className={tdReadOnly}>
                             <Tooltip>
                               <TooltipTrigger asChild>
