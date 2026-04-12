@@ -290,7 +290,10 @@ export default function BranchReceiptPage({
   const dateStr = format(receiptDate, "yyyy-MM-dd");
   const weekNum = getWeekNumber(dateStr);
 
-  const rmSkus = useMemo(() => skus.filter((s) => s.type === "RM" && s.status === "Active"), [skus]);
+  const rmSkus = useMemo(
+    () => skus.filter((s) => (s.type === "RM" || s.type === "PK") && s.status === "Active"),
+    [skus],
+  );
   const skuMap = useMemo(() => Object.fromEntries(skus.map((s) => [s.id, s])), [skus]);
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const branchMap = useMemo(() => Object.fromEntries(branches.map((b) => [b.id, b])), [branches]);
@@ -3014,7 +3017,15 @@ export default function BranchReceiptPage({
         onConfirm={confirmSupplierChange}
       />
       {/* Decline TO Dialog */}
-      <Dialog open={declineDialogOpen} onOpenChange={(o) => { if (!o) { setDeclineDialogOpen(false); setDeclineReason(""); } }}>
+      <Dialog
+        open={declineDialogOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeclineDialogOpen(false);
+            setDeclineReason("");
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>ปฏิเสธการรับของจาก {declineTONumber}?</DialogTitle>
@@ -3027,7 +3038,13 @@ export default function BranchReceiptPage({
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setDeclineDialogOpen(false); setDeclineReason(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeclineDialogOpen(false);
+                setDeclineReason("");
+              }}
+            >
               ยกเลิก
             </Button>
             <Button variant="destructive" onClick={handleDeclineTO}>
