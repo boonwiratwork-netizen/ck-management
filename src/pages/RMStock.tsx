@@ -180,20 +180,27 @@ export default function RMStockPage({ skus, stockData, bomHeaders, bomLines }: P
   );
 
   const coverDayByStorage = useMemo(() => {
-    const groups: Record<string, number[]> = { Chilled: [], Frozen: [], Ambient: [] };
+    const groups: Record<string, { totalStock: number; totalUsage: number }> = {
+      Chilled: { totalStock: 0, totalUsage: 0 },
+      Frozen: { totalStock: 0, totalUsage: 0 },
+      Ambient: { totalStock: 0, totalUsage: 0 },
+    };
     filteredRows.forEach((row) => {
       const dailyUsage = rmDailyUsage[row.sku.id] || 0;
       if (dailyUsage > 0 && row.currentStock > 0) {
-        const cd = row.currentStock / dailyUsage;
         const storage = row.sku.storageCondition;
-        if (groups[storage]) groups[storage].push(cd);
+        if (groups[storage]) {
+          groups[storage].totalStock += row.currentStock;
+          groups[storage].totalUsage += dailyUsage;
+        }
       }
     });
-    const avg = (arr: number[]) => (arr.length > 0 ? (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1) : "—");
+    const calc = (g: { totalStock: number; totalUsage: number }) =>
+      g.totalUsage > 0 ? (g.totalStock / g.totalUsage).toFixed(1) : "—";
     return {
-      Chilled: avg(groups.Chilled),
-      Frozen: avg(groups.Frozen),
-      Ambient: avg(groups.Ambient),
+      Chilled: calc(groups.Chilled),
+      Frozen: calc(groups.Frozen),
+      Ambient: calc(groups.Ambient),
     };
   }, [filteredRows, rmDailyUsage]);
 
