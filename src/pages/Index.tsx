@@ -11,6 +11,7 @@ import { useGoodsReceiptData } from "@/hooks/use-goods-receipt-data";
 import { useStockData } from "@/hooks/use-stock-data";
 import { useProductionData } from "@/hooks/use-production-data";
 import { useSmStockData } from "@/hooks/use-sm-stock-data";
+import { usePkStockData } from "@/hooks/use-pk-stock-data";
 import { useSmDailyUsage } from "@/hooks/use-sm-daily-usage";
 import { useDeliveryData } from "@/hooks/use-delivery-data";
 import { useVisibilityRefresh } from "@/hooks/use-visibility-refresh";
@@ -32,6 +33,7 @@ import GoodsReceiptPage from "@/pages/GoodsReceipt";
 import RMStockPage from "@/pages/RMStock";
 import ProductionPage from "@/pages/Production";
 import SMStockPage from "@/pages/SMStock";
+import PKStockPage from "@/pages/PKStock";
 import StockCountPage from "@/pages/StockCount";
 import DeliveryToBranchesPage from "@/pages/DeliveryToBranches";
 import TransferOrderPage from "@/pages/TransferOrder";
@@ -83,6 +85,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
   "food-cost": { title: "Food Cost", subtitle: "Analyze your cost vs revenue" },
   "sku-categories": { title: "SKU Categories", subtitle: "Manage ingredient categories" },
+  pkstock: { title: "PK Stock", subtitle: "Packaging material stock balances" },
 };
 
 // Define which tabs each role can access
@@ -115,6 +118,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "transfer-order",
       "stock",
       "smstock",
+      "pkstock",
       "stockcount",
     ];
     return !editableCk.includes(tab);
@@ -159,6 +163,7 @@ const Index = () => {
     byproductData.byproducts,
   );
   const smDailyUsage = useSmDailyUsage(skuData.skus);
+  const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices);
   const branchData = useBranchData();
 
   useVisibilityRefresh([
@@ -492,6 +497,13 @@ const Index = () => {
                 />
               ) : activeTab === "smstock" ? (
                 <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
+              ) : activeTab === "pkstock" ? (
+                <PKStockPage
+                  skus={skus}
+                  stockData={pkStockData}
+                  bomHeaders={bomData.headers}
+                  bomLines={bomData.lines}
+                />
               ) : activeTab === "stockcount" ? (
                 <StockCountPage
                   skus={skus}
