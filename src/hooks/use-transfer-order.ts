@@ -116,7 +116,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             skuName: skuMap[l.sku_id]?.name || "",
             uom: l.uom,
             requestedQty: l.requested_qty,
-            skuType: (l.sku_type === "RM" ? "RM" : "SM") as "SM" | "RM",
+            skuType: (l.sku_type === "RM" ? "RM" : l.sku_type === "PK" ? "PK" : "SM") as "SM" | "RM" | "PK",
           })),
         };
       }),
@@ -166,7 +166,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
 
         if (params.trId && params.trLines && params.trLines.length > 0) {
           // Fetch active RM prices for cost lookup
-          const rmSkuIds = params.trLines.filter((l) => l.skuType === "RM").map((l) => l.skuId);
+          const rmSkuIds = params.trLines.filter((l) => l.skuType === "RM" || l.skuType === "PK").map((l) => l.skuId);
           let rmPriceMap: Record<string, number> = {};
           if (rmSkuIds.length > 0) {
             const { data: prices } = await supabase
@@ -178,7 +178,10 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           }
 
           const lineInserts = params.trLines.map((l) => {
-            const unitCost = l.skuType === "RM" ? (rmPriceMap[l.skuId] ?? 0) : (getBomCostPerGram?.(l.skuId) ?? 0);
+            const unitCost =
+              l.skuType === "RM" || l.skuType === "PK"
+                ? (rmPriceMap[l.skuId] ?? 0)
+                : (getBomCostPerGram?.(l.skuId) ?? 0);
             return {
               to_id: toRow.id,
               sku_id: l.skuId,
@@ -268,7 +271,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         .from("transfer_order_lines")
         .select("sku_id, actual_qty, sku_type")
         .eq("to_id", toId)
-        .eq("sku_type", "RM");
+        .in("sku_type", ["RM", "PK"]);
       if (toLines) {
         const today = toLocalDateStr(new Date());
         for (const tl of toLines) {
@@ -276,7 +279,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             const { error: adjErr } = await supabase.from("stock_adjustments").insert({
               sku_id: tl.sku_id,
               quantity: -tl.actual_qty,
-              stock_type: "RM",
+              stock_type: tl.sku_type === "PK" ? "PK" : "RM",
               adjustment_date: today,
               reason: `Distribution: ${to?.to_number || toId}`,
             });
