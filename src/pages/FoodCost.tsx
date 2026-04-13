@@ -901,6 +901,49 @@ export default function FoodCostPage({
             </Card>
           </div>
 
+
+          {/* Variance Summary Cards — monthly + single branch only */}
+          {calculated && isMonthlyPeriod && selectedBranch !== "all" && (
+            <>
+              {varianceSummary ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("fc.actualCost")}</p>
+                        <p className="text-2xl font-bold font-mono mt-1">฿{fmt(varianceSummary.actualCost)}</p>
+                      </CardContent>
+                    </Card>
+                    {([
+                      { label: t("fc.totalVariance"), value: varianceSummary.totalVariance },
+                      { label: t("fc.priceVariance"), value: varianceSummary.priceVariance },
+                      { label: t("fc.usageVariance"), value: varianceSummary.usageVariance },
+                    ] as const).map((card) => (
+                      <Card key={card.label}>
+                        <CardContent className="p-4">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{card.label}</p>
+                          <p className={cn("text-2xl font-bold font-mono mt-1 flex items-center gap-1",
+                            card.value > 0 ? "text-destructive" : card.value < 0 ? "text-success" : "text-muted-foreground"
+                          )}>
+                            {card.value > 0 ? "+" : ""}{fmt(card.value)} ฿
+                            {card.value > 0 && <TrendingUp className="w-4 h-4" />}
+                            {card.value < 0 && <TrendingDown className="w-4 h-4" />}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  {varianceDataCoverage && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("fc.dataCoverage")}: {varianceDataCoverage.skusWithActual}/{varianceDataCoverage.totalSkus} SKUs · Opening: {varianceDataCoverage.openingDate} · Closing: {varianceDataCoverage.closingDate}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">ไม่มีข้อมูล stock count สำหรับเดือนนี้ — แสดงเฉพาะ Standard</p>
+              )}
+            </>
+          )}
           {/* Daily Trend Chart */}
           {dailyData.length > 1 && (
             <Card>
