@@ -1069,79 +1069,173 @@ export default function FoodCostPage({
           )}
 
           {/* SKU Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">SKU Ingredient Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 overflow-hidden">
-              <div className="overflow-y-auto max-h-[400px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-background">
-                    <TableRow className="bg-table-header border-b">
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.skuCode")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.skuName")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.type")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.expectedUsage")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.uom")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.stdUnitPrice")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.stdCost")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {skuBreakdown.map((r) => (
-                      <TableRow
-                        key={r.skuId}
-                        className="border-b border-table-border hover:bg-table-hover transition-colors"
-                      >
-                        <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
-                        <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
-                        <TableCell className="px-3 py-2">
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}
-                          >
-                            {r.type}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                          {Math.round(r.expectedUsage).toLocaleString("en-US")}
-                        </TableCell>
-                        <TableCell className="px-3 py-2">
-                          <UnitLabel unit={r.uom} />
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                          ฿{r.stdUnitPrice.toFixed(4)}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right font-medium">
-                          ฿{fmt(r.stdCost)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {skuBreakdown.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                          No data
-                        </TableCell>
-                      </TableRow>
+          {(() => {
+            const showVariance = isMonthlyPeriod && selectedBranch !== "all" && actualVarianceData !== null;
+
+            // Build merged rows for variance mode
+            const varianceMap = new Map<string, SkuVarianceRow>();
+            if (showVariance && actualVarianceData) {
+              actualVarianceData.forEach(v => varianceMap.set(v.skuId, v));
+            }
+
+            const mergedRows = showVariance
+              ? skuBreakdown.map(r => ({ std: r, var: varianceMap.get(r.skuId) ?? null }))
+                  .sort((a, b) => {
+                    const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
+                    const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
+                    return absB - absA;
+                  })
+              : null;
+
+            const varColorClass = (v: number | null) =>
+              v === null ? "text-muted-foreground" : v > 0 ? "text-destructive font-semibold" : v < 0 ? "text-success font-semibold" : "text-muted-foreground";
+
+            const fmtVar = (v: number | null) => v === null ? "—" : `${v > 0 ? "+" : ""}${fmt(v)}`;
+
+            const thCls = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">SKU Ingredient Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 overflow-hidden">
+                  <div className="overflow-y-auto max-h-[400px]">
+                    {showVariance && mergedRows ? (
+                      <table className="w-full text-sm table-fixed">
+                        <colgroup>
+                          <col style={{ width: 80 }} />
+                          <col style={{ width: 180 }} />
+                          <col style={{ width: 60 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 100 }} />
+                          <col style={{ width: 80 }} />
+                          <col style={{ width: 80 }} />
+                        </colgroup>
+                        <thead className="sticky top-0 z-[5] bg-background">
+                          <tr className="bg-table-header border-b">
+                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuCode")}</th>
+                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuName")}</th>
+                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.type")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>Std Qty</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("col.stdCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actQty")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.qtyVar")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.priceVarThb")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.totalVarThb")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mergedRows.map(({ std: r, var: v }) => (
+                            <tr key={r.skuId} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                              <td className="px-3 py-2 font-mono text-xs">{r.skuCode}</td>
+                              <td className="px-3 py-2 text-sm truncate">{r.skuName}</td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}>{r.type}</span>
+                              </td>
+                              <td className="px-3 py-2 font-mono text-right">{Math.round(r.expectedUsage).toLocaleString("en-US")}</td>
+                              <td className="px-3 py-2 font-mono text-right">฿{fmt(r.stdCost)}</td>
+                              <td className="px-3 py-2 font-mono text-right">
+                                {v && v.actQty !== null ? (
+                                  <TooltipProvider delayDuration={200}>
+                                    <ShadTooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="underline decoration-dotted cursor-help">
+                                          {Math.round(v.actQty).toLocaleString("en-US")}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <ShadTooltipContent side="right" className="p-3 text-xs">
+                                        {v.movementDetail ? (
+                                          <div className="space-y-0.5 min-w-[160px]">
+                                            <div className="flex justify-between gap-4">
+                                              <span>{t("fc.opening")} ({varianceDataCoverage?.openingDate})</span>
+                                              <span className="font-mono">{v.movementDetail.opening !== null ? `${Math.round(v.movementDetail.opening).toLocaleString("en-US")} ${r.uom}` : "—"}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-4">
+                                              <span>+ {t("fc.received")}</span>
+                                              <span className="font-mono">{Math.round(v.movementDetail.received).toLocaleString("en-US")} {r.uom}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-4">
+                                              <span>− {t("fc.closing")} ({varianceDataCoverage?.closingDate})</span>
+                                              <span className="font-mono">
+                                                {v.movementDetail.closingActual !== null
+                                                  ? `${Math.round(v.movementDetail.closingActual).toLocaleString("en-US")} ${r.uom}`
+                                                  : v.movementDetail.closingCalc !== null
+                                                    ? <>{Math.round(v.movementDetail.closingCalc).toLocaleString("en-US")} {r.uom} <span className="text-muted-foreground">(est.)</span></>
+                                                    : "—"}
+                                              </span>
+                                            </div>
+                                            <div className="border-t my-1" />
+                                            <div className="flex justify-between gap-4 font-semibold">
+                                              <span>= {t("fc.actUsed")}</span>
+                                              <span className="font-mono">{Math.round(v.actQty!).toLocaleString("en-US")} {r.uom}</span>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">ไม่มีข้อมูล stock</span>
+                                        )}
+                                      </ShadTooltipContent>
+                                    </ShadTooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-right">{v?.actCost != null ? `฿${fmt(v.actCost)}` : <span className="text-muted-foreground">—</span>}</td>
+                              <td className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.qtyVar ?? null))}>{fmtVar(v?.qtyVar ?? null)}</td>
+                              <td className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.priceVarThb ?? null))}>{fmtVar(v?.priceVarThb ?? null)}</td>
+                              <td className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.totalVarThb ?? null))}>{fmtVar(v?.totalVarThb ?? null)}</td>
+                            </tr>
+                          ))}
+                          {mergedRows.length === 0 && (
+                            <tr><td colSpan={10} className="text-center py-6 text-muted-foreground">No data</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-background">
+                          <TableRow className="bg-table-header border-b">
+                            <TableHead className={thCls}>{t("col.skuCode")}</TableHead>
+                            <TableHead className={thCls}>{t("col.skuName")}</TableHead>
+                            <TableHead className={thCls}>{t("col.type")}</TableHead>
+                            <TableHead className={`${thCls} text-right`}>{t("col.expectedUsage")}</TableHead>
+                            <TableHead className={thCls}>{t("col.uom")}</TableHead>
+                            <TableHead className={`${thCls} text-right`}>{t("col.stdUnitPrice")}</TableHead>
+                            <TableHead className={`${thCls} text-right`}>{t("col.stdCost")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {skuBreakdown.map((r) => (
+                            <TableRow key={r.skuId} className="border-b border-table-border hover:bg-table-hover transition-colors">
+                              <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
+                              <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
+                              <TableCell className="px-3 py-2">
+                                <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}>{r.type}</span>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 text-sm font-mono text-right">{Math.round(r.expectedUsage).toLocaleString("en-US")}</TableCell>
+                              <TableCell className="px-3 py-2"><UnitLabel unit={r.uom} /></TableCell>
+                              <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{r.stdUnitPrice.toFixed(4)}</TableCell>
+                              <TableCell className="px-3 py-2 text-sm font-mono text-right font-medium">฿{fmt(r.stdCost)}</TableCell>
+                            </TableRow>
+                          ))}
+                          {skuBreakdown.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No data</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Full Menu Breakdown */}
           <Card>
