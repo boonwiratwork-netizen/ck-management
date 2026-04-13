@@ -155,6 +155,16 @@ export default function FoodCostPage({
     return fromStr === firstOfMonth && toStr === lastOfMonth;
   }, [dateFrom, dateTo]);
 
+  // Check if the selected month is in the past (not the current month)
+  const isPastMonth = useMemo(() => {
+    const todayMonth = format(new Date(), "yyyy-MM");
+    const selectedMonth = format(dateFrom, "yyyy-MM");
+    return selectedMonth < todayMonth;
+  }, [dateFrom]);
+
+  // Single source of truth for variance eligibility
+  const canShowVariance = isMonthlyPeriod && isPastMonth && selectedBranch !== "all";
+
   // FC% threshold configuration
   const FC_GREEN_MAX = 30;
   const FC_AMBER_MAX = 35;
@@ -708,12 +718,13 @@ export default function FoodCostPage({
     setCalculated(true);
 
     // Fetch actual variance data for monthly periods with single branch
-    if (isMonthlyPeriod && selectedBranch !== "all") {
+    const canFetchVariance = isMonthlyPeriod && isPastMonth && selectedBranch !== "all";
+    if (canFetchVariance) {
       await fetchActualVarianceData(fromStr, toStr, selectedBranch, skuRows);
     }
 
     setLoading(false);
-  }, [dateFrom, dateTo, selectedBranch, calcUsage, calcMenuCosts, skuMap, stdPriceMap, isMonthlyPeriod, fetchActualVarianceData]);
+  }, [dateFrom, dateTo, selectedBranch, calcUsage, calcMenuCosts, skuMap, stdPriceMap, isMonthlyPeriod, isPastMonth, fetchActualVarianceData]);
 
   // Auto-calculate when preset buttons change
   useEffect(() => {
@@ -902,48 +913,68 @@ export default function FoodCostPage({
           </div>
 
 
-          {/* Variance Summary Cards — monthly + single branch only */}
-          {calculated && isMonthlyPeriod && selectedBranch !== "all" && (
+          {/* Variance Summary Cards — canShowVariance gate */}
+          {canShowVariance && varianceSummary !== null && (
             <>
-              {varianceSummary ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("fc.actualCost")}</p>
-                        <p className="text-2xl font-bold font-mono mt-1">฿{fmt(varianceSummary.actualCost)}</p>
-                      </CardContent>
-                    </Card>
-                    {([
-                      { label: t("fc.totalVariance"), value: varianceSummary.totalVariance },
-                      { label: t("fc.priceVariance"), value: varianceSummary.priceVariance },
-                      { label: t("fc.usageVariance"), value: varianceSummary.usageVariance },
-                    ] as const).map((card) => (
-                      <Card key={card.label}>
-                        <CardContent className="p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{card.label}</p>
-                          <p className={cn("text-2xl font-bold font-mono mt-1 flex items-center gap-1",
-                            card.value > 0 ? "text-destructive" : card.value < 0 ? "text-success" : "text-muted-foreground"
-                          )}>
-                            {card.value > 0 ? "+" : ""}{fmt(card.value)} ฿
-                            {card.value > 0 && <TrendingUp className="w-4 h-4" />}
-                            {card.value < 0 && <TrendingDown className="w-4 h-4" />}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                  {varianceDataCoverage && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("fc.dataCoverage")}: {varianceDataCoverage.skusWithActual}/{varianceDataCoverage.totalSkus} SKUs · Opening: {varianceDataCoverage.openingDate} · Closing: {varianceDataCoverage.closingDate}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">ไม่มีข้อมูล stock count สำหรับเดือนนี้ — แสดงเฉพาะ Standard</p>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("fc.actualCost")}</p>
+                    <p className="text-2xl font-bold font-mono mt-1">฿{fmt(varianceSummary.actualCost)}</p>
+                  </CardContent>
+                </Card>
+                {([
+                  { label: t("fc.totalVariance"), value: varianceSummary.totalVariance },
+                  { label: t("fc.priceVariance"), value: varianceSummary.priceVariance },
+                  { label: t("fc.usageVariance"), value: varianceSummary.usageVariance },
+                ] as const).map((card) => (
+                  <Card key={card.label}>
+                    <CardContent className="p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{card.label}</p>
+                      <p className={cn("text-2xl font-bold font-mono mt-1 flex items-center gap-1",
+                        card.value > 0 ? "text-destructive" : card.value < 0 ? "text-success" : "text-muted-foreground"
+                      )}>
+                        {card.value > 0 ? "+" : ""}{fmt(card.value)} ฿
+                        {card.value > 0 && <TrendingUp className="w-4 h-4" />}
+                        {card.value < 0 && <TrendingDown className="w-4 h-4" />}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </>
           )}
+
+          {/* Banner states — exactly one renders based on priority */}
+          {calculated && (() => {
+            // Priority 1: has variance data with coverage
+            if (canShowVariance && varianceDataCoverage !== null) {
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {t("fc.dataCoverage")}: {varianceDataCoverage.skusWithActual}/{varianceDataCoverage.totalSkus} SKUs · Opening: {varianceDataCoverage.openingDate} · Closing: {varianceDataCoverage.closingDate}
+                </p>
+              );
+            }
+            // Priority 2: past month but all-branch selected
+            if (isMonthlyPeriod && isPastMonth && selectedBranch === "all") {
+              return (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-3">
+                  <Info className="w-4 h-4 shrink-0 text-primary/60" />
+                  <span>เลือก branch เดียวเพื่อดู Actual vs Standard variance</span>
+                </div>
+              );
+            }
+            // Priority 3: current month single branch
+            if (isMonthlyPeriod && !isPastMonth && selectedBranch !== "all") {
+              return (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-3">
+                  <Info className="w-4 h-4 shrink-0 text-primary/60" />
+                  <span>Actual variance จะแสดงได้เมื่อสิ้นเดือน ({format(dateTo, "d MMM yyyy")}) และมี stock count ปิดเดือนแล้ว</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {/* Daily Trend Chart */}
           {dailyData.length > 1 && (
             <Card>
@@ -1070,7 +1101,7 @@ export default function FoodCostPage({
 
           {/* SKU Breakdown */}
           {(() => {
-            const showVariance = isMonthlyPeriod && selectedBranch !== "all" && actualVarianceData !== null;
+            const showVariance = canShowVariance && actualVarianceData !== null;
 
             // Build merged rows for variance mode
             const varianceMap = new Map<string, SkuVarianceRow>();
