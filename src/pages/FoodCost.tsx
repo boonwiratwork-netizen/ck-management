@@ -155,6 +155,16 @@ export default function FoodCostPage({
     return fromStr === firstOfMonth && toStr === lastOfMonth;
   }, [dateFrom, dateTo]);
 
+  // Check if the selected month is in the past (not the current month)
+  const isPastMonth = useMemo(() => {
+    const todayMonth = format(new Date(), "yyyy-MM");
+    const selectedMonth = format(dateFrom, "yyyy-MM");
+    return selectedMonth < todayMonth;
+  }, [dateFrom]);
+
+  // Single source of truth for variance eligibility
+  const canShowVariance = isMonthlyPeriod && isPastMonth && selectedBranch !== "all";
+
   // FC% threshold configuration
   const FC_GREEN_MAX = 30;
   const FC_AMBER_MAX = 35;
