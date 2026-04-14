@@ -13,10 +13,6 @@ interface SmCostRow {
   totalVariancePct: number;
   priceVariance: number;
   usageVariance: number;
-  beginCountDate: string | null;
-  endCountDate: string | null;
-  beginIsEstimated: boolean;
-  endIsEstimated: boolean;
 }
 
 interface InventorySection {
@@ -65,6 +61,10 @@ export interface CkDashboardData {
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  countStatus: 'confirmed' | 'estimated' | 'blocked';
+  blockReason: string | null;
+  beginCountDate: string | null;
+  endCountDate: string | null;
 }
 
 /* ── Helper: BOM cost per gram — NO byproduct allocation, SM ingredients = ฿0 ── */
@@ -125,68 +125,59 @@ function calcBomCostPerGram(
   return mainOutput > 0 ? totalCost / mainOutput : 0;
 }
 
-/* ── Helper: find closest stock count ── */
+/* ── Helper: find valid RM stock count within ±windowDays ── */
 
-async function findClosestCount(
-  beforeDate: string,
+async function findValidRmCount(
+  targetDate: string,
+  windowDays: number,
   rmSkuIds: string[],
-): Promise<{ bySkuId: Map<string, number>; countDate: string | null; isEstimated: boolean }> {
+): Promise<{ bySkuId: Map<string, number>; countDate: string } | null> {
+  const target = new Date(targetDate);
+  const windowStart = new Date(target);
+  windowStart.setDate(windowStart.getDate() - windowDays);
+  const windowEnd = new Date(target);
+  windowEnd.setDate(windowEnd.getDate() + windowDays);
+  const windowStartStr = windowStart.toISOString().slice(0, 10);
+  const windowEndStr = windowEnd.toISOString().slice(0, 10);
+
   const { data: sessions } = await supabase
     .from('stock_count_sessions')
     .select('id, count_date')
     .eq('status', 'Completed')
     .is('deleted_at', null)
-    .lte('count_date', beforeDate)
-    .order('count_date', { ascending: false })
-    .limit(1);
+    .gte('count_date', windowStartStr)
+    .lte('count_date', windowEndStr)
+    .order('count_date', { ascending: false });
 
-  const session = sessions?.[0];
-  const bySkuId = new Map<string, number>();
+  if (!sessions || sessions.length === 0) return null;
 
-  if (session) {
-    const sessionDate = new Date(session.count_date);
-    const targetDate = new Date(beforeDate);
-    const daysDiff = Math.floor((targetDate.getTime() - sessionDate.getTime()) / 86400000);
+  const sorted = [...sessions].sort((a, b) => {
+    const distA = Math.abs(new Date(a.count_date).getTime() - target.getTime());
+    const distB = Math.abs(new Date(b.count_date).getTime() - target.getTime());
+    return distA - distB;
+  });
 
-    if (daysDiff <= 30) {
-      const { data: lines } = await supabase
-        .from('stock_count_lines')
-        .select('sku_id, physical_qty')
-        .eq('session_id', session.id)
-        .eq('type', 'RM');
+  for (const session of sorted) {
+    const { data: lines } = await supabase
+      .from('stock_count_lines')
+      .select('sku_id, physical_qty')
+      .eq('session_id', session.id)
+      .eq('type', 'RM')
+      .in('sku_id', rmSkuIds);
 
+    const totalRelevant = lines?.length ?? 0;
+    const nonNull = lines?.filter(l => l.physical_qty != null).length ?? 0;
+
+    if (totalRelevant > 0 && nonNull / totalRelevant >= 0.5) {
+      const bySkuId = new Map<string, number>();
       for (const l of lines || []) {
-        if (l.physical_qty != null && rmSkuIds.includes(l.sku_id)) {
-          bySkuId.set(l.sku_id, l.physical_qty);
-        }
+        if (l.physical_qty != null) bySkuId.set(l.sku_id, l.physical_qty);
       }
-      return { bySkuId, countDate: session.count_date, isEstimated: false };
+      return { bySkuId, countDate: session.count_date };
     }
   }
 
-  // Fallback: estimate from goods_receipts + stock_adjustments up to beforeDate
-  const [grRes, adjRes, obRes] = await Promise.all([
-    supabase.from('goods_receipts').select('sku_id, quantity_received').lte('receipt_date', beforeDate),
-    supabase.from('stock_adjustments').select('sku_id, quantity').eq('stock_type', 'RM').lte('adjustment_date', beforeDate),
-    supabase.from('stock_opening_balances').select('sku_id, quantity'),
-  ]);
-
-  const balances = new Map<string, number>();
-  for (const ob of obRes.data || []) {
-    if (rmSkuIds.includes(ob.sku_id)) balances.set(ob.sku_id, ob.quantity);
-  }
-  for (const gr of grRes.data || []) {
-    if (rmSkuIds.includes(gr.sku_id)) {
-      balances.set(gr.sku_id, (balances.get(gr.sku_id) ?? 0) + gr.quantity_received);
-    }
-  }
-  for (const adj of adjRes.data || []) {
-    if (rmSkuIds.includes(adj.sku_id)) {
-      balances.set(adj.sku_id, (balances.get(adj.sku_id) ?? 0) + adj.quantity);
-    }
-  }
-
-  return { bySkuId: balances, countDate: session?.count_date ?? null, isEstimated: true };
+  return null;
 }
 
 /* ── Main Hook ── */
@@ -210,6 +201,11 @@ export function useCkDashboardData({
   const [inventory, setInventory] = useState<InventorySection>({ rmProduction: 0, rmDistribution: 0, sm: 0, total: 0, lastCountDate: null, countDaysOld: 0 });
   const [purchase, setPurchase] = useState<PurchaseSummary>({ totalActualSpend: 0, bySupplier: [] });
   const [distribution, setDistribution] = useState<DistributionSummary>({ totalSmValue: 0, totalRmValue: 0, byBranch: [] });
+
+  const [countStatus, setCountStatus] = useState<'confirmed' | 'estimated' | 'blocked'>('blocked');
+  const [blockReason, setBlockReason] = useState<string | null>(null);
+  const [beginCountDate, setBeginCountDate] = useState<string | null>(null);
+  const [endCountDate, setEndCountDate] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -283,12 +279,6 @@ export function useCkDashboardData({
         if (totalQty > 0) rmWeightedPrice.set(skuId, (rmReceiptValue.get(skuId) ?? 0) / totalQty);
       }
 
-      // Find beginning and ending RM stock
-      const [beginCount, endCount] = await Promise.all([
-        findClosestCount(rangeStart, rmSkuIds),
-        findClosestCount(rangeEnd, rmSkuIds),
-      ]);
-
       // RM purchased qty in period (in usage UOM)
       const rmPurchasedInPeriod = new Map<string, number>();
       for (const gr of goodsReceipts) {
@@ -297,99 +287,138 @@ export function useCkDashboardData({
         }
       }
 
-      // Actual qty used per RM = begin + purchased - end
-      const rmActualUsed = new Map<string, number>();
-      for (const rmId of rmSkuIds) {
-        const begin = beginCount.bySkuId.get(rmId) ?? 0;
-        const purchased = rmPurchasedInPeriod.get(rmId) ?? 0;
-        const end = endCount.bySkuId.get(rmId) ?? 0;
-        rmActualUsed.set(rmId, Math.max(0, begin + purchased - end));
+      // Find beginning and ending RM stock with validation
+      const today = new Date().toISOString().slice(0, 10);
+      const isPeriodClosed = rangeEnd < today;
+
+      const beginResult = await findValidRmCount(rangeStart, 3, rmSkuIds);
+      const endResult = isPeriodClosed
+        ? await findValidRmCount(rangeEnd, 3, rmSkuIds)
+        : null;
+
+      // Determine count status
+      let currentCountStatus: 'confirmed' | 'estimated' | 'blocked';
+      let currentBlockReason: string | null = null;
+
+      if (!beginResult) {
+        currentCountStatus = 'blocked';
+        currentBlockReason = 'ไม่พบผลนับ RM ต้นงวด (ต้องนับภายใน ±3 วันจากวันเริ่มต้น)';
+      } else if (isPeriodClosed && !endResult) {
+        currentCountStatus = 'blocked';
+        currentBlockReason = 'ไม่พบผลนับ RM ปลายงวด (ต้องนับภายใน ±3 วันจากวันสิ้นสุด)';
+      } else if (!isPeriodClosed && !endResult) {
+        currentCountStatus = 'estimated';
+      } else {
+        currentCountStatus = 'confirmed';
       }
 
-      // Per SM SKU cost analysis
-      const smRows: SmCostRow[] = [];
-      let grandStd = 0, grandAct = 0, grandPriceVar = 0, grandUsageVar = 0;
+      setCountStatus(currentCountStatus);
+      setBlockReason(currentBlockReason);
+      setBeginCountDate(beginResult?.countDate ?? null);
+      setEndCountDate(endResult?.countDate ?? null);
 
-      for (const smId of producedSmIds) {
-        const sku = skuMap.get(smId);
-        const smName = sku?.name ?? smId;
-        const skuCode = sku?.sku_id ?? '';
-
-        const smProdRecs = prodRecs.filter((r: any) => r.sm_sku_id === smId);
-        const totalOutputG = smProdRecs.reduce((s: number, r: any) => s + r.actual_output_g, 0);
-        const totalBatches = smProdRecs.reduce((s: number, r: any) => s + r.batches_produced, 0);
-
-        // Standard cost (no byproduct allocation, SM ingredients = ฿0)
-        const costPerGram = calcBomCostPerGram(smId, bomHeaders, bomLines, bomSteps, activePrices, smSkuIds);
-        const standardCost = totalOutputG * costPerGram;
-
-        // BOM lines for this SM (excluding SM-to-SM)
-        const bh = bomHeaders.find((h: any) => h.sm_sku_id === smId);
-        const myBomLines = bh
-          ? bomLines.filter((l: any) => l.bom_header_id === bh.id && !smSkuIds.has(l.rm_sku_id))
-          : [];
-
-        // Actual cost using beginning + purchases - ending per RM
-        let smActualCost = 0;
-        let smPriceVar = 0;
-        let smUsageVar = 0;
-
-        for (const bl of myBomLines) {
-          const rmId = bl.rm_sku_id;
-          const totalRmUsed = rmActualUsed.get(rmId) ?? 0;
-
-          // Proportional allocation when multiple SM BOMs use same RM
-          const bomsUsingRm = bomHeaders.filter((h: any) =>
-            producedSmIds.includes(h.sm_sku_id) &&
-            bomLines.some((l: any) => l.bom_header_id === h.id && l.rm_sku_id === rmId && !smSkuIds.has(l.rm_sku_id))
-          );
-          const bomShareQty = bomsUsingRm.length > 1
-            ? totalRmUsed * (bl.qty_per_batch / bomLines.filter((l: any) => l.rm_sku_id === rmId && !smSkuIds.has(l.rm_sku_id) && bomsUsingRm.some((h: any) => h.id === l.bom_header_id)).reduce((s: number, l: any) => s + l.qty_per_batch, 0))
-            : totalRmUsed;
-
-          const actualPrice = rmWeightedPrice.get(rmId) ?? activePrices.get(rmId) ?? 0;
-          const stdPrice = activePrices.get(rmId) ?? 0;
-          const stdQty = bl.qty_per_batch * totalBatches;
-
-          smActualCost += bomShareQty * actualPrice;
-          smPriceVar += (actualPrice - stdPrice) * bomShareQty;
-          smUsageVar += (bomShareQty - stdQty) * stdPrice;
+      // If blocked, skip production cost calculation entirely
+      if (currentCountStatus === 'blocked') {
+        setProductionCost([]);
+        setTotals({ totalStd: 0, totalAct: 0, totalVar: 0, totalVarPct: 0, totalPriceVar: 0, totalUsageVar: 0 });
+      } else {
+        // Actual qty used per RM = begin + purchased - end
+        const rmActualUsed = new Map<string, number>();
+        for (const rmId of rmSkuIds) {
+          const begin = beginResult!.bySkuId.get(rmId) ?? 0;
+          const purchased = rmPurchasedInPeriod.get(rmId) ?? 0;
+          let endStock: number;
+          if (currentCountStatus === 'confirmed') {
+            endStock = endResult!.bySkuId.get(rmId) ?? 0;
+          } else {
+            // estimated: use live rmStockBalances prop
+            const liveBalance = rmStockBalances.find(b => b.skuId === rmId);
+            endStock = Math.max(0, liveBalance?.currentStock ?? 0);
+          }
+          rmActualUsed.set(rmId, Math.max(0, begin + purchased - endStock));
         }
 
-        const totalVar = smActualCost - standardCost;
-        const totalVarPct = standardCost > 0 ? (totalVar / standardCost) * 100 : 0;
+        // Per SM SKU cost analysis
+        const smRows: SmCostRow[] = [];
+        let grandStd = 0, grandAct = 0, grandPriceVar = 0, grandUsageVar = 0;
 
-        smRows.push({
-          skuId: smId,
-          skuName: `${skuCode} ${smName}`,
-          actualOutputG: totalOutputG,
-          standardCost,
-          actualCost: smActualCost,
-          totalVariance: totalVar,
-          totalVariancePct: totalVarPct,
-          priceVariance: smPriceVar,
-          usageVariance: smUsageVar,
-          beginCountDate: beginCount.countDate,
-          endCountDate: endCount.countDate,
-          beginIsEstimated: beginCount.isEstimated,
-          endIsEstimated: endCount.isEstimated,
-        });
+        for (const smId of producedSmIds) {
+          const sku = skuMap.get(smId);
+          const smName = sku?.name ?? smId;
+          const skuCode = sku?.sku_id ?? '';
 
-        grandStd += standardCost;
-        grandAct += smActualCost;
-        grandPriceVar += smPriceVar;
-        grandUsageVar += smUsageVar;
+          const smProdRecs = prodRecs.filter((r: any) => r.sm_sku_id === smId);
+          const totalOutputG = smProdRecs.reduce((s: number, r: any) => s + r.actual_output_g, 0);
+          const totalBatches = smProdRecs.reduce((s: number, r: any) => s + r.batches_produced, 0);
+
+          // Standard cost (no byproduct allocation, SM ingredients = ฿0)
+          const costPerGram = calcBomCostPerGram(smId, bomHeaders, bomLines, bomSteps, activePrices, smSkuIds);
+          const standardCost = totalOutputG * costPerGram;
+
+          // BOM lines for this SM (excluding SM-to-SM)
+          const bh = bomHeaders.find((h: any) => h.sm_sku_id === smId);
+          const myBomLines = bh
+            ? bomLines.filter((l: any) => l.bom_header_id === bh.id && !smSkuIds.has(l.rm_sku_id))
+            : [];
+
+          // Actual cost using beginning + purchases - ending per RM
+          let smActualCost = 0;
+          let smPriceVar = 0;
+          let smUsageVar = 0;
+
+          for (const bl of myBomLines) {
+            const rmId = bl.rm_sku_id;
+            const totalRmUsed = rmActualUsed.get(rmId) ?? 0;
+
+            // Proportional allocation when multiple SM BOMs use same RM
+            const bomsUsingRm = bomHeaders.filter((h: any) =>
+              producedSmIds.includes(h.sm_sku_id) &&
+              bomLines.some((l: any) => l.bom_header_id === h.id && l.rm_sku_id === rmId && !smSkuIds.has(l.rm_sku_id))
+            );
+            const bomShareQty = bomsUsingRm.length > 1
+              ? totalRmUsed * (bl.qty_per_batch / bomLines.filter((l: any) => l.rm_sku_id === rmId && !smSkuIds.has(l.rm_sku_id) && bomsUsingRm.some((h: any) => h.id === l.bom_header_id)).reduce((s: number, l: any) => s + l.qty_per_batch, 0))
+              : totalRmUsed;
+
+            const actualPrice = rmWeightedPrice.get(rmId) ?? activePrices.get(rmId) ?? 0;
+            const stdPrice = activePrices.get(rmId) ?? 0;
+            const stdQty = bl.qty_per_batch * totalBatches;
+
+            smActualCost += bomShareQty * actualPrice;
+            smPriceVar += (actualPrice - stdPrice) * bomShareQty;
+            smUsageVar += (bomShareQty - stdQty) * stdPrice;
+          }
+
+          const totalVar = smActualCost - standardCost;
+          const totalVarPct = standardCost > 0 ? (totalVar / standardCost) * 100 : 0;
+
+          smRows.push({
+            skuId: smId,
+            skuName: `${skuCode} ${smName}`,
+            actualOutputG: totalOutputG,
+            standardCost,
+            actualCost: smActualCost,
+            totalVariance: totalVar,
+            totalVariancePct: totalVarPct,
+            priceVariance: smPriceVar,
+            usageVariance: smUsageVar,
+          });
+
+          grandStd += standardCost;
+          grandAct += smActualCost;
+          grandPriceVar += smPriceVar;
+          grandUsageVar += smUsageVar;
+        }
+
+        const grandVar = grandAct - grandStd;
+        const grandVarPct = grandStd > 0 ? (grandVar / grandStd) * 100 : 0;
+
+        setProductionCost(smRows);
+        setTotals({ totalStd: grandStd, totalAct: grandAct, totalVar: grandVar, totalVarPct: grandVarPct, totalPriceVar: grandPriceVar, totalUsageVar: grandUsageVar });
       }
-
-      const grandVar = grandAct - grandStd;
-      const grandVarPct = grandStd > 0 ? (grandVar / grandStd) * 100 : 0;
-
-      setProductionCost(smRows);
-      setTotals({ totalStd: grandStd, totalAct: grandAct, totalVar: grandVar, totalVarPct: grandVarPct, totalPriceVar: grandPriceVar, totalUsageVar: grandUsageVar });
 
       /* ── SECTION 2: Inventory Value (from live stock balance props) ── */
 
-      const today = new Date().toISOString().slice(0, 10);
+      const todayForInv = new Date().toISOString().slice(0, 10);
 
       // Staleness signal from most recent completed count session
       const { data: invSessions } = await supabase
@@ -397,13 +426,13 @@ export function useCkDashboardData({
         .select('count_date')
         .eq('status', 'Completed')
         .is('deleted_at', null)
-        .lte('count_date', today)
+        .lte('count_date', todayForInv)
         .order('count_date', { ascending: false })
         .limit(1);
 
       const lastCountDate = invSessions?.[0]?.count_date ?? null;
       const countDaysOld = lastCountDate
-        ? Math.floor((new Date(today).getTime() - new Date(lastCountDate).getTime()) / 86400000)
+        ? Math.floor((new Date(todayForInv).getTime() - new Date(lastCountDate).getTime()) / 86400000)
         : 999;
 
       // RM SKUs in active BOMs
@@ -524,5 +553,9 @@ export function useCkDashboardData({
     loading,
     error,
     refresh,
+    countStatus,
+    blockReason,
+    beginCountDate,
+    endCountDate,
   };
 }
