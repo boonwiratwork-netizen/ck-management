@@ -135,12 +135,10 @@ const Dashboard = ({
     ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
     : t('ckd.periodCustomRange');
 
-  // Data quality badges — now from hook-level countStatus
-  const beginDate = hook.beginCountDate;
-  const endDate = hook.endCountDate;
-  const beginEstimated = hook.countStatus === 'estimated' || hook.countStatus === 'blocked';
-  const endEstimated = hook.countStatus === 'estimated' || hook.countStatus === 'blocked';
-  const anyEstimated = hook.countStatus !== 'confirmed';
+  const countStatus = hook.countStatus;
+  const blockReason = hook.blockReason;
+  const beginCountDate = hook.beginCountDate;
+  const endCountDate = hook.endCountDate;
 
   // Inventory count warning
   const invCountWarning = hook.inventory.countDaysOld > 7;
@@ -223,108 +221,145 @@ const Dashboard = ({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                {t('dash.productionCostAnalysis')}
+                ต้นทุนการผลิต — BOM vs จริง
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* KPI tiles */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-lg bg-[#F1EFE8] p-4">
-                  <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">{t('ckd.targetCost')}</p>
-                  <p className="text-3xl font-bold font-mono mt-1 text-[#2C2C2A]">{fmtBaht(hook.totalStandardCost)}</p>
-                </div>
-                <div className={cn('rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
-                  <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.actualSpend')}</p>
-                  <p className="text-3xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.totalActualCost)}</p>
-                </div>
-                <div className="rounded-lg bg-[#F1EFE8] p-4 flex flex-col justify-center">
-                  <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">{t('ckd.vsStandard')}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className={cn(
-                      'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
-                      hook.totalVariance > 0
-                        ? 'bg-destructive/15 text-destructive'
-                        : hook.totalVariance < 0
-                        ? 'bg-success/15 text-success'
-                        : 'bg-muted text-muted-foreground'
-                    )}>
-                      {hook.totalVariance > 0 ? '+' : ''}{fmtBaht(hook.totalVariance)}
-                      <span className="text-sm ml-1.5">
-                        ({hook.totalVariancePct > 0 ? '+' : ''}{formatNumber(hook.totalVariancePct, 1)}%)
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Production cost breakdown table */}
-              {hook.productionCost.length === 0 ? (
-                <div className="flex flex-col items-center py-10 text-muted-foreground">
-                  <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
-                  <p className="text-sm">{t('ckd.noProdInPeriod')}</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted/80 backdrop-blur">
-                      <tr className="border-b">
-                        <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.smSku')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colOutput')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colStandard')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.colActual')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('dash.variance')}</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.variancePct')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hook.productionCost.map(row => {
-                        const pct = row.totalVariancePct;
-                        const varColor = row.totalVariance > 0
-                          ? 'text-destructive'
-                          : row.totalVariance < 0
-                          ? 'text-success'
-                          : 'text-muted-foreground';
-                        const pctBg = pct > 5
-                          ? 'bg-destructive/10 text-destructive'
-                          : pct > 0
-                          ? 'bg-warning/10 text-warning'
-                          : pct < 0
-                          ? 'bg-success/10 text-success'
-                          : 'text-muted-foreground';
-                        return (
-                          <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
-                            <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
-                            <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
-                            <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
-                            <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
-                            <td className={cn('px-3 py-2 text-right font-mono', varColor)}>{fmt(row.totalVariance)}</td>
-                            <td className={cn('px-3 py-2 text-right font-mono rounded', pctBg)}>{formatNumber(pct, 1)}%</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              {/* ── BLOCKED ── */}
+              {countStatus === 'blocked' && (
+                <div className="flex flex-col items-center py-12 gap-3 text-center">
+                  <StatusDot status="red" size="md" />
+                  <p className="text-base font-semibold text-destructive">ไม่สามารถคำนวณต้นทุนได้</p>
+                  <p className="text-sm text-muted-foreground max-w-sm">{blockReason}</p>
+                  <p className="text-xs text-muted-foreground">กรุณานับสต็อก RM แล้วกลับมาคำนวณใหม่</p>
                 </div>
               )}
 
-              {/* Data quality strip */}
-              {hook.productionCost.length > 0 && (
-                <div className="space-y-2">
-                  {anyEstimated && (
+              {/* ── CONFIRMED or ESTIMATED ── */}
+              {(countStatus === 'confirmed' || countStatus === 'estimated') && (
+                <div className="space-y-5">
+                  {/* KPI tiles */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Tile 1: ต้นทุน BOM */}
+                    <div className="relative rounded-lg bg-[#F1EFE8] p-4">
+                      {countStatus === 'estimated' && (
+                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
+                      )}
+                      <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">ต้นทุน BOM</p>
+                      <p className="text-3xl font-bold font-mono mt-1 text-[#2C2C2A]">{fmtBaht(hook.totalStandardCost)}</p>
+                      <p className="text-xs text-[#5F5E5A]/70 mt-0.5">ถ้าใช้ตามสูตรพอดี</p>
+                    </div>
+
+                    {/* Tile 2: ต้นทุนจริง */}
+                    <div className={cn('relative rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
+                      {countStatus === 'estimated' && (
+                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
+                      )}
+                      <p className="text-xs uppercase tracking-wide text-[#185FA5]">ต้นทุนจริง</p>
+                      <p className="text-3xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.totalActualCost)}</p>
+                      <p className="text-xs text-[#185FA5]/70 mt-0.5">จาก RM ที่ใช้ไปจริง</p>
+                    </div>
+
+                    {/* Tile 3: ต่างจาก BOM */}
+                    <div className="relative rounded-lg bg-[#F1EFE8] p-4 flex flex-col justify-center">
+                      {countStatus === 'estimated' && (
+                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
+                      )}
+                      <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">ต่างจาก BOM</p>
+                      <p className="text-xs text-[#5F5E5A]/70 mt-0.5 mb-1">บวก = แพงกว่าสูตร</p>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
+                          hook.totalVariance > 0
+                            ? 'bg-destructive/15 text-destructive'
+                            : hook.totalVariance < 0
+                            ? 'bg-success/15 text-success'
+                            : 'bg-muted text-muted-foreground'
+                        )}>
+                          {hook.totalVariance > 0 ? '+' : ''}{fmtBaht(hook.totalVariance)}
+                          <span className="text-sm ml-1.5">
+                            ({hook.totalVariancePct > 0 ? '+' : ''}{formatNumber(hook.totalVariancePct, 1)}%)
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estimated warning banner */}
+                  {countStatus === 'estimated' && (
                     <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-center gap-2">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      {t('ckd.inventoryWarning')}
+                      ประมาณการสะสมถึงวันนี้ — ยังไม่มีผลนับ RM ปลายเดือน ตัวเลขอ้างอิงจาก stock balance ปัจจุบัน
                     </div>
                   )}
+
+                  {/* Production cost breakdown table */}
+                  {hook.productionCost.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-muted-foreground">
+                      <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
+                      <p className="text-sm">ไม่มีการผลิตในช่วงนี้</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                          <tr className="border-b">
+                            <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ผลิตได้ (ก.)</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต้นทุน BOM (฿)</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต้นทุนจริง (฿)</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต่างจาก BOM (฿)</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">เบี่ยง %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hook.productionCost.map(row => {
+                            const pct = row.totalVariancePct;
+                            const varColor = row.totalVariance > 0
+                              ? 'text-destructive'
+                              : row.totalVariance < 0
+                              ? 'text-success'
+                              : 'text-muted-foreground';
+                            const pctBg = pct > 5
+                              ? 'bg-destructive/10 text-destructive'
+                              : pct > 0
+                              ? 'bg-warning/10 text-warning'
+                              : pct < 0
+                              ? 'bg-success/10 text-success'
+                              : 'text-muted-foreground';
+                            return (
+                              <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
+                                <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
+                                <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
+                                <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
+                                <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
+                                <td className={cn('px-3 py-2 text-right font-mono', varColor)}>{fmt(row.totalVariance)}</td>
+                                <td className={cn('px-3 py-2 text-right font-mono rounded', pctBg)}>{formatNumber(pct, 1)}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Data quality strip */}
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
-                       <StatusDot status={beginEstimated ? 'amber' : 'green'} size="sm" />
-                       {t('ckd.beginning')} {beginDate ?? '—'} {beginEstimated ? t('ckd.estimated') : t('ckd.counted')}
+                      <StatusDot status="green" size="sm" />
+                      ต้นงวด: {beginCountDate} · ผลนับจริง
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
-                       <StatusDot status={endEstimated ? 'amber' : 'green'} size="sm" />
-                       {t('ckd.ending')} {endDate ?? '—'} {endEstimated ? t('ckd.estimated') : t('ckd.counted')}
-                    </span>
+                    {countStatus === 'confirmed' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <StatusDot status="green" size="sm" />
+                        ปลายงวด: {endCountDate} · ผลนับจริง
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <StatusDot status="amber" size="sm" />
+                        ปลายงวด: stock balance ปัจจุบัน (ประมาณการ)
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
