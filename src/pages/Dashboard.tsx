@@ -135,13 +135,12 @@ const Dashboard = ({
     ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
     : t('ckd.periodCustomRange');
 
-  // Data quality badges
-  const beginRow = hook.productionCost[0];
-  const beginDate = beginRow?.beginCountDate;
-  const endDate = beginRow?.endCountDate;
-  const beginEstimated = beginRow?.beginIsEstimated ?? true;
-  const endEstimated = beginRow?.endIsEstimated ?? true;
-  const anyEstimated = beginEstimated || endEstimated;
+  // Data quality badges — now from hook-level countStatus
+  const beginDate = hook.beginCountDate;
+  const endDate = hook.endCountDate;
+  const beginEstimated = hook.countStatus === 'estimated' || hook.countStatus === 'blocked';
+  const endEstimated = hook.countStatus === 'estimated' || hook.countStatus === 'blocked';
+  const anyEstimated = hook.countStatus !== 'confirmed';
 
   // Inventory count warning
   const invCountWarning = hook.inventory.countDaysOld > 7;
