@@ -136,6 +136,7 @@ export function StockCard({
   const [loading, setLoading] = useState(true);
   const [smAnchorDate, setSmAnchorDate] = useState<string | null>(null);
   const [daysBack, setDaysBack] = useState(14);
+  const [adjByDate, setAdjByDate] = useState<Map<string, { quantity: number; reason: string; createdAt: string }[]>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +148,9 @@ export function StockCard({
 
     async function fetch() {
       setLoading(true);
+      async function fetch() {
+  setLoading(true);
+  setAdjByDate(new Map());
       try {
         if (context === "branch") {
           // Branch context: reconstruct day-by-day ledger from raw transactions
@@ -208,12 +212,13 @@ export function StockCard({
           const ruleMenus = ruleMenusRes.data ?? [];
           const allSkus = skusRes.data ?? [];
           const dscRows = dscRes.data ?? [];
-          const adjByDate = new Map<string, { quantity: number; reason: string; createdAt: string }[]>();
-          for (const a of adjStockRes.data ?? []) {
-            const arr = adjByDate.get(a.adjustment_date) ?? [];
-            arr.push({ quantity: Number(a.quantity), reason: a.reason ?? "", createdAt: a.created_at });
-            adjByDate.set(a.adjustment_date, arr);
-          }
+          const adjMap = new Map<string, { quantity: number; reason: string; createdAt: string }[]>();
+for (const a of adjStockRes.data ?? []) {
+  const arr = adjMap.get(a.adjustment_date) ?? [];
+  arr.push({ quantity: Number(a.quantity), reason: a.reason ?? "", createdAt: a.created_at });
+  adjMap.set(a.adjustment_date, arr);
+}
+setAdjByDate(adjMap);
 
           // Build menu code → id map
           const menuCodeToId = new Map<string, string>();
