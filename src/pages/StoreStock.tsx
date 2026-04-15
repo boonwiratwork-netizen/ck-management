@@ -926,47 +926,47 @@ export default function StoreStockPage({
               {/* Reason */}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">เหตุผล</label>
-                <Select value={adjustReason} onValueChange={setAdjustReason}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="เลือกเหตุผล" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={4}>
-                    {adjustDir === "out" ? (
-                      <>
-                        <SelectItem value="transfer_out">โอนให้สาขาอื่น</SelectItem>
-                        <SelectItem value="damage">ของเสีย / แตกหัก</SelectItem>
-                        <SelectItem value="expire">หมดอายุ</SelectItem>
-                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
-                        <SelectItem value="other">อื่นๆ</SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="damage">รับคืนจากการแตกหัก</SelectItem>
-                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
-                        <SelectItem value="other">อื่นๆ</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  className="mt-1 w-full h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
+                >
+                  <option value="">เลือกเหตุผล</option>
+                  {adjustDir === "out" ? (
+                    <>
+                      <option value="transfer_out">โอนให้สาขาอื่น</option>
+                      <option value="damage">ของเสีย / แตกหัก</option>
+                      <option value="expire">หมดอายุ</option>
+                      <option value="correction">แก้ไขความผิดพลาด</option>
+                      <option value="other">อื่นๆ</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="damage">รับคืนจากการแตกหัก</option>
+                      <option value="correction">แก้ไขความผิดพลาด</option>
+                      <option value="other">อื่นๆ</option>
+                    </>
+                  )}
+                </select>
               </div>
               {/* Target branch — only for transfer_out */}
               {adjustReason === "transfer_out" && (
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">สาขาปลายทาง</label>
-                  <Select value={adjustTargetBranch} onValueChange={setAdjustTargetBranch}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="เลือกสาขา" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" sideOffset={4}>
-                      {activeBranches
-                        .filter((b) => b.id !== adjustTarget.branchId)
-                        .map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.branchName}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={adjustTargetBranch}
+                    onChange={(e) => setAdjustTargetBranch(e.target.value)}
+                    className="mt-1 w-full h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
+                  >
+                    <option value="">เลือกสาขา</option>
+                    {activeBranches
+                      .filter((b) => b.id !== adjustTarget.branchId)
+                      .map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.branchName}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               )}
               {/* Qty */}
