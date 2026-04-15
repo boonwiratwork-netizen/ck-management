@@ -19,7 +19,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Package } from "lucide-react";
+import { History, Package, SlidersHorizontal, X } from "lucide-react";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 interface Props {
   skus: SKU[];
@@ -197,6 +199,23 @@ export default function StoreStockPage({
   } | null>(null);
   const [liveDailyUsage, setLiveDailyUsage] = useState<Record<string, number>>({});
 
+  // Adjust drawer state
+  const [adjustTarget, setAdjustTarget] = useState<{
+    skuId: string; skuName: string; skuCode: string; uom: string; currentStock: number; branchId: string;
+  } | null>(null);
+  const [adjustDir, setAdjustDir] = useState<"out" | "in">("out");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustTargetBranch, setAdjustTargetBranch] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
+  const adjQtyRef = useRef<number>(0);
+  const adjNoteRef = useRef<string>("");
+
+  // Reset refs when target changes
+  useEffect(() => {
+    adjQtyRef.current = 0;
+    adjNoteRef.current = "";
+  }, [adjustTarget]);
+
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
 
@@ -273,7 +292,7 @@ export default function StoreStockPage({
       skuConverterMap.set(s.id, { converter: s.converter, purchaseUom: s.purchaseUom, usageUom: s.usageUom }),
     );
 
-    const [ckRes, extRes, salesRes] = await Promise.all([
+    const [ckRes, extRes, salesRes, adjRes] = await Promise.all([
       // Step 5 — CK receipts (branch_receipts where transfer_order_id IS NOT NULL)
       supabase
         .from("branch_receipts")
@@ -290,6 +309,13 @@ export default function StoreStockPage({
         .is("transfer_order_id", null)
         .gt("receipt_date", earliestSnap)
         .lte("receipt_date", today),
+      // Stock adjustments
+      supabase
+        .from("stock_adjustments")
+        .select("sku_id, quantity, adjustment_date")
+        .eq("branch_id", branchId)
+        .gt("adjustment_date", earliestSnap)
+        .lte("adjustment_date", today),
       // Step 7 — Sales (paginated)
       (async () => {
         let allSales: any[] = [];
@@ -311,6 +337,15 @@ export default function StoreStockPage({
         return { data: allSales, error: null };
       })(),
     ]);
+
+    // Build adjustment totals per SKU per date
+    const adjBySkuDate = new Map<string, Map<string, number>>();
+    (adjRes.data || []).forEach((r: any) => {
+      const qty = Number(r.quantity);
+      if (!adjBySkuDate.has(r.sku_id)) adjBySkuDate.set(r.sku_id, new Map());
+      const m = adjBySkuDate.get(r.sku_id)!;
+      m.set(r.adjustment_date, (m.get(r.adjustment_date) || 0) + qty);
+    });
 
     // Build CK receipt totals per SKU per date
     const ckBySkuDate = new Map<string, Map<string, number>>();
@@ -394,7 +429,16 @@ export default function StoreStockPage({
         }
       }
 
-      const balance = Math.max(0, base + ckIn + extIn - usageOut);
+      // Sum adjustments after snap date
+      let adjNet = 0;
+      const adjRows = adjBySkuDate.get(sku.id);
+      if (adjRows) {
+        for (const [d, q] of adjRows) {
+          if (d > snapDate) adjNet += q;
+        }
+      }
+
+      const balance = Math.max(0, base + ckIn + extIn + adjNet - usageOut);
 
       // Only include if there's any activity or a snap
       if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0) {
