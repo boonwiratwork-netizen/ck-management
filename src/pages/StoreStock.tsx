@@ -930,7 +930,7 @@ export default function StoreStockPage({
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="เลือกเหตุผล" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={4}>
                     {adjustDir === "out" ? (
                       <>
                         <SelectItem value="transfer_out">โอนให้สาขาอื่น</SelectItem>
@@ -957,7 +957,7 @@ export default function StoreStockPage({
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="เลือกสาขา" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={4}>
                       {activeBranches
                         .filter((b) => b.id !== adjustTarget.branchId)
                         .map((b) => (
