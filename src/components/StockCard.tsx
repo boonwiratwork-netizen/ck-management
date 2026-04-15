@@ -208,6 +208,14 @@ export function StockCard({
           const allSkus = skusRes.data ?? [];
           const dscRows = dscRes.data ?? [];
 
+          // Build adjustment map by date
+          const adjByDate = new Map<string, { quantity: number; reason: string; createdAt: string }[]>();
+          for (const a of adjStockRes.data ?? []) {
+            const arr = adjByDate.get(a.adjustment_date) ?? [];
+            arr.push({ quantity: Number(a.quantity), reason: a.reason ?? "", createdAt: a.created_at });
+            adjByDate.set(a.adjustment_date, arr);
+          }
+
           // Build menu code → id map
           const menuCodeToId = new Map<string, string>();
           menus.forEach((m: any) => menuCodeToId.set(m.menu_code, m.id));
