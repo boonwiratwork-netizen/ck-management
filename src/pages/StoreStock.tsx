@@ -866,6 +866,174 @@ export default function StoreStockPage({
           onClose={() => setStockCard(null)}
         />
       )}
+
+      {/* Adjust Drawer */}
+      {adjustTarget && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setAdjustTarget(null)} />
+          <div className="fixed inset-y-0 right-0 z-[70] w-[360px] bg-background border-l flex flex-col">
+            {/* Header */}
+            <div className="px-5 py-4 border-b flex justify-between items-center">
+              <span className="font-medium">Adjust stock</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAdjustTarget(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Info strip */}
+            <div className="px-5 py-3 bg-muted/40 border-b">
+              <p className="font-medium">{adjustTarget.skuName}</p>
+              <p className="text-sm text-muted-foreground">
+                Stock ปัจจุบัน: {adjustTarget.currentStock.toLocaleString()} {adjustTarget.uom}
+              </p>
+            </div>
+            {/* Form body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Direction */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">ทิศทาง</label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    variant={adjustDir === "out" ? "default" : "outline"}
+                    size="sm"
+                    className={adjustDir === "out" ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20" : ""}
+                    onClick={() => setAdjustDir("out")}
+                  >
+                    ตัดออก
+                  </Button>
+                  <Button
+                    variant={adjustDir === "in" ? "default" : "outline"}
+                    size="sm"
+                    className={adjustDir === "in" ? "bg-success/10 border-success/40 text-success hover:bg-success/20" : ""}
+                    onClick={() => {
+                      setAdjustDir("in");
+                      if (adjustReason === "transfer_out") setAdjustReason("");
+                    }}
+                  >
+                    เพิ่มเข้า
+                  </Button>
+                </div>
+              </div>
+              {/* Reason */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">เหตุผล</label>
+                <Select value={adjustReason} onValueChange={setAdjustReason}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกเหตุผล" /></SelectTrigger>
+                  <SelectContent>
+                    {adjustDir === "out" ? (
+                      <>
+                        <SelectItem value="transfer_out">โอนให้สาขาอื่น</SelectItem>
+                        <SelectItem value="damage">ของเสีย / แตกหัก</SelectItem>
+                        <SelectItem value="expire">หมดอายุ</SelectItem>
+                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
+                        <SelectItem value="other">อื่นๆ</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="damage">รับคืนจากการแตกหัก</SelectItem>
+                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
+                        <SelectItem value="other">อื่นๆ</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Target branch — only for transfer_out */}
+              {adjustReason === "transfer_out" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">สาขาปลายทาง</label>
+                  <Select value={adjustTargetBranch} onValueChange={setAdjustTargetBranch}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกสาขา" /></SelectTrigger>
+                    <SelectContent>
+                      {activeBranches.filter(b => b.id !== adjustTarget.branchId).map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Qty */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">จำนวน</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    defaultValue=""
+                    key={adjustTarget.skuId + adjustDir}
+                    onBlur={(e) => { adjQtyRef.current = Number(e.target.value) || 0; }}
+                    className="flex-1 h-9 px-3 border rounded-md font-mono text-right text-sm bg-background focus:border-primary outline-none"
+                  />
+                  <span className="text-sm text-muted-foreground">{adjustTarget.uom}</span>
+                </div>
+              </div>
+              {/* Note */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Note <span className="text-muted-foreground font-normal">(ไม่บังคับ)</span>
+                </label>
+                <textarea
+                  defaultValue=""
+                  key={adjustTarget.skuId}
+                  onBlur={(e) => { adjNoteRef.current = e.target.value; }}
+                  rows={2}
+                  placeholder="รายละเอียดเพิ่มเติม..."
+                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-none focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="px-5 py-4 border-t flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAdjustTarget(null)}>Cancel</Button>
+              <Button
+                className={`flex-[2] ${adjustDir === "out" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90"}`}
+                disabled={adjustReason === "" || (adjustReason === "transfer_out" && !adjustTargetBranch) || adjustSaving}
+                onClick={async () => {
+                  const qty = adjQtyRef.current;
+                  if (qty <= 0) { toast.error("กรุณาระบุจำนวน"); return; }
+                  setAdjustSaving(true);
+
+                  const targetBranchName = activeBranches.find(b => b.id === adjustTargetBranch)?.branchName ?? "";
+                  const noteText = adjNoteRef.current.trim();
+                  let reasonStr = "";
+                  if (adjustReason === "transfer_out") reasonStr = "โอนให้สาขาอื่น → " + targetBranchName;
+                  else if (adjustReason === "damage") reasonStr = adjustDir === "out" ? "ของเสีย / แตกหัก" : "รับคืนจากการแตกหัก";
+                  else if (adjustReason === "expire") reasonStr = "หมดอายุ";
+                  else if (adjustReason === "correction") reasonStr = "แก้ไขความผิดพลาด";
+                  else if (adjustReason === "other") reasonStr = noteText || "อื่นๆ";
+                  if (noteText && adjustReason !== "other") reasonStr += ": " + noteText;
+
+                  const signedQty = adjustDir === "out" ? -qty : qty;
+                  const skuType = skuMap.get(adjustTarget.skuId)?.type ?? "RM";
+
+                  const { error } = await supabase.from("stock_adjustments").insert({
+                    branch_id: adjustTarget.branchId,
+                    sku_id: adjustTarget.skuId,
+                    adjustment_date: new Date().toISOString().split("T")[0],
+                    quantity: signedQty,
+                    reason: reasonStr,
+                    stock_type: skuType,
+                  });
+
+                  setAdjustSaving(false);
+                  if (error) { toast.error(error.message); return; }
+
+                  toast.success("บันทึก adjustment สำเร็จ");
+                  setAdjustTarget(null);
+                  setAdjustReason("");
+                  setAdjustTargetBranch("");
+                  setAdjustDir("out");
+                  adjQtyRef.current = 0;
+                  adjNoteRef.current = "";
+                  await fetchData();
+                }}
+              >
+                {adjustDir === "out" ? "ยืนยันตัดออก" : "ยืนยันเพิ่มเข้า"}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
