@@ -373,7 +373,7 @@ export function StockCard({
             const calcBal = opening + totalReceived - usage - waste;
 
             // Only include days with activity
-            const hasAdj = (adjByDate.get(date) ?? []).length > 0;
+            const hasAdj = (adjMap.get(date) ?? []).length > 0;
             if (totalReceived === 0 && usage === 0 && !hasPhysical && waste === 0 && !hasAdj) {
               continue;
             }
