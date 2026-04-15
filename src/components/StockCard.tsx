@@ -155,7 +155,7 @@ export function StockCard({
           const resolvedStartDate = fromDate;
 
           // Step 2 — Fetch all data in parallel
-          const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
+           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes, adjStockRes] = await Promise.all([
             supabase
               .from("daily_stock_counts")
               .select(
@@ -187,7 +187,15 @@ export function StockCard({
             supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
             supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
             supabase.from("skus").select("id, type"),
-          ]);
+            supabase
+              .from("stock_adjustments")
+              .select("adjustment_date, quantity, reason, created_at")
+              .eq("branch_id", branchId!)
+              .eq("sku_id", skuId)
+              .gte("adjustment_date", resolvedStartDate)
+              .order("adjustment_date", { ascending: true })
+              .order("created_at", { ascending: true }),
+           ]);
           if (cancelled) return;
 
           const receipts = brRes.data ?? [];
