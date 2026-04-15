@@ -781,7 +781,8 @@ export function StockCard({
                       const variance = Number(r.variance);
 
                       return (
-                        <tr key={i} className={table.dataRow}>
+                        <React.Fragment key={i}>
+                        <tr className={table.dataRow}>
                           <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
                           <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
                           <td className={table.dataCellCompactMono}>
@@ -833,6 +834,23 @@ export function StockCard({
                             )}
                           </td>
                         </tr>
+                        {(branchAdjByDate.get(r.count_date) ?? []).map((adj, ai) => (
+                          <tr key={`adj-${i}-${ai}`}
+                            className={adj.quantity < 0 ? "bg-destructive/5" : "bg-success/5"}>
+                            <td className="px-2 py-0.5" />
+                            <td colSpan={4} className="px-3 py-0.5 text-xs text-muted-foreground italic">
+                              <span className="truncate block" title={adj.reason}>↳ {adj.reason || "Manual adjustment"}</span>
+                            </td>
+                            <td className={`px-2 py-0.5 text-xs font-mono text-right ${adj.quantity < 0 ? "text-destructive" : "text-success"}`}>
+                              {adj.quantity < 0
+                                ? adj.quantity.toLocaleString()
+                                : "+" + adj.quantity.toLocaleString()}
+                            </td>
+                            <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                            <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                          </tr>
+                        ))}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
