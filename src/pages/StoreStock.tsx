@@ -19,7 +19,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Package } from "lucide-react";
+import { History, Package, SlidersHorizontal, X } from "lucide-react";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 interface Props {
   skus: SKU[];
@@ -197,6 +199,23 @@ export default function StoreStockPage({
   } | null>(null);
   const [liveDailyUsage, setLiveDailyUsage] = useState<Record<string, number>>({});
 
+  // Adjust drawer state
+  const [adjustTarget, setAdjustTarget] = useState<{
+    skuId: string; skuName: string; skuCode: string; uom: string; currentStock: number; branchId: string;
+  } | null>(null);
+  const [adjustDir, setAdjustDir] = useState<"out" | "in">("out");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustTargetBranch, setAdjustTargetBranch] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
+  const adjQtyRef = useRef<number>(0);
+  const adjNoteRef = useRef<string>("");
+
+  // Reset refs when target changes
+  useEffect(() => {
+    adjQtyRef.current = 0;
+    adjNoteRef.current = "";
+  }, [adjustTarget]);
+
   // Store Manager with no branch
   const noBranch = isStoreManager && !profile?.branch_id;
 
@@ -273,7 +292,7 @@ export default function StoreStockPage({
       skuConverterMap.set(s.id, { converter: s.converter, purchaseUom: s.purchaseUom, usageUom: s.usageUom }),
     );
 
-    const [ckRes, extRes, salesRes] = await Promise.all([
+    const [ckRes, extRes, salesRes, adjRes] = await Promise.all([
       // Step 5 — CK receipts (branch_receipts where transfer_order_id IS NOT NULL)
       supabase
         .from("branch_receipts")
@@ -290,6 +309,13 @@ export default function StoreStockPage({
         .is("transfer_order_id", null)
         .gt("receipt_date", earliestSnap)
         .lte("receipt_date", today),
+      // Stock adjustments
+      supabase
+        .from("stock_adjustments")
+        .select("sku_id, quantity, adjustment_date")
+        .eq("branch_id", branchId)
+        .gt("adjustment_date", earliestSnap)
+        .lte("adjustment_date", today),
       // Step 7 — Sales (paginated)
       (async () => {
         let allSales: any[] = [];
@@ -311,6 +337,15 @@ export default function StoreStockPage({
         return { data: allSales, error: null };
       })(),
     ]);
+
+    // Build adjustment totals per SKU per date
+    const adjBySkuDate = new Map<string, Map<string, number>>();
+    (adjRes.data || []).forEach((r: any) => {
+      const qty = Number(r.quantity);
+      if (!adjBySkuDate.has(r.sku_id)) adjBySkuDate.set(r.sku_id, new Map());
+      const m = adjBySkuDate.get(r.sku_id)!;
+      m.set(r.adjustment_date, (m.get(r.adjustment_date) || 0) + qty);
+    });
 
     // Build CK receipt totals per SKU per date
     const ckBySkuDate = new Map<string, Map<string, number>>();
@@ -394,7 +429,16 @@ export default function StoreStockPage({
         }
       }
 
-      const balance = Math.max(0, base + ckIn + extIn - usageOut);
+      // Sum adjustments after snap date
+      let adjNet = 0;
+      const adjRows = adjBySkuDate.get(sku.id);
+      if (adjRows) {
+        for (const [d, q] of adjRows) {
+          if (d > snapDate) adjNet += q;
+        }
+      }
+
+      const balance = Math.max(0, base + ckIn + extIn + adjNet - usageOut);
 
       // Only include if there's any activity or a snap
       if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0) {
@@ -697,6 +741,7 @@ export default function StoreStockPage({
               <col style={{ width: "95px" }} />
               <col style={{ width: "75px" }} />
               <col style={{ width: "95px" }} />
+              <col style={{ width: "88px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
             <thead className="sticky top-0 z-[5]">
@@ -710,6 +755,7 @@ export default function StoreStockPage({
                 <th className={table.headerCell}>{t("ss.colLastCount")}</th>
                 <th className={table.headerCellNumeric}>{t("ss.colCoverDay")}</th>
                 <th className={table.headerCellNumeric}>{t("ss.colAvgWeek")}</th>
+                <th className={table.headerCell} />
                 <th className={table.headerCell} />
               </tr>
             </thead>
@@ -760,6 +806,26 @@ export default function StoreStockPage({
                     <td className={`${table.dataCellMono} text-muted-foreground`}>{avgWeek}</td>
                     <td className={table.dataCell}>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() =>
+                          setAdjustTarget({
+                            skuId: sku.id,
+                            skuName: sku.name,
+                            skuCode: sku.skuId,
+                            uom: sku.usageUom,
+                            currentStock: dc,
+                            branchId: row.branch_id,
+                          })
+                        }
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        Adjust
+                      </Button>
+                    </td>
+                    <td className={table.dataCell}>
+                      <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
@@ -799,6 +865,174 @@ export default function StoreStockPage({
           branchId={stockCard.branchId}
           onClose={() => setStockCard(null)}
         />
+      )}
+
+      {/* Adjust Drawer */}
+      {adjustTarget && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setAdjustTarget(null)} />
+          <div className="fixed inset-y-0 right-0 z-[70] w-[360px] bg-background border-l flex flex-col">
+            {/* Header */}
+            <div className="px-5 py-4 border-b flex justify-between items-center">
+              <span className="font-medium">Adjust stock</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAdjustTarget(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Info strip */}
+            <div className="px-5 py-3 bg-muted/40 border-b">
+              <p className="font-medium">{adjustTarget.skuName}</p>
+              <p className="text-sm text-muted-foreground">
+                Stock ปัจจุบัน: {adjustTarget.currentStock.toLocaleString()} {adjustTarget.uom}
+              </p>
+            </div>
+            {/* Form body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Direction */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">ทิศทาง</label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    variant={adjustDir === "out" ? "default" : "outline"}
+                    size="sm"
+                    className={adjustDir === "out" ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20" : ""}
+                    onClick={() => setAdjustDir("out")}
+                  >
+                    ตัดออก
+                  </Button>
+                  <Button
+                    variant={adjustDir === "in" ? "default" : "outline"}
+                    size="sm"
+                    className={adjustDir === "in" ? "bg-success/10 border-success/40 text-success hover:bg-success/20" : ""}
+                    onClick={() => {
+                      setAdjustDir("in");
+                      if (adjustReason === "transfer_out") setAdjustReason("");
+                    }}
+                  >
+                    เพิ่มเข้า
+                  </Button>
+                </div>
+              </div>
+              {/* Reason */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">เหตุผล</label>
+                <Select value={adjustReason} onValueChange={setAdjustReason}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกเหตุผล" /></SelectTrigger>
+                  <SelectContent>
+                    {adjustDir === "out" ? (
+                      <>
+                        <SelectItem value="transfer_out">โอนให้สาขาอื่น</SelectItem>
+                        <SelectItem value="damage">ของเสีย / แตกหัก</SelectItem>
+                        <SelectItem value="expire">หมดอายุ</SelectItem>
+                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
+                        <SelectItem value="other">อื่นๆ</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="damage">รับคืนจากการแตกหัก</SelectItem>
+                        <SelectItem value="correction">แก้ไขความผิดพลาด</SelectItem>
+                        <SelectItem value="other">อื่นๆ</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Target branch — only for transfer_out */}
+              {adjustReason === "transfer_out" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">สาขาปลายทาง</label>
+                  <Select value={adjustTargetBranch} onValueChange={setAdjustTargetBranch}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกสาขา" /></SelectTrigger>
+                    <SelectContent>
+                      {activeBranches.filter(b => b.id !== adjustTarget.branchId).map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Qty */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">จำนวน</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    defaultValue=""
+                    key={adjustTarget.skuId + adjustDir}
+                    onBlur={(e) => { adjQtyRef.current = Number(e.target.value) || 0; }}
+                    className="flex-1 h-9 px-3 border rounded-md font-mono text-right text-sm bg-background focus:border-primary outline-none"
+                  />
+                  <span className="text-sm text-muted-foreground">{adjustTarget.uom}</span>
+                </div>
+              </div>
+              {/* Note */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Note <span className="text-muted-foreground font-normal">(ไม่บังคับ)</span>
+                </label>
+                <textarea
+                  defaultValue=""
+                  key={adjustTarget.skuId}
+                  onBlur={(e) => { adjNoteRef.current = e.target.value; }}
+                  rows={2}
+                  placeholder="รายละเอียดเพิ่มเติม..."
+                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-none focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="px-5 py-4 border-t flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAdjustTarget(null)}>Cancel</Button>
+              <Button
+                className={`flex-[2] ${adjustDir === "out" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90"}`}
+                disabled={adjustReason === "" || (adjustReason === "transfer_out" && !adjustTargetBranch) || adjustSaving}
+                onClick={async () => {
+                  const qty = adjQtyRef.current;
+                  if (qty <= 0) { toast.error("กรุณาระบุจำนวน"); return; }
+                  setAdjustSaving(true);
+
+                  const targetBranchName = activeBranches.find(b => b.id === adjustTargetBranch)?.branchName ?? "";
+                  const noteText = adjNoteRef.current.trim();
+                  let reasonStr = "";
+                  if (adjustReason === "transfer_out") reasonStr = "โอนให้สาขาอื่น → " + targetBranchName;
+                  else if (adjustReason === "damage") reasonStr = adjustDir === "out" ? "ของเสีย / แตกหัก" : "รับคืนจากการแตกหัก";
+                  else if (adjustReason === "expire") reasonStr = "หมดอายุ";
+                  else if (adjustReason === "correction") reasonStr = "แก้ไขความผิดพลาด";
+                  else if (adjustReason === "other") reasonStr = noteText || "อื่นๆ";
+                  if (noteText && adjustReason !== "other") reasonStr += ": " + noteText;
+
+                  const signedQty = adjustDir === "out" ? -qty : qty;
+                  const skuType = skuMap.get(adjustTarget.skuId)?.type ?? "RM";
+
+                  const { error } = await supabase.from("stock_adjustments").insert({
+                    branch_id: adjustTarget.branchId,
+                    sku_id: adjustTarget.skuId,
+                    adjustment_date: new Date().toISOString().split("T")[0],
+                    quantity: signedQty,
+                    reason: reasonStr,
+                    stock_type: skuType,
+                  });
+
+                  setAdjustSaving(false);
+                  if (error) { toast.error(error.message); return; }
+
+                  toast.success("บันทึก adjustment สำเร็จ");
+                  setAdjustTarget(null);
+                  setAdjustReason("");
+                  setAdjustTargetBranch("");
+                  setAdjustDir("out");
+                  adjQtyRef.current = 0;
+                  adjNoteRef.current = "";
+                  await fetchData();
+                }}
+              >
+                {adjustDir === "out" ? "ยืนยันตัดออก" : "ยืนยันเพิ่มเข้า"}
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

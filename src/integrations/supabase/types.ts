@@ -1399,6 +1399,7 @@ export type Database = {
       stock_adjustments: {
         Row: {
           adjustment_date: string
+          branch_id: string | null
           created_at: string
           id: string
           quantity: number
@@ -1408,6 +1409,7 @@ export type Database = {
         }
         Insert: {
           adjustment_date?: string
+          branch_id?: string | null
           created_at?: string
           id?: string
           quantity?: number
@@ -1417,6 +1419,7 @@ export type Database = {
         }
         Update: {
           adjustment_date?: string
+          branch_id?: string | null
           created_at?: string
           id?: string
           quantity?: number
@@ -1425,6 +1428,13 @@ export type Database = {
           stock_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_adjustments_sku_id_fkey"
             columns: ["sku_id"]
