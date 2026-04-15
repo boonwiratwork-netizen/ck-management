@@ -201,7 +201,12 @@ export default function StoreStockPage({
 
   // Adjust drawer state
   const [adjustTarget, setAdjustTarget] = useState<{
-    skuId: string; skuName: string; skuCode: string; uom: string; currentStock: number; branchId: string;
+    skuId: string;
+    skuName: string;
+    skuCode: string;
+    uom: string;
+    currentStock: number;
+    branchId: string;
   } | null>(null);
   const [adjustDir, setAdjustDir] = useState<"out" | "in">("out");
   const [adjustReason, setAdjustReason] = useState("");
@@ -292,7 +297,7 @@ export default function StoreStockPage({
       skuConverterMap.set(s.id, { converter: s.converter, purchaseUom: s.purchaseUom, usageUom: s.usageUom }),
     );
 
-    const [ckRes, extRes, salesRes, adjRes] = await Promise.all([
+    const [ckRes, extRes, adjRes, salesRes] = await Promise.all([
       // Step 5 — CK receipts (branch_receipts where transfer_order_id IS NOT NULL)
       supabase
         .from("branch_receipts")
@@ -309,7 +314,7 @@ export default function StoreStockPage({
         .is("transfer_order_id", null)
         .gt("receipt_date", earliestSnap)
         .lte("receipt_date", today),
-      // Stock adjustments
+      // Stock 6b adjustments
       supabase
         .from("stock_adjustments")
         .select("sku_id, quantity, adjustment_date")
@@ -821,7 +826,6 @@ export default function StoreStockPage({
                         }
                       >
                         <SlidersHorizontal className="w-3 h-3" />
-                        Adjust
                       </Button>
                     </td>
                     <td className={table.dataCell}>
@@ -895,7 +899,11 @@ export default function StoreStockPage({
                   <Button
                     variant={adjustDir === "out" ? "default" : "outline"}
                     size="sm"
-                    className={adjustDir === "out" ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20" : ""}
+                    className={
+                      adjustDir === "out"
+                        ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20"
+                        : ""
+                    }
                     onClick={() => setAdjustDir("out")}
                   >
                     ตัดออก
@@ -903,7 +911,9 @@ export default function StoreStockPage({
                   <Button
                     variant={adjustDir === "in" ? "default" : "outline"}
                     size="sm"
-                    className={adjustDir === "in" ? "bg-success/10 border-success/40 text-success hover:bg-success/20" : ""}
+                    className={
+                      adjustDir === "in" ? "bg-success/10 border-success/40 text-success hover:bg-success/20" : ""
+                    }
                     onClick={() => {
                       setAdjustDir("in");
                       if (adjustReason === "transfer_out") setAdjustReason("");
@@ -917,7 +927,9 @@ export default function StoreStockPage({
               <div>
                 <label className="text-xs font-medium text-muted-foreground">เหตุผล</label>
                 <Select value={adjustReason} onValueChange={setAdjustReason}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกเหตุผล" /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="เลือกเหตุผล" />
+                  </SelectTrigger>
                   <SelectContent>
                     {adjustDir === "out" ? (
                       <>
@@ -942,11 +954,17 @@ export default function StoreStockPage({
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">สาขาปลายทาง</label>
                   <Select value={adjustTargetBranch} onValueChange={setAdjustTargetBranch}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="เลือกสาขา" /></SelectTrigger>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="เลือกสาขา" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {activeBranches.filter(b => b.id !== adjustTarget.branchId).map(b => (
-                        <SelectItem key={b.id} value={b.id}>{b.branchName}</SelectItem>
-                      ))}
+                      {activeBranches
+                        .filter((b) => b.id !== adjustTarget.branchId)
+                        .map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.branchName}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -961,7 +979,9 @@ export default function StoreStockPage({
                     step="any"
                     defaultValue=""
                     key={adjustTarget.skuId + adjustDir}
-                    onBlur={(e) => { adjQtyRef.current = Number(e.target.value) || 0; }}
+                    onBlur={(e) => {
+                      adjQtyRef.current = Number(e.target.value) || 0;
+                    }}
                     className="flex-1 h-9 px-3 border rounded-md font-mono text-right text-sm bg-background focus:border-primary outline-none"
                   />
                   <span className="text-sm text-muted-foreground">{adjustTarget.uom}</span>
@@ -975,7 +995,9 @@ export default function StoreStockPage({
                 <textarea
                   defaultValue=""
                   key={adjustTarget.skuId}
-                  onBlur={(e) => { adjNoteRef.current = e.target.value; }}
+                  onBlur={(e) => {
+                    adjNoteRef.current = e.target.value;
+                  }}
                   rows={2}
                   placeholder="รายละเอียดเพิ่มเติม..."
                   className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-none focus:border-primary outline-none"
@@ -984,20 +1006,28 @@ export default function StoreStockPage({
             </div>
             {/* Footer */}
             <div className="px-5 py-4 border-t flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setAdjustTarget(null)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setAdjustTarget(null)}>
+                Cancel
+              </Button>
               <Button
                 className={`flex-[2] ${adjustDir === "out" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90"}`}
-                disabled={adjustReason === "" || (adjustReason === "transfer_out" && !adjustTargetBranch) || adjustSaving}
+                disabled={
+                  adjustReason === "" || (adjustReason === "transfer_out" && !adjustTargetBranch) || adjustSaving
+                }
                 onClick={async () => {
                   const qty = adjQtyRef.current;
-                  if (qty <= 0) { toast.error("กรุณาระบุจำนวน"); return; }
+                  if (qty <= 0) {
+                    toast.error("กรุณาระบุจำนวน");
+                    return;
+                  }
                   setAdjustSaving(true);
 
-                  const targetBranchName = activeBranches.find(b => b.id === adjustTargetBranch)?.branchName ?? "";
+                  const targetBranchName = activeBranches.find((b) => b.id === adjustTargetBranch)?.branchName ?? "";
                   const noteText = adjNoteRef.current.trim();
                   let reasonStr = "";
                   if (adjustReason === "transfer_out") reasonStr = "โอนให้สาขาอื่น → " + targetBranchName;
-                  else if (adjustReason === "damage") reasonStr = adjustDir === "out" ? "ของเสีย / แตกหัก" : "รับคืนจากการแตกหัก";
+                  else if (adjustReason === "damage")
+                    reasonStr = adjustDir === "out" ? "ของเสีย / แตกหัก" : "รับคืนจากการแตกหัก";
                   else if (adjustReason === "expire") reasonStr = "หมดอายุ";
                   else if (adjustReason === "correction") reasonStr = "แก้ไขความผิดพลาด";
                   else if (adjustReason === "other") reasonStr = noteText || "อื่นๆ";
@@ -1016,7 +1046,10 @@ export default function StoreStockPage({
                   });
 
                   setAdjustSaving(false);
-                  if (error) { toast.error(error.message); return; }
+                  if (error) {
+                    toast.error(error.message);
+                    return;
+                  }
 
                   toast.success("บันทึก adjustment สำเร็จ");
                   setAdjustTarget(null);
