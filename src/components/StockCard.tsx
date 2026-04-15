@@ -155,39 +155,48 @@ export function StockCard({
           const resolvedStartDate = fromDate;
 
           // Step 2 — Fetch all data in parallel
-          const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
-            supabase
-              .from("daily_stock_counts")
-              .select(
-                "count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted",
-              )
-              .eq("branch_id", branchId!)
-              .eq("sku_id", skuId)
-              .gte("count_date", resolvedStartDate)
-              .order("count_date", { ascending: true }),
-            supabase
-              .from("branch_receipts")
-              .select("receipt_date, qty_received, transfer_order_id, sku_id")
-              .eq("branch_id", branchId!)
-              .eq("sku_id", skuId)
-              .gte("receipt_date", resolvedStartDate)
-              .order("receipt_date", { ascending: true }),
-            supabase
-              .from("sales_entries")
-              .select("sale_date, menu_code, menu_name, qty")
-              .eq("branch_id", branchId!)
-              .gte("sale_date", resolvedStartDate)
-              .order("sale_date", { ascending: true }),
-            supabase
-              .from("menu_bom")
-              .select("menu_id, sku_id, effective_qty")
-              .or(`branch_id.is.null,branch_id.eq.${branchId}`),
-            supabase.from("menus").select("id, menu_code"),
-            supabase.from("sp_bom").select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty"),
-            supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
-            supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
-            supabase.from("skus").select("id, type"),
-          ]);
+          const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes, adjStockRes] =
+            await Promise.all([
+              supabase
+                .from("daily_stock_counts")
+                .select(
+                  "count_date, opening_balance, received_from_ck, received_external, expected_usage, waste, calculated_balance, physical_count, variance, is_submitted",
+                )
+                .eq("branch_id", branchId!)
+                .eq("sku_id", skuId)
+                .gte("count_date", resolvedStartDate)
+                .order("count_date", { ascending: true }),
+              supabase
+                .from("branch_receipts")
+                .select("receipt_date, qty_received, transfer_order_id, sku_id")
+                .eq("branch_id", branchId!)
+                .eq("sku_id", skuId)
+                .gte("receipt_date", resolvedStartDate)
+                .order("receipt_date", { ascending: true }),
+              supabase
+                .from("sales_entries")
+                .select("sale_date, menu_code, menu_name, qty")
+                .eq("branch_id", branchId!)
+                .gte("sale_date", resolvedStartDate)
+                .order("sale_date", { ascending: true }),
+              supabase
+                .from("menu_bom")
+                .select("menu_id, sku_id, effective_qty")
+                .or(`branch_id.is.null,branch_id.eq.${branchId}`),
+              supabase.from("menus").select("id, menu_code"),
+              supabase.from("sp_bom").select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty"),
+              supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
+              supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
+              supabase.from("skus").select("id, type"),
+              supabase
+                .from("stock_adjustments")
+                .select("adjustment_date, quantity, reason, created_at")
+                .eq("branch_id", branchId!)
+                .eq("sku_id", skuId)
+                .gte("adjustment_date", resolvedStartDate)
+                .order("adjustment_date", { ascending: true })
+                .order("created_at", { ascending: true }),
+            ]);
           if (cancelled) return;
 
           const receipts = brRes.data ?? [];
@@ -199,6 +208,12 @@ export function StockCard({
           const ruleMenus = ruleMenusRes.data ?? [];
           const allSkus = skusRes.data ?? [];
           const dscRows = dscRes.data ?? [];
+          const adjByDate = new Map<string, { quantity: number; reason: string; createdAt: string }[]>();
+          for (const a of adjStockRes.data ?? []) {
+            const arr = adjByDate.get(a.adjustment_date) ?? [];
+            arr.push({ quantity: Number(a.quantity), reason: a.reason ?? "", createdAt: a.created_at });
+            adjByDate.set(a.adjustment_date, arr);
+          }
 
           // Build menu code → id map
           const menuCodeToId = new Map<string, string>();
@@ -767,58 +782,80 @@ export function StockCard({
                         !hasPhysical &&
                         (adjByDate.get(r.count_date) ?? []).length > 0;
                       return (
-                        <tr key={i} className={`${table.dataRow} ${isAdjOnly ? "opacity-60" : ""}`}>
-                          <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
-                          <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
-                          <td className={table.dataCellCompactMono}>
-                            {received > 0 ? (
-                              received.toLocaleString()
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {Number(r.expected_usage) > 0 ? (
-                              fmt0(Number(r.expected_usage))
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {Number(r.waste) > 0 ? (
-                              fmt0(Number(r.waste))
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className={`${table.dataCellCompactMono} font-semibold`}>
-                            {fmt0(Number(r.calculated_balance))}
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {hasPhysical ? (
-                              <span className="font-semibold">{fmt0(Number(r.physical_count))}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className={table.dataCellCompactMono}>
-                            {hasPhysical ? (
-                              <span
-                                className={
-                                  variance > 0
-                                    ? "text-success"
-                                    : variance < 0
-                                      ? "text-destructive"
-                                      : "text-muted-foreground"
-                                }
+                        <>
+                          <tr key={i} className={`${table.dataRow} ${isAdjOnly ? "opacity-60" : ""}`}>
+                            <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
+                            <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
+                            <td className={table.dataCellCompactMono}>
+                              {received > 0 ? (
+                                received.toLocaleString()
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className={table.dataCellCompactMono}>
+                              {Number(r.expected_usage) > 0 ? (
+                                fmt0(Number(r.expected_usage))
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className={table.dataCellCompactMono}>
+                              {Number(r.waste) > 0 ? (
+                                fmt0(Number(r.waste))
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className={`${table.dataCellCompactMono} font-semibold`}>
+                              {fmt0(Number(r.calculated_balance))}
+                            </td>
+                            <td className={table.dataCellCompactMono}>
+                              {hasPhysical ? (
+                                <span className="font-semibold">{fmt0(Number(r.physical_count))}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className={table.dataCellCompactMono}>
+                              {hasPhysical ? (
+                                <span
+                                  className={
+                                    variance > 0
+                                      ? "text-success"
+                                      : variance < 0
+                                        ? "text-destructive"
+                                        : "text-muted-foreground"
+                                  }
+                                >
+                                  {fmt0(variance)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                          {(adjByDate.get(r.count_date) ?? []).map((adj, ai) => (
+                            <tr
+                              key={`adj-${i}-${ai}`}
+                              className={adj.quantity < 0 ? "bg-destructive/5" : "bg-success/5"}
+                            >
+                              <td className="px-2 py-0.5" />
+                              <td colSpan={4} className="px-3 py-0.5 text-xs text-muted-foreground italic">
+                                <span className="truncate block" title={adj.reason}>
+                                  ↳ {adj.reason || "Manual adjustment"}
+                                </span>
+                              </td>
+                              <td
+                                className={`px-2 py-0.5 text-xs font-mono text-right ${adj.quantity < 0 ? "text-destructive" : "text-success"}`}
                               >
-                                {fmt0(variance)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                        </tr>
+                                {adj.quantity < 0 ? adj.quantity.toLocaleString() : "+" + adj.quantity.toLocaleString()}
+                              </td>
+                              <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                              <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                            </tr>
+                          ))}
+                        </>
                       );
                     })}
                   </tbody>
