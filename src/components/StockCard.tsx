@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -133,6 +133,7 @@ export function StockCard({
 }: StockCardProps) {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [branchRows, setBranchRows] = useState<BranchCountRow[]>([]);
+  const [branchAdjByDate, setBranchAdjByDate] = useState<Map<string, { quantity: number; reason: string; createdAt: string }[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [smAnchorDate, setSmAnchorDate] = useState<string | null>(null);
   const [daysBack, setDaysBack] = useState(14);
@@ -155,7 +156,7 @@ export function StockCard({
           const resolvedStartDate = fromDate;
 
           // Step 2 — Fetch all data in parallel
-          const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes] = await Promise.all([
+           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes, adjStockRes] = await Promise.all([
             supabase
               .from("daily_stock_counts")
               .select(
@@ -187,7 +188,15 @@ export function StockCard({
             supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
             supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
             supabase.from("skus").select("id, type"),
-          ]);
+            supabase
+              .from("stock_adjustments")
+              .select("adjustment_date, quantity, reason, created_at")
+              .eq("branch_id", branchId!)
+              .eq("sku_id", skuId)
+              .gte("adjustment_date", resolvedStartDate)
+              .order("adjustment_date", { ascending: true })
+              .order("created_at", { ascending: true }),
+           ]);
           if (cancelled) return;
 
           const receipts = brRes.data ?? [];
@@ -199,6 +208,14 @@ export function StockCard({
           const ruleMenus = ruleMenusRes.data ?? [];
           const allSkus = skusRes.data ?? [];
           const dscRows = dscRes.data ?? [];
+
+          // Build adjustment map by date
+          const adjByDate = new Map<string, { quantity: number; reason: string; createdAt: string }[]>();
+          for (const a of adjStockRes.data ?? []) {
+            const arr = adjByDate.get(a.adjustment_date) ?? [];
+            arr.push({ quantity: Number(a.quantity), reason: a.reason ?? "", createdAt: a.created_at });
+            adjByDate.set(a.adjustment_date, arr);
+          }
 
           // Build menu code → id map
           const menuCodeToId = new Map<string, string>();
@@ -376,6 +393,7 @@ export function StockCard({
           }
 
           setBranchRows(ledger);
+          setBranchAdjByDate(adjByDate);
         } else if (skuType === "RM") {
           const [obRes, receiptsRes, adjRes, suppRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
@@ -763,7 +781,8 @@ export function StockCard({
                       const variance = Number(r.variance);
 
                       return (
-                        <tr key={i} className={table.dataRow}>
+                        <React.Fragment key={i}>
+                        <tr className={table.dataRow}>
                           <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
                           <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
                           <td className={table.dataCellCompactMono}>
@@ -815,6 +834,23 @@ export function StockCard({
                             )}
                           </td>
                         </tr>
+                        {(branchAdjByDate.get(r.count_date) ?? []).map((adj, ai) => (
+                          <tr key={`adj-${i}-${ai}`}
+                            className={adj.quantity < 0 ? "bg-destructive/5" : "bg-success/5"}>
+                            <td className="px-2 py-0.5" />
+                            <td colSpan={4} className="px-3 py-0.5 text-xs text-muted-foreground italic">
+                              <span className="truncate block" title={adj.reason}>↳ {adj.reason || "Manual adjustment"}</span>
+                            </td>
+                            <td className={`px-2 py-0.5 text-xs font-mono text-right ${adj.quantity < 0 ? "text-destructive" : "text-success"}`}>
+                              {adj.quantity < 0
+                                ? adj.quantity.toLocaleString()
+                                : "+" + adj.quantity.toLocaleString()}
+                            </td>
+                            <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                            <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
+                          </tr>
+                        ))}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
