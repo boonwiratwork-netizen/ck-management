@@ -393,6 +393,7 @@ export function StockCard({
           }
 
           setBranchRows(ledger);
+          setBranchAdjByDate(adjByDate);
         } else if (skuType === "RM") {
           const [obRes, receiptsRes, adjRes, suppRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
