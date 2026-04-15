@@ -741,6 +741,7 @@ export default function StoreStockPage({
               <col style={{ width: "95px" }} />
               <col style={{ width: "75px" }} />
               <col style={{ width: "95px" }} />
+              <col style={{ width: "88px" }} />
               <col style={{ width: "40px" }} />
             </colgroup>
             <thead className="sticky top-0 z-[5]">
@@ -754,6 +755,7 @@ export default function StoreStockPage({
                 <th className={table.headerCell}>{t("ss.colLastCount")}</th>
                 <th className={table.headerCellNumeric}>{t("ss.colCoverDay")}</th>
                 <th className={table.headerCellNumeric}>{t("ss.colAvgWeek")}</th>
+                <th className={table.headerCell} />
                 <th className={table.headerCell} />
               </tr>
             </thead>
@@ -802,6 +804,26 @@ export default function StoreStockPage({
                       {coverDay !== null ? coverDay.toFixed(1) : "—"}
                     </td>
                     <td className={`${table.dataCellMono} text-muted-foreground`}>{avgWeek}</td>
+                    <td className={table.dataCell}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() =>
+                          setAdjustTarget({
+                            skuId: sku.id,
+                            skuName: sku.name,
+                            skuCode: sku.skuId,
+                            uom: sku.usageUom,
+                            currentStock: dc,
+                            branchId: row.branch_id,
+                          })
+                        }
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        Adjust
+                      </Button>
+                    </td>
                     <td className={table.dataCell}>
                       <Button
                         variant="ghost"
