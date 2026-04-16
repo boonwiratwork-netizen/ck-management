@@ -997,6 +997,8 @@ export default function BranchReceiptPage({
     return c;
   }, [isBatchMode, batchRowEdits, adHocRows]);
 
+  const branchTransferSavableCount = branchTransferRows.filter((r) => r.skuId && r.qty > 0).length;
+
   const SaveButton = () => (
     <div className="flex items-center gap-2">
       <Button
@@ -1018,15 +1020,19 @@ export default function BranchReceiptPage({
 
   // CK supplier selected check: need TO as well
   const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
-  const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
+  const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
+  const showBranchTransferSheet = isBranchTransfer && !!selectedFromBranchId;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
+  const branchTransferMatchesSearch = !supplierSearch || "รับจากสาขา".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || isBatchMode;
+  const isFormActive = showCKSheet || showExternalSheet || isBatchMode || showBranchTransferSheet;
 
   // Source label for header strip
-  const formSourceLabel = isCKSupplier
+  const formSourceLabel = isBranchTransfer
+    ? `รับจากสาขา · ${branchMap[selectedFromBranchId]?.branchName || ""}`
+    : isCKSupplier
     ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
     : selectedSupplier?.name || "";
 
@@ -1193,7 +1199,12 @@ export default function BranchReceiptPage({
                 )}
               >
                 <span className="truncate flex items-center gap-1.5">
-                  {isCKSupplier ? (
+                  {isBranchTransfer ? (
+                    <>
+                      <PackageOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                      รับจากสาขา
+                    </>
+                  ) : isCKSupplier ? (
                     <>
                       <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                       Central Kitchen
@@ -1217,6 +1228,24 @@ export default function BranchReceiptPage({
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
+                    {branchTransferMatchesSearch && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSupplierChange(BRANCH_TRANSFER_ID)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                            supplierId === BRANCH_TRANSFER_ID && "bg-accent font-medium",
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <PackageOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span className="font-medium">รับจากสาขา</span>
+                          </span>
+                        </button>
+                        <div className="border-b my-1" />
+                      </>
+                    )}
                     {pendingTOCount > 0 && ckMatchesSearch && (
                       <>
                         <button
