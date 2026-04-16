@@ -133,6 +133,7 @@ function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEd
 }
 
 const CK_SUPPLIER_ID = "__central_kitchen__";
+const BRANCH_TRANSFER_ID = "__branch_transfer__";
 
 export default function BranchReceiptPage({
   skus,
@@ -157,6 +158,8 @@ export default function BranchReceiptPage({
   const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const [selectedFromBranchId, setSelectedFromBranchId] = useState<string>("");
+  const [branchTransferRows, setBranchTransferRows] = useState<{ tempId: string; skuId: string; qty: number }[]>([]);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
   const qtyRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -294,6 +297,10 @@ export default function BranchReceiptPage({
     () => skus.filter((s) => (s.type === "RM" || s.type === "PK") && s.status === "Active"),
     [skus],
   );
+  const branchTransferSkus = useMemo(
+    () => skus.filter((s) => (s.type === "RM" || s.type === "SM" || s.type === "PK") && s.status === "Active"),
+    [skus],
+  );
   const skuMap = useMemo(() => Object.fromEntries(skus.map((s) => [s.id, s])), [skus]);
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const branchMap = useMemo(() => Object.fromEntries(branches.map((b) => [b.id, b])), [branches]);
@@ -308,6 +315,7 @@ export default function BranchReceiptPage({
   const selectedBranch = branchMap[branchId];
   const selectedSupplier = supplierId === CK_SUPPLIER_ID ? null : supplierMap[supplierId];
   const isCKSupplier = supplierId === CK_SUPPLIER_ID;
+  const isBranchTransfer = supplierId === BRANCH_TRANSFER_ID;
 
   // Fetch pending TOs for this branch
   const fetchPendingTOs = useCallback(async () => {
@@ -446,8 +454,9 @@ export default function BranchReceiptPage({
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
+    if (isBranchTransfer) return branchTransferRows.some((r) => r.qty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer, branchTransferRows]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -462,6 +471,8 @@ export default function BranchReceiptPage({
         setSavedCount(null);
         setSelectedTOId("");
         setCkLines([]);
+        setSelectedFromBranchId("");
+        setBranchTransferRows([]);
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
@@ -476,6 +487,8 @@ export default function BranchReceiptPage({
     setSavedCount(null);
     setSelectedTOId("");
     setCkLines([]);
+    setSelectedFromBranchId("");
+    setBranchTransferRows([]);
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
@@ -489,6 +502,8 @@ export default function BranchReceiptPage({
     setCkLines([]);
     setIsBatchMode(false);
     setBatchRowEdits({});
+    setSelectedFromBranchId("");
+    setBranchTransferRows([]);
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
@@ -532,6 +547,47 @@ export default function BranchReceiptPage({
       return;
     }
     setSaving(true);
+
+    if (isBranchTransfer) {
+      const fromBranchName = branchMap[selectedFromBranchId]?.branchName || "";
+      const validRows = branchTransferRows.filter((r) => r.skuId && r.qty > 0);
+      if (validRows.length === 0) {
+        toast.error("กรุณาเพิ่มรายการและระบุจำนวน");
+        setSaving(false);
+        return;
+      }
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = validRows.map((r) => {
+        const sku = skuMap[r.skuId];
+        const stdUnit = getStdUnitPrice(r.skuId);
+        const stdTotal = stdUnit * r.qty;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: r.skuId,
+          supplierName: `รับจากสาขา · ${fromBranchName}`,
+          qtyReceived: r.qty,
+          uom: sku?.usageUom || "",
+          actualUnitPrice: stdUnit,
+          actualTotal: stdTotal,
+          stdUnitPrice: stdUnit,
+          stdTotal,
+          priceVariance: 0,
+          notes: "",
+          transferOrderId: null,
+        };
+      });
+      const count = await saveReceipts(rows);
+      setSaving(false);
+      if (count) {
+        toast.success(`บันทึกการรับจากสาขา ${fromBranchName} สำเร็จ`);
+        setSavedCount(count);
+        setBranchTransferRows([]);
+        setSupplierId("");
+        setSelectedFromBranchId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      return;
+    }
 
     if (isCKSupplier) {
       // CK receipt from TO
@@ -685,6 +741,7 @@ export default function BranchReceiptPage({
   }, [
     branchId,
     isCKSupplier,
+    isBranchTransfer,
     selectedTOId,
     ckLines,
     preloadedRows,
@@ -697,6 +754,9 @@ export default function BranchReceiptPage({
     saveReceipts,
     pendingTOs,
     fetchPendingTOs,
+    branchTransferRows,
+    selectedFromBranchId,
+    branchMap,
   ]);
 
   // Batch save all
@@ -941,6 +1001,8 @@ export default function BranchReceiptPage({
     return c;
   }, [isBatchMode, batchRowEdits, adHocRows]);
 
+  const branchTransferSavableCount = branchTransferRows.filter((r) => r.skuId && r.qty > 0).length;
+
   const SaveButton = () => (
     <div className="flex items-center gap-2">
       <Button
@@ -962,15 +1024,19 @@ export default function BranchReceiptPage({
 
   // CK supplier selected check: need TO as well
   const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
-  const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
+  const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
+  const showBranchTransferSheet = isBranchTransfer && !!selectedFromBranchId;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
+  const branchTransferMatchesSearch = !supplierSearch || "รับจากสาขา".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || isBatchMode;
+  const isFormActive = showCKSheet || showExternalSheet || isBatchMode || showBranchTransferSheet;
 
   // Source label for header strip
-  const formSourceLabel = isCKSupplier
+  const formSourceLabel = isBranchTransfer
+    ? `รับจากสาขา · ${branchMap[selectedFromBranchId]?.branchName || ""}`
+    : isCKSupplier
     ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
     : selectedSupplier?.name || "";
 
@@ -1137,7 +1203,12 @@ export default function BranchReceiptPage({
                 )}
               >
                 <span className="truncate flex items-center gap-1.5">
-                  {isCKSupplier ? (
+                  {isBranchTransfer ? (
+                    <>
+                      <PackageOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                      รับจากสาขา
+                    </>
+                  ) : isCKSupplier ? (
                     <>
                       <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                       Central Kitchen
@@ -1161,6 +1232,24 @@ export default function BranchReceiptPage({
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
+                    {branchTransferMatchesSearch && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSupplierChange(BRANCH_TRANSFER_ID)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between",
+                            supplierId === BRANCH_TRANSFER_ID && "bg-accent font-medium",
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <PackageOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span className="font-medium">รับจากสาขา</span>
+                          </span>
+                        </button>
+                        <div className="border-b my-1" />
+                      </>
+                    )}
                     {pendingTOCount > 0 && ckMatchesSearch && (
                       <>
                         <button
@@ -1281,6 +1370,24 @@ export default function BranchReceiptPage({
               </Select>
             </div>
           )}
+          {/* Source branch selector for branch transfer */}
+          {isBranchTransfer && branchId && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                สาขาต้นทาง
+              </label>
+              <select
+                value={selectedFromBranchId}
+                onChange={(e) => setSelectedFromBranchId(e.target.value)}
+                className="h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
+              >
+                <option value="">— เลือกสาขาต้นทาง —</option>
+                {activeBranches.filter(b => b.id !== branchId).map(b => (
+                  <option key={b.id} value={b.id}>{b.branchName}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -1324,6 +1431,7 @@ export default function BranchReceiptPage({
               <div className="flex items-center gap-4">
                 <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
                 <span className="text-sm font-medium flex items-center gap-1.5">
+                  {isBranchTransfer && <PackageOpen className="w-3.5 h-3.5 text-primary" />}
                   {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
                   {formSourceLabel}
                 </span>
@@ -1340,6 +1448,8 @@ export default function BranchReceiptPage({
                     setRowEdits({});
                     setAdHocRows([]);
                     setSavedCount(null);
+                    setSelectedFromBranchId("");
+                    setBranchTransferRows([]);
                   }}
                 >
                   <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
@@ -2047,6 +2157,102 @@ export default function BranchReceiptPage({
             </>
           )}
 
+          {/* ── BRANCH TRANSFER SHEET ── */}
+          {showBranchTransferSheet && (
+            <>
+              <div className="overflow-y-auto max-h-[65vh] px-5 py-4 space-y-3">
+                {branchTransferRows.length > 0 && (
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 44 }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-table-header border-b">
+                        <th className={thClass}>SKU</th>
+                        <th className={`${thClass} text-right`}>จำนวนที่รับ</th>
+                        <th className={`${thClass} text-right`}>มูลค่า (฿)</th>
+                        <th className={thClass} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branchTransferRows.map((row, idx) => {
+                        const stdUnit = row.skuId ? getStdUnitPrice(row.skuId) : 0;
+                        const rowValue = row.qty > 0 && row.skuId ? Math.round(row.qty * stdUnit) : 0;
+                        return (
+                          <tr key={row.tempId} className="border-b last:border-0">
+                            <td className="px-1 py-1">
+                              <SearchableSelect
+                                value={row.skuId}
+                                onValueChange={(v) =>
+                                  setBranchTransferRows((prev) =>
+                                    prev.map((r) => (r.tempId === row.tempId ? { ...r, skuId: v } : r))
+                                  )
+                                }
+                                options={branchTransferSkus.map((s) => ({
+                                  value: s.id,
+                                  label: `${s.skuId} — ${s.name}`,
+                                }))}
+                                placeholder="เลือก SKU..."
+                              />
+                            </td>
+                            <td className="px-1 py-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue=""
+                                key={`bt-qty-${row.tempId}`}
+                                onBlur={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setBranchTransferRows((prev) =>
+                                    prev.map((r) => (r.tempId === row.tempId ? { ...r, qty: val } : r))
+                                  );
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className="h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0"
+                              />
+                            </td>
+                            <td className="px-2 py-1 text-right font-mono text-sm text-muted-foreground">
+                              {rowValue > 0 ? rowValue.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-1 py-1 text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  setBranchTransferRows((prev) => prev.filter((r) => r.tempId !== row.tempId))
+                                }
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBranchTransferRows((prev) => [
+                      ...prev,
+                      { tempId: crypto.randomUUID(), skuId: "", qty: 0 },
+                    ])
+                  }
+                  className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> เพิ่มรายการ
+                </button>
+              </div>
+            </>
+          )}
+
           {/* External supplier sheet */}
           {showExternalSheet && (
             <>
@@ -2543,6 +2749,33 @@ export default function BranchReceiptPage({
                 >
                   <CheckCircle className="w-4 h-4 mr-1" />
                   {batchSaving ? "Saving..." : t("br.confirmAll").replace("{n}", String(batchSavableCount))}
+                </Button>
+              </div>
+            </div>
+          ) : isBranchTransfer ? (
+            <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
+                <span className="text-lg font-heading font-bold">
+                  ฿{branchTransferRows.reduce((s, r) => {
+                    if (!r.skuId || r.qty <= 0) return s;
+                    return s + Math.round(r.qty * getStdUnitPrice(r.skuId));
+                  }, 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {savedCount !== null && (
+                  <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
+                    <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+                  </span>
+                )}
+                <Button
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleSaveAll}
+                  disabled={branchTransferSavableCount === 0 || saving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {saving ? "Saving..." : `ยืนยันรับของ (${branchTransferSavableCount})`}
                 </Button>
               </div>
             </div>
