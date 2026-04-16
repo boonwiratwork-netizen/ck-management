@@ -2745,6 +2745,33 @@ export default function BranchReceiptPage({
                 </Button>
               </div>
             </div>
+          ) : isBranchTransfer ? (
+            <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
+                <span className="text-lg font-heading font-bold">
+                  ฿{branchTransferRows.reduce((s, r) => {
+                    if (!r.skuId || r.qty <= 0) return s;
+                    return s + Math.round(r.qty * getStdUnitPrice(r.skuId));
+                  }, 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {savedCount !== null && (
+                  <span className="text-xs text-success font-medium flex items-center gap-1 animate-fade-in">
+                    <CheckCircle className="w-3.5 h-3.5" /> {t("br.savedConfirm").replace("{n}", String(savedCount))}
+                  </span>
+                )}
+                <Button
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleSaveAll}
+                  disabled={branchTransferSavableCount === 0 || saving}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {saving ? "Saving..." : `ยืนยันรับของ (${branchTransferSavableCount})`}
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
               <div className="flex items-center gap-2">
