@@ -133,6 +133,7 @@ function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEd
 }
 
 const CK_SUPPLIER_ID = "__central_kitchen__";
+const BRANCH_TRANSFER_ID = "__branch_transfer__";
 
 export default function BranchReceiptPage({
   skus,
@@ -157,6 +158,8 @@ export default function BranchReceiptPage({
   const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const [selectedFromBranchId, setSelectedFromBranchId] = useState<string>("");
+  const [branchTransferRows, setBranchTransferRows] = useState<{ tempId: string; skuId: string; qty: number }[]>([]);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
   const qtyRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -294,6 +297,10 @@ export default function BranchReceiptPage({
     () => skus.filter((s) => (s.type === "RM" || s.type === "PK") && s.status === "Active"),
     [skus],
   );
+  const branchTransferSkus = useMemo(
+    () => skus.filter((s) => (s.type === "RM" || s.type === "SM" || s.type === "PK") && s.status === "Active"),
+    [skus],
+  );
   const skuMap = useMemo(() => Object.fromEntries(skus.map((s) => [s.id, s])), [skus]);
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const branchMap = useMemo(() => Object.fromEntries(branches.map((b) => [b.id, b])), [branches]);
@@ -308,6 +315,7 @@ export default function BranchReceiptPage({
   const selectedBranch = branchMap[branchId];
   const selectedSupplier = supplierId === CK_SUPPLIER_ID ? null : supplierMap[supplierId];
   const isCKSupplier = supplierId === CK_SUPPLIER_ID;
+  const isBranchTransfer = supplierId === BRANCH_TRANSFER_ID;
 
   // Fetch pending TOs for this branch
   const fetchPendingTOs = useCallback(async () => {
@@ -446,8 +454,9 @@ export default function BranchReceiptPage({
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
+    if (isBranchTransfer) return branchTransferRows.some((r) => r.qty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer, branchTransferRows]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -462,6 +471,8 @@ export default function BranchReceiptPage({
         setSavedCount(null);
         setSelectedTOId("");
         setCkLines([]);
+        setSelectedFromBranchId("");
+        setBranchTransferRows([]);
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
@@ -476,6 +487,8 @@ export default function BranchReceiptPage({
     setSavedCount(null);
     setSelectedTOId("");
     setCkLines([]);
+    setSelectedFromBranchId("");
+    setBranchTransferRows([]);
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
@@ -489,6 +502,8 @@ export default function BranchReceiptPage({
     setCkLines([]);
     setIsBatchMode(false);
     setBatchRowEdits({});
+    setSelectedFromBranchId("");
+    setBranchTransferRows([]);
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
@@ -532,6 +547,47 @@ export default function BranchReceiptPage({
       return;
     }
     setSaving(true);
+
+    if (isBranchTransfer) {
+      const fromBranchName = branchMap[selectedFromBranchId]?.branchName || "";
+      const validRows = branchTransferRows.filter((r) => r.skuId && r.qty > 0);
+      if (validRows.length === 0) {
+        toast.error("กรุณาเพิ่มรายการและระบุจำนวน");
+        setSaving(false);
+        return;
+      }
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = validRows.map((r) => {
+        const sku = skuMap[r.skuId];
+        const stdUnit = getStdUnitPrice(r.skuId);
+        const stdTotal = stdUnit * r.qty;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: r.skuId,
+          supplierName: `รับจากสาขา · ${fromBranchName}`,
+          qtyReceived: r.qty,
+          uom: sku?.usageUom || "",
+          actualUnitPrice: stdUnit,
+          actualTotal: stdTotal,
+          stdUnitPrice: stdUnit,
+          stdTotal,
+          priceVariance: 0,
+          notes: "",
+          transferOrderId: null,
+        };
+      });
+      const count = await saveReceipts(rows);
+      setSaving(false);
+      if (count) {
+        toast.success(`บันทึกการรับจากสาขา ${fromBranchName} สำเร็จ`);
+        setSavedCount(count);
+        setBranchTransferRows([]);
+        setSupplierId("");
+        setSelectedFromBranchId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      return;
+    }
 
     if (isCKSupplier) {
       // CK receipt from TO
