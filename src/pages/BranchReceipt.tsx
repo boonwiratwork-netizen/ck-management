@@ -1366,6 +1366,24 @@ export default function BranchReceiptPage({
               </Select>
             </div>
           )}
+          {/* Source branch selector for branch transfer */}
+          {isBranchTransfer && branchId && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                สาขาต้นทาง
+              </label>
+              <select
+                value={selectedFromBranchId}
+                onChange={(e) => setSelectedFromBranchId(e.target.value)}
+                className="h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
+              >
+                <option value="">— เลือกสาขาต้นทาง —</option>
+                {activeBranches.filter(b => b.id !== branchId).map(b => (
+                  <option key={b.id} value={b.id}>{b.branchName}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -2127,6 +2145,102 @@ export default function BranchReceiptPage({
                   className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ── BRANCH TRANSFER SHEET ── */}
+          {showBranchTransferSheet && (
+            <>
+              <div className="overflow-y-auto max-h-[65vh] px-5 py-4 space-y-3">
+                {branchTransferRows.length > 0 && (
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 44 }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-table-header border-b">
+                        <th className={thClass}>SKU</th>
+                        <th className={`${thClass} text-right`}>จำนวนที่รับ</th>
+                        <th className={`${thClass} text-right`}>มูลค่า (฿)</th>
+                        <th className={thClass} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branchTransferRows.map((row, idx) => {
+                        const stdUnit = row.skuId ? getStdUnitPrice(row.skuId) : 0;
+                        const rowValue = row.qty > 0 && row.skuId ? Math.round(row.qty * stdUnit) : 0;
+                        return (
+                          <tr key={row.tempId} className="border-b last:border-0">
+                            <td className="px-1 py-1">
+                              <SearchableSelect
+                                value={row.skuId}
+                                onValueChange={(v) =>
+                                  setBranchTransferRows((prev) =>
+                                    prev.map((r) => (r.tempId === row.tempId ? { ...r, skuId: v } : r))
+                                  )
+                                }
+                                options={branchTransferSkus.map((s) => ({
+                                  value: s.id,
+                                  label: `${s.skuId} — ${s.name}`,
+                                }))}
+                                placeholder="เลือก SKU..."
+                              />
+                            </td>
+                            <td className="px-1 py-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue=""
+                                key={`bt-qty-${row.tempId}`}
+                                onBlur={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setBranchTransferRows((prev) =>
+                                    prev.map((r) => (r.tempId === row.tempId ? { ...r, qty: val } : r))
+                                  );
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className="h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0"
+                              />
+                            </td>
+                            <td className="px-2 py-1 text-right font-mono text-sm text-muted-foreground">
+                              {rowValue > 0 ? rowValue.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-1 py-1 text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  setBranchTransferRows((prev) => prev.filter((r) => r.tempId !== row.tempId))
+                                }
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBranchTransferRows((prev) => [
+                      ...prev,
+                      { tempId: crypto.randomUUID(), skuId: "", qty: 0 },
+                    ])
+                  }
+                  className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> เพิ่มรายการ
                 </button>
               </div>
             </>
