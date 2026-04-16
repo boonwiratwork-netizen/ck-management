@@ -741,6 +741,7 @@ export default function BranchReceiptPage({
   }, [
     branchId,
     isCKSupplier,
+    isBranchTransfer,
     selectedTOId,
     ckLines,
     preloadedRows,
@@ -753,6 +754,9 @@ export default function BranchReceiptPage({
     saveReceipts,
     pendingTOs,
     fetchPendingTOs,
+    branchTransferRows,
+    selectedFromBranchId,
+    branchMap,
   ]);
 
   // Batch save all
@@ -1427,6 +1431,7 @@ export default function BranchReceiptPage({
               <div className="flex items-center gap-4">
                 <span className="font-mono text-sm font-semibold bg-muted px-2.5 py-1 rounded">BR-{dateStr}</span>
                 <span className="text-sm font-medium flex items-center gap-1.5">
+                  {isBranchTransfer && <PackageOpen className="w-3.5 h-3.5 text-primary" />}
                   {isCKSupplier && <Zap className="w-3.5 h-3.5 text-primary" />}
                   {formSourceLabel}
                 </span>
@@ -1443,6 +1448,8 @@ export default function BranchReceiptPage({
                     setRowEdits({});
                     setAdHocRows([]);
                     setSavedCount(null);
+                    setSelectedFromBranchId("");
+                    setBranchTransferRows([]);
                   }}
                 >
                   <X className="w-4 h-4 mr-1" /> {t("to.cancel")}
