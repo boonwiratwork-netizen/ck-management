@@ -421,8 +421,29 @@ export function StockCard({
           const supplierMap = new Map<string, string>();
           (suppRes.data ?? []).forEach((s) => supplierMap.set(s.id, s.name));
 
-          const openingQty = obRes.data?.quantity ?? 0;
           const converter = sku.converter ?? 1;
+
+          // คำนวณ balance จริง ณ วันเริ่มต้น window
+          // = opening balance + GR ก่อน window + adjustments ก่อน window
+          const obQty = obRes.data?.quantity ?? 0;
+
+          const [preGrRes, preAdjRes] = await Promise.all([
+            supabase
+              .from("goods_receipts")
+              .select("quantity_received")
+              .eq("sku_id", skuId)
+              .lt("receipt_date", fromDate),
+            supabase
+              .from("stock_adjustments")
+              .select("quantity")
+              .eq("sku_id", skuId)
+              .eq("stock_type", "RM")
+              .lt("adjustment_date", fromDate),
+          ]);
+
+          const preGrTotal = (preGrRes.data ?? []).reduce((sum, r) => sum + Number(r.quantity_received) * converter, 0);
+          const preAdjTotal = (preAdjRes.data ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
+          const openingQty = obQty + preGrTotal + preAdjTotal;
 
           const mvts: Movement[] = [
             {
