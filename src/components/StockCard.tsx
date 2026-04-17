@@ -913,7 +913,7 @@ export function StockCard({
             <>
               <table className="w-full table-fixed text-xs">
                 <colgroup>
-                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "120px" }} />
                   <col style={{ width: "88px" }} />
                   <col />
                   <col style={{ width: "65px" }} />
