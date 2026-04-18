@@ -133,6 +133,7 @@ function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEd
 }
 
 const CK_SUPPLIER_ID = "__central_kitchen__";
+const BRANCH_TRANSFER_ID = "__branch_transfer__";
 
 export default function BranchReceiptPage({
   skus,
@@ -149,6 +150,7 @@ export default function BranchReceiptPage({
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(isStoreManager && profile?.branch_id ? profile.branch_id : "");
   const [supplierId, setSupplierId] = useState<string>("");
+  const [sourceBranchId, setSourceBranchId] = useState<string>("");
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
@@ -306,8 +308,9 @@ export default function BranchReceiptPage({
   }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const selectedBranch = branchMap[branchId];
-  const selectedSupplier = supplierId === CK_SUPPLIER_ID ? null : supplierMap[supplierId];
+  const selectedSupplier = supplierId === CK_SUPPLIER_ID || supplierId === BRANCH_TRANSFER_ID ? null : supplierMap[supplierId];
   const isCKSupplier = supplierId === CK_SUPPLIER_ID;
+  const isBranchTransfer = supplierId === BRANCH_TRANSFER_ID;
 
   // Fetch pending TOs for this branch
   const fetchPendingTOs = useCallback(async () => {
@@ -443,11 +446,40 @@ export default function BranchReceiptPage({
     }[];
   }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap, isCKSupplier]);
 
+  // SKUs available when receiving from another branch (filtered by source branch's brand)
+  const branchTransferRows = useMemo(() => {
+    if (!isBranchTransfer || !sourceBranchId) return [];
+    const sourceBranch = branchMap[sourceBranchId];
+    if (!sourceBranch) return [];
+    const brandName = sourceBranch.brandName;
+    const brandMenus = menus.filter((m) => m.brandName === brandName && m.status === "Active");
+    const menuIds = new Set(brandMenus.map((m) => m.id));
+    const relevantSkuIds = new Set(menuBomLines.filter((l) => menuIds.has(l.menuId)).map((l) => l.skuId));
+
+    return skus
+      .filter((s) => s.status === "Active" && relevantSkuIds.has(s.id))
+      .map((s) => {
+        const activePrice = prices.find((p) => p.skuId === s.id && p.isActive);
+        return {
+          skuId: s.id,
+          sku: s,
+          stdUnitPrice: activePrice?.pricePerUsageUom ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        const typeOrder = (type: string) => (type === "SM" ? 0 : type === "RM" ? 1 : 2);
+        const tDiff = typeOrder(a.sku.type) - typeOrder(b.sku.type);
+        if (tDiff !== 0) return tDiff;
+        return a.sku.skuId.localeCompare(b.sku.skuId);
+      });
+  }, [isBranchTransfer, sourceBranchId, branchMap, menus, menuBomLines, skus, prices]);
+
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
+    if (isBranchTransfer) return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -462,6 +494,7 @@ export default function BranchReceiptPage({
         setSavedCount(null);
         setSelectedTOId("");
         setCkLines([]);
+        setSourceBranchId("");
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
@@ -476,6 +509,7 @@ export default function BranchReceiptPage({
     setSavedCount(null);
     setSelectedTOId("");
     setCkLines([]);
+    setSourceBranchId("");
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
@@ -489,6 +523,7 @@ export default function BranchReceiptPage({
     setCkLines([]);
     setIsBatchMode(false);
     setBatchRowEdits({});
+    setSourceBranchId("");
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
@@ -619,6 +654,60 @@ export default function BranchReceiptPage({
       return;
     }
 
+    if (isBranchTransfer) {
+      const sourceBranch = branchMap[sourceBranchId];
+      const supplierLabel = `รับจากสาขา · ${sourceBranch?.branchName ?? ""}`;
+      const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
+      for (const row of branchTransferRows) {
+        const edit = rowEdits[row.skuId];
+        if (edit && edit.qty > 0) {
+          const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : row.stdUnitPrice * edit.qty;
+          rowsToSave.push({ skuId: row.skuId, qty: edit.qty, actualTotal, note: edit.note, stdUnitPrice: row.stdUnitPrice });
+        }
+      }
+      for (const r of adHocRows) {
+        if (r.skuId && r.qty > 0) {
+          const stdUnit = getStdUnitPrice(r.skuId);
+          rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
+        }
+      }
+      if (rowsToSave.length === 0) {
+        toast.error("No rows with quantity to save");
+        setSaving(false);
+        return;
+      }
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = rowsToSave.map((r) => {
+        const sku = skuMap[r.skuId];
+        const stdTotal = r.qty * r.stdUnitPrice;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: r.skuId,
+          supplierName: supplierLabel,
+          qtyReceived: r.qty,
+          uom: sku?.usageUom || "",
+          actualUnitPrice: r.stdUnitPrice,
+          actualTotal: stdTotal,
+          stdUnitPrice: r.stdUnitPrice,
+          stdTotal,
+          priceVariance: 0,
+          notes: r.note,
+          transferOrderId: null,
+        };
+      });
+      const count = await saveReceipts(rows);
+      setSaving(false);
+      if (count) {
+        setSavedCount(count);
+        setRowEdits({});
+        setAdHocRows([]);
+        setSupplierId("");
+        setSourceBranchId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      return;
+    }
+
     // External supplier receipt (existing logic)
     const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
     for (const row of preloadedRows) {
@@ -685,6 +774,10 @@ export default function BranchReceiptPage({
   }, [
     branchId,
     isCKSupplier,
+    isBranchTransfer,
+    sourceBranchId,
+    branchTransferRows,
+    branchMap,
     selectedTOId,
     ckLines,
     preloadedRows,
@@ -921,6 +1014,17 @@ export default function BranchReceiptPage({
 
   const savableCount = useMemo(() => {
     if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
+    if (isBranchTransfer) {
+      let c = 0;
+      for (const row of branchTransferRows) {
+        const edit = rowEdits[row.skuId];
+        if (edit && edit.qty > 0) c++;
+      }
+      for (const r of adHocRows) {
+        if (r.skuId && r.qty > 0) c++;
+      }
+      return c;
+    }
     let c = 0;
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
@@ -930,7 +1034,7 @@ export default function BranchReceiptPage({
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines]);
+  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows]);
 
   const batchSavableCount = useMemo(() => {
     if (!isBatchMode) return 0;
@@ -962,17 +1066,20 @@ export default function BranchReceiptPage({
 
   // CK supplier selected check: need TO as well
   const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
-  const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
+  const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
+  const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId && branchTransferRows.length > 0;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || isBatchMode;
+  const isFormActive = showCKSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
 
   // Source label for header strip
   const formSourceLabel = isCKSupplier
     ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
-    : selectedSupplier?.name || "";
+    : isBranchTransfer
+      ? `รับจากสาขา · ${branchMap[sourceBranchId]?.branchName ?? ""}`
+      : selectedSupplier?.name || "";
 
   // Batch total value
   const batchTotalValue = useMemo(() => {
@@ -1142,6 +1249,11 @@ export default function BranchReceiptPage({
                       <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                       Central Kitchen
                     </>
+                  ) : isBranchTransfer ? (
+                    <>
+                      <PackageOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      รับจากสาขา
+                    </>
                   ) : (
                     selectedSupplier?.name || t("br.selectSupplier")
                   )}
@@ -1178,6 +1290,22 @@ export default function BranchReceiptPage({
                           <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
                             {pendingTOCount} pending
                           </span>
+                        </button>
+                        <div className="border-b my-1" />
+                      </>
+                    )}
+                    {ckMatchesSearch && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSupplierChange(BRANCH_TRANSFER_ID)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-1.5",
+                            supplierId === BRANCH_TRANSFER_ID && "bg-accent font-medium",
+                          )}
+                        >
+                          <PackageOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium">รับจากสาขา</span>
                         </button>
                         <div className="border-b my-1" />
                       </>
@@ -1260,7 +1388,28 @@ export default function BranchReceiptPage({
               )}
             </div>
           )}
-          {/* TO selector when CK supplier selected */}
+          {/* Source branch selector when "รับจากสาขา" selected */}
+          {isBranchTransfer && branchId && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                สาขาต้นทาง
+              </label>
+              <select
+                value={sourceBranchId}
+                onChange={(e) => setSourceBranchId(e.target.value)}
+                className="h-9 w-[200px] px-3 text-sm border rounded-md bg-background"
+              >
+                <option value="">เลือกสาขา</option>
+                {availableBranches
+                  .filter((b) => b.id !== branchId)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.branchName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           {isCKSupplier && branchId && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
@@ -2047,8 +2196,8 @@ export default function BranchReceiptPage({
             </>
           )}
 
-          {/* External supplier sheet */}
-          {showExternalSheet && (
+          {/* External supplier sheet OR branch-transfer sheet (same UI) */}
+          {(showExternalSheet || showBranchTransferSheet) && (
             <>
               <div className="overflow-y-auto max-h-[65vh]">
                 <table className="w-full text-sm table-fixed">
@@ -2094,7 +2243,7 @@ export default function BranchReceiptPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {preloadedRows.map((row) => {
+                    {(showBranchTransferSheet ? branchTransferRows : preloadedRows).map((row) => {
                       const edit = getRowEdit(row.skuId);
                       const sku = row.sku;
                       const packSize = sku.packSize ?? 0;
@@ -2134,7 +2283,7 @@ export default function BranchReceiptPage({
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
                             <div>
-                              {selectedSupplier?.name}
+                              {showBranchTransferSheet ? (branchMap[sourceBranchId]?.branchName ?? "") : selectedSupplier?.name}
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
@@ -2167,8 +2316,9 @@ export default function BranchReceiptPage({
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") {
                                         e.preventDefault();
-                                        const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
-                                        const nextRow = preloadedRows[idx + 1];
+                                        const list = showBranchTransferSheet ? branchTransferRows : preloadedRows;
+                                        const idx = list.findIndex((r) => r.skuId === row.skuId);
+                                        const nextRow = list[idx + 1];
                                         if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
                                       }
                                     }}
@@ -2208,8 +2358,9 @@ export default function BranchReceiptPage({
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
-                                      const nextRow = preloadedRows[idx + 1];
+                                      const list = showBranchTransferSheet ? branchTransferRows : preloadedRows;
+                                      const idx = list.findIndex((r) => r.skuId === row.skuId);
+                                      const nextRow = list[idx + 1];
                                       if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
                                     }
                                   }}
@@ -2554,7 +2705,7 @@ export default function BranchReceiptPage({
                   ฿
                   {(isCKSupplier
                     ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                    : preloadedRows.reduce((s, row) => {
+                    : (showBranchTransferSheet ? branchTransferRows : preloadedRows).reduce((s, row) => {
                         const edit = getRowEdit(row.skuId);
                         const stdTotal = row.stdUnitPrice * edit.qty;
                         return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
