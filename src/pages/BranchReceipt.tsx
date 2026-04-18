@@ -1388,7 +1388,28 @@ export default function BranchReceiptPage({
               )}
             </div>
           )}
-          {/* TO selector when CK supplier selected */}
+          {/* Source branch selector when "รับจากสาขา" selected */}
+          {isBranchTransfer && branchId && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
+                สาขาต้นทาง
+              </label>
+              <select
+                value={sourceBranchId}
+                onChange={(e) => setSourceBranchId(e.target.value)}
+                className="h-9 w-[200px] px-3 text-sm border rounded-md bg-background"
+              >
+                <option value="">เลือกสาขา</option>
+                {availableBranches
+                  .filter((b) => b.id !== branchId)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.branchName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           {isCKSupplier && branchId && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
