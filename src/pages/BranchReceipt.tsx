@@ -1014,6 +1014,17 @@ export default function BranchReceiptPage({
 
   const savableCount = useMemo(() => {
     if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
+    if (isBranchTransfer) {
+      let c = 0;
+      for (const row of branchTransferRows) {
+        const edit = rowEdits[row.skuId];
+        if (edit && edit.qty > 0) c++;
+      }
+      for (const r of adHocRows) {
+        if (r.skuId && r.qty > 0) c++;
+      }
+      return c;
+    }
     let c = 0;
     for (const row of preloadedRows) {
       const edit = rowEdits[row.skuId];
@@ -1023,7 +1034,7 @@ export default function BranchReceiptPage({
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines]);
+  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows]);
 
   const batchSavableCount = useMemo(() => {
     if (!isBatchMode) return 0;
