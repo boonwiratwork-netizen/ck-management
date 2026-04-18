@@ -466,6 +466,7 @@ export default function BranchReceiptPage({
         setSavedCount(null);
         setSelectedTOId("");
         setCkLines([]);
+        setSourceBranchId("");
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
