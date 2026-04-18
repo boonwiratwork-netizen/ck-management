@@ -2243,7 +2243,7 @@ export default function BranchReceiptPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {preloadedRows.map((row) => {
+                    {(showBranchTransferSheet ? branchTransferRows : preloadedRows).map((row) => {
                       const edit = getRowEdit(row.skuId);
                       const sku = row.sku;
                       const packSize = sku.packSize ?? 0;
