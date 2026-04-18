@@ -2656,6 +2656,227 @@ export default function BranchReceiptPage({
             </>
           )}
 
+          {/* Branch transfer sheet — ad-hoc only */}
+          {showBranchTransferSheet && (
+            <div className="px-4 py-3 space-y-2 border-t">
+              {adHocRows.length > 0 && (
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col style={{ width: 100 }} />
+                      <col />
+                      <col style={{ width: 130 }} />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 50 }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-table-header border-b">
+                        <th className={thClass}>{t("col.sku")}</th>
+                        <th className={thClass}>{t("col.skuName")}</th>
+                        <th className={thClass}>{t("col.supplier")}</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                          PACKS
+                        </th>
+                        <th className={`${thClass} text-right`}>WEIGHT</th>
+                        <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                        <th className={`${thClass} text-right`}>{t("col.stdTotal")}</th>
+                        <th className={`${thClass} text-right`}>{t("col.actualUnit")}</th>
+                        <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
+                        <th className={`${thClass} text-right`}>{t("col.variance")}</th>
+                        <th className={`${thClass} text-center`}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adHocRows.map((row) => {
+                        const sku = skuMap[row.skuId];
+                        const packSize = sku?.packSize ?? 0;
+                        const packUnit = sku?.packUnit ?? "";
+                        const isPacksMode = !!sku && packSize > 1 && packUnit.length > 0;
+                        const currentPacks = isPacksMode ? Math.round(row.qty / packSize) : 0;
+                        const stdUnitPrice = branchTransferRows.find((r) => r.skuId === row.skuId)?.stdUnitPrice ?? 0;
+                        const stdTotal = stdUnitPrice * row.qty;
+                        const actualTotal = row.actualTotal || stdTotal;
+                        const unitPrice = row.qty > 0 ? actualTotal / row.qty : 0;
+                        const variance = actualTotal - stdTotal;
+                        const hasQty = row.qty > 0;
+
+                        return (
+                          <tr
+                            key={row.tempId}
+                            className={cn(
+                              "border-b last:border-0 transition-colors",
+                              hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "bg-accent/30",
+                            )}
+                          >
+                            <td className="px-1 py-1 align-middle" colSpan={2}>
+                              <SearchableSelect
+                                value={row.skuId}
+                                onValueChange={(v) => updateAdHoc(row.tempId, { skuId: v })}
+                                options={branchTransferRows.map((r) => ({
+                                  value: r.skuId,
+                                  label: `${r.sku.skuId} — ${r.sku.name}`,
+                                  sublabel: r.sku.skuId,
+                                }))}
+                                placeholder="Select SKU"
+                                triggerClassName="h-8 text-xs truncate"
+                              />
+                            </td>
+                            <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
+                              {branchMap[sourceBranchId]?.branchName ?? ""}
+                            </td>
+                            {/* PACKS */}
+                            <td className="px-1 py-1 align-middle">
+                              {isPacksMode ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={currentPacks || ""}
+                                    key={`bt-packs-${row.tempId}-${row.skuId}`}
+                                    onBlur={(e) => {
+                                      const packs = Math.round(Number(e.target.value) || 0);
+                                      updateAdHoc(row.tempId, { qty: packs * packSize });
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className={cn(
+                                      "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                      hasQty && "border-success font-bold text-success",
+                                    )}
+                                  />
+                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                    {packUnit}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    defaultValue={row.qty || ""}
+                                    key={`bt-qty-${row.tempId}-${row.skuId}`}
+                                    onBlur={(e) => updateAdHoc(row.tempId, { qty: Number(e.target.value) || 0 })}
+                                    onFocus={(e) => e.target.select()}
+                                    className={cn(
+                                      "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                      hasQty && "border-success font-bold text-success",
+                                    )}
+                                  />
+                                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                    {sku?.usageUom || "—"}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            {/* WEIGHT */}
+                            <td className="px-1 py-1 align-middle">
+                              {isPacksMode ? (
+                                <div>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    step={1}
+                                    defaultValue={row.qty || ""}
+                                    key={`bt-wt-${row.tempId}-${row.skuId}-${row.qty}`}
+                                    onBlur={(e) => {
+                                      const grams = Number(e.target.value) || 0;
+                                      if (grams > 0) updateAdHoc(row.tempId, { qty: grams });
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="ยอดนับจริง"
+                                    className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                                    est. {(currentPacks * packSize).toLocaleString()}{" "}
+                                    <span className="font-bold">{sku?.purchaseUom || "g"}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+                            {/* ACTUAL TOTAL */}
+                            <td className="px-1 py-1 align-middle">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={row.actualTotal ? Number(row.actualTotal).toFixed(2) : ""}
+                                key={`bt-actual-${row.tempId}-${row.qty}`}
+                                tabIndex={-1}
+                                onBlur={(e) => updateAdHoc(row.tempId, { actualTotal: Number(e.target.value) || 0 })}
+                                onFocus={(e) => e.target.select()}
+                                className="h-8 text-xs text-right w-full font-mono px-2 py-1 border rounded-md bg-warning/5 border-warning/20 focus:border-primary outline-none"
+                                placeholder="0.00"
+                              />
+                            </td>
+                            <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                              {stdTotal > 0
+                                ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                                : "—"}
+                            </td>
+                            <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                              {unitPrice > 0 ? unitPrice.toFixed(2) : "—"}
+                            </td>
+                            <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                              {stdUnitPrice > 0 ? stdUnitPrice.toFixed(2) : "—"}
+                            </td>
+                            <td
+                              className={cn(
+                                `${tdReadOnly} text-right font-mono align-middle`,
+                                hasQty && variance !== 0 ? "font-bold" : "font-semibold",
+                                variance < 0
+                                  ? "text-success"
+                                  : variance > 0
+                                    ? "text-destructive"
+                                    : "text-muted-foreground",
+                              )}
+                            >
+                              {hasQty ? (
+                                <>
+                                  {variance > 0 ? "+" : ""}
+                                  {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-1 py-1 text-center align-middle">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => deleteAdHoc(row.tempId)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleAddAdHoc}
+                className="w-full border-2 border-dashed border-primary/40 text-primary hover:border-primary/60 hover:bg-accent rounded-md py-2 text-sm transition-colors flex items-center justify-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> {t("btn.addRow")}
+              </button>
+            </div>
+          )}
+
           {/* Footer bar */}
           {isBatchMode ? (
             <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
