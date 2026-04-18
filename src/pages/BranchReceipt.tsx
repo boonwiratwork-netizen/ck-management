@@ -133,6 +133,7 @@ function getRowEditFromPrev(prev: Record<string, RowEdit>, skuId: string): RowEd
 }
 
 const CK_SUPPLIER_ID = "__central_kitchen__";
+const BRANCH_TRANSFER_ID = "__branch_transfer__";
 
 export default function BranchReceiptPage({
   skus,
