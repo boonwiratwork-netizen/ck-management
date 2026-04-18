@@ -658,16 +658,9 @@ export default function BranchReceiptPage({
       const sourceBranch = branchMap[sourceBranchId];
       const supplierLabel = `รับจากสาขา · ${sourceBranch?.branchName ?? ""}`;
       const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
-      for (const row of branchTransferRows) {
-        const edit = rowEdits[row.skuId];
-        if (edit && edit.qty > 0) {
-          const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : row.stdUnitPrice * edit.qty;
-          rowsToSave.push({ skuId: row.skuId, qty: edit.qty, actualTotal, note: edit.note, stdUnitPrice: row.stdUnitPrice });
-        }
-      }
       for (const r of adHocRows) {
         if (r.skuId && r.qty > 0) {
-          const stdUnit = getStdUnitPrice(r.skuId);
+          const stdUnit = branchTransferRows.find((b) => b.skuId === r.skuId)?.stdUnitPrice ?? getStdUnitPrice(r.skuId);
           rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
         }
       }
@@ -1016,10 +1009,6 @@ export default function BranchReceiptPage({
     if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
     if (isBranchTransfer) {
       let c = 0;
-      for (const row of branchTransferRows) {
-        const edit = rowEdits[row.skuId];
-        if (edit && edit.qty > 0) c++;
-      }
       for (const r of adHocRows) {
         if (r.skuId && r.qty > 0) c++;
       }
@@ -1067,7 +1056,7 @@ export default function BranchReceiptPage({
   // CK supplier selected check: need TO as well
   const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
   const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
-  const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId && branchTransferRows.length > 0;
+  const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
@@ -2700,11 +2689,13 @@ export default function BranchReceiptPage({
                   ฿
                   {(isCKSupplier
                     ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                    : (showBranchTransferSheet ? branchTransferRows : preloadedRows).reduce((s, row) => {
-                        const edit = getRowEdit(row.skuId);
-                        const stdTotal = row.stdUnitPrice * edit.qty;
-                        return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
-                      }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                    : showBranchTransferSheet
+                      ? adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                      : preloadedRows.reduce((s, row) => {
+                          const edit = getRowEdit(row.skuId);
+                          const stdTotal = row.stdUnitPrice * edit.qty;
+                          return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
+                        }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
                   ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
