@@ -481,6 +481,7 @@ export default function BranchReceiptPage({
     setSavedCount(null);
     setSelectedTOId("");
     setCkLines([]);
+    setSourceBranchId("");
     setConfirmOpen(false);
   }, [pendingSupplierId]);
 
@@ -494,6 +495,7 @@ export default function BranchReceiptPage({
     setCkLines([]);
     setIsBatchMode(false);
     setBatchRowEdits({});
+    setSourceBranchId("");
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
