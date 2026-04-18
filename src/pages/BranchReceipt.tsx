@@ -1249,6 +1249,11 @@ export default function BranchReceiptPage({
                       <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                       Central Kitchen
                     </>
+                  ) : isBranchTransfer ? (
+                    <>
+                      <PackageOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      รับจากสาขา
+                    </>
                   ) : (
                     selectedSupplier?.name || t("br.selectSupplier")
                   )}
