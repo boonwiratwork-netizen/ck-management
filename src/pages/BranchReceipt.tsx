@@ -2240,7 +2240,7 @@ export default function BranchReceiptPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {(showBranchTransferSheet ? branchTransferRows : preloadedRows).map((row) => {
+                    {preloadedRows.map((row) => {
                       const edit = getRowEdit(row.skuId);
                       const sku = row.sku;
                       const packSize = sku.packSize ?? 0;
@@ -2280,7 +2280,7 @@ export default function BranchReceiptPage({
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
                             <div>
-                              {showBranchTransferSheet ? (branchMap[sourceBranchId]?.branchName ?? "") : selectedSupplier?.name}
+                              {selectedSupplier?.name}
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
@@ -2313,9 +2313,8 @@ export default function BranchReceiptPage({
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") {
                                         e.preventDefault();
-                                        const list = showBranchTransferSheet ? branchTransferRows : preloadedRows;
-                                        const idx = list.findIndex((r) => r.skuId === row.skuId);
-                                        const nextRow = list[idx + 1];
+                                        const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
+                                        const nextRow = preloadedRows[idx + 1];
                                         if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
                                       }
                                     }}
@@ -2355,9 +2354,8 @@ export default function BranchReceiptPage({
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      const list = showBranchTransferSheet ? branchTransferRows : preloadedRows;
-                                      const idx = list.findIndex((r) => r.skuId === row.skuId);
-                                      const nextRow = list[idx + 1];
+                                      const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
+                                      const nextRow = preloadedRows[idx + 1];
                                       if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
                                     }
                                   }}
