@@ -1294,6 +1294,22 @@ export default function BranchReceiptPage({
                         <div className="border-b my-1" />
                       </>
                     )}
+                    {ckMatchesSearch && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSupplierChange(BRANCH_TRANSFER_ID)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-1.5",
+                            supplierId === BRANCH_TRANSFER_ID && "bg-accent font-medium",
+                          )}
+                        >
+                          <PackageOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium">รับจากสาขา</span>
+                        </button>
+                        <div className="border-b my-1" />
+                      </>
+                    )}
                     {branchId ? (
                       <>
                         {filteredGroupedSuppliers.brand.length > 0 && (
