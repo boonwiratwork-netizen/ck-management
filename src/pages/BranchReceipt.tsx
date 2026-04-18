@@ -2705,7 +2705,7 @@ export default function BranchReceiptPage({
                   ฿
                   {(isCKSupplier
                     ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                    : preloadedRows.reduce((s, row) => {
+                    : (showBranchTransferSheet ? branchTransferRows : preloadedRows).reduce((s, row) => {
                         const edit = getRowEdit(row.skuId);
                         const stdTotal = row.stdUnitPrice * edit.qty;
                         return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
