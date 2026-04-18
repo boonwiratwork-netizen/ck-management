@@ -654,6 +654,60 @@ export default function BranchReceiptPage({
       return;
     }
 
+    if (isBranchTransfer) {
+      const sourceBranch = branchMap[sourceBranchId];
+      const supplierLabel = `รับจากสาขา · ${sourceBranch?.branchName ?? ""}`;
+      const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
+      for (const row of branchTransferRows) {
+        const edit = rowEdits[row.skuId];
+        if (edit && edit.qty > 0) {
+          const actualTotal = edit.actualManuallyEdited ? edit.actualTotal : row.stdUnitPrice * edit.qty;
+          rowsToSave.push({ skuId: row.skuId, qty: edit.qty, actualTotal, note: edit.note, stdUnitPrice: row.stdUnitPrice });
+        }
+      }
+      for (const r of adHocRows) {
+        if (r.skuId && r.qty > 0) {
+          const stdUnit = getStdUnitPrice(r.skuId);
+          rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
+        }
+      }
+      if (rowsToSave.length === 0) {
+        toast.error("No rows with quantity to save");
+        setSaving(false);
+        return;
+      }
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = rowsToSave.map((r) => {
+        const sku = skuMap[r.skuId];
+        const stdTotal = r.qty * r.stdUnitPrice;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: r.skuId,
+          supplierName: supplierLabel,
+          qtyReceived: r.qty,
+          uom: sku?.usageUom || "",
+          actualUnitPrice: r.stdUnitPrice,
+          actualTotal: stdTotal,
+          stdUnitPrice: r.stdUnitPrice,
+          stdTotal,
+          priceVariance: 0,
+          notes: r.note,
+          transferOrderId: null,
+        };
+      });
+      const count = await saveReceipts(rows);
+      setSaving(false);
+      if (count) {
+        setSavedCount(count);
+        setRowEdits({});
+        setAdHocRows([]);
+        setSupplierId("");
+        setSourceBranchId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      return;
+    }
+
     // External supplier receipt (existing logic)
     const rowsToSave: { skuId: string; qty: number; actualTotal: number; note: string; stdUnitPrice: number }[] = [];
     for (const row of preloadedRows) {
