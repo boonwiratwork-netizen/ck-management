@@ -2193,8 +2193,8 @@ export default function BranchReceiptPage({
             </>
           )}
 
-          {/* External supplier sheet OR branch-transfer sheet (same UI) */}
-          {(showExternalSheet || showBranchTransferSheet) && (
+          {/* External supplier sheet */}
+          {showExternalSheet && (
             <>
               <div className="overflow-y-auto max-h-[65vh]">
                 <table className="w-full text-sm table-fixed">
