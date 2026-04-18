@@ -1066,17 +1066,20 @@ export default function BranchReceiptPage({
 
   // CK supplier selected check: need TO as well
   const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
-  const showExternalSheet = bothSelected && !isCKSupplier && preloadedRows.length > 0;
+  const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
+  const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId && branchTransferRows.length > 0;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || isBatchMode;
+  const isFormActive = showCKSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
 
   // Source label for header strip
   const formSourceLabel = isCKSupplier
     ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
-    : selectedSupplier?.name || "";
+    : isBranchTransfer
+      ? `รับจากสาขา · ${branchMap[sourceBranchId]?.branchName ?? ""}`
+      : selectedSupplier?.name || "";
 
   // Batch total value
   const batchTotalValue = useMemo(() => {
