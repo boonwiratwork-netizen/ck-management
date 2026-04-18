@@ -150,6 +150,7 @@ export default function BranchReceiptPage({
   const [receiptDate, setReceiptDate] = useState<Date>(new Date());
   const [branchId, setBranchId] = useState<string>(isStoreManager && profile?.branch_id ? profile.branch_id : "");
   const [supplierId, setSupplierId] = useState<string>("");
+  const [sourceBranchId, setSourceBranchId] = useState<string>("");
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
   const [savedCount, setSavedCount] = useState<number | null>(null);
