@@ -448,9 +448,10 @@ export default function BranchReceiptPage({
 
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
+    if (isBranchTransfer) return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
