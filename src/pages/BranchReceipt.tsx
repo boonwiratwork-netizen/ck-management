@@ -2283,7 +2283,7 @@ export default function BranchReceiptPage({
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
                             <div>
-                              {selectedSupplier?.name}
+                              {showBranchTransferSheet ? (branchMap[sourceBranchId]?.branchName ?? "") : selectedSupplier?.name}
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
                             </div>
                           </td>
