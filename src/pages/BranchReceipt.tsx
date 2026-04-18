@@ -308,8 +308,9 @@ export default function BranchReceiptPage({
   }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const selectedBranch = branchMap[branchId];
-  const selectedSupplier = supplierId === CK_SUPPLIER_ID ? null : supplierMap[supplierId];
+  const selectedSupplier = supplierId === CK_SUPPLIER_ID || supplierId === BRANCH_TRANSFER_ID ? null : supplierMap[supplierId];
   const isCKSupplier = supplierId === CK_SUPPLIER_ID;
+  const isBranchTransfer = supplierId === BRANCH_TRANSFER_ID;
 
   // Fetch pending TOs for this branch
   const fetchPendingTOs = useCallback(async () => {
