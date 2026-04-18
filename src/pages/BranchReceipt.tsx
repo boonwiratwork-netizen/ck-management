@@ -446,6 +446,34 @@ export default function BranchReceiptPage({
     }[];
   }, [branchId, supplierId, selectedBranch, brandRmSkuIds, prices, skuMap, isCKSupplier]);
 
+  // SKUs available when receiving from another branch (filtered by source branch's brand)
+  const branchTransferRows = useMemo(() => {
+    if (!isBranchTransfer || !sourceBranchId) return [];
+    const sourceBranch = branchMap[sourceBranchId];
+    if (!sourceBranch) return [];
+    const brandName = sourceBranch.brandName;
+    const brandMenus = menus.filter((m) => m.brandName === brandName && m.status === "Active");
+    const menuIds = new Set(brandMenus.map((m) => m.id));
+    const relevantSkuIds = new Set(menuBomLines.filter((l) => menuIds.has(l.menuId)).map((l) => l.skuId));
+
+    return skus
+      .filter((s) => s.status === "Active" && relevantSkuIds.has(s.id))
+      .map((s) => {
+        const activePrice = prices.find((p) => p.skuId === s.id && p.isActive);
+        return {
+          skuId: s.id,
+          sku: s,
+          stdUnitPrice: activePrice?.pricePerUsageUom ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        const typeOrder = (type: string) => (type === "SM" ? 0 : type === "RM" ? 1 : 2);
+        const tDiff = typeOrder(a.sku.type) - typeOrder(b.sku.type);
+        if (tDiff !== 0) return tDiff;
+        return a.sku.skuId.localeCompare(b.sku.skuId);
+      });
+  }, [isBranchTransfer, sourceBranchId, branchMap, menus, menuBomLines, skus, prices]);
+
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isBranchTransfer) return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
