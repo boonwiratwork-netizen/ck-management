@@ -774,6 +774,10 @@ export default function BranchReceiptPage({
   }, [
     branchId,
     isCKSupplier,
+    isBranchTransfer,
+    sourceBranchId,
+    branchTransferRows,
+    branchMap,
     selectedTOId,
     ckLines,
     preloadedRows,
