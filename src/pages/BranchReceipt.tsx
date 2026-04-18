@@ -2316,8 +2316,9 @@ export default function BranchReceiptPage({
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") {
                                         e.preventDefault();
-                                        const idx = preloadedRows.findIndex((r) => r.skuId === row.skuId);
-                                        const nextRow = preloadedRows[idx + 1];
+                                        const list = showBranchTransferSheet ? branchTransferRows : preloadedRows;
+                                        const idx = list.findIndex((r) => r.skuId === row.skuId);
+                                        const nextRow = list[idx + 1];
                                         if (nextRow) qtyRefs.current[nextRow.skuId]?.focus();
                                       }
                                     }}
