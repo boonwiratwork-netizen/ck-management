@@ -622,6 +622,13 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "goods_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       menu_bom: {
@@ -940,6 +947,13 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "prices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       production_plans: {
@@ -1138,6 +1152,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_lines_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2009,7 +2030,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      suppliers_safe: {
+        Row: {
+          created_at: string | null
+          credit_terms: string | null
+          id: string | null
+          is_central_kitchen: boolean | null
+          lead_time: number | null
+          moq: number | null
+          moq_unit: string | null
+          name: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credit_terms?: string | null
+          id?: string | null
+          is_central_kitchen?: boolean | null
+          lead_time?: number | null
+          moq?: number | null
+          moq_unit?: string | null
+          name?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credit_terms?: string | null
+          id?: string | null
+          is_central_kitchen?: boolean | null
+          lead_time?: number | null
+          moq?: number | null
+          moq_unit?: string | null
+          name?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
