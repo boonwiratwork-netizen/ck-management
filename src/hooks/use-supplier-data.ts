@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Supplier } from '@/types/supplier';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 
 const toLocal = (row: any): Supplier => ({
   id: row.id,
@@ -9,8 +10,8 @@ const toLocal = (row: any): Supplier => ({
   leadTime: row.lead_time,
   moq: row.moq,
   moqUnit: row.moq_unit,
-  contactPerson: row.contact_person,
-  phone: row.phone,
+  contactPerson: row.contact_person ?? '',
+  phone: row.phone ?? '',
   creditTerms: row.credit_terms,
   status: row.status,
 });
@@ -28,14 +29,22 @@ const toDb = (data: Omit<Supplier, 'id'>) => ({
 
 export function useSupplierData() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const { isManagement, isCkManager, sessionLoading, profileLoading } = useAuth();
 
   useEffect(() => {
-    supabase.from('suppliers').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load suppliers'); return; }
-        setSuppliers((data || []).map(toLocal));
-      });
-  }, []);
+    if (sessionLoading || profileLoading) return;
+    // Management & CK can read full table (including phone, contact_person)
+    // Other roles use the safe view that excludes sensitive columns
+    const canReadFull = isManagement || isCkManager;
+    const query = canReadFull
+      ? supabase.from('suppliers').select('*').order('created_at', { ascending: false })
+      : supabase.from('suppliers_safe' as any).select('*').order('created_at', { ascending: false });
+
+    query.then(({ data, error }: any) => {
+      if (error) { toast.error('Failed to load suppliers'); return; }
+      setSuppliers((data || []).map(toLocal));
+    });
+  }, [isManagement, isCkManager, sessionLoading, profileLoading]);
 
   const addSupplier = useCallback(async (data: Omit<Supplier, 'id'>) => {
     const { data: row, error } = await supabase.from('suppliers').insert(toDb(data)).select().single();
