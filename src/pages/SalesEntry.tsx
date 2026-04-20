@@ -1686,6 +1686,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
         </AlertDialogContent>
       </AlertDialog>
 
+      <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title="Delete Sales Entry"
