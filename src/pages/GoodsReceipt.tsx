@@ -1064,7 +1064,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                 <col style={{ width: 70 }} />
                 <col style={{ width: 80 }} />
                 <col style={{ width: 80 }} />
-                <col style={{ width: 80 }} />
+                <col style={{ width: 120 }} />
                 <col style={{ width: 60 }} />
               </colgroup>
               <thead className="sticky top-0 z-[5]">
@@ -1199,7 +1199,22 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                             {r.priceVariance > 0 ? "+" : ""}
                             {r.priceVariance.toFixed(0)}
                           </td>
-                          <td className={`${tdReadOnly} text-muted-foreground truncate`}>{r.note}</td>
+                          <td className={`${tdReadOnly} text-muted-foreground truncate`}>
+                            {r.note ? (
+                              <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="block truncate cursor-default">{r.note}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs whitespace-pre-wrap break-words">
+                                    {r.note}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
                           <td className={`${tdReadOnly} text-center`}>
                             <Button
                               variant="ghost"
