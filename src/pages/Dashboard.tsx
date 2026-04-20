@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusDot } from '@/components/ui/status-dot';
 import { DatePicker } from '@/components/ui/date-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, toLocalDateStr } from '@/lib/utils';
 import { formatNumber } from '@/lib/design-tokens';
@@ -170,8 +171,15 @@ const Dashboard = ({
           </div>
           {periodMode === 'custom' && (
             <div className="flex items-center gap-2">
-              <DatePicker value={customFrom} onChange={setCustomFrom} placeholder="From" />
-              <DatePicker value={customTo} onChange={setCustomTo} placeholder="To" />
+              <DateRangePicker
+                from={customFrom}
+                to={customTo}
+                onChange={(r) => {
+                  setCustomFrom(r.from);
+                  setCustomTo(r.to);
+                }}
+                placeholder="From – To"
+              />
             </div>
           )}
           <Button onClick={handleCalculate} className="gap-2">

@@ -7,6 +7,7 @@ import { useSkuData } from "@/hooks/use-sku-data";
 import { useSmStockData } from "@/hooks/use-sm-stock-data";
 import { supabase } from "@/integrations/supabase/client";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UnitLabel } from "@/components/ui/unit-label";
@@ -1480,19 +1481,16 @@ export default function TransferOrderPage({
               </SelectContent>
             </Select>
           </div>
-          <DatePicker
-            value={filterFrom}
-            onChange={setFilterFrom}
-            label={t("common.from")}
+          <DateRangePicker
+            from={filterFrom}
+            to={filterTo}
+            onChange={(r) => {
+              setFilterFrom(r.from);
+              setFilterTo(r.to);
+            }}
+            label={`${t("common.from")} – ${t("common.to")}`}
             labelPosition="above"
-            placeholder="From"
-          />
-          <DatePicker
-            value={filterTo}
-            onChange={setFilterTo}
-            label={t("common.to")}
-            labelPosition="above"
-            placeholder="To"
+            placeholder="From – To"
           />
           <Button variant="outline" className="h-9" onClick={handleFilterApply}>
             {t("btn.filter")}

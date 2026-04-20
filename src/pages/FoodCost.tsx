@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnitLabel } from "@/components/ui/unit-label";
 import {
@@ -802,31 +803,20 @@ export default function FoodCostPage({
               </div>
             </div>
 
-            <DatePicker
-              value={dateFrom}
-              onChange={(d) => {
-                if (d) {
-                  setDateFrom(d);
+            <DateRangePicker
+              from={dateFrom}
+              to={dateTo}
+              onChange={(r) => {
+                if (r.from) {
+                  setDateFrom(r.from);
+                  setPreset("custom");
+                }
+                if (r.to) {
+                  setDateTo(r.to);
                   setPreset("custom");
                 }
               }}
-              placeholder="From date"
-              label="From"
-              labelPosition="left"
-              align="start"
-            />
-
-            <DatePicker
-              value={dateTo}
-              onChange={(d) => {
-                if (d) {
-                  setDateTo(d);
-                  setPreset("custom");
-                }
-              }}
-              placeholder="To date"
-              label="To"
-              labelPosition="left"
+              placeholder="From – To"
               align="start"
             />
 

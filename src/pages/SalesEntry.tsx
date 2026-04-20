@@ -16,6 +16,7 @@ import { ModifierRule } from "@/types/modifier-rule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -1188,20 +1189,14 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                 </Select>
               </div>
             )}
-            <DatePicker
-              value={filterDateFrom ? new Date(filterDateFrom + "T00:00:00") : undefined}
-              onChange={(d) => setFilterDateFrom(d ? toLocalDateStr(d) : "")}
-              placeholder="From date"
-              label="From"
-              labelPosition="left"
-              align="start"
-            />
-            <DatePicker
-              value={filterDateTo ? new Date(filterDateTo + "T00:00:00") : undefined}
-              onChange={(d) => setFilterDateTo(d ? toLocalDateStr(d) : "")}
-              placeholder="To date"
-              label="To"
-              labelPosition="left"
+            <DateRangePicker
+              from={filterDateFrom ? new Date(filterDateFrom + "T00:00:00") : undefined}
+              to={filterDateTo ? new Date(filterDateTo + "T00:00:00") : undefined}
+              onChange={(r) => {
+                setFilterDateFrom(r.from ? toLocalDateStr(r.from) : "");
+                setFilterDateTo(r.to ? toLocalDateStr(r.to) : "");
+              }}
+              placeholder="From – To"
               align="start"
             />
             <Button variant="outline" onClick={handleApplyFilter}>
@@ -1460,22 +1455,16 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                       </SelectContent>
                     </Select>
                   </div>
-                  <DatePicker
-                    value={mgmtDateFrom}
-                    onChange={setMgmtDateFrom}
-                    placeholder="From date"
-                    label="From"
+                  <DateRangePicker
+                    from={mgmtDateFrom}
+                    to={mgmtDateTo}
+                    onChange={(r) => {
+                      setMgmtDateFrom(r.from);
+                      setMgmtDateTo(r.to);
+                    }}
+                    placeholder="From – To"
+                    label="Date range"
                     labelPosition="above"
-                    required
-                    align="start"
-                  />
-                  <DatePicker
-                    value={mgmtDateTo}
-                    onChange={setMgmtDateTo}
-                    placeholder="To date"
-                    label="To"
-                    labelPosition="above"
-                    required
                     align="start"
                   />
                   <div className="self-end">

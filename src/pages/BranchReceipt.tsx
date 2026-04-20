@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   Save,
   Plus,
@@ -2967,20 +2968,14 @@ export default function BranchReceiptPage({
 
       <div className="space-y-4">
         <div className="flex flex-wrap gap-3">
-          <DatePicker
-            value={historyDateFrom}
-            onChange={setHistoryDateFrom}
-            placeholder="Start"
-            label={t("common.from")}
-            labelPosition="left"
-            align="start"
-          />
-          <DatePicker
-            value={historyDateTo}
-            onChange={setHistoryDateTo}
-            placeholder="End"
-            label={t("common.to")}
-            labelPosition="left"
+          <DateRangePicker
+            from={historyDateFrom}
+            to={historyDateTo}
+            onChange={(r) => {
+              setHistoryDateFrom(r.from);
+              setHistoryDateTo(r.to);
+            }}
+            placeholder={`${t("common.from")} – ${t("common.to")}`}
             align="start"
           />
           {isManagement && (

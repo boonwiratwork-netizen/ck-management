@@ -6,6 +6,7 @@ import { useBranchData } from "@/hooks/use-branch-data";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
 import { useBranchRmStock, BranchRmStockStatus } from "@/hooks/use-branch-rm-stock";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusDot, StatusDotStatus } from "@/components/ui/status-dot";
@@ -1475,19 +1476,16 @@ export default function TransferRequestPage() {
               </SelectContent>
             </Select>
           </div>
-          <DatePicker
-            value={filterFrom}
-            onChange={setFilterFrom}
-            label={t("common.from")}
+          <DateRangePicker
+            from={filterFrom}
+            to={filterTo}
+            onChange={(r) => {
+              setFilterFrom(r.from);
+              setFilterTo(r.to);
+            }}
+            label={`${t("common.from")} – ${t("common.to")}`}
             labelPosition="above"
-            placeholder="From"
-          />
-          <DatePicker
-            value={filterTo}
-            onChange={setFilterTo}
-            label={t("common.to")}
-            labelPosition="above"
-            placeholder="To"
+            placeholder="From – To"
           />
           <Button variant="outline" className="h-9" onClick={handleTRFilterApply}>
             {t("btn.filter")}
@@ -1628,19 +1626,16 @@ export default function TransferRequestPage() {
               </SelectContent>
             </Select>
           </div>
-          <DatePicker
-            value={prFilterFrom}
-            onChange={setPrFilterFrom}
-            label={t("common.from")}
+          <DateRangePicker
+            from={prFilterFrom}
+            to={prFilterTo}
+            onChange={(r) => {
+              setPrFilterFrom(r.from);
+              setPrFilterTo(r.to);
+            }}
+            label={`${t("common.from")} – ${t("common.to")}`}
             labelPosition="above"
-            placeholder="From"
-          />
-          <DatePicker
-            value={prFilterTo}
-            onChange={setPrFilterTo}
-            label={t("common.to")}
-            labelPosition="above"
-            placeholder="To"
+            placeholder="From – To"
           />
           <Button variant="outline" className="h-9" onClick={handlePRFilterApply}>
             {t("btn.filter")}
