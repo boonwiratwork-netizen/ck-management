@@ -1652,7 +1652,40 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
         </AlertDialogContent>
       </AlertDialog>
 
-      <ConfirmDialog
+      {/* Day-conflict warning dialog */}
+      <AlertDialog open={dayConflictOpen} onOpenChange={setDayConflictOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>มีข้อมูลอยู่แล้ว</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <div>วันที่เลือก import มีข้อมูลในระบบอยู่แล้ว:</div>
+                <ul className="space-y-1 text-foreground">
+                  {dayConflicts.map((c) => (
+                    <li key={c.date} className="font-medium">
+                      วันที่ {c.date} มีข้อมูลอยู่แล้ว {c.count.toLocaleString()} rows · ฿
+                      {c.totalRevenue.toLocaleString("th-TH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReplaceDays}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              ลบของเดิมแล้ว Import ใหม่
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
         open={!!deleteConfirm}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title="Delete Sales Entry"
