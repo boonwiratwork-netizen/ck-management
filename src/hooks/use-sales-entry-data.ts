@@ -320,6 +320,36 @@ export function useSalesEntryData() {
     return [...markedHistorical, ...markedToday];
   }, []);
 
+  // Day-level conflict check: returns map of dates that already have data in DB
+  const checkExistingDayData = useCallback(
+    async (branchId: string, saleDates: string[]): Promise<Map<string, { count: number; totalRevenue: number }>> => {
+      const result = new Map<string, { count: number; totalRevenue: number }>();
+      const dates = [...new Set(saleDates)];
+      if (dates.length === 0) return result;
+
+      const { data, error } = await supabase
+        .from("sales_entries")
+        .select("sale_date,net_amount")
+        .eq("branch_id", branchId)
+        .in("sale_date", dates)
+        .limit(100000);
+
+      if (error) {
+        console.error("Failed to check existing day data:", error);
+        return result;
+      }
+
+      for (const r of data || []) {
+        const prev = result.get(r.sale_date) || { count: 0, totalRevenue: 0 };
+        prev.count += 1;
+        prev.totalRevenue += Number(r.net_amount) || 0;
+        result.set(r.sale_date, prev);
+      }
+      return result;
+    },
+    [],
+  );
+
   const bulkInsert = useCallback(async (branchId: string, rows: Omit<SalesEntry, "id" | "branchId">[]) => {
     // 1) Deduplicate within current import batch by composite key
     const dedupedRows = rows;
@@ -468,5 +498,6 @@ export function useSalesEntryData() {
     saveProfile,
     deleteProfile,
     checkDuplicates,
+    checkExistingDayData,
   };
 }

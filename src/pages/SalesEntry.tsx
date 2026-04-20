@@ -78,6 +78,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     saveProfile,
     deleteProfile,
     checkDuplicates,
+    checkExistingDayData,
   } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {
@@ -103,6 +104,12 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ——— Day-conflict dialog state ———
+  const [dayConflicts, setDayConflicts] = useState<
+    Array<{ date: string; count: number; totalRevenue: number }>
+  >([]);
+  const [dayConflictOpen, setDayConflictOpen] = useState(false);
 
   // ——— Manage Transactions state ———
   const [mgmtOpen, setMgmtOpen] = useState(false);
@@ -487,8 +494,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const newRows = useMemo(() => parsedRows.filter((r) => !r.isDuplicate), [parsedRows]);
   const skipRows = useMemo(() => parsedRows.filter((r) => r.isDuplicate), [parsedRows]);
 
-  const handleImport = useCallback(async () => {
-    if (!selectedBranch || newRows.length === 0) return;
+  const performImport = useCallback(async () => {
     setImporting(true);
     const result = await bulkInsert(selectedBranch, newRows);
     if (result) {
@@ -503,6 +509,44 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     }
     setImporting(false);
   }, [selectedBranch, newRows, bulkInsert, fetchEntries, filterBranch]);
+
+  const handleImport = useCallback(async () => {
+    if (!selectedBranch || newRows.length === 0) return;
+    setImporting(true);
+    const dates = [...new Set(newRows.map((r) => r.saleDate))];
+    const existingMap = await checkExistingDayData(selectedBranch, dates);
+    setImporting(false);
+
+    if (existingMap.size > 0) {
+      const conflicts = Array.from(existingMap.entries())
+        .map(([date, info]) => ({ date, count: info.count, totalRevenue: info.totalRevenue }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setDayConflicts(conflicts);
+      setDayConflictOpen(true);
+      return;
+    }
+
+    await performImport();
+  }, [selectedBranch, newRows, checkExistingDayData, performImport]);
+
+  const handleConfirmReplaceDays = useCallback(async () => {
+    setDayConflictOpen(false);
+    setImporting(true);
+    const conflictDates = dayConflicts.map((c) => c.date);
+    const { error } = await supabase
+      .from("sales_entries")
+      .delete()
+      .eq("branch_id", selectedBranch)
+      .in("sale_date", conflictDates);
+    if (error) {
+      toast.error("Failed to delete existing data: " + error.message);
+      setImporting(false);
+      return;
+    }
+    setImporting(false);
+    await performImport();
+    setDayConflicts([]);
+  }, [dayConflicts, selectedBranch, performImport]);
 
   // ——— Manage Transactions handlers ———
   const loadMgmtTransactions = useCallback(async () => {
@@ -1603,6 +1647,40 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
               {mgmtDeleteType === "all"
                 ? `Delete All ${mgmtTransactions.length} transactions`
                 : `Delete ${mgmtSelectedIds.size} transactions`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Day-conflict warning dialog */}
+      <AlertDialog open={dayConflictOpen} onOpenChange={setDayConflictOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>มีข้อมูลอยู่แล้ว</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <div>วันที่เลือก import มีข้อมูลในระบบอยู่แล้ว:</div>
+                <ul className="space-y-1 text-foreground">
+                  {dayConflicts.map((c) => (
+                    <li key={c.date} className="font-medium">
+                      วันที่ {c.date} มีข้อมูลอยู่แล้ว {c.count.toLocaleString()} rows · ฿
+                      {c.totalRevenue.toLocaleString("th-TH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReplaceDays}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              ลบของเดิมแล้ว Import ใหม่
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
