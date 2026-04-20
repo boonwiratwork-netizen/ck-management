@@ -33,18 +33,35 @@ export function useSupplierData() {
 
   useEffect(() => {
     if (sessionLoading || profileLoading) return;
+    // Skip if already loaded — prevents re-fetch on tab focus / auth re-emit
+    if (suppliers.length > 0) return;
+
     // Management & CK can read full table (including phone, contact_person)
     // Other roles use the safe view that excludes sensitive columns
     const canReadFull = isManagement || isCkManager;
-    const query = canReadFull
-      ? supabase.from('suppliers').select('*').order('created_at', { ascending: false })
-      : supabase.from('suppliers_safe' as any).select('*').order('created_at', { ascending: false });
+    const runQuery = () =>
+      canReadFull
+        ? supabase.from('suppliers').select('*').order('created_at', { ascending: false })
+        : supabase.from('suppliers_safe' as any).select('*').order('created_at', { ascending: false });
 
-    query.then(({ data, error }: any) => {
-      if (error) { toast.error('Failed to load suppliers'); return; }
+    let cancelled = false;
+    const attempt = async (isRetry: boolean) => {
+      const { data, error }: any = await runQuery();
+      if (cancelled) return;
+      if (error) {
+        if (!isRetry) {
+          setTimeout(() => { if (!cancelled) attempt(true); }, 2000);
+        } else {
+          toast.error('Failed to load suppliers');
+        }
+        return;
+      }
       setSuppliers((data || []).map(toLocal));
-    });
-  }, [isManagement, isCkManager, sessionLoading, profileLoading]);
+    };
+    attempt(false);
+
+    return () => { cancelled = true; };
+  }, [isManagement, isCkManager, sessionLoading, profileLoading, suppliers.length]);
 
   const addSupplier = useCallback(async (data: Omit<Supplier, 'id'>) => {
     const { data: row, error } = await supabase.from('suppliers').insert(toDb(data)).select().single();
