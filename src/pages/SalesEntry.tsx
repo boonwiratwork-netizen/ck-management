@@ -78,6 +78,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     saveProfile,
     deleteProfile,
     checkDuplicates,
+    checkExistingDayData,
   } = useSalesEntryData();
 
   const availableBranches = useMemo(() => {
