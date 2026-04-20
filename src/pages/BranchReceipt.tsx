@@ -143,7 +143,8 @@ export default function BranchReceiptPage({
   menus = [],
   menuBomLines = [],
 }: Props) {
-  const { isManagement, isStoreManager, profile } = useAuth();
+  const { isManagement, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
+  const canSeeActions = isManagement || isStoreManager || isAreaManager;
   const { t } = useLanguage();
   const { receipts, saveReceipts, updateReceipt, deleteReceipt, fetchReceipts } = useBranchReceiptData();
 
