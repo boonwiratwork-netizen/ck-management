@@ -802,31 +802,20 @@ export default function FoodCostPage({
               </div>
             </div>
 
-            <DatePicker
-              value={dateFrom}
-              onChange={(d) => {
-                if (d) {
-                  setDateFrom(d);
+            <DateRangePicker
+              from={dateFrom}
+              to={dateTo}
+              onChange={(r) => {
+                if (r.from) {
+                  setDateFrom(r.from);
+                  setPreset("custom");
+                }
+                if (r.to) {
+                  setDateTo(r.to);
                   setPreset("custom");
                 }
               }}
-              placeholder="From date"
-              label="From"
-              labelPosition="left"
-              align="start"
-            />
-
-            <DatePicker
-              value={dateTo}
-              onChange={(d) => {
-                if (d) {
-                  setDateTo(d);
-                  setPreset("custom");
-                }
-              }}
-              placeholder="To date"
-              label="To"
-              labelPosition="left"
+              placeholder="From – To"
               align="start"
             />
 

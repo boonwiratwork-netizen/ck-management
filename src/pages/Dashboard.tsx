@@ -170,8 +170,15 @@ const Dashboard = ({
           </div>
           {periodMode === 'custom' && (
             <div className="flex items-center gap-2">
-              <DatePicker value={customFrom} onChange={setCustomFrom} placeholder="From" />
-              <DatePicker value={customTo} onChange={setCustomTo} placeholder="To" />
+              <DateRangePicker
+                from={customFrom}
+                to={customTo}
+                onChange={(r) => {
+                  setCustomFrom(r.from);
+                  setCustomTo(r.to);
+                }}
+                placeholder="From – To"
+              />
             </div>
           )}
           <Button onClick={handleCalculate} className="gap-2">

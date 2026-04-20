@@ -1480,19 +1480,16 @@ export default function TransferOrderPage({
               </SelectContent>
             </Select>
           </div>
-          <DatePicker
-            value={filterFrom}
-            onChange={setFilterFrom}
-            label={t("common.from")}
+          <DateRangePicker
+            from={filterFrom}
+            to={filterTo}
+            onChange={(r) => {
+              setFilterFrom(r.from);
+              setFilterTo(r.to);
+            }}
+            label={`${t("common.from")} – ${t("common.to")}`}
             labelPosition="above"
-            placeholder="From"
-          />
-          <DatePicker
-            value={filterTo}
-            onChange={setFilterTo}
-            label={t("common.to")}
-            labelPosition="above"
-            placeholder="To"
+            placeholder="From – To"
           />
           <Button variant="outline" className="h-9" onClick={handleFilterApply}>
             {t("btn.filter")}
