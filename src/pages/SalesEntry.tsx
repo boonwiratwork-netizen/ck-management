@@ -494,8 +494,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const newRows = useMemo(() => parsedRows.filter((r) => !r.isDuplicate), [parsedRows]);
   const skipRows = useMemo(() => parsedRows.filter((r) => r.isDuplicate), [parsedRows]);
 
-  const handleImport = useCallback(async () => {
-    if (!selectedBranch || newRows.length === 0) return;
+  const performImport = useCallback(async () => {
     setImporting(true);
     const result = await bulkInsert(selectedBranch, newRows);
     if (result) {
@@ -510,6 +509,44 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     }
     setImporting(false);
   }, [selectedBranch, newRows, bulkInsert, fetchEntries, filterBranch]);
+
+  const handleImport = useCallback(async () => {
+    if (!selectedBranch || newRows.length === 0) return;
+    setImporting(true);
+    const dates = [...new Set(newRows.map((r) => r.saleDate))];
+    const existingMap = await checkExistingDayData(selectedBranch, dates);
+    setImporting(false);
+
+    if (existingMap.size > 0) {
+      const conflicts = Array.from(existingMap.entries())
+        .map(([date, info]) => ({ date, count: info.count, totalRevenue: info.totalRevenue }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setDayConflicts(conflicts);
+      setDayConflictOpen(true);
+      return;
+    }
+
+    await performImport();
+  }, [selectedBranch, newRows, checkExistingDayData, performImport]);
+
+  const handleConfirmReplaceDays = useCallback(async () => {
+    setDayConflictOpen(false);
+    setImporting(true);
+    const conflictDates = dayConflicts.map((c) => c.date);
+    const { error } = await supabase
+      .from("sales_entries")
+      .delete()
+      .eq("branch_id", selectedBranch)
+      .in("sale_date", conflictDates);
+    if (error) {
+      toast.error("Failed to delete existing data: " + error.message);
+      setImporting(false);
+      return;
+    }
+    setImporting(false);
+    await performImport();
+    setDayConflicts([]);
+  }, [dayConflicts, selectedBranch, performImport]);
 
   // ——— Manage Transactions handlers ———
   const loadMgmtTransactions = useCallback(async () => {
