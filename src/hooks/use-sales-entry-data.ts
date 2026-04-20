@@ -498,5 +498,6 @@ export function useSalesEntryData() {
     saveProfile,
     deleteProfile,
     checkDuplicates,
+    checkExistingDayData,
   };
 }
