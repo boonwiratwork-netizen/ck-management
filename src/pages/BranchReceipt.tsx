@@ -143,7 +143,8 @@ export default function BranchReceiptPage({
   menus = [],
   menuBomLines = [],
 }: Props) {
-  const { isManagement, isStoreManager, profile } = useAuth();
+  const { isManagement, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
+  const canSeeActions = isManagement || isStoreManager || isAreaManager;
   const { t } = useLanguage();
   const { receipts, saveReceipts, updateReceipt, deleteReceipt, fetchReceipts } = useBranchReceiptData();
 
@@ -3017,7 +3018,7 @@ export default function BranchReceiptPage({
                 <col style={{ width: 75 }} /> {/* std */}
                 <col style={{ width: 70 }} /> {/* variance */}
                 {isManagement && <col style={{ width: 50 }} />} {/* branch */}
-                {isManagement && <col style={{ width: 50 }} />} {/* actions */}
+                {canSeeActions && <col style={{ width: 50 }} />} {/* actions */}
               </colgroup>
               <thead className="sticky top-0 z-[5]">
                 <tr className="bg-table-header border-b">
@@ -3083,7 +3084,7 @@ export default function BranchReceiptPage({
                     />
                   </th>
                   {isManagement && <th className={thClass}>{t("col.branch")}</th>}
-                  {isManagement && <th className={`${thClass} text-center`}></th>}
+                  {canSeeActions && <th className={`${thClass} text-center`}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -3185,34 +3186,41 @@ export default function BranchReceiptPage({
                           : `฿${r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       </td>
                       {isManagement && <td className={tdReadOnly}>{branch?.branchName || "—"}</td>}
-                      {isManagement && (
-                        <td className={`${tdReadOnly} text-center`}>
-                          <span className="inline-flex gap-0.5">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => {
-                                setEditReceipt(r);
-                                setEditForm({ qtyReceived: r.qtyReceived, actualTotal: r.actualTotal, notes: r.notes });
-                              }}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => {
-                                deleteReceipt(r.id);
-                                toast.success("Deleted");
-                              }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </span>
-                        </td>
-                      )}
+                      {canSeeActions && (() => {
+                        const canEditRow =
+                          isManagement ||
+                          (isStoreManager && r.branchId === profile?.branch_id) ||
+                          (isAreaManager && brandAssignments.includes(branchMap[r.branchId]?.brandName));
+                        if (!canEditRow) return <td className={tdReadOnly}></td>;
+                        return (
+                          <td className={`${tdReadOnly} text-center`}>
+                            <span className="inline-flex gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  setEditReceipt(r);
+                                  setEditForm({ qtyReceived: r.qtyReceived, actualTotal: r.actualTotal, notes: r.notes });
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  deleteReceipt(r.id);
+                                  toast.success("Deleted");
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </span>
+                          </td>
+                        );
+                      })()}
                     </tr>
                   );
                 })}
