@@ -7,6 +7,7 @@ import { useSkuData } from "@/hooks/use-sku-data";
 import { useSmStockData } from "@/hooks/use-sm-stock-data";
 import { supabase } from "@/integrations/supabase/client";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UnitLabel } from "@/components/ui/unit-label";
