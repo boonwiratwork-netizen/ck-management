@@ -1053,7 +1053,7 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
           <div className="overflow-y-auto max-h-[65vh]">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: 90 }} />
+                <col style={{ width: 100 }} />
 
                 <col style={{ width: 240 }} />
                 <col style={{ width: 120 }} />
