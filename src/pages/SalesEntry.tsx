@@ -105,6 +105,12 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
   const [pendingFileText, setPendingFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ——— Day-conflict dialog state ———
+  const [dayConflicts, setDayConflicts] = useState<
+    Array<{ date: string; count: number; totalRevenue: number }>
+  >([]);
+  const [dayConflictOpen, setDayConflictOpen] = useState(false);
+
   // ——— Manage Transactions state ———
   const [mgmtOpen, setMgmtOpen] = useState(false);
   const [mgmtBranch, setMgmtBranch] = useState("");
