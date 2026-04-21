@@ -1629,7 +1629,13 @@ export default function BranchReceiptPage({
                   </span>
                 </div>
               )}
-              {!isCKSupplier && (
+              {isCKSupplier && isCkAdHoc && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Items:</span>
+                  <span className="font-medium">{ckAdHocRows.length} SKUs</span>
+                </div>
+              )}
+              {!isCKSupplier && !isBranchTransfer && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Items:</span>
                   <span className="font-medium">{preloadedRows.length} SKUs</span>
