@@ -602,6 +602,46 @@ export default function BranchReceiptPage({
     }
     setSaving(true);
 
+    if (isCKSupplier && isCkAdHoc) {
+      const linesToSave = ckAdHocRows.filter((row) => (ckAdHocEdits[row.skuId]?.qty ?? 0) > 0);
+      if (linesToSave.length === 0) {
+        toast.error("No items with quantity to save");
+        setSaving(false);
+        return;
+      }
+
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = linesToSave.map((row) => {
+        const edit = ckAdHocEdits[row.skuId];
+        const stdTotal = edit.qty * row.stdUnitPrice;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: row.skuId,
+          supplierName: "Central Kitchen",
+          qtyReceived: edit.qty,
+          uom: row.sku.usageUom || "น.",
+          actualUnitPrice: row.stdUnitPrice,
+          actualTotal: stdTotal,
+          stdUnitPrice: row.stdUnitPrice,
+          stdTotal,
+          priceVariance: 0,
+          notes: edit.note || "",
+          transferOrderId: null,
+        };
+      });
+
+      const count = await saveReceipts(rows);
+      if (count) {
+        setSavedCount(count);
+        setCkAdHocEdits({});
+        setIsCkAdHoc(false);
+        setSupplierId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      setSaving(false);
+      return;
+    }
+
     if (isCKSupplier) {
       // CK receipt from TO
       if (!selectedTOId) {
