@@ -191,16 +191,38 @@ const Index = () => {
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(() => getDefaultTab(role));
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab") as TabKey | null;
+      if (urlTab && urlTab in tabContextMap) return urlTab;
+    }
+    return getDefaultTab(role);
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
-  // Update default tab when role loads
+  // Update default tab when role loads (URL takes priority if accessible)
   useEffect(() => {
-    if (role) {
+    if (!role) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get("tab") as TabKey | null;
+    if (urlTab && urlTab in tabContextMap && canAccessTab(role, urlTab)) {
+      setActiveTab(urlTab);
+    } else {
       setActiveTab(getDefaultTab(role));
     }
   }, [role]);
+
+  // Sync active tab to URL via replaceState (no reload)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== activeTab) {
+      params.set("tab", activeTab);
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [activeTab]);
 
   // Branch name for breadcrumbs
   const userBranchName = useMemo(() => {
