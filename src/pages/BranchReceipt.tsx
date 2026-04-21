@@ -403,6 +403,7 @@ export default function BranchReceiptPage({
       .filter(
         (s) =>
           s.status === "Active" &&
+          brandRmSkuIds.has(s.id) &&
           (s.type === "SM" ||
             (s.type === "RM" && s.isDistributable === true) ||
             (s.type === "PK" && s.isDistributable === true)),
