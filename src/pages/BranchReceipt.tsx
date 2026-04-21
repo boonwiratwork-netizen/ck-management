@@ -400,7 +400,13 @@ export default function BranchReceiptPage({
     if (!branchId || !selectedBranch) return [] as { skuId: string; sku: SKU; stdUnitPrice: number }[];
     const brandSmSkuIds = brandRmSkuIds; // brandRmSkuIds is actually all SKU ids (RM/SM/PK) referenced by brand's active menu BOMs
     return skus
-      .filter((s) => s.type === "SM" && s.status === "Active" && s.isDistributable === true)
+      .filter(
+        (s) =>
+          s.status === "Active" &&
+          (s.type === "SM" ||
+            (s.type === "RM" && s.isDistributable === true) ||
+            (s.type === "PK" && s.isDistributable === true)),
+      )
       .map((s) => ({
         skuId: s.id,
         sku: s,
