@@ -568,6 +568,7 @@ const Index = () => {
                   suppliers={supplierData.suppliers}
                   menus={menuData.menus}
                   menuBomLines={menuBomData.lines}
+                  getBomCostPerGram={smStockData.getBomCostPerGram}
                 />
               ) : activeTab === "transfer-request" ? (
                 <TransferRequestPage />

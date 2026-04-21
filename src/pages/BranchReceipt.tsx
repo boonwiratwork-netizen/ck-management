@@ -87,6 +87,7 @@ interface Props {
   suppliers?: Supplier[];
   menus?: Menu[];
   menuBomLines?: MenuBomLine[];
+  getBomCostPerGram?: (smSkuId: string) => number;
 }
 
 interface RowEdit {
@@ -143,6 +144,7 @@ export default function BranchReceiptPage({
   suppliers = [],
   menus = [],
   menuBomLines = [],
+  getBomCostPerGram,
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
   const canSeeActions = isManagement || isStoreManager || isAreaManager;
@@ -155,6 +157,8 @@ export default function BranchReceiptPage({
   const [sourceBranchId, setSourceBranchId] = useState<string>("");
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
+  const [isCkAdHoc, setIsCkAdHoc] = useState(false);
+  const [ckAdHocEdits, setCkAdHocEdits] = useState<Record<string, RowEdit>>({});
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -390,6 +394,26 @@ export default function BranchReceiptPage({
     return new Set(menuBomLines.filter((l) => menuIds.has(l.menuId)).map((l) => l.skuId));
   }, [branchId, selectedBranch, menus, menuBomLines]);
 
+  // Ad-hoc CK rows — SM distributable SKUs for the selected branch's brand
+  const ckAdHocRows = useMemo(() => {
+    if (!branchId || !selectedBranch) return [] as { skuId: string; sku: SKU; stdUnitPrice: number }[];
+    const brandSmSkuIds = brandRmSkuIds; // brandRmSkuIds is actually all SKU ids (RM/SM/PK) referenced by brand's active menu BOMs
+    return skus
+      .filter(
+        (s) =>
+          s.type === "SM" &&
+          s.status === "Active" &&
+          s.isDistributable === true &&
+          brandSmSkuIds.has(s.id),
+      )
+      .map((s) => ({
+        skuId: s.id,
+        sku: s,
+        stdUnitPrice: getBomCostPerGram?.(s.id) ?? 0,
+      }))
+      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+  }, [branchId, selectedBranch, skus, brandRmSkuIds, getBomCostPerGram]);
+
   // Brand supplier IDs — suppliers with active prices for brand's RM SKUs
   const brandSupplierIds = useMemo(() => {
     const ids = new Set<string>();
@@ -479,9 +503,10 @@ export default function BranchReceiptPage({
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isBranchTransfer) return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
+    if (isCKSupplier && isCkAdHoc) return Object.values(ckAdHocEdits).some((e) => e.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer, isCkAdHoc, ckAdHocEdits]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -497,11 +522,14 @@ export default function BranchReceiptPage({
         setSelectedTOId("");
         setCkLines([]);
         setSourceBranchId("");
+        setCkAdHocEdits({});
+        // Auto ad-hoc when no pending TOs
+        setIsCkAdHoc(newId === CK_SUPPLIER_ID && pendingTOCount === 0);
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
     },
-    [supplierId, hasAnyQty],
+    [supplierId, hasAnyQty, pendingTOCount],
   );
 
   const confirmSupplierChange = useCallback(() => {
@@ -512,8 +540,10 @@ export default function BranchReceiptPage({
     setSelectedTOId("");
     setCkLines([]);
     setSourceBranchId("");
+    setCkAdHocEdits({});
+    setIsCkAdHoc(pendingSupplierId === CK_SUPPLIER_ID && pendingTOCount === 0);
     setConfirmOpen(false);
-  }, [pendingSupplierId]);
+  }, [pendingSupplierId, pendingTOCount]);
 
   const handleBranchChange = useCallback((newId: string) => {
     setBranchId(newId);
@@ -526,6 +556,8 @@ export default function BranchReceiptPage({
     setIsBatchMode(false);
     setBatchRowEdits({});
     setSourceBranchId("");
+    setCkAdHocEdits({});
+    setIsCkAdHoc(false);
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
@@ -569,6 +601,46 @@ export default function BranchReceiptPage({
       return;
     }
     setSaving(true);
+
+    if (isCKSupplier && isCkAdHoc) {
+      const linesToSave = ckAdHocRows.filter((row) => (ckAdHocEdits[row.skuId]?.qty ?? 0) > 0);
+      if (linesToSave.length === 0) {
+        toast.error("No items with quantity to save");
+        setSaving(false);
+        return;
+      }
+
+      const rows: Omit<BranchReceipt, "id" | "createdAt">[] = linesToSave.map((row) => {
+        const edit = ckAdHocEdits[row.skuId];
+        const stdTotal = edit.qty * row.stdUnitPrice;
+        return {
+          branchId,
+          receiptDate: dateStr,
+          skuId: row.skuId,
+          supplierName: "Central Kitchen",
+          qtyReceived: edit.qty,
+          uom: row.sku.usageUom || "น.",
+          actualUnitPrice: row.stdUnitPrice,
+          actualTotal: stdTotal,
+          stdUnitPrice: row.stdUnitPrice,
+          stdTotal,
+          priceVariance: 0,
+          notes: edit.note || "",
+          transferOrderId: null,
+        };
+      });
+
+      const count = await saveReceipts(rows);
+      if (count) {
+        setSavedCount(count);
+        setCkAdHocEdits({});
+        setIsCkAdHoc(false);
+        setSupplierId("");
+        setTimeout(() => setSavedCount(null), 4000);
+      }
+      setSaving(false);
+      return;
+    }
 
     if (isCKSupplier) {
       // CK receipt from TO
@@ -785,6 +857,9 @@ export default function BranchReceiptPage({
     saveReceipts,
     pendingTOs,
     fetchPendingTOs,
+    isCkAdHoc,
+    ckAdHocRows,
+    ckAdHocEdits,
   ]);
 
   // Batch save all
@@ -1008,6 +1083,9 @@ export default function BranchReceiptPage({
   const tdReadOnly = "px-3 py-2 text-sm";
 
   const savableCount = useMemo(() => {
+    if (isCKSupplier && isCkAdHoc) {
+      return Object.values(ckAdHocEdits).filter((e) => e.qty > 0).length;
+    }
     if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
     if (isBranchTransfer) {
       let c = 0;
@@ -1025,7 +1103,7 @@ export default function BranchReceiptPage({
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows]);
+  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows, isCkAdHoc, ckAdHocEdits]);
 
   const batchSavableCount = useMemo(() => {
     if (!isBatchMode) return 0;
@@ -1056,18 +1134,21 @@ export default function BranchReceiptPage({
   const bothSelected = branchId && supplierId;
 
   // CK supplier selected check: need TO as well
-  const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
+  const showCKSheet = isCKSupplier && !isCkAdHoc && selectedTOId && ckLines.length > 0;
+  const showCkAdHocSheet = isCKSupplier && isCkAdHoc && ckAdHocRows.length > 0;
   const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
   const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
+  const isFormActive = showCKSheet || showCkAdHocSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
 
   // Source label for header strip
   const formSourceLabel = isCKSupplier
-    ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
+    ? isCkAdHoc
+      ? "Central Kitchen · Ad-hoc"
+      : `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
     : isBranchTransfer
       ? `รับจากสาขา · ${branchMap[sourceBranchId]?.branchName ?? ""}`
       : selectedSupplier?.name || "";
@@ -1264,7 +1345,7 @@ export default function BranchReceiptPage({
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
-                    {pendingTOCount > 0 && ckMatchesSearch && (
+                    {ckMatchesSearch && (
                       <button
                         type="button"
                         onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
@@ -1277,9 +1358,11 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
-                          {pendingTOCount} pending
-                        </span>
+                        {pendingTOCount > 0 && (
+                          <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
+                            {pendingTOCount} pending
+                          </span>
+                        )}
                       </button>
                     )}
                     {ckMatchesSearch && (
@@ -1398,12 +1481,27 @@ export default function BranchReceiptPage({
               </select>
             </div>
           )}
-          {isCKSupplier && branchId && (
+          {isCKSupplier && branchId && pendingTOCount > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
                 {t("br.toLabel")}
               </label>
-              <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
+              <Select
+                value={isCkAdHoc ? "__adhoc__" : selectedTOId || "_none"}
+                onValueChange={(v) => {
+                  if (v === "__adhoc__") {
+                    setIsCkAdHoc(true);
+                    setSelectedTOId("");
+                    setCkLines([]);
+                  } else if (v === "_none") {
+                    setIsCkAdHoc(false);
+                    setSelectedTOId("");
+                  } else {
+                    setIsCkAdHoc(false);
+                    setSelectedTOId(v);
+                  }
+                }}
+              >
                 <SelectTrigger className="w-[320px]">
                   <SelectValue placeholder={t("br.selectTO")} />
                 </SelectTrigger>
@@ -1414,6 +1512,7 @@ export default function BranchReceiptPage({
                       {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
                     </SelectItem>
                   ))}
+                  <SelectItem value="__adhoc__">Ad-hoc — ไม่อ้างใบโอน</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1476,6 +1575,8 @@ export default function BranchReceiptPage({
                     setCkLines([]);
                     setRowEdits({});
                     setAdHocRows([]);
+                    setCkAdHocEdits({});
+                    setIsCkAdHoc(false);
                     setSavedCount(null);
                   }}
                 >
@@ -1528,7 +1629,13 @@ export default function BranchReceiptPage({
                   </span>
                 </div>
               )}
-              {!isCKSupplier && (
+              {isCKSupplier && isCkAdHoc && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Items:</span>
+                  <span className="font-medium">{ckAdHocRows.length} SKUs</span>
+                </div>
+              )}
+              {!isCKSupplier && !isBranchTransfer && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Items:</span>
                   <span className="font-medium">{preloadedRows.length} SKUs</span>
@@ -1708,6 +1815,172 @@ export default function BranchReceiptPage({
                     <td colSpan={2} />
                   </tr>
                 </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* ── CK AD-HOC SHEET ── */}
+          {showCkAdHocSheet && (
+            <div className="overflow-y-auto max-h-[65vh]">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col style={{ width: 100 }} />
+                  <col />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 100 }} />
+                </colgroup>
+                <thead className="sticky top-0 z-[5]">
+                  <tr className="bg-table-header border-b">
+                    <th className={thClass}>{t("col.sku")}</th>
+                    <th className={thClass}>{t("col.skuName")}</th>
+                    <th className={thClass}>{t("col.supplier")}</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                      PACKS
+                    </th>
+                    <th className={`${thClass} text-right`}>WEIGHT</th>
+                    <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                    <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
+                    <th className={`${thClass} text-right`}>{t("col.variance")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ckAdHocRows.map((row) => {
+                    const sku = row.sku;
+                    const edit = ckAdHocEdits[row.skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
+                    const packSize = sku.packSize ?? 0;
+                    const packUnit = sku.packUnit ?? "";
+                    const isPacksMode = packSize > 1 && packUnit.length > 0;
+                    const currentPacks = isPacksMode ? Math.round(edit.qty / packSize) : 0;
+                    const stdTotal = row.stdUnitPrice * edit.qty;
+                    const hasQty = edit.qty > 0;
+
+                    const setQty = (qty: number) => {
+                      setCkAdHocEdits((prev) => ({
+                        ...prev,
+                        [row.skuId]: {
+                          ...(prev[row.skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" }),
+                          qty,
+                          actualTotal: row.stdUnitPrice * qty,
+                          actualManuallyEdited: false,
+                        },
+                      }));
+                    };
+
+                    return (
+                      <tr
+                        key={row.skuId}
+                        className={cn(
+                          "border-b last:border-0 transition-colors",
+                          hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
+                        )}
+                      >
+                        <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
+                          <div className="flex items-center gap-1">
+                            {hasQty && <StatusDot status="green" size="sm" />}
+                            <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
+                              {sku.skuId}
+                            </span>
+                          </div>
+                        </td>
+                        <td className={`${tdReadOnly} align-middle`} title={sku.name}>
+                          <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                            {sku.name}
+                          </span>
+                        </td>
+                        <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
+                          <span className="inline-flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-primary shrink-0" />
+                            Central Kitchen
+                          </span>
+                        </td>
+                        {/* PACKS */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                defaultValue={currentPacks || ""}
+                                key={`ckah-packs-${row.skuId}-${savedCount}`}
+                                onBlur={(e) => {
+                                  const packs = Math.round(Number(e.target.value) || 0);
+                                  setQty(packs * packSize);
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  hasQty && "border-success font-bold text-success",
+                                )}
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                {packUnit}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={edit.qty || ""}
+                                key={`ckah-qty-${row.skuId}-${savedCount}`}
+                                onBlur={(e) => setQty(Number(e.target.value) || 0)}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  hasQty && "border-success font-bold text-success",
+                                )}
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                {sku.usageUom}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                        {/* WEIGHT */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              step={1}
+                              defaultValue={edit.qty || ""}
+                              key={`ckah-wt-${row.skuId}-${savedCount}-${edit.qty}`}
+                              onBlur={(e) => {
+                                const grams = Number(e.target.value) || 0;
+                                if (grams > 0) setQty(grams);
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="ยอดนับจริง"
+                              className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </td>
+                        {/* ACTUAL TOTAL — read-only */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                          {stdTotal > 0
+                            ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                            : "—"}
+                        </td>
+                        {/* STD UNIT */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                          {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                        </td>
+                        {/* VARIANCE — always — */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>—</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
           )}
@@ -2910,15 +3183,20 @@ export default function BranchReceiptPage({
                 <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
                 <span className="text-lg font-heading font-bold">
                   ฿
-                  {(isCKSupplier
-                    ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                    : showBranchTransferSheet
-                      ? adHocRows.reduce((s, r) => s + r.actualTotal, 0)
-                      : preloadedRows.reduce((s, row) => {
-                          const edit = getRowEdit(row.skuId);
-                          const stdTotal = row.stdUnitPrice * edit.qty;
-                          return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
-                        }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                  {(showCkAdHocSheet
+                    ? ckAdHocRows.reduce(
+                        (s, row) => s + (ckAdHocEdits[row.skuId]?.qty ?? 0) * row.stdUnitPrice,
+                        0,
+                      )
+                    : isCKSupplier
+                      ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                      : showBranchTransferSheet
+                        ? adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                        : preloadedRows.reduce((s, row) => {
+                            const edit = getRowEdit(row.skuId);
+                            const stdTotal = row.stdUnitPrice * edit.qty;
+                            return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
+                          }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
                   ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -3086,7 +3364,7 @@ export default function BranchReceiptPage({
                 {displayHistory.map((r) => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
-                  const isCK = !!r.transferOrderId;
+                  const isCK = !!r.transferOrderId || r.supplierName === "Central Kitchen";
                   const toNum = r.transferOrderId ? toNumberMap[r.transferOrderId] : null;
                   return (
                     <tr
