@@ -144,6 +144,7 @@ export default function BranchReceiptPage({
   suppliers = [],
   menus = [],
   menuBomLines = [],
+  getBomCostPerGram,
 }: Props) {
   const { isManagement, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
   const canSeeActions = isManagement || isStoreManager || isAreaManager;
@@ -156,6 +157,8 @@ export default function BranchReceiptPage({
   const [sourceBranchId, setSourceBranchId] = useState<string>("");
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [adHocRows, setAdHocRows] = useState<AdHocRow[]>([]);
+  const [isCkAdHoc, setIsCkAdHoc] = useState(false);
+  const [ckAdHocEdits, setCkAdHocEdits] = useState<Record<string, RowEdit>>({});
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
