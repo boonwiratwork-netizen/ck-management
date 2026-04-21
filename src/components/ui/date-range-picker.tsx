@@ -78,7 +78,7 @@ function DateRangePicker({
           initialFocus
           className="p-3 pointer-events-auto"
           modifiers={{
-            hoverRange: from && !to && hoverDate && hoverDate > from ? { from: from, to: hoverDate } : {},
+            hoverRange: from && !to && hoverDate && hoverDate > from ? { from: from, to: hoverDate } : false,
           }}
           modifiersClassNames={{
             hoverRange: "bg-primary/15 text-foreground rounded-none",
