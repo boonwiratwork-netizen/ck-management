@@ -6,11 +6,7 @@ import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export interface DateRangePickerProps {
   from: Date | undefined;
@@ -36,6 +32,7 @@ function DateRangePicker({
   labelPosition = "above",
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const [hoverDate, setHoverDate] = React.useState<Date | undefined>(undefined);
 
   const display = React.useMemo(() => {
     if (from && to) return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
@@ -45,12 +42,8 @@ function DateRangePicker({
 
   const handleSelect = (range: DateRange | undefined) => {
     const next = {
-      from: range?.from
-        ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate())
-        : undefined,
-      to: range?.to
-        ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
-        : undefined,
+      from: range?.from ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate()) : undefined,
+      to: range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : undefined,
     };
     onChange(next);
     if (next.from && next.to) {
@@ -84,6 +77,14 @@ function DateRangePicker({
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
+          modifiers={{
+            hoverRange: from && !to && hoverDate && hoverDate > from ? { from: from, to: hoverDate } : {},
+          }}
+          modifiersClassNames={{
+            hoverRange: "bg-primary/15 text-foreground rounded-none",
+          }}
+          onDayMouseEnter={(day) => setHoverDate(day)}
+          onDayMouseLeave={() => setHoverDate(undefined)}
         />
       </PopoverContent>
     </Popover>
@@ -91,9 +92,7 @@ function DateRangePicker({
 
   if (!label) return trigger;
 
-  const labelEl = (
-    <label className="text-sm text-muted-foreground whitespace-nowrap">{label}</label>
-  );
+  const labelEl = <label className="text-sm text-muted-foreground whitespace-nowrap">{label}</label>;
 
   if (labelPosition === "left") {
     return (
