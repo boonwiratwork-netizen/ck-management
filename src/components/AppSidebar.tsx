@@ -36,6 +36,7 @@ import {
   ArrowUpFromLine,
   ArrowRightLeft,
   LayoutGrid,
+  ScanLine,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -65,6 +66,7 @@ export type TabKey =
   | "modifier-rules"
   | "sales-entry"
   | "branch-receipt"
+  | "branch-receipt-mobile"
   | "transfer-request"
   | "daily-stock-count"
   | "store-stock"
@@ -97,6 +99,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   "sales-entry": "store",
   "transfer-request": "store",
   "branch-receipt": "store",
+  "branch-receipt-mobile": "store",
   "daily-stock-count": "store",
   "store-stock": "store",
   "food-cost": "store",
@@ -172,6 +175,7 @@ const storeGroup: NavGroup = {
     { subLabel: "Daily" },
     { key: "sales-entry", labelKey: "nav.salesEntry", icon: ShoppingCart },
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
+    { key: "branch-receipt-mobile", labelKey: "nav.branchReceiptMobile", icon: ScanLine },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
     { subLabel: "Monitor" },
