@@ -857,6 +857,9 @@ export default function BranchReceiptPage({
     saveReceipts,
     pendingTOs,
     fetchPendingTOs,
+    isCkAdHoc,
+    ckAdHocRows,
+    ckAdHocEdits,
   ]);
 
   // Batch save all
