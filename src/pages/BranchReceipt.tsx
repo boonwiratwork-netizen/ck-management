@@ -314,7 +314,8 @@ export default function BranchReceiptPage({
   }, [isManagement, isStoreManager, profile, activeBranches]);
 
   const selectedBranch = branchMap[branchId];
-  const selectedSupplier = supplierId === CK_SUPPLIER_ID || supplierId === BRANCH_TRANSFER_ID ? null : supplierMap[supplierId];
+  const selectedSupplier =
+    supplierId === CK_SUPPLIER_ID || supplierId === BRANCH_TRANSFER_ID ? null : supplierMap[supplierId];
   const isCKSupplier = supplierId === CK_SUPPLIER_ID;
   const isBranchTransfer = supplierId === BRANCH_TRANSFER_ID;
 
@@ -399,13 +400,7 @@ export default function BranchReceiptPage({
     if (!branchId || !selectedBranch) return [] as { skuId: string; sku: SKU; stdUnitPrice: number }[];
     const brandSmSkuIds = brandRmSkuIds; // brandRmSkuIds is actually all SKU ids (RM/SM/PK) referenced by brand's active menu BOMs
     return skus
-      .filter(
-        (s) =>
-          s.type === "SM" &&
-          s.status === "Active" &&
-          s.isDistributable === true &&
-          brandSmSkuIds.has(s.id),
-      )
+      .filter((s) => s.type === "SM" && s.status === "Active" && s.isDistributable === true)
       .map((s) => ({
         skuId: s.id,
         sku: s,
@@ -506,7 +501,17 @@ export default function BranchReceiptPage({
     if (isCKSupplier && isCkAdHoc) return Object.values(ckAdHocEdits).some((e) => e.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer, isCkAdHoc, ckAdHocEdits]);
+  }, [
+    rowEdits,
+    adHocRows,
+    isCKSupplier,
+    ckLines,
+    isBatchMode,
+    batchRowEdits,
+    isBranchTransfer,
+    isCkAdHoc,
+    ckAdHocEdits,
+  ]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -735,7 +740,13 @@ export default function BranchReceiptPage({
       for (const r of adHocRows) {
         if (r.skuId && r.qty > 0) {
           const stdUnit = branchTransferRows.find((b) => b.skuId === r.skuId)?.stdUnitPrice ?? getStdUnitPrice(r.skuId);
-          rowsToSave.push({ skuId: r.skuId, qty: r.qty, actualTotal: r.actualTotal, note: r.note, stdUnitPrice: stdUnit });
+          rowsToSave.push({
+            skuId: r.skuId,
+            qty: r.qty,
+            actualTotal: r.actualTotal,
+            note: r.note,
+            stdUnitPrice: stdUnit,
+          });
         }
       }
       if (rowsToSave.length === 0) {
@@ -1103,7 +1114,17 @@ export default function BranchReceiptPage({
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows, isCkAdHoc, ckAdHocEdits]);
+  }, [
+    preloadedRows,
+    rowEdits,
+    adHocRows,
+    isCKSupplier,
+    ckLines,
+    isBranchTransfer,
+    branchTransferRows,
+    isCkAdHoc,
+    ckAdHocEdits,
+  ]);
 
   const batchSavableCount = useMemo(() => {
     if (!isBatchMode) return 0;
@@ -1462,9 +1483,7 @@ export default function BranchReceiptPage({
           {/* Source branch selector when "รับจากสาขา" selected */}
           {isBranchTransfer && branchId && (
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
-                สาขาต้นทาง
-              </label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">สาขาต้นทาง</label>
               <select
                 value={sourceBranchId}
                 onChange={(e) => setSourceBranchId(e.target.value)}
@@ -1850,7 +1869,12 @@ export default function BranchReceiptPage({
                 <tbody>
                   {ckAdHocRows.map((row) => {
                     const sku = row.sku;
-                    const edit = ckAdHocEdits[row.skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
+                    const edit = ckAdHocEdits[row.skuId] || {
+                      qty: 0,
+                      actualTotal: 0,
+                      actualManuallyEdited: false,
+                      note: "",
+                    };
                     const packSize = sku.packSize ?? 0;
                     const packUnit = sku.packUnit ?? "";
                     const isPacksMode = packSize > 1 && packUnit.length > 0;
@@ -3096,7 +3120,10 @@ export default function BranchReceiptPage({
                             </td>
                             <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
                               {stdTotal > 0
-                                ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                                ? stdTotal.toLocaleString(undefined, {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  })
                                 : "—"}
                             </td>
                             <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
@@ -3119,7 +3146,10 @@ export default function BranchReceiptPage({
                               {hasQty ? (
                                 <>
                                   {variance > 0 ? "+" : ""}
-                                  {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {variance.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
                                 </>
                               ) : (
                                 "—"
@@ -3184,10 +3214,7 @@ export default function BranchReceiptPage({
                 <span className="text-lg font-heading font-bold">
                   ฿
                   {(showCkAdHocSheet
-                    ? ckAdHocRows.reduce(
-                        (s, row) => s + (ckAdHocEdits[row.skuId]?.qty ?? 0) * row.stdUnitPrice,
-                        0,
-                      )
+                    ? ckAdHocRows.reduce((s, row) => s + (ckAdHocEdits[row.skuId]?.qty ?? 0) * row.stdUnitPrice, 0)
                     : isCKSupplier
                       ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
                       : showBranchTransferSheet
@@ -3459,41 +3486,46 @@ export default function BranchReceiptPage({
                           : `฿${r.priceVariance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       </td>
                       {isManagement && <td className={tdReadOnly}>{branch?.branchName || "—"}</td>}
-                      {canSeeActions && (() => {
-                        const canEditRow =
-                          isManagement ||
-                          (isStoreManager && r.branchId === profile?.branch_id) ||
-                          (isAreaManager && brandAssignments.includes(branchMap[r.branchId]?.brandName));
-                        if (!canEditRow) return <td className={tdReadOnly}></td>;
-                        return (
-                          <td className={`${tdReadOnly} text-center`}>
-                            <span className="inline-flex gap-0.5">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  setEditReceipt(r);
-                                  setEditForm({ qtyReceived: r.qtyReceived, actualTotal: r.actualTotal, notes: r.notes });
-                                }}
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  deleteReceipt(r.id);
-                                  toast.success("Deleted");
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </span>
-                          </td>
-                        );
-                      })()}
+                      {canSeeActions &&
+                        (() => {
+                          const canEditRow =
+                            isManagement ||
+                            (isStoreManager && r.branchId === profile?.branch_id) ||
+                            (isAreaManager && brandAssignments.includes(branchMap[r.branchId]?.brandName));
+                          if (!canEditRow) return <td className={tdReadOnly}></td>;
+                          return (
+                            <td className={`${tdReadOnly} text-center`}>
+                              <span className="inline-flex gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setEditReceipt(r);
+                                    setEditForm({
+                                      qtyReceived: r.qtyReceived,
+                                      actualTotal: r.actualTotal,
+                                      notes: r.notes,
+                                    });
+                                  }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    deleteReceipt(r.id);
+                                    toast.success("Deleted");
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </span>
+                            </td>
+                          );
+                        })()}
                     </tr>
                   );
                 })}
