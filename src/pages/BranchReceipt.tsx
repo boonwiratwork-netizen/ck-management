@@ -3183,15 +3183,20 @@ export default function BranchReceiptPage({
                 <span className="text-xs text-muted-foreground uppercase tracking-wide">{t("br.totalValue")}</span>
                 <span className="text-lg font-heading font-bold">
                   ฿
-                  {(isCKSupplier
-                    ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
-                    : showBranchTransferSheet
-                      ? adHocRows.reduce((s, r) => s + r.actualTotal, 0)
-                      : preloadedRows.reduce((s, row) => {
-                          const edit = getRowEdit(row.skuId);
-                          const stdTotal = row.stdUnitPrice * edit.qty;
-                          return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
-                        }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                  {(showCkAdHocSheet
+                    ? ckAdHocRows.reduce(
+                        (s, row) => s + (ckAdHocEdits[row.skuId]?.qty ?? 0) * row.stdUnitPrice,
+                        0,
+                      )
+                    : isCKSupplier
+                      ? ckLines.reduce((s, l) => s + l.receivedQty * l.unitCost, 0)
+                      : showBranchTransferSheet
+                        ? adHocRows.reduce((s, r) => s + r.actualTotal, 0)
+                        : preloadedRows.reduce((s, row) => {
+                            const edit = getRowEdit(row.skuId);
+                            const stdTotal = row.stdUnitPrice * edit.qty;
+                            return s + (edit.actualManuallyEdited ? edit.actualTotal : stdTotal);
+                          }, 0) + adHocRows.reduce((s, r) => s + r.actualTotal, 0)
                   ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
