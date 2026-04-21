@@ -3364,7 +3364,7 @@ export default function BranchReceiptPage({
                 {displayHistory.map((r) => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
-                  const isCK = !!r.transferOrderId;
+                  const isCK = !!r.transferOrderId || r.supplierName === "Central Kitchen";
                   const toNum = r.transferOrderId ? toNumberMap[r.transferOrderId] : null;
                   return (
                     <tr
