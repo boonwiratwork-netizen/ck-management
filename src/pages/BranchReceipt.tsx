@@ -503,9 +503,10 @@ export default function BranchReceiptPage({
   const hasAnyQty = useMemo(() => {
     if (isBatchMode) return Object.values(batchRowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
     if (isBranchTransfer) return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
+    if (isCKSupplier && isCkAdHoc) return Object.values(ckAdHocEdits).some((e) => e.qty > 0);
     if (isCKSupplier) return ckLines.some((l) => l.receivedQty > 0);
     return Object.values(rowEdits).some((e) => e.qty > 0) || adHocRows.some((r) => r.qty > 0);
-  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer]);
+  }, [rowEdits, adHocRows, isCKSupplier, ckLines, isBatchMode, batchRowEdits, isBranchTransfer, isCkAdHoc, ckAdHocEdits]);
 
   const handleSupplierChange = useCallback(
     (newId: string) => {
@@ -521,11 +522,14 @@ export default function BranchReceiptPage({
         setSelectedTOId("");
         setCkLines([]);
         setSourceBranchId("");
+        setCkAdHocEdits({});
+        // Auto ad-hoc when no pending TOs
+        setIsCkAdHoc(newId === CK_SUPPLIER_ID && pendingTOCount === 0);
       }
       setSupplierDropdownOpen(false);
       setSupplierSearch("");
     },
-    [supplierId, hasAnyQty],
+    [supplierId, hasAnyQty, pendingTOCount],
   );
 
   const confirmSupplierChange = useCallback(() => {
@@ -536,8 +540,10 @@ export default function BranchReceiptPage({
     setSelectedTOId("");
     setCkLines([]);
     setSourceBranchId("");
+    setCkAdHocEdits({});
+    setIsCkAdHoc(pendingSupplierId === CK_SUPPLIER_ID && pendingTOCount === 0);
     setConfirmOpen(false);
-  }, [pendingSupplierId]);
+  }, [pendingSupplierId, pendingTOCount]);
 
   const handleBranchChange = useCallback((newId: string) => {
     setBranchId(newId);
@@ -550,6 +556,8 @@ export default function BranchReceiptPage({
     setIsBatchMode(false);
     setBatchRowEdits({});
     setSourceBranchId("");
+    setCkAdHocEdits({});
+    setIsCkAdHoc(false);
   }, []);
 
   const getRowEdit = (skuId: string): RowEdit =>
