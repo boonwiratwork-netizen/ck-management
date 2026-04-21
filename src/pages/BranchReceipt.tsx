@@ -1819,6 +1819,172 @@ export default function BranchReceiptPage({
             </div>
           )}
 
+          {/* ── CK AD-HOC SHEET ── */}
+          {showCkAdHocSheet && (
+            <div className="overflow-y-auto max-h-[65vh]">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col style={{ width: 100 }} />
+                  <col />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 100 }} />
+                </colgroup>
+                <thead className="sticky top-0 z-[5]">
+                  <tr className="bg-table-header border-b">
+                    <th className={thClass}>{t("col.sku")}</th>
+                    <th className={thClass}>{t("col.skuName")}</th>
+                    <th className={thClass}>{t("col.supplier")}</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium uppercase tracking-wide whitespace-nowrap !bg-foreground text-background">
+                      PACKS
+                    </th>
+                    <th className={`${thClass} text-right`}>WEIGHT</th>
+                    <th className={`${thClass} text-right`}>{t("col.actualTotal")}</th>
+                    <th className={`${thClass} text-right`}>{t("col.stdUnit")}</th>
+                    <th className={`${thClass} text-right`}>{t("col.variance")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ckAdHocRows.map((row) => {
+                    const sku = row.sku;
+                    const edit = ckAdHocEdits[row.skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" };
+                    const packSize = sku.packSize ?? 0;
+                    const packUnit = sku.packUnit ?? "";
+                    const isPacksMode = packSize > 1 && packUnit.length > 0;
+                    const currentPacks = isPacksMode ? Math.round(edit.qty / packSize) : 0;
+                    const stdTotal = row.stdUnitPrice * edit.qty;
+                    const hasQty = edit.qty > 0;
+
+                    const setQty = (qty: number) => {
+                      setCkAdHocEdits((prev) => ({
+                        ...prev,
+                        [row.skuId]: {
+                          ...(prev[row.skuId] || { qty: 0, actualTotal: 0, actualManuallyEdited: false, note: "" }),
+                          qty,
+                          actualTotal: row.stdUnitPrice * qty,
+                          actualManuallyEdited: false,
+                        },
+                      }));
+                    };
+
+                    return (
+                      <tr
+                        key={row.skuId}
+                        className={cn(
+                          "border-b last:border-0 transition-colors",
+                          hasQty ? "bg-success/5 border-l-[3px] border-l-success" : "opacity-60",
+                        )}
+                      >
+                        <td className={`${tdReadOnly} font-mono text-xs align-middle`} title={sku.skuId}>
+                          <div className="flex items-center gap-1">
+                            {hasQty && <StatusDot status="green" size="sm" />}
+                            <span className={cn(hasQty ? "text-foreground/70 font-medium" : "text-muted-foreground")}>
+                              {sku.skuId}
+                            </span>
+                          </div>
+                        </td>
+                        <td className={`${tdReadOnly} align-middle`} title={sku.name}>
+                          <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                            {sku.name}
+                          </span>
+                        </td>
+                        <td className={`${tdReadOnly} text-muted-foreground truncate align-middle`}>
+                          <span className="inline-flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-primary shrink-0" />
+                            Central Kitchen
+                          </span>
+                        </td>
+                        {/* PACKS */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                defaultValue={currentPacks || ""}
+                                key={`ckah-packs-${row.skuId}-${savedCount}`}
+                                onBlur={(e) => {
+                                  const packs = Math.round(Number(e.target.value) || 0);
+                                  setQty(packs * packSize);
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  hasQty && "border-success font-bold text-success",
+                                )}
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                {packUnit}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                defaultValue={edit.qty || ""}
+                                key={`ckah-qty-${row.skuId}-${savedCount}`}
+                                onBlur={(e) => setQty(Number(e.target.value) || 0)}
+                                onFocus={(e) => e.target.select()}
+                                className={cn(
+                                  "h-8 text-sm text-right w-full font-mono px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                  hasQty && "border-success font-bold text-success",
+                                )}
+                              />
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-1">
+                                {sku.usageUom}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                        {/* WEIGHT */}
+                        <td className="px-1 py-1 align-middle">
+                          {isPacksMode ? (
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              step={1}
+                              defaultValue={edit.qty || ""}
+                              key={`ckah-wt-${row.skuId}-${savedCount}-${edit.qty}`}
+                              onBlur={(e) => {
+                                const grams = Number(e.target.value) || 0;
+                                if (grams > 0) setQty(grams);
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="ยอดนับจริง"
+                              className="h-8 w-full text-sm font-sans text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </td>
+                        {/* ACTUAL TOTAL — read-only */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                          {stdTotal > 0
+                            ? stdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                            : "—"}
+                        </td>
+                        {/* STD UNIT */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>
+                          {row.stdUnitPrice > 0 ? row.stdUnitPrice.toFixed(2) : "—"}
+                        </td>
+                        {/* VARIANCE — always — */}
+                        <td className={`${tdReadOnly} text-right font-mono text-muted-foreground align-middle`}>—</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* ── BATCH RECEIVE SHEET ── */}
           {isBatchMode && (
             <>
