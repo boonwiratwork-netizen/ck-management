@@ -214,7 +214,7 @@ const roleLabels: Record<string, string> = {
 export function getDefaultTab(role: AppRole | null): TabKey {
   switch (role) {
     case "store_manager":
-      return "daily-stock-count";
+      return "branch-receipt-mobile";
     case "ck_manager":
       return "receipt";
     case "area_manager":

@@ -46,6 +46,7 @@ import ModifierRulesPage from "@/pages/ModifierRules";
 import SalesEntryPage from "@/pages/SalesEntry";
 import DailyStockCountPage from "@/pages/DailyStockCount";
 import BranchReceiptPage from "@/pages/BranchReceipt";
+import BranchReceiptMobilePage from "@/pages/BranchReceiptMobile";
 import TransferRequestPage from "@/pages/TransferRequest";
 import FoodCostPage from "@/pages/FoodCost";
 import StoreOverview from "@/pages/StoreOverview";
@@ -80,6 +81,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "modifier-rules": { title: "Modifier Rules", subtitle: "Auto-adjust ingredients for menu options" },
   "sales-entry": { title: "Sales Entry", subtitle: "Record daily sales data" },
   "branch-receipt": { title: "Branch Receipt", subtitle: "Track incoming stock at branches" },
+  "branch-receipt-mobile": { title: "รับของ (มือถือ)", subtitle: "บันทึกรับสินค้าจากซัพพลายเออร์" },
   "transfer-request": { title: "Transfer Request", subtitle: "Request SM ingredients from Central Kitchen" },
   "daily-stock-count": { title: "Daily Stock Count", subtitle: "Daily branch inventory check" },
   "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
@@ -124,7 +126,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     return !editableCk.includes(tab);
   }
   if (role === "store_manager") {
-    const editableStore: TabKey[] = ["sales-entry", "branch-receipt", "daily-stock-count", "transfer-request"];
+    const editableStore: TabKey[] = ["sales-entry", "branch-receipt", "branch-receipt-mobile", "daily-stock-count", "transfer-request"];
     return !editableStore.includes(tab);
   }
   return true;
