@@ -1575,6 +1575,8 @@ export default function BranchReceiptPage({
                     setCkLines([]);
                     setRowEdits({});
                     setAdHocRows([]);
+                    setCkAdHocEdits({});
+                    setIsCkAdHoc(false);
                     setSavedCount(null);
                   }}
                 >
