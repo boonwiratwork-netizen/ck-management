@@ -1083,6 +1083,9 @@ export default function BranchReceiptPage({
   const tdReadOnly = "px-3 py-2 text-sm";
 
   const savableCount = useMemo(() => {
+    if (isCKSupplier && isCkAdHoc) {
+      return Object.values(ckAdHocEdits).filter((e) => e.qty > 0).length;
+    }
     if (isCKSupplier) return ckLines.filter((l) => l.receivedQty > 0).length;
     if (isBranchTransfer) {
       let c = 0;
@@ -1100,7 +1103,7 @@ export default function BranchReceiptPage({
       if (r.skuId && r.qty > 0) c++;
     }
     return c;
-  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows]);
+  }, [preloadedRows, rowEdits, adHocRows, isCKSupplier, ckLines, isBranchTransfer, branchTransferRows, isCkAdHoc, ckAdHocEdits]);
 
   const batchSavableCount = useMemo(() => {
     if (!isBatchMode) return 0;
@@ -1131,18 +1134,21 @@ export default function BranchReceiptPage({
   const bothSelected = branchId && supplierId;
 
   // CK supplier selected check: need TO as well
-  const showCKSheet = isCKSupplier && selectedTOId && ckLines.length > 0;
+  const showCKSheet = isCKSupplier && !isCkAdHoc && selectedTOId && ckLines.length > 0;
+  const showCkAdHocSheet = isCKSupplier && isCkAdHoc && ckAdHocRows.length > 0;
   const showExternalSheet = bothSelected && !isCKSupplier && !isBranchTransfer && preloadedRows.length > 0;
   const showBranchTransferSheet = isBranchTransfer && !!sourceBranchId;
 
   // Does CK search match?
   const ckMatchesSearch = "central kitchen".includes(supplierSearch.toLowerCase());
 
-  const isFormActive = showCKSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
+  const isFormActive = showCKSheet || showCkAdHocSheet || showExternalSheet || showBranchTransferSheet || isBatchMode;
 
   // Source label for header strip
   const formSourceLabel = isCKSupplier
-    ? `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
+    ? isCkAdHoc
+      ? "Central Kitchen · Ad-hoc"
+      : `Central Kitchen · ${pendingTOs.find((to) => to.id === selectedTOId)?.toNumber || ""}`
     : isBranchTransfer
       ? `รับจากสาขา · ${branchMap[sourceBranchId]?.branchName ?? ""}`
       : selectedSupplier?.name || "";
