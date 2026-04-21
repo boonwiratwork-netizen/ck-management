@@ -394,6 +394,26 @@ export default function BranchReceiptPage({
     return new Set(menuBomLines.filter((l) => menuIds.has(l.menuId)).map((l) => l.skuId));
   }, [branchId, selectedBranch, menus, menuBomLines]);
 
+  // Ad-hoc CK rows — SM distributable SKUs for the selected branch's brand
+  const ckAdHocRows = useMemo(() => {
+    if (!branchId || !selectedBranch) return [] as { skuId: string; sku: SKU; stdUnitPrice: number }[];
+    const brandSmSkuIds = brandRmSkuIds; // brandRmSkuIds is actually all SKU ids (RM/SM/PK) referenced by brand's active menu BOMs
+    return skus
+      .filter(
+        (s) =>
+          s.type === "SM" &&
+          s.status === "Active" &&
+          s.isDistributable === true &&
+          brandSmSkuIds.has(s.id),
+      )
+      .map((s) => ({
+        skuId: s.id,
+        sku: s,
+        stdUnitPrice: getBomCostPerGram?.(s.id) ?? 0,
+      }))
+      .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
+  }, [branchId, selectedBranch, skus, brandRmSkuIds, getBomCostPerGram]);
+
   // Brand supplier IDs — suppliers with active prices for brand's RM SKUs
   const brandSupplierIds = useMemo(() => {
     const ids = new Set<string>();
