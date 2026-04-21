@@ -1345,7 +1345,7 @@ export default function BranchReceiptPage({
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
-                    {pendingTOCount > 0 && ckMatchesSearch && (
+                    {ckMatchesSearch && (
                       <button
                         type="button"
                         onClick={() => handleSupplierChange(CK_SUPPLIER_ID)}
@@ -1358,9 +1358,11 @@ export default function BranchReceiptPage({
                           <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="font-medium">Central Kitchen</span>
                         </span>
-                        <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
-                          {pendingTOCount} pending
-                        </span>
+                        {pendingTOCount > 0 && (
+                          <span className="bg-success/15 text-success text-xs rounded px-1.5 py-0.5 font-medium">
+                            {pendingTOCount} pending
+                          </span>
+                        )}
                       </button>
                     )}
                     {ckMatchesSearch && (
