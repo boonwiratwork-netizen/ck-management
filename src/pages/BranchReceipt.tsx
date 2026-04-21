@@ -1481,12 +1481,27 @@ export default function BranchReceiptPage({
               </select>
             </div>
           )}
-          {isCKSupplier && branchId && (
+          {isCKSupplier && branchId && pendingTOCount > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block label-required">
                 {t("br.toLabel")}
               </label>
-              <Select value={selectedTOId || "_none"} onValueChange={(v) => setSelectedTOId(v === "_none" ? "" : v)}>
+              <Select
+                value={isCkAdHoc ? "__adhoc__" : selectedTOId || "_none"}
+                onValueChange={(v) => {
+                  if (v === "__adhoc__") {
+                    setIsCkAdHoc(true);
+                    setSelectedTOId("");
+                    setCkLines([]);
+                  } else if (v === "_none") {
+                    setIsCkAdHoc(false);
+                    setSelectedTOId("");
+                  } else {
+                    setIsCkAdHoc(false);
+                    setSelectedTOId(v);
+                  }
+                }}
+              >
                 <SelectTrigger className="w-[320px]">
                   <SelectValue placeholder={t("br.selectTO")} />
                 </SelectTrigger>
@@ -1497,6 +1512,7 @@ export default function BranchReceiptPage({
                       {to.toNumber} · {to.deliveryDate} · {to.itemCount} items
                     </SelectItem>
                   ))}
+                  <SelectItem value="__adhoc__">Ad-hoc — ไม่อ้างใบโอน</SelectItem>
                 </SelectContent>
               </Select>
             </div>
