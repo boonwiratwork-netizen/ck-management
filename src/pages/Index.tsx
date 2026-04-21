@@ -46,6 +46,7 @@ import ModifierRulesPage from "@/pages/ModifierRules";
 import SalesEntryPage from "@/pages/SalesEntry";
 import DailyStockCountPage from "@/pages/DailyStockCount";
 import BranchReceiptPage from "@/pages/BranchReceipt";
+import BranchReceiptMobilePage from "@/pages/BranchReceiptMobile";
 import TransferRequestPage from "@/pages/TransferRequest";
 import FoodCostPage from "@/pages/FoodCost";
 import StoreOverview from "@/pages/StoreOverview";
@@ -80,6 +81,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "modifier-rules": { title: "Modifier Rules", subtitle: "Auto-adjust ingredients for menu options" },
   "sales-entry": { title: "Sales Entry", subtitle: "Record daily sales data" },
   "branch-receipt": { title: "Branch Receipt", subtitle: "Track incoming stock at branches" },
+  "branch-receipt-mobile": { title: "รับของ (มือถือ)", subtitle: "บันทึกรับสินค้าจากซัพพลายเออร์" },
   "transfer-request": { title: "Transfer Request", subtitle: "Request SM ingredients from Central Kitchen" },
   "daily-stock-count": { title: "Daily Stock Count", subtitle: "Daily branch inventory check" },
   "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
@@ -124,7 +126,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     return !editableCk.includes(tab);
   }
   if (role === "store_manager") {
-    const editableStore: TabKey[] = ["sales-entry", "branch-receipt", "daily-stock-count", "transfer-request"];
+    const editableStore: TabKey[] = ["sales-entry", "branch-receipt", "branch-receipt-mobile", "daily-stock-count", "transfer-request"];
     return !editableStore.includes(tab);
   }
   return true;
@@ -189,16 +191,38 @@ const Index = () => {
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(() => getDefaultTab(role));
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab") as TabKey | null;
+      if (urlTab && urlTab in tabContextMap) return urlTab;
+    }
+    return getDefaultTab(role);
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
-  // Update default tab when role loads
+  // Update default tab when role loads (URL takes priority if accessible)
   useEffect(() => {
-    if (role) {
+    if (!role) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get("tab") as TabKey | null;
+    if (urlTab && urlTab in tabContextMap && canAccessTab(role, urlTab)) {
+      setActiveTab(urlTab);
+    } else {
       setActiveTab(getDefaultTab(role));
     }
   }, [role]);
+
+  // Sync active tab to URL via replaceState (no reload)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== activeTab) {
+      params.set("tab", activeTab);
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [activeTab]);
 
   // Branch name for breadcrumbs
   const userBranchName = useMemo(() => {
@@ -569,6 +593,13 @@ const Index = () => {
                   menus={menuData.menus}
                   menuBomLines={menuBomData.lines}
                   getBomCostPerGram={smStockData.getBomCostPerGram}
+                />
+              ) : activeTab === "branch-receipt-mobile" ? (
+                <BranchReceiptMobilePage
+                  skus={skus}
+                  prices={priceData.prices}
+                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                  suppliers={supplierData.suppliers}
                 />
               ) : activeTab === "transfer-request" ? (
                 <TransferRequestPage />
