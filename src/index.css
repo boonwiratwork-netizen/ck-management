@@ -373,4 +373,9 @@
     padding-top: 0.625rem;
     padding-bottom: 0.625rem;
   }
+
+  /* Safe-area inset bottom for sticky bars on iPhone notch devices */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
 }
