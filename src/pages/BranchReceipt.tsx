@@ -87,6 +87,7 @@ interface Props {
   suppliers?: Supplier[];
   menus?: Menu[];
   menuBomLines?: MenuBomLine[];
+  getBomCostPerGram?: (smSkuId: string) => number;
 }
 
 interface RowEdit {
