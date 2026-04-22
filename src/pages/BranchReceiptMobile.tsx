@@ -20,7 +20,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -35,6 +34,9 @@ interface Props {
 interface ManualRow {
   rowId: string;
   skuId: string | null;
+  /** Quantity in PACKS when isPacksMode, else in usage UOM (grams) */
+  packs: number;
+  /** Always in usage UOM (grams). Derived from packs * packSize when in packs mode. */
   qty: number;
   actualTotal: number;
   rawName?: string;
@@ -88,7 +90,8 @@ function fileToBase64(file: File): Promise<string> {
 
 const TH_PARTICLES = new Set([
   "และ", "หรือ", "ของ", "ที่", "ใน", "ไป", "มา", "เป็น", "ให้", "กับ", "นี้", "นั้น", "ก็", "จะ", "ได้",
-  "the", "and", "or", "of", "a", "an", "for", "with",
+  "คัด", "ขนาด", "เบอร์", "พิเศษ", "ธรรมดา", "ใหญ่", "เล็ก", "กลาง",
+  "the", "and", "or", "of", "a", "an", "for", "with", "size", "pack",
 ]);
 
 function normalizeText(s: string): string {
@@ -101,6 +104,12 @@ function tokenize(s: string): string[] {
     .filter((w) => w.length >= 2 && !TH_PARTICLES.has(w));
 }
 
+/**
+ * Stricter matcher.
+ * - Requires at least one "strong" token (length >= 3) to match the SKU name.
+ * - Confidence "high" requires score >= 6 AND at least 2 distinct strong tokens matched.
+ * - Otherwise "low" if any meaningful overlap, else "none".
+ */
 function matchSkuFromRawName(
   rawName: string,
   candidates: SKU[],
@@ -110,20 +119,37 @@ function matchSkuFromRawName(
 
   let bestSku: SKU | null = null;
   let bestScore = 0;
+  let bestStrongMatches = 0;
+
   for (const sku of candidates) {
     const haystack = `${sku.name} ${sku.skuId}`.toLowerCase();
     let score = 0;
+    let strongMatches = 0;
     for (const w of rawWords) {
-      if (haystack.includes(w)) score += w.length >= 4 ? 2 : 1;
+      if (haystack.includes(w)) {
+        if (w.length >= 4) {
+          score += 3;
+          strongMatches += 1;
+        } else if (w.length === 3) {
+          score += 2;
+          strongMatches += 1;
+        } else {
+          score += 1;
+        }
+      }
     }
     if (score > bestScore) {
       bestScore = score;
+      bestStrongMatches = strongMatches;
       bestSku = sku;
     }
   }
 
-  if (!bestSku || bestScore === 0) return { sku: null, confidence: "none" };
-  const confidence: MatchConfidence = bestScore >= 4 ? "high" : "low";
+  if (!bestSku || bestScore === 0 || bestStrongMatches === 0) {
+    return { sku: null, confidence: "none" };
+  }
+  const confidence: MatchConfidence =
+    bestScore >= 6 && bestStrongMatches >= 2 ? "high" : "low";
   return { sku: bestSku, confidence };
 }
 
@@ -266,6 +292,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     return any?.pricePerUsageUom || 0;
   };
 
+  // Pack mode helpers
+  const isPacksModeFor = (sku: SKU | null | undefined): boolean => {
+    if (!sku) return false;
+    return (sku.packSize ?? 0) > 1 && (sku.packUnit ?? "").length > 0;
+  };
+
   // ─── Flow transitions ─────────────────────────────────
 
   const handleSelectSupplier = (id: string) => {
@@ -284,19 +316,69 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     fileInputRef.current?.click();
   };
 
+  /**
+   * Build rows from AI scan.
+   * Critical: dedup by matched skuId. If two raw names map to the same SKU,
+   * merge into ONE row and SUM their quantities (don't render duplicates).
+   * Unmatched items remain as separate ad-hoc rows.
+   */
   const buildScanRows = (scanned: ScanItem[]): ManualRow[] => {
-    return scanned.map((item, idx) => {
+    const matchedMap = new Map<
+      string,
+      { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }
+    >();
+    const unmatched: ManualRow[] = [];
+
+    scanned.forEach((item, idx) => {
       const { sku, confidence } = matchSkuFromRawName(item.raw_name, supplierSkus);
-      return {
-        rowId: `scan-${idx}-${Date.now()}`,
-        skuId: sku?.id ?? null,
-        qty: item.quantity || 0,
-        actualTotal: 0,
-        rawName: item.raw_name,
-        matchConfidence: sku ? confidence : "none",
-        isAdHoc: !sku,
-      };
+      const inputQty = Math.max(0, Number(item.quantity) || 0);
+
+      if (sku) {
+        const existing = matchedMap.get(sku.id);
+        if (existing) {
+          existing.packs += inputQty;
+          existing.rawNames.push(item.raw_name);
+          // Upgrade confidence if any source was high
+          if (confidence === "high") existing.confidence = "high";
+        } else {
+          matchedMap.set(sku.id, {
+            sku,
+            confidence,
+            packs: inputQty,
+            rawNames: [item.raw_name],
+          });
+        }
+      } else {
+        unmatched.push({
+          rowId: `scan-u-${idx}-${Date.now()}`,
+          skuId: null,
+          packs: inputQty,
+          qty: 0,
+          actualTotal: 0,
+          rawName: item.raw_name,
+          matchConfidence: "none",
+          isAdHoc: true,
+        });
+      }
     });
+
+    const matchedRows: ManualRow[] = [];
+    matchedMap.forEach((m, skuId) => {
+      const packsMode = isPacksModeFor(m.sku);
+      const packs = m.packs;
+      const qty = packsMode ? packs * (m.sku.packSize || 1) : packs;
+      matchedRows.push({
+        rowId: `scan-m-${skuId}-${Date.now()}`,
+        skuId,
+        packs,
+        qty,
+        actualTotal: 0,
+        rawName: m.rawNames.join(" + "),
+        matchConfidence: m.confidence,
+      });
+    });
+
+    return [...matchedRows, ...unmatched];
   };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,10 +394,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       if (error) throw error;
       const items: ScanItem[] = Array.isArray(data?.items) ? data.items : [];
       const built = buildScanRows(items);
+      // Confidence: % of rows that are matched (not none). High counts more.
+      const matchedCount = built.filter((r) => r.matchConfidence !== "none").length;
       const highCount = built.filter((r) => r.matchConfidence === "high").length;
-      const conf = built.length ? Math.round((highCount / built.length) * 100) : 0;
+      const conf = built.length
+        ? Math.round(((matchedCount + highCount) / (built.length * 2)) * 100)
+        : 0;
       setRows(built);
-      setScanMeta({ count: built.length, confidence: conf });
+      setScanMeta({ count: items.length, confidence: conf });
       setScreen("scanResult");
       toast.success(`อ่านได้ ${items.length} รายการ`);
     } catch (err) {
@@ -328,8 +414,21 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  const updateRow = (rowId: string, patch: Partial<ManualRow>) => {
-    setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
+  /**
+   * Update qty for a row. Input is in PACKS if pack mode, else in usage UOM.
+   * Always recomputes the underlying `qty` (grams) accordingly.
+   */
+  const updateRowPacks = (rowId: string, inputValue: number) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.rowId !== rowId) return r;
+        const sku = r.skuId ? skuMap[r.skuId] : null;
+        const packsMode = isPacksModeFor(sku);
+        const packs = Math.max(0, inputValue);
+        const qty = packsMode && sku ? packs * (sku.packSize || 1) : packs;
+        return { ...r, packs, qty };
+      }),
+    );
   };
 
   const removeRow = (rowId: string) => {
@@ -342,6 +441,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       {
         rowId: `row-${skuId}-${Date.now()}`,
         skuId,
+        packs: 0,
         qty: 0,
         actualTotal: 0,
       },
@@ -376,7 +476,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       const dateStr = format(date, "yyyy-MM-dd");
       const payload = filledRows.map((r) => {
         const sku = skuMap[r.skuId!];
-        const qty = r.qty;
+        const qty = r.qty; // always in usage UOM (grams)
         const actualTotal = r.actualTotal;
         const actualUnitPrice = qty > 0 ? actualTotal / qty : 0;
         const stdUnitPrice = getStdUnitPrice(r.skuId!);
@@ -388,7 +488,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           skuId: r.skuId!,
           supplierName: selectedSupplier.name,
           qtyReceived: qty,
-          uom: sku?.purchaseUom ?? "",
+          uom: sku?.usageUom ?? "",
           actualUnitPrice,
           actualTotal,
           stdUnitPrice,
@@ -403,7 +503,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         toast.success(`บันทึกแล้ว ${count} รายการ`);
         resetToStart();
       }
-    } catch (err) {
+    } catch {
       toast.error("บันทึกไม่สำเร็จ");
     } finally {
       setSaving(false);
@@ -412,15 +512,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Reusable row renderer (Screens 3 & 4) ─────────────
 
-  const ItemRow = ({
-    r,
-    showDot,
-  }: {
-    r: ManualRow;
-    showDot?: boolean;
-  }) => {
+  const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
     const filled = r.qty > 0;
+    const packsMode = isPacksModeFor(sku);
+    const inputUnit = packsMode && sku ? sku.packUnit : sku?.usageUom ?? "";
+    const showEst = packsMode && sku && r.packs > 0;
+    const estGrams = packsMode && sku ? r.packs * (sku.packSize || 1) : 0;
+
     const dotColor =
       r.matchConfidence === "high"
         ? "#34c759"
@@ -430,21 +529,21 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     return (
       <div
-        className="flex items-center gap-2 px-3"
+        className="flex items-stretch gap-2 px-4"
         style={{
-          minHeight: 44,
+          minHeight: 52,
           background: filled ? FILLED_ROW_BG : "transparent",
           borderBottom: `0.5px solid ${DIVIDER}`,
         }}
       >
         {showDot && (
           <span
-            className="shrink-0 rounded-full"
+            className="shrink-0 self-center rounded-full"
             style={{ width: 7, height: 7, background: dotColor }}
           />
         )}
 
-        <div className="min-w-0 flex-1 py-1">
+        <div className="min-w-0 flex-1 py-1.5 self-center">
           {sku ? (
             <>
               <div
@@ -465,10 +564,24 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   fontSize: 13,
                   color: INK,
                   lineHeight: 1.3,
+                  fontWeight: filled ? 600 : 400,
                 }}
               >
                 {sku.name}
               </div>
+              {showEst && (
+                <div
+                  style={{
+                    fontFamily: "DM Mono, monospace",
+                    fontSize: 10,
+                    color: MUTED,
+                    lineHeight: 1.2,
+                    marginTop: 1,
+                  }}
+                >
+                  est. {estGrams.toLocaleString()} {sku.usageUom}
+                </div>
+              )}
             </>
           ) : (
             <div
@@ -496,50 +609,55 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 self-center">
           <input
             type="number"
-            inputMode="decimal"
+            inputMode={packsMode ? "numeric" : "decimal"}
             min={0}
-            defaultValue={r.qty || ""}
-            onBlur={(e) => updateRow(r.rowId, { qty: Number(e.target.value) || 0 })}
+            step={packsMode ? 1 : "any"}
+            defaultValue={r.packs || ""}
+            key={`qty-${r.rowId}-${r.packs}`}
+            onFocus={(e) => e.target.select()}
+            onBlur={(e) => {
+              const v = Number(e.target.value) || 0;
+              const normalized = packsMode ? Math.round(v) : v;
+              updateRowPacks(r.rowId, normalized);
+            }}
             placeholder="0"
             className="text-center outline-none"
+            disabled={!sku}
             style={{
-              width: 52,
+              width: 56,
               height: 36,
-              minHeight: 44 - 8,
               borderRadius: 8,
               background: filled ? FILLED_QTY_BG : QTY_BG,
               border: "none",
               fontFamily: "DM Mono, monospace",
               fontSize: 16,
               fontWeight: 700,
-              color: INK,
+              color: sku ? INK : MUTED,
             }}
           />
           <span
             style={{
               fontFamily: "DM Sans, sans-serif",
-              fontSize: 9,
+              fontSize: 10,
               color: MUTED,
-              width: 24,
+              width: 30,
               textAlign: "left",
             }}
           >
-            {sku?.purchaseUom ?? ""}
+            {inputUnit}
           </span>
-          {(r.isAdHoc || screen === "manual") && (
-            <button
-              type="button"
-              onClick={() => removeRow(r.rowId)}
-              className="p-1"
-              style={{ color: MUTED }}
-              aria-label="ลบ"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => removeRow(r.rowId)}
+            className="p-1"
+            style={{ color: MUTED }}
+            aria-label="ลบ"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
     );
@@ -549,8 +667,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   if (screen === "select") {
     return (
-      <div className="min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="max-w-sm mx-auto px-4 pt-4 pb-8">
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+        <div className="px-4 pt-4 pb-8">
           {/* Title */}
           <h1
             style={{
@@ -682,72 +800,72 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               ซัพพลายเออร์
             </div>
           )}
+        </div>
 
-          {/* Supplier list */}
-          {!branchId ? (
-            <p
-              className="py-12 text-center"
-              style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-            >
-              เลือกสาขาก่อน
-            </p>
-          ) : filteredSuppliers.length === 0 ? (
-            <p
-              className="py-12 text-center"
-              style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-            >
-              ไม่พบซัพพลายเออร์
-            </p>
-          ) : (
-            <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden" }}>
-              {filteredSuppliers.map((s, idx) => {
-                const isBrand = brandSupplierIds.has(s.id);
-                const isLast = idx === filteredSuppliers.length - 1;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => handleSelectSupplier(s.id)}
-                    className="w-full flex items-center justify-between gap-3 px-4 active:bg-black/5 text-left"
-                    style={{
-                      minHeight: 44,
-                      borderBottom: isLast ? "none" : `0.5px solid ${DIVIDER}`,
-                      background: "#fff",
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
+        {/* Supplier list — full viewport width */}
+        {!branchId ? (
+          <p
+            className="py-12 text-center"
+            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
+          >
+            เลือกสาขาก่อน
+          </p>
+        ) : filteredSuppliers.length === 0 ? (
+          <p
+            className="py-12 text-center"
+            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
+          >
+            ไม่พบซัพพลายเออร์
+          </p>
+        ) : (
+          <div style={{ background: "#fff" }}>
+            {filteredSuppliers.map((s, idx) => {
+              const isBrand = brandSupplierIds.has(s.id);
+              const isLast = idx === filteredSuppliers.length - 1;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleSelectSupplier(s.id)}
+                  className="w-full flex items-center justify-between gap-3 px-4 active:bg-black/5 text-left"
+                  style={{
+                    minHeight: 48,
+                    borderBottom: isLast ? "none" : `0.5px solid ${DIVIDER}`,
+                    background: "#fff",
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="truncate"
+                      style={{
+                        fontFamily: "DM Sans, sans-serif",
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: INK,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {s.name}
+                    </div>
+                    {isBrand && (
                       <div
-                        className="truncate"
                         style={{
                           fontFamily: "DM Sans, sans-serif",
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: INK,
-                          lineHeight: 1.3,
+                          fontSize: 11,
+                          color: "#34c759",
+                          lineHeight: 1.2,
                         }}
                       >
-                        {s.name}
+                        Brand
                       </div>
-                      {isBrand && (
-                        <div
-                          style={{
-                            fontFamily: "DM Sans, sans-serif",
-                            fontSize: 11,
-                            color: "#34c759",
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          Brand
-                        </div>
-                      )}
-                    </div>
-                    <ChevronRight size={16} style={{ color: MUTED }} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    )}
+                  </div>
+                  <ChevronRight size={16} style={{ color: MUTED }} />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
@@ -756,8 +874,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   if (screen === "method") {
     return (
-      <div className="min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="max-w-sm mx-auto px-4 pt-3 pb-8">
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+        <div className="px-4 pt-3 pb-8">
           <button
             type="button"
             onClick={() => {
@@ -869,8 +987,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   if (screen === "manual") {
     return (
-      <div className="min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="max-w-sm mx-auto pt-3 pb-32">
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+        <div className="pt-3 pb-32">
           <div className="px-4">
             <button
               type="button"
@@ -915,7 +1033,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               >
                 ยังไม่มีรายการ
                 <br />
-                แตะ “เพิ่มรายการ” ด้านล่างเพื่อเริ่ม
+                แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
               rows.map((r) => <ItemRow key={r.rowId} r={r} />)
@@ -925,9 +1043,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             <button
               type="button"
               onClick={() => setAddSheetOpen(true)}
-              className="w-full flex items-center gap-3 px-3 active:bg-black/5"
+              className="w-full flex items-center gap-3 px-4 active:bg-black/5"
               style={{
-                minHeight: 44,
+                minHeight: 48,
                 background: "#fff",
                 borderTop: rows.length > 0 ? `0.5px solid ${DIVIDER}` : "none",
               }}
@@ -958,9 +1076,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           </div>
         </div>
 
-        {/* Sticky save bar */}
+        {/* Sticky save bar — full viewport width */}
         <div
-          className="fixed bottom-0 left-0 right-0 pb-safe"
+          className="fixed bottom-0 left-0 right-0 w-full pb-safe"
           style={{
             background: "rgba(242,242,247,0.97)",
             backdropFilter: "blur(8px)",
@@ -969,7 +1087,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             zIndex: 50,
           }}
         >
-          <div className="max-w-sm mx-auto px-4 py-3">
+          <div className="px-4 py-3">
             <button
               type="button"
               onClick={handleSave}
@@ -1005,7 +1123,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
             />
             <div
-              className="fixed left-0 right-0 bottom-0 max-w-sm mx-auto pb-safe"
+              className="fixed left-0 right-0 bottom-0 w-full pb-safe"
               style={{
                 background: "#fff",
                 borderTopLeftRadius: 16,
@@ -1081,53 +1199,57 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     ไม่พบ SKU
                   </div>
                 ) : (
-                  addSheetSkus.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => addSkuToRows(s.id)}
-                      className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
-                      style={{
-                        minHeight: 44,
-                        borderBottom: `0.5px solid ${DIVIDER}`,
-                        background: "#fff",
-                      }}
-                    >
-                      <div className="min-w-0 flex-1 py-1">
-                        <div
-                          className="truncate"
-                          style={{
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 10,
-                            color: MUTED,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {s.skuId}
-                        </div>
-                        <div
-                          className="truncate"
-                          style={{
-                            fontFamily: "DM Sans, sans-serif",
-                            fontSize: 13,
-                            color: INK,
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {s.name}
-                        </div>
-                      </div>
-                      <span
+                  addSheetSkus.map((s) => {
+                    const packsMode = isPacksModeFor(s);
+                    const inputUnit = packsMode ? s.packUnit : s.usageUom;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => addSkuToRows(s.id)}
+                        className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
                         style={{
-                          fontFamily: "DM Sans, sans-serif",
-                          fontSize: 11,
-                          color: MUTED,
+                          minHeight: 48,
+                          borderBottom: `0.5px solid ${DIVIDER}`,
+                          background: "#fff",
                         }}
                       >
-                        {s.purchaseUom}
-                      </span>
-                    </button>
-                  ))
+                        <div className="min-w-0 flex-1 py-1">
+                          <div
+                            className="truncate"
+                            style={{
+                              fontFamily: "DM Mono, monospace",
+                              fontSize: 10,
+                              color: MUTED,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {s.skuId}
+                          </div>
+                          <div
+                            className="truncate"
+                            style={{
+                              fontFamily: "DM Sans, sans-serif",
+                              fontSize: 13,
+                              color: INK,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {s.name}
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontFamily: "DM Sans, sans-serif",
+                            fontSize: 11,
+                            color: MUTED,
+                          }}
+                        >
+                          {inputUnit}
+                        </span>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1140,8 +1262,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   // ─── SCREEN 4 — AI scan result ────────────────────────
 
   return (
-    <div className="min-h-screen" style={{ background: PAGE_BG }}>
-      <div className="max-w-sm mx-auto pt-3 pb-40">
+    <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+      <div className="pt-3 pb-40">
         <div className="px-4">
           <button
             type="button"
@@ -1206,12 +1328,47 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ) : (
             rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
           )}
+
+          {/* Add row (also available in scan-result view) */}
+          <button
+            type="button"
+            onClick={() => setAddSheetOpen(true)}
+            className="w-full flex items-center gap-3 px-4 active:bg-black/5"
+            style={{
+              minHeight: 48,
+              background: "#fff",
+              borderTop: rows.length > 0 ? `0.5px solid ${DIVIDER}` : "none",
+            }}
+          >
+            <span
+              className="inline-flex items-center justify-center shrink-0"
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 999,
+                background: "#34c759",
+                color: "#fff",
+              }}
+            >
+              <Plus size={14} strokeWidth={3} />
+            </span>
+            <span
+              style={{
+                fontFamily: "DM Sans, sans-serif",
+                fontSize: 14,
+                color: INK,
+                fontWeight: 500,
+              }}
+            >
+              เพิ่มรายการ
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Sticky bottom bar — confirm + edit */}
+      {/* Sticky bottom bar — full viewport width */}
       <div
-        className="fixed bottom-0 left-0 right-0 pb-safe"
+        className="fixed bottom-0 left-0 right-0 w-full pb-safe"
         style={{
           background: "rgba(242,242,247,0.97)",
           backdropFilter: "blur(8px)",
@@ -1220,7 +1377,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           zIndex: 50,
         }}
       >
-        <div className="max-w-sm mx-auto px-4 py-3 space-y-2">
+        <div className="px-4 py-3 space-y-2">
           <button
             type="button"
             onClick={handleSave}
@@ -1244,25 +1401,148 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               `ยืนยันและรับของ (${filledCount} รายการ)`
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => setScreen("manual")}
-            className="w-full active:bg-black/5"
-            style={{
-              height: 42,
-              borderRadius: 12,
-              background: "transparent",
-              color: INK,
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 14,
-              fontWeight: 500,
-              border: `0.5px solid ${DIVIDER}`,
-            }}
-          >
-            แก้ไขรายการ
-          </button>
         </div>
       </div>
+
+      {/* Bottom sheet for adding SKUs from scan-result view */}
+      {addSheetOpen && (
+        <>
+          <div
+            onClick={() => setAddSheetOpen(false)}
+            className="fixed inset-0"
+            style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
+          />
+          <div
+            className="fixed left-0 right-0 bottom-0 w-full pb-safe"
+            style={{
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              height: "65vh",
+              zIndex: 70,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderBottom: `0.5px solid ${DIVIDER}` }}
+            >
+              <span
+                style={{
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: INK,
+                }}
+              >
+                เลือก SKU
+              </span>
+              <button
+                type="button"
+                onClick={() => setAddSheetOpen(false)}
+                style={{ color: MUTED }}
+                aria-label="ปิด"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-4 pt-3 pb-2">
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: MUTED }}
+                />
+                <input
+                  autoFocus
+                  value={addSheetSearch}
+                  onChange={(e) => setAddSheetSearch(e.target.value)}
+                  placeholder="ค้นหา SKU..."
+                  className="w-full outline-none"
+                  style={{
+                    height: 34,
+                    paddingLeft: 32,
+                    paddingRight: 12,
+                    borderRadius: 999,
+                    background: SEARCH_BG,
+                    border: "none",
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 13,
+                    color: INK,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {addSheetSkus.length === 0 ? (
+                <div
+                  className="py-10 text-center"
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 13,
+                    color: MUTED,
+                  }}
+                >
+                  ไม่พบ SKU
+                </div>
+              ) : (
+                addSheetSkus.map((s) => {
+                  const packsMode = isPacksModeFor(s);
+                  const inputUnit = packsMode ? s.packUnit : s.usageUom;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => addSkuToRows(s.id)}
+                      className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
+                      style={{
+                        minHeight: 48,
+                        borderBottom: `0.5px solid ${DIVIDER}`,
+                        background: "#fff",
+                      }}
+                    >
+                      <div className="min-w-0 flex-1 py-1">
+                        <div
+                          className="truncate"
+                          style={{
+                            fontFamily: "DM Mono, monospace",
+                            fontSize: 10,
+                            color: MUTED,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {s.skuId}
+                        </div>
+                        <div
+                          className="truncate"
+                          style={{
+                            fontFamily: "DM Sans, sans-serif",
+                            fontSize: 13,
+                            color: INK,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {s.name}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontFamily: "DM Sans, sans-serif",
+                          fontSize: 11,
+                          color: MUTED,
+                        }}
+                      >
+                        {inputUnit}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
