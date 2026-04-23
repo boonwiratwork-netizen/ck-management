@@ -777,7 +777,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       </SwipeableListItem>
     );
   };
-  };
 
   // ─── SCREEN 1 — supplier select ───────────────────────
 
