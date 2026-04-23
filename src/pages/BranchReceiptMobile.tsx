@@ -207,7 +207,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
-  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
+  // swipedRowId removed — swipe handled by react-swipeable-list
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -444,7 +444,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
-    setSwipedRowId(null);
   };
 
   // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
@@ -527,7 +526,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
-    setSwipedRowId(null);
     setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
