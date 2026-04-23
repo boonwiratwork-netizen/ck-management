@@ -19,6 +19,13 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+} from "react-swipeable-list";
+import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -44,6 +51,7 @@ interface ManualRow {
 }
 
 interface ScanItem {
+  code: string;
   raw_name: string;
   quantity: number;
   unit: string;
@@ -103,12 +111,22 @@ function tokenize(s: string): string[] {
     .filter((w) => w.length >= 2 && !TH_PARTICLES.has(w));
 }
 
+function stripSizeDescriptors(s: string): string {
+  return s
+    .replace(/\d+(\.\d+)?\s*(กรัม|กิโล|กิโลกรัม|ลิตร|มล|ml|g|kg|l)\s*(\/\s*\w+)?/gi, "")
+    .replace(/\d+(\.\d+)?\s*(แพ็ค|ชิ้น|ขวด|กระปุก|ลัง|ถุง)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function matchSkuFromRawName(
   rawName: string,
+  code: string,
   candidates: SKU[],
 ): { sku: SKU | null; confidence: MatchConfidence } {
-  const rawWords = tokenize(rawName);
-  if (rawWords.length === 0) return { sku: null, confidence: "none" };
+  const cleanedName = stripSizeDescriptors(rawName);
+  const rawWords = tokenize(cleanedName);
+  if (rawWords.length === 0 && !code) return { sku: null, confidence: "none" };
 
   let bestSku: SKU | null = null;
   let bestScore = 0;
@@ -120,16 +138,23 @@ function matchSkuFromRawName(
     let strongMatches = 0;
     for (const w of rawWords) {
       if (haystack.includes(w)) {
-        if (w.length >= 4) {
-          score += 3;
+        if (w.length >= 5) {
+          score += 4;
           strongMatches += 1;
-        } else if (w.length === 3) {
+        } else if (w.length >= 3) {
           score += 2;
           strongMatches += 1;
         } else {
           score += 1;
         }
       }
+    }
+    // Exact name bonus: cleaned raw name is contained in sku name
+    if (
+      cleanedName.length > 3 &&
+      sku.name.toLowerCase().includes(cleanedName.toLowerCase())
+    ) {
+      score += 6;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -138,11 +163,13 @@ function matchSkuFromRawName(
     }
   }
 
-  if (!bestSku || bestScore === 0 || bestStrongMatches === 0) {
-    return { sku: null, confidence: "none" };
-  }
-  const confidence: MatchConfidence =
-    bestScore >= 6 && bestStrongMatches >= 2 ? "high" : "low";
+  if (!bestSku) return { sku: null, confidence: "none" };
+
+  let confidence: MatchConfidence;
+  if (bestScore >= 8 && bestStrongMatches >= 2) confidence = "high";
+  else if (bestScore >= 4 && bestStrongMatches >= 1) confidence = "low";
+  else return { sku: null, confidence: "none" };
+
   return { sku: bestSku, confidence };
 }
 
@@ -180,7 +207,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
-  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
+  // swipedRowId removed — swipe handled by react-swipeable-list
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -320,7 +347,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, supplierSkus);
+      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
 
       if (sku) {
@@ -417,7 +444,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
-    setSwipedRowId(null);
   };
 
   // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
@@ -500,7 +526,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
-    setSwipedRowId(null);
     setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
@@ -557,6 +582,26 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
+  const renderTrailingActions = (rowId: string) => (
+    <TrailingActions>
+      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+        <div
+          className="flex items-center justify-center h-full"
+          style={{
+            width: SWIPE_REVEAL,
+            background: DELETE_RED,
+            color: "#fff",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          ลบ
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
+
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
     const filled = r.qty > 0;
@@ -573,92 +618,22 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
-    const isOpen = swipedRowId === r.rowId;
-    const touchStartXRef = useRef<number | null>(null);
-    const fgRef = useRef<HTMLDivElement | null>(null);
-
-    const onTouchStart = (e: React.TouchEvent) => {
-      touchStartXRef.current = e.touches[0].clientX;
-    };
-    const onTouchMove = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.touches[0].clientX - touchStartXRef.current;
-      if (dx >= 0) {
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-        return;
-      }
-      const clamped = Math.max(dx, -SWIPE_REVEAL);
-      if (fgRef.current) {
-        fgRef.current.style.transition = "none";
-        fgRef.current.style.transform = `translateX(${clamped}px)`;
-      }
-    };
-    const onTouchEnd = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-      touchStartXRef.current = null;
-      if (fgRef.current) {
-        fgRef.current.style.transition = "transform 0.2s ease-out";
-      }
-      if (dx <= -60) {
-        setSwipedRowId(r.rowId);
-      } else {
-        if (isOpen) setSwipedRowId(null);
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-      }
-    };
-
-    const handleForegroundClick = () => {
-      if (isOpen) {
-        setSwipedRowId(null);
-        return;
-      }
-      if (isUnmatched) {
-        openAssignSheet(r);
-      }
+    const handleRowClick = () => {
+      if (isUnmatched) openAssignSheet(r);
     };
 
     return (
-      <div
-        className="relative overflow-hidden"
-        style={{
-          borderBottom: `0.5px solid ${DIVIDER}`,
-          background: filled ? FILLED_ROW_BG : "#fff",
-        }}
+      <SwipeableListItem
+        trailingActions={renderTrailingActions(r.rowId)}
+        threshold={0.3}
       >
-        {/* Red delete drawer (behind) */}
-        <button
-          type="button"
-          onClick={() => removeRow(r.rowId)}
-          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
-          style={{
-            width: SWIPE_REVEAL,
-            background: DELETE_RED,
-            color: "#fff",
-            border: "none",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-          tabIndex={-1}
-          aria-label="ลบ"
-        >
-          ลบ
-        </button>
-
-        {/* Foreground (swipes) */}
         <div
-          ref={fgRef}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onClick={handleForegroundClick}
-          className="flex items-stretch gap-2 px-4 relative"
+          onClick={handleRowClick}
+          className="flex items-stretch gap-2 px-4 w-full"
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            transform: isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)",
-            transition: "transform 0.2s ease-out",
+            borderBottom: `0.5px solid ${DIVIDER}`,
             cursor: isUnmatched ? "pointer" : "default",
           }}
         >
@@ -751,10 +726,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             className="flex items-center gap-1 shrink-0 self-center"
-            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             {isUnmatched ? (
@@ -803,7 +774,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </div>
+      </SwipeableListItem>
     );
   };
 
@@ -1321,7 +1292,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              rows.map((r) => <ItemRow key={r.rowId} r={r} />)
+              <SwipeableList>
+                {rows.map((r) => <ItemRow key={r.rowId} r={r} />)}
+              </SwipeableList>
             )}
 
             <button
@@ -1468,7 +1441,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
+            <SwipeableList>
+              {rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)}
+            </SwipeableList>
           )}
 
           <button
