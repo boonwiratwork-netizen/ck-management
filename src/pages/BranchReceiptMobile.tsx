@@ -1292,7 +1292,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              rows.map((r) => <ItemRow key={r.rowId} r={r} />)
+              <SwipeableList>
+                {rows.map((r) => <ItemRow key={r.rowId} r={r} />)}
+              </SwipeableList>
             )}
 
             <button
@@ -1439,7 +1441,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
+            <SwipeableList>
+              {rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)}
+            </SwipeableList>
           )}
 
           <button
