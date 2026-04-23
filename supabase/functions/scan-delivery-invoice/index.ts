@@ -9,10 +9,9 @@ const corsHeaders = {
 };
 
 const SYSTEM_PROMPT =
-  "You are reading a Thai delivery invoice or receipt. Extract every line item. " +
-  "Return ONLY a valid JSON object of the form " +
-  '{"items":[{"raw_name":"<text exactly as written>","quantity":<number>,"unit":"<unit>"}]} ' +
-  "with no surrounding prose or markdown. If a field is missing, use an empty string for raw_name/unit and 0 for quantity.";
+  "You are reading a Thai delivery invoice or receipt. Extract every line item from the table. " +
+  'Return ONLY a valid JSON object: {"items":[{"code":"<supplier product code from first column if shown, else empty string>","raw_name":"<full product description exactly as written, without size/weight info>","quantity":<number>,"unit":"<unit of measure>"}]}. ' +
+  "No prose, no markdown. If a field is missing use empty string or 0.";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
