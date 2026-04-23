@@ -19,6 +19,13 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+} from "react-swipeable-list";
+import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -44,6 +51,7 @@ interface ManualRow {
 }
 
 interface ScanItem {
+  code: string;
   raw_name: string;
   quantity: number;
   unit: string;
@@ -103,12 +111,22 @@ function tokenize(s: string): string[] {
     .filter((w) => w.length >= 2 && !TH_PARTICLES.has(w));
 }
 
+function stripSizeDescriptors(s: string): string {
+  return s
+    .replace(/\d+(\.\d+)?\s*(กรัม|กิโล|กิโลกรัม|ลิตร|มล|ml|g|kg|l)\s*(\/\s*\w+)?/gi, "")
+    .replace(/\d+(\.\d+)?\s*(แพ็ค|ชิ้น|ขวด|กระปุก|ลัง|ถุง)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function matchSkuFromRawName(
   rawName: string,
+  code: string,
   candidates: SKU[],
 ): { sku: SKU | null; confidence: MatchConfidence } {
-  const rawWords = tokenize(rawName);
-  if (rawWords.length === 0) return { sku: null, confidence: "none" };
+  const cleanedName = stripSizeDescriptors(rawName);
+  const rawWords = tokenize(cleanedName);
+  if (rawWords.length === 0 && !code) return { sku: null, confidence: "none" };
 
   let bestSku: SKU | null = null;
   let bestScore = 0;
@@ -120,16 +138,23 @@ function matchSkuFromRawName(
     let strongMatches = 0;
     for (const w of rawWords) {
       if (haystack.includes(w)) {
-        if (w.length >= 4) {
-          score += 3;
+        if (w.length >= 5) {
+          score += 4;
           strongMatches += 1;
-        } else if (w.length === 3) {
+        } else if (w.length >= 3) {
           score += 2;
           strongMatches += 1;
         } else {
           score += 1;
         }
       }
+    }
+    // Exact name bonus: cleaned raw name is contained in sku name
+    if (
+      cleanedName.length > 3 &&
+      sku.name.toLowerCase().includes(cleanedName.toLowerCase())
+    ) {
+      score += 6;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -138,11 +163,13 @@ function matchSkuFromRawName(
     }
   }
 
-  if (!bestSku || bestScore === 0 || bestStrongMatches === 0) {
-    return { sku: null, confidence: "none" };
-  }
-  const confidence: MatchConfidence =
-    bestScore >= 6 && bestStrongMatches >= 2 ? "high" : "low";
+  if (!bestSku) return { sku: null, confidence: "none" };
+
+  let confidence: MatchConfidence;
+  if (bestScore >= 8 && bestStrongMatches >= 2) confidence = "high";
+  else if (bestScore >= 4 && bestStrongMatches >= 1) confidence = "low";
+  else return { sku: null, confidence: "none" };
+
   return { sku: bestSku, confidence };
 }
 
@@ -320,7 +347,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, supplierSkus);
+      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
 
       if (sku) {
