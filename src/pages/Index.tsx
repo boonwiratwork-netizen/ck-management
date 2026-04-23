@@ -126,7 +126,13 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     return !editableCk.includes(tab);
   }
   if (role === "store_manager") {
-    const editableStore: TabKey[] = ["sales-entry", "branch-receipt", "branch-receipt-mobile", "daily-stock-count", "transfer-request"];
+    const editableStore: TabKey[] = [
+      "sales-entry",
+      "branch-receipt",
+      "branch-receipt-mobile",
+      "daily-stock-count",
+      "transfer-request",
+    ];
     return !editableStore.includes(tab);
   }
   return true;
@@ -426,231 +432,245 @@ const Index = () => {
           </header>
 
           <main className="flex-1 overflow-auto">
-            <div className="max-w-[1400px] mx-auto px-8 py-6">
-              {activeTab === "dashboard" ? (
-                <Dashboard
-                  skus={skus}
-                  smStockBalances={smStockData.stockBalances}
-                  rmStockBalances={stockData.stockBalances}
-                  productionPlans={productionData.plans}
-                  productionRecords={productionData.records}
-                  receipts={receiptData.receipts}
-                  bomHeaders={bomData.headers}
-                  bomLines={bomData.lines}
-                  prices={priceData.prices}
-                  smDailyUsage={smDailyUsage}
-                  getTotalProducedForPlan={productionData.getTotalProducedForPlan}
-                  getStdUnitPrice={stockData.getStdUnitPrice}
-                />
-              ) : activeTab === "sku" ? (
-                <div className="section-gap">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="page-title">{currentTab.title}</h2>
-                      <ContextBreadcrumb tab={activeTab} branchName={userBranchName} />
-                      <p className="page-subtitle">{currentTab.subtitle}</p>
-                    </div>
-                    {isManagement && (
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="h-9">
-                          <Upload className="w-4 h-4" /> Import CSV
-                        </Button>
-                        <Button onClick={handleAdd} className="h-9">
-                          <Plus className="w-4 h-4" /> Add SKU
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <SummaryCards counts={counts} total={skus.length} />
-                  <SKUTable
+            {activeTab === "branch-receipt-mobile" ? (
+              <BranchReceiptMobilePage
+                skus={skus}
+                prices={priceData.prices}
+                branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                suppliers={supplierData.suppliers}
+              />
+            ) : (
+              <div className="max-w-[1400px] mx-auto px-8 py-6">
+                {activeTab === "dashboard" ? (
+                  <Dashboard
                     skus={skus}
-                    onEdit={isManagement ? handleEdit : undefined}
-                    onDelete={isManagement ? handleDeleteRequest : undefined}
-                    onToggleDistributable={
-                      isManagement || role === "ck_manager"
-                        ? (id, value) => updateSku(id, { isDistributable: value })
-                        : undefined
-                    }
-                    skuCategories={skuCategoryData.categories}
+                    smStockBalances={smStockData.stockBalances}
+                    rmStockBalances={stockData.stockBalances}
+                    productionPlans={productionData.plans}
+                    productionRecords={productionData.records}
+                    receipts={receiptData.receipts}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                    prices={priceData.prices}
+                    smDailyUsage={smDailyUsage}
+                    getTotalProducedForPlan={productionData.getTotalProducedForPlan}
+                    getStdUnitPrice={stockData.getStdUnitPrice}
                   />
-                </div>
-              ) : activeTab === "supplier" ? (
-                <SuppliersPage supplierData={supplierData} readOnly={readOnly} />
-              ) : activeTab === "price" ? (
-                <PricesPage
-                  priceData={priceData}
-                  skus={skus}
-                  activeSuppliers={activeSuppliers}
-                  allSuppliers={supplierData.suppliers}
-                  readOnly={readOnly}
-                  bomHeaders={bomData.headers}
-                />
-              ) : activeTab === "bom" ? (
-                <BOMPage
-                  bomData={bomData}
-                  skus={skus}
-                  prices={priceData.prices}
-                  readOnly={readOnly}
-                  onPricesRefresh={priceData.refreshPrices}
-                  byproductData={byproductData}
-                />
-              ) : activeTab === "receipt" ? (
-                <GoodsReceiptPage
-                  receiptData={receiptData}
-                  skus={skus}
-                  suppliers={supplierData.suppliers}
-                  prices={priceData.prices}
-                  bomLines={bomData.lines}
-                />
-              ) : activeTab === "stock" ? (
-                <RMStockPage skus={skus} stockData={stockData} bomHeaders={bomData.headers} bomLines={bomData.lines} />
-              ) : activeTab === "production" ? (
-                <ProductionPage
-                  productionData={productionData}
-                  skus={skus}
-                  bomHeaders={bomData.headers}
-                  stockBalances={stockData.stockBalances}
-                  bomLines={bomData.lines}
-                  bomSteps={bomData.steps}
-                  smStockBalances={smStockData.stockBalances}
-                  isStockDataReady={smStockData.isStockDataReady}
-                  menuBomLines={menuBomData.lines}
-                  menus={menuData.menus}
-                  bomByproducts={byproductData.byproducts}
-                  refreshProductionRecords={smStockData.refreshProductionRecords}
-                />
-              ) : activeTab === "smstock" ? (
-                <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
-              ) : activeTab === "pkstock" ? (
-                <PKStockPage
-                  skus={skus}
-                  stockData={pkStockData}
-                  bomHeaders={bomData.headers}
-                  bomLines={bomData.lines}
-                />
-              ) : activeTab === "stockcount" ? (
-                <StockCountPage
-                  skus={skus}
-                  stockCountData={stockCountData}
-                  getStdUnitPrice={stockData.getStdUnitPrice}
-                  bomHeaders={bomData.headers}
-                  bomLines={bomData.lines}
-                  isManagement={isManagement}
-                />
-              ) : activeTab === "branches" ? (
-                <BranchesPage branchData={branchData} readOnly={readOnly} />
-              ) : activeTab === "users" ? (
-                isManagement ? (
-                  <UserManagementPage />
+                ) : activeTab === "sku" ? (
+                  <div className="section-gap">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="page-title">{currentTab.title}</h2>
+                        <ContextBreadcrumb tab={activeTab} branchName={userBranchName} />
+                        <p className="page-subtitle">{currentTab.subtitle}</p>
+                      </div>
+                      {isManagement && (
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="h-9">
+                            <Upload className="w-4 h-4" /> Import CSV
+                          </Button>
+                          <Button onClick={handleAdd} className="h-9">
+                            <Plus className="w-4 h-4" /> Add SKU
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <SummaryCards counts={counts} total={skus.length} />
+                    <SKUTable
+                      skus={skus}
+                      onEdit={isManagement ? handleEdit : undefined}
+                      onDelete={isManagement ? handleDeleteRequest : undefined}
+                      onToggleDistributable={
+                        isManagement || role === "ck_manager"
+                          ? (id, value) => updateSku(id, { isDistributable: value })
+                          : undefined
+                      }
+                      skuCategories={skuCategoryData.categories}
+                    />
+                  </div>
+                ) : activeTab === "supplier" ? (
+                  <SuppliersPage supplierData={supplierData} readOnly={readOnly} />
+                ) : activeTab === "price" ? (
+                  <PricesPage
+                    priceData={priceData}
+                    skus={skus}
+                    activeSuppliers={activeSuppliers}
+                    allSuppliers={supplierData.suppliers}
+                    readOnly={readOnly}
+                    bomHeaders={bomData.headers}
+                  />
+                ) : activeTab === "bom" ? (
+                  <BOMPage
+                    bomData={bomData}
+                    skus={skus}
+                    prices={priceData.prices}
+                    readOnly={readOnly}
+                    onPricesRefresh={priceData.refreshPrices}
+                    byproductData={byproductData}
+                  />
+                ) : activeTab === "receipt" ? (
+                  <GoodsReceiptPage
+                    receiptData={receiptData}
+                    skus={skus}
+                    suppliers={supplierData.suppliers}
+                    prices={priceData.prices}
+                    bomLines={bomData.lines}
+                  />
+                ) : activeTab === "stock" ? (
+                  <RMStockPage
+                    skus={skus}
+                    stockData={stockData}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                  />
+                ) : activeTab === "production" ? (
+                  <ProductionPage
+                    productionData={productionData}
+                    skus={skus}
+                    bomHeaders={bomData.headers}
+                    stockBalances={stockData.stockBalances}
+                    bomLines={bomData.lines}
+                    bomSteps={bomData.steps}
+                    smStockBalances={smStockData.stockBalances}
+                    isStockDataReady={smStockData.isStockDataReady}
+                    menuBomLines={menuBomData.lines}
+                    menus={menuData.menus}
+                    bomByproducts={byproductData.byproducts}
+                    refreshProductionRecords={smStockData.refreshProductionRecords}
+                  />
+                ) : activeTab === "smstock" ? (
+                  <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
+                ) : activeTab === "pkstock" ? (
+                  <PKStockPage
+                    skus={skus}
+                    stockData={pkStockData}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                  />
+                ) : activeTab === "stockcount" ? (
+                  <StockCountPage
+                    skus={skus}
+                    stockCountData={stockCountData}
+                    getStdUnitPrice={stockData.getStdUnitPrice}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                    isManagement={isManagement}
+                  />
+                ) : activeTab === "branches" ? (
+                  <BranchesPage branchData={branchData} readOnly={readOnly} />
+                ) : activeTab === "users" ? (
+                  isManagement ? (
+                    <UserManagementPage />
+                  ) : (
+                    <div className="text-muted-foreground">Access denied</div>
+                  )
+                ) : activeTab === "store" ? (
+                  <StoreOverview
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    onNavigate={handleTabChange}
+                  />
+                ) : activeTab === "menu-master" ? (
+                  <MenuMasterPage menuData={menuData} branches={branchData.branches} />
+                ) : activeTab === "menu-bom" ? (
+                  <MenuBOMPage
+                    menuBomData={menuBomData}
+                    menus={menuData.menus}
+                    skus={skus}
+                    prices={priceData.prices}
+                    branches={branchData.branches}
+                    readOnly={!isManagement}
+                  />
+                ) : activeTab === "sp-bom" ? (
+                  <SpBomPage
+                    spBomData={spBomData}
+                    skus={skus}
+                    prices={priceData.prices}
+                    readOnly={!isManagement}
+                    onPricesRefresh={priceData.refreshPrices}
+                  />
+                ) : activeTab === "modifier-rules" ? (
+                  <ModifierRulesPage
+                    ruleData={modifierRuleData}
+                    skus={skus}
+                    menus={menuData.menus}
+                    menuBomLines={menuBomData.lines}
+                    readOnly={!isManagement}
+                    branches={branchData.branches}
+                  />
+                ) : activeTab === "sales-entry" ? (
+                  <SalesEntryPage
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    menus={menuData.menus}
+                    modifierRules={modifierRuleData.rules}
+                  />
+                ) : activeTab === "branch-receipt" ? (
+                  <BranchReceiptPage
+                    skus={skus}
+                    prices={priceData.prices}
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    suppliers={supplierData.suppliers}
+                    menus={menuData.menus}
+                    menuBomLines={menuBomData.lines}
+                    getBomCostPerGram={smStockData.getBomCostPerGram}
+                  />
+                ) : activeTab === "branch-receipt-mobile" ? (
+                  <BranchReceiptMobilePage
+                    skus={skus}
+                    prices={priceData.prices}
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    suppliers={supplierData.suppliers}
+                  />
+                ) : activeTab === "transfer-request" ? (
+                  <TransferRequestPage />
+                ) : activeTab === "transfer-order" ? (
+                  <TransferOrderPage
+                    getBomCostPerGram={smStockData.getBomCostPerGram}
+                    refreshSmStock={smStockData.refreshToDelivered}
+                  />
+                ) : activeTab === "daily-stock-count" ? (
+                  <DailyStockCountPage
+                    skus={skus}
+                    menuBomLines={menuBomData.lines}
+                    modifierRules={modifierRuleData.rules}
+                    spBomLines={spBomData.lines}
+                    menus={menuData.menus}
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    menuBomLoading={menuBomLoading}
+                  />
+                ) : activeTab === "store-stock" ? (
+                  <StoreStockPage
+                    skus={skus}
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                    menus={menuData.menus}
+                    menuBomLines={menuBomData.lines}
+                    spBomLines={spBomData.lines}
+                    modifierRules={modifierRuleData.rules}
+                  />
+                ) : activeTab === "food-cost" ? (
+                  <FoodCostPage
+                    skus={skus}
+                    prices={priceData.prices}
+                    menus={menuData.menus}
+                    menuBomLines={menuBomData.lines}
+                    modifierRules={modifierRuleData.rules}
+                    spBomLines={spBomData.lines}
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    suppliers={supplierData.suppliers}
+                  />
+                ) : activeTab === "sku-categories" ? (
+                  <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={!isManagement} />
                 ) : (
-                  <div className="text-muted-foreground">Access denied</div>
-                )
-              ) : activeTab === "store" ? (
-                <StoreOverview
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  onNavigate={handleTabChange}
-                />
-              ) : activeTab === "menu-master" ? (
-                <MenuMasterPage menuData={menuData} branches={branchData.branches} />
-              ) : activeTab === "menu-bom" ? (
-                <MenuBOMPage
-                  menuBomData={menuBomData}
-                  menus={menuData.menus}
-                  skus={skus}
-                  prices={priceData.prices}
-                  branches={branchData.branches}
-                  readOnly={!isManagement}
-                />
-              ) : activeTab === "sp-bom" ? (
-                <SpBomPage
-                  spBomData={spBomData}
-                  skus={skus}
-                  prices={priceData.prices}
-                  readOnly={!isManagement}
-                  onPricesRefresh={priceData.refreshPrices}
-                />
-              ) : activeTab === "modifier-rules" ? (
-                <ModifierRulesPage
-                  ruleData={modifierRuleData}
-                  skus={skus}
-                  menus={menuData.menus}
-                  menuBomLines={menuBomData.lines}
-                  readOnly={!isManagement}
-                  branches={branchData.branches}
-                />
-              ) : activeTab === "sales-entry" ? (
-                <SalesEntryPage
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  menus={menuData.menus}
-                  modifierRules={modifierRuleData.rules}
-                />
-              ) : activeTab === "branch-receipt" ? (
-                <BranchReceiptPage
-                  skus={skus}
-                  prices={priceData.prices}
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  suppliers={supplierData.suppliers}
-                  menus={menuData.menus}
-                  menuBomLines={menuBomData.lines}
-                  getBomCostPerGram={smStockData.getBomCostPerGram}
-                />
-              ) : activeTab === "branch-receipt-mobile" ? (
-                <BranchReceiptMobilePage
-                  skus={skus}
-                  prices={priceData.prices}
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  suppliers={supplierData.suppliers}
-                />
-              ) : activeTab === "transfer-request" ? (
-                <TransferRequestPage />
-              ) : activeTab === "transfer-order" ? (
-                <TransferOrderPage
-                  getBomCostPerGram={smStockData.getBomCostPerGram}
-                  refreshSmStock={smStockData.refreshToDelivered}
-                />
-              ) : activeTab === "daily-stock-count" ? (
-                <DailyStockCountPage
-                  skus={skus}
-                  menuBomLines={menuBomData.lines}
-                  modifierRules={modifierRuleData.rules}
-                  spBomLines={spBomData.lines}
-                  menus={menuData.menus}
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  menuBomLoading={menuBomLoading}
-                />
-              ) : activeTab === "store-stock" ? (
-                <StoreStockPage
-                  skus={skus}
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  bomHeaders={bomData.headers}
-                  bomLines={bomData.lines}
-                  menus={menuData.menus}
-                  menuBomLines={menuBomData.lines}
-                  spBomLines={spBomData.lines}
-                  modifierRules={modifierRuleData.rules}
-                />
-              ) : activeTab === "food-cost" ? (
-                <FoodCostPage
-                  skus={skus}
-                  prices={priceData.prices}
-                  menus={menuData.menus}
-                  menuBomLines={menuBomData.lines}
-                  modifierRules={modifierRuleData.rules}
-                  spBomLines={spBomData.lines}
-                  branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                  suppliers={supplierData.suppliers}
-                />
-              ) : activeTab === "sku-categories" ? (
-                <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={!isManagement} />
-              ) : (
-                <DeliveryToBranchesPage
-                  deliveryData={deliveryData}
-                  skus={skus}
-                  activeBranches={activeBranches}
-                  smStockBalances={smStockData.stockBalances}
-                />
-              )}
-            </div>
+                  <DeliveryToBranchesPage
+                    deliveryData={deliveryData}
+                    skus={skus}
+                    activeBranches={activeBranches}
+                    smStockBalances={smStockData.stockBalances}
+                  />
+                )}
+              </div>
+            )}
           </main>
         </div>
       </div>
