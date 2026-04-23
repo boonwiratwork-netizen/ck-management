@@ -582,6 +582,26 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
+  const renderTrailingActions = (rowId: string) => (
+    <TrailingActions>
+      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+        <div
+          className="flex items-center justify-center h-full"
+          style={{
+            width: SWIPE_REVEAL,
+            background: DELETE_RED,
+            color: "#fff",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          ลบ
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
+
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
     const filled = r.qty > 0;
@@ -598,92 +618,22 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
-    const isOpen = swipedRowId === r.rowId;
-    const touchStartXRef = useRef<number | null>(null);
-    const fgRef = useRef<HTMLDivElement | null>(null);
-
-    const onTouchStart = (e: React.TouchEvent) => {
-      touchStartXRef.current = e.touches[0].clientX;
-    };
-    const onTouchMove = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.touches[0].clientX - touchStartXRef.current;
-      if (dx >= 0) {
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-        return;
-      }
-      const clamped = Math.max(dx, -SWIPE_REVEAL);
-      if (fgRef.current) {
-        fgRef.current.style.transition = "none";
-        fgRef.current.style.transform = `translateX(${clamped}px)`;
-      }
-    };
-    const onTouchEnd = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-      touchStartXRef.current = null;
-      if (fgRef.current) {
-        fgRef.current.style.transition = "transform 0.2s ease-out";
-      }
-      if (dx <= -60) {
-        setSwipedRowId(r.rowId);
-      } else {
-        if (isOpen) setSwipedRowId(null);
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-      }
-    };
-
-    const handleForegroundClick = () => {
-      if (isOpen) {
-        setSwipedRowId(null);
-        return;
-      }
-      if (isUnmatched) {
-        openAssignSheet(r);
-      }
+    const handleRowClick = () => {
+      if (isUnmatched) openAssignSheet(r);
     };
 
     return (
-      <div
-        className="relative overflow-hidden"
-        style={{
-          borderBottom: `0.5px solid ${DIVIDER}`,
-          background: filled ? FILLED_ROW_BG : "#fff",
-        }}
+      <SwipeableListItem
+        trailingActions={renderTrailingActions(r.rowId)}
+        threshold={0.3}
       >
-        {/* Red delete drawer (behind) */}
-        <button
-          type="button"
-          onClick={() => removeRow(r.rowId)}
-          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
-          style={{
-            width: SWIPE_REVEAL,
-            background: DELETE_RED,
-            color: "#fff",
-            border: "none",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-          tabIndex={-1}
-          aria-label="ลบ"
-        >
-          ลบ
-        </button>
-
-        {/* Foreground (swipes) */}
         <div
-          ref={fgRef}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onClick={handleForegroundClick}
-          className="flex items-stretch gap-2 px-4 relative"
+          onClick={handleRowClick}
+          className="flex items-stretch gap-2 px-4 w-full"
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            transform: isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)",
-            transition: "transform 0.2s ease-out",
+            borderBottom: `0.5px solid ${DIVIDER}`,
             cursor: isUnmatched ? "pointer" : "default",
           }}
         >
@@ -776,10 +726,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             className="flex items-center gap-1 shrink-0 self-center"
-            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             {isUnmatched ? (
@@ -828,8 +774,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </div>
+      </SwipeableListItem>
     );
+  };
   };
 
   // ─── SCREEN 1 — supplier select ───────────────────────
