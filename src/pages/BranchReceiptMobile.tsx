@@ -17,7 +17,6 @@ import {
   Search,
   Loader2,
   X,
-  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -104,12 +103,6 @@ function tokenize(s: string): string[] {
     .filter((w) => w.length >= 2 && !TH_PARTICLES.has(w));
 }
 
-/**
- * Stricter matcher.
- * - Requires at least one "strong" token (length >= 3) to match the SKU name.
- * - Confidence "high" requires score >= 6 AND at least 2 distinct strong tokens matched.
- * - Otherwise "low" if any meaningful overlap, else "none".
- */
 function matchSkuFromRawName(
   rawName: string,
   candidates: SKU[],
@@ -153,7 +146,7 @@ function matchSkuFromRawName(
   return { sku: bestSku, confidence };
 }
 
-// ─── Reusable atomic styles ─────────────────────────────
+// ─── Visual constants ───────────────────────────────────
 
 const PAGE_BG = "#f2f2f7";
 const INK = "#1a1a1a";
@@ -164,6 +157,8 @@ const FILLED_QTY_BG = "rgba(34,197,94,0.12)";
 const QTY_BG = "rgba(0,0,0,0.05)";
 const SEARCH_BG = "rgba(0,0,0,0.06)";
 const CHIP_BG = "rgba(0,0,0,0.07)";
+const DELETE_RED = "#dc2626";
+const SWIPE_REVEAL = 80; // px width of red delete drawer
 
 // ─── Main Component ─────────────────────────────────────
 
@@ -185,9 +180,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
+  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
+  // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
+  const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Sync branchId with profile if SM
   useEffect(() => {
     if (isStoreManager && profile?.branch_id && !branchId) {
       setBranchId(profile.branch_id);
@@ -245,7 +242,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     return list.slice(0, 3);
   }, [recentIds, suppliers]);
 
-  // SKUs available for the chosen supplier (active price for branch's brand)
   const supplierSkus = useMemo(() => {
     if (!supplierId) return [] as SKU[];
     const activePrices = prices.filter(
@@ -263,7 +259,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     return list.sort((a, b) => a.skuId.localeCompare(b.skuId));
   }, [supplierId, prices, brandRmSkuIds, skuMap]);
 
-  // SKU options for the bottom sheet — supplier scoped, fallback to all if empty
   const addSheetSkus = useMemo(() => {
     const base = supplierSkus.length
       ? supplierSkus
@@ -271,8 +266,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           .filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "PK"))
           .sort((a, b) => a.skuId.localeCompare(b.skuId));
     const q = addSheetSearch.toLowerCase().trim();
-    const usedIds = new Set(rows.map((r) => r.skuId).filter(Boolean) as string[]);
-    const filtered = base.filter((s) => {
+    // In "add" mode, exclude SKUs already in rows. In "assign" mode, allow any.
+    const usedIds = assigningRowId
+      ? new Set<string>()
+      : new Set(rows.map((r) => r.skuId).filter(Boolean) as string[]);
+    return base.filter((s) => {
       if (usedIds.has(s.id)) return false;
       if (!q) return true;
       return (
@@ -280,8 +278,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         s.name.toLowerCase().includes(q)
       );
     });
-    return filtered;
-  }, [supplierSkus, skus, addSheetSearch, rows]);
+  }, [supplierSkus, skus, addSheetSearch, rows, assigningRowId]);
 
   const getStdUnitPrice = (skuId: string): number => {
     const fromSupplier = prices.find(
@@ -292,7 +289,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     return any?.pricePerUsageUom || 0;
   };
 
-  // Pack mode helpers
   const isPacksModeFor = (sku: SKU | null | undefined): boolean => {
     if (!sku) return false;
     return (sku.packSize ?? 0) > 1 && (sku.packUnit ?? "").length > 0;
@@ -308,7 +304,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   };
 
   const handleManualMethod = () => {
-    setRows([]); // start EMPTY
+    setRows([]);
     setScreen("manual");
   };
 
@@ -316,12 +312,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     fileInputRef.current?.click();
   };
 
-  /**
-   * Build rows from AI scan.
-   * Critical: dedup by matched skuId. If two raw names map to the same SKU,
-   * merge into ONE row and SUM their quantities (don't render duplicates).
-   * Unmatched items remain as separate ad-hoc rows.
-   */
   const buildScanRows = (scanned: ScanItem[]): ManualRow[] => {
     const matchedMap = new Map<
       string,
@@ -338,7 +328,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         if (existing) {
           existing.packs += inputQty;
           existing.rawNames.push(item.raw_name);
-          // Upgrade confidence if any source was high
           if (confidence === "high") existing.confidence = "high";
         } else {
           matchedMap.set(sku.id, {
@@ -394,7 +383,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       if (error) throw error;
       const items: ScanItem[] = Array.isArray(data?.items) ? data.items : [];
       const built = buildScanRows(items);
-      // Confidence: % of rows that are matched (not none). High counts more.
       const matchedCount = built.filter((r) => r.matchConfidence !== "none").length;
       const highCount = built.filter((r) => r.matchConfidence === "high").length;
       const conf = built.length
@@ -414,10 +402,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  /**
-   * Update qty for a row. Input is in PACKS if pack mode, else in usage UOM.
-   * Always recomputes the underlying `qty` (grams) accordingly.
-   */
   const updateRowPacks = (rowId: string, inputValue: number) => {
     setRows((prev) =>
       prev.map((r) => {
@@ -433,21 +417,79 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
+    setSwipedRowId(null);
   };
 
+  // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
   const addSkuToRows = (skuId: string) => {
+    const sku = skuMap[skuId];
+    const packsMode = isPacksModeFor(sku);
+    const packs = 1;
+    const qty = packsMode && sku ? packs * (sku.packSize || 1) : packs;
     setRows((prev) => [
       ...prev,
       {
         rowId: `row-${skuId}-${Date.now()}`,
         skuId,
-        packs: 0,
-        qty: 0,
+        packs,
+        qty,
         actualTotal: 0,
       },
     ]);
     setAddSheetOpen(false);
     setAddSheetSearch("");
+  };
+
+  // FIX 4: Assign an SKU to an existing unmatched (raw-name) row
+  const assignSkuToUnmatchedRow = (rowId: string, skuId: string) => {
+    const sku = skuMap[skuId];
+    if (!sku) return;
+    const packsMode = isPacksModeFor(sku);
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.rowId !== rowId) return r;
+        const packs = r.packs > 0 ? r.packs : 1;
+        const qty = packsMode ? packs * (sku.packSize || 1) : packs;
+        return {
+          ...r,
+          skuId,
+          packs,
+          qty,
+          matchConfidence: "high",
+          isAdHoc: false,
+          // keep rawName so staff still sees what AI read
+        };
+      }),
+    );
+    setAddSheetOpen(false);
+    setAddSheetSearch("");
+    setAssigningRowId(null);
+  };
+
+  const openAssignSheet = (row: ManualRow) => {
+    setAssigningRowId(row.rowId);
+    setAddSheetSearch(row.rawName ?? "");
+    setAddSheetOpen(true);
+  };
+
+  const openAddSheet = () => {
+    setAssigningRowId(null);
+    setAddSheetSearch("");
+    setAddSheetOpen(true);
+  };
+
+  const closeSheet = () => {
+    setAddSheetOpen(false);
+    setAddSheetSearch("");
+    setAssigningRowId(null);
+  };
+
+  const handleSheetSelectSku = (skuId: string) => {
+    if (assigningRowId) {
+      assignSkuToUnmatchedRow(assigningRowId, skuId);
+    } else {
+      addSkuToRows(skuId);
+    }
   };
 
   const filledRows = useMemo(() => rows.filter((r) => r.qty > 0 && r.skuId), [rows]);
@@ -458,6 +500,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
+    setSwipedRowId(null);
+    setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
   };
@@ -476,7 +520,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       const dateStr = format(date, "yyyy-MM-dd");
       const payload = filledRows.map((r) => {
         const sku = skuMap[r.skuId!];
-        const qty = r.qty; // always in usage UOM (grams)
+        const qty = r.qty;
         const actualTotal = r.actualTotal;
         const actualUnitPrice = qty > 0 ? actualTotal / qty : 0;
         const stdUnitPrice = getStdUnitPrice(r.skuId!);
@@ -488,7 +532,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           skuId: r.skuId!,
           supplierName: selectedSupplier.name,
           qtyReceived: qty,
-          uom: sku?.usageUom ?? "",
+          // FIX 5: match desktop — use purchaseUom on the receipt record
+          uom: sku?.purchaseUom ?? "",
           actualUnitPrice,
           actualTotal,
           stdUnitPrice,
@@ -510,7 +555,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  // ─── Reusable row renderer (Screens 3 & 4) ─────────────
+  // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
@@ -519,6 +564,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const inputUnit = packsMode && sku ? sku.packUnit : sku?.usageUom ?? "";
     const showEst = packsMode && sku && r.packs > 0;
     const estGrams = packsMode && sku ? r.packs * (sku.packSize || 1) : 0;
+    const isUnmatched = !sku;
 
     const dotColor =
       r.matchConfidence === "high"
@@ -527,137 +573,235 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
+    const isOpen = swipedRowId === r.rowId;
+    const touchStartXRef = useRef<number | null>(null);
+    const fgRef = useRef<HTMLDivElement | null>(null);
+
+    const onTouchStart = (e: React.TouchEvent) => {
+      touchStartXRef.current = e.touches[0].clientX;
+    };
+    const onTouchMove = (e: React.TouchEvent) => {
+      if (touchStartXRef.current == null) return;
+      const dx = e.touches[0].clientX - touchStartXRef.current;
+      if (dx >= 0) {
+        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
+        return;
+      }
+      const clamped = Math.max(dx, -SWIPE_REVEAL);
+      if (fgRef.current) {
+        fgRef.current.style.transition = "none";
+        fgRef.current.style.transform = `translateX(${clamped}px)`;
+      }
+    };
+    const onTouchEnd = (e: React.TouchEvent) => {
+      if (touchStartXRef.current == null) return;
+      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+      touchStartXRef.current = null;
+      if (fgRef.current) {
+        fgRef.current.style.transition = "transform 0.2s ease-out";
+      }
+      if (dx <= -60) {
+        setSwipedRowId(r.rowId);
+      } else {
+        if (isOpen) setSwipedRowId(null);
+        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
+      }
+    };
+
+    const handleForegroundClick = () => {
+      if (isOpen) {
+        setSwipedRowId(null);
+        return;
+      }
+      if (isUnmatched) {
+        openAssignSheet(r);
+      }
+    };
+
     return (
       <div
-        className="flex items-stretch gap-2 px-4"
+        className="relative overflow-hidden"
         style={{
-          minHeight: 52,
-          background: filled ? FILLED_ROW_BG : "transparent",
           borderBottom: `0.5px solid ${DIVIDER}`,
+          background: filled ? FILLED_ROW_BG : "#fff",
         }}
       >
-        {showDot && (
-          <span
-            className="shrink-0 self-center rounded-full"
-            style={{ width: 7, height: 7, background: dotColor }}
-          />
-        )}
+        {/* Red delete drawer (behind) */}
+        <button
+          type="button"
+          onClick={() => removeRow(r.rowId)}
+          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
+          style={{
+            width: SWIPE_REVEAL,
+            background: DELETE_RED,
+            color: "#fff",
+            border: "none",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+          tabIndex={-1}
+          aria-label="ลบ"
+        >
+          ลบ
+        </button>
 
-        <div className="min-w-0 flex-1 py-1.5 self-center">
-          {sku ? (
-            <>
-              <div
-                className="truncate"
-                style={{
-                  fontFamily: "DM Mono, monospace",
-                  fontSize: 10,
-                  color: MUTED,
-                  lineHeight: 1.2,
-                }}
-              >
-                {sku.skuId}
-              </div>
-              <div
-                className="truncate"
-                style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 13,
-                  color: INK,
-                  lineHeight: 1.3,
-                  fontWeight: filled ? 600 : 400,
-                }}
-              >
-                {sku.name}
-              </div>
-              {showEst && (
+        {/* Foreground (swipes) */}
+        <div
+          ref={fgRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onClick={handleForegroundClick}
+          className="flex items-stretch gap-2 px-4 relative"
+          style={{
+            minHeight: 52,
+            background: filled ? FILLED_ROW_BG : "#fff",
+            transform: isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)",
+            transition: "transform 0.2s ease-out",
+            cursor: isUnmatched ? "pointer" : "default",
+          }}
+        >
+          {showDot && (
+            <span
+              className="shrink-0 self-center rounded-full"
+              style={{ width: 7, height: 7, background: dotColor }}
+            />
+          )}
+
+          <div className="min-w-0 flex-1 py-1.5 self-center">
+            {sku ? (
+              <>
                 <div
+                  className="truncate"
                   style={{
                     fontFamily: "DM Mono, monospace",
                     fontSize: 10,
                     color: MUTED,
                     lineHeight: 1.2,
+                  }}
+                >
+                  {sku.skuId}
+                </div>
+                <div
+                  className="truncate"
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 13,
+                    color: INK,
+                    lineHeight: 1.3,
+                    fontWeight: filled ? 600 : 400,
+                  }}
+                >
+                  {sku.name}
+                </div>
+                {showEst && (
+                  <div
+                    style={{
+                      fontFamily: "DM Mono, monospace",
+                      fontSize: 10,
+                      color: MUTED,
+                      lineHeight: 1.2,
+                      marginTop: 1,
+                    }}
+                  >
+                    est. {estGrams.toLocaleString()} {sku.usageUom}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div
+                  className="truncate italic"
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 13,
+                    color: INK,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {r.rawName ?? "—"}
+                </div>
+                <div
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 11,
+                    color: "#d97706",
+                    lineHeight: 1.2,
                     marginTop: 1,
                   }}
                 >
-                  est. {estGrams.toLocaleString()} {sku.usageUom}
+                  แตะเพื่อเลือก SKU
                 </div>
-              )}
-            </>
-          ) : (
-            <div
-              className="truncate italic"
-              style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 13,
-                color: MUTED,
-              }}
-            >
-              {r.rawName ?? "—"}
-            </div>
-          )}
-          {r.matchConfidence === "low" && (
-            <div
-              style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 10,
-                color: "#d97706",
-                lineHeight: 1.2,
-              }}
-            >
-              ตรวจสอบ
-            </div>
-          )}
-        </div>
+              </>
+            )}
+            {sku && r.matchConfidence === "low" && (
+              <div
+                style={{
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: 10,
+                  color: "#d97706",
+                  lineHeight: 1.2,
+                }}
+              >
+                ตรวจสอบ
+              </div>
+            )}
+          </div>
 
-        <div className="flex items-center gap-1 shrink-0 self-center">
-          <input
-            type="number"
-            inputMode={packsMode ? "numeric" : "decimal"}
-            min={0}
-            step={packsMode ? 1 : "any"}
-            defaultValue={r.packs || ""}
-            key={`qty-${r.rowId}-${r.packs}`}
-            onFocus={(e) => e.target.select()}
-            onBlur={(e) => {
-              const v = Number(e.target.value) || 0;
-              const normalized = packsMode ? Math.round(v) : v;
-              updateRowPacks(r.rowId, normalized);
-            }}
-            placeholder="0"
-            className="text-center outline-none"
-            disabled={!sku}
-            style={{
-              width: 56,
-              height: 36,
-              borderRadius: 8,
-              background: filled ? FILLED_QTY_BG : QTY_BG,
-              border: "none",
-              fontFamily: "DM Mono, monospace",
-              fontSize: 16,
-              fontWeight: 700,
-              color: sku ? INK : MUTED,
-            }}
-          />
-          <span
-            style={{
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 10,
-              color: MUTED,
-              width: 30,
-              textAlign: "left",
-            }}
+          <div
+            className="flex items-center gap-1 shrink-0 self-center"
+            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-            {inputUnit}
-          </span>
-          <button
-            type="button"
-            onClick={() => removeRow(r.rowId)}
-            className="p-1"
-            style={{ color: MUTED }}
-            aria-label="ลบ"
-          >
-            <Trash2 size={14} />
-          </button>
+            {isUnmatched ? (
+              <ChevronRight size={18} style={{ color: MUTED }} />
+            ) : (
+              <>
+                <input
+                  type="number"
+                  inputMode={packsMode ? "numeric" : "decimal"}
+                  min={0}
+                  step={packsMode ? 1 : "any"}
+                  defaultValue={r.packs || ""}
+                  key={`qty-${r.rowId}-${r.packs}`}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value) || 0;
+                    const normalized = packsMode ? Math.round(v) : v;
+                    updateRowPacks(r.rowId, normalized);
+                  }}
+                  placeholder="0"
+                  className="text-center outline-none"
+                  style={{
+                    width: 56,
+                    height: 36,
+                    borderRadius: 8,
+                    background: filled ? FILLED_QTY_BG : QTY_BG,
+                    border: "none",
+                    fontFamily: "DM Mono, monospace",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: INK,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: 10,
+                    color: MUTED,
+                    width: 30,
+                    textAlign: "left",
+                  }}
+                >
+                  {inputUnit}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -668,8 +812,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   if (screen === "select") {
     return (
       <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="px-4 pt-4 pb-8">
-          {/* Title */}
+        <div className="px-4 pt-4 pb-6">
           <h1
             style={{
               fontFamily: "Syne, sans-serif",
@@ -693,7 +836,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             {format(date, "d MMM yyyy")}
           </div>
 
-          {/* Branch + date pickers (inline, minimal) */}
           {(isManagement || !isStoreManager) && (
             <div className="mt-3 space-y-2">
               {isManagement && (
@@ -727,7 +869,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             </div>
           )}
 
-          {/* Search */}
           <div className="relative mt-4">
             <Search
               size={14}
@@ -754,7 +895,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             />
           </div>
 
-          {/* Recent chips */}
           {branchId && recentSuppliers.length > 0 && (
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
               {recentSuppliers.map((s, i) => {
@@ -784,7 +924,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             </div>
           )}
 
-          {/* Section header */}
           {branchId && (
             <div
               className="mt-5 mb-1.5 px-1"
@@ -802,7 +941,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           )}
         </div>
 
-        {/* Supplier list — full viewport width */}
         {!branchId ? (
           <p
             className="py-12 text-center"
@@ -983,7 +1121,154 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     );
   }
 
-  // ─── SCREEN 3 — manual entry (and shared with edit-from-scan) ──
+  // ─── Shared bottom sheet ──────────────────────────────
+
+  const renderSheet = () => {
+    if (!addSheetOpen) return null;
+    const isAssign = !!assigningRowId;
+    return (
+      <>
+        <div
+          onClick={closeSheet}
+          className="fixed inset-0"
+          style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
+        />
+        <div
+          className="fixed left-0 right-0 bottom-0 w-full pb-safe"
+          style={{
+            background: "#fff",
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            height: "65vh",
+            zIndex: 70,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: `0.5px solid ${DIVIDER}` }}
+          >
+            <span
+              style={{
+                fontFamily: "DM Sans, sans-serif",
+                fontSize: 15,
+                fontWeight: 600,
+                color: INK,
+              }}
+            >
+              {isAssign ? "เลือก SKU ที่ตรงกับรายการ" : "เลือก SKU"}
+            </span>
+            <button
+              type="button"
+              onClick={closeSheet}
+              style={{ color: MUTED }}
+              aria-label="ปิด"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: MUTED }}
+              />
+              <input
+                autoFocus
+                value={addSheetSearch}
+                onChange={(e) => setAddSheetSearch(e.target.value)}
+                placeholder="ค้นหา SKU..."
+                className="w-full outline-none"
+                style={{
+                  height: 34,
+                  paddingLeft: 32,
+                  paddingRight: 12,
+                  borderRadius: 999,
+                  background: SEARCH_BG,
+                  border: "none",
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: 13,
+                  color: INK,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {addSheetSkus.length === 0 ? (
+              <div
+                className="py-10 text-center"
+                style={{
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: 13,
+                  color: MUTED,
+                }}
+              >
+                ไม่พบ SKU
+              </div>
+            ) : (
+              addSheetSkus.map((s) => {
+                const packsMode = isPacksModeFor(s);
+                const inputUnit = packsMode ? s.packUnit : s.usageUom;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleSheetSelectSku(s.id)}
+                    className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
+                    style={{
+                      minHeight: 48,
+                      borderBottom: `0.5px solid ${DIVIDER}`,
+                      background: "#fff",
+                    }}
+                  >
+                    <div className="min-w-0 flex-1 py-1">
+                      <div
+                        className="truncate"
+                        style={{
+                          fontFamily: "DM Mono, monospace",
+                          fontSize: 10,
+                          color: MUTED,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {s.skuId}
+                      </div>
+                      <div
+                        className="truncate"
+                        style={{
+                          fontFamily: "DM Sans, sans-serif",
+                          fontSize: 13,
+                          color: INK,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {s.name}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontFamily: "DM Sans, sans-serif",
+                        fontSize: 11,
+                        color: MUTED,
+                      }}
+                    >
+                      {inputUnit}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // ─── SCREEN 3 — manual entry ──────────────────────────
 
   if (screen === "manual") {
     return (
@@ -1039,10 +1324,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               rows.map((r) => <ItemRow key={r.rowId} r={r} />)
             )}
 
-            {/* Add row */}
             <button
               type="button"
-              onClick={() => setAddSheetOpen(true)}
+              onClick={openAddSheet}
               className="w-full flex items-center gap-3 px-4 active:bg-black/5"
               style={{
                 minHeight: 48,
@@ -1076,7 +1360,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           </div>
         </div>
 
-        {/* Sticky save bar — full viewport width */}
         <div
           className="fixed bottom-0 left-0 right-0 w-full pb-safe"
           style={{
@@ -1114,147 +1397,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           </div>
         </div>
 
-        {/* Bottom sheet — add SKU */}
-        {addSheetOpen && (
-          <>
-            <div
-              onClick={() => setAddSheetOpen(false)}
-              className="fixed inset-0"
-              style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
-            />
-            <div
-              className="fixed left-0 right-0 bottom-0 w-full pb-safe"
-              style={{
-                background: "#fff",
-                borderTopLeftRadius: 16,
-                borderTopRightRadius: 16,
-                height: "65vh",
-                zIndex: 70,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div
-                className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: `0.5px solid ${DIVIDER}` }}
-              >
-                <span
-                  style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: INK,
-                  }}
-                >
-                  เลือก SKU
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setAddSheetOpen(false)}
-                  style={{ color: MUTED }}
-                  aria-label="ปิด"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="px-4 pt-3 pb-2">
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2"
-                    style={{ color: MUTED }}
-                  />
-                  <input
-                    autoFocus
-                    value={addSheetSearch}
-                    onChange={(e) => setAddSheetSearch(e.target.value)}
-                    placeholder="ค้นหา SKU..."
-                    className="w-full outline-none"
-                    style={{
-                      height: 34,
-                      paddingLeft: 32,
-                      paddingRight: 12,
-                      borderRadius: 999,
-                      background: SEARCH_BG,
-                      border: "none",
-                      fontFamily: "DM Sans, sans-serif",
-                      fontSize: 13,
-                      color: INK,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {addSheetSkus.length === 0 ? (
-                  <div
-                    className="py-10 text-center"
-                    style={{
-                      fontFamily: "DM Sans, sans-serif",
-                      fontSize: 13,
-                      color: MUTED,
-                    }}
-                  >
-                    ไม่พบ SKU
-                  </div>
-                ) : (
-                  addSheetSkus.map((s) => {
-                    const packsMode = isPacksModeFor(s);
-                    const inputUnit = packsMode ? s.packUnit : s.usageUom;
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => addSkuToRows(s.id)}
-                        className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
-                        style={{
-                          minHeight: 48,
-                          borderBottom: `0.5px solid ${DIVIDER}`,
-                          background: "#fff",
-                        }}
-                      >
-                        <div className="min-w-0 flex-1 py-1">
-                          <div
-                            className="truncate"
-                            style={{
-                              fontFamily: "DM Mono, monospace",
-                              fontSize: 10,
-                              color: MUTED,
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            {s.skuId}
-                          </div>
-                          <div
-                            className="truncate"
-                            style={{
-                              fontFamily: "DM Sans, sans-serif",
-                              fontSize: 13,
-                              color: INK,
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {s.name}
-                          </div>
-                        </div>
-                        <span
-                          style={{
-                            fontFamily: "DM Sans, sans-serif",
-                            fontSize: 11,
-                            color: MUTED,
-                          }}
-                        >
-                          {inputUnit}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </>
-        )}
+        {renderSheet()}
       </div>
     );
   }
@@ -1296,9 +1439,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           </div>
         </div>
 
-        {/* AI banner */}
         <div
-          className="mt-4 px-4 flex items-center"
+          className="mt-4 px-4 flex items-center w-full"
           style={{
             height: 28,
             background: PAGE_BG,
@@ -1329,10 +1471,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
           )}
 
-          {/* Add row (also available in scan-result view) */}
           <button
             type="button"
-            onClick={() => setAddSheetOpen(true)}
+            onClick={openAddSheet}
             className="w-full flex items-center gap-3 px-4 active:bg-black/5"
             style={{
               minHeight: 48,
@@ -1366,7 +1507,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </div>
       </div>
 
-      {/* Sticky bottom bar — full viewport width */}
       <div
         className="fixed bottom-0 left-0 right-0 w-full pb-safe"
         style={{
@@ -1377,7 +1517,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           zIndex: 50,
         }}
       >
-        <div className="px-4 py-3 space-y-2">
+        <div className="px-4 py-3">
           <button
             type="button"
             onClick={handleSave}
@@ -1404,145 +1544,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </div>
       </div>
 
-      {/* Bottom sheet for adding SKUs from scan-result view */}
-      {addSheetOpen && (
-        <>
-          <div
-            onClick={() => setAddSheetOpen(false)}
-            className="fixed inset-0"
-            style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
-          />
-          <div
-            className="fixed left-0 right-0 bottom-0 w-full pb-safe"
-            style={{
-              background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              height: "65vh",
-              zIndex: 70,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ borderBottom: `0.5px solid ${DIVIDER}` }}
-            >
-              <span
-                style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: INK,
-                }}
-              >
-                เลือก SKU
-              </span>
-              <button
-                type="button"
-                onClick={() => setAddSheetOpen(false)}
-                style={{ color: MUTED }}
-                aria-label="ปิด"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="px-4 pt-3 pb-2">
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
-                  style={{ color: MUTED }}
-                />
-                <input
-                  autoFocus
-                  value={addSheetSearch}
-                  onChange={(e) => setAddSheetSearch(e.target.value)}
-                  placeholder="ค้นหา SKU..."
-                  className="w-full outline-none"
-                  style={{
-                    height: 34,
-                    paddingLeft: 32,
-                    paddingRight: 12,
-                    borderRadius: 999,
-                    background: SEARCH_BG,
-                    border: "none",
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 13,
-                    color: INK,
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {addSheetSkus.length === 0 ? (
-                <div
-                  className="py-10 text-center"
-                  style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 13,
-                    color: MUTED,
-                  }}
-                >
-                  ไม่พบ SKU
-                </div>
-              ) : (
-                addSheetSkus.map((s) => {
-                  const packsMode = isPacksModeFor(s);
-                  const inputUnit = packsMode ? s.packUnit : s.usageUom;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => addSkuToRows(s.id)}
-                      className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
-                      style={{
-                        minHeight: 48,
-                        borderBottom: `0.5px solid ${DIVIDER}`,
-                        background: "#fff",
-                      }}
-                    >
-                      <div className="min-w-0 flex-1 py-1">
-                        <div
-                          className="truncate"
-                          style={{
-                            fontFamily: "DM Mono, monospace",
-                            fontSize: 10,
-                            color: MUTED,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {s.skuId}
-                        </div>
-                        <div
-                          className="truncate"
-                          style={{
-                            fontFamily: "DM Sans, sans-serif",
-                            fontSize: 13,
-                            color: INK,
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {s.name}
-                        </div>
-                      </div>
-                      <span
-                        style={{
-                          fontFamily: "DM Sans, sans-serif",
-                          fontSize: 11,
-                          color: MUTED,
-                        }}
-                      >
-                        {inputUnit}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </>
-      )}
+      {renderSheet()}
     </div>
   );
 }
