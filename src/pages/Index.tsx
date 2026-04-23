@@ -613,13 +613,6 @@ const Index = () => {
                     menuBomLines={menuBomData.lines}
                     getBomCostPerGram={smStockData.getBomCostPerGram}
                   />
-                ) : activeTab === "branch-receipt-mobile" ? (
-                  <BranchReceiptMobilePage
-                    skus={skus}
-                    prices={priceData.prices}
-                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                    suppliers={supplierData.suppliers}
-                  />
                 ) : activeTab === "transfer-request" ? (
                   <TransferRequestPage />
                 ) : activeTab === "transfer-order" ? (
