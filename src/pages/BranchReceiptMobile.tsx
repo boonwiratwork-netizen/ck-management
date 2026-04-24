@@ -331,7 +331,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, supplierSkus);
+      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
 
       if (sku) {
