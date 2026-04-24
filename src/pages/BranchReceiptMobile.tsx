@@ -598,7 +598,30 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  // ─── Swipeable row (Screens 3 & 4) ─────────────────────
+  // ─── Swipeable row (Screens 3 & 4) — uses react-swipeable-list ─────
+
+  const trailingActions = (rowId: string) => (
+    <TrailingActions>
+      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+        <div
+          style={{
+            background: DELETE_RED,
+            color: "#fff",
+            width: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            height: "100%",
+          }}
+        >
+          ลบ
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
 
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
@@ -616,102 +639,27 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
-    const isOpen = swipedRowId === r.rowId;
-    const touchStartXRef = useRef<number | null>(null);
-    const fgRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-      if (fgRef.current) {
-        fgRef.current.style.transform = isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)";
-      }
-    }, [isOpen]);
-
-    const onTouchStart = (e: React.TouchEvent) => {
-      touchStartXRef.current = e.touches[0].clientX;
-    };
-    const onTouchMove = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.touches[0].clientX - touchStartXRef.current;
-      if (dx >= 0) {
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-        return;
-      }
-      const clamped = Math.max(dx, -SWIPE_REVEAL);
-      if (fgRef.current) {
-        fgRef.current.style.transition = "none";
-        fgRef.current.style.transform = `translateX(${clamped}px)`;
-      }
-    };
-    const onTouchEnd = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-      touchStartXRef.current = null;
-      if (fgRef.current) {
-        fgRef.current.style.transition = "transform 0.2s ease-out";
-      }
-      if (dx <= -60) {
-        setSwipedRowId(r.rowId);
-      } else {
-        if (isOpen) setSwipedRowId(null);
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-      }
-    };
-
-    const handleForegroundClick = () => {
-      if (isOpen) {
-        setSwipedRowId(null);
-        return;
-      }
-      if (isUnmatched) {
-        openAssignSheet(r);
-      }
+    const handleRowClick = () => {
+      if (isUnmatched) openAssignSheet(r);
     };
 
     return (
-      <div
-        className="relative overflow-hidden"
-        style={{
-          borderBottom: `0.5px solid ${DIVIDER}`,
-          background: filled ? FILLED_ROW_BG : "#fff",
-        }}
-      >
-        {/* Red delete drawer (behind) */}
-        <button
-          type="button"
-          onClick={() => removeRow(r.rowId)}
-          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
-          style={{
-            width: SWIPE_REVEAL,
-            background: DELETE_RED,
-            color: "#fff",
-            border: "none",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-          tabIndex={-1}
-          aria-label="ลบ"
-        >
-          ลบ
-        </button>
-
-        {/* Foreground (swipes) */}
+      <SwipeableListItem trailingActions={trailingActions(r.rowId)}>
         <div
-          ref={fgRef}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onClick={handleForegroundClick}
-          className="flex items-stretch gap-2 px-4 relative"
+          onClick={handleRowClick}
+          className="flex items-stretch gap-2 px-4 w-full"
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            transition: "transform 0.2s ease-out",
+            borderBottom: `0.5px solid ${DIVIDER}`,
             cursor: isUnmatched ? "pointer" : "default",
           }}
         >
           {showDot && (
-            <span className="shrink-0 self-center rounded-full" style={{ width: 7, height: 7, background: dotColor }} />
+            <span
+              className="shrink-0 self-center rounded-full"
+              style={{ width: 7, height: 7, background: dotColor }}
+            />
           )}
 
           <div className="min-w-0 flex-1 py-1.5 self-center">
@@ -796,10 +744,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             className="flex items-center gap-1 shrink-0 self-center"
-            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             {isUnmatched ? (
@@ -848,7 +792,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </div>
+      </SwipeableListItem>
     );
   };
 
