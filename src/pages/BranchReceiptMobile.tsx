@@ -8,24 +8,8 @@ import { Price } from "@/types/price";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
-import {
-  Camera,
-  ClipboardList,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Search,
-  Loader2,
-  X,
-} from "lucide-react";
+import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import {
-  SwipeableList,
-  SwipeableListItem,
-  SwipeAction,
-  TrailingActions,
-} from "react-swipeable-list";
-import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -96,9 +80,39 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 const TH_PARTICLES = new Set([
-  "และ", "หรือ", "ของ", "ที่", "ใน", "ไป", "มา", "เป็น", "ให้", "กับ", "นี้", "นั้น", "ก็", "จะ", "ได้",
-  "คัด", "ขนาด", "เบอร์", "พิเศษ", "ธรรมดา", "ใหญ่", "เล็ก", "กลาง",
-  "the", "and", "or", "of", "a", "an", "for", "with", "size", "pack",
+  "และ",
+  "หรือ",
+  "ของ",
+  "ที่",
+  "ใน",
+  "ไป",
+  "มา",
+  "เป็น",
+  "ให้",
+  "กับ",
+  "นี้",
+  "นั้น",
+  "ก็",
+  "จะ",
+  "ได้",
+  "คัด",
+  "ขนาด",
+  "เบอร์",
+  "พิเศษ",
+  "ธรรมดา",
+  "ใหญ่",
+  "เล็ก",
+  "กลาง",
+  "the",
+  "and",
+  "or",
+  "of",
+  "a",
+  "an",
+  "for",
+  "with",
+  "size",
+  "pack",
 ]);
 
 function normalizeText(s: string): string {
@@ -126,7 +140,7 @@ function matchSkuFromRawName(
 ): { sku: SKU | null; confidence: MatchConfidence } {
   const cleanedName = stripSizeDescriptors(rawName);
   const rawWords = tokenize(cleanedName);
-  if (rawWords.length === 0 && !code) return { sku: null, confidence: "none" };
+  if (rawWords.length === 0) return { sku: null, confidence: "none" };
 
   let bestSku: SKU | null = null;
   let bestScore = 0;
@@ -149,13 +163,7 @@ function matchSkuFromRawName(
         }
       }
     }
-    // Exact name bonus: cleaned raw name is contained in sku name
-    if (
-      cleanedName.length > 3 &&
-      sku.name.toLowerCase().includes(cleanedName.toLowerCase())
-    ) {
-      score += 6;
-    }
+    if (sku.name.toLowerCase().includes(cleanedName.toLowerCase()) && cleanedName.length > 3) score += 6;
     if (score > bestScore) {
       bestScore = score;
       bestStrongMatches = strongMatches;
@@ -163,13 +171,11 @@ function matchSkuFromRawName(
     }
   }
 
-  if (!bestSku) return { sku: null, confidence: "none" };
-
-  let confidence: MatchConfidence;
-  if (bestScore >= 8 && bestStrongMatches >= 2) confidence = "high";
-  else if (bestScore >= 4 && bestStrongMatches >= 1) confidence = "low";
-  else return { sku: null, confidence: "none" };
-
+  if (!bestSku || bestScore === 0 || bestStrongMatches === 0) {
+    return { sku: null, confidence: "none" };
+  }
+  const confidence: MatchConfidence =
+    bestScore >= 8 && bestStrongMatches >= 2 ? "high" : bestScore >= 4 && bestStrongMatches >= 1 ? "low" : "none";
   return { sku: bestSku, confidence };
 }
 
@@ -195,9 +201,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const [screen, setScreen] = useState<Screen>("select");
   const [date, setDate] = useState<Date>(new Date());
-  const [branchId, setBranchId] = useState<string>(
-    isStoreManager && profile?.branch_id ? profile.branch_id : "",
-  );
+  const [branchId, setBranchId] = useState<string>(isStoreManager && profile?.branch_id ? profile.branch_id : "");
   const [supplierId, setSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [rows, setRows] = useState<ManualRow[]>([]);
@@ -207,7 +211,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
-  // swipedRowId removed — swipe handled by react-swipeable-list
+  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -228,14 +232,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     return m;
   }, [skus]);
 
-  const selectedBranch = useMemo(
-    () => branches.find((b) => b.id === branchId),
-    [branches, branchId],
-  );
-  const selectedSupplier = useMemo(
-    () => suppliers.find((s) => s.id === supplierId),
-    [suppliers, supplierId],
-  );
+  const selectedBranch = useMemo(() => branches.find((b) => b.id === branchId), [branches, branchId]);
+  const selectedSupplier = useMemo(() => suppliers.find((s) => s.id === supplierId), [suppliers, supplierId]);
 
   const brandRmSkuIds = useMemo(() => {
     return new Set<string>(skus.filter((s) => s.status === "Active").map((s) => s.id));
@@ -244,9 +242,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const brandSupplierIds = useMemo(() => {
     if (!branchId) return new Set<string>();
     const ids = new Set<string>();
-    prices
-      .filter((p) => p.isActive && brandRmSkuIds.has(p.skuId))
-      .forEach((p) => ids.add(p.supplierId));
+    prices.filter((p) => p.isActive && brandRmSkuIds.has(p.skuId)).forEach((p) => ids.add(p.supplierId));
     return ids;
   }, [prices, brandRmSkuIds, branchId]);
 
@@ -271,9 +267,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const supplierSkus = useMemo(() => {
     if (!supplierId) return [] as SKU[];
-    const activePrices = prices.filter(
-      (p) => p.supplierId === supplierId && p.isActive && brandRmSkuIds.has(p.skuId),
-    );
+    const activePrices = prices.filter((p) => p.supplierId === supplierId && p.isActive && brandRmSkuIds.has(p.skuId));
     const seen = new Set<string>();
     const list: SKU[] = [];
     activePrices.forEach((p) => {
@@ -294,23 +288,16 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           .sort((a, b) => a.skuId.localeCompare(b.skuId));
     const q = addSheetSearch.toLowerCase().trim();
     // In "add" mode, exclude SKUs already in rows. In "assign" mode, allow any.
-    const usedIds = assigningRowId
-      ? new Set<string>()
-      : new Set(rows.map((r) => r.skuId).filter(Boolean) as string[]);
+    const usedIds = assigningRowId ? new Set<string>() : new Set(rows.map((r) => r.skuId).filter(Boolean) as string[]);
     return base.filter((s) => {
       if (usedIds.has(s.id)) return false;
       if (!q) return true;
-      return (
-        s.skuId.toLowerCase().includes(q) ||
-        s.name.toLowerCase().includes(q)
-      );
+      return s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
     });
   }, [supplierSkus, skus, addSheetSearch, rows, assigningRowId]);
 
   const getStdUnitPrice = (skuId: string): number => {
-    const fromSupplier = prices.find(
-      (p) => p.skuId === skuId && p.supplierId === supplierId && p.isActive,
-    );
+    const fromSupplier = prices.find((p) => p.skuId === skuId && p.supplierId === supplierId && p.isActive);
     if (fromSupplier) return fromSupplier.pricePerUsageUom || 0;
     const any = prices.find((p) => p.skuId === skuId && p.isActive);
     return any?.pricePerUsageUom || 0;
@@ -340,14 +327,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   };
 
   const buildScanRows = (scanned: ScanItem[]): ManualRow[] => {
-    const matchedMap = new Map<
-      string,
-      { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }
-    >();
+    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }>();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
+      const { sku, confidence } = matchSkuFromRawName(item.raw_name, supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
 
       if (sku) {
@@ -412,9 +396,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       const built = buildScanRows(items);
       const matchedCount = built.filter((r) => r.matchConfidence !== "none").length;
       const highCount = built.filter((r) => r.matchConfidence === "high").length;
-      const conf = built.length
-        ? Math.round(((matchedCount + highCount) / (built.length * 2)) * 100)
-        : 0;
+      const conf = built.length ? Math.round(((matchedCount + highCount) / (built.length * 2)) * 100) : 0;
       setRows(built);
       setScanMeta({ count: items.length, confidence: conf });
       setScreen("scanResult");
@@ -444,6 +426,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
+    setSwipedRowId(null);
   };
 
   // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
@@ -526,6 +509,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
+    setSwipedRowId(null);
     setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
@@ -582,31 +566,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
-  const renderTrailingActions = (rowId: string) => (
-    <TrailingActions>
-      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
-        <div
-          className="flex items-center justify-center h-full"
-          style={{
-            width: SWIPE_REVEAL,
-            background: DELETE_RED,
-            color: "#fff",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          ลบ
-        </div>
-      </SwipeAction>
-    </TrailingActions>
-  );
-
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
     const filled = r.qty > 0;
     const packsMode = isPacksModeFor(sku);
-    const inputUnit = packsMode && sku ? sku.packUnit : sku?.usageUom ?? "";
+    const inputUnit = packsMode && sku ? sku.packUnit : (sku?.usageUom ?? "");
     const showEst = packsMode && sku && r.packs > 0;
     const estGrams = packsMode && sku ? r.packs * (sku.packSize || 1) : 0;
     const isUnmatched = !sku;
@@ -618,30 +582,97 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
-    const handleRowClick = () => {
-      if (isUnmatched) openAssignSheet(r);
+    const isOpen = swipedRowId === r.rowId;
+    const touchStartXRef = useRef<number | null>(null);
+    const fgRef = useRef<HTMLDivElement | null>(null);
+
+    const onTouchStart = (e: React.TouchEvent) => {
+      touchStartXRef.current = e.touches[0].clientX;
+    };
+    const onTouchMove = (e: React.TouchEvent) => {
+      if (touchStartXRef.current == null) return;
+      const dx = e.touches[0].clientX - touchStartXRef.current;
+      if (dx >= 0) {
+        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
+        return;
+      }
+      const clamped = Math.max(dx, -SWIPE_REVEAL);
+      if (fgRef.current) {
+        fgRef.current.style.transition = "none";
+        fgRef.current.style.transform = `translateX(${clamped}px)`;
+      }
+    };
+    const onTouchEnd = (e: React.TouchEvent) => {
+      if (touchStartXRef.current == null) return;
+      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+      touchStartXRef.current = null;
+      if (fgRef.current) {
+        fgRef.current.style.transition = "transform 0.2s ease-out";
+      }
+      if (dx <= -60) {
+        setSwipedRowId(r.rowId);
+      } else {
+        if (isOpen) setSwipedRowId(null);
+        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
+      }
+    };
+
+    const handleForegroundClick = () => {
+      if (isOpen) {
+        setSwipedRowId(null);
+        return;
+      }
+      if (isUnmatched) {
+        openAssignSheet(r);
+      }
     };
 
     return (
-      <SwipeableListItem
-        trailingActions={renderTrailingActions(r.rowId)}
-        threshold={0.3}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          borderBottom: `0.5px solid ${DIVIDER}`,
+          background: filled ? FILLED_ROW_BG : "#fff",
+        }}
       >
+        {/* Red delete drawer (behind) */}
+        <button
+          type="button"
+          onClick={() => removeRow(r.rowId)}
+          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
+          style={{
+            width: SWIPE_REVEAL,
+            background: DELETE_RED,
+            color: "#fff",
+            border: "none",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+          tabIndex={-1}
+          aria-label="ลบ"
+        >
+          ลบ
+        </button>
+
+        {/* Foreground (swipes) */}
         <div
-          onClick={handleRowClick}
-          className="flex items-stretch gap-2 px-4 w-full"
+          ref={fgRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onClick={handleForegroundClick}
+          className="flex items-stretch gap-2 px-4 relative"
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            borderBottom: `0.5px solid ${DIVIDER}`,
+            transform: isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)",
+            transition: "transform 0.2s ease-out",
             cursor: isUnmatched ? "pointer" : "default",
           }}
         >
           {showDot && (
-            <span
-              className="shrink-0 self-center rounded-full"
-              style={{ width: 7, height: 7, background: dotColor }}
-            />
+            <span className="shrink-0 self-center rounded-full" style={{ width: 7, height: 7, background: dotColor }} />
           )}
 
           <div className="min-w-0 flex-1 py-1.5 self-center">
@@ -726,6 +757,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             className="flex items-center gap-1 shrink-0 self-center"
+            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             {isUnmatched ? (
@@ -774,7 +809,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </SwipeableListItem>
+      </div>
     );
   };
 
@@ -803,8 +838,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               marginTop: 2,
             }}
           >
-            {selectedBranch?.branchName ?? (isManagement ? "เลือกสาขา" : "—")} ·{" "}
-            {format(date, "d MMM yyyy")}
+            {selectedBranch?.branchName ?? (isManagement ? "เลือกสาขา" : "—")} · {format(date, "d MMM yyyy")}
           </div>
 
           {(isManagement || !isStoreManager) && (
@@ -832,20 +866,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   ))}
                 </select>
               )}
-              <DatePicker
-                value={date}
-                onChange={(d) => d && setDate(d)}
-                className="h-9 w-full"
-              />
+              <DatePicker value={date} onChange={(d) => d && setDate(d)} className="h-9 w-full" />
             </div>
           )}
 
           <div className="relative mt-4">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: MUTED }}
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUTED }} />
             <input
               value={supplierSearch}
               onChange={(e) => setSupplierSearch(e.target.value)}
@@ -913,17 +939,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </div>
 
         {!branchId ? (
-          <p
-            className="py-12 text-center"
-            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-          >
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
             เลือกสาขาก่อน
           </p>
         ) : filteredSuppliers.length === 0 ? (
-          <p
-            className="py-12 text-center"
-            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-          >
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
             ไม่พบซัพพลายเออร์
           </p>
         ) : (
@@ -1035,11 +1055,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 border: "none",
               }}
             >
-              {scanning ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Camera size={20} />
-              )}
+              {scanning ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
               <span>{scanning ? "AI กำลังอ่านใบส่ง..." : "ถ่ายรูปใบส่ง"}</span>
             </button>
 
@@ -1074,8 +1090,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 lineHeight: 1.5,
               }}
             >
-              เคล็ดลับ: ถ่ายรูปใบส่งให้ชัดและตรง AI จะอ่านรายการให้อัตโนมัติ
-              คุณยังตรวจสอบและแก้ไขได้ก่อนบันทึก
+              เคล็ดลับ: ถ่ายรูปใบส่งให้ชัดและตรง AI จะอ่านรายการให้อัตโนมัติ คุณยังตรวจสอบและแก้ไขได้ก่อนบันทึก
             </div>
 
             <input
@@ -1099,11 +1114,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const isAssign = !!assigningRowId;
     return (
       <>
-        <div
-          onClick={closeSheet}
-          className="fixed inset-0"
-          style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }}
-        />
+        <div onClick={closeSheet} className="fixed inset-0" style={{ background: "rgba(0,0,0,0.35)", zIndex: 60 }} />
         <div
           className="fixed left-0 right-0 bottom-0 w-full pb-safe"
           style={{
@@ -1130,23 +1141,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             >
               {isAssign ? "เลือก SKU ที่ตรงกับรายการ" : "เลือก SKU"}
             </span>
-            <button
-              type="button"
-              onClick={closeSheet}
-              style={{ color: MUTED }}
-              aria-label="ปิด"
-            >
+            <button type="button" onClick={closeSheet} style={{ color: MUTED }} aria-label="ปิด">
               <X size={20} />
             </button>
           </div>
 
           <div className="px-4 pt-3 pb-2">
             <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2"
-                style={{ color: MUTED }}
-              />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUTED }} />
               <input
                 autoFocus
                 value={addSheetSearch}
@@ -1292,9 +1294,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              <SwipeableList>
-                {rows.map((r) => <ItemRow key={r.rowId} r={r} />)}
-              </SwipeableList>
+              rows.map((r) => <ItemRow key={r.rowId} r={r} />)
             )}
 
             <button
@@ -1361,11 +1361,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 cursor: filledCount === 0 ? "default" : "pointer",
               }}
             >
-              {saving ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                `บันทึก ${filledCount} รายการ`
-              )}
+              {saving ? <Loader2 size={18} className="animate-spin" /> : `บันทึก ${filledCount} รายการ`}
             </button>
           </div>
         </div>
@@ -1424,8 +1420,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             color: MUTED,
           }}
         >
-          AI อ่านได้ {scanMeta?.count ?? rows.length} รายการ · มั่นใจ{" "}
-          {scanMeta?.confidence ?? 0}%
+          AI อ่านได้ {scanMeta?.count ?? rows.length} รายการ · มั่นใจ {scanMeta?.confidence ?? 0}%
         </div>
 
         <div style={{ background: "#fff" }}>
@@ -1441,9 +1436,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            <SwipeableList>
-              {rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)}
-            </SwipeableList>
+            rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
           )}
 
           <button
@@ -1510,11 +1503,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               cursor: filledCount === 0 ? "default" : "pointer",
             }}
           >
-            {saving ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              `ยืนยันและรับของ (${filledCount} รายการ)`
-            )}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : `ยืนยันและรับของ (${filledCount} รายการ)`}
           </button>
         </div>
       </div>
