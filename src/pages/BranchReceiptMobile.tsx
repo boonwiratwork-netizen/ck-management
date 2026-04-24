@@ -544,7 +544,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
-    setSwipedRowId(null);
     setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
