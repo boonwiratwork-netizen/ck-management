@@ -175,7 +175,7 @@ function matchSkuFromRawName(
     return { sku: null, confidence: "none" };
   }
   const confidence: MatchConfidence =
-    bestScore >= 8 && bestStrongMatches >= 2 ? "high" : bestScore >= 4 && bestStrongMatches >= 1 ? "low" : "none";
+    bestScore >= 6 && bestStrongMatches >= 2 ? "high" : bestScore >= 3 && bestStrongMatches >= 1 ? "low" : "none";
   return { sku: bestSku, confidence };
 }
 
@@ -586,6 +586,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const touchStartXRef = useRef<number | null>(null);
     const fgRef = useRef<HTMLDivElement | null>(null);
 
+    useEffect(() => {
+      if (fgRef.current) {
+        fgRef.current.style.transform = isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)";
+      }
+    }, [isOpen]);
+
     const onTouchStart = (e: React.TouchEvent) => {
       touchStartXRef.current = e.touches[0].clientX;
     };
@@ -666,7 +672,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            transform: isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)",
             transition: "transform 0.2s ease-out",
             cursor: isUnmatched ? "pointer" : "default",
           }}
