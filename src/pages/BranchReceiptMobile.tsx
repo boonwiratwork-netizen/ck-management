@@ -332,13 +332,34 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     fileInputRef.current?.click();
   };
 
-  const buildScanRows = (scanned: ScanItem[]): ManualRow[] => {
+  const buildScanRows = (
+    scanned: ScanItem[],
+    aiMatchMap: Map<string, { sku_id: string; confidence: MatchConfidence }>,
+  ): ManualRow[] => {
     const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }>();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
+
+      // 1) Try AI match first
+      let sku: SKU | null = null;
+      let confidence: MatchConfidence = "none";
+      const aiMatch = aiMatchMap.get(item.raw_name);
+      if (aiMatch && aiMatch.sku_id) {
+        const aiSku = skuMap[aiMatch.sku_id];
+        if (aiSku && supplierSkus.some((s) => s.id === aiSku.id)) {
+          sku = aiSku;
+          confidence = aiMatch.confidence;
+        }
+      }
+
+      // 2) Fallback to local token matcher
+      if (!sku) {
+        const fallback = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
+        sku = fallback.sku;
+        confidence = fallback.confidence;
+      }
 
       if (sku) {
         const existing = matchedMap.get(sku.id);
@@ -394,12 +415,21 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setScanning(true);
     try {
       const base64 = await fileToBase64(file);
+      // Send a slim catalog so the AI can match invoice text → SKU IDs
+      const skuCatalog = supplierSkus.map((s) => ({ skuId: s.id, name: s.name }));
       const { data, error } = await supabase.functions.invoke("scan-delivery-invoice", {
-        body: { imageBase64: base64, mimeType: file.type || "image/jpeg" },
+        body: { imageBase64: base64, mimeType: file.type || "image/jpeg", skuCatalog },
       });
       if (error) throw error;
       const items: ScanItem[] = Array.isArray(data?.items) ? data.items : [];
-      const built = buildScanRows(items);
+      const aiMatches: { raw_name: string; sku_id: string; confidence: MatchConfidence }[] = Array.isArray(
+        data?.matches,
+      )
+        ? data.matches
+        : [];
+      const matchMap = new Map<string, { sku_id: string; confidence: MatchConfidence }>();
+      aiMatches.forEach((m) => matchMap.set(m.raw_name, { sku_id: m.sku_id, confidence: m.confidence }));
+      const built = buildScanRows(items, matchMap);
       const matchedCount = built.filter((r) => r.matchConfidence !== "none").length;
       const highCount = built.filter((r) => r.matchConfidence === "high").length;
       const conf = built.length ? Math.round(((matchedCount + highCount) / (built.length * 2)) * 100) : 0;
@@ -432,7 +462,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
-    setSwipedRowId(null);
   };
 
   // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
