@@ -10,6 +10,14 @@ import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+  Type as ListType,
+} from "react-swipeable-list";
+import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -191,7 +199,6 @@ const QTY_BG = "rgba(0,0,0,0.05)";
 const SEARCH_BG = "rgba(0,0,0,0.06)";
 const CHIP_BG = "rgba(0,0,0,0.07)";
 const DELETE_RED = "#dc2626";
-const SWIPE_REVEAL = 80; // px width of red delete drawer
 
 // ─── Main Component ─────────────────────────────────────
 
@@ -211,7 +218,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
-  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
