@@ -10,6 +10,14 @@ import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+  Type as ListType,
+} from "react-swipeable-list";
+import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -191,7 +199,6 @@ const QTY_BG = "rgba(0,0,0,0.05)";
 const SEARCH_BG = "rgba(0,0,0,0.06)";
 const CHIP_BG = "rgba(0,0,0,0.07)";
 const DELETE_RED = "#dc2626";
-const SWIPE_REVEAL = 80; // px width of red delete drawer
 
 // ─── Main Component ─────────────────────────────────────
 
@@ -211,7 +218,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetSearch, setAddSheetSearch] = useState("");
   const [scanMeta, setScanMeta] = useState<{ count: number; confidence: number } | null>(null);
-  const [swipedRowId, setSwipedRowId] = useState<string | null>(null);
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -326,13 +332,34 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     fileInputRef.current?.click();
   };
 
-  const buildScanRows = (scanned: ScanItem[]): ManualRow[] => {
+  const buildScanRows = (
+    scanned: ScanItem[],
+    aiMatchMap: Map<string, { sku_id: string; confidence: MatchConfidence }>,
+  ): ManualRow[] => {
     const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }>();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
-      const { sku, confidence } = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
       const inputQty = Math.max(0, Number(item.quantity) || 0);
+
+      // 1) Try AI match first
+      let sku: SKU | null = null;
+      let confidence: MatchConfidence = "none";
+      const aiMatch = aiMatchMap.get(item.raw_name);
+      if (aiMatch && aiMatch.sku_id) {
+        const aiSku = skuMap[aiMatch.sku_id];
+        if (aiSku && supplierSkus.some((s) => s.id === aiSku.id)) {
+          sku = aiSku;
+          confidence = aiMatch.confidence;
+        }
+      }
+
+      // 2) Fallback to local token matcher
+      if (!sku) {
+        const fallback = matchSkuFromRawName(item.raw_name, item.code ?? "", supplierSkus);
+        sku = fallback.sku;
+        confidence = fallback.confidence;
+      }
 
       if (sku) {
         const existing = matchedMap.get(sku.id);
@@ -388,12 +415,21 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setScanning(true);
     try {
       const base64 = await fileToBase64(file);
+      // Send a slim catalog so the AI can match invoice text → SKU IDs
+      const skuCatalog = supplierSkus.map((s) => ({ skuId: s.id, name: s.name }));
       const { data, error } = await supabase.functions.invoke("scan-delivery-invoice", {
-        body: { imageBase64: base64, mimeType: file.type || "image/jpeg" },
+        body: { imageBase64: base64, mimeType: file.type || "image/jpeg", skuCatalog },
       });
       if (error) throw error;
       const items: ScanItem[] = Array.isArray(data?.items) ? data.items : [];
-      const built = buildScanRows(items);
+      const aiMatches: { raw_name: string; sku_id: string; confidence: MatchConfidence }[] = Array.isArray(
+        data?.matches,
+      )
+        ? data.matches
+        : [];
+      const matchMap = new Map<string, { sku_id: string; confidence: MatchConfidence }>();
+      aiMatches.forEach((m) => matchMap.set(m.raw_name, { sku_id: m.sku_id, confidence: m.confidence }));
+      const built = buildScanRows(items, matchMap);
       const matchedCount = built.filter((r) => r.matchConfidence !== "none").length;
       const highCount = built.filter((r) => r.matchConfidence === "high").length;
       const conf = built.length ? Math.round(((matchedCount + highCount) / (built.length * 2)) * 100) : 0;
@@ -426,7 +462,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
-    setSwipedRowId(null);
   };
 
   // FIX 3: Default new rows to qty = 1 (1 pack or 1 unit)
@@ -509,7 +544,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     setSupplierSearch("");
     setRows([]);
     setScanMeta(null);
-    setSwipedRowId(null);
     setAssigningRowId(null);
     setDate(new Date());
     setScreen("select");
@@ -564,7 +598,30 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  // ─── Swipeable row (Screens 3 & 4) ─────────────────────
+  // ─── Swipeable row (Screens 3 & 4) — uses react-swipeable-list ─────
+
+  const trailingActions = (rowId: string) => (
+    <TrailingActions>
+      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+        <div
+          style={{
+            background: DELETE_RED,
+            color: "#fff",
+            width: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            height: "100%",
+          }}
+        >
+          ลบ
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
 
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
@@ -582,102 +639,27 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           ? "#f59e0b"
           : "transparent";
 
-    const isOpen = swipedRowId === r.rowId;
-    const touchStartXRef = useRef<number | null>(null);
-    const fgRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-      if (fgRef.current) {
-        fgRef.current.style.transform = isOpen ? `translateX(-${SWIPE_REVEAL}px)` : "translateX(0px)";
-      }
-    }, [isOpen]);
-
-    const onTouchStart = (e: React.TouchEvent) => {
-      touchStartXRef.current = e.touches[0].clientX;
-    };
-    const onTouchMove = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.touches[0].clientX - touchStartXRef.current;
-      if (dx >= 0) {
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-        return;
-      }
-      const clamped = Math.max(dx, -SWIPE_REVEAL);
-      if (fgRef.current) {
-        fgRef.current.style.transition = "none";
-        fgRef.current.style.transform = `translateX(${clamped}px)`;
-      }
-    };
-    const onTouchEnd = (e: React.TouchEvent) => {
-      if (touchStartXRef.current == null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-      touchStartXRef.current = null;
-      if (fgRef.current) {
-        fgRef.current.style.transition = "transform 0.2s ease-out";
-      }
-      if (dx <= -60) {
-        setSwipedRowId(r.rowId);
-      } else {
-        if (isOpen) setSwipedRowId(null);
-        if (fgRef.current) fgRef.current.style.transform = "translateX(0px)";
-      }
-    };
-
-    const handleForegroundClick = () => {
-      if (isOpen) {
-        setSwipedRowId(null);
-        return;
-      }
-      if (isUnmatched) {
-        openAssignSheet(r);
-      }
+    const handleRowClick = () => {
+      if (isUnmatched) openAssignSheet(r);
     };
 
     return (
-      <div
-        className="relative overflow-hidden"
-        style={{
-          borderBottom: `0.5px solid ${DIVIDER}`,
-          background: filled ? FILLED_ROW_BG : "#fff",
-        }}
-      >
-        {/* Red delete drawer (behind) */}
-        <button
-          type="button"
-          onClick={() => removeRow(r.rowId)}
-          className="absolute top-0 bottom-0 right-0 flex items-center justify-center"
-          style={{
-            width: SWIPE_REVEAL,
-            background: DELETE_RED,
-            color: "#fff",
-            border: "none",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-          tabIndex={-1}
-          aria-label="ลบ"
-        >
-          ลบ
-        </button>
-
-        {/* Foreground (swipes) */}
+      <SwipeableListItem trailingActions={trailingActions(r.rowId)}>
         <div
-          ref={fgRef}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onClick={handleForegroundClick}
-          className="flex items-stretch gap-2 px-4 relative"
+          onClick={handleRowClick}
+          className="flex items-stretch gap-2 px-4 w-full"
           style={{
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
-            transition: "transform 0.2s ease-out",
+            borderBottom: `0.5px solid ${DIVIDER}`,
             cursor: isUnmatched ? "pointer" : "default",
           }}
         >
           {showDot && (
-            <span className="shrink-0 self-center rounded-full" style={{ width: 7, height: 7, background: dotColor }} />
+            <span
+              className="shrink-0 self-center rounded-full"
+              style={{ width: 7, height: 7, background: dotColor }}
+            />
           )}
 
           <div className="min-w-0 flex-1 py-1.5 self-center">
@@ -762,10 +744,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             className="flex items-center gap-1 shrink-0 self-center"
-            // Stop touch propagation from input/UOM area so qty editing isn't a swipe
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             {isUnmatched ? (
@@ -814,7 +792,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </div>
+      </SwipeableListItem>
     );
   };
 
@@ -1299,7 +1277,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              rows.map((r) => <ItemRow key={r.rowId} r={r} />)
+              <SwipeableList type={ListType.IOS} fullSwipe={false}>
+                {rows.map((r) => <ItemRow key={r.rowId} r={r} />)}
+              </SwipeableList>
             )}
 
             <button
@@ -1441,7 +1421,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)
+            <SwipeableList type={ListType.IOS} fullSwipe={false}>
+              {rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)}
+            </SwipeableList>
           )}
 
           <button
