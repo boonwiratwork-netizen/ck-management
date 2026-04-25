@@ -288,6 +288,15 @@ export default function FoodCostPage({
     [modifierRules, selectedBranch],
   );
 
+  // ----- Ratio Analysis computations -----
+  const distinctMenuCategories = useMemo(() => {
+    const set = new Set<string>();
+    menus.forEach((m) => {
+      if (m.category) set.add(m.category);
+    });
+    return Array.from(set).sort();
+  }, [menus]);
+
   const calcUsage = useCallback(
     (sales: any[]): Record<string, number> => {
       const usage: Record<string, number> = {};
@@ -869,15 +878,6 @@ export default function FoodCostPage({
 
   // Top 10 highest FC% menus (sorted view)
   const top10Menus = sortedMenuTop.slice(0, 10);
-
-  // ----- Ratio Analysis computations -----
-  const distinctMenuCategories = useMemo(() => {
-    const set = new Set<string>();
-    menus.forEach((m) => {
-      if (m.category) set.add(m.category);
-    });
-    return Array.from(set).sort();
-  }, [menus]);
 
   const maindishQty = useMemo(
     () => menuBreakdown.filter((m) => m.isMaindish).reduce((s, m) => s + m.qtySold, 0),
