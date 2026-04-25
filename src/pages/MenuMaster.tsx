@@ -226,6 +226,11 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
     }
   };
 
+  const handleToggleMaindish = async (menu: Menu, value: boolean) => {
+    await updateMenu(menu.id, { isMaindish: value });
+    toast.success(value ? `"${menu.menuName}" marked as Maindish` : `"${menu.menuName}" unmarked as Maindish`);
+  };
+
   const getBrandDisplay = (brandName: string) => {
     return brandName || '—';
   };
@@ -335,14 +340,15 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('brandName')}>
                   <SortableHeader label={t('col.brand')} sortKey="brandName" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </TableHead>
+                <TableHead className="w-[90px] text-center">Maindish</TableHead>
                 {canEdit && <TableHead className="w-[100px] text-right">{t('col.actions')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
               ) : sortedMenus.length === 0 ? (
-                <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center py-8 text-muted-foreground">No menus found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">No menus found</TableCell></TableRow>
               ) : (
                 sortedMenus.map(menu => (
                   <TableRow key={menu.id}>
@@ -360,6 +366,13 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{getBrandDisplay(menu.brandName)}</TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={menu.isMaindish}
+                        disabled={!canEdit}
+                        onCheckedChange={(v) => handleToggleMaindish(menu, v)}
+                      />
+                    </TableCell>
                     {canEdit && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
