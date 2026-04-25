@@ -635,7 +635,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           : "transparent";
 
     const handleRowClick = () => {
-      if (isUnmatched) openAssignSheet(r);
+      if (isUnmatched || r.matchConfidence === "low") openAssignSheet(r);
     };
 
     return (
