@@ -1170,11 +1170,7 @@ export default function FoodCostPage({
                         "relative min-w-[180px] flex-1 max-w-[280px] cursor-pointer transition-all",
                         selectedMetric === key ? "ring-2 shadow-md" : "hover:shadow-sm opacity-90 hover:opacity-100",
                       )}
-                      style={
-                        selectedMetric === key
-                          ? { ringColor: getMetricColor(key), borderColor: getMetricColor(key) }
-                          : {}
-                      }
+                      style={selectedMetric === key ? { borderColor: getMetricColor(key), borderWidth: 2 } : {}}
                       onClick={() => setSelectedMetric((prev) => (prev === key ? null : key))}
                     >
                       <div
