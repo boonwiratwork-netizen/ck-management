@@ -11,6 +11,7 @@ const toLocal = (row: any): Menu => ({
   sellingPrice: row.selling_price,
   status: row.status,
   brandName: row.brand_name || '',
+  isMaindish: row.is_maindish ?? false,
 });
 
 export function useMenuData() {
