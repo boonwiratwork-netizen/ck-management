@@ -703,12 +703,18 @@ export default function FoodCostPage({
         (sum, [skuId, qty]) => sum + qty * (stdPriceMap.get(skuId) || 0),
         0,
       );
+      const dayReceiptSet = new Set<string>();
+      for (const s of daySales) {
+        if (s.receipt_no) dayReceiptSet.add(String(s.receipt_no));
+      }
+      const dayReceiptCount = dayReceiptSet.size;
       return {
         date: dayStr,
         label: format(day, "dd/MM"),
         revenue: dayRev,
         stdFoodCost: dayStdCost,
         stdFcPct: dayRev > 0 ? (dayStdCost / dayRev) * 100 : 0,
+        avgTicketSize: dayReceiptCount > 0 ? dayRev / dayReceiptCount : 0,
       };
     });
 
