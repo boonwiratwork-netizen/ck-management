@@ -3,7 +3,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, lastDayOfMonth, getDaysInMonth } from "date-fns";
-import { Calculator, TrendingDown, TrendingUp, Download, Info } from "lucide-react";
+import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X } from "lucide-react";
 import { Tooltip as ShadTooltip, TooltipContent as ShadTooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnitLabel } from "@/components/ui/unit-label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSortableTable } from "@/hooks/use-sortable-table";
+import { SortableHeader } from "@/components/SortableHeader";
 import {
   BarChart,
   Bar,
@@ -56,6 +59,7 @@ interface DailyData {
   revenue: number;
   stdFoodCost: number;
   stdFcPct: number;
+  avgTicketSize: number;
 }
 
 interface SkuBreakdown {
@@ -77,6 +81,7 @@ interface MenuBreakdown {
   stdFoodCost: number;
   stdFcPct: number;
   costPerServing: number;
+  isMaindish: boolean;
 }
 
 interface SkuVarianceRow {
@@ -131,6 +136,24 @@ export default function FoodCostPage({
   const [menuBreakdown, setMenuBreakdown] = useState<MenuBreakdown[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalStdCost, setTotalStdCost] = useState(0);
+  const [totalReceiptCount, setTotalReceiptCount] = useState(0);
+
+  // Ratio analysis metrics — keys: "avg_ticket" | "ratio:<category>"
+  const RATIO_METRICS_KEY = "fc_ratio_metrics_v1";
+  const [ratioMetrics, setRatioMetrics] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(RATIO_METRICS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return ["avg_ticket"];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(RATIO_METRICS_KEY, JSON.stringify(ratioMetrics)); } catch {}
+  }, [ratioMetrics]);
+  const [addMetricOpen, setAddMetricOpen] = useState(false);
 
   // Actual vs Standard Variance state
   const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
@@ -441,6 +464,7 @@ export default function FoodCostPage({
             stdFoodCost: data.stdCost,
             stdFcPct: data.revenue > 0 ? (data.stdCost / data.revenue) * 100 : 0,
             costPerServing: data.qtySold > 0 ? data.stdCost / data.qtySold : 0,
+            isMaindish: menu?.isMaindish ?? false,
           };
         })
         .sort((a, b) => b.stdFcPct - a.stdFcPct);
@@ -700,19 +724,31 @@ export default function FoodCostPage({
         (sum, [skuId, qty]) => sum + qty * (stdPriceMap.get(skuId) || 0),
         0,
       );
+      const dayReceiptSet = new Set<string>();
+      for (const s of daySales) {
+        if (s.receipt_no) dayReceiptSet.add(String(s.receipt_no));
+      }
+      const dayReceiptCount = dayReceiptSet.size;
       return {
         date: dayStr,
         label: format(day, "dd/MM"),
         revenue: dayRev,
         stdFoodCost: dayStdCost,
         stdFcPct: dayRev > 0 ? (dayStdCost / dayRev) * 100 : 0,
+        avgTicketSize: dayReceiptCount > 0 ? dayRev / dayReceiptCount : 0,
       };
     });
 
     const menuRows = calcMenuCosts(sales);
 
+    const receiptSet = new Set<string>();
+    for (const s of sales) {
+      if (s.receipt_no) receiptSet.add(String(s.receipt_no));
+    }
+
     setTotalRevenue(rev);
     setTotalStdCost(totalCost);
+    setTotalReceiptCount(receiptSet.size);
     setDailyData(dailyRows);
     setSkuBreakdown(skuRows);
     setMenuBreakdown(menuRows);
@@ -737,8 +773,115 @@ export default function FoodCostPage({
   const stdFcPct = totalRevenue > 0 ? (totalStdCost / totalRevenue) * 100 : 0;
   const fmt = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  // Top 10 highest FC% menus
-  const top10Menus = menuBreakdown.slice(0, 10);
+  // ----- Sortable tables -----
+  const skuStdComparators = useMemo(() => ({
+    skuCode: (a: SkuBreakdown, b: SkuBreakdown) => a.skuCode.localeCompare(b.skuCode),
+    skuName: (a: SkuBreakdown, b: SkuBreakdown) => a.skuName.localeCompare(b.skuName),
+    type: (a: SkuBreakdown, b: SkuBreakdown) => a.type.localeCompare(b.type),
+    expectedUsage: (a: SkuBreakdown, b: SkuBreakdown) => a.expectedUsage - b.expectedUsage,
+    stdUnitPrice: (a: SkuBreakdown, b: SkuBreakdown) => a.stdUnitPrice - b.stdUnitPrice,
+    stdCost: (a: SkuBreakdown, b: SkuBreakdown) => a.stdCost - b.stdCost,
+  }), []);
+  const {
+    sorted: sortedSkuStd,
+    sortKey: skuStdSortKey,
+    sortDir: skuStdSortDir,
+    handleSort: handleSkuStdSort,
+  } = useSortableTable(skuBreakdown, skuStdComparators, "stdCost", "desc");
+
+  const menuComparators = useMemo(() => ({
+    menuCode: (a: MenuBreakdown, b: MenuBreakdown) => a.menuCode.localeCompare(b.menuCode),
+    menuName: (a: MenuBreakdown, b: MenuBreakdown) => a.menuName.localeCompare(b.menuName),
+    category: (a: MenuBreakdown, b: MenuBreakdown) => (menuByCode.get(a.menuCode)?.category || "").localeCompare(menuByCode.get(b.menuCode)?.category || ""),
+    qtySold: (a: MenuBreakdown, b: MenuBreakdown) => a.qtySold - b.qtySold,
+    revenue: (a: MenuBreakdown, b: MenuBreakdown) => a.revenue - b.revenue,
+    stdFoodCost: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFoodCost - b.stdFoodCost,
+    stdFcPct: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFcPct - b.stdFcPct,
+    costPerServing: (a: MenuBreakdown, b: MenuBreakdown) => a.costPerServing - b.costPerServing,
+  }), [menuByCode]);
+  const {
+    sorted: sortedMenuFull,
+    sortKey: menuSortKey,
+    sortDir: menuSortDir,
+    handleSort: handleMenuSort,
+  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
+
+  const {
+    sorted: sortedMenuTop,
+    sortKey: menuTopSortKey,
+    sortDir: menuTopSortDir,
+    handleSort: handleMenuTopSort,
+  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
+
+  // Top 10 highest FC% menus (sorted view)
+  const top10Menus = sortedMenuTop.slice(0, 10);
+
+  // ----- Ratio Analysis computations -----
+  const distinctMenuCategories = useMemo(() => {
+    const set = new Set<string>();
+    menus.forEach(m => { if (m.category) set.add(m.category); });
+    return Array.from(set).sort();
+  }, [menus]);
+
+  const maindishQty = useMemo(
+    () => menuBreakdown.filter(m => m.isMaindish).reduce((s, m) => s + m.qtySold, 0),
+    [menuBreakdown],
+  );
+  const qtyByCategory = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of menuBreakdown) {
+      const cat = menuByCode.get(row.menuCode)?.category || "";
+      if (!cat) continue;
+      m.set(cat, (m.get(cat) || 0) + row.qtySold);
+    }
+    return m;
+  }, [menuBreakdown, menuByCode]);
+  const avgTicketSize = totalReceiptCount > 0 ? totalRevenue / totalReceiptCount : 0;
+
+  const getMetricLabelValue = (key: string): { label: string; value: string } => {
+    if (key === "avg_ticket") {
+      return {
+        label: "Avg. Ticket Size",
+        value: totalReceiptCount > 0 ? `฿${avgTicketSize.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—",
+      };
+    }
+    if (key.startsWith("ratio:")) {
+      const cat = key.slice("ratio:".length);
+      const catQty = qtyByCategory.get(cat) || 0;
+      const value = maindishQty > 0 ? (catQty / maindishQty) * 100 : null;
+      return {
+        label: `% ${cat} / Maindish`,
+        value: value === null ? "—" : `${value.toFixed(1)}%`,
+      };
+    }
+    return { label: key, value: "—" };
+  };
+
+  const availableMetricsToAdd = useMemo(() => {
+    const opts: { key: string; label: string }[] = [];
+    if (!ratioMetrics.includes("avg_ticket")) {
+      opts.push({ key: "avg_ticket", label: "Avg. Ticket Size" });
+    }
+    distinctMenuCategories.forEach(cat => {
+      const key = `ratio:${cat}`;
+      if (!ratioMetrics.includes(key)) opts.push({ key, label: `% ${cat} / Maindish` });
+    });
+    return opts;
+  }, [ratioMetrics, distinctMenuCategories]);
+
+  // Sort state for SKU variance table (default: |totalVarThb| DESC handled by null sortKey via custom sort)
+  const [varSortKey, setVarSortKey] = useState<string | null>(null);
+  const [varSortDir, setVarSortDir] = useState<"asc" | "desc" | null>(null);
+  const handleVarSort = useCallback((key: string) => {
+    setVarSortKey(prev => {
+      if (prev !== key) {
+        setVarSortDir("asc");
+        return key;
+      }
+      setVarSortDir(d => (d === "asc" ? "desc" : null));
+      return varSortDir === "desc" ? null : key;
+    });
+  }, [varSortDir]);
 
   // Export CSV
   const handleExportCSV = () => {
@@ -902,6 +1045,63 @@ export default function FoodCostPage({
             </Card>
           </div>
 
+          {/* Ratio Analysis */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ratio Analysis</h3>
+              <Popover open={addMetricOpen} onOpenChange={setAddMetricOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={availableMetricsToAdd.length === 0}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Metric
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-1 max-h-[320px] overflow-y-auto">
+                  {availableMetricsToAdd.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">All metrics added</p>
+                  ) : (
+                    availableMetricsToAdd.map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setRatioMetrics(prev => [...prev, opt.key]);
+                          setAddMetricOpen(false);
+                        }}
+                        className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent"
+                      >
+                        {opt.label}
+                      </button>
+                    ))
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+            {ratioMetrics.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-3">No metrics selected. Click "+ Add Metric" to add.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {ratioMetrics.map(key => {
+                  const { label, value } = getMetricLabelValue(key);
+                  return (
+                    <Card key={key} className="relative min-w-[180px] flex-1 max-w-[280px]">
+                      <button
+                        type="button"
+                        onClick={() => setRatioMetrics(prev => prev.filter(k => k !== key))}
+                        className="absolute top-2 right-2 text-muted-foreground hover:text-foreground rounded p-0.5"
+                        aria-label="Remove metric"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <CardContent className="p-4 pr-7">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate" title={label}>{label}</p>
+                        <p className="text-2xl font-bold font-mono mt-1">{value}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Variance Summary Cards — canShowVariance gate */}
           {canShowVariance && varianceSummary !== null && (
@@ -982,13 +1182,12 @@ export default function FoodCostPage({
                         yAxisId="right"
                         orientation="right"
                         className="text-xs"
-                        domain={[0, 100]}
-                        tickFormatter={(v: number) => `${v}%`}
+                        tickFormatter={(v: number) => `฿${Math.round(v)}`}
+                        label={{ value: "฿/bill", angle: -90, position: "insideRight", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       />
                       <Tooltip
                         formatter={(value: number, name: string) => {
-                          if (name === "FC%") return [`${value.toFixed(1)}%`, name];
-                          return [`฿${value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`, name];
+                          return [`฿${value.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, name];
                         }}
                       />
                       <Legend />
@@ -997,8 +1196,8 @@ export default function FoodCostPage({
                       <Line
                         yAxisId="right"
                         type="monotone"
-                        dataKey="stdFcPct"
-                        name="FC%"
+                        dataKey="avgTicketSize"
+                        name="Avg Ticket Size"
                         stroke="#BA7517"
                         strokeWidth={3}
                         dot={{ r: 4, fill: "#BA7517" }}
@@ -1006,7 +1205,7 @@ export default function FoodCostPage({
                           position: "top",
                           fontSize: 10,
                           fill: "#BA7517",
-                          formatter: (v: number) => `${v.toFixed(1)}%`,
+                          formatter: (v: number) => `฿${Math.round(v)}`,
                         }}
                       />
                     </ComposedChart>
@@ -1039,17 +1238,20 @@ export default function FoodCostPage({
                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {t("col.menuName")}
                         </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          {t("col.qtySold")}
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 110 }}>
+                          Category
                         </TableHead>
                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          {t("col.revenue")}
+                          <SortableHeader label={t("col.qtySold")} sortKey="qtySold" activeSortKey={menuTopSortKey} sortDir={menuTopSortDir} onSort={handleMenuTopSort} className="justify-end" />
                         </TableHead>
                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          {t("col.stdCost")}
+                          <SortableHeader label={t("col.revenue")} sortKey="revenue" activeSortKey={menuTopSortKey} sortDir={menuTopSortDir} onSort={handleMenuTopSort} className="justify-end" />
                         </TableHead>
                         <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          {t("col.fcPct")}
+                          <SortableHeader label={t("col.stdCost")} sortKey="stdFoodCost" activeSortKey={menuTopSortKey} sortDir={menuTopSortDir} onSort={handleMenuTopSort} className="justify-end" />
+                        </TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                          <SortableHeader label={t("col.fcPct")} sortKey="stdFcPct" activeSortKey={menuTopSortKey} sortDir={menuTopSortDir} onSort={handleMenuTopSort} className="justify-end" />
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1062,6 +1264,7 @@ export default function FoodCostPage({
                           <TableCell className="px-3 py-2 text-sm font-mono text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
                           <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
+                          <TableCell className="px-3 py-2 text-sm text-muted-foreground">{menuByCode.get(m.menuCode)?.category || "—"}</TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
                           <TableCell className="px-3 py-2 text-sm font-mono text-right">
@@ -1101,12 +1304,34 @@ export default function FoodCostPage({
 
             const mergedRows = showVariance
               ? skuBreakdown.map(r => ({ std: r, var: varianceMap.get(r.skuId) ?? null }))
-                  .sort((a, b) => {
-                    const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
-                    const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
-                    return absB - absA;
-                  })
               : null;
+
+            if (mergedRows) {
+              const cmpVal = (key: string, row: { std: SkuBreakdown; var: SkuVarianceRow | null }): number => {
+                if (key === "skuCode") return 0; // handled below as string
+                if (key === "stdCost") return row.std.stdCost;
+                if (key === "actCost") return row.var?.actCost ?? -Infinity;
+                if (key === "totalVarThb") return row.var?.totalVarThb ?? -Infinity;
+                return 0;
+              };
+              if (varSortKey && varSortDir) {
+                mergedRows.sort((a, b) => {
+                  if (varSortKey === "skuCode") {
+                    const r = a.std.skuCode.localeCompare(b.std.skuCode);
+                    return varSortDir === "desc" ? -r : r;
+                  }
+                  const r = cmpVal(varSortKey, a) - cmpVal(varSortKey, b);
+                  return varSortDir === "desc" ? -r : r;
+                });
+              } else {
+                // Default sort: |totalVarThb| DESC
+                mergedRows.sort((a, b) => {
+                  const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
+                  const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
+                  return absB - absA;
+                });
+              }
+            }
 
             const varColorClass = (v: number | null) =>
               v === null ? "text-muted-foreground" : v > 0 ? "text-destructive font-semibold" : v < 0 ? "text-success font-semibold" : "text-muted-foreground";
@@ -1138,16 +1363,24 @@ export default function FoodCostPage({
                         </colgroup>
                         <thead className="sticky top-0 z-[5] bg-background">
                           <tr className="bg-table-header border-b">
-                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuCode")}</th>
+                            <th className={`px-3 py-2 text-left ${thCls}`}>
+                              <SortableHeader label={t("col.skuCode")} sortKey="skuCode" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} />
+                            </th>
                             <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuName")}</th>
                             <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.type")}</th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>Std Qty</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("col.stdCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("col.stdCost")} sortKey="stdCost" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actQty")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("fc.actCost")} sortKey="actCost" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.qtyVar")}</th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.priceVarThb")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.totalVarThb")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("fc.totalVarThb")} sortKey="totalVarThb" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1221,17 +1454,29 @@ export default function FoodCostPage({
                       <Table>
                         <TableHeader className="sticky top-0 z-10 bg-background">
                           <TableRow className="bg-table-header border-b">
-                            <TableHead className={thCls}>{t("col.skuCode")}</TableHead>
-                            <TableHead className={thCls}>{t("col.skuName")}</TableHead>
-                            <TableHead className={thCls}>{t("col.type")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.expectedUsage")}</TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.skuCode")} sortKey="skuCode" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.skuName")} sortKey="skuName" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.type")} sortKey="type" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.expectedUsage")} sortKey="expectedUsage" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
                             <TableHead className={thCls}>{t("col.uom")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.stdUnitPrice")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.stdCost")}</TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.stdUnitPrice")} sortKey="stdUnitPrice" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.stdCost")} sortKey="stdCost" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {skuBreakdown.map((r) => (
+                          {sortedSkuStd.map((r) => (
                             <TableRow key={r.skuId} className="border-b border-table-border hover:bg-table-hover transition-colors">
                               <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
                               <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
@@ -1274,31 +1519,35 @@ export default function FoodCostPage({
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         {t("col.menuName")}
                       </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.qtySold")}
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 110 }}>
+                        Category
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.revenue")}
+                        <SortableHeader label={t("col.qtySold")} sortKey="qtySold" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.stdCost")}
+                        <SortableHeader label={t("col.revenue")} sortKey="revenue" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.fcPct")}
+                        <SortableHeader label={t("col.stdCost")} sortKey="stdFoodCost" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.costPerServing")}
+                        <SortableHeader label={t("col.fcPct")} sortKey="stdFcPct" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
+                      </TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                        <SortableHeader label={t("col.costPerServing")} sortKey="costPerServing" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {menuBreakdown.map((m) => (
+                    {sortedMenuFull.map((m) => (
                       <TableRow
                         key={m.menuCode}
                         className="border-b border-table-border hover:bg-table-hover transition-colors"
                       >
                         <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
                         <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm text-muted-foreground">{menuByCode.get(m.menuCode)?.category || "—"}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
@@ -1322,7 +1571,7 @@ export default function FoodCostPage({
                     ))}
                     {menuBreakdown.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                           No data
                         </TableCell>
                       </TableRow>
