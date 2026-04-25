@@ -1156,7 +1156,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               onChange={handleFileSelected}
             />
           </div>
-        </div>
       </div>
     );
   }
