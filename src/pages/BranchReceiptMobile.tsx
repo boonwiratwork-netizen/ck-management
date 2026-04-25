@@ -594,7 +594,28 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) — uses react-swipeable-list ─────
 
-
+  const trailingActions = (rowId: string) => (
+    <TrailingActions>
+      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+        <div
+          style={{
+            background: DELETE_RED,
+            color: "#fff",
+            width: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            height: "100%",
+          }}
+        >
+          ลบ
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
 
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
@@ -619,54 +640,33 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
     const [swipeX, setSwipeX] = React.useState(0);
-    const swipeXRef = useRef(0);
-    const isSwipingRef = useRef(false);
-    const rowRef = useRef<HTMLDivElement>(null);
+    const [swiping, setSwiping] = React.useState(false);
     const DELETE_THRESHOLD = 80;
 
-    useEffect(() => {
-      const el = rowRef.current;
-      if (!el) return;
+    const onTouchStart = (e: React.TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+      setSwiping(false);
+    };
 
-      const handleTouchStart = (e: TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-        touchStartY.current = e.touches[0].clientY;
-        isSwipingRef.current = false;
-      };
+    const onTouchMove = (e: React.TouchEvent) => {
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
+      if (dx < 0) {
+        setSwiping(true);
+        setSwipeX(Math.max(dx, -DELETE_THRESHOLD - 20));
+      }
+    };
 
-      const handleTouchMove = (e: TouchEvent) => {
-        const dx = e.touches[0].clientX - touchStartX.current;
-        const dy = e.touches[0].clientY - touchStartY.current;
-        if (!isSwipingRef.current && Math.abs(dy) > Math.abs(dx)) return;
-        if (dx < 0) {
-          isSwipingRef.current = true;
-          e.preventDefault();
-          const next = Math.max(dx, -DELETE_THRESHOLD - 20);
-          swipeXRef.current = next;
-          setSwipeX(next);
-        }
-      };
-
-      const handleTouchEnd = () => {
-        if (swipeXRef.current <= -DELETE_THRESHOLD) {
-          removeRow(r.rowId);
-        } else {
-          swipeXRef.current = 0;
-          setSwipeX(0);
-        }
-        isSwipingRef.current = false;
-      };
-
-      el.addEventListener("touchstart", handleTouchStart, { passive: true });
-      el.addEventListener("touchmove", handleTouchMove, { passive: false });
-      el.addEventListener("touchend", handleTouchEnd, { passive: true });
-
-      return () => {
-        el.removeEventListener("touchstart", handleTouchStart);
-        el.removeEventListener("touchmove", handleTouchMove);
-        el.removeEventListener("touchend", handleTouchEnd);
-      };
-    }, [r.rowId]);
+    const onTouchEnd = () => {
+      if (swipeX <= -DELETE_THRESHOLD) {
+        removeRow(r.rowId);
+      } else {
+        setSwipeX(0);
+      }
+      setSwiping(false);
+    };
 
     return (
       <div style={{ overflow: "hidden", position: "relative" }}>
@@ -689,13 +689,15 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         >
           ลบ
         </div>
-       <div
-          ref={rowRef}
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
           onClick={handleRowClick}
           className="flex items-stretch gap-2 px-4 w-full"
           style={{
             transform: `translateX(${swipeX}px)`,
-            transition: isSwipingRef.current ? "none" : "transform 0.2s ease",
+            transition: swiping ? "none" : "transform 0.2s ease",
             position: "relative",
             zIndex: 1,
             minHeight: 52,
@@ -1155,6 +1157,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               className="hidden"
               onChange={handleFileSelected}
             />
+          </div>
+        </div>
       </div>
     );
   }
