@@ -1304,12 +1304,34 @@ export default function FoodCostPage({
 
             const mergedRows = showVariance
               ? skuBreakdown.map(r => ({ std: r, var: varianceMap.get(r.skuId) ?? null }))
-                  .sort((a, b) => {
-                    const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
-                    const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
-                    return absB - absA;
-                  })
               : null;
+
+            if (mergedRows) {
+              const cmpVal = (key: string, row: { std: SkuBreakdown; var: SkuVarianceRow | null }): number => {
+                if (key === "skuCode") return 0; // handled below as string
+                if (key === "stdCost") return row.std.stdCost;
+                if (key === "actCost") return row.var?.actCost ?? -Infinity;
+                if (key === "totalVarThb") return row.var?.totalVarThb ?? -Infinity;
+                return 0;
+              };
+              if (varSortKey && varSortDir) {
+                mergedRows.sort((a, b) => {
+                  if (varSortKey === "skuCode") {
+                    const r = a.std.skuCode.localeCompare(b.std.skuCode);
+                    return varSortDir === "desc" ? -r : r;
+                  }
+                  const r = cmpVal(varSortKey, a) - cmpVal(varSortKey, b);
+                  return varSortDir === "desc" ? -r : r;
+                });
+              } else {
+                // Default sort: |totalVarThb| DESC
+                mergedRows.sort((a, b) => {
+                  const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
+                  const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
+                  return absB - absA;
+                });
+              }
+            }
 
             const varColorClass = (v: number | null) =>
               v === null ? "text-muted-foreground" : v > 0 ? "text-destructive font-semibold" : v < 0 ? "text-success font-semibold" : "text-muted-foreground";
@@ -1341,16 +1363,24 @@ export default function FoodCostPage({
                         </colgroup>
                         <thead className="sticky top-0 z-[5] bg-background">
                           <tr className="bg-table-header border-b">
-                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuCode")}</th>
+                            <th className={`px-3 py-2 text-left ${thCls}`}>
+                              <SortableHeader label={t("col.skuCode")} sortKey="skuCode" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} />
+                            </th>
                             <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuName")}</th>
                             <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.type")}</th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>Std Qty</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("col.stdCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("col.stdCost")} sortKey="stdCost" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actQty")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actCost")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("fc.actCost")} sortKey="actCost" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.qtyVar")}</th>
                             <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.priceVarThb")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.totalVarThb")}</th>
+                            <th className={`px-3 py-2 text-right ${thCls}`}>
+                              <SortableHeader label={t("fc.totalVarThb")} sortKey="totalVarThb" activeSortKey={varSortKey} sortDir={varSortDir} onSort={handleVarSort} className="justify-end" />
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
