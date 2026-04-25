@@ -3,7 +3,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, lastDayOfMonth, getDaysInMonth } from "date-fns";
-import { Calculator, TrendingDown, TrendingUp, Download, Info } from "lucide-react";
+import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X } from "lucide-react";
 import { Tooltip as ShadTooltip, TooltipContent as ShadTooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnitLabel } from "@/components/ui/unit-label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSortableTable } from "@/hooks/use-sortable-table";
+import { SortableHeader } from "@/components/SortableHeader";
 import {
   BarChart,
   Bar,
