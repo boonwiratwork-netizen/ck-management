@@ -912,8 +912,8 @@ export default function FoodCostPage({
       return {
         label: "Avg. Ticket Size",
         value:
-          totalReceiptCount > 0
-            ? `฿${avgTicketSize.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          totalReceiptCount > 0 && totalRevenue > 0
+            ? `฿${(totalRevenue / totalReceiptCount).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
             : "—",
       };
     }
