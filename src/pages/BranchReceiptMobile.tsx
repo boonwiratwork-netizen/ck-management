@@ -594,28 +594,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) — uses react-swipeable-list ─────
 
-  const trailingActions = (rowId: string) => (
-    <TrailingActions>
-      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
-        <div
-          style={{
-            background: DELETE_RED,
-            color: "#fff",
-            width: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
-            height: "100%",
-          }}
-        >
-          ลบ
-        </div>
-      </SwipeAction>
-    </TrailingActions>
-  );
+
 
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
@@ -716,7 +695,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           className="flex items-stretch gap-2 px-4 w-full"
           style={{
             transform: `translateX(${swipeX}px)`,
-            transition: swiping ? "none" : "transform 0.2s ease",
+            transition: isSwipingRef.current ? "none" : "transform 0.2s ease",
             position: "relative",
             zIndex: 1,
             minHeight: 52,
