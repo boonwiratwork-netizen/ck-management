@@ -1031,6 +1031,63 @@ export default function FoodCostPage({
             </Card>
           </div>
 
+          {/* Ratio Analysis */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ratio Analysis</h3>
+              <Popover open={addMetricOpen} onOpenChange={setAddMetricOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={availableMetricsToAdd.length === 0}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Metric
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-1 max-h-[320px] overflow-y-auto">
+                  {availableMetricsToAdd.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">All metrics added</p>
+                  ) : (
+                    availableMetricsToAdd.map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setRatioMetrics(prev => [...prev, opt.key]);
+                          setAddMetricOpen(false);
+                        }}
+                        className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent"
+                      >
+                        {opt.label}
+                      </button>
+                    ))
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+            {ratioMetrics.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-3">No metrics selected. Click "+ Add Metric" to add.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {ratioMetrics.map(key => {
+                  const { label, value } = getMetricLabelValue(key);
+                  return (
+                    <Card key={key} className="relative min-w-[180px] flex-1 max-w-[280px]">
+                      <button
+                        type="button"
+                        onClick={() => setRatioMetrics(prev => prev.filter(k => k !== key))}
+                        className="absolute top-2 right-2 text-muted-foreground hover:text-foreground rounded p-0.5"
+                        aria-label="Remove metric"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <CardContent className="p-4 pr-7">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate" title={label}>{label}</p>
+                        <p className="text-2xl font-bold font-mono mt-1">{value}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Variance Summary Cards — canShowVariance gate */}
           {canShowVariance && varianceSummary !== null && (
