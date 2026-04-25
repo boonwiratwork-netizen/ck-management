@@ -751,7 +751,7 @@ export default function FoodCostPage({
       );
       const dayReceiptSet = new Set<string>();
       for (const s of daySales) {
-        if (s.receipt_no) dayReceiptSet.add(String(s.receipt_no));
+        if (s.receipt_no) dayReceiptSet.add(`${s.sale_date}__${s.receipt_no}`);
       }
       const dayReceiptCount = dayReceiptSet.size;
 
@@ -786,7 +786,7 @@ export default function FoodCostPage({
 
     const receiptSet = new Set<string>();
     for (const s of sales) {
-      if (s.receipt_no) receiptSet.add(String(s.receipt_no));
+      if (s.receipt_no) receiptSet.add(`${s.sale_date}__${s.receipt_no}`);
     }
 
     setTotalRevenue(rev);
