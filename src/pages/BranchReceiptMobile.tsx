@@ -10,8 +10,7 @@ import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X, Images } from "lucide-react";
 import { toast } from "sonner";
-import { SwipeableList, SwipeableListItem, SwipeAction, TrailingActions, Type as ListType } from "react-swipeable-list";
-import "react-swipeable-list/dist/styles.css";
+
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -638,16 +637,73 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       if (isUnmatched || r.matchConfidence === "low") openAssignSheet(r);
     };
 
+    const touchStartX = useRef(0);
+    const touchStartY = useRef(0);
+    const [swipeX, setSwipeX] = React.useState(0);
+    const [swiping, setSwiping] = React.useState(false);
+    const DELETE_THRESHOLD = 80;
+
+    const onTouchStart = (e: React.TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+      setSwiping(false);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
+      if (dx < 0) {
+        setSwiping(true);
+        setSwipeX(Math.max(dx, -DELETE_THRESHOLD - 20));
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (swipeX <= -DELETE_THRESHOLD) {
+        removeRow(r.rowId);
+      } else {
+        setSwipeX(0);
+      }
+      setSwiping(false);
+    };
+
     return (
-      <SwipeableListItem trailingActions={trailingActions(r.rowId)}>
+      <div style={{ overflow: "hidden", position: "relative" }}>
         <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: DELETE_THRESHOLD,
+            background: DELETE_RED,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          ลบ
+        </div>
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
           onClick={handleRowClick}
           className="flex items-stretch gap-2 px-4 w-full"
           style={{
+            transform: `translateX(${swipeX}px)`,
+            transition: swiping ? "none" : "transform 0.2s ease",
+            position: "relative",
+            zIndex: 1,
             minHeight: 52,
             background: filled ? FILLED_ROW_BG : "#fff",
             borderBottom: `0.5px solid ${DIVIDER}`,
-            cursor: isUnmatched ? "pointer" : "default",
+            cursor: isUnmatched || r.matchConfidence === "low" ? "pointer" : "default",
           }}
         >
           {showDot && (
@@ -781,7 +837,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
         </div>
-      </SwipeableListItem>
+        </div>
+      </div>
     );
   };
 
@@ -1293,11 +1350,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              <SwipeableList type={ListType.IOS} fullSwipe={false} threshold={0.3}>
+              <div>
                 {rows.map((r) => (
                   <ItemRow key={r.rowId} r={r} />
                 ))}
-              </SwipeableList>
+              </div>
             )}
 
             <button
@@ -1439,11 +1496,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            <SwipeableList type={ListType.IOS} fullSwipe={false} threshold={0.3}>
+            <div>
               {rows.map((r) => (
                 <ItemRow key={r.rowId} r={r} showDot />
               ))}
-            </SwipeableList>
+            </div>
           )}
 
           <button
