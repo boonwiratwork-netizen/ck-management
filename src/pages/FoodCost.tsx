@@ -869,6 +869,20 @@ export default function FoodCostPage({
     return opts;
   }, [ratioMetrics, distinctMenuCategories]);
 
+  // Sort state for SKU variance table (default: |totalVarThb| DESC handled by null sortKey via custom sort)
+  const [varSortKey, setVarSortKey] = useState<string | null>(null);
+  const [varSortDir, setVarSortDir] = useState<"asc" | "desc" | null>(null);
+  const handleVarSort = useCallback((key: string) => {
+    setVarSortKey(prev => {
+      if (prev !== key) {
+        setVarSortDir("asc");
+        return key;
+      }
+      setVarSortDir(d => (d === "asc" ? "desc" : null));
+      return varSortDir === "desc" ? null : key;
+    });
+  }, [varSortDir]);
+
   // Export CSV
   const handleExportCSV = () => {
     const lines: string[] = [];
