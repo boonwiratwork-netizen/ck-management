@@ -1454,17 +1454,29 @@ export default function FoodCostPage({
                       <Table>
                         <TableHeader className="sticky top-0 z-10 bg-background">
                           <TableRow className="bg-table-header border-b">
-                            <TableHead className={thCls}>{t("col.skuCode")}</TableHead>
-                            <TableHead className={thCls}>{t("col.skuName")}</TableHead>
-                            <TableHead className={thCls}>{t("col.type")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.expectedUsage")}</TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.skuCode")} sortKey="skuCode" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.skuName")} sortKey="skuName" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={thCls}>
+                              <SortableHeader label={t("col.type")} sortKey="type" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} />
+                            </TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.expectedUsage")} sortKey="expectedUsage" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
                             <TableHead className={thCls}>{t("col.uom")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.stdUnitPrice")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>{t("col.stdCost")}</TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.stdUnitPrice")} sortKey="stdUnitPrice" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
+                            <TableHead className={`${thCls} text-right`}>
+                              <SortableHeader label={t("col.stdCost")} sortKey="stdCost" activeSortKey={skuStdSortKey} sortDir={skuStdSortDir} onSort={handleSkuStdSort} className="justify-end" />
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {skuBreakdown.map((r) => (
+                          {sortedSkuStd.map((r) => (
                             <TableRow key={r.skuId} className="border-b border-table-border hover:bg-table-hover transition-colors">
                               <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
                               <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
