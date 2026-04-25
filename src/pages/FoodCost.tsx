@@ -998,13 +998,12 @@ export default function FoodCostPage({
                         yAxisId="right"
                         orientation="right"
                         className="text-xs"
-                        domain={[0, 100]}
-                        tickFormatter={(v: number) => `${v}%`}
+                        tickFormatter={(v: number) => `฿${Math.round(v)}`}
+                        label={{ value: "฿/bill", angle: -90, position: "insideRight", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       />
                       <Tooltip
                         formatter={(value: number, name: string) => {
-                          if (name === "FC%") return [`${value.toFixed(1)}%`, name];
-                          return [`฿${value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`, name];
+                          return [`฿${value.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, name];
                         }}
                       />
                       <Legend />
@@ -1013,8 +1012,8 @@ export default function FoodCostPage({
                       <Line
                         yAxisId="right"
                         type="monotone"
-                        dataKey="stdFcPct"
-                        name="FC%"
+                        dataKey="avgTicketSize"
+                        name="Avg Ticket Size"
                         stroke="#BA7517"
                         strokeWidth={3}
                         dot={{ r: 4, fill: "#BA7517" }}
@@ -1022,7 +1021,7 @@ export default function FoodCostPage({
                           position: "top",
                           fontSize: 10,
                           fill: "#BA7517",
-                          formatter: (v: number) => `${v.toFixed(1)}%`,
+                          formatter: (v: number) => `฿${Math.round(v)}`,
                         }}
                       />
                     </ComposedChart>
