@@ -773,8 +773,101 @@ export default function FoodCostPage({
   const stdFcPct = totalRevenue > 0 ? (totalStdCost / totalRevenue) * 100 : 0;
   const fmt = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  // Top 10 highest FC% menus
-  const top10Menus = menuBreakdown.slice(0, 10);
+  // ----- Sortable tables -----
+  const skuStdComparators = useMemo(() => ({
+    skuCode: (a: SkuBreakdown, b: SkuBreakdown) => a.skuCode.localeCompare(b.skuCode),
+    skuName: (a: SkuBreakdown, b: SkuBreakdown) => a.skuName.localeCompare(b.skuName),
+    type: (a: SkuBreakdown, b: SkuBreakdown) => a.type.localeCompare(b.type),
+    expectedUsage: (a: SkuBreakdown, b: SkuBreakdown) => a.expectedUsage - b.expectedUsage,
+    stdUnitPrice: (a: SkuBreakdown, b: SkuBreakdown) => a.stdUnitPrice - b.stdUnitPrice,
+    stdCost: (a: SkuBreakdown, b: SkuBreakdown) => a.stdCost - b.stdCost,
+  }), []);
+  const {
+    sorted: sortedSkuStd,
+    sortKey: skuStdSortKey,
+    sortDir: skuStdSortDir,
+    handleSort: handleSkuStdSort,
+  } = useSortableTable(skuBreakdown, skuStdComparators, "stdCost", "desc");
+
+  const menuComparators = useMemo(() => ({
+    menuCode: (a: MenuBreakdown, b: MenuBreakdown) => a.menuCode.localeCompare(b.menuCode),
+    menuName: (a: MenuBreakdown, b: MenuBreakdown) => a.menuName.localeCompare(b.menuName),
+    category: (a: MenuBreakdown, b: MenuBreakdown) => (menuByCode.get(a.menuCode)?.category || "").localeCompare(menuByCode.get(b.menuCode)?.category || ""),
+    qtySold: (a: MenuBreakdown, b: MenuBreakdown) => a.qtySold - b.qtySold,
+    revenue: (a: MenuBreakdown, b: MenuBreakdown) => a.revenue - b.revenue,
+    stdFoodCost: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFoodCost - b.stdFoodCost,
+    stdFcPct: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFcPct - b.stdFcPct,
+    costPerServing: (a: MenuBreakdown, b: MenuBreakdown) => a.costPerServing - b.costPerServing,
+  }), [menuByCode]);
+  const {
+    sorted: sortedMenuFull,
+    sortKey: menuSortKey,
+    sortDir: menuSortDir,
+    handleSort: handleMenuSort,
+  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
+
+  const {
+    sorted: sortedMenuTop,
+    sortKey: menuTopSortKey,
+    sortDir: menuTopSortDir,
+    handleSort: handleMenuTopSort,
+  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
+
+  // Top 10 highest FC% menus (sorted view)
+  const top10Menus = sortedMenuTop.slice(0, 10);
+
+  // ----- Ratio Analysis computations -----
+  const distinctMenuCategories = useMemo(() => {
+    const set = new Set<string>();
+    menus.forEach(m => { if (m.category) set.add(m.category); });
+    return Array.from(set).sort();
+  }, [menus]);
+
+  const maindishQty = useMemo(
+    () => menuBreakdown.filter(m => m.isMaindish).reduce((s, m) => s + m.qtySold, 0),
+    [menuBreakdown],
+  );
+  const qtyByCategory = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of menuBreakdown) {
+      const cat = menuByCode.get(row.menuCode)?.category || "";
+      if (!cat) continue;
+      m.set(cat, (m.get(cat) || 0) + row.qtySold);
+    }
+    return m;
+  }, [menuBreakdown, menuByCode]);
+  const avgTicketSize = totalReceiptCount > 0 ? totalRevenue / totalReceiptCount : 0;
+
+  const getMetricLabelValue = (key: string): { label: string; value: string } => {
+    if (key === "avg_ticket") {
+      return {
+        label: "Avg. Ticket Size",
+        value: totalReceiptCount > 0 ? `฿${avgTicketSize.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—",
+      };
+    }
+    if (key.startsWith("ratio:")) {
+      const cat = key.slice("ratio:".length);
+      const catQty = qtyByCategory.get(cat) || 0;
+      const value = maindishQty > 0 ? (catQty / maindishQty) * 100 : null;
+      return {
+        label: `% ${cat} / Maindish`,
+        value: value === null ? "—" : `${value.toFixed(1)}%`,
+      };
+    }
+    return { label: key, value: "—" };
+  };
+
+  const availableMetricsToAdd = useMemo(() => {
+    const opts: { key: string; label: string }[] = [];
+    if (!ratioMetrics.includes("avg_ticket")) {
+      opts.push({ key: "avg_ticket", label: "Avg. Ticket Size" });
+    }
+    distinctMenuCategories.forEach(cat => {
+      const key = `ratio:${cat}`;
+      if (!ratioMetrics.includes(key)) opts.push({ key, label: `% ${cat} / Maindish` });
+    });
+    return opts;
+  }, [ratioMetrics, distinctMenuCategories]);
 
   // Export CSV
   const handleExportCSV = () => {
