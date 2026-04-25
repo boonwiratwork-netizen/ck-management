@@ -640,33 +640,54 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
     const [swipeX, setSwipeX] = React.useState(0);
-    const [swiping, setSwiping] = React.useState(false);
+    const swipeXRef = useRef(0);
+    const isSwipingRef = useRef(false);
+    const rowRef = useRef<HTMLDivElement>(null);
     const DELETE_THRESHOLD = 80;
 
-    const onTouchStart = (e: React.TouchEvent) => {
-      touchStartX.current = e.touches[0].clientX;
-      touchStartY.current = e.touches[0].clientY;
-      setSwiping(false);
-    };
+    useEffect(() => {
+      const el = rowRef.current;
+      if (!el) return;
 
-    const onTouchMove = (e: React.TouchEvent) => {
-      const dx = e.touches[0].clientX - touchStartX.current;
-      const dy = e.touches[0].clientY - touchStartY.current;
-      if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
-      if (dx < 0) {
-        setSwiping(true);
-        setSwipeX(Math.max(dx, -DELETE_THRESHOLD - 20));
-      }
-    };
+      const handleTouchStart = (e: TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+        isSwipingRef.current = false;
+      };
 
-    const onTouchEnd = () => {
-      if (swipeX <= -DELETE_THRESHOLD) {
-        removeRow(r.rowId);
-      } else {
-        setSwipeX(0);
-      }
-      setSwiping(false);
-    };
+      const handleTouchMove = (e: TouchEvent) => {
+        const dx = e.touches[0].clientX - touchStartX.current;
+        const dy = e.touches[0].clientY - touchStartY.current;
+        if (!isSwipingRef.current && Math.abs(dy) > Math.abs(dx)) return;
+        if (dx < 0) {
+          isSwipingRef.current = true;
+          e.preventDefault();
+          const next = Math.max(dx, -DELETE_THRESHOLD - 20);
+          swipeXRef.current = next;
+          setSwipeX(next);
+        }
+      };
+
+      const handleTouchEnd = () => {
+        if (swipeXRef.current <= -DELETE_THRESHOLD) {
+          removeRow(r.rowId);
+        } else {
+          swipeXRef.current = 0;
+          setSwipeX(0);
+        }
+        isSwipingRef.current = false;
+      };
+
+      el.addEventListener("touchstart", handleTouchStart, { passive: true });
+      el.addEventListener("touchmove", handleTouchMove, { passive: false });
+      el.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+      return () => {
+        el.removeEventListener("touchstart", handleTouchStart);
+        el.removeEventListener("touchmove", handleTouchMove);
+        el.removeEventListener("touchend", handleTouchEnd);
+      };
+    }, [r.rowId]);
 
     return (
       <div style={{ overflow: "hidden", position: "relative" }}>
@@ -689,10 +710,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         >
           ลบ
         </div>
-        <div
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
+       <div
+          ref={rowRef}
           onClick={handleRowClick}
           className="flex items-stretch gap-2 px-4 w-full"
           style={{
