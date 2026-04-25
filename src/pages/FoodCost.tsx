@@ -138,6 +138,23 @@ export default function FoodCostPage({
   const [totalStdCost, setTotalStdCost] = useState(0);
   const [totalReceiptCount, setTotalReceiptCount] = useState(0);
 
+  // Ratio analysis metrics — keys: "avg_ticket" | "ratio:<category>"
+  const RATIO_METRICS_KEY = "fc_ratio_metrics_v1";
+  const [ratioMetrics, setRatioMetrics] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(RATIO_METRICS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return ["avg_ticket"];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(RATIO_METRICS_KEY, JSON.stringify(ratioMetrics)); } catch {}
+  }, [ratioMetrics]);
+  const [addMetricOpen, setAddMetricOpen] = useState(false);
+
   // Actual vs Standard Variance state
   const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
   const [varianceSummary, setVarianceSummary] = useState<{
