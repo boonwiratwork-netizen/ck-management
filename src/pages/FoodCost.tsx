@@ -1519,31 +1519,35 @@ export default function FoodCostPage({
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         {t("col.menuName")}
                       </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.qtySold")}
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground" style={{ width: 110 }}>
+                        Category
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.revenue")}
+                        <SortableHeader label={t("col.qtySold")} sortKey="qtySold" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.stdCost")}
+                        <SortableHeader label={t("col.revenue")} sortKey="revenue" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.fcPct")}
+                        <SortableHeader label={t("col.stdCost")} sortKey="stdFoodCost" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                       <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        {t("col.costPerServing")}
+                        <SortableHeader label={t("col.fcPct")} sortKey="stdFcPct" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
+                      </TableHead>
+                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
+                        <SortableHeader label={t("col.costPerServing")} sortKey="costPerServing" activeSortKey={menuSortKey} sortDir={menuSortDir} onSort={handleMenuSort} className="justify-end" />
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {menuBreakdown.map((m) => (
+                    {sortedMenuFull.map((m) => (
                       <TableRow
                         key={m.menuCode}
                         className="border-b border-table-border hover:bg-table-hover transition-colors"
                       >
                         <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
                         <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm text-muted-foreground">{menuByCode.get(m.menuCode)?.category || "—"}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
                         <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
@@ -1567,7 +1571,7 @@ export default function FoodCostPage({
                     ))}
                     {menuBreakdown.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                           No data
                         </TableCell>
                       </TableRow>
