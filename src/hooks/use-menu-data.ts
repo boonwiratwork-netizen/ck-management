@@ -11,6 +11,7 @@ const toLocal = (row: any): Menu => ({
   sellingPrice: row.selling_price,
   status: row.status,
   brandName: row.brand_name || '',
+  isMaindish: row.is_maindish ?? false,
 });
 
 export function useMenuData() {
@@ -43,6 +44,7 @@ export function useMenuData() {
       selling_price: data.sellingPrice,
       status: data.status,
       brand_name: data.brandName,
+      is_maindish: data.isMaindish,
     }).select().single();
     if (error) { toast.error('Failed to add menu: ' + error.message); return; }
     setMenus(prev => [toLocal(row), ...prev]);
@@ -56,6 +58,7 @@ export function useMenuData() {
     if (data.sellingPrice !== undefined) dbData.selling_price = data.sellingPrice;
     if (data.status !== undefined) dbData.status = data.status;
     if (data.brandName !== undefined) dbData.brand_name = data.brandName;
+    if (data.isMaindish !== undefined) dbData.is_maindish = data.isMaindish;
 
     const { error } = await supabase.from('menus').update(dbData).eq('id', id);
     if (error) { toast.error('Failed to update menu: ' + error.message); return; }
@@ -76,6 +79,7 @@ export function useMenuData() {
       selling_price: r.sellingPrice,
       status: r.status,
       brand_name: r.brandName,
+      is_maindish: r.isMaindish,
     }));
     const { data, error } = await supabase.from('menus').insert(dbRows).select();
     if (error) { toast.error('Bulk insert failed: ' + error.message); return 0; }

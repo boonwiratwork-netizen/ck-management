@@ -793,6 +793,7 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          is_maindish: boolean
           menu_code: string
           menu_name: string
           selling_price: number
@@ -804,6 +805,7 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          is_maindish?: boolean
           menu_code?: string
           menu_name?: string
           selling_price?: number
@@ -815,6 +817,7 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          is_maindish?: boolean
           menu_code?: string
           menu_name?: string
           selling_price?: number
