@@ -133,6 +133,7 @@ export default function FoodCostPage({
   const [menuBreakdown, setMenuBreakdown] = useState<MenuBreakdown[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalStdCost, setTotalStdCost] = useState(0);
+  const [totalReceiptCount, setTotalReceiptCount] = useState(0);
 
   // Actual vs Standard Variance state
   const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
@@ -720,8 +721,14 @@ export default function FoodCostPage({
 
     const menuRows = calcMenuCosts(sales);
 
+    const receiptSet = new Set<string>();
+    for (const s of sales) {
+      if (s.receipt_no) receiptSet.add(String(s.receipt_no));
+    }
+
     setTotalRevenue(rev);
     setTotalStdCost(totalCost);
+    setTotalReceiptCount(receiptSet.size);
     setDailyData(dailyRows);
     setSkuBreakdown(skuRows);
     setMenuBreakdown(menuRows);
