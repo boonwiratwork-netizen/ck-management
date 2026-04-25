@@ -56,6 +56,7 @@ interface DailyData {
   revenue: number;
   stdFoodCost: number;
   stdFcPct: number;
+  avgTicketSize: number;
 }
 
 interface SkuBreakdown {
@@ -77,6 +78,7 @@ interface MenuBreakdown {
   stdFoodCost: number;
   stdFcPct: number;
   costPerServing: number;
+  isMaindish: boolean;
 }
 
 interface SkuVarianceRow {
@@ -441,6 +443,7 @@ export default function FoodCostPage({
             stdFoodCost: data.stdCost,
             stdFcPct: data.revenue > 0 ? (data.stdCost / data.revenue) * 100 : 0,
             costPerServing: data.qtySold > 0 ? data.stdCost / data.qtySold : 0,
+            isMaindish: menu?.isMaindish ?? false,
           };
         })
         .sort((a, b) => b.stdFcPct - a.stdFcPct);
