@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Edit2, Trash2, Search, UtensilsCrossed, X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
@@ -171,6 +172,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
         sellingPrice: Number(r['selling_price']) || 0,
         status: status === 'inactive' ? 'Inactive' : 'Active',
         brandName: r['brand_name']?.trim() || '',
+        isMaindish: false,
       };
     });
     const count = await bulkAddMenus(menuRows);
@@ -196,6 +198,7 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       sellingPrice: menu.sellingPrice,
       status: menu.status,
       brandName: menu.brandName,
+      isMaindish: menu.isMaindish,
     });
     setModalOpen(true);
   };
