@@ -8,15 +8,9 @@ import { Price } from "@/types/price";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X } from "lucide-react";
+import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X, Images } from "lucide-react";
 import { toast } from "sonner";
-import {
-  SwipeableList,
-  SwipeableListItem,
-  SwipeAction,
-  TrailingActions,
-  Type as ListType,
-} from "react-swipeable-list";
+import { SwipeableList, SwipeableListItem, SwipeAction, TrailingActions, Type as ListType } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
@@ -221,6 +215,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   // When set, the bottom sheet is in "assign mode" — picking an SKU re-targets this row
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isStoreManager && profile?.branch_id && !branchId) {
@@ -656,10 +651,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           }}
         >
           {showDot && (
-            <span
-              className="shrink-0 self-center rounded-full"
-              style={{ width: 7, height: 7, background: dotColor }}
-            />
+            <span className="shrink-0 self-center rounded-full" style={{ width: 7, height: 7, background: dotColor }} />
           )}
 
           <div className="min-w-0 flex-1 py-1.5 self-center">
@@ -742,10 +734,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
 
-          <div
-            className="flex items-center gap-1 shrink-0 self-center"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex items-center gap-1 shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
             {isUnmatched ? (
               <ChevronRight size={18} style={{ color: MUTED }} />
             ) : (
@@ -1044,6 +1033,26 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
             <button
               type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={scanning}
+              className="w-full flex items-center justify-center gap-3 active:bg-black/5 disabled:opacity-60"
+              style={{
+                height: 64,
+                borderRadius: 14,
+                background: "#fff",
+                color: INK,
+                fontFamily: "DM Sans, sans-serif",
+                fontSize: 15,
+                fontWeight: 500,
+                border: `0.5px solid ${DIVIDER}`,
+              }}
+            >
+              <Images size={20} />
+              <span>เลือกรูปจากคลัง</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleManualMethod}
               disabled={scanning}
               className="w-full flex items-center justify-center gap-3 active:bg-black/5 disabled:opacity-60"
@@ -1081,6 +1090,13 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               type="file"
               accept="image/*"
               capture="environment"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
               className="hidden"
               onChange={handleFileSelected}
             />
@@ -1278,7 +1294,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               </div>
             ) : (
               <SwipeableList type={ListType.IOS} fullSwipe={false}>
-                {rows.map((r) => <ItemRow key={r.rowId} r={r} />)}
+                {rows.map((r) => (
+                  <ItemRow key={r.rowId} r={r} />
+                ))}
               </SwipeableList>
             )}
 
@@ -1422,7 +1440,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             </div>
           ) : (
             <SwipeableList type={ListType.IOS} fullSwipe={false}>
-              {rows.map((r) => <ItemRow key={r.rowId} r={r} showDot />)}
+              {rows.map((r) => (
+                <ItemRow key={r.rowId} r={r} showDot />
+              ))}
             </SwipeableList>
           )}
 
