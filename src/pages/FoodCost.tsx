@@ -172,6 +172,7 @@ export default function FoodCostPage({
     } catch {}
   }, [ratioMetrics]);
   const [addMetricOpen, setAddMetricOpen] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   // Actual vs Standard Variance state
   const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
@@ -1163,18 +1164,39 @@ export default function FoodCostPage({
                 {ratioMetrics.map((key) => {
                   const { label, value } = getMetricLabelValue(key);
                   return (
-                    <Card key={key} className="relative min-w-[180px] flex-1 max-w-[280px]">
+                    <Card
+                      key={key}
+                      className={cn(
+                        "relative min-w-[180px] flex-1 max-w-[280px] cursor-pointer transition-all",
+                        selectedMetric === key ? "ring-2 shadow-md" : "hover:shadow-sm opacity-90 hover:opacity-100",
+                      )}
+                      style={
+                        selectedMetric === key
+                          ? { ringColor: getMetricColor(key), borderColor: getMetricColor(key) }
+                          : {}
+                      }
+                      onClick={() => setSelectedMetric((prev) => (prev === key ? null : key))}
+                    >
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                        style={{ backgroundColor: getMetricColor(key) }}
+                      />
                       <button
                         type="button"
-                        onClick={() => setRatioMetrics((prev) => prev.filter((k) => k !== key))}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRatioMetrics((prev) => prev.filter((k) => k !== key));
+                          if (selectedMetric === key) setSelectedMetric(null);
+                        }}
                         className="absolute top-2 right-2 text-muted-foreground hover:text-foreground rounded p-0.5"
                         aria-label="Remove metric"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                      <CardContent className="p-4 pr-7">
+                      <CardContent className="p-4 pl-5 pr-7">
                         <p
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate"
+                          className="text-xs font-medium uppercase tracking-wide truncate"
+                          style={{ color: getMetricColor(key) }}
                           title={label}
                         >
                           {label}
@@ -1308,31 +1330,62 @@ export default function FoodCostPage({
                       <Legend />
                       <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#378ADD" />
                       <Bar yAxisId="left" dataKey="stdFoodCost" name="Food Cost" fill="#D85A30" />
-                      {ratioMetrics.includes("avg_ticket") && (
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="avg_ticket"
-                          name="Avg Ticket Size"
-                          stroke={getMetricColor("avg_ticket")}
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      )}
+                      {ratioMetrics.includes("avg_ticket") &&
+                        (() => {
+                          const isSelected = selectedMetric === "avg_ticket";
+                          const isFaded = selectedMetric !== null && !isSelected;
+                          return (
+                            <Line
+                              yAxisId="right"
+                              type="monotone"
+                              dataKey="avg_ticket"
+                              name="Avg Ticket Size"
+                              stroke={getMetricColor("avg_ticket")}
+                              strokeWidth={isSelected ? 3 : 2}
+                              strokeOpacity={isFaded ? 0.15 : 1}
+                              dot={false}
+                              label={
+                                isSelected
+                                  ? {
+                                      position: "top",
+                                      fontSize: 10,
+                                      fill: getMetricColor("avg_ticket"),
+                                      formatter: (v: number) => (v > 0 ? `฿${Math.round(v)}` : ""),
+                                    }
+                                  : false
+                              }
+                            />
+                          );
+                        })()}
                       {ratioMetrics
                         .filter((k) => k.startsWith("ratio:"))
-                        .map((key) => (
-                          <Line
-                            key={key}
-                            yAxisId="right2"
-                            type="monotone"
-                            dataKey={key}
-                            name={getMetricDisplayName(key)}
-                            stroke={getMetricColor(key)}
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        ))}
+                        .map((key) => {
+                          const isSelected = selectedMetric === key;
+                          const isFaded = selectedMetric !== null && !isSelected;
+                          return (
+                            <Line
+                              key={key}
+                              yAxisId="right2"
+                              type="monotone"
+                              dataKey={key}
+                              name={getMetricDisplayName(key)}
+                              stroke={getMetricColor(key)}
+                              strokeWidth={isSelected ? 3 : 2}
+                              strokeOpacity={isFaded ? 0.15 : 1}
+                              dot={false}
+                              label={
+                                isSelected
+                                  ? {
+                                      position: "top",
+                                      fontSize: 10,
+                                      fill: getMetricColor(key),
+                                      formatter: (v: number) => (v > 0 ? `${v.toFixed(1)}%` : ""),
+                                    }
+                                  : false
+                              }
+                            />
+                          );
+                        })}
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
