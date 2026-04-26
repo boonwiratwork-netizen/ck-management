@@ -620,9 +620,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const [transition, setTransition] = React.useState(false);
     const startXRef = React.useRef<number | null>(null);
     const currentRef = React.useRef(0);
+    const startYRef = React.useRef<number | null>(null);
 
     const onTouchStart = (e: React.TouchEvent) => {
       startXRef.current = e.touches[0].clientX - currentRef.current;
+      startYRef.current = e.touches[0].clientY;
       setTransition(false);
     };
 
