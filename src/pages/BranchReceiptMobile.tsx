@@ -8,7 +8,20 @@ import { Price } from "@/types/price";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X, Images, Info, Check, ShoppingBag } from "lucide-react";
+import {
+  Camera,
+  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Search,
+  Loader2,
+  X,
+  Images,
+  Info,
+  Check,
+  ShoppingBag,
+} from "lucide-react";
 import { toast } from "sonner";
 import { SwipeableList, SwipeableListItem, SwipeAction, TrailingActions, Type as ListType } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
@@ -568,11 +581,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       const payload = filledRows.map((r) => {
         const sku = skuMap[r.skuId!];
         const qty = r.qty;
-        const actualTotal = r.actualTotal;
-        const actualUnitPrice = qty > 0 ? actualTotal / qty : 0;
         const stdUnitPrice = getStdUnitPrice(r.skuId!);
         const stdTotal = qty * stdUnitPrice;
-        const priceVariance = actualTotal - stdTotal;
+        const actualTotal = stdTotal;
+        const actualUnitPrice = stdUnitPrice;
+        const priceVariance = 0;
         return {
           branchId,
           receiptDate: dateStr,
@@ -692,7 +705,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </button>
         <span
           style={{
-            minWidth: 36,
+            minWidth: 28,
             textAlign: "center",
             fontFamily: FONT_STACK,
             fontSize: 16,
@@ -728,9 +741,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </button>
         <span
           style={{
-            width: 32,
+            width: 40,
             fontSize: 10,
-            color: MUTED,
+            color: "#3c3c43",
             flexShrink: 0,
             paddingLeft: 4,
             paddingRight: 6,
@@ -751,15 +764,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const isUnmatched = !sku;
     const conf: MatchConfidence = (r.matchConfidence ?? (sku ? "high" : "none")) as MatchConfidence;
 
-    const dotColor =
-      conf === "high" ? SUCCESS : conf === "low" ? WARNING : DANGER;
+    const dotColor = conf === "high" ? SUCCESS : conf === "low" ? WARNING : DANGER;
 
-    const rowBg =
-      conf === "low"
-        ? "rgba(255,149,0,0.05)"
-        : isUnmatched
-          ? "rgba(255,59,48,0.04)"
-          : CARD_BG;
+    const rowBg = conf === "low" ? "rgba(255,149,0,0.05)" : isUnmatched ? "rgba(255,59,48,0.04)" : CARD_BG;
 
     const handleTextTap = () => {
       // ALL rows open assign sheet on text tap
@@ -781,10 +788,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           }}
         >
           {showDot && (
-            <span
-              className="shrink-0 self-center rounded-full"
-              style={{ width: 8, height: 8, background: dotColor }}
-            />
+            <span className="shrink-0 self-center rounded-full" style={{ width: 8, height: 8, background: dotColor }} />
           )}
 
           <div
@@ -876,11 +880,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           </div>
 
           <div className="flex items-center shrink-0 self-center" style={{ flexShrink: 0 }}>
-            {isUnmatched ? (
-              <ChevronRight size={20} style={{ color: CHEVRON_GREY }} />
-            ) : (
-              <Stepper r={r} sku={sku} />
-            )}
+            {isUnmatched ? <ChevronRight size={20} style={{ color: CHEVRON_GREY }} /> : <Stepper r={r} sku={sku} />}
           </div>
         </div>
       </SwipeableListItem>
@@ -1048,11 +1048,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                       background: isBrand ? BRAND_PILL_BG : "#f2f2f7",
                     }}
                   >
-                    <ShoppingBag
-                      size={16}
-                      strokeWidth={1.75}
-                      style={{ color: isBrand ? BRAND_PILL_FG : MUTED }}
-                    />
+                    <ShoppingBag size={16} strokeWidth={1.75} style={{ color: isBrand ? BRAND_PILL_FG : MUTED }} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div
@@ -1226,13 +1222,15 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           <div className="mt-6 px-0">
             <div style={{ paddingLeft: 0, paddingRight: 0 }}>
               <div style={{ marginLeft: 0, marginRight: 0 }} />
-              <div className="px-0">
+              <div className="px-4">
                 <MethodCard
                   onClick={handleCameraClick}
                   disabled={scanning}
                   iconBg={INK}
                   iconColor="#fff"
-                  icon={scanning ? <Loader2 size={22} className="animate-spin" /> : <Camera size={22} strokeWidth={1.75} />}
+                  icon={
+                    scanning ? <Loader2 size={22} className="animate-spin" /> : <Camera size={22} strokeWidth={1.75} />
+                  }
                   label={scanning ? "AI กำลังอ่านใบส่ง..." : "ถ่ายรูปใบส่ง"}
                   sub="AI อ่านรายการให้อัตโนมัติ"
                 />
@@ -1649,9 +1647,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               {scanMeta?.count ?? rows.length}
             </span>{" "}
             รายการ · มั่นใจ{" "}
-            <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-              {scanMeta?.confidence ?? 0}%
-            </span>
+            <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{scanMeta?.confidence ?? 0}%</span>
           </div>
         </div>
 
