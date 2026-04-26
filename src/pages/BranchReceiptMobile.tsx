@@ -629,6 +629,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const onTouchMove = (e: React.TouchEvent) => {
       if (startXRef.current === null) return;
       const dx = e.touches[0].clientX - startXRef.current;
+      if (Math.abs(dx) < 10) return; // dead zone
       const clamped = Math.max(-80, Math.min(0, dx));
       currentRef.current = clamped;
       setTranslate(clamped);
@@ -639,7 +640,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       if (startXRef.current === null) return;
       startXRef.current = null;
       setTransition(true);
-      if (currentRef.current < -60) {
+      if (currentRef.current < -72) {
         currentRef.current = -80;
         setTranslate(-80);
       } else {
