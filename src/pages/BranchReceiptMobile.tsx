@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranchReceiptData } from "@/hooks/use-branch-receipt-data";
@@ -23,8 +23,6 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
-import { SwipeableList, SwipeableListItem, SwipeAction, TrailingActions, Type as ListType } from "react-swipeable-list";
-import "react-swipeable-list/dist/styles.css";
 
 type Screen = "select" | "method" | "manual" | "scanResult";
 type MatchConfidence = "high" | "low" | "none";
@@ -617,28 +615,76 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
-  const trailingActions = (rowId: string) => (
-    <TrailingActions>
-      <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
+  const SwipeableRow = ({ rowId, children }: { rowId: string; children: React.ReactNode }) => {
+    const [translate, setTranslate] = React.useState(0);
+    const [transition, setTransition] = React.useState(false);
+    const startXRef = React.useRef<number | null>(null);
+    const currentRef = React.useRef(0);
+
+    const onTouchStart = (e: React.TouchEvent) => {
+      startXRef.current = e.touches[0].clientX - currentRef.current;
+      setTransition(false);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+      if (startXRef.current === null) return;
+      const dx = e.touches[0].clientX - startXRef.current;
+      const clamped = Math.max(-80, Math.min(0, dx));
+      currentRef.current = clamped;
+      setTranslate(clamped);
+    };
+
+    const onTouchEnd = () => {
+      if (startXRef.current === null) return;
+      startXRef.current = null;
+      setTransition(true);
+      if (currentRef.current < -60) {
+        currentRef.current = -80;
+        setTranslate(-80);
+        setTimeout(() => removeRow(rowId), 150);
+      } else {
+        currentRef.current = 0;
+        setTranslate(0);
+      }
+    };
+
+    return (
+      <div style={{ position: "relative", overflow: "hidden" }}>
         <div
           style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 80,
             background: DANGER,
             color: "#fff",
-            width: 80,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: FONT_STACK,
             fontSize: 15,
             fontWeight: 500,
-            height: "100%",
           }}
         >
           ลบ
         </div>
-      </SwipeAction>
-    </TrailingActions>
-  );
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{
+            transform: `translateX(${translate}px)`,
+            transition: transition ? "transform 0.2s ease" : "none",
+            background: CARD_BG,
+            position: "relative",
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  };
 
   // ─── Stepper pill ───────────────────────────────────────
 
@@ -774,7 +820,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     };
 
     return (
-      <SwipeableListItem trailingActions={trailingActions(r.rowId)}>
+      <SwipeableRow rowId={r.rowId}>
         <div
           className="flex items-stretch w-full"
           style={{
@@ -883,7 +929,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             {isUnmatched ? <ChevronRight size={20} style={{ color: CHEVRON_GREY }} /> : <Stepper r={r} sku={sku} />}
           </div>
         </div>
-      </SwipeableListItem>
+      </SwipeableRow>
     );
   };
 
@@ -1552,11 +1598,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 แตะ "เพิ่มรายการ" ด้านล่างเพื่อเริ่ม
               </div>
             ) : (
-              <SwipeableList type={ListType.IOS} fullSwipe={false} threshold={0.3}>
+              <div>
                 {rows.map((r) => (
                   <ItemRow key={r.rowId} r={r} />
                 ))}
-              </SwipeableList>
+              </div>
             )}
 
             {AddRow}
@@ -1664,11 +1710,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               AI ไม่พบรายการ
             </div>
           ) : (
-            <SwipeableList type={ListType.IOS} fullSwipe={false} threshold={0.3}>
+            <div>
               {rows.map((r) => (
                 <ItemRow key={r.rowId} r={r} showDot />
               ))}
-            </SwipeableList>
+            </div>
           )}
 
           {AddRow}
