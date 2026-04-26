@@ -8,7 +8,7 @@ import { Price } from "@/types/price";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X, Images } from "lucide-react";
+import { Camera, ClipboardList, ChevronLeft, ChevronRight, Plus, Search, Loader2, X, Images, Info, Check, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { SwipeableList, SwipeableListItem, SwipeAction, TrailingActions, Type as ListType } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
@@ -181,18 +181,27 @@ function matchSkuFromRawName(
   return { sku: bestSku, confidence };
 }
 
-// ─── Visual constants ───────────────────────────────────
+// ─── iOS visual constants ───────────────────────────────
 
 const PAGE_BG = "#f2f2f7";
-const INK = "#1a1a1a";
+const CARD_BG = "#ffffff";
+const INK = "#1c1c1e";
 const MUTED = "#8e8e93";
+const SUBTLE_INK = "#3c3c43";
 const DIVIDER = "rgba(0,0,0,0.1)";
-const FILLED_ROW_BG = "rgba(34,197,94,0.05)";
-const FILLED_QTY_BG = "rgba(34,197,94,0.12)";
-const QTY_BG = "rgba(0,0,0,0.05)";
-const SEARCH_BG = "rgba(0,0,0,0.06)";
+const ACCENT = "#007aff";
+const SUCCESS = "#34c759";
+const WARNING = "#ff9500";
+const DANGER = "#ff3b30";
+const CHEVRON_GREY = "#c7c7cc";
+const SEARCH_BG = "rgba(118,118,128,0.12)";
 const CHIP_BG = "rgba(0,0,0,0.07)";
-const DELETE_RED = "#dc2626";
+const STEPPER_BG = "rgba(0,0,0,0.06)";
+const STEPPER_FILLED_BG = "rgba(34,197,94,0.12)";
+const BRAND_PILL_BG = "#e1f5ee";
+const BRAND_PILL_FG = "#0f6e56";
+
+const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif";
 
 // ─── Main Component ─────────────────────────────────────
 
@@ -593,22 +602,22 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     }
   };
 
-  // ─── Swipeable row (Screens 3 & 4) — uses react-swipeable-list ─────
+  // ─── Swipeable row (Screens 3 & 4) ─────────────────────
 
   const trailingActions = (rowId: string) => (
     <TrailingActions>
       <SwipeAction destructive={true} onClick={() => removeRow(rowId)}>
         <div
           style={{
-            background: DELETE_RED,
+            background: DANGER,
             color: "#fff",
             width: 80,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 14,
-            fontWeight: 600,
+            fontFamily: FONT_STACK,
+            fontSize: 15,
+            fontWeight: 500,
             height: "100%",
           }}
         >
@@ -618,52 +627,181 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     </TrailingActions>
   );
 
+  // ─── Stepper pill ───────────────────────────────────────
+
+  const Stepper = ({ r, sku }: { r: ManualRow; sku: SKU | null }) => {
+    const packsMode = isPacksModeFor(sku);
+    const inputUnit = packsMode && sku ? (sku.packUnit ?? "") : (sku?.usageUom ?? "");
+    const filled = r.packs > 0;
+    const step = packsMode ? 1 : 0.1;
+
+    const display = packsMode
+      ? String(Math.round(r.packs))
+      : Number.isInteger(r.packs)
+        ? String(r.packs)
+        : r.packs.toFixed(1);
+
+    const dec = (e: React.PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2)));
+    };
+    const inc = (e: React.PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      updateRowPacks(r.rowId, +(r.packs + step).toFixed(2));
+    };
+
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          background: filled ? STEPPER_FILLED_BG : STEPPER_BG,
+          borderRadius: 10,
+          height: 36,
+          overflow: "hidden",
+          flexShrink: 0,
+          flexWrap: "nowrap",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <button
+          type="button"
+          onPointerDown={dec}
+          aria-label="ลด"
+          style={{
+            width: 32,
+            height: 36,
+            background: "none",
+            border: "none",
+            color: ACCENT,
+            fontSize: 20,
+            fontWeight: 400,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: 0,
+            fontFamily: FONT_STACK,
+          }}
+        >
+          −
+        </button>
+        <span
+          style={{
+            minWidth: 36,
+            textAlign: "center",
+            fontFamily: FONT_STACK,
+            fontSize: 16,
+            fontWeight: 700,
+            color: INK,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {display}
+        </span>
+        <button
+          type="button"
+          onPointerDown={inc}
+          aria-label="เพิ่ม"
+          style={{
+            width: 32,
+            height: 36,
+            background: "none",
+            border: "none",
+            color: ACCENT,
+            fontSize: 20,
+            fontWeight: 400,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: 0,
+            fontFamily: FONT_STACK,
+          }}
+        >
+          +
+        </button>
+        <span
+          style={{
+            width: 32,
+            fontSize: 10,
+            color: MUTED,
+            flexShrink: 0,
+            paddingLeft: 4,
+            paddingRight: 6,
+            fontFamily: FONT_STACK,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {inputUnit}
+        </span>
+      </div>
+    );
+  };
+
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
-    const filled = r.qty > 0;
-    const packsMode = isPacksModeFor(sku);
-    const inputUnit = packsMode && sku ? sku.packUnit : (sku?.usageUom ?? "");
-    const showEst = packsMode && sku && r.packs > 0;
-    const estGrams = packsMode && sku ? r.packs * (sku.packSize || 1) : 0;
     const isUnmatched = !sku;
+    const conf: MatchConfidence = (r.matchConfidence ?? (sku ? "high" : "none")) as MatchConfidence;
 
     const dotColor =
-      r.matchConfidence === "high"
-        ? "#34c759"
-        : r.matchConfidence === "low" || r.matchConfidence === "none"
-          ? "#f59e0b"
-          : "transparent";
+      conf === "high" ? SUCCESS : conf === "low" ? WARNING : DANGER;
 
-    const handleRowClick = () => {
-      if (isUnmatched || r.skuId) openAssignSheet(r);
+    const rowBg =
+      conf === "low"
+        ? "rgba(255,149,0,0.05)"
+        : isUnmatched
+          ? "rgba(255,59,48,0.04)"
+          : CARD_BG;
+
+    const handleTextTap = () => {
+      // ALL rows open assign sheet on text tap
+      openAssignSheet(r);
     };
 
     return (
       <SwipeableListItem trailingActions={trailingActions(r.rowId)}>
         <div
-          onClick={handleRowClick}
-          className="flex items-stretch gap-2 px-4 w-full"
+          className="flex items-stretch w-full"
           style={{
-            minHeight: 52,
-            background: filled ? FILLED_ROW_BG : "#fff",
+            minHeight: 56,
+            background: rowBg,
             borderBottom: `0.5px solid ${DIVIDER}`,
-            cursor: isUnmatched ? "pointer" : "default",
+            paddingLeft: 16,
+            paddingRight: 16,
+            gap: 10,
+            fontFamily: FONT_STACK,
           }}
         >
           {showDot && (
-            <span className="shrink-0 self-center rounded-full" style={{ width: 7, height: 7, background: dotColor }} />
+            <span
+              className="shrink-0 self-center rounded-full"
+              style={{ width: 8, height: 8, background: dotColor }}
+            />
           )}
 
-          <div className="min-w-0 flex-1 py-1.5 self-center">
+          <div
+            onClick={handleTextTap}
+            className="min-w-0 flex-1 self-center"
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8 }}
+          >
             {sku ? (
               <>
                 <div
                   className="truncate"
                   style={{
-                    fontFamily: "DM Mono, monospace",
-                    fontSize: 10,
+                    fontFamily: FONT_STACK,
+                    fontSize: 11,
                     color: MUTED,
                     lineHeight: 1.2,
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
                   {sku.skuId}
@@ -671,36 +809,51 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 <div
                   className="truncate"
                   style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 13,
+                    fontFamily: FONT_STACK,
+                    fontSize: 15,
                     color: INK,
                     lineHeight: 1.3,
-                    fontWeight: filled ? 600 : 400,
+                    fontWeight: 500,
                   }}
                 >
                   {sku.name}
                 </div>
-                {showEst && (
+                {conf === "low" && (
                   <div
                     style={{
-                      fontFamily: "DM Mono, monospace",
-                      fontSize: 10,
-                      color: MUTED,
+                      fontFamily: FONT_STACK,
+                      fontSize: 11,
+                      color: WARNING,
                       lineHeight: 1.2,
-                      marginTop: 1,
+                      marginTop: 2,
                     }}
                   >
-                    est. {estGrams.toLocaleString()} {sku.usageUom}
+                    ตรวจสอบ · แตะเพื่อแก้ไข
+                  </div>
+                )}
+                {conf === "high" && (
+                  <div
+                    style={{
+                      fontFamily: FONT_STACK,
+                      fontSize: 10,
+                      color: CHEVRON_GREY,
+                      lineHeight: 1.2,
+                      marginTop: 2,
+                    }}
+                  >
+                    แตะที่ชื่อเพื่อเปลี่ยน SKU
                   </div>
                 )}
               </>
             ) : (
               <>
                 <div
-                  className="truncate italic"
+                  className="truncate"
                   style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 13,
+                    fontFamily: FONT_STACK,
+                    fontSize: 14,
+                    fontStyle: "italic",
+                    fontWeight: 400,
                     color: INK,
                     lineHeight: 1.3,
                   }}
@@ -709,75 +862,24 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 </div>
                 <div
                   style={{
-                    fontFamily: "DM Sans, sans-serif",
+                    fontFamily: FONT_STACK,
                     fontSize: 11,
-                    color: "#d97706",
+                    color: DANGER,
                     lineHeight: 1.2,
-                    marginTop: 1,
+                    marginTop: 2,
                   }}
                 >
-                  แตะเพื่อเลือก SKU
+                  ไม่พบใน Price Master · แตะเพื่อเลือก
                 </div>
               </>
             )}
-            {sku && r.matchConfidence === "low" && (
-              <div
-                style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 10,
-                  color: "#d97706",
-                  lineHeight: 1.2,
-                }}
-              >
-                ตรวจสอบ
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center shrink-0 self-center" style={{ flexShrink: 0 }}>
             {isUnmatched ? (
-              <ChevronRight size={18} style={{ color: MUTED }} />
+              <ChevronRight size={20} style={{ color: CHEVRON_GREY }} />
             ) : (
-              <>
-                <input
-                  type="number"
-                  inputMode={packsMode ? "numeric" : "decimal"}
-                  min={0}
-                  step={packsMode ? 1 : "any"}
-                  defaultValue={r.packs || ""}
-                  key={`qty-${r.rowId}-${r.packs}`}
-                  onFocus={(e) => e.target.select()}
-                  onBlur={(e) => {
-                    const v = Number(e.target.value) || 0;
-                    const normalized = packsMode ? Math.round(v) : v;
-                    updateRowPacks(r.rowId, normalized);
-                  }}
-                  placeholder="0"
-                  className="text-center outline-none"
-                  style={{
-                    width: 56,
-                    height: 36,
-                    borderRadius: 8,
-                    background: filled ? FILLED_QTY_BG : QTY_BG,
-                    border: "none",
-                    fontFamily: "DM Mono, monospace",
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: INK,
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 10,
-                    color: MUTED,
-                    width: 30,
-                    textAlign: "left",
-                  }}
-                >
-                  {inputUnit}
-                </span>
-              </>
+              <Stepper r={r} sku={sku} />
             )}
           </div>
         </div>
@@ -789,44 +891,45 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
   if (screen === "select") {
     return (
-      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="px-4 pt-4 pb-6">
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG, fontFamily: FONT_STACK }}>
+        <div className="px-4 pt-5 pb-4">
           <h1
             style={{
-              fontFamily: "Syne, sans-serif",
+              fontFamily: FONT_STACK,
               fontWeight: 700,
-              fontSize: 26,
+              fontSize: 34,
               color: INK,
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.5px",
+              lineHeight: 1.1,
             }}
           >
             รับของ
           </h1>
           <div
             style={{
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 12,
+              fontFamily: FONT_STACK,
+              fontSize: 13,
               color: MUTED,
-              marginTop: 2,
+              marginTop: 4,
             }}
           >
             {selectedBranch?.branchName ?? (isManagement ? "เลือกสาขา" : "—")} · {format(date, "d MMM yyyy")}
           </div>
 
           {(isManagement || !isStoreManager) && (
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-2">
               {isManagement && (
                 <select
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value)}
                   className="w-full outline-none px-3"
                   style={{
-                    height: 34,
-                    borderRadius: 999,
+                    height: 36,
+                    borderRadius: 10,
                     background: SEARCH_BG,
                     border: "none",
-                    fontFamily: "DM Sans, sans-serif",
-                    fontSize: 13,
+                    fontFamily: FONT_STACK,
+                    fontSize: 14,
                     color: INK,
                   }}
                 >
@@ -851,14 +954,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               disabled={!branchId}
               className="w-full outline-none"
               style={{
-                height: 34,
+                height: 36,
                 paddingLeft: 32,
                 paddingRight: 12,
-                borderRadius: 999,
+                borderRadius: 10,
                 background: SEARCH_BG,
                 border: "none",
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 13,
+                fontFamily: FONT_STACK,
+                fontSize: 14,
                 color: INK,
               }}
             />
@@ -878,11 +981,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                       height: 32,
                       borderRadius: 999,
                       background: isMostRecent ? INK : CHIP_BG,
-                      color: isMostRecent ? "#fff" : "#3c3c43",
-                      fontFamily: "DM Sans, sans-serif",
-                      fontSize: 12,
+                      color: isMostRecent ? "#fff" : SUBTLE_INK,
+                      fontFamily: FONT_STACK,
+                      fontSize: 13,
                       fontWeight: 500,
-                      maxWidth: 160,
+                      maxWidth: 180,
                       border: "none",
                     }}
                   >
@@ -897,11 +1000,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             <div
               className="mt-5 mb-1.5 px-1"
               style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 11,
+                fontFamily: FONT_STACK,
+                fontSize: 12,
                 color: MUTED,
                 textTransform: "uppercase",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.04em",
                 fontWeight: 600,
               }}
             >
@@ -911,15 +1014,15 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </div>
 
         {!branchId ? (
-          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 14, fontFamily: FONT_STACK }}>
             เลือกสาขาก่อน
           </p>
         ) : filteredSuppliers.length === 0 ? (
-          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 14, fontFamily: FONT_STACK }}>
             ไม่พบซัพพลายเออร์
           </p>
         ) : (
-          <div style={{ background: "#fff" }}>
+          <div style={{ background: CARD_BG }}>
             {filteredSuppliers.map((s, idx) => {
               const isBrand = brandSupplierIds.has(s.id);
               const isLast = idx === filteredSuppliers.length - 1;
@@ -928,22 +1031,38 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   key={s.id}
                   type="button"
                   onClick={() => handleSelectSupplier(s.id)}
-                  className="w-full flex items-center justify-between gap-3 px-4 active:bg-black/5 text-left"
+                  className="w-full flex items-center gap-3 px-4 active:bg-black/5 text-left"
                   style={{
-                    minHeight: 48,
+                    minHeight: 56,
                     borderBottom: isLast ? "none" : `0.5px solid ${DIVIDER}`,
-                    background: "#fff",
+                    background: CARD_BG,
+                    fontFamily: FONT_STACK,
                   }}
                 >
+                  <span
+                    className="shrink-0 inline-flex items-center justify-center"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: isBrand ? BRAND_PILL_BG : "#f2f2f7",
+                    }}
+                  >
+                    <ShoppingBag
+                      size={16}
+                      strokeWidth={1.75}
+                      style={{ color: isBrand ? BRAND_PILL_FG : MUTED }}
+                    />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div
                       className="truncate"
                       style={{
-                        fontFamily: "DM Sans, sans-serif",
-                        fontSize: 14,
-                        fontWeight: 500,
+                        fontFamily: FONT_STACK,
+                        fontSize: 17,
+                        fontWeight: 400,
                         color: INK,
-                        lineHeight: 1.3,
+                        lineHeight: 1.25,
                       }}
                     >
                       {s.name}
@@ -951,17 +1070,34 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     {isBrand && (
                       <div
                         style={{
-                          fontFamily: "DM Sans, sans-serif",
+                          fontFamily: FONT_STACK,
                           fontSize: 11,
-                          color: "#34c759",
+                          color: SUCCESS,
                           lineHeight: 1.2,
+                          marginTop: 1,
                         }}
                       >
-                        Brand
+                        Brand Supplier
                       </div>
                     )}
                   </div>
-                  <ChevronRight size={16} style={{ color: MUTED }} />
+                  {isBrand && (
+                    <span
+                      className="shrink-0"
+                      style={{
+                        background: BRAND_PILL_BG,
+                        color: BRAND_PILL_FG,
+                        borderRadius: 999,
+                        padding: "2px 8px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        fontFamily: FONT_STACK,
+                      }}
+                    >
+                      Brand
+                    </span>
+                  )}
+                  <ChevronRight size={18} style={{ color: CHEVRON_GREY }} />
                 </button>
               );
             })}
@@ -974,115 +1110,175 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   // ─── SCREEN 2 — method choice ─────────────────────────
 
   if (screen === "method") {
-    return (
-      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
-        <div className="px-4 pt-3 pb-8">
-          <button
-            type="button"
-            onClick={() => {
-              setSupplierId("");
-              setScreen("select");
-            }}
-            className="flex items-center gap-1 -ml-1"
-            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-          >
-            <ChevronLeft size={16} /> กลับ
-          </button>
-          <h1
-            className="mt-2 truncate"
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontWeight: 700,
-              fontSize: 22,
-              color: INK,
-            }}
-          >
-            {selectedSupplier?.name}
-          </h1>
+    const MethodCard = ({
+      onClick,
+      iconBg,
+      iconColor,
+      icon,
+      label,
+      sub,
+      disabled,
+    }: {
+      onClick: () => void;
+      iconBg: string;
+      iconColor: string;
+      icon: React.ReactNode;
+      label: string;
+      sub: string;
+      disabled?: boolean;
+    }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="w-full flex items-center active:opacity-70 disabled:opacity-60"
+        style={{
+          background: CARD_BG,
+          borderRadius: 14,
+          border: `0.5px solid ${DIVIDER}`,
+          padding: 16,
+          gap: 14,
+          marginBottom: 10,
+          fontFamily: FONT_STACK,
+          textAlign: "left",
+        }}
+      >
+        <span
+          className="shrink-0 inline-flex items-center justify-center"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: iconBg,
+            color: iconColor,
+          }}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
           <div
             style={{
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 12,
+              fontFamily: FONT_STACK,
+              fontSize: 17,
+              fontWeight: 500,
+              color: INK,
+              lineHeight: 1.25,
+            }}
+          >
+            {label}
+          </div>
+          <div
+            style={{
+              fontFamily: FONT_STACK,
+              fontSize: 13,
               color: MUTED,
+              lineHeight: 1.3,
               marginTop: 2,
             }}
           >
-            {format(date, "d MMM yyyy")}
+            {sub}
+          </div>
+        </div>
+        <ChevronRight size={18} style={{ color: CHEVRON_GREY, marginLeft: "auto" }} />
+      </button>
+    );
+
+    return (
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG, fontFamily: FONT_STACK }}>
+        <div className="pt-3 pb-8">
+          <div className="px-4">
+            <button
+              type="button"
+              onClick={() => {
+                setSupplierId("");
+                setScreen("select");
+              }}
+              className="flex items-center -ml-1 active:opacity-60"
+              style={{ color: ACCENT, fontSize: 13, fontFamily: FONT_STACK, gap: 2 }}
+            >
+              <ChevronLeft size={16} /> ซัพพลายเออร์
+            </button>
+            <h1
+              className="mt-2 truncate"
+              style={{
+                fontFamily: FONT_STACK,
+                fontWeight: 700,
+                fontSize: 28,
+                color: INK,
+                letterSpacing: "-0.4px",
+                lineHeight: 1.15,
+              }}
+            >
+              {selectedSupplier?.name}
+            </h1>
+            <div
+              style={{
+                fontFamily: FONT_STACK,
+                fontSize: 13,
+                color: MUTED,
+                marginTop: 2,
+              }}
+            >
+              {format(date, "d MMM yyyy")}
+            </div>
           </div>
 
-          <div className="mt-6 space-y-3">
-            <button
-              type="button"
-              onClick={handleCameraClick}
-              disabled={scanning}
-              className="w-full flex items-center justify-center gap-3 active:opacity-80 disabled:opacity-60"
-              style={{
-                height: 64,
-                borderRadius: 14,
-                background: INK,
-                color: "#fff",
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 15,
-                fontWeight: 500,
-                border: "none",
-              }}
-            >
-              {scanning ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-              <span>{scanning ? "AI กำลังอ่านใบส่ง..." : "ถ่ายรูปใบส่ง"}</span>
-            </button>
+          <div className="mt-6 px-0">
+            <div style={{ paddingLeft: 0, paddingRight: 0 }}>
+              <div style={{ marginLeft: 0, marginRight: 0 }} />
+              <div className="px-0">
+                <MethodCard
+                  onClick={handleCameraClick}
+                  disabled={scanning}
+                  iconBg={INK}
+                  iconColor="#fff"
+                  icon={scanning ? <Loader2 size={22} className="animate-spin" /> : <Camera size={22} strokeWidth={1.75} />}
+                  label={scanning ? "AI กำลังอ่านใบส่ง..." : "ถ่ายรูปใบส่ง"}
+                  sub="AI อ่านรายการให้อัตโนมัติ"
+                />
+                <MethodCard
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={scanning}
+                  iconBg="#f2f2f7"
+                  iconColor={INK}
+                  icon={<Images size={22} strokeWidth={1.75} />}
+                  label="เลือกรูปจากคลัง"
+                  sub="ใช้รูปที่ถ่ายไว้แล้ว"
+                />
+                <MethodCard
+                  onClick={handleManualMethod}
+                  disabled={scanning}
+                  iconBg="#f2f2f7"
+                  iconColor={INK}
+                  icon={<ClipboardList size={22} strokeWidth={1.75} />}
+                  label="กรอกเอง"
+                  sub="เลือกรายการจาก Price Master"
+                />
+              </div>
 
-            <button
-              type="button"
-              onClick={() => galleryInputRef.current?.click()}
-              disabled={scanning}
-              className="w-full flex items-center justify-center gap-3 active:bg-black/5 disabled:opacity-60"
-              style={{
-                height: 64,
-                borderRadius: 14,
-                background: "#fff",
-                color: INK,
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 15,
-                fontWeight: 500,
-                border: `0.5px solid ${DIVIDER}`,
-              }}
-            >
-              <Images size={20} />
-              <span>เลือกรูปจากคลัง</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleManualMethod}
-              disabled={scanning}
-              className="w-full flex items-center justify-center gap-3 active:bg-black/5 disabled:opacity-60"
-              style={{
-                height: 64,
-                borderRadius: 14,
-                background: "#fff",
-                color: INK,
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 15,
-                fontWeight: 500,
-                border: `0.5px solid ${DIVIDER}`,
-              }}
-            >
-              <ClipboardList size={20} />
-              <span>กรอกเอง</span>
-            </button>
-
-            <div
-              className="px-4 py-3"
-              style={{
-                background: "#fff",
-                borderRadius: 12,
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 12,
-                color: MUTED,
-                lineHeight: 1.5,
-              }}
-            >
-              เคล็ดลับ: ถ่ายรูปใบส่งให้ชัดและตรง AI จะอ่านรายการให้อัตโนมัติ คุณยังตรวจสอบและแก้ไขได้ก่อนบันทึก
+              <div
+                className="mx-4 mt-2"
+                style={{
+                  background: "rgba(0,122,255,0.07)",
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                }}
+              >
+                <Info size={16} strokeWidth={1.75} style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+                <div
+                  style={{
+                    fontFamily: FONT_STACK,
+                    fontSize: 13,
+                    color: INK,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  เคล็ดลับ: ถ่ายรูปใบส่งให้ชัดและตรง AI จะอ่านรายการให้อัตโนมัติ คุณยังตรวจสอบและแก้ไขได้ก่อนบันทึก
+                </div>
+              </div>
             </div>
 
             <input
@@ -1117,13 +1313,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         <div
           className="fixed left-0 right-0 bottom-0 w-full pb-safe"
           style={{
-            background: "#fff",
+            background: CARD_BG,
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
-            height: "65vh",
+            height: "70vh",
             zIndex: 70,
             display: "flex",
             flexDirection: "column",
+            fontFamily: FONT_STACK,
           }}
         >
           <div
@@ -1132,8 +1329,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           >
             <span
               style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 15,
+                fontFamily: FONT_STACK,
+                fontSize: 16,
                 fontWeight: 600,
                 color: INK,
               }}
@@ -1155,14 +1352,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 placeholder="ค้นหา SKU..."
                 className="w-full outline-none"
                 style={{
-                  height: 34,
+                  height: 36,
                   paddingLeft: 32,
                   paddingRight: 12,
-                  borderRadius: 999,
+                  borderRadius: 10,
                   background: SEARCH_BG,
                   border: "none",
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 13,
+                  fontFamily: FONT_STACK,
+                  fontSize: 14,
                   color: INK,
                 }}
               />
@@ -1174,8 +1371,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               <div
                 className="py-10 text-center"
                 style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 13,
+                  fontFamily: FONT_STACK,
+                  fontSize: 14,
                   color: MUTED,
                 }}
               >
@@ -1192,19 +1389,21 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     onClick={() => handleSheetSelectSku(s.id)}
                     className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
                     style={{
-                      minHeight: 48,
+                      minHeight: 52,
                       borderBottom: `0.5px solid ${DIVIDER}`,
-                      background: "#fff",
+                      background: CARD_BG,
+                      fontFamily: FONT_STACK,
                     }}
                   >
                     <div className="min-w-0 flex-1 py-1">
                       <div
                         className="truncate"
                         style={{
-                          fontFamily: "DM Mono, monospace",
-                          fontSize: 10,
+                          fontFamily: FONT_STACK,
+                          fontSize: 11,
                           color: MUTED,
                           lineHeight: 1.2,
+                          fontVariantNumeric: "tabular-nums",
                         }}
                       >
                         {s.skuId}
@@ -1212,8 +1411,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                       <div
                         className="truncate"
                         style={{
-                          fontFamily: "DM Sans, sans-serif",
-                          fontSize: 13,
+                          fontFamily: FONT_STACK,
+                          fontSize: 15,
                           color: INK,
                           lineHeight: 1.3,
                         }}
@@ -1223,8 +1422,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     </div>
                     <span
                       style={{
-                        fontFamily: "DM Sans, sans-serif",
-                        fontSize: 11,
+                        fontFamily: FONT_STACK,
+                        fontSize: 12,
                         color: MUTED,
                       }}
                     >
@@ -1240,51 +1439,113 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     );
   };
 
+  // ─── Common header for screens 3 / 4 ─────────────────
+
+  const ScreenHeader = ({ subRight }: { subRight: string }) => (
+    <div className="px-4">
+      <button
+        type="button"
+        onClick={() => setScreen("method")}
+        className="flex items-center -ml-1 active:opacity-60"
+        style={{ color: ACCENT, fontSize: 13, fontFamily: FONT_STACK, gap: 2 }}
+      >
+        <ChevronLeft size={16} /> {selectedSupplier?.name ? "วิธีรับของ" : "กลับ"}
+      </button>
+      <h1
+        className="mt-2 truncate"
+        style={{
+          fontFamily: FONT_STACK,
+          fontWeight: 700,
+          fontSize: 26,
+          color: INK,
+          letterSpacing: "-0.4px",
+          lineHeight: 1.15,
+        }}
+      >
+        {selectedSupplier?.name}
+      </h1>
+      <div
+        style={{
+          fontFamily: FONT_STACK,
+          fontSize: 13,
+          color: MUTED,
+          marginTop: 2,
+        }}
+      >
+        {subRight}
+      </div>
+    </div>
+  );
+
+  const AddRow = (
+    <button
+      type="button"
+      onClick={openAddSheet}
+      className="w-full flex items-center px-4 active:bg-black/5"
+      style={{
+        height: 44,
+        background: CARD_BG,
+        borderTop: `0.5px solid ${DIVIDER}`,
+        gap: 10,
+        fontFamily: FONT_STACK,
+      }}
+    >
+      <span
+        className="inline-flex items-center justify-center shrink-0"
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          background: SUCCESS,
+          color: "#fff",
+          fontSize: 18,
+          lineHeight: 1,
+        }}
+      >
+        <Plus size={14} strokeWidth={3} />
+      </span>
+      <span
+        style={{
+          fontFamily: FONT_STACK,
+          fontSize: 17,
+          color: ACCENT,
+          fontWeight: 400,
+        }}
+      >
+        เพิ่มรายการ
+      </span>
+    </button>
+  );
+
+  const SwipeHint = (
+    <div
+      className="text-center"
+      style={{
+        fontFamily: FONT_STACK,
+        fontSize: 11,
+        color: CHEVRON_GREY,
+        padding: "8px 0 4px",
+      }}
+    >
+      ← ปัดซ้ายเพื่อลบ
+    </div>
+  );
+
   // ─── SCREEN 3 — manual entry ──────────────────────────
 
   if (screen === "manual") {
     return (
-      <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+      <div className="w-full min-h-screen" style={{ background: PAGE_BG, fontFamily: FONT_STACK }}>
         <div className="pt-3 pb-32">
-          <div className="px-4">
-            <button
-              type="button"
-              onClick={() => setScreen("method")}
-              className="flex items-center gap-1 -ml-1"
-              style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-            >
-              <ChevronLeft size={16} /> กลับ
-            </button>
-            <h1
-              className="mt-2 truncate"
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 20,
-                color: INK,
-              }}
-            >
-              {selectedSupplier?.name}
-            </h1>
-            <div
-              style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 12,
-                color: MUTED,
-                marginTop: 2,
-              }}
-            >
-              {rows.length} รายการ · {format(date, "d MMM yyyy")}
-            </div>
-          </div>
+          <ScreenHeader subRight={`${rows.length} รายการ · ${format(date, "d MMM yyyy")}`} />
 
-          <div className="mt-4" style={{ background: "#fff" }}>
+          <div className="mt-4" style={{ background: CARD_BG }}>
             {rows.length === 0 ? (
               <div
                 className="px-4 py-10 text-center"
                 style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 13,
+                  fontFamily: FONT_STACK,
+                  fontSize: 14,
                   color: MUTED,
                 }}
               >
@@ -1300,40 +1561,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               </SwipeableList>
             )}
 
-            <button
-              type="button"
-              onClick={openAddSheet}
-              className="w-full flex items-center gap-3 px-4 active:bg-black/5"
-              style={{
-                minHeight: 48,
-                background: "#fff",
-                borderTop: rows.length > 0 ? `0.5px solid ${DIVIDER}` : "none",
-              }}
-            >
-              <span
-                className="inline-flex items-center justify-center shrink-0"
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  background: "#34c759",
-                  color: "#fff",
-                }}
-              >
-                <Plus size={14} strokeWidth={3} />
-              </span>
-              <span
-                style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 14,
-                  color: INK,
-                  fontWeight: 500,
-                }}
-              >
-                เพิ่มรายการ
-              </span>
-            </button>
+            {AddRow}
           </div>
+
+          {rows.length > 0 && SwipeHint}
         </div>
 
         <div
@@ -1353,12 +1584,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               disabled={filledCount === 0 || saving}
               className="w-full flex items-center justify-center"
               style={{
-                height: 46,
-                borderRadius: 12,
+                height: 50,
+                borderRadius: 14,
                 background: filledCount === 0 ? "rgba(0,0,0,0.15)" : INK,
                 color: "#fff",
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 15,
+                fontFamily: FONT_STACK,
+                fontSize: 17,
                 fontWeight: 600,
                 border: "none",
                 cursor: filledCount === 0 ? "default" : "pointer",
@@ -1377,62 +1608,60 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   // ─── SCREEN 4 — AI scan result ────────────────────────
 
   return (
-    <div className="w-full min-h-screen" style={{ background: PAGE_BG }}>
+    <div className="w-full min-h-screen" style={{ background: PAGE_BG, fontFamily: FONT_STACK }}>
       <div className="pt-3 pb-40">
-        <div className="px-4">
-          <button
-            type="button"
-            onClick={() => setScreen("method")}
-            className="flex items-center gap-1 -ml-1"
-            style={{ color: MUTED, fontSize: 13, fontFamily: "DM Sans, sans-serif" }}
-          >
-            <ChevronLeft size={16} /> กลับ
-          </button>
-          <h1
-            className="mt-2 truncate"
+        <ScreenHeader subRight={`${rows.length} รายการ · ${format(date, "d MMM yyyy")}`} />
+
+        {/* AI scan banner */}
+        <div
+          className="mx-4 mt-3"
+          style={{
+            background: "rgba(52,199,89,0.1)",
+            borderRadius: 10,
+            padding: "10px 14px",
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <span
+            className="inline-flex items-center justify-center shrink-0"
             style={{
-              fontFamily: "Syne, sans-serif",
-              fontWeight: 700,
-              fontSize: 20,
-              color: INK,
+              width: 20,
+              height: 20,
+              borderRadius: 999,
+              background: SUCCESS,
+              color: "#fff",
             }}
           >
-            {selectedSupplier?.name}
-          </h1>
+            <Check size={12} strokeWidth={3} />
+          </span>
           <div
             style={{
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 12,
-              color: MUTED,
-              marginTop: 2,
+              fontFamily: FONT_STACK,
+              fontSize: 13,
+              color: INK,
+              lineHeight: 1.3,
             }}
           >
-            ผลการอ่านจาก AI · {format(date, "d MMM yyyy")}
+            อ่านได้{" "}
+            <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {scanMeta?.count ?? rows.length}
+            </span>{" "}
+            รายการ · มั่นใจ{" "}
+            <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {scanMeta?.confidence ?? 0}%
+            </span>
           </div>
         </div>
 
-        <div
-          className="mt-4 px-4 flex items-center w-full"
-          style={{
-            height: 28,
-            background: PAGE_BG,
-            borderTop: `0.5px solid ${DIVIDER}`,
-            borderBottom: `0.5px solid ${DIVIDER}`,
-            fontFamily: "DM Sans, sans-serif",
-            fontSize: 12,
-            color: MUTED,
-          }}
-        >
-          AI อ่านได้ {scanMeta?.count ?? rows.length} รายการ · มั่นใจ {scanMeta?.confidence ?? 0}%
-        </div>
-
-        <div style={{ background: "#fff" }}>
+        <div className="mt-3" style={{ background: CARD_BG }}>
           {rows.length === 0 ? (
             <div
               className="px-4 py-10 text-center"
               style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 13,
+                fontFamily: FONT_STACK,
+                fontSize: 14,
                 color: MUTED,
               }}
             >
@@ -1446,40 +1675,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             </SwipeableList>
           )}
 
-          <button
-            type="button"
-            onClick={openAddSheet}
-            className="w-full flex items-center gap-3 px-4 active:bg-black/5"
-            style={{
-              minHeight: 48,
-              background: "#fff",
-              borderTop: rows.length > 0 ? `0.5px solid ${DIVIDER}` : "none",
-            }}
-          >
-            <span
-              className="inline-flex items-center justify-center shrink-0"
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 999,
-                background: "#34c759",
-                color: "#fff",
-              }}
-            >
-              <Plus size={14} strokeWidth={3} />
-            </span>
-            <span
-              style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 14,
-                color: INK,
-                fontWeight: 500,
-              }}
-            >
-              เพิ่มรายการ
-            </span>
-          </button>
+          {AddRow}
         </div>
+
+        {rows.length > 0 && SwipeHint}
       </div>
 
       <div
@@ -1499,18 +1698,39 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             disabled={filledCount === 0 || saving}
             className="w-full flex items-center justify-center"
             style={{
-              height: 46,
-              borderRadius: 12,
+              height: 50,
+              borderRadius: 14,
               background: filledCount === 0 ? "rgba(0,0,0,0.15)" : INK,
               color: "#fff",
-              fontFamily: "DM Sans, sans-serif",
-              fontSize: 15,
+              fontFamily: FONT_STACK,
+              fontSize: 17,
               fontWeight: 600,
               border: "none",
               cursor: filledCount === 0 ? "default" : "pointer",
+              gap: 8,
             }}
           >
-            {saving ? <Loader2 size={18} className="animate-spin" /> : `ยืนยันและรับของ (${filledCount} รายการ)`}
+            {saving ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <>
+                <span>ยืนยันและรับของ</span>
+                <span
+                  style={{
+                    background: ACCENT,
+                    color: "#fff",
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    padding: "1px 8px",
+                    fontFamily: FONT_STACK,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {filledCount}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>
