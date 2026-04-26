@@ -650,7 +650,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     return (
       <div style={{ position: "relative", overflow: "hidden" }}>
-        // ใหม่
         <button
           type="button"
           onClick={() => {
