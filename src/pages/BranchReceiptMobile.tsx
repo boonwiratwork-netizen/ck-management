@@ -634,6 +634,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       setTranslate(clamped);
     };
 
+    // ใหม่ — reveal แล้วรอกดปุ่ม
     const onTouchEnd = () => {
       if (startXRef.current === null) return;
       startXRef.current = null;
@@ -641,7 +642,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       if (currentRef.current < -60) {
         currentRef.current = -80;
         setTranslate(-80);
-        setTimeout(() => removeRow(rowId), 150);
       } else {
         currentRef.current = 0;
         setTranslate(0);
@@ -650,7 +650,15 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     return (
       <div style={{ position: "relative", overflow: "hidden" }}>
-        <div
+        // ใหม่
+        <button
+          type="button"
+          onClick={() => {
+            setTransition(true);
+            setTranslate(0);
+            currentRef.current = 0;
+            setTimeout(() => removeRow(rowId), 200);
+          }}
           style={{
             position: "absolute",
             right: 0,
@@ -665,10 +673,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             fontFamily: FONT_STACK,
             fontSize: 15,
             fontWeight: 500,
+            border: "none",
+            cursor: "pointer",
           }}
         >
           ลบ
-        </div>
+        </button>
         <div
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
