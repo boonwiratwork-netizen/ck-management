@@ -910,7 +910,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   className="truncate"
                   style={{
                     fontFamily: FONT_STACK,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontStyle: "italic",
                     fontWeight: 400,
                     color: INK,
@@ -984,7 +984,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     background: SEARCH_BG,
                     border: "none",
                     fontFamily: FONT_STACK,
-                    fontSize: 14,
+                    fontSize: 16,
                     color: INK,
                   }}
                 >
@@ -1016,7 +1016,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 background: SEARCH_BG,
                 border: "none",
                 fontFamily: FONT_STACK,
-                fontSize: 14,
+                fontSize: 16,
                 color: INK,
               }}
             />
@@ -1069,11 +1069,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </div>
 
         {!branchId ? (
-          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 14, fontFamily: FONT_STACK }}>
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 16, fontFamily: FONT_STACK }}>
             เลือกสาขาก่อน
           </p>
         ) : filteredSuppliers.length === 0 ? (
-          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 14, fontFamily: FONT_STACK }}>
+          <p className="py-12 text-center" style={{ color: MUTED, fontSize: 16, fontFamily: FONT_STACK }}>
             ไม่พบซัพพลายเออร์
           </p>
         ) : (
@@ -1412,7 +1412,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   background: SEARCH_BG,
                   border: "none",
                   fontFamily: FONT_STACK,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: INK,
                 }}
               />
@@ -1425,7 +1425,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 className="py-10 text-center"
                 style={{
                   fontFamily: FONT_STACK,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: MUTED,
                 }}
               >
@@ -1598,7 +1598,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 className="px-4 py-10 text-center"
                 style={{
                   fontFamily: FONT_STACK,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: MUTED,
                 }}
               >
@@ -1712,7 +1712,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               className="px-4 py-10 text-center"
               style={{
                 fontFamily: FONT_STACK,
-                fontSize: 14,
+                fontSize: 16,
                 color: MUTED,
               }}
             >
