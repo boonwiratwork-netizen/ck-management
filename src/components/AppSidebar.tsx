@@ -226,7 +226,7 @@ export function getDefaultTab(role: AppRole | null): TabKey {
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { profile, role, isManagement, signOut, isCkManager } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
@@ -341,7 +341,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                         <SidebarMenuItem key={item.key}>
                           <SidebarMenuButton
                             isActive={isActive}
-                            onClick={() => onTabChange(item.key)}
+                            onClick={() => {
+                              onTabChange(item.key);
+                              setOpenMobile(false);
+                            }}
                             tooltip={label}
                             className={`cursor-pointer rounded-md transition-all duration-150 ${
                               isActive
