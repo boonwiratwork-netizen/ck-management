@@ -618,6 +618,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const SwipeableRow = ({ rowId, children }: { rowId: string; children: React.ReactNode }) => {
     const [translate, setTranslate] = React.useState(0);
     const [transition, setTransition] = React.useState(false);
+    const [deletePressed, setDeletePressed] = React.useState(false);
     const startXRef = React.useRef<number | null>(null);
     const currentRef = React.useRef(0);
     const startYRef = React.useRef<number | null>(null);
