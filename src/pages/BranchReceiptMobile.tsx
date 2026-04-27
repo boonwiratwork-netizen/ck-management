@@ -1037,7 +1037,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     key={s.id}
                     type="button"
                     onClick={() => handleSelectSupplier(s.id)}
-                    className="shrink-0 px-3 truncate"
+                    className="shrink-0 px-3 truncate active:scale-[0.95] active:opacity-70 transition-all duration-100"
                     style={{
                       height: 32,
                       borderRadius: 999,
