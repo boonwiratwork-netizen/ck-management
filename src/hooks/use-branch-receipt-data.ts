@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -56,10 +56,6 @@ export function useBranchReceiptData() {
     setReceipts((data || []).map(toLocal));
     setLoading(false);
   }, []);
-
-  useEffect(() => {
-    fetchReceipts();
-  }, [fetchReceipts]);
 
   const saveReceipts = useCallback(
     async (rows: Omit<BranchReceipt, "id" | "createdAt">[]) => {
