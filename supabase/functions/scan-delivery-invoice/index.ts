@@ -12,7 +12,8 @@ const corsHeaders = {
 
 const EXTRACT_SYSTEM_PROMPT =
   "You are reading a Thai delivery invoice or receipt. Extract every line item from the table. " +
-  'Return ONLY a valid JSON object: {"items":[{"code":"<supplier product code from first column if shown, else empty string>","raw_name":"<full product description exactly as written, without size/weight info>","quantity":<number>,"unit":"<unit of measure>"}]}. ' +
+  "IMPORTANT: Thai invoices often show two quantity columns — PACK DETAILS (จำนวนแพ็ค) and UNIT DETAILS (จำนวนหน่วยย่อย/ต่อหน่วย). Always extract the PACK quantity and PACK unit, never the per-unit breakdown quantity. For example: if the invoice shows '2 แพ็ค / 60 ฟอง', extract quantity=2 unit='แพ็ค'. " +
+  'Return ONLY a valid JSON object: {"items":[{"code":"<supplier product code from first column if shown, else empty string>","raw_name":"<full product description exactly as written, without size/weight info>","quantity":<number>,"unit":"<unit of measure as shown in pack column>"}]}. ' +
   "No prose, no markdown. If a field is missing use empty string or 0.";
 
 const MATCH_SYSTEM_PROMPT =
@@ -74,11 +75,11 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const {
-      imageBase64,
-      mimeType,
-      skuCatalog,
-    } = body as { imageBase64?: string; mimeType?: string; skuCatalog?: CatalogItem[] };
+    const { imageBase64, mimeType, skuCatalog } = body as {
+      imageBase64?: string;
+      mimeType?: string;
+      skuCatalog?: CatalogItem[];
+    };
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: "imageBase64 is required" }), {
@@ -114,10 +115,10 @@ Deno.serve(async (req) => {
 
     if (!extractResp.ok) {
       const txt = await extractResp.text();
-      return new Response(
-        JSON.stringify({ error: `AI gateway error [${extractResp.status}]: ${txt.slice(0, 500)}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: `AI gateway error [${extractResp.status}]: ${txt.slice(0, 500)}` }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const extractJson = await extractResp.json();
