@@ -1250,7 +1250,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 setSupplierId("");
                 setScreen("select");
               }}
-              className="flex items-center -ml-1 active:opacity-60"
+              className="flex items-center -ml-1 active:opacity-50 active:scale-[0.95] transition-all duration-100"
               style={{ color: ACCENT, fontSize: 13, fontFamily: FONT_STACK, gap: 2 }}
             >
               <ChevronLeft size={16} /> ซัพพลายเออร์
