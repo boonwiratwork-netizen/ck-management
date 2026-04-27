@@ -796,10 +796,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </span>
         <button
           type="button"
-          onPointerDown={(e) => { setIncPressed(true); inc(e); }}
-          onPointerUp={() => setIncPressed(false)}
-          onPointerCancel={() => setIncPressed(false)}
-          onPointerLeave={() => setIncPressed(false)}
+          onTouchStart={(e) => { setIncPressed(true); inc(e); }}
+          onTouchEnd={() => setIncPressed(false)}
+          onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
             width: 32,
@@ -819,6 +818,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: incPressed ? "scale(0.78)" : "scale(1)",
             opacity: incPressed ? 0.5 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           +
