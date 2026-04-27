@@ -744,9 +744,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       >
         <button
           type="button"
-          onPointerDown={dec}
+          onPointerDown={(e) => { setDecPressed(true); dec(e); }}
+          onPointerUp={() => setDecPressed(false)}
+          onPointerCancel={() => setDecPressed(false)}
+          onPointerLeave={() => setDecPressed(false)}
           aria-label="ลด"
-          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -762,6 +764,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
+            transform: decPressed ? "scale(0.78)" : "scale(1)",
+            opacity: decPressed ? 0.5 : 1,
+            transition: "transform 80ms, opacity 80ms",
           }}
         >
           −
