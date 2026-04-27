@@ -451,10 +451,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       setRows(built);
       setScanMeta({ count: items.length, confidence: conf });
       setScreen("scanResult");
-      toast.success(`อ่านได้ ${items.length} รายการ`);
+      toast.success(`อ่านได้ ${items.length} รายการ`, { position: "top-center" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "AI scan failed";
-      toast.error("ไม่สามารถอ่านใบส่งได้: " + msg);
+      toast.error("ไม่สามารถอ่านใบส่งได้: " + msg, { position: "top-center" });
       setRows([]);
       setScreen("manual");
     } finally {
@@ -603,11 +603,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       });
       const count = await saveReceipts(payload);
       if (count > 0) {
-        toast.success(`บันทึกแล้ว ${count} รายการ`);
+        toast.success(`บันทึกแล้ว ${count} รายการ`, { position: "top-center" });
         resetToStart();
       }
     } catch {
-      toast.error("บันทึกไม่สำเร็จ");
+      toast.error("บันทึกไม่สำเร็จ", { position: "top-center" });
     } finally {
       setSaving(false);
     }
