@@ -950,6 +950,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   // ─── SCREEN 1 — supplier select ───────────────────────
 
   if (screen === "select") {
+    if (isStoreManager && !branchId) return null;
     return (
       <div className="w-full min-h-screen" style={{ background: PAGE_BG, fontFamily: FONT_STACK }}>
         <div className="px-4 pt-5 pb-4">
