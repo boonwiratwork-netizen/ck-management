@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/hooks/use-language";
 import Index from "./pages/Index";
+import MobileApp from "./pages/MobileApp";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import InitialSetup from "./pages/InitialSetup";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/setup" element={<SetupRoute />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/mobile" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
