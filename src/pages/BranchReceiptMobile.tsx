@@ -753,10 +753,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       >
         <button
           type="button"
-          onPointerDown={(e) => { setDecPressed(true); dec(e); }}
-          onPointerUp={() => setDecPressed(false)}
-          onPointerCancel={() => setDecPressed(false)}
-          onPointerLeave={() => setDecPressed(false)}
+          onTouchStart={(e) => { setDecPressed(true); dec(e); }}
+          onTouchEnd={() => setDecPressed(false)}
+          onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
             width: 32,
@@ -776,6 +775,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: decPressed ? "scale(0.78)" : "scale(1)",
             opacity: decPressed ? 0.5 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           −
