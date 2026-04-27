@@ -618,6 +618,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
   const SwipeableRow = ({ rowId, children }: { rowId: string; children: React.ReactNode }) => {
     const [translate, setTranslate] = React.useState(0);
     const [transition, setTransition] = React.useState(false);
+    const [deletePressed, setDeletePressed] = React.useState(false);
     const startXRef = React.useRef<number | null>(null);
     const currentRef = React.useRef(0);
     const startYRef = React.useRef<number | null>(null);
@@ -657,6 +658,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       <div style={{ position: "relative", overflow: "hidden" }}>
         <button
           type="button"
+          onPointerDown={() => setDeletePressed(true)}
+          onPointerUp={() => setDeletePressed(false)}
+          onPointerCancel={() => setDeletePressed(false)}
+          onPointerLeave={() => setDeletePressed(false)}
           onClick={() => {
             setTransition(true);
             setTranslate(0);
@@ -679,6 +684,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             fontWeight: 500,
             border: "none",
             cursor: "pointer",
+            transform: deletePressed ? "scale(0.93)" : "scale(1)",
+            opacity: deletePressed ? 0.75 : 1,
+            transition: "transform 80ms, opacity 80ms",
           }}
         >
           ลบ
@@ -707,6 +715,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const inputUnit = packsMode && sku ? (sku.packUnit ?? "") : (sku?.usageUom ?? "");
     const filled = r.packs > 0;
     const step = packsMode ? 1 : 0.1;
+    const [decPressed, setDecPressed] = React.useState(false);
+    const [incPressed, setIncPressed] = React.useState(false);
 
     const display = packsMode
       ? String(Math.round(r.packs))
@@ -742,9 +752,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       >
         <button
           type="button"
-          onPointerDown={dec}
+          onPointerDown={(e) => { setDecPressed(true); dec(e); }}
+          onPointerUp={() => setDecPressed(false)}
+          onPointerCancel={() => setDecPressed(false)}
+          onPointerLeave={() => setDecPressed(false)}
           aria-label="ลด"
-          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -760,6 +772,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
+            transform: decPressed ? "scale(0.78)" : "scale(1)",
+            opacity: decPressed ? 0.5 : 1,
+            transition: "transform 80ms, opacity 80ms",
           }}
         >
           −
@@ -779,9 +794,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </span>
         <button
           type="button"
-          onPointerDown={inc}
+          onPointerDown={(e) => { setIncPressed(true); inc(e); }}
+          onPointerUp={() => setIncPressed(false)}
+          onPointerCancel={() => setIncPressed(false)}
+          onPointerLeave={() => setIncPressed(false)}
           aria-label="เพิ่ม"
-          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -797,6 +814,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
+            transform: incPressed ? "scale(0.78)" : "scale(1)",
+            opacity: incPressed ? 0.5 : 1,
+            transition: "transform 80ms, opacity 80ms",
           }}
         >
           +
@@ -830,7 +850,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     const rowBg = conf === "low" ? "rgba(255,149,0,0.05)" : isUnmatched ? "rgba(255,59,48,0.04)" : CARD_BG;
 
-    const [tapActive, setTapActive] = React.useState(false);
+    const [textPressed, setTextPressed] = React.useState(false);
 
     const handleTextTap = () => {
       // ALL rows open assign sheet on text tap
@@ -857,12 +877,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             onClick={handleTextTap}
-            onPointerDown={() => setTapActive(true)}
-            onPointerUp={() => setTapActive(false)}
-            onPointerCancel={() => setTapActive(false)}
-            onPointerLeave={() => setTapActive(false)}
+            onPointerDown={() => setTextPressed(true)}
+            onPointerUp={() => setTextPressed(false)}
+            onPointerCancel={() => setTextPressed(false)}
+            onPointerLeave={() => setTextPressed(false)}
             className="min-w-0 flex-1 self-center select-none"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 100ms", opacity: tapActive ? 0.6 : 1 }}
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1 }}
           >
             {sku ? (
               <>
