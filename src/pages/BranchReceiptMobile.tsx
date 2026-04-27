@@ -1540,7 +1540,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     <button
       type="button"
       onClick={openAddSheet}
-      className="w-full flex items-center px-4 active:bg-black/5"
+      className="w-full flex items-center px-4 active:scale-[0.98] active:brightness-95 transition-all duration-100"
       style={{
         height: 44,
         background: CARD_BG,
