@@ -1092,7 +1092,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   key={s.id}
                   type="button"
                   onClick={() => handleSelectSupplier(s.id)}
-                  className="w-full flex items-center gap-3 px-4 active:bg-black/5 text-left"
+                  className="w-full flex items-center gap-3 px-4 active:scale-[0.98] active:brightness-95 transition-all duration-100 text-left"
                   style={{
                     minHeight: 56,
                     borderBottom: isLast ? "none" : `0.5px solid ${DIVIDER}`,
