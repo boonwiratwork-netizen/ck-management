@@ -658,10 +658,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       <div style={{ position: "relative", overflow: "hidden" }}>
         <button
           type="button"
-          onPointerDown={() => setDeletePressed(true)}
-          onPointerUp={() => setDeletePressed(false)}
-          onPointerCancel={() => setDeletePressed(false)}
-          onPointerLeave={() => setDeletePressed(false)}
+          onTouchStart={() => setDeletePressed(true)}
+          onTouchEnd={() => setDeletePressed(false)}
+          onTouchCancel={() => setDeletePressed(false)}
           onClick={() => {
             setTransition(true);
             setTranslate(0);
@@ -687,6 +686,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: deletePressed ? "scale(0.93)" : "scale(1)",
             opacity: deletePressed ? 0.75 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           ลบ
@@ -724,12 +725,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         ? String(r.packs)
         : r.packs.toFixed(1);
 
-    const dec = (e: React.PointerEvent) => {
+    const dec = (e: React.TouchEvent | React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
       updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2)));
     };
-    const inc = (e: React.PointerEvent) => {
+    const inc = (e: React.TouchEvent | React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
       updateRowPacks(r.rowId, +(r.packs + step).toFixed(2));
@@ -752,10 +753,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       >
         <button
           type="button"
-          onPointerDown={(e) => { setDecPressed(true); dec(e); }}
-          onPointerUp={() => setDecPressed(false)}
-          onPointerCancel={() => setDecPressed(false)}
-          onPointerLeave={() => setDecPressed(false)}
+          onTouchStart={(e) => { setDecPressed(true); dec(e); }}
+          onTouchEnd={() => setDecPressed(false)}
+          onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
             width: 32,
@@ -775,6 +775,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: decPressed ? "scale(0.78)" : "scale(1)",
             opacity: decPressed ? 0.5 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           −
@@ -794,10 +796,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </span>
         <button
           type="button"
-          onPointerDown={(e) => { setIncPressed(true); inc(e); }}
-          onPointerUp={() => setIncPressed(false)}
-          onPointerCancel={() => setIncPressed(false)}
-          onPointerLeave={() => setIncPressed(false)}
+          onTouchStart={(e) => { setIncPressed(true); inc(e); }}
+          onTouchEnd={() => setIncPressed(false)}
+          onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
             width: 32,
@@ -817,6 +818,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: incPressed ? "scale(0.78)" : "scale(1)",
             opacity: incPressed ? 0.5 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           +
@@ -877,12 +880,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             onClick={handleTextTap}
-            onPointerDown={() => setTextPressed(true)}
-            onPointerUp={() => setTextPressed(false)}
-            onPointerCancel={() => setTextPressed(false)}
-            onPointerLeave={() => setTextPressed(false)}
+            onTouchStart={() => setTextPressed(true)}
+            onTouchEnd={() => setTextPressed(false)}
+            onTouchCancel={() => setTextPressed(false)}
             className="min-w-0 flex-1 self-center select-none"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1 }}
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
             {sku ? (
               <>
