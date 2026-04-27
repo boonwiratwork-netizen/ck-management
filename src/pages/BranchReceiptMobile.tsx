@@ -786,9 +786,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </span>
         <button
           type="button"
-          onPointerDown={inc}
+          onPointerDown={(e) => { setIncPressed(true); inc(e); }}
+          onPointerUp={() => setIncPressed(false)}
+          onPointerCancel={() => setIncPressed(false)}
+          onPointerLeave={() => setIncPressed(false)}
           aria-label="เพิ่ม"
-          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -804,6 +806,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
+            transform: incPressed ? "scale(0.78)" : "scale(1)",
+            opacity: incPressed ? 0.5 : 1,
+            transition: "transform 80ms, opacity 80ms",
           }}
         >
           +
