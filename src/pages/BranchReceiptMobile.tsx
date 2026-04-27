@@ -842,7 +842,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     const rowBg = conf === "low" ? "rgba(255,149,0,0.05)" : isUnmatched ? "rgba(255,59,48,0.04)" : CARD_BG;
 
-    const [tapActive, setTapActive] = React.useState(false);
+    const [textPressed, setTextPressed] = React.useState(false);
 
     const handleTextTap = () => {
       // ALL rows open assign sheet on text tap
