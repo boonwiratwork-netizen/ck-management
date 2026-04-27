@@ -725,12 +725,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         ? String(r.packs)
         : r.packs.toFixed(1);
 
-    const dec = (e: React.PointerEvent) => {
+    const dec = (e: React.TouchEvent | React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
       updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2)));
     };
-    const inc = (e: React.PointerEvent) => {
+    const inc = (e: React.TouchEvent | React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
       updateRowPacks(r.rowId, +(r.packs + step).toFixed(2));
