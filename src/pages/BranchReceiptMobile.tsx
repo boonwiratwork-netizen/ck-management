@@ -1188,7 +1188,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="w-full flex items-center active:opacity-70 disabled:opacity-60"
+        className="w-full flex items-center active:scale-[0.97] active:brightness-95 transition-all duration-100 disabled:opacity-60"
         style={{
           background: CARD_BG,
           borderRadius: 14,
