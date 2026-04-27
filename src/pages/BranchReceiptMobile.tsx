@@ -880,12 +880,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             onClick={handleTextTap}
-            onPointerDown={() => setTextPressed(true)}
-            onPointerUp={() => setTextPressed(false)}
-            onPointerCancel={() => setTextPressed(false)}
-            onPointerLeave={() => setTextPressed(false)}
+            onTouchStart={() => setTextPressed(true)}
+            onTouchEnd={() => setTextPressed(false)}
+            onTouchCancel={() => setTextPressed(false)}
             className="min-w-0 flex-1 self-center select-none"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1 }}
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
             {sku ? (
               <>
