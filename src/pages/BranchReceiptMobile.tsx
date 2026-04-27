@@ -744,6 +744,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           type="button"
           onPointerDown={dec}
           aria-label="ลด"
+          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -780,6 +781,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           type="button"
           onPointerDown={inc}
           aria-label="เพิ่ม"
+          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
@@ -828,6 +830,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     const rowBg = conf === "low" ? "rgba(255,149,0,0.05)" : isUnmatched ? "rgba(255,59,48,0.04)" : CARD_BG;
 
+    const [tapActive, setTapActive] = React.useState(false);
+
     const handleTextTap = () => {
       // ALL rows open assign sheet on text tap
       openAssignSheet(r);
@@ -853,8 +857,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             onClick={handleTextTap}
-            className="min-w-0 flex-1 self-center"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8 }}
+            onPointerDown={() => setTapActive(true)}
+            onPointerUp={() => setTapActive(false)}
+            onPointerCancel={() => setTapActive(false)}
+            onPointerLeave={() => setTapActive(false)}
+            className="min-w-0 flex-1 self-center select-none"
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 100ms", opacity: tapActive ? 0.6 : 1 }}
           >
             {sku ? (
               <>
@@ -1037,7 +1045,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     key={s.id}
                     type="button"
                     onClick={() => handleSelectSupplier(s.id)}
-                    className="shrink-0 px-3 truncate"
+                    className="shrink-0 px-3 truncate active:scale-[0.95] active:opacity-70 transition-all duration-100"
                     style={{
                       height: 32,
                       borderRadius: 999,
@@ -1092,7 +1100,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   key={s.id}
                   type="button"
                   onClick={() => handleSelectSupplier(s.id)}
-                  className="w-full flex items-center gap-3 px-4 active:bg-black/5 text-left"
+                  className="w-full flex items-center gap-3 px-4 active:scale-[0.98] active:brightness-95 transition-all duration-100 text-left"
                   style={{
                     minHeight: 56,
                     borderBottom: isLast ? "none" : `0.5px solid ${DIVIDER}`,
@@ -1188,7 +1196,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="w-full flex items-center active:opacity-70 disabled:opacity-60"
+        className="w-full flex items-center active:scale-[0.97] active:brightness-95 transition-all duration-100 disabled:opacity-60"
         style={{
           background: CARD_BG,
           borderRadius: 14,
@@ -1250,7 +1258,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                 setSupplierId("");
                 setScreen("select");
               }}
-              className="flex items-center -ml-1 active:opacity-60"
+              className="flex items-center -ml-1 active:opacity-50 active:scale-[0.95] transition-all duration-100"
               style={{ color: ACCENT, fontSize: 13, fontFamily: FONT_STACK, gap: 2 }}
             >
               <ChevronLeft size={16} /> ซัพพลายเออร์
@@ -1446,7 +1454,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     key={s.id}
                     type="button"
                     onClick={() => handleSheetSelectSku(s.id)}
-                    className="w-full flex items-center gap-2 px-4 active:bg-black/5 text-left"
+                    className="w-full flex items-center gap-2 px-4 active:scale-[0.98] active:brightness-95 transition-all duration-100 text-left"
                     style={{
                       minHeight: 52,
                       borderBottom: `0.5px solid ${DIVIDER}`,
@@ -1505,7 +1513,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       <button
         type="button"
         onClick={() => setScreen("method")}
-        className="flex items-center -ml-1 active:opacity-60"
+        className="flex items-center -ml-1 active:opacity-50 active:scale-[0.95] transition-all duration-100"
         style={{ color: ACCENT, fontSize: 13, fontFamily: FONT_STACK, gap: 2 }}
       >
         <ChevronLeft size={16} /> {selectedSupplier?.name ? "วิธีรับของ" : "กลับ"}
@@ -1540,7 +1548,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     <button
       type="button"
       onClick={openAddSheet}
-      className="w-full flex items-center px-4 active:bg-black/5"
+      className="w-full flex items-center px-4 active:scale-[0.98] active:brightness-95 transition-all duration-100"
       style={{
         height: 44,
         background: CARD_BG,
@@ -1641,7 +1649,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               type="button"
               onClick={handleSave}
               disabled={filledCount === 0 || saving}
-              className="w-full flex items-center justify-center"
+              className="w-full flex items-center justify-center active:brightness-110 active:scale-[0.98] transition-all duration-100"
               style={{
                 height: 50,
                 borderRadius: 14,
@@ -1753,7 +1761,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             type="button"
             onClick={handleSave}
             disabled={filledCount === 0 || saving}
-            className="w-full flex items-center justify-center"
+            className="w-full flex items-center justify-center active:brightness-110 active:scale-[0.98] transition-all duration-100"
             style={{
               height: 50,
               borderRadius: 14,
