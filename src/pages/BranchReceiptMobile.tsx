@@ -725,16 +725,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         ? String(r.packs)
         : r.packs.toFixed(1);
 
-    const dec = (e: React.TouchEvent | React.PointerEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2)));
-    };
-    const inc = (e: React.TouchEvent | React.PointerEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      updateRowPacks(r.rowId, +(r.packs + step).toFixed(2));
-    };
 
     return (
       <div
@@ -753,8 +743,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       >
         <button
           type="button"
-          onTouchStart={(e) => { setDecPressed(true); dec(e); }}
-          onTouchEnd={() => setDecPressed(false)}
+          onTouchStart={() => setDecPressed(true)}
+          onTouchEnd={(e) => { e.stopPropagation(); setDecPressed(false); updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2))); }}
           onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
@@ -796,8 +786,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </span>
         <button
           type="button"
-          onTouchStart={(e) => { setIncPressed(true); inc(e); }}
-          onTouchEnd={() => setIncPressed(false)}
+          onTouchStart={() => setIncPressed(true)}
+          onTouchEnd={(e) => { e.stopPropagation(); setIncPressed(false); updateRowPacks(r.rowId, +(r.packs + step).toFixed(2)); }}
           onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
@@ -864,6 +854,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       <SwipeableRow rowId={r.rowId}>
         <div
           className="flex items-stretch w-full"
+          onClick={handleTextTap}
+          onTouchStart={() => setTextPressed(true)}
+          onTouchEnd={() => setTextPressed(false)}
+          onTouchCancel={() => setTextPressed(false)}
           style={{
             minHeight: 56,
             background: rowBg,
@@ -872,6 +866,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             paddingRight: 16,
             gap: 10,
             fontFamily: FONT_STACK,
+            opacity: textPressed ? 0.5 : 1,
+            transition: "opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
           }}
         >
           {showDot && (
@@ -879,12 +876,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           )}
 
           <div
-            onClick={handleTextTap}
-            onTouchStart={() => setTextPressed(true)}
-            onTouchEnd={() => setTextPressed(false)}
-            onTouchCancel={() => setTextPressed(false)}
             className="min-w-0 flex-1 self-center select-none"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 80ms", opacity: textPressed ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8 }}
           >
             {sku ? (
               <>
