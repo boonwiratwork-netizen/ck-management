@@ -744,6 +744,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           type="button"
           onPointerDown={dec}
           aria-label="ลด"
+          className="active:scale-[0.85] active:opacity-60 transition-all duration-100"
           style={{
             width: 32,
             height: 36,
