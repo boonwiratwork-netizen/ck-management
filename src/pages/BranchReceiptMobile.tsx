@@ -1755,7 +1755,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             type="button"
             onClick={handleSave}
             disabled={filledCount === 0 || saving}
-            className="w-full flex items-center justify-center"
+            className="w-full flex items-center justify-center active:brightness-110 active:scale-[0.98] transition-all duration-100"
             style={{
               height: 50,
               borderRadius: 14,
