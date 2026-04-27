@@ -707,6 +707,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const inputUnit = packsMode && sku ? (sku.packUnit ?? "") : (sku?.usageUom ?? "");
     const filled = r.packs > 0;
     const step = packsMode ? 1 : 0.1;
+    const [decPressed, setDecPressed] = React.useState(false);
+    const [incPressed, setIncPressed] = React.useState(false);
 
     const display = packsMode
       ? String(Math.round(r.packs))
