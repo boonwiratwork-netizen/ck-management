@@ -830,6 +830,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
     const rowBg = conf === "low" ? "rgba(255,149,0,0.05)" : isUnmatched ? "rgba(255,59,48,0.04)" : CARD_BG;
 
+    const [tapActive, setTapActive] = React.useState(false);
+
     const handleTextTap = () => {
       // ALL rows open assign sheet on text tap
       openAssignSheet(r);
@@ -855,8 +857,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
 
           <div
             onClick={handleTextTap}
-            className="min-w-0 flex-1 self-center"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8 }}
+            onPointerDown={() => setTapActive(true)}
+            onPointerUp={() => setTapActive(false)}
+            onPointerCancel={() => setTapActive(false)}
+            onPointerLeave={() => setTapActive(false)}
+            className="min-w-0 flex-1 self-center select-none"
+            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 100ms", opacity: tapActive ? 0.6 : 1 }}
           >
             {sku ? (
               <>
