@@ -658,10 +658,9 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
       <div style={{ position: "relative", overflow: "hidden" }}>
         <button
           type="button"
-          onPointerDown={() => setDeletePressed(true)}
-          onPointerUp={() => setDeletePressed(false)}
-          onPointerCancel={() => setDeletePressed(false)}
-          onPointerLeave={() => setDeletePressed(false)}
+          onTouchStart={() => setDeletePressed(true)}
+          onTouchEnd={() => setDeletePressed(false)}
+          onTouchCancel={() => setDeletePressed(false)}
           onClick={() => {
             setTransition(true);
             setTranslate(0);
@@ -687,6 +686,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             transform: deletePressed ? "scale(0.93)" : "scale(1)",
             opacity: deletePressed ? 0.75 : 1,
             transition: "transform 80ms, opacity 80ms",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
         >
           ลบ
