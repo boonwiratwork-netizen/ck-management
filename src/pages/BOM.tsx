@@ -321,8 +321,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   );
 
   // Header actions
-  const handleAddHeader = () => {
-    setHeaderForm(EMPTY_BOM_HEADER);
+  const handleAddHeader = (prefillSkuId?: string) => {
+    setHeaderForm(prefillSkuId ? { ...EMPTY_BOM_HEADER, smSkuId: prefillSkuId } : EMPTY_BOM_HEADER);
     setEditingHeader(true);
     setSelectedHeaderId(null);
   };
