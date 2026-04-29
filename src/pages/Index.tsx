@@ -405,7 +405,7 @@ const Index = () => {
       updateSku(editingSku.id, data, newSkuCode);
       toast.success(newSkuCode ? `SKU updated — code changed to ${newSkuCode}` : "SKU updated");
     } else {
-      addSku(data);
+      addSku(data, newSkuCode);
       toast.success("SKU added");
     }
   };
