@@ -634,6 +634,63 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     });
   }, [headers, listSearch, skus, sortAsc]);
 
+  // SM SKUs that have no BOM header AND are not tracked as a by-product elsewhere
+  const smSkusWithoutBom = useMemo(() => {
+    return smSkus.filter((s) => {
+      const hasHeader = headers.some((h) => h.smSkuId === s.id);
+      if (hasHeader) return false;
+      const isByproduct = byproducts.some((bp) => bp.skuId === s.id && bp.tracksInventory);
+      return !isByproduct;
+    });
+  }, [smSkus, headers, byproducts]);
+
+  const filteredSmSkusWithoutBom = useMemo(() => {
+    const q = listSearch.toLowerCase();
+    const list = listSearch
+      ? smSkusWithoutBom.filter(
+          (s) => s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q),
+        )
+      : smSkusWithoutBom;
+    return [...list].sort((a, b) => {
+      const cmp = a.skuId.localeCompare(b.skuId);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [smSkusWithoutBom, listSearch, sortAsc]);
+
+  // SM SKUs grouped for the New-BOM-Header dropdown
+  const smSkuDropdownOptions = useMemo(() => {
+    const withoutBom: typeof smSkus = [];
+    const withBom: typeof smSkus = [];
+    smSkus.forEach((s) => {
+      if (headers.some((h) => h.smSkuId === s.id)) withBom.push(s);
+      else withoutBom.push(s);
+    });
+    const opts: Array<{
+      value: string;
+      label: string;
+      sublabel?: string;
+      isGroupHeader?: boolean;
+      muted?: boolean;
+      badge?: string;
+    }> = [];
+    withoutBom.forEach((s) =>
+      opts.push({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }),
+    );
+    if (withBom.length > 0) {
+      opts.push({ value: `__group_with_bom__`, label: "มี BOM แล้ว", isGroupHeader: true });
+      withBom.forEach((s) =>
+        opts.push({
+          value: s.id,
+          label: `${s.skuId} — ${s.name}`,
+          sublabel: s.skuId,
+          muted: true,
+          badge: "มี BOM แล้ว",
+        }),
+      );
+    }
+    return opts;
+  }, [smSkus, headers]);
+
   // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
     <TableRow className="bg-muted/30 h-9" onKeyDown={handleLineKeyDown}>
