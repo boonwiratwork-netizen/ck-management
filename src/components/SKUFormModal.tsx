@@ -40,6 +40,19 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   const [newCatEn, setNewCatEn] = useState('');
   const [newCatTh, setNewCatTh] = useState('');
 
+  const typePrefix: Record<SKUType, string> = { RM: 'RM-', SM: 'SM-', SP: 'SP-', PK: 'PK-' };
+
+  const suggestNextSkuCode = (type: SKUType): string => {
+    const nums = allSkus
+      .filter(s => s.type === type)
+      .map(s => {
+        const m = s.skuId.match(new RegExp(`^${type}-(\\d+)$`));
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return `${type}-${String(max + 1).padStart(4, '0')}`;
+  };
+
   useEffect(() => {
     if (editingSku) {
       const { id, skuId, ...rest } = editingSku;
@@ -47,7 +60,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
       setSkuCode(skuId);
     } else {
       setForm(EMPTY_SKU);
-      setSkuCode('');
+      setSkuCode(suggestNextSkuCode(EMPTY_SKU.type));
     }
     setErrors({});
     setSaving(false);
@@ -55,8 +68,26 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     setShowAddCategory(false);
   }, [editingSku, open]);
 
+  // Auto-update suggestion when Type changes in add mode
+  useEffect(() => {
+    if (!editingSku && open) {
+      setSkuCode(suggestNextSkuCode(form.type));
+      setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.type]);
+
   const skuCodeChanged = editingSku && skuCode !== editingSku.skuId;
-  const typePrefix: Record<SKUType, string> = { RM: 'RM-', SM: 'SM-', SP: 'SP-', PK: 'PK-' };
+
+  const validateSkuCode = (code: string, type: SKUType): string | null => {
+    const expectedPrefix = typePrefix[type];
+    if (!code.trim()) return 'SKU Code is required';
+    if (!/^[A-Z]{2}-\d{4}$/.test(code)) return 'SKU code must follow format: XX-XXXX (e.g. RM-0001)';
+    if (!code.startsWith(expectedPrefix)) return `SKU code must start with ${expectedPrefix} for ${SKU_TYPE_LABELS[type]} type`;
+    const dupe = allSkus.some(s => s.skuId === code && (!editingSku || s.id !== editingSku.id));
+    if (dupe) return 'This SKU code already exists';
+    return null;
+  };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -67,15 +98,12 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (form.packSize <= 0) errs.packSize = 'Must be a positive number';
     if (form.converter <= 0) errs.converter = 'Must be a positive number';
 
-    if (editingSku && skuCode !== editingSku.skuId) {
-      const expectedPrefix = typePrefix[form.type];
-      if (!skuCode.startsWith(expectedPrefix)) {
-        errs.skuCode = `SKU code must start with ${expectedPrefix} for ${SKU_TYPE_LABELS[form.type]} type`;
-      } else if (!/^[A-Z]{2}-\d{4}$/.test(skuCode)) {
-        errs.skuCode = 'SKU code must follow format: XX-XXXX (e.g. RM-0001)';
-      } else if (allSkus.some(s => s.skuId === skuCode && s.id !== editingSku.id)) {
-        errs.skuCode = 'This SKU code already exists';
-      }
+    if (!editingSku) {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) errs.skuCode = codeErr;
+    } else if (skuCode !== editingSku.skuId) {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) errs.skuCode = codeErr;
     }
 
     setErrors(errs);
@@ -87,6 +115,11 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     else if (key === 'packUnit' && !form.packUnit.trim()) setErrors(prev => ({ ...prev, packUnit: 'Pack Unit is required' }));
     else if (key === 'purchaseUom' && !form.purchaseUom.trim()) setErrors(prev => ({ ...prev, purchaseUom: 'Purchase UOM is required' }));
     else if (key === 'usageUom' && !form.usageUom.trim()) setErrors(prev => ({ ...prev, usageUom: 'Usage UOM is required' }));
+    else if (key === 'skuCode') {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) setErrors(prev => ({ ...prev, skuCode: codeErr }));
+      else setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+    }
   };
 
   const errorCount = Object.keys(errors).length;
@@ -99,7 +132,8 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     }
     setSaving(true);
     try {
-      onSubmit(form, skuCodeChanged ? skuCode : undefined);
+      const codeToPass = editingSku ? (skuCodeChanged ? skuCode : undefined) : skuCode;
+      onSubmit(form, codeToPass);
       setSaved(true);
       setTimeout(() => { onClose(); setSaved(false); }, 400);
     } finally {
@@ -126,7 +160,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   };
 
   const typeIsLocked = !!editingSku && isSkuUsed;
-  const isFormValid = form.name.trim() && form.packUnit.trim() && form.purchaseUom.trim() && form.usageUom.trim() && form.packSize > 0 && form.converter > 0;
+  const isFormValid = form.name.trim() && form.packUnit.trim() && form.purchaseUom.trim() && form.usageUom.trim() && form.packSize > 0 && form.converter > 0 && (editingSku ? true : !validateSkuCode(skuCode, form.type));
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -145,28 +179,31 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* SKU Code (editable in edit mode) */}
-          {editingSku && (
-            <div>
-              <Label>SKU Code</Label>
-              <Input
-                value={skuCode}
-                onChange={e => {
-                  setSkuCode(e.target.value.toUpperCase());
-                  if (errors.skuCode) setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
-                }}
-                placeholder="e.g. RM-0001"
-                className={errors.skuCode ? 'input-error' : ''}
-              />
-              {errors.skuCode && <p className="text-xs text-destructive mt-1">{errors.skuCode}</p>}
-              {skuCodeChanged && !errors.skuCode && (
-                <div className="mt-2 rounded-lg border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-600" />
-                  <span>Changing this SKU code will update all references in BOM, prices, receipts, and stock records. Make sure the new code follows the format: RM-XXXX, SM-XXXX, SP-XXXX, or PK-XXXX</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* SKU Code — required in both add and edit modes */}
+          <div>
+            <Label className="label-required">SKU Code</Label>
+            <Input
+              value={skuCode}
+              onChange={e => {
+                setSkuCode(e.target.value.toUpperCase());
+                if (errors.skuCode) setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+              }}
+              onBlur={() => handleBlur('skuCode')}
+              placeholder="e.g. RM-0001"
+              className={errors.skuCode ? 'input-error' : ''}
+            />
+            {errors.skuCode && <p className="text-xs text-destructive mt-1">{errors.skuCode}</p>}
+            {!editingSku && !errors.skuCode && (
+              <p className="text-xs text-muted-foreground mt-1">Auto-suggested based on Type. You can override.</p>
+            )}
+            {editingSku && skuCodeChanged && !errors.skuCode && (
+              <div className="mt-2 rounded-lg border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-600" />
+                <span>Changing this SKU code will update all references in BOM, prices, receipts, and stock records. Make sure the new code follows the format: RM-XXXX, SM-XXXX, SP-XXXX, or PK-XXXX</span>
+              </div>
+            )}
+          </div>
+
 
           {/* Row 1 */}
           <div>

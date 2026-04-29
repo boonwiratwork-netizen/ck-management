@@ -71,8 +71,8 @@ export function useSkuData() {
     return `${type}-${String(max + 1).padStart(4, '0')}`;
   };
 
-  const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>) => {
-    const skuId = generateSkuId(data.type, skus);
+  const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>, customSkuId?: string) => {
+    const skuId = customSkuId && customSkuId.trim() ? customSkuId.trim() : generateSkuId(data.type, skus);
     const { data: row, error } = await supabase.from('skus').insert(toDb(data, skuId)).select().single();
     if (error) { toast.error('Failed to add SKU: ' + error.message); return; }
     setSkus(prev => [toLocal(row), ...prev]);
