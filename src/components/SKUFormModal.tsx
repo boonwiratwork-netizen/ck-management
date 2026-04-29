@@ -79,6 +79,16 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
 
   const skuCodeChanged = editingSku && skuCode !== editingSku.skuId;
 
+  const validateSkuCode = (code: string, type: SKUType): string | null => {
+    const expectedPrefix = typePrefix[type];
+    if (!code.trim()) return 'SKU Code is required';
+    if (!/^[A-Z]{2}-\d{4}$/.test(code)) return 'SKU code must follow format: XX-XXXX (e.g. RM-0001)';
+    if (!code.startsWith(expectedPrefix)) return `SKU code must start with ${expectedPrefix} for ${SKU_TYPE_LABELS[type]} type`;
+    const dupe = allSkus.some(s => s.skuId === code && (!editingSku || s.id !== editingSku.id));
+    if (dupe) return 'This SKU code already exists';
+    return null;
+  };
+
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'SKU Name is required';
@@ -88,15 +98,12 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     if (form.packSize <= 0) errs.packSize = 'Must be a positive number';
     if (form.converter <= 0) errs.converter = 'Must be a positive number';
 
-    if (editingSku && skuCode !== editingSku.skuId) {
-      const expectedPrefix = typePrefix[form.type];
-      if (!skuCode.startsWith(expectedPrefix)) {
-        errs.skuCode = `SKU code must start with ${expectedPrefix} for ${SKU_TYPE_LABELS[form.type]} type`;
-      } else if (!/^[A-Z]{2}-\d{4}$/.test(skuCode)) {
-        errs.skuCode = 'SKU code must follow format: XX-XXXX (e.g. RM-0001)';
-      } else if (allSkus.some(s => s.skuId === skuCode && s.id !== editingSku.id)) {
-        errs.skuCode = 'This SKU code already exists';
-      }
+    if (!editingSku) {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) errs.skuCode = codeErr;
+    } else if (skuCode !== editingSku.skuId) {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) errs.skuCode = codeErr;
     }
 
     setErrors(errs);
@@ -108,6 +115,11 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     else if (key === 'packUnit' && !form.packUnit.trim()) setErrors(prev => ({ ...prev, packUnit: 'Pack Unit is required' }));
     else if (key === 'purchaseUom' && !form.purchaseUom.trim()) setErrors(prev => ({ ...prev, purchaseUom: 'Purchase UOM is required' }));
     else if (key === 'usageUom' && !form.usageUom.trim()) setErrors(prev => ({ ...prev, usageUom: 'Usage UOM is required' }));
+    else if (key === 'skuCode') {
+      const codeErr = validateSkuCode(skuCode, form.type);
+      if (codeErr) setErrors(prev => ({ ...prev, skuCode: codeErr }));
+      else setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+    }
   };
 
   const errorCount = Object.keys(errors).length;
@@ -120,7 +132,8 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     }
     setSaving(true);
     try {
-      onSubmit(form, skuCodeChanged ? skuCode : undefined);
+      const codeToPass = editingSku ? (skuCodeChanged ? skuCode : undefined) : skuCode;
+      onSubmit(form, codeToPass);
       setSaved(true);
       setTimeout(() => { onClose(); setSaved(false); }, 400);
     } finally {
