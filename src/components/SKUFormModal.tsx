@@ -40,6 +40,19 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   const [newCatEn, setNewCatEn] = useState('');
   const [newCatTh, setNewCatTh] = useState('');
 
+  const typePrefix: Record<SKUType, string> = { RM: 'RM-', SM: 'SM-', SP: 'SP-', PK: 'PK-' };
+
+  const suggestNextSkuCode = (type: SKUType): string => {
+    const nums = allSkus
+      .filter(s => s.type === type)
+      .map(s => {
+        const m = s.skuId.match(new RegExp(`^${type}-(\\d+)$`));
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return `${type}-${String(max + 1).padStart(4, '0')}`;
+  };
+
   useEffect(() => {
     if (editingSku) {
       const { id, skuId, ...rest } = editingSku;
@@ -47,7 +60,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
       setSkuCode(skuId);
     } else {
       setForm(EMPTY_SKU);
-      setSkuCode('');
+      setSkuCode(suggestNextSkuCode(EMPTY_SKU.type));
     }
     setErrors({});
     setSaving(false);
@@ -55,8 +68,16 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
     setShowAddCategory(false);
   }, [editingSku, open]);
 
+  // Auto-update suggestion when Type changes in add mode
+  useEffect(() => {
+    if (!editingSku && open) {
+      setSkuCode(suggestNextSkuCode(form.type));
+      setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.type]);
+
   const skuCodeChanged = editingSku && skuCode !== editingSku.skuId;
-  const typePrefix: Record<SKUType, string> = { RM: 'RM-', SM: 'SM-', SP: 'SP-', PK: 'PK-' };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
