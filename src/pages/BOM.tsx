@@ -1559,65 +1559,104 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-auto p-0">
-                  {filteredHeaders.length === 0 ? (
+                  {filteredHeaders.length === 0 && filteredSmSkusWithoutBom.length === 0 ? (
                     <p className="text-sm text-muted-foreground px-4 pb-4 text-center py-6">
                       No BOMs yet. Click "New BOM" to start.
                     </p>
                   ) : (
-                    <div className="divide-y">
-                      {filteredHeaders.map((h) => {
-                        const sku = getSkuById(h.smSkuId);
-                        const hLines = getLinesForHeader(h.id);
-                        const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
-                        const isSelected = selectedHeaderId === h.id;
-                        const hasBom = hLines.length > 0;
-                        // Check if this SKU is a by-product of another BOM
-                        const parentHeader = getByproductParentHeader(h.smSkuId);
-                        const isByproductSku = !!parentHeader;
-                        const showNoBomWarning = !hasBom && !isByproductSku;
-                        return (
-                          <div
-                            key={h.id}
-                            className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? "bg-primary/5 border-l-2 border-primary" : ""} ${showNoBomWarning ? "bg-primary/5" : ""}`}
-                            onClick={() => trySelectHeader(h.id)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium flex items-center gap-1.5">
-                                  {showNoBomWarning && <StatusDot status="amber" size="sm" />}
-                                  {sku?.skuId} · {sku?.name ?? "—"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {hLines.length} ingredients · {h.bomMode === "multistep" ? "Multi-step" : "Simple"} ·{" "}
-                                  {hOutput.toFixed(0)} {getSkuById(h.smSkuId)?.usageUom ?? "g"}
-                                </p>
-                                {isByproductSku && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    By-product of {getSkuCode(parentHeader!.smSkuId)}
+                    <>
+                      {filteredHeaders.length > 0 && (
+                        <div className="divide-y">
+                          {filteredHeaders.map((h) => {
+                            const sku = getSkuById(h.smSkuId);
+                            const hLines = getLinesForHeader(h.id);
+                            const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
+                            const isSelected = selectedHeaderId === h.id;
+                            const hasBom = hLines.length > 0;
+                            // Check if this SKU is a by-product of another BOM
+                            const parentHeader = getByproductParentHeader(h.smSkuId);
+                            const isByproductSku = !!parentHeader;
+                            const showNoBomWarning = !hasBom && !isByproductSku;
+                            return (
+                              <div
+                                key={h.id}
+                                className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? "bg-primary/5 border-l-2 border-primary" : ""} ${showNoBomWarning ? "bg-primary/5" : ""}`}
+                                onClick={() => trySelectHeader(h.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium flex items-center gap-1.5">
+                                      {showNoBomWarning && <StatusDot status="amber" size="sm" />}
+                                      {sku?.skuId} · {sku?.name ?? "—"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {hLines.length} ingredients · {h.bomMode === "multistep" ? "Multi-step" : "Simple"} ·{" "}
+                                      {hOutput.toFixed(0)} {getSkuById(h.smSkuId)?.usageUom ?? "g"}
+                                    </p>
+                                    {isByproductSku && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        By-product of {getSkuCode(parentHeader!.smSkuId)}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteHeader(h.id);
+                                    }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                                {hCost > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-1 font-mono">
+                                    ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
                                   </p>
                                 )}
                               </div>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 shrink-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteHeader(h.id);
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {filteredSmSkusWithoutBom.length > 0 && (
+                        <div className="border-t-4 border-muted">
+                          <button
+                            type="button"
+                            onClick={() => setNoBomExpanded((v) => !v)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                          >
+                            <span className="text-xs font-medium flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              ยังไม่มี BOM ({filteredSmSkusWithoutBom.length})
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {noBomExpanded ? "▾" : "▸"}
+                            </span>
+                          </button>
+                          {noBomExpanded && (
+                            <div className="divide-y">
+                              {filteredSmSkusWithoutBom.map((s) => (
+                                <div
+                                  key={s.id}
+                                  className="px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-1.5"
+                                  onClick={() => handleAddHeader(s.id)}
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
+                                  <p className="text-sm">
+                                    <span className="font-medium">{s.skuId}</span>
+                                    <span className="text-muted-foreground"> · {s.name}</span>
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                            {hCost > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1 font-mono">
-                                ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
