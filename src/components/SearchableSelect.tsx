@@ -8,6 +8,12 @@ interface Option {
   value: string;
   label: string;
   sublabel?: string;
+  /** Render this entry as a non-selectable group header */
+  isGroupHeader?: boolean;
+  /** Render the option text in muted/gray style */
+  muted?: boolean;
+  /** Optional badge text to show next to the label */
+  badge?: string;
 }
 
 interface SearchableSelectProps {
@@ -42,6 +48,7 @@ export function SearchableSelect({
     if (!search) return options;
     const q = search.toLowerCase();
     return options.filter(o =>
+      o.isGroupHeader ||
       o.label.toLowerCase().includes(q) ||
       (o.sublabel && o.sublabel.toLowerCase().includes(q))
     );
@@ -127,20 +134,37 @@ export function SearchableSelect({
             {filtered.length === 0 && (
               <p className="py-4 text-center text-xs text-muted-foreground">No results found</p>
             )}
-            {filtered.map(o => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => { onValueChange(o.value); setOpen(false); setSearch(''); }}
-                className={cn(
-                  'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
-                  value === o.value && 'bg-accent'
-                )}
-              >
-                <Check className={cn('mr-1.5 h-3 w-3 shrink-0', value === o.value ? 'opacity-100' : 'opacity-0')} />
-                <span className="truncate">{o.label}</span>
-              </button>
-            ))}
+            {filtered.map((o, idx) => {
+              if (o.isGroupHeader) {
+                return (
+                  <div
+                    key={`group-${idx}-${o.label}`}
+                    className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1 first:mt-0 first:border-t-0 select-none"
+                  >
+                    {o.label}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onValueChange(o.value); setOpen(false); setSearch(''); }}
+                  className={cn(
+                    'flex items-center w-full rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
+                    value === o.value && 'bg-accent'
+                  )}
+                >
+                  <Check className={cn('mr-1.5 h-3 w-3 shrink-0', value === o.value ? 'opacity-100' : 'opacity-0')} />
+                  <span className={cn('truncate', o.muted && 'text-muted-foreground')}>{o.label}</span>
+                  {o.badge && (
+                    <span className="ml-2 shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {o.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>,
         document.body

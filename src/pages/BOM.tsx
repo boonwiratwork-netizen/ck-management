@@ -148,6 +148,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [fullscreen, setFullscreen] = useState(false);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
   const [listSearch, setListSearch] = useState("");
+  const [noBomExpanded, setNoBomExpanded] = useState(false);
   const [byproductsDirty, setByproductsDirty] = useState(false);
   const [byproductsSavedMsg, setByproductsSavedMsg] = useState(false);
   const [pendingNavHeaderId, setPendingNavHeaderId] = useState<string | null>(null);
@@ -320,8 +321,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   );
 
   // Header actions
-  const handleAddHeader = () => {
-    setHeaderForm(EMPTY_BOM_HEADER);
+  const handleAddHeader = (prefillSkuId?: string) => {
+    setHeaderForm(prefillSkuId ? { ...EMPTY_BOM_HEADER, smSkuId: prefillSkuId } : EMPTY_BOM_HEADER);
     setEditingHeader(true);
     setSelectedHeaderId(null);
   };
@@ -632,6 +633,63 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       return sortAsc ? cmp : -cmp;
     });
   }, [headers, listSearch, skus, sortAsc]);
+
+  // SM SKUs that have no BOM header AND are not tracked as a by-product elsewhere
+  const smSkusWithoutBom = useMemo(() => {
+    return smSkus.filter((s) => {
+      const hasHeader = headers.some((h) => h.smSkuId === s.id);
+      if (hasHeader) return false;
+      const isByproduct = byproducts.some((bp) => bp.skuId === s.id && bp.tracksInventory);
+      return !isByproduct;
+    });
+  }, [smSkus, headers, byproducts]);
+
+  const filteredSmSkusWithoutBom = useMemo(() => {
+    const q = listSearch.toLowerCase();
+    const list = listSearch
+      ? smSkusWithoutBom.filter(
+          (s) => s.skuId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q),
+        )
+      : smSkusWithoutBom;
+    return [...list].sort((a, b) => {
+      const cmp = a.skuId.localeCompare(b.skuId);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [smSkusWithoutBom, listSearch, sortAsc]);
+
+  // SM SKUs grouped for the New-BOM-Header dropdown
+  const smSkuDropdownOptions = useMemo(() => {
+    const withoutBom: typeof smSkus = [];
+    const withBom: typeof smSkus = [];
+    smSkus.forEach((s) => {
+      if (headers.some((h) => h.smSkuId === s.id)) withBom.push(s);
+      else withoutBom.push(s);
+    });
+    const opts: Array<{
+      value: string;
+      label: string;
+      sublabel?: string;
+      isGroupHeader?: boolean;
+      muted?: boolean;
+      badge?: string;
+    }> = [];
+    withoutBom.forEach((s) =>
+      opts.push({ value: s.id, label: `${s.skuId} — ${s.name}`, sublabel: s.skuId }),
+    );
+    if (withBom.length > 0) {
+      opts.push({ value: `__group_with_bom__`, label: "มี BOM แล้ว", isGroupHeader: true });
+      withBom.forEach((s) =>
+        opts.push({
+          value: s.id,
+          label: `${s.skuId} — ${s.name}`,
+          sublabel: s.skuId,
+          muted: true,
+          badge: "มี BOM แล้ว",
+        }),
+      );
+    }
+    return opts;
+  }, [smSkus, headers]);
 
   // Inline line editor row (reusable for simple and multistep)
   const renderLineEditor = (isMultiStep: boolean, stepInputQty?: number) => (
@@ -1458,7 +1516,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <h2 className="text-2xl font-heading font-bold">{t("title.bomMaster")}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Manage recipes for Semi-finished (SM) items</p>
           </div>
-          <Button onClick={handleAddHeader}>
+          <Button onClick={() => handleAddHeader()}>
             <Plus className="w-4 h-4" /> New BOM
           </Button>
         </div>
@@ -1473,12 +1531,14 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                     <ClipboardList className="w-4 h-4" /> SM Items ({headers.length})
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {headers.filter((h) => getLinesForHeader(h.id).length > 0).length} of{" "}
                     {
-                      headers.filter((h) => !byproducts.some((bp) => bp.skuId === h.smSkuId && bp.tracksInventory))
-                        .length
+                      headers.filter(
+                        (h) =>
+                          getLinesForHeader(h.id).length > 0 &&
+                          !byproducts.some((bp) => bp.skuId === h.smSkuId && bp.tracksInventory),
+                      ).length
                     }{" "}
-                    items have BOM
+                    of {smSkus.length} SM items have BOM
                   </p>
                   <div className="relative mt-2">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -1499,65 +1559,104 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-auto p-0">
-                  {filteredHeaders.length === 0 ? (
+                  {filteredHeaders.length === 0 && filteredSmSkusWithoutBom.length === 0 ? (
                     <p className="text-sm text-muted-foreground px-4 pb-4 text-center py-6">
                       No BOMs yet. Click "New BOM" to start.
                     </p>
                   ) : (
-                    <div className="divide-y">
-                      {filteredHeaders.map((h) => {
-                        const sku = getSkuById(h.smSkuId);
-                        const hLines = getLinesForHeader(h.id);
-                        const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
-                        const isSelected = selectedHeaderId === h.id;
-                        const hasBom = hLines.length > 0;
-                        // Check if this SKU is a by-product of another BOM
-                        const parentHeader = getByproductParentHeader(h.smSkuId);
-                        const isByproductSku = !!parentHeader;
-                        const showNoBomWarning = !hasBom && !isByproductSku;
-                        return (
-                          <div
-                            key={h.id}
-                            className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? "bg-primary/5 border-l-2 border-primary" : ""} ${showNoBomWarning ? "bg-primary/5" : ""}`}
-                            onClick={() => trySelectHeader(h.id)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium flex items-center gap-1.5">
-                                  {showNoBomWarning && <StatusDot status="amber" size="sm" />}
-                                  {sku?.skuId} · {sku?.name ?? "—"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {hLines.length} ingredients · {h.bomMode === "multistep" ? "Multi-step" : "Simple"} ·{" "}
-                                  {hOutput.toFixed(0)} {getSkuById(h.smSkuId)?.usageUom ?? "g"}
-                                </p>
-                                {isByproductSku && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    By-product of {getSkuCode(parentHeader!.smSkuId)}
+                    <>
+                      {filteredHeaders.length > 0 && (
+                        <div className="divide-y">
+                          {filteredHeaders.map((h) => {
+                            const sku = getSkuById(h.smSkuId);
+                            const hLines = getLinesForHeader(h.id);
+                            const { cost: hCost, output: hOutput, costPerGram: hCpg } = getBomCost(h);
+                            const isSelected = selectedHeaderId === h.id;
+                            const hasBom = hLines.length > 0;
+                            // Check if this SKU is a by-product of another BOM
+                            const parentHeader = getByproductParentHeader(h.smSkuId);
+                            const isByproductSku = !!parentHeader;
+                            const showNoBomWarning = !hasBom && !isByproductSku;
+                            return (
+                              <div
+                                key={h.id}
+                                className={`px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 ${isSelected ? "bg-primary/5 border-l-2 border-primary" : ""} ${showNoBomWarning ? "bg-primary/5" : ""}`}
+                                onClick={() => trySelectHeader(h.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium flex items-center gap-1.5">
+                                      {showNoBomWarning && <StatusDot status="amber" size="sm" />}
+                                      {sku?.skuId} · {sku?.name ?? "—"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {hLines.length} ingredients · {h.bomMode === "multistep" ? "Multi-step" : "Simple"} ·{" "}
+                                      {hOutput.toFixed(0)} {getSkuById(h.smSkuId)?.usageUom ?? "g"}
+                                    </p>
+                                    {isByproductSku && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        By-product of {getSkuCode(parentHeader!.smSkuId)}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteHeader(h.id);
+                                    }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                                {hCost > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-1 font-mono">
+                                    ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
                                   </p>
                                 )}
                               </div>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 shrink-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteHeader(h.id);
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {filteredSmSkusWithoutBom.length > 0 && (
+                        <div className="border-t-4 border-muted">
+                          <button
+                            type="button"
+                            onClick={() => setNoBomExpanded((v) => !v)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                          >
+                            <span className="text-xs font-medium flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              ยังไม่มี BOM ({filteredSmSkusWithoutBom.length})
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {noBomExpanded ? "▾" : "▸"}
+                            </span>
+                          </button>
+                          {noBomExpanded && (
+                            <div className="divide-y">
+                              {filteredSmSkusWithoutBom.map((s) => (
+                                <div
+                                  key={s.id}
+                                  className="px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-1.5"
+                                  onClick={() => handleAddHeader(s.id)}
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
+                                  <p className="text-sm">
+                                    <span className="font-medium">{s.skuId}</span>
+                                    <span className="text-muted-foreground"> · {s.name}</span>
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                            {hCost > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1 font-mono">
-                                ฿{hCost.toFixed(2)} / batch · ฿{hCpg.toFixed(4)}/g
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -1581,11 +1680,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         <SearchableSelect
                           value={headerForm.smSkuId}
                           onValueChange={(v) => setHeaderForm((f) => ({ ...f, smSkuId: v }))}
-                          options={smSkus.map((s) => ({
-                            value: s.id,
-                            label: `${s.skuId} — ${s.name}`,
-                            sublabel: s.skuId,
-                          }))}
+                          options={smSkuDropdownOptions}
                           placeholder="Select SM SKU"
                         />
                       </div>
