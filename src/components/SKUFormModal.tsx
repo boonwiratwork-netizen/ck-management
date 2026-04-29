@@ -179,28 +179,31 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* SKU Code (editable in edit mode) */}
-          {editingSku && (
-            <div>
-              <Label>SKU Code</Label>
-              <Input
-                value={skuCode}
-                onChange={e => {
-                  setSkuCode(e.target.value.toUpperCase());
-                  if (errors.skuCode) setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
-                }}
-                placeholder="e.g. RM-0001"
-                className={errors.skuCode ? 'input-error' : ''}
-              />
-              {errors.skuCode && <p className="text-xs text-destructive mt-1">{errors.skuCode}</p>}
-              {skuCodeChanged && !errors.skuCode && (
-                <div className="mt-2 rounded-lg border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-600" />
-                  <span>Changing this SKU code will update all references in BOM, prices, receipts, and stock records. Make sure the new code follows the format: RM-XXXX, SM-XXXX, SP-XXXX, or PK-XXXX</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* SKU Code — required in both add and edit modes */}
+          <div>
+            <Label className="label-required">SKU Code</Label>
+            <Input
+              value={skuCode}
+              onChange={e => {
+                setSkuCode(e.target.value.toUpperCase());
+                if (errors.skuCode) setErrors(prev => { const n = { ...prev }; delete n.skuCode; return n; });
+              }}
+              onBlur={() => handleBlur('skuCode')}
+              placeholder="e.g. RM-0001"
+              className={errors.skuCode ? 'input-error' : ''}
+            />
+            {errors.skuCode && <p className="text-xs text-destructive mt-1">{errors.skuCode}</p>}
+            {!editingSku && !errors.skuCode && (
+              <p className="text-xs text-muted-foreground mt-1">Auto-suggested based on Type. You can override.</p>
+            )}
+            {editingSku && skuCodeChanged && !errors.skuCode && (
+              <div className="mt-2 rounded-lg border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-600" />
+                <span>Changing this SKU code will update all references in BOM, prices, receipts, and stock records. Make sure the new code follows the format: RM-XXXX, SM-XXXX, SP-XXXX, or PK-XXXX</span>
+              </div>
+            )}
+          </div>
+
 
           {/* Row 1 */}
           <div>
