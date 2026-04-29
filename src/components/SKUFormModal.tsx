@@ -160,7 +160,7 @@ export function SKUFormModal({ open, onClose, onSubmit, editingSku, activeSuppli
   };
 
   const typeIsLocked = !!editingSku && isSkuUsed;
-  const isFormValid = form.name.trim() && form.packUnit.trim() && form.purchaseUom.trim() && form.usageUom.trim() && form.packSize > 0 && form.converter > 0;
+  const isFormValid = form.name.trim() && form.packUnit.trim() && form.purchaseUom.trim() && form.usageUom.trim() && form.packSize > 0 && form.converter > 0 && (editingSku ? true : !validateSkuCode(skuCode, form.type));
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
