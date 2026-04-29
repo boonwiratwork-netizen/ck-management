@@ -8,6 +8,12 @@ interface Option {
   value: string;
   label: string;
   sublabel?: string;
+  /** Render this entry as a non-selectable group header */
+  isGroupHeader?: boolean;
+  /** Render the option text in muted/gray style */
+  muted?: boolean;
+  /** Optional badge text to show next to the label */
+  badge?: string;
 }
 
 interface SearchableSelectProps {
