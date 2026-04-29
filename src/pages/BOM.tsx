@@ -148,6 +148,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   const [fullscreen, setFullscreen] = useState(false);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
   const [listSearch, setListSearch] = useState("");
+  const [noBomExpanded, setNoBomExpanded] = useState(false);
   const [byproductsDirty, setByproductsDirty] = useState(false);
   const [byproductsSavedMsg, setByproductsSavedMsg] = useState(false);
   const [pendingNavHeaderId, setPendingNavHeaderId] = useState<string | null>(null);
