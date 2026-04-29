@@ -1680,11 +1680,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                         <SearchableSelect
                           value={headerForm.smSkuId}
                           onValueChange={(v) => setHeaderForm((f) => ({ ...f, smSkuId: v }))}
-                          options={smSkus.map((s) => ({
-                            value: s.id,
-                            label: `${s.skuId} — ${s.name}`,
-                            sublabel: s.skuId,
-                          }))}
+                          options={smSkuDropdownOptions}
                           placeholder="Select SM SKU"
                         />
                       </div>
