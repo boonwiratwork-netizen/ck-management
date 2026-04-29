@@ -48,6 +48,7 @@ export function SearchableSelect({
     if (!search) return options;
     const q = search.toLowerCase();
     return options.filter(o =>
+      o.isGroupHeader ||
       o.label.toLowerCase().includes(q) ||
       (o.sublabel && o.sublabel.toLowerCase().includes(q))
     );
