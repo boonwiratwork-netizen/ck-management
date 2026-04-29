@@ -1459,7 +1459,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <h2 className="text-2xl font-heading font-bold">{t("title.bomMaster")}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Manage recipes for Semi-finished (SM) items</p>
           </div>
-          <Button onClick={handleAddHeader}>
+          <Button onClick={() => handleAddHeader()}>
             <Plus className="w-4 h-4" /> New BOM
           </Button>
         </div>
