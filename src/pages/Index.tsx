@@ -389,8 +389,8 @@ const Index = () => {
     setModalOpen(true);
   };
   const handleDeleteRequest = (id: string) => {
-    if (!isManagement) {
-      toast.error("Only Management can delete items");
+    if (!isManagement && role !== "ck_manager") {
+      toast.error("Only Management or CK Manager can delete items");
       return;
     }
     const sku = skus.find((s) => s.id === id);
