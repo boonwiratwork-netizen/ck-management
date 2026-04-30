@@ -97,6 +97,7 @@ function canAccessTab(role: string | null, tab: TabKey): boolean {
     case "management":
       return true;
     case "ck_manager":
+      if (tab === "sku" || tab === "supplier" || tab === "price") return true;
       return ctx === "ck" || ctx === "overview";
     case "store_manager":
       return ctx === "store";
@@ -122,6 +123,9 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "smstock",
       "pkstock",
       "stockcount",
+      "sku",
+      "supplier",
+      "price",
     ];
     return !editableCk.includes(tab);
   }
@@ -464,7 +468,7 @@ const Index = () => {
                         <ContextBreadcrumb tab={activeTab} branchName={userBranchName} />
                         <p className="page-subtitle">{currentTab.subtitle}</p>
                       </div>
-                      {isManagement && (
+                      {(isManagement || role === "ck_manager") && (
                         <div className="flex gap-2">
                           <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="h-9">
                             <Upload className="w-4 h-4" /> Import CSV
@@ -478,8 +482,8 @@ const Index = () => {
                     <SummaryCards counts={counts} total={skus.length} />
                     <SKUTable
                       skus={skus}
-                      onEdit={isManagement ? handleEdit : undefined}
-                      onDelete={isManagement ? handleDeleteRequest : undefined}
+                      onEdit={isManagement || role === "ck_manager" ? handleEdit : undefined}
+                      onDelete={isManagement || role === "ck_manager" ? handleDeleteRequest : undefined}
                       onToggleDistributable={
                         isManagement || role === "ck_manager"
                           ? (id, value) => updateSku(id, { isDistributable: value })
@@ -668,7 +672,7 @@ const Index = () => {
         </div>
       </div>
 
-      {isManagement && (
+      {(isManagement || role === "ck_manager") && (
         <>
           <SKUFormModal
             open={modalOpen}
