@@ -264,7 +264,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     allGroups.push(ckGroup, storeGroup, managementGroup);
   } else if (role === "ck_manager") {
     // CK Manager: ONLY CK sections (no Store, no Management)
-    allGroups.push(ckGroup);
+    allGroups.push(ckGroup, masterDataGroup);
   } else if (role === "store_manager" || role === "area_manager") {
     // Store Manager / Area Manager: ONLY Store section
     allGroups.push(storeGroup);
