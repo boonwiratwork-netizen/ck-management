@@ -558,7 +558,7 @@ const Index = () => {
                     getStdUnitPrice={stockData.getStdUnitPrice}
                     bomHeaders={bomData.headers}
                     bomLines={bomData.lines}
-                    isManagement={isManagement}
+                    isManagement={isManagement || role === 'ck_manager'}
                   />
                 ) : activeTab === "branches" ? (
                   <BranchesPage branchData={branchData} readOnly={readOnly} />
