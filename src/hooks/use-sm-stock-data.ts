@@ -148,13 +148,13 @@ export function useSmStockData(
       const anchor = anchorMap[sku.id];
 
       if (anchor) {
-        // Anchor-based: balance = anchor physical_qty + production after anchor - deliveries after anchor + non-StockCount adjustments after anchor
+        // Anchor-based: balance = anchor physical_qty + production after anchor (timestamp) - deliveries strictly after anchor date + non-StockCount adjustments after anchor
         const producedAfter = localProductionRecords
-          .filter((r) => r.smSkuId === sku.id && r.productionDate >= anchor.count_date)
+          .filter((r) => r.smSkuId === sku.id && (r.createdAt ?? r.productionDate) > anchor.completed_at)
           .reduce((sum, r) => sum + r.actualOutputG, 0);
 
         const deliveredAfter = toLineDetails
-          .filter((l) => l.sku_id === sku.id && l.delivery_date >= anchor.count_date)
+          .filter((l) => l.sku_id === sku.id && l.delivery_date > anchor.count_date)
           .reduce((sum, l) => sum + l.qty, 0);
 
         const skuAdjustments = adjustments.filter((a) => a.skuId === sku.id);
