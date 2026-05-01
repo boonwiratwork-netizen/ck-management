@@ -1,7 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { CalendarIcon, ChevronDown, X } from "lucide-react";
-import type { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,69 +31,62 @@ function DateRangePicker({
   labelPosition = "above",
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const [pendingStart, setPendingStart] = React.useState<Date | undefined>(undefined);
   const [hoverDate, setHoverDate] = React.useState<Date | undefined>(undefined);
-  const [selectionPhase, setSelectionPhase] = React.useState<"idle" | "selecting_end">("idle");
+
+  const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   const display = React.useMemo(() => {
+    if (pendingStart) {
+      if (hoverDate && hoverDate > pendingStart) {
+        return `${format(pendingStart, "d MMM yyyy")} – ${format(hoverDate, "d MMM yyyy")}`;
+      }
+      return `${format(pendingStart, "d MMM yyyy")} – ...`;
+    }
     if (from && to) return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
     if (from) return `${format(from, "d MMM yyyy")} – ...`;
     return placeholder;
-  }, [from, to, placeholder]);
+  }, [from, to, pendingStart, hoverDate, placeholder]);
 
   const handleOpenChange = (next: boolean) => {
-    console.log("handleOpenChange called", { next, from, to, selectionPhase });
     setOpen(next);
-    if (next) {
-      // Opening: idle if range complete or nothing, selecting_end if mid-selection
-      if (from && !to) {
-        setSelectionPhase("selecting_end");
-      } else {
-        setSelectionPhase("idle");
-      }
-    } else {
-      // Closing resets phase
-      setSelectionPhase("idle");
+    if (!next) {
+      setPendingStart(undefined);
       setHoverDate(undefined);
     }
   };
 
-  const handleSelect = (range: DateRange | undefined) => {
-    console.log("handleSelect called", {
-      rangeFrom: range?.from?.toISOString(),
-      rangeTo: range?.to?.toISOString(),
-      propsFrom: from?.toISOString(),
-      propsTo: to?.toISOString(),
-      selectionPhase,
-    });
-    const next = {
-      from: range?.from ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate()) : undefined,
-      to: range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : undefined,
-    };
-    onChange(next);
-    if (next.from && next.to && next.from.getTime() !== next.to.getTime()) {
-      setSelectionPhase("idle");
-      setOpen(false);
-    } else if (next.from && !next.to) {
-      setSelectionPhase("selecting_end");
-    } else {
-      setSelectionPhase("idle");
+  const handleSelect = (day: Date | undefined) => {
+    if (!day) return;
+    const clicked = stripTime(day);
+    if (!pendingStart) {
+      setPendingStart(clicked);
+      onChange({ from: clicked, to: undefined });
+      return;
     }
-  };
-
-  const handleClear = (e: React.MouseEvent) => {
-    console.log("handleClear called");
-    e.stopPropagation();
-    e.preventDefault();
-    onChange({ from: undefined, to: undefined });
-    setSelectionPhase("idle");
+    if (clicked < pendingStart) {
+      setPendingStart(clicked);
+      onChange({ from: clicked, to: undefined });
+      return;
+    }
+    onChange({ from: pendingStart, to: clicked });
+    setPendingStart(undefined);
     setHoverDate(undefined);
     setOpen(false);
   };
 
-  const calendarSelected: DateRange | undefined =
-    selectionPhase === "selecting_end" && from
-      ? { from, to: hoverDate && hoverDate >= from ? hoverDate : undefined }
-      : { from, to };
+  const handleClear = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onChange({ from: undefined, to: undefined });
+    setPendingStart(undefined);
+    setHoverDate(undefined);
+    setOpen(false);
+  };
+
+  const calendarSelected = pendingStart
+    ? { from: pendingStart, to: hoverDate && hoverDate > pendingStart ? hoverDate : undefined }
+    : { from, to };
 
   const hasValue = !!(from || to);
 
@@ -107,7 +99,7 @@ function DateRangePicker({
           className={cn(
             "h-10 min-w-[260px] max-w-[320px] justify-start text-left font-normal",
             "border-input focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
-            !from && "text-muted-foreground",
+            !from && !pendingStart && "text-muted-foreground",
             className,
           )}
         >
@@ -121,7 +113,7 @@ function DateRangePicker({
               onClick={handleClear}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
-                  handleClear(e as unknown as React.MouseEvent);
+                  handleClear(e);
                 }
               }}
               onPointerDown={(e) => e.stopPropagation()}
@@ -134,25 +126,29 @@ function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="z-50 w-auto p-0"
-        align={align}
-        onPointerDownOutside={(e) => {
-          if (selectionPhase === "selecting_end") e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          if (selectionPhase === "selecting_end") e.preventDefault();
-        }}
-      >
+      <PopoverContent className="z-50 w-auto p-0" align={align}>
         <Calendar
-          mode="range"
-          selected={calendarSelected}
+          mode="single"
+          selected={pendingStart ?? from}
           onSelect={handleSelect}
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
-          onDayMouseEnter={(day) => setHoverDate(day)}
+          onDayMouseEnter={(day) => setHoverDate(stripTime(day))}
           onDayMouseLeave={() => setHoverDate(undefined)}
+          modifiers={{
+            range_start: calendarSelected.from ? [calendarSelected.from] : [],
+            range_end: calendarSelected.to ? [calendarSelected.to] : [],
+            range_middle:
+              calendarSelected.from && calendarSelected.to
+                ? { after: calendarSelected.from, before: calendarSelected.to }
+                : [],
+          }}
+          modifiersClassNames={{
+            range_start: "bg-primary text-primary-foreground rounded-l-full rounded-r-none",
+            range_end: "bg-primary text-primary-foreground rounded-r-full rounded-l-none",
+            range_middle: "bg-primary/15 text-foreground rounded-none",
+          }}
         />
       </PopoverContent>
     </Popover>
