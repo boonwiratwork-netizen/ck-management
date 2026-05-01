@@ -42,7 +42,7 @@ function DateRangePicker({
   }, [from, to, placeholder]);
 
   const handleOpenChange = (next: boolean) => {
-    console.log('handleOpenChange called', { next, from, to, selectionPhase });
+    console.log("handleOpenChange called", { next, from, to, selectionPhase });
     setOpen(next);
     if (next) {
       // Opening: idle if range complete or nothing, selecting_end if mid-selection
@@ -59,19 +59,19 @@ function DateRangePicker({
   };
 
   const handleSelect = (range: DateRange | undefined) => {
-    console.log('handleSelect called', {
+    console.log("handleSelect called", {
       rangeFrom: range?.from?.toISOString(),
       rangeTo: range?.to?.toISOString(),
       propsFrom: from?.toISOString(),
       propsTo: to?.toISOString(),
-      selectionPhase
+      selectionPhase,
     });
     const next = {
       from: range?.from ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate()) : undefined,
       to: range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : undefined,
     };
     onChange(next);
-    if (next.from && next.to) {
+    if (next.from && next.to && next.from.getTime() !== next.to.getTime()) {
       setSelectionPhase("idle");
       setOpen(false);
     } else if (next.from && !next.to) {
@@ -82,7 +82,7 @@ function DateRangePicker({
   };
 
   const handleClear = (e: React.MouseEvent) => {
-    console.log('handleClear called');
+    console.log("handleClear called");
     e.stopPropagation();
     e.preventDefault();
     onChange({ from: undefined, to: undefined });
