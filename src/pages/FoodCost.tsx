@@ -13,7 +13,7 @@ import {
   lastDayOfMonth,
   getDaysInMonth,
 } from "date-fns";
-import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X } from "lucide-react";
+import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X, Loader2 } from "lucide-react";
 import {
   Tooltip as ShadTooltip,
   TooltipContent as ShadTooltipContent,
@@ -1101,22 +1101,65 @@ export default function FoodCostPage({
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("title.fcStatus")}
+                  FC% จริง
                 </p>
-                <Badge
-                  variant={stdFcPct <= FC_AMBER_MAX ? "default" : "destructive"}
-                  className={cn(
-                    "text-sm px-3 py-1 mt-1",
-                    stdFcPct <= FC_AMBER_MAX ? "bg-success/15 text-success border-success/30" : "",
-                  )}
-                >
-                  {stdFcPct <= FC_AMBER_MAX ? (
-                    <TrendingDown className="w-4 h-4 mr-1" />
-                  ) : (
-                    <TrendingUp className="w-4 h-4 mr-1" />
-                  )}
-                  {stdFcPct.toFixed(1)}%
-                </Badge>
+                {(() => {
+                  // State 1: has real data
+                  if (canShowVariance && varianceSummary !== null) {
+                    const actualFcPct = totalRevenue > 0 ? (varianceSummary.actualCost / totalRevenue) * 100 : 0;
+                    const diff = actualFcPct - stdFcPct;
+                    return (
+                      <>
+                        <p className={`text-2xl font-bold font-mono mt-1 ${getFcPctClass(actualFcPct)}`}>
+                          {actualFcPct.toFixed(1)}%
+                        </p>
+                        {diff < 0 ? (
+                          <p className="text-xs mt-1 text-success">▼ {Math.abs(diff).toFixed(1)}pp vs มาตรฐาน</p>
+                        ) : diff > 0 ? (
+                          <p className="text-xs mt-1 text-destructive">▲ +{diff.toFixed(1)}pp vs มาตรฐาน</p>
+                        ) : (
+                          <p className="text-xs mt-1 text-muted-foreground">= มาตรฐาน</p>
+                        )}
+                      </>
+                    );
+                  }
+                  // State 2: eligible but loading
+                  if (canShowVariance && varianceSummary === null && loading) {
+                    return (
+                      <>
+                        <div className="mt-1 h-8 flex items-center">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                        <p className="text-xs mt-1 text-muted-foreground">กำลังโหลด...</p>
+                      </>
+                    );
+                  }
+                  // State 3: current month, single branch
+                  if (isMonthlyPeriod && !isPastMonth && selectedBranch !== "all") {
+                    return (
+                      <>
+                        <p className="text-2xl font-bold font-mono mt-1">—</p>
+                        <p className="text-xs mt-1 text-muted-foreground">รอปิดเดือน</p>
+                      </>
+                    );
+                  }
+                  // State 4: past month but all branches
+                  if (isMonthlyPeriod && isPastMonth && selectedBranch === "all") {
+                    return (
+                      <>
+                        <p className="text-2xl font-bold font-mono mt-1">—</p>
+                        <p className="text-xs mt-1 text-muted-foreground">เลือก branch เดียว</p>
+                      </>
+                    );
+                  }
+                  // State 5: other
+                  return (
+                    <>
+                      <p className="text-2xl font-bold font-mono mt-1">—</p>
+                      <p className="text-xs mt-1 text-muted-foreground">เฉพาะรายเดือน</p>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
