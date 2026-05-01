@@ -21,6 +21,7 @@ export interface SMStockBalance {
 interface AnchorData {
   physical_qty: number;
   count_date: string;
+  completed_at: string;
 }
 
 export function useSmStockData(
@@ -49,7 +50,7 @@ export function useSmStockData(
   const fetchAnchorData = useCallback(async () => {
     const { data: sessions } = await supabase
       .from("stock_count_sessions")
-      .select("id, count_date")
+      .select("id, count_date, completed_at")
       .eq("status", "Completed")
       .is("deleted_at", null);
 
@@ -60,7 +61,11 @@ export function useSmStockData(
     }
 
     const sessionDateMap: Record<string, string> = {};
-    for (const s of sessions || []) sessionDateMap[s.id] = s.count_date;
+    const sessionCompletedAtMap: Record<string, string> = {};
+    for (const s of sessions || []) {
+      sessionDateMap[s.id] = s.count_date;
+      sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
+    }
 
     const { data: lines } = await supabase
       .from("stock_count_lines")
@@ -75,7 +80,11 @@ export function useSmStockData(
       if (!countDate) continue;
       const existing = map[row.sku_id];
       if (!existing || countDate > existing.count_date) {
-        map[row.sku_id] = { physical_qty: row.physical_qty, count_date: countDate };
+        map[row.sku_id] = {
+          physical_qty: row.physical_qty,
+          count_date: countDate,
+          completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
+        };
       }
     }
     setAnchorMap(map);
@@ -139,13 +148,13 @@ export function useSmStockData(
       const anchor = anchorMap[sku.id];
 
       if (anchor) {
-        // Anchor-based: balance = anchor physical_qty + production after anchor - deliveries after anchor + non-StockCount adjustments after anchor
+        // Anchor-based: balance = anchor physical_qty + production after anchor (timestamp) - deliveries strictly after anchor date + non-StockCount adjustments after anchor
         const producedAfter = localProductionRecords
-          .filter((r) => r.smSkuId === sku.id && r.productionDate >= anchor.count_date)
+          .filter((r) => r.smSkuId === sku.id && (r.createdAt ?? r.productionDate) > anchor.completed_at)
           .reduce((sum, r) => sum + r.actualOutputG, 0);
 
         const deliveredAfter = toLineDetails
-          .filter((l) => l.sku_id === sku.id && l.delivery_date >= anchor.count_date)
+          .filter((l) => l.sku_id === sku.id && l.delivery_date > anchor.count_date)
           .reduce((sum, l) => sum + l.qty, 0);
 
         const skuAdjustments = adjustments.filter((a) => a.skuId === sku.id);
@@ -300,6 +309,7 @@ export function useSmStockData(
           smSkuId: r.sm_sku_id,
           batchesProduced: r.batches_produced,
           actualOutputG: r.actual_output_g,
+          createdAt: r.created_at,
         })),
       );
     }

@@ -31,6 +31,7 @@ interface Movement {
   isProductionUse?: boolean;
   lotText?: string;
   timestamp?: string;
+  isReset?: boolean;
 }
 
 interface BranchCountRow {
@@ -492,54 +493,11 @@ export function StockCard({
 
           setMovements(sorted);
         } else {
-          // SM — anchor-based ledger matching useSmStockData logic
-          // Step 1: Find latest completed stock count for this SKU (two-step query)
-          const { data: completedSessions } = await supabase
-            .from("stock_count_sessions")
-            .select("id, count_date, completed_at")
-            .eq("status", "Completed")
-            .is("deleted_at", null);
-          if (cancelled) return;
+          // SM — full window with stock counts as inline reset rows
 
-          const sessionIds = (completedSessions || []).map((s: any) => s.id);
-          const sessionDateMap: Record<string, string> = {};
-          for (const s of completedSessions || []) sessionDateMap[s.id] = s.count_date;
-
-          let anchorDate: string | null = null;
-          let anchorQty = 0;
-          let anchorCompletedAt: string | null = null;
-
-          if (sessionIds.length > 0) {
-            const { data: anchorLines } = await supabase
-              .from("stock_count_lines")
-              .select("physical_qty, session_id")
-              .eq("sku_id", skuId)
-              .eq("type", "SM")
-              .in("session_id", sessionIds)
-              .not("physical_qty", "is", null);
-            if (cancelled) return;
-
-            const sessionCompletedAtMap: Record<string, string> = {};
-            for (const s of completedSessions || []) {
-              if (s.completed_at) sessionCompletedAtMap[s.id] = s.completed_at;
-            }
-
-            for (const row of anchorLines ?? []) {
-              const cd = sessionDateMap[row.session_id];
-              if (!cd) continue;
-              if (!anchorDate || cd > anchorDate) {
-                anchorDate = cd;
-                anchorQty = row.physical_qty!;
-                anchorCompletedAt = sessionCompletedAtMap[row.session_id] ?? null;
-              }
-            }
-          }
-
-          // Step 2: Fetch all transactions within daysBack window
-          const [obRes, prodRes, toRes, adjRes] = await Promise.all([
-            anchorDate
-              ? Promise.resolve({ data: null })
-              : supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
+          // Step 1: Fetch transactions in window + all completed stock count sessions (need to find pre-window count too)
+          const [obRes, prodRes, toRes, adjRes, allSessionsRes] = await Promise.all([
+            supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
             supabase
               .from("production_records")
               .select("production_date, actual_output_g, batches_produced, created_at")
@@ -563,25 +521,100 @@ export function StockCard({
               .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
+            supabase
+              .from("stock_count_sessions")
+              .select("id, count_date, completed_at")
+              .eq("status", "Completed")
+              .is("deleted_at", null),
           ]);
           if (cancelled) return;
 
+          // Step 2: Resolve in-window stock counts and the most recent pre-window count
+          const sessions = allSessionsRes.data ?? [];
+          const sessionIds = sessions.map((s: any) => s.id);
+          const sessionMeta: Record<string, { count_date: string; completed_at: string }> = {};
+          for (const s of sessions as any[]) {
+            sessionMeta[s.id] = {
+              count_date: s.count_date,
+              completed_at: s.completed_at ?? s.count_date,
+            };
+          }
+
+          let countLines: { physical_qty: number; session_id: string }[] = [];
+          if (sessionIds.length > 0) {
+            const { data: lineData } = await supabase
+              .from("stock_count_lines")
+              .select("physical_qty, session_id")
+              .eq("sku_id", skuId)
+              .eq("type", "SM")
+              .in("session_id", sessionIds)
+              .not("physical_qty", "is", null);
+            if (cancelled) return;
+            countLines = (lineData ?? []) as any;
+          }
+
+          // Find pre-window count (most recent count with count_date < fromDate)
+          let preWindowCount: { physical_qty: number; count_date: string; completed_at: string } | null = null;
+          // In-window counts (count_date >= fromDate)
+          const inWindowCounts: { physical_qty: number; count_date: string; completed_at: string }[] = [];
+
+          for (const line of countLines) {
+            const meta = sessionMeta[line.session_id];
+            if (!meta) continue;
+            if (meta.count_date < fromDate) {
+              if (!preWindowCount || meta.count_date > preWindowCount.count_date) {
+                preWindowCount = { physical_qty: line.physical_qty, ...meta };
+              }
+            } else {
+              inWindowCounts.push({ physical_qty: line.physical_qty, ...meta });
+            }
+          }
+
           const mvts: Movement[] = [];
 
-          if (anchorDate) {
-            // Anchor-based: start from physical count
+          // Step 3: Opening row
+          if (preWindowCount) {
             mvts.push({
-              date: anchorDate,
-              sortKey: `${anchorDate}|${anchorCompletedAt ?? anchorDate}`,
-              type: "StockCount",
-              reference: "Physical count",
-              qtyIn: anchorQty,
+              date: preWindowCount.count_date,
+              sortKey: `0000-00-00`,
+              type: "Opening",
+              reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
+              qtyIn: preWindowCount.physical_qty,
               qtyOut: null,
-              timestamp: anchorCompletedAt ?? undefined,
+              isReset: true,
             });
           } else {
-            // Fallback: opening balance
-            const openingQty = obRes.data?.quantity ?? 0;
+            // Fallback: stock_opening_balances + pre-window transactions
+            const obQty = obRes.data?.quantity ?? 0;
+            const [preProdRes, preToRes, preAdjRes] = await Promise.all([
+              supabase
+                .from("production_records")
+                .select("actual_output_g")
+                .eq("sm_sku_id", skuId)
+                .lt("production_date", fromDate),
+              supabase
+                .from("transfer_order_lines")
+                .select(
+                  "actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)",
+                )
+                .eq("sku_id", skuId)
+                .in("transfer_orders.status", ["Sent", "Received"])
+                .lt("transfer_orders.delivery_date", fromDate),
+              supabase
+                .from("stock_adjustments")
+                .select("quantity")
+                .eq("sku_id", skuId)
+                .eq("stock_type", "SM")
+                .lt("adjustment_date", fromDate),
+            ]);
+            if (cancelled) return;
+            const preProd = (preProdRes.data ?? []).reduce((s, r) => s + Number(r.actual_output_g), 0);
+            const preDel = (preToRes.data ?? []).reduce(
+              (s, l: any) => s + (l.actual_qty > 0 ? Number(l.actual_qty) : Number(l.planned_qty)),
+              0,
+            );
+            const preAdj = (preAdjRes.data ?? []).reduce((s, a) => s + Number(a.quantity), 0);
+            const openingQty = obQty + preProd - preDel + preAdj;
             mvts.push({
               date: "—",
               sortKey: "0000-00-00",
@@ -589,14 +622,15 @@ export function StockCard({
               reference: "—",
               qtyIn: openingQty > 0 ? openingQty : null,
               qtyOut: null,
+              isReset: true,
             });
           }
 
+          // Step 4: All in-window movements (no anchor filter)
           (prodRes.data ?? []).forEach((p) => {
-            if (anchorDate && p.production_date < anchorDate) return;
             mvts.push({
               date: p.production_date,
-              sortKey: `${p.production_date}|${p.created_at}`,
+              sortKey: `${p.production_date}|1|${p.created_at}`,
               type: "Production",
               reference: `${p.batches_produced} batch${p.batches_produced > 1 ? "es" : ""}`,
               qtyIn: p.actual_output_g,
@@ -605,7 +639,7 @@ export function StockCard({
             });
           });
 
-          // Fetch lot lines for all TO lines in one batched query
+          // Lot lookup
           const toLines = toRes.data ?? [];
           const toLineIds = toLines.map((l: any) => l.id).filter(Boolean);
           let lotLookup: Record<string, { production_date: string; packs: number }[]> = {};
@@ -625,7 +659,6 @@ export function StockCard({
           toLines.forEach((line: any) => {
             const to = line.transfer_orders;
             if (!to) return;
-            if (anchorDate && to.delivery_date < anchorDate) return;
             const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
             const branchName = to.branches?.branch_name ?? "";
             const lots = lotLookup[line.id] ?? [];
@@ -641,7 +674,7 @@ export function StockCard({
             }
             mvts.push({
               date: to.delivery_date,
-              sortKey: `${to.delivery_date}|${to.updated_at ?? to.delivery_date}`,
+              sortKey: `${to.delivery_date}|1|${to.updated_at ?? to.delivery_date}`,
               type: "Delivery",
               reference: `${to.to_number} · ${branchName}`,
               qtyIn: null,
@@ -651,30 +684,51 @@ export function StockCard({
             });
           });
 
-          // Filter out Stock Count adjustments when anchor exists
           (adjRes.data ?? []).forEach((a) => {
-            if (anchorDate && a.adjustment_date <= anchorDate && (a.reason || "").includes("Stock Count")) return;
-            if (anchorDate && a.adjustment_date < anchorDate) return;
+            // Skip Stock Count adjustments — the count itself is rendered as a reset row
+            if ((a.reason || "").includes("Stock Count")) return;
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
             mvts.push({
               ...classified,
               date: a.adjustment_date,
-              sortKey: `${a.adjustment_date}|${a.created_at}`,
+              sortKey: `${a.adjustment_date}|1|${a.created_at}`,
               timestamp: a.created_at,
             });
           });
 
-          const sorted = [...mvts].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+          // Step 5: In-window stock counts as reset rows (sorted by completed_at)
+          inWindowCounts.forEach((c) => {
+            mvts.push({
+              date: c.count_date,
+              // sortKey suffix |2| ensures the count comes AFTER same-day movements
+              sortKey: `${c.count_date}|2|${c.completed_at}`,
+              type: "StockCount",
+              reference: "Physical count",
+              qtyIn: c.physical_qty,
+              qtyOut: null,
+              timestamp: c.completed_at,
+              isReset: true,
+            });
+          });
 
+          // Sort: keep Opening (sortKey 0000-00-00) first, rest by sortKey
+          const opening = mvts[0];
+          const rest = mvts.slice(1).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+          const sorted = [opening, ...rest];
+
+          // Running balance: reset rows hard-set bal; others accumulate
           let bal = 0;
           sorted.forEach((m) => {
-            bal += (m.qtyIn ?? 0) - (m.qtyOut ?? 0);
+            if (m.isReset) {
+              bal = m.qtyIn ?? 0;
+            } else {
+              bal += (m.qtyIn ?? 0) - (m.qtyOut ?? 0);
+            }
             m.runningBalance = bal;
           });
 
           setMovements(sorted);
-          // Store anchor date for footer display
-          setSmAnchorDate(anchorDate);
+          setSmAnchorDate(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -999,9 +1053,7 @@ export function StockCard({
               )}
 
               <div className="mt-3 text-xs text-muted-foreground">
-                {skuType === "SM" && smAnchorDate ? (
-                  <>Showing movements since last count · {formatDateCompact(smAnchorDate)}</>
-                ) : daysBack === 14 ? (
+                {daysBack === 14 ? (
                   <>
                     Showing last 14 days ·{" "}
                     <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
