@@ -31,6 +31,7 @@ interface Movement {
   isProductionUse?: boolean;
   lotText?: string;
   timestamp?: string;
+  isReset?: boolean;
 }
 
 interface BranchCountRow {
