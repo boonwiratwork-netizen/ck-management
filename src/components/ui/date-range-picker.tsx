@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { CalendarIcon, ChevronDown } from "lucide-react";
+import { CalendarIcon, ChevronDown, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
@@ -33,12 +33,29 @@ function DateRangePicker({
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [hoverDate, setHoverDate] = React.useState<Date | undefined>(undefined);
+  const [selectionPhase, setSelectionPhase] = React.useState<"idle" | "selecting_end">("idle");
 
   const display = React.useMemo(() => {
     if (from && to) return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
     if (from) return `${format(from, "d MMM yyyy")} – ...`;
     return placeholder;
   }, [from, to, placeholder]);
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) {
+      // Opening: idle if range complete or nothing, selecting_end if mid-selection
+      if (from && !to) {
+        setSelectionPhase("selecting_end");
+      } else {
+        setSelectionPhase("idle");
+      }
+    } else {
+      // Closing resets phase
+      setSelectionPhase("idle");
+      setHoverDate(undefined);
+    }
+  };
 
   const handleSelect = (range: DateRange | undefined) => {
     const next = {
@@ -47,12 +64,33 @@ function DateRangePicker({
     };
     onChange(next);
     if (next.from && next.to) {
+      setSelectionPhase("idle");
       setOpen(false);
+    } else if (next.from && !next.to) {
+      setSelectionPhase("selecting_end");
+    } else {
+      setSelectionPhase("idle");
     }
   };
 
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onChange({ from: undefined, to: undefined });
+    setSelectionPhase("idle");
+    setHoverDate(undefined);
+    setOpen(false);
+  };
+
+  const calendarSelected: DateRange | undefined =
+    selectionPhase === "selecting_end" && from
+      ? { from, to: hoverDate && hoverDate >= from ? hoverDate : from }
+      : { from, to };
+
+  const hasValue = !!(from || to);
+
   const trigger = (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -66,23 +104,35 @@ function DateRangePicker({
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
           <span className="flex-1 truncate">{display}</span>
-          <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+          {hasValue && !disabled ? (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear date range"
+              onClick={handleClear}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  handleClear(e as unknown as React.MouseEvent);
+                }
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="ml-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
+          ) : (
+            <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="z-50 w-auto p-0" align={align}>
         <Calendar
           mode="range"
-          selected={{ from, to }}
+          selected={calendarSelected}
           onSelect={handleSelect}
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
-          modifiers={{
-            hoverRange: from && !to && hoverDate && hoverDate > from ? { from: from, to: hoverDate } : false,
-          }}
-          modifiersClassNames={{
-            hoverRange: "bg-primary/15 text-foreground rounded-none",
-          }}
           onDayMouseEnter={(day) => setHoverDate(day)}
           onDayMouseLeave={() => setHoverDate(undefined)}
         />
