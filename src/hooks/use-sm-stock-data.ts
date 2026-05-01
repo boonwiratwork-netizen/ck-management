@@ -21,6 +21,7 @@ export interface SMStockBalance {
 interface AnchorData {
   physical_qty: number;
   count_date: string;
+  completed_at: string;
 }
 
 export function useSmStockData(
