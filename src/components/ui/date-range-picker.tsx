@@ -125,7 +125,16 @@ function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="z-50 w-auto p-0" align={align}>
+      <PopoverContent
+        className="z-50 w-auto p-0"
+        align={align}
+        onPointerDownOutside={(e) => {
+          if (selectionPhase === "selecting_end") e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (selectionPhase === "selecting_end") e.preventDefault();
+        }}
+      >
         <Calendar
           mode="range"
           selected={calendarSelected}
