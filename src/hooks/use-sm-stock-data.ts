@@ -50,7 +50,7 @@ export function useSmStockData(
   const fetchAnchorData = useCallback(async () => {
     const { data: sessions } = await supabase
       .from("stock_count_sessions")
-      .select("id, count_date")
+      .select("id, count_date, completed_at")
       .eq("status", "Completed")
       .is("deleted_at", null);
 
@@ -61,7 +61,11 @@ export function useSmStockData(
     }
 
     const sessionDateMap: Record<string, string> = {};
-    for (const s of sessions || []) sessionDateMap[s.id] = s.count_date;
+    const sessionCompletedAtMap: Record<string, string> = {};
+    for (const s of sessions || []) {
+      sessionDateMap[s.id] = s.count_date;
+      sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
+    }
 
     const { data: lines } = await supabase
       .from("stock_count_lines")
@@ -76,7 +80,11 @@ export function useSmStockData(
       if (!countDate) continue;
       const existing = map[row.sku_id];
       if (!existing || countDate > existing.count_date) {
-        map[row.sku_id] = { physical_qty: row.physical_qty, count_date: countDate };
+        map[row.sku_id] = {
+          physical_qty: row.physical_qty,
+          count_date: countDate,
+          completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
+        };
       }
     }
     setAnchorMap(map);
