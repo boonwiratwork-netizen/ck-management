@@ -84,7 +84,7 @@ function DateRangePicker({
 
   const calendarSelected: DateRange | undefined =
     selectionPhase === "selecting_end" && from
-      ? { from, to: hoverDate && hoverDate >= from ? hoverDate : from }
+      ? { from, to: hoverDate && hoverDate >= from ? hoverDate : undefined }
       : { from, to };
 
   const hasValue = !!(from || to);
