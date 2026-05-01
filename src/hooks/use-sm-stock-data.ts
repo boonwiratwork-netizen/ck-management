@@ -309,6 +309,7 @@ export function useSmStockData(
           smSkuId: r.sm_sku_id,
           batchesProduced: r.batches_produced,
           actualOutputG: r.actual_output_g,
+          createdAt: r.created_at,
         })),
       );
     }
