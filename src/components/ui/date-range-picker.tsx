@@ -59,7 +59,13 @@ function DateRangePicker({
   };
 
   const handleSelect = (range: DateRange | undefined) => {
-    console.log('handleSelect called', { range, from, to, selectionPhase });
+    console.log('handleSelect called', {
+      rangeFrom: range?.from?.toISOString(),
+      rangeTo: range?.to?.toISOString(),
+      propsFrom: from?.toISOString(),
+      propsTo: to?.toISOString(),
+      selectionPhase
+    });
     const next = {
       from: range?.from ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate()) : undefined,
       to: range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : undefined,
