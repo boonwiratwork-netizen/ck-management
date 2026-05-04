@@ -118,6 +118,7 @@ function BlurInput({
 
 const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
   const { t } = useLanguage();
+  const { isManagement } = useAuth();
   const {
     headers,
     addHeader,
