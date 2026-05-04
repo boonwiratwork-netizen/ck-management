@@ -56,7 +56,8 @@ import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from "@/components/A
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, Package } from "lucide-react";
+import { Plus, Upload, Package, Download } from "lucide-react";
+import { exportAllBoms } from "@/lib/bom-export";
 import { toast } from "sonner";
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
