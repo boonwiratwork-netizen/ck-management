@@ -11,7 +11,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.skuMaster": { th: "รายการวัตถุดิบ", en: "SKU Master" },
   "nav.suppliers": { th: "ซัพพลายเออร์", en: "Suppliers" },
   "nav.prices": { th: "ราคา", en: "Prices" },
-  "nav.bom": { th: "สูตรการผลิต", en: "BOM" },
+  "nav.bom": { th: "BOM SM", en: "BOM SM" },
   "nav.goodsReceipt": { th: "รับของเข้า", en: "Goods Receipt" },
   "nav.production": { th: "การผลิต", en: "Production" },
   "nav.delivery": { th: "ส่งของ", en: "Delivery" },
