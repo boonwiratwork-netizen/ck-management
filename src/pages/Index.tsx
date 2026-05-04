@@ -434,6 +434,28 @@ const Index = () => {
                 View Only
               </span>
             )}
+            {isManagement && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={() =>
+                  exportAllBoms({
+                    bomHeaders: bomData.headers,
+                    bomLines: bomData.lines,
+                    bomSteps: bomData.steps,
+                    menuBomLines: menuBomData.lines,
+                    spBomLines: spBomData.lines,
+                    skus: skuData.skus,
+                    prices: priceData.prices,
+                    menus: menuData.menus,
+                    branches: branchData.branches,
+                  })
+                }
+              >
+                <Download className="w-4 h-4" /> Export BOM
+              </Button>
+            )}
           </header>
 
           <main className="flex-1 overflow-auto">
