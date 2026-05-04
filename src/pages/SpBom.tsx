@@ -13,7 +13,8 @@ import { CSVImportModal, CSVColumnDef, CSVValidationError } from "@/components/C
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, Minimize2, Upload } from "lucide-react";
+import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, Minimize2, Upload, Download } from "lucide-react";
+import { exportSpBom } from "@/lib/bom-export";
 import { StatusDot } from "@/components/ui/status-dot";
 import { toast } from "sonner";
 import { syncBomPrice } from "@/lib/bom-price-sync";
