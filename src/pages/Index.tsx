@@ -56,7 +56,8 @@ import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from "@/components/A
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, Package } from "lucide-react";
+import { Plus, Upload, Package, Download } from "lucide-react";
+import { exportAllBoms } from "@/lib/bom-export";
 import { toast } from "sonner";
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
@@ -432,6 +433,28 @@ const Index = () => {
               <span className="ml-2 text-helper uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
                 View Only
               </span>
+            )}
+            {isManagement && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={() =>
+                  exportAllBoms({
+                    bomHeaders: bomData.headers,
+                    bomLines: bomData.lines,
+                    bomSteps: bomData.steps,
+                    menuBomLines: menuBomData.lines,
+                    spBomLines: spBomData.lines,
+                    skus: skuData.skus,
+                    prices: priceData.prices,
+                    menus: menuData.menus,
+                    branches: branchData.branches,
+                  })
+                }
+              >
+                <Download className="w-4 h-4" /> Export BOM
+              </Button>
             )}
           </header>
 

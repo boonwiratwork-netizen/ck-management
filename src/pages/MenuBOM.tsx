@@ -28,7 +28,9 @@ import {
   Maximize2,
   Minimize2,
   Upload,
+  Download,
 } from "lucide-react";
+import { exportMenuBom } from "@/lib/bom-export";
 import { StatusDot } from "@/components/ui/status-dot";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -474,9 +476,18 @@ export default function MenuBOMPage({
           </p>
         </div>
         {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> {t("btn.importCsv")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+              <Upload className="w-4 h-4" /> {t("btn.importCsv")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportMenuBom(menuBomData.lines, menus, skus, prices, branches)}
+            >
+              <Download className="w-4 h-4" /> Export
+            </Button>
+          </div>
         )}
       </div>
 
