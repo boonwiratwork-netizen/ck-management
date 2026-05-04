@@ -77,7 +77,6 @@ function buildMenuBomSheet(
 function buildSpBomSheet(lines: SpBomLine[], skus: SKU[], prices: Price[]): XLSX.WorkSheet {
   const sMap = skuMap(skus);
 
-  // group by spSkuId for batch yield
   const rows = lines
     .map((l) => {
       const sp = sMap.get(l.spSkuId);
@@ -206,6 +205,233 @@ function buildSmBomSheet(
   return XLSX.utils.json_to_sheet(rows);
 }
 
+// ---------- Summary sheet ----------
+
+type Cell = string | number | null;
+const BOLD = { font: { bold: true } } as const;
+
+function menuSummaryRows(
+  lines: MenuBomLine[],
+  menus: Menu[],
+  prices: Price[],
+): Cell[][] {
+  const mMap = new Map(menus.map((m) => [m.id, m]));
+  const groups = new Map<string, MenuBomLine[]>();
+  lines.forEach((l) => {
+    const arr = groups.get(l.menuId) ?? [];
+    arr.push(l);
+    groups.set(l.menuId, arr);
+  });
+
+  const data: Cell[][] = [];
+  const items: { code: string; name: string; brand: string; cat: string; n: number; total: number }[] = [];
+  groups.forEach((gLines, menuId) => {
+    const m = mMap.get(menuId);
+    if (!m || gLines.length === 0) return;
+    const total = gLines.reduce((s, l) => {
+      const yp = l.yieldPct ?? 100;
+      const eff = yp > 0 ? l.qtyPerServing / (yp / 100) : l.qtyPerServing;
+      return s + eff * activeCost(prices, l.skuId);
+    }, 0);
+    items.push({
+      code: m.menuCode ?? "",
+      name: m.menuName ?? "",
+      brand: m.brandName ?? "",
+      cat: m.category ?? "",
+      n: gLines.length,
+      total,
+    });
+  });
+  items.sort((a, b) => a.code.localeCompare(b.code));
+  items.forEach((it) =>
+    data.push([it.code, it.name, it.brand, it.cat, it.n, round(it.total, 2)]),
+  );
+  return data;
+}
+
+function spSummaryRows(lines: SpBomLine[], skus: SKU[], prices: Price[]): Cell[][] {
+  const sMap = skuMap(skus);
+  const groups = new Map<string, SpBomLine[]>();
+  lines.forEach((l) => {
+    const arr = groups.get(l.spSkuId) ?? [];
+    arr.push(l);
+    groups.set(l.spSkuId, arr);
+  });
+
+  const items: {
+    code: string;
+    name: string;
+    n: number;
+    yQty: number;
+    yUom: string;
+    total: number;
+    perUnit: number;
+  }[] = [];
+  groups.forEach((gLines, spId) => {
+    if (gLines.length === 0) return;
+    const sp = sMap.get(spId);
+    const first = gLines[0];
+    const total = gLines.reduce((s, l) => s + l.qtyPerBatch * activeCost(prices, l.ingredientSkuId), 0);
+    const yQty = first.batchYieldQty || 0;
+    items.push({
+      code: sp?.skuId ?? "",
+      name: sp?.name ?? "",
+      n: gLines.length,
+      yQty,
+      yUom: first.batchYieldUom ?? "",
+      total,
+      perUnit: yQty > 0 ? total / yQty : 0,
+    });
+  });
+  items.sort((a, b) => a.code.localeCompare(b.code));
+  return items.map((it) => [
+    it.code,
+    it.name,
+    it.n,
+    round(it.yQty),
+    it.yUom,
+    round(it.total, 2),
+    round(it.perUnit, 4),
+  ]);
+}
+
+function smSummaryRows(
+  headers: BOMHeader[],
+  lines: BOMLine[],
+  steps: BOMStep[],
+  skus: SKU[],
+  prices: Price[],
+): Cell[][] {
+  const sMap = skuMap(skus);
+  const items: {
+    code: string;
+    name: string;
+    pType: string;
+    mode: string;
+    output: number;
+    total: number;
+    costPerG: number;
+  }[] = [];
+
+  headers.forEach((h) => {
+    const sm = sMap.get(h.smSkuId);
+    const hLines = lines.filter((l) => l.bomHeaderId === h.id);
+
+    let output = 0;
+    if (h.bomMode === "simple") {
+      output = h.batchSize * h.yieldPercent;
+    } else {
+      const hSteps = [...steps.filter((s) => s.bomHeaderId === h.id)].sort(
+        (a, b) => a.stepNumber - b.stepNumber,
+      );
+      let prev = 0;
+      hSteps.forEach((step, idx) => {
+        const sLines = hLines.filter((l) => l.stepId === step.id);
+        const inputQty =
+          idx === 0
+            ? sLines.reduce((s, l) => s + (l.qtyType === "percent" ? 0 : l.qtyPerBatch), 0)
+            : prev;
+        const ingredientQty = sLines.reduce((s, l) => {
+          if (l.qtyType === "percent" && l.percentOfInput) return s + l.percentOfInput * inputQty;
+          return s + l.qtyPerBatch;
+        }, 0);
+        const effInput = idx === 0 ? ingredientQty : inputQty + ingredientQty;
+        prev = effInput * step.yieldPercent;
+      });
+      output = prev;
+    }
+
+    const total = hLines.reduce((s, l) => {
+      const ypRound = Math.round((l.yieldPercent ?? 1.0) * 100) / 100;
+      const eff = ypRound > 0 ? l.qtyPerBatch / ypRound : l.qtyPerBatch;
+      return s + eff * activeCost(prices, l.rmSkuId);
+    }, 0);
+
+    items.push({
+      code: sm?.skuId ?? "",
+      name: sm?.name ?? "",
+      pType: h.productionType,
+      mode: h.bomMode,
+      output,
+      total,
+      costPerG: output > 0 ? total / output : 0,
+    });
+  });
+  items.sort((a, b) => a.code.localeCompare(b.code));
+  return items.map((it) => [
+    it.code,
+    it.name,
+    it.pType,
+    it.mode,
+    round(it.output),
+    round(it.total, 2),
+    round(it.costPerG, 4),
+  ]);
+}
+
+interface SummaryParts {
+  menu?: { lines: MenuBomLine[]; menus: Menu[] };
+  sp?: { lines: SpBomLine[] };
+  sm?: { headers: BOMHeader[]; lines: BOMLine[]; steps: BOMStep[] };
+  skus: SKU[];
+  prices: Price[];
+}
+
+function buildSummarySheet(parts: SummaryParts): XLSX.WorkSheet {
+  const aoa: Cell[][] = [];
+  const boldRows: number[] = [];
+
+  const pushSection = (title: string, headers: string[], rows: Cell[][]) => {
+    if (aoa.length > 0) aoa.push([]);
+    boldRows.push(aoa.length);
+    aoa.push([title]);
+    boldRows.push(aoa.length);
+    aoa.push(headers);
+    rows.forEach((r) => aoa.push(r));
+  };
+
+  if (parts.menu) {
+    pushSection(
+      "MENU BOM SUMMARY",
+      ["Menu Code", "Menu Name", "Brand", "Category", "# Ingredients", "Total Cost/Serving (฿)"],
+      menuSummaryRows(parts.menu.lines, parts.menu.menus, parts.prices),
+    );
+  }
+  if (parts.sp) {
+    pushSection(
+      "SP BOM SUMMARY",
+      [
+        "SP Code",
+        "SP Name",
+        "# Ingredients",
+        "Batch Yield Qty",
+        "Batch Yield UOM",
+        "Total Cost/Batch (฿)",
+        "Cost/Unit (฿)",
+      ],
+      spSummaryRows(parts.sp.lines, parts.skus, parts.prices),
+    );
+  }
+  if (parts.sm) {
+    pushSection(
+      "SM BOM SUMMARY",
+      ["SM Code", "SM Name", "Production Type", "BOM Mode", "Output (g)", "Total Cost/Batch (฿)", "Cost/g (฿)"],
+      smSummaryRows(parts.sm.headers, parts.sm.lines, parts.sm.steps, parts.skus, parts.prices),
+    );
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  boldRows.forEach((r) => {
+    const rowCells = aoa[r] ?? [];
+    for (let c = 0; c < rowCells.length; c++) {
+      const ref = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[ref];
+      if (cell) cell.s = BOLD;
+    }
+  });
+  return ws;
+}
+
 export function exportMenuBom(
   lines: MenuBomLine[],
   menus: Menu[],
@@ -214,12 +440,18 @@ export function exportMenuBom(
   branches: Branch[],
 ) {
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    buildSummarySheet({ menu: { lines, menus }, skus, prices }),
+    "Summary",
+  );
   XLSX.utils.book_append_sheet(wb, buildMenuBomSheet(lines, menus, skus, prices, branches), "Menu BOM");
   downloadWorkbook(wb, `MenuBOM_${toLocalDateStr(new Date())}.xlsx`);
 }
 
 export function exportSpBom(lines: SpBomLine[], skus: SKU[], prices: Price[]) {
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, buildSummarySheet({ sp: { lines }, skus, prices }), "Summary");
   XLSX.utils.book_append_sheet(wb, buildSpBomSheet(lines, skus, prices), "SP BOM");
   downloadWorkbook(wb, `SpBOM_${toLocalDateStr(new Date())}.xlsx`);
 }
@@ -232,6 +464,11 @@ export function exportSmBom(
   prices: Price[],
 ) {
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    buildSummarySheet({ sm: { headers, lines, steps }, skus, prices }),
+    "Summary",
+  );
   XLSX.utils.book_append_sheet(wb, buildSmBomSheet(headers, lines, steps, skus, prices), "SM BOM");
   downloadWorkbook(wb, `SmBOM_${toLocalDateStr(new Date())}.xlsx`);
 }
@@ -248,6 +485,17 @@ export function exportAllBoms(params: {
   branches: Branch[];
 }) {
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    buildSummarySheet({
+      menu: { lines: params.menuBomLines, menus: params.menus },
+      sp: { lines: params.spBomLines },
+      sm: { headers: params.bomHeaders, lines: params.bomLines, steps: params.bomSteps },
+      skus: params.skus,
+      prices: params.prices,
+    }),
+    "Summary",
+  );
   XLSX.utils.book_append_sheet(
     wb,
     buildMenuBomSheet(params.menuBomLines, params.menus, params.skus, params.prices, params.branches),
