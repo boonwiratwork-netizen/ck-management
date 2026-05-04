@@ -28,7 +28,9 @@ import {
   Maximize2,
   Minimize2,
   Upload,
+  Download,
 } from "lucide-react";
+import { exportMenuBom } from "@/lib/bom-export";
 import { StatusDot } from "@/components/ui/status-dot";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
