@@ -1520,9 +1520,20 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
             <h2 className="text-2xl font-heading font-bold">{t("title.bomMaster")}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Manage recipes for Semi-finished (SM) items</p>
           </div>
-          <Button onClick={() => handleAddHeader()}>
-            <Plus className="w-4 h-4" /> New BOM
-          </Button>
+          <div className="flex items-center gap-2">
+            {isManagement && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportSmBom(bomData.headers, bomData.lines, bomData.steps, skus, prices)}
+              >
+                <Download className="w-4 h-4" /> Export
+              </Button>
+            )}
+            <Button onClick={() => handleAddHeader()}>
+              <Plus className="w-4 h-4" /> New BOM
+            </Button>
+          </div>
         </div>
 
         <div className={`grid gap-6 ${fullscreen ? "grid-cols-1" : "grid-cols-12"}`}>
