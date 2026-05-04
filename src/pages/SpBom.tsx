@@ -449,9 +449,14 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           </p>
         </div>
         {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-            <Upload className="w-4 h-4" /> {t("btn.importCsv")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+              <Upload className="w-4 h-4" /> {t("btn.importCsv")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => exportSpBom(spBomData.lines, skus, prices)}>
+              <Download className="w-4 h-4" /> Export
+            </Button>
+          </div>
         )}
       </div>
 
