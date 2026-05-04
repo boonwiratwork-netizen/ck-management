@@ -28,11 +28,14 @@ import {
   Search,
   AlertTriangle,
   Info,
+  Download,
 } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { toast } from "sonner";
 import { syncBomPrice, cascadeBomCost, computeBomCostFromDb, syncByproductPrices } from "@/lib/bom-price-sync";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
+import { exportSmBom } from "@/lib/bom-export";
 
 interface BOMPageProps {
   bomData: {
