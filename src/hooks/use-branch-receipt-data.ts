@@ -57,6 +57,10 @@ export function useBranchReceiptData() {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    fetchReceipts();
+  }, [fetchReceipts]);
+
   const saveReceipts = useCallback(
     async (rows: Omit<BranchReceipt, "id" | "createdAt">[]) => {
       const inserts = rows.map((r) => ({
