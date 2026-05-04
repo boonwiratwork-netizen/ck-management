@@ -52,7 +52,7 @@ function buildMenuBomSheet(
       return {
         "Menu Code": menu?.menuCode ?? "",
         "Menu Name": menu?.menuName ?? "",
-        Brand: menu?.brand ?? "",
+        Brand: menu?.brandName ?? "",
         Category: menu?.category ?? "",
         "SKU Code": sku?.skuId ?? "",
         "SKU Name": sku?.name ?? "",
