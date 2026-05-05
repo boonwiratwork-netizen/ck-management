@@ -501,6 +501,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         packs,
         qty,
         actualTotal: 0,
+        invoicePrice: 0,
       },
     ]);
     setAddSheetOpen(false);
