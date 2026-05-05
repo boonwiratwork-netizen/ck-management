@@ -354,7 +354,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     scanned: ScanItem[],
     aiMatchMap: Map<string, { sku_id: string; confidence: MatchConfidence }>,
   ): ManualRow[] => {
-    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[]; unitPrice: number }>();
+    const matchedMap = new Map<
+      string,
+      { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[]; unitPrice: number }
+    >();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
@@ -754,7 +757,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         ? String(r.packs)
         : r.packs.toFixed(1);
 
-
     return (
       <div
         onClick={(e) => e.stopPropagation()}
@@ -773,7 +775,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         <button
           type="button"
           onTouchStart={() => setDecPressed(true)}
-          onTouchEnd={(e) => { e.stopPropagation(); setDecPressed(false); updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2))); }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            setDecPressed(false);
+            updateRowPacks(r.rowId, Math.max(0, +(r.packs - step).toFixed(2)));
+          }}
           onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
@@ -816,7 +822,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         <button
           type="button"
           onTouchStart={() => setIncPressed(true)}
-          onTouchEnd={(e) => { e.stopPropagation(); setIncPressed(false); updateRowPacks(r.rowId, +(r.packs + step).toFixed(2)); }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            setIncPressed(false);
+            updateRowPacks(r.rowId, +(r.packs + step).toFixed(2));
+          }}
           onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
@@ -1011,10 +1021,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   className="truncate"
                   style={{
                     fontFamily: FONT_STACK,
-                    fontSize: 11,
-                    color: MUTED,
-                    lineHeight: 1.2,
-                    fontVariantNumeric: "tabular-nums",
+                    fontSize: 15,
+                    color: INK,
+                    lineHeight: 1.3,
+                    fontWeight: 500,
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
@@ -1026,25 +1036,20 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                       style={{ width: 8, height: 8, background: dotColor, flexShrink: 0 }}
                     />
                   )}
-                  {sku.skuId}
+                  {sku.name}
                 </div>
                 <div
                   className="truncate"
                   style={{
                     fontFamily: FONT_STACK,
-                    fontSize: 15,
-                    color: INK,
-                    lineHeight: 1.3,
-                    fontWeight: 500,
+                    fontSize: 11,
+                    color: MUTED,
+                    lineHeight: 1.2,
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {sku.name}
-                  {packLabel && (
-                    <span style={{ fontSize: 11, color: MUTED, marginLeft: 4 }}>
-                      {" · "}
-                      {packLabel}
-                    </span>
-                  )}
+                  {sku.skuId}
+                  {packLabel ? ` · ${packLabel}` : ""}
                 </div>
                 {conf === "low" && (
                   <div
@@ -1121,17 +1126,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
               paddingLeft: 8,
             }}
           >
-            <PriceChip
-              rowId={r.rowId}
-              invoicePrice={r.invoicePrice}
-              packUnit={chipUnit}
-              disabled={isUnmatched}
-            />
-            {isUnmatched ? (
-              <ChevronRight size={20} style={{ color: CHEVRON_GREY }} />
-            ) : (
-              <Stepper r={r} sku={sku} />
-            )}
+            <PriceChip rowId={r.rowId} invoicePrice={r.invoicePrice} packUnit={chipUnit} disabled={isUnmatched} />
+            {isUnmatched ? <ChevronRight size={20} style={{ color: CHEVRON_GREY }} /> : <Stepper r={r} sku={sku} />}
           </div>
         </div>
       </SwipeableRow>
