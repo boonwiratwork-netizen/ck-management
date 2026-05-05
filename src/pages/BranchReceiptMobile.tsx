@@ -765,7 +765,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           alignItems: "center",
           background: filled ? STEPPER_FILLED_BG : STEPPER_BG,
           borderRadius: 10,
-          height: 36,
+          height: 26,
           overflow: "hidden",
           flexShrink: 0,
           flexWrap: "nowrap",
