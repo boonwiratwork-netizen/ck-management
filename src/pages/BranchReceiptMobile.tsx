@@ -830,7 +830,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
-            width: 32,
+            width: 26,
             height: 36,
             background: "none",
             border: "none",
