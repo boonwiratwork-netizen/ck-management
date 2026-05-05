@@ -42,6 +42,8 @@ interface ManualRow {
   /** Always in usage UOM (grams). Derived from packs * packSize when in packs mode. */
   qty: number;
   actualTotal: number;
+  /** Invoice price per pack (ex-VAT). 0 = not entered → fall back to std. */
+  invoicePrice: number;
   rawName?: string;
   matchConfidence?: MatchConfidence;
   isAdHoc?: boolean;
@@ -52,6 +54,7 @@ interface ScanItem {
   raw_name: string;
   quantity: number;
   unit: string;
+  unit_price: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────
