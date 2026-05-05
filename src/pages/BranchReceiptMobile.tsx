@@ -783,7 +783,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
-            width: 32,
+            width: 26,
             height: 36,
             background: "none",
             border: "none",
@@ -808,7 +808,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </button>
         <span
           style={{
-            minWidth: 28,
+            minWidth: 20,
             textAlign: "center",
             fontFamily: FONT_STACK,
             fontSize: 16,
@@ -1278,7 +1278,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   <span
                     className="shrink-0 inline-flex items-center justify-center"
                     style={{
-                      width: 32,
+                      width: 26,
                       height: 32,
                       borderRadius: 8,
                       background: isBrand ? BRAND_PILL_BG : "#f2f2f7",
