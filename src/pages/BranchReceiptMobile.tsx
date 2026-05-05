@@ -42,6 +42,8 @@ interface ManualRow {
   /** Always in usage UOM (grams). Derived from packs * packSize when in packs mode. */
   qty: number;
   actualTotal: number;
+  /** Invoice price per pack (ex-VAT). 0 = not entered → fall back to std. */
+  invoicePrice: number;
   rawName?: string;
   matchConfidence?: MatchConfidence;
   isAdHoc?: boolean;
@@ -52,6 +54,7 @@ interface ScanItem {
   raw_name: string;
   quantity: number;
   unit: string;
+  unit_price: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -351,11 +354,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     scanned: ScanItem[],
     aiMatchMap: Map<string, { sku_id: string; confidence: MatchConfidence }>,
   ): ManualRow[] => {
-    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }>();
+    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[]; unitPrice: number }>();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
       const inputQty = Math.max(0, Number(item.quantity) || 0);
+      const itemPrice = Math.max(0, Number(item.unit_price) || 0);
 
       // 1) Try AI match first
       let sku: SKU | null = null;
@@ -381,6 +385,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         if (existing) {
           existing.packs += inputQty;
           existing.rawNames.push(item.raw_name);
+          if (!existing.unitPrice && itemPrice > 0) existing.unitPrice = itemPrice;
           if (confidence === "high") existing.confidence = "high";
         } else {
           matchedMap.set(sku.id, {
@@ -388,6 +393,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             confidence,
             packs: inputQty,
             rawNames: [item.raw_name],
+            unitPrice: itemPrice,
           });
         }
       } else {
@@ -397,6 +403,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           packs: inputQty,
           qty: 0,
           actualTotal: 0,
+          invoicePrice: itemPrice,
           rawName: item.raw_name,
           matchConfidence: "none",
           isAdHoc: true,
@@ -415,6 +422,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         packs,
         qty,
         actualTotal: 0,
+        invoicePrice: Math.max(0, m.unitPrice || 0),
         rawName: m.rawNames.join(" + "),
         matchConfidence: m.confidence,
       });
@@ -475,6 +483,16 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     );
   };
 
+  const updateRowPrice = (rowId: string, price: number) => {
+    const safe = Math.max(0, price);
+    setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, invoicePrice: safe } : r)));
+  };
+
+  const getPackLabel = (sku: SKU | null): string => {
+    if (!sku || !isPacksModeFor(sku)) return "";
+    return `1${sku.packUnit}=${sku.packSize}${sku.purchaseUom}`;
+  };
+
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   };
@@ -493,6 +511,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         packs,
         qty,
         actualTotal: 0,
+        invoicePrice: 0,
       },
     ]);
     setAddSheetOpen(false);
@@ -581,9 +600,19 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         const qty = r.qty;
         const stdUnitPrice = getStdUnitPrice(r.skuId!);
         const stdTotal = qty * stdUnitPrice;
-        const actualTotal = stdTotal;
-        const actualUnitPrice = stdUnitPrice;
-        const priceVariance = 0;
+        let actualUnitPrice: number;
+        let actualTotal: number;
+        let priceVariance: number;
+        if (r.invoicePrice > 0) {
+          const packSize = Math.max(1, sku?.packSize || 1);
+          actualUnitPrice = r.invoicePrice / packSize;
+          actualTotal = qty * actualUnitPrice;
+          priceVariance = actualTotal - stdTotal;
+        } else {
+          actualUnitPrice = stdUnitPrice;
+          actualTotal = stdTotal;
+          priceVariance = 0;
+        }
         return {
           branchId,
           receiptDate: dateStr,
@@ -834,6 +863,95 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     );
   };
 
+  const PriceChip = ({
+    rowId,
+    invoicePrice,
+    packUnit,
+    disabled,
+  }: {
+    rowId: string;
+    invoicePrice: number;
+    packUnit: string;
+    disabled?: boolean;
+  }) => {
+    const [editing, setEditing] = React.useState(false);
+    const unitLabel = packUnit || "หน่วย";
+
+    if (editing && !disabled) {
+      return (
+        <input
+          type="number"
+          min={0}
+          step={1}
+          inputMode="decimal"
+          autoFocus
+          defaultValue={invoicePrice > 0 ? invoicePrice : ""}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            const parsed = parseFloat(e.target.value);
+            updateRowPrice(rowId, isFinite(parsed) ? parsed : 0);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "Tab") {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          style={{
+            height: 26,
+            borderRadius: 7,
+            width: 88,
+            fontWeight: 600,
+            textAlign: "center",
+            fontFamily: FONT_STACK,
+            border: "1px solid #007aff",
+            outline: "none",
+            padding: "0 6px",
+            color: INK,
+            fontSize: 16,
+            background: "#fff",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        />
+      );
+    }
+
+    const filled = invoicePrice > 0;
+    const baseStyle: React.CSSProperties = {
+      height: 26,
+      borderRadius: 7,
+      padding: "0 8px",
+      minWidth: 72,
+      textAlign: "center",
+      fontFamily: FONT_STACK,
+      fontWeight: 600,
+      fontSize: 14,
+      cursor: disabled ? "default" : "pointer",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontVariantNumeric: "tabular-nums",
+      opacity: disabled ? 0.4 : 1,
+    };
+
+    return (
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!disabled) setEditing(true);
+        }}
+        style={{
+          ...baseStyle,
+          background: filled ? "rgba(52,199,89,0.12)" : "rgba(255,149,0,0.10)",
+          color: filled ? INK : WARNING,
+          border: filled ? "none" : "1px dashed rgba(255,149,0,0.5)",
+        }}
+      >
+        {filled ? `฿${invoicePrice}/${unitLabel}` : `฿ ?/${unitLabel}`}
+      </span>
+    );
+  };
+
   const ItemRow = ({ r, showDot }: { r: ManualRow; showDot?: boolean }) => {
     const sku = r.skuId ? skuMap[r.skuId] : null;
     const isUnmatched = !sku;
@@ -846,20 +964,23 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     const [textPressed, setTextPressed] = React.useState(false);
 
     const handleTextTap = () => {
-      // ALL rows open assign sheet on text tap
       openAssignSheet(r);
     };
+
+    const packLabel = getPackLabel(sku);
+    const chipUnit = sku?.packUnit || sku?.purchaseUom || "หน่วย";
 
     return (
       <SwipeableRow rowId={r.rowId}>
         <div
-          className="flex items-stretch w-full"
           onClick={handleTextTap}
           onTouchStart={() => setTextPressed(true)}
           onTouchEnd={() => setTextPressed(false)}
           onTouchCancel={() => setTextPressed(false)}
           style={{
-            minHeight: 56,
+            display: "flex",
+            alignItems: "stretch",
+            minHeight: 64,
             background: rowBg,
             borderBottom: `0.5px solid ${DIVIDER}`,
             paddingLeft: 16,
@@ -871,13 +992,18 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          {showDot && (
-            <span className="shrink-0 self-center rounded-full" style={{ width: 8, height: 8, background: dotColor }} />
-          )}
-
           <div
-            className="min-w-0 flex-1 self-center select-none"
-            style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8 }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              gap: 2,
+              paddingTop: 8,
+              paddingBottom: 8,
+              cursor: "pointer",
+            }}
           >
             {sku ? (
               <>
@@ -889,8 +1015,17 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     color: MUTED,
                     lineHeight: 1.2,
                     fontVariantNumeric: "tabular-nums",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
+                  {showDot && (
+                    <span
+                      className="rounded-full"
+                      style={{ width: 8, height: 8, background: dotColor, flexShrink: 0 }}
+                    />
+                  )}
                   {sku.skuId}
                 </div>
                 <div
@@ -904,6 +1039,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   }}
                 >
                   {sku.name}
+                  {packLabel && (
+                    <span style={{ fontSize: 11, color: MUTED, marginLeft: 4 }}>
+                      {" · "}
+                      {packLabel}
+                    </span>
+                  )}
                 </div>
                 {conf === "low" && (
                   <div
@@ -918,22 +1059,29 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                     ตรวจสอบ · แตะเพื่อแก้ไข
                   </div>
                 )}
-                {conf === "high" && (
-                  <div
-                    style={{
-                      fontFamily: FONT_STACK,
-                      fontSize: 10,
-                      color: CHEVRON_GREY,
-                      lineHeight: 1.2,
-                      marginTop: 2,
-                    }}
-                  >
-                    แตะที่ชื่อเพื่อเปลี่ยน SKU
-                  </div>
-                )}
               </>
             ) : (
               <>
+                <div
+                  className="truncate"
+                  style={{
+                    fontFamily: FONT_STACK,
+                    fontSize: 11,
+                    color: MUTED,
+                    lineHeight: 1.2,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {showDot && (
+                    <span
+                      className="rounded-full"
+                      style={{ width: 8, height: 8, background: dotColor, flexShrink: 0 }}
+                    />
+                  )}
+                  —
+                </div>
                 <div
                   className="truncate"
                   style={{
@@ -962,8 +1110,28 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             )}
           </div>
 
-          <div className="flex items-center shrink-0 self-center" style={{ flexShrink: 0 }}>
-            {isUnmatched ? <ChevronRight size={20} style={{ color: CHEVRON_GREY }} /> : <Stepper r={r} sku={sku} />}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              gap: 5,
+              flexShrink: 0,
+              paddingLeft: 8,
+            }}
+          >
+            <PriceChip
+              rowId={r.rowId}
+              invoicePrice={r.invoicePrice}
+              packUnit={chipUnit}
+              disabled={isUnmatched}
+            />
+            {isUnmatched ? (
+              <ChevronRight size={20} style={{ color: CHEVRON_GREY }} />
+            ) : (
+              <Stepper r={r} sku={sku} />
+            )}
           </div>
         </div>
       </SwipeableRow>
