@@ -943,6 +943,10 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           opacity: disabled ? 0.4 : 1,
           fontVariantNumeric: "tabular-nums",
           whiteSpace: "nowrap",
+          textDecoration: "underline",
+          textDecorationStyle: "dotted",
+          textDecorationColor: filled ? "rgba(26,122,58,0.35)" : "rgba(0,0,0,0.18)",
+          textUnderlineOffset: "3px",
         }}
       >
         {filled ? `฿${invoicePrice} /${unitLabel}` : `฿ — /${unitLabel}`}
