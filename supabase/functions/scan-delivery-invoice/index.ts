@@ -31,6 +31,7 @@ interface ExtractedItem {
   raw_name: string;
   quantity: number;
   unit: string;
+  unit_price: number;
 }
 
 interface CatalogItem {
