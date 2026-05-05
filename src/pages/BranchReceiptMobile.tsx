@@ -783,8 +783,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
-            width: 26,
-            height: 36,
+            width: 30,
+            height: 30,
             background: "none",
             border: "none",
             color: ACCENT,
@@ -830,8 +830,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
-            width: 26,
-            height: 36,
+            width: 30,
+            height: 30,
             background: "none",
             border: "none",
             color: ACCENT,
@@ -1282,8 +1282,8 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
                   <span
                     className="shrink-0 inline-flex items-center justify-center"
                     style={{
-                      width: 26,
-                      height: 32,
+                      width: 30,
+                      height: 30,
                       borderRadius: 8,
                       background: isBrand ? BRAND_PILL_BG : "#f2f2f7",
                     }}
