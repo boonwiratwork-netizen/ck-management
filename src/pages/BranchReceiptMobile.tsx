@@ -483,6 +483,16 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     );
   };
 
+  const updateRowPrice = (rowId: string, price: number) => {
+    const safe = Math.max(0, price);
+    setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, invoicePrice: safe } : r)));
+  };
+
+  const getPackLabel = (sku: SKU | null): string => {
+    if (!sku || !isPacksModeFor(sku)) return "";
+    return `1${sku.packUnit}=${sku.packSize}${sku.purchaseUom}`;
+  };
+
   const removeRow = (rowId: string) => {
     setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   };
