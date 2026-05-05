@@ -354,11 +354,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
     scanned: ScanItem[],
     aiMatchMap: Map<string, { sku_id: string; confidence: MatchConfidence }>,
   ): ManualRow[] => {
-    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[] }>();
+    const matchedMap = new Map<string, { sku: SKU; confidence: MatchConfidence; packs: number; rawNames: string[]; unitPrice: number }>();
     const unmatched: ManualRow[] = [];
 
     scanned.forEach((item, idx) => {
       const inputQty = Math.max(0, Number(item.quantity) || 0);
+      const itemPrice = Math.max(0, Number(item.unit_price) || 0);
 
       // 1) Try AI match first
       let sku: SKU | null = null;
@@ -384,6 +385,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         if (existing) {
           existing.packs += inputQty;
           existing.rawNames.push(item.raw_name);
+          if (!existing.unitPrice && itemPrice > 0) existing.unitPrice = itemPrice;
           if (confidence === "high") existing.confidence = "high";
         } else {
           matchedMap.set(sku.id, {
@@ -391,6 +393,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             confidence,
             packs: inputQty,
             rawNames: [item.raw_name],
+            unitPrice: itemPrice,
           });
         }
       } else {
@@ -400,7 +403,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           packs: inputQty,
           qty: 0,
           actualTotal: 0,
-          invoicePrice: Math.max(0, Number(item.unit_price) || 0),
+          invoicePrice: itemPrice,
           rawName: item.raw_name,
           matchConfidence: "none",
           isAdHoc: true,
@@ -419,6 +422,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         packs,
         qty,
         actualTotal: 0,
+        invoicePrice: Math.max(0, m.unitPrice || 0),
         rawName: m.rawNames.join(" + "),
         matchConfidence: m.confidence,
       });
