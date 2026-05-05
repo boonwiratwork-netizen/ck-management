@@ -853,22 +853,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         >
           +
         </button>
-        <span
-          style={{
-            width: 40,
-            fontSize: 10,
-            color: "#3c3c43",
-            flexShrink: 0,
-            paddingLeft: 4,
-            paddingRight: 6,
-            fontFamily: FONT_STACK,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {inputUnit}
-        </span>
       </div>
     );
   };
