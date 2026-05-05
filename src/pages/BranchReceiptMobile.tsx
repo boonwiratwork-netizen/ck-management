@@ -400,6 +400,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           packs: inputQty,
           qty: 0,
           actualTotal: 0,
+          invoicePrice: Math.max(0, Number(item.unit_price) || 0),
           rawName: item.raw_name,
           matchConfidence: "none",
           isAdHoc: true,
