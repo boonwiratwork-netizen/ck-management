@@ -935,13 +935,17 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           if (!disabled) setEditing(true);
         }}
         style={{
-          ...baseStyle,
-          background: filled ? "rgba(52,199,89,0.12)" : "rgba(255,149,0,0.10)",
-          color: filled ? INK : WARNING,
-          border: filled ? "none" : "1px dashed rgba(255,149,0,0.5)",
+          fontFamily: FONT_STACK,
+          fontSize: 14,
+          fontWeight: filled ? 700 : 400,
+          color: filled ? "#1a7a3a" : CHEVRON_GREY,
+          cursor: disabled ? "default" : "pointer",
+          opacity: disabled ? 0.4 : 1,
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
         }}
       >
-        {filled ? `฿${invoicePrice}/${unitLabel}` : `฿ ?/${unitLabel}`}
+        {filled ? `฿${invoicePrice} /${unitLabel}` : `฿ — /${unitLabel}`}
       </span>
     );
   };
