@@ -13,7 +13,7 @@ const corsHeaders = {
 const EXTRACT_SYSTEM_PROMPT =
   "You are reading a Thai delivery invoice or receipt. Extract every line item from the table. " +
   "IMPORTANT: Thai invoices often show two quantity columns — PACK DETAILS (จำนวนแพ็ค) and UNIT DETAILS (จำนวนหน่วยย่อย/ต่อหน่วย). Always extract the PACK quantity and PACK unit, never the per-unit breakdown quantity. For example: if the invoice shows '2 แพ็ค / 60 ฟอง', extract quantity=2 unit='แพ็ค'. " +
-  'Return ONLY a valid JSON object: {"items":[{"code":"<supplier product code from first column if shown, else empty string>","raw_name":"<full product description exactly as written, without size/weight info>","quantity":<number>,"unit":"<unit of measure as shown in pack column>","unit_price":<number, price per pack unit ex-VAT — if invoice shows both VAT-inclusive and ex-VAT prices extract only the ex-VAT one, if only one price shown use it, 0 if not found>}]}. ' +
+  'Return ONLY a valid JSON object: {"items":[{"code":"<supplier product code from first column if shown, else empty string>","raw_name":"<full product description exactly as written, without size/weight info>","quantity":<number>,"unit":"<unit of measure as shown in pack column>","unit_price":<number, price per pack unit ex-VAT — if invoice shows both VAT-inclusive and ex-VAT prices extract only the ex-VAT one, if only one price shown use it as-is, 0 if not found>}]}. ' +
   "No prose, no markdown. If a field is missing use empty string or 0.";
 
 const MATCH_SYSTEM_PROMPT =
