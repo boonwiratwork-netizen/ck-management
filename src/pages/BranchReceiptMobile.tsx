@@ -600,9 +600,19 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         const qty = r.qty;
         const stdUnitPrice = getStdUnitPrice(r.skuId!);
         const stdTotal = qty * stdUnitPrice;
-        const actualTotal = stdTotal;
-        const actualUnitPrice = stdUnitPrice;
-        const priceVariance = 0;
+        let actualUnitPrice: number;
+        let actualTotal: number;
+        let priceVariance: number;
+        if (r.invoicePrice > 0) {
+          const packSize = Math.max(1, sku?.packSize || 1);
+          actualUnitPrice = r.invoicePrice / packSize;
+          actualTotal = qty * actualUnitPrice;
+          priceVariance = actualTotal - stdTotal;
+        } else {
+          actualUnitPrice = stdUnitPrice;
+          actualTotal = stdTotal;
+          priceVariance = 0;
+        }
         return {
           branchId,
           receiptDate: dateStr,
