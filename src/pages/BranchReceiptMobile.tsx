@@ -763,7 +763,11 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          border: "1px solid rgba(0,0,0,0.14)",
+          borderRadius: 8,
+          overflow: "hidden",
+          height: 30,
+          flexShrink: 0,
         }}
       >
         <button
@@ -777,14 +781,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setDecPressed(false)}
           aria-label="ลด"
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            background: decPressed ? "rgba(0,122,255,0.15)" : "rgba(0,0,0,0.08)",
+            width: 28,
+            height: 30,
+            background: decPressed ? "rgba(0,122,255,0.1)" : "transparent",
             border: "none",
+            borderRight: "0.5px solid rgba(0,0,0,0.1)",
             color: ACCENT,
-            fontSize: 22,
-            fontWeight: 300,
+            fontSize: 18,
+            fontWeight: 400,
             lineHeight: 1,
             display: "flex",
             alignItems: "center",
@@ -792,8 +796,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
-            transform: decPressed ? "scale(0.82)" : "scale(1)",
-            transition: "transform 80ms, background 80ms",
+            transition: "background 80ms",
             WebkitTapHighlightColor: "transparent",
             touchAction: "manipulation",
           }}
@@ -805,10 +808,12 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             minWidth: 28,
             textAlign: "center",
             fontFamily: FONT_STACK,
-            fontSize: 17,
+            fontSize: 15,
             fontWeight: 700,
             color: INK,
             fontVariantNumeric: "tabular-nums",
+            paddingLeft: 2,
+            paddingRight: 2,
           }}
         >
           {display}
@@ -824,14 +829,14 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
           onTouchCancel={() => setIncPressed(false)}
           aria-label="เพิ่ม"
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            background: incPressed ? "rgba(0,122,255,0.15)" : "rgba(0,0,0,0.08)",
+            width: 28,
+            height: 30,
+            background: incPressed ? "rgba(0,122,255,0.1)" : "transparent",
             border: "none",
+            borderLeft: "0.5px solid rgba(0,0,0,0.1)",
             color: ACCENT,
-            fontSize: 22,
-            fontWeight: 300,
+            fontSize: 18,
+            fontWeight: 400,
             lineHeight: 1,
             display: "flex",
             alignItems: "center",
@@ -839,8 +844,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
             cursor: "pointer",
             padding: 0,
             fontFamily: FONT_STACK,
-            transform: incPressed ? "scale(0.82)" : "scale(1)",
-            transition: "transform 80ms, background 80ms",
+            transition: "background 80ms",
             WebkitTapHighlightColor: "transparent",
             touchAction: "manipulation",
           }}
@@ -849,7 +853,6 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </button>
       </div>
     );
-  };
 
   const PriceChip = ({
     rowId,
