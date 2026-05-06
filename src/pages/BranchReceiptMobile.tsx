@@ -853,6 +853,7 @@ export default function BranchReceiptMobilePage({ skus, prices, branches, suppli
         </button>
       </div>
     );
+  };
 
   const PriceChip = ({
     rowId,
