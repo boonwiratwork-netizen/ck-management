@@ -518,6 +518,8 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   const addTOLine = useCallback(
     async (toId: string, skuId: string, skuCode: string, skuName: string, uom: string): Promise<TOLine | null> => {
       const costPerG = getBomCostPerGram?.(skuId) ?? 0;
+      const { data: skuRow } = await supabase.from("skus").select("type").eq("id", skuId).single();
+      const skuType = skuRow?.type === "PK" ? "PK" : skuRow?.type === "RM" ? "RM" : "SM";
       const { data, error } = await supabase
         .from("transfer_order_lines")
         .insert({
@@ -530,6 +532,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           line_value: 0,
           notes: "",
           tr_line_id: null,
+          sku_type: skuType,
         })
         .select()
         .single();
