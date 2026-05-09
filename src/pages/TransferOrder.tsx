@@ -436,37 +436,9 @@ export default function TransferOrderPage({
     setFormSaving(true);
 
     if (formState.isEditingSent) {
-      // Update lines: actual_qty & line_value
-      for (const l of formState.lines) {
-        const lv = l.actualQty * l.unitCost;
-        await supabase
-          .from("transfer_order_lines")
-          .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note })
-          .eq("id", l.id);
-      }
-      const total = formState.lines.reduce((sum, l) => sum + l.actualQty * l.unitCost, 0);
-      await supabase.from("transfer_orders").update({ total_value: total }).eq("id", formState.toId);
-
-      // Update RM stock adjustments
-      for (const l of formState.lines) {
-        const sku = skus.find((s) => s.id === l.skuId);
-        if (sku?.type !== "RM") continue;
-        const { data: adj } = await supabase
-          .from("stock_adjustments")
-          .select("id")
-          .eq("sku_id", l.skuId)
-          .eq("stock_type", "RM")
-          .like("reason", `Distribution: ${formState.toNumber}%`)
-          .maybeSingle();
-        if (adj) {
-          await supabase.from("stock_adjustments").update({ quantity: -l.actualQty }).eq("id", adj.id);
-        }
-      }
-
+      await saveTOEdits(formState.toId, formState.lines);
       setFormSaving(false);
-      toast.success("บันทึกการแก้ไขเรียบร้อย");
       setFormState(null);
-      fetchHistory();
       refreshSmStock?.();
       return;
     }
