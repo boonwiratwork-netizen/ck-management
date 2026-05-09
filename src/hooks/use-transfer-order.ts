@@ -299,6 +299,79 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     [fetchPendingTRs],
   );
 
+  // ─── Delete TO ───
+  const deleteTO = useCallback(
+    async (toId: string): Promise<{ error?: string }> => {
+      const { data: to } = await supabase.from("transfer_orders").select("to_number, tr_id").eq("id", toId).single();
+      if (!to) return { error: "TO not found" };
+
+      await supabase.from("stock_adjustments").delete().eq("reason", `Distribution: ${to.to_number}`);
+
+      await supabase.from("transfer_order_lines").delete().eq("to_id", toId);
+
+      const { error } = await supabase.from("transfer_orders").delete().eq("id", toId);
+      if (error) return { error: error.message };
+
+      if (to.tr_id) {
+        await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id);
+      }
+
+      toast.success("Transfer Order deleted");
+      fetchHistory();
+      fetchPendingTRs();
+      return {};
+    },
+    [fetchHistory, fetchPendingTRs],
+  );
+
+  // ─── Save TO Edits (Sent / Received) ───
+  const saveTOEdits = useCallback(
+    async (toId: string, lines: TOLine[]): Promise<{ error?: string }> => {
+      const { data: to } = await supabase.from("transfer_orders").select("to_number").eq("id", toId).single();
+      if (!to) return { error: "TO not found" };
+
+      let totalValue = 0;
+      for (const line of lines) {
+        const lv = line.actualQty * line.unitCost;
+        totalValue += lv;
+        await supabase
+          .from("transfer_order_lines")
+          .update({ actual_qty: line.actualQty, line_value: lv, notes: line.note })
+          .eq("id", line.id);
+      }
+
+      await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId);
+
+      await supabase.from("stock_adjustments").delete().eq("reason", `Distribution: ${to.to_number}`);
+
+      const { data: dbLines } = await supabase
+        .from("transfer_order_lines")
+        .select("sku_id, actual_qty, sku_type")
+        .eq("to_id", toId)
+        .in("sku_type", ["RM", "PK"]);
+
+      if (dbLines) {
+        const today = toLocalDateStr(new Date());
+        for (const tl of dbLines) {
+          if (tl.actual_qty > 0) {
+            await supabase.from("stock_adjustments").insert({
+              sku_id: tl.sku_id,
+              quantity: -tl.actual_qty,
+              stock_type: tl.sku_type === "PK" ? "PK" : "RM",
+              adjustment_date: today,
+              reason: `Distribution: ${to.to_number}`,
+            });
+          }
+        }
+      }
+
+      toast.success("Transfer Order updated");
+      fetchHistory();
+      return {};
+    },
+    [fetchHistory],
+  );
+
   // ─── Cancel TO ───
   const cancelTO = useCallback(async (toId: string) => {
     const { error } = await supabase.from("transfer_orders").update({ status: "Cancelled" }).eq("id", toId);
@@ -311,43 +384,46 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   }, []);
 
   // ─── Delete TO (CK Manager) — reverses RM/PK stock_adjustments and reopens linked TR ───
-  const deleteTO = useCallback(async (toId: string) => {
-    const { data: to, error: toErr } = await supabase
-      .from("transfer_orders")
-      .select("id, to_number, tr_id")
-      .eq("id", toId)
-      .single();
-    if (toErr || !to) {
-      toast.error("Failed to load TO");
-      return;
-    }
+  const deleteTO = useCallback(
+    async (toId: string) => {
+      const { data: to, error: toErr } = await supabase
+        .from("transfer_orders")
+        .select("id, to_number, tr_id")
+        .eq("id", toId)
+        .single();
+      if (toErr || !to) {
+        toast.error("Failed to load TO");
+        return;
+      }
 
-    // Reverse RM/PK deductions
-    const { error: adjErr } = await supabase
-      .from("stock_adjustments")
-      .delete()
-      .eq("reason", `Distribution: ${to.to_number}`);
-    if (adjErr) {
-      toast.error("Failed to reverse stock adjustments: " + adjErr.message);
-      return;
-    }
+      // Reverse RM/PK deductions
+      const { error: adjErr } = await supabase
+        .from("stock_adjustments")
+        .delete()
+        .eq("reason", `Distribution: ${to.to_number}`);
+      if (adjErr) {
+        toast.error("Failed to reverse stock adjustments: " + adjErr.message);
+        return;
+      }
 
-    // Delete lines, then header
-    await supabase.from("transfer_order_lines").delete().eq("to_id", toId);
-    const { error: delErr } = await supabase.from("transfer_orders").delete().eq("id", toId);
-    if (delErr) {
-      toast.error("Failed to delete TO: " + delErr.message);
-      return;
-    }
+      // Delete lines, then header
+      await supabase.from("transfer_order_lines").delete().eq("to_id", toId);
+      const { error: delErr } = await supabase.from("transfer_orders").delete().eq("id", toId);
+      if (delErr) {
+        toast.error("Failed to delete TO: " + delErr.message);
+        return;
+      }
 
-    // Reopen linked TR
-    if (to.tr_id) {
-      await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id);
-    }
+      // Reopen linked TR
+      if (to.tr_id) {
+        await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id);
+      }
 
-    await Promise.all([fetchHistory(), fetchPendingTRs()]);
-    toast.success("Transfer Order deleted");
-  }, [fetchPendingTRs]);
+      await Promise.all([fetchHistory(), fetchPendingTRs()]);
+      toast.success("Transfer Order deleted");
+    },
+    [fetchPendingTRs],
+  );
 
   // ─── Save TO Edits (CK Manager) — replaces RM/PK stock_adjustments with new qty ───
   const saveTOEdits = useCallback(async (toId: string, lines: TOLine[]) => {
@@ -374,10 +450,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId);
 
     // Replace stock_adjustments: delete old, re-insert fresh based on current DB state
-    await supabase
-      .from("stock_adjustments")
-      .delete()
-      .eq("reason", `Distribution: ${to.to_number}`);
+    await supabase.from("stock_adjustments").delete().eq("reason", `Distribution: ${to.to_number}`);
 
     const { data: dbLines } = await supabase
       .from("transfer_order_lines")
