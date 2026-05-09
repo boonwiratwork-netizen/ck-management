@@ -96,7 +96,10 @@ export function useSmStockData(
       supabase.from("stock_opening_balances").select("*"),
       supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").order("created_at", { ascending: false }),
       supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
-      supabase.from("transfer_orders").select("id, status, delivery_date").in("status", ["Sent", "Received"]),
+      supabase
+        .from("transfer_orders")
+        .select("id, status, delivery_date")
+        .in("status", ["Sent", "Received", "Partially Received"]),
       fetchAnchorData(),
     ]).then(([obRes, adjRes, toLineRes, toRes]) => {
       if (obRes.data) {
