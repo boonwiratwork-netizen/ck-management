@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
