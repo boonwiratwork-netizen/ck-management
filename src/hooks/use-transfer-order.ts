@@ -573,6 +573,8 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     updateTOLine,
     sendTO,
     cancelTO,
+    deleteTO,
+    saveTOEdits,
     fetchHistory,
     fetchTODetail,
     fetchPendingTRs,
