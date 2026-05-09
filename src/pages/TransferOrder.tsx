@@ -123,6 +123,9 @@ export default function TransferOrderPage({
   const [formSending, setFormSending] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
 
+  // Delete TO confirmation
+  const [deleteTarget, setDeleteTarget] = useState<TOHistoryRow | null>(null);
+
   // Standalone form pre-create state
   const [standaloneOpen, setStandaloneOpen] = useState(false);
   const [standaloneBranch, setStandaloneBranch] = useState("");
