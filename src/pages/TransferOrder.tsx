@@ -1622,6 +1622,17 @@ export default function TransferOrderPage({
                               <Ban className="w-4 h-4" />
                             </Button>
                           )}
+                          {(isCkManager || isManagement) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget(to)}
+                              title="Delete TO"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
