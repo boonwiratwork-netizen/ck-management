@@ -511,7 +511,7 @@ export function StockCard({
                 "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, updated_at, branches(branch_name))",
               )
               .eq("sku_id", skuId)
-              .in("transfer_orders.status", ["Sent", "Received"])
+              .in("transfer_orders.status", ["Sent", "Received", "Partially Received"])
               .gte("transfer_orders.delivery_date", fromDate),
             supabase
               .from("stock_adjustments")
@@ -594,9 +594,7 @@ export function StockCard({
                 .lt("production_date", fromDate),
               supabase
                 .from("transfer_order_lines")
-                .select(
-                  "actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)",
-                )
+                .select("actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)")
                 .eq("sku_id", skuId)
                 .in("transfer_orders.status", ["Sent", "Received"])
                 .lt("transfer_orders.delivery_date", fromDate),
