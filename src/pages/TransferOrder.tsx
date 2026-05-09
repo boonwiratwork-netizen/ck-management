@@ -108,6 +108,8 @@ export default function TransferOrderPage({
     updateTOLine,
     sendTO,
     cancelTO,
+    deleteTO,
+    saveTOEdits,
     fetchHistory,
     fetchTODetail,
     addTOLine,
