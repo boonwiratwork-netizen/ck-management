@@ -1591,7 +1591,7 @@ export default function TransferOrderPage({
                               <Pencil className="w-4 h-4" />
                             </Button>
                           )}
-                          {(isCkManager || isManagement) && to.status === "Sent" && (
+                          {(isCkManager || isManagement) && (to.status === "Sent" || to.status === "Received") && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1795,7 +1795,9 @@ export default function TransferOrderPage({
       {/* ═══ Delete TO Confirmation ═══ */}
       <ConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
         title={`ลบ Transfer Order ${deleteTarget?.toNumber ?? ""}?`}
         description="การกระทำนี้จะคืน stock RM/PK ที่ตัดออกไปแล้ว และเปลี่ยน TR กลับเป็น Submitted"
         confirmLabel="Confirm"
