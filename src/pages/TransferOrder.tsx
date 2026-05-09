@@ -1791,6 +1791,24 @@ export default function TransferOrderPage({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ═══ Delete TO Confirmation ═══ */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        title={`ลบ Transfer Order ${deleteTarget?.toNumber ?? ""}?`}
+        description="การกระทำนี้จะคืน stock RM/PK ที่ตัดออกไปแล้ว และเปลี่ยน TR กลับเป็น Submitted"
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          await deleteTO(target.id);
+          refreshSmStock?.();
+        }}
+      />
     </div>
   );
 }
