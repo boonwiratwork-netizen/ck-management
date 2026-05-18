@@ -61,6 +61,10 @@ interface ProductionPageProps {
       id: string,
       data: { productionDate: string; actualOutputG: number; batchesProduced: number },
     ) => void | Promise<void>;
+    updateRecordWithDelta: (
+      id: string,
+      data: { productionDate: string; actualOutputG: number; batchesProduced: number },
+    ) => void | Promise<void>;
     deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
