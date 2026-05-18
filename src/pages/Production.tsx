@@ -1257,8 +1257,8 @@ export default function ProductionPage({
                       </td>
                       <td className={table.dataCellCompactMono}>{fmtG(rec.actualOutputG)}</td>
                       <td className={table.dataCellCompactCenter}>
-                        {isManagement && (
-                          <span className="inline-flex gap-0.5">
+                        <span className="inline-flex gap-0.5">
+                          {(isManagement || role === "ck_manager") && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -1268,6 +1268,8 @@ export default function ProductionPage({
                             >
                               <Pencil className="w-3 h-3" />
                             </Button>
+                          )}
+                          {isManagement && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -1282,8 +1284,8 @@ export default function ProductionPage({
                             >
                               <Trash2 className="w-3 h-3 text-destructive" />
                             </Button>
-                          </span>
-                        )}
+                          )}
+                        </span>
                       </td>
                     </tr>
                   ))}
