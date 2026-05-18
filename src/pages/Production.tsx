@@ -182,7 +182,7 @@ export default function ProductionPage({
 }: ProductionPageProps) {
   const { addRecord, updateRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
-  const { isManagement } = useAuth();
+  const { isManagement, role } = useAuth();
   const navigate = useNavigate();
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
