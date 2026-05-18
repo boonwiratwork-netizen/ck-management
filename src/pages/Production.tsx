@@ -608,11 +608,12 @@ export default function ProductionPage({
     const batchesProduced = outputPerBatch > 0 ? Math.round(recordForm.actualOutputG / outputPerBatch) : 0;
 
     if (editingRecordId) {
-      await updateRecord(editingRecordId, {
+      await updateRecordWithDelta(editingRecordId, {
         productionDate: recordForm.productionDate,
         actualOutputG: recordForm.actualOutputG,
         batchesProduced,
       });
+      if (refreshProductionRecords) refreshProductionRecords();
       toast.success(t("prod.recordUpdated"));
       setRecordModalOpen(false);
       setEditingRecordId(null);
