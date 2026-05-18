@@ -61,6 +61,10 @@ interface ProductionPageProps {
       id: string,
       data: { productionDate: string; actualOutputG: number; batchesProduced: number },
     ) => void | Promise<void>;
+    updateRecordWithDelta: (
+      id: string,
+      data: { productionDate: string; actualOutputG: number; batchesProduced: number },
+    ) => void | Promise<void>;
     deleteRecord: (id: string) => void | Promise<void>;
     getRecordsForPlan: (planId: string) => ProductionRecord[];
     getTotalProducedForPlan: (planId: string) => number;
@@ -176,9 +180,9 @@ export default function ProductionPage({
   bomByproducts,
   refreshProductionRecords,
 }: ProductionPageProps) {
-  const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
+  const { addRecord, updateRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
-  const { isManagement } = useAuth();
+  const { isManagement, role } = useAuth();
   const navigate = useNavigate();
 
   const [weekStart, setWeekStart] = useState(getSmartWeekStart);
@@ -604,11 +608,12 @@ export default function ProductionPage({
     const batchesProduced = outputPerBatch > 0 ? Math.round(recordForm.actualOutputG / outputPerBatch) : 0;
 
     if (editingRecordId) {
-      await updateRecord(editingRecordId, {
+      await updateRecordWithDelta(editingRecordId, {
         productionDate: recordForm.productionDate,
         actualOutputG: recordForm.actualOutputG,
         batchesProduced,
       });
+      if (refreshProductionRecords) refreshProductionRecords();
       toast.success(t("prod.recordUpdated"));
       setRecordModalOpen(false);
       setEditingRecordId(null);
@@ -1252,8 +1257,8 @@ export default function ProductionPage({
                       </td>
                       <td className={table.dataCellCompactMono}>{fmtG(rec.actualOutputG)}</td>
                       <td className={table.dataCellCompactCenter}>
-                        {isManagement && (
-                          <span className="inline-flex gap-0.5">
+                        <span className="inline-flex gap-0.5">
+                          {(isManagement || role === "ck_manager") && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -1263,6 +1268,8 @@ export default function ProductionPage({
                             >
                               <Pencil className="w-3 h-3" />
                             </Button>
+                          )}
+                          {isManagement && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -1277,8 +1284,8 @@ export default function ProductionPage({
                             >
                               <Trash2 className="w-3 h-3 text-destructive" />
                             </Button>
-                          </span>
-                        )}
+                          )}
+                        </span>
                       </td>
                     </tr>
                   ))}

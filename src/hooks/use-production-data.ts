@@ -331,6 +331,115 @@ export function useProductionData(
     [],
   );
 
+  const updateRecordWithDelta = useCallback(
+    async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
+      const oldRecord = records.find((r) => r.id === id);
+      if (!oldRecord) {
+        toast.error("Record not found");
+        return;
+      }
+      const smSkuId = oldRecord.smSkuId;
+      const deltaBatches = data.batchesProduced - oldRecord.batchesProduced;
+
+      const { error } = await supabase
+        .from("production_records")
+        .update({
+          production_date: data.productionDate,
+          actual_output_g: data.actualOutputG,
+          batches_produced: data.batchesProduced,
+        })
+        .eq("id", id);
+      if (error) {
+        toast.error("Failed to update record: " + error.message);
+        return;
+      }
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                productionDate: data.productionDate,
+                actualOutputG: data.actualOutputG,
+                batchesProduced: data.batchesProduced,
+              }
+            : r,
+        ),
+      );
+
+      if (deltaBatches === 0) return;
+
+      const bomHeader = bomHeaders.find((h) => h.smSkuId === smSkuId);
+      if (!bomHeader) return;
+      const bLines = bomLines.filter((l) => l.bomHeaderId === bomHeader.id);
+
+      // Resolve BOM lines — same logic as addRecord
+      const resolvedLines: { rmSkuId: string; qty: number }[] = [];
+      if (bomHeader.bomMode === "multistep") {
+        const steps = bomSteps
+          .filter((s) => s.bomHeaderId === bomHeader.id)
+          .sort((a, b) => a.stepNumber - b.stepNumber);
+        let prevStepOutput = 0;
+        steps.forEach((step, idx) => {
+          const stepLines = bLines.filter((l) => l.stepId === step.id);
+          const stepInput =
+            idx === 0
+              ? stepLines.filter((l) => !l.qtyType || l.qtyType === "fixed").reduce((s, l) => s + l.qtyPerBatch, 0)
+              : prevStepOutput;
+          stepLines.forEach((line) => {
+            if (line.qtyType === "percent" && line.percentOfInput) {
+              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.percentOfInput * stepInput });
+            } else {
+              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
+            }
+          });
+          const addedQty =
+            idx === 0
+              ? 0
+              : stepLines.reduce((s, l) => {
+                  if (l.qtyType === "percent" && l.percentOfInput) return s + l.percentOfInput * stepInput;
+                  return s + l.qtyPerBatch;
+                }, 0);
+          const effectiveInput = idx === 0 ? stepInput : stepInput + addedQty;
+          prevStepOutput = effectiveInput * step.yieldPercent;
+        });
+      } else {
+        bLines.forEach((line) => {
+          resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
+        });
+      }
+
+      const uniqueSkuIds = [...new Set(resolvedLines.map((l) => l.rmSkuId))];
+      const { data: skuRows } = await supabase.from("skus").select("id, type").in("id", uniqueSkuIds);
+      const skuTypeMap = new Map<string, string>();
+      (skuRows || []).forEach((s) => skuTypeMap.set(s.id, s.type));
+
+      const sign = deltaBatches > 0 ? "+" : "";
+      const reason = `Production correction: ${data.batchesProduced} batches of ${smSkuId} (delta ${sign}${deltaBatches})`;
+
+      for (const line of resolvedLines) {
+        const deltaQty = -(line.qty * deltaBatches);
+        const skuType = skuTypeMap.get(line.rmSkuId) || "RM";
+        if (skuType === "SM") {
+          await supabase.from("stock_adjustments").insert({
+            sku_id: line.rmSkuId,
+            adjustment_date: data.productionDate,
+            quantity: deltaQty,
+            reason,
+            stock_type: "SM",
+          });
+        } else {
+          addStockAdjustment({
+            skuId: line.rmSkuId,
+            date: data.productionDate,
+            quantity: deltaQty,
+            reason,
+          });
+        }
+      }
+    },
+    [records, bomHeaders, bomLines, bomSteps, addStockAdjustment],
+  );
+
   const deleteRecord = useCallback(async (id: string) => {
     const { error } = await supabase.from("production_records").delete().eq("id", id);
     if (error) {
@@ -354,6 +463,7 @@ export function useProductionData(
     deletePlan,
     addRecord,
     updateRecord,
+    updateRecordWithDelta,
     deleteRecord,
     getRecordsForPlan,
     getTotalProducedForPlan,
