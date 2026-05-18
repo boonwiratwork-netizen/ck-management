@@ -180,7 +180,7 @@ export default function ProductionPage({
   bomByproducts,
   refreshProductionRecords,
 }: ProductionPageProps) {
-  const { addRecord, updateRecord, deleteRecord, getOutputPerBatch, records } = productionData;
+  const { addRecord, updateRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch, records } = productionData;
   const { t } = useLanguage();
   const { isManagement } = useAuth();
   const navigate = useNavigate();
