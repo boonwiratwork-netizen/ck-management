@@ -463,6 +463,7 @@ export function useProductionData(
     deletePlan,
     addRecord,
     updateRecord,
+    updateRecordWithDelta,
     deleteRecord,
     getRecordsForPlan,
     getTotalProducedForPlan,
