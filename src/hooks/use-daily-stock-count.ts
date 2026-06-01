@@ -293,7 +293,7 @@ export function useDailyStockCount({
           : beforeDate;
 
       // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date)
-      const [gapCkLinesRes, gapExtLinesRes, gapUsageByDate] = await Promise.all([
+      const [gapCkLinesRes, gapExtLinesRes, gapUsageByDate, gapAdjLinesRes] = await Promise.all([
         supabase
           .from("branch_receipts")
           .select("sku_id, qty_received, receipt_date")
@@ -309,6 +309,12 @@ export function useDailyStockCount({
           .gt("receipt_date", gapStartDate)
           .lt("receipt_date", beforeDate),
         calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
+        supabase
+          .from("stock_adjustments")
+          .select("sku_id, quantity, adjustment_date")
+          .eq("branch_id", branchId)
+          .gt("adjustment_date", gapStartDate)
+          .lt("adjustment_date", beforeDate),
       ]);
 
       // Build per-SKU gap totals filtered by each SKU's own anchor date
@@ -326,6 +332,14 @@ export function useDailyStockCount({
         const anchor = lastCountDate[r.sku_id];
         if (anchor && r.receipt_date && r.receipt_date <= anchor) return;
         gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
+      });
+
+      // Stock adjustments: group by sku, only include rows where adjustment_date > SKU's anchor
+      const gapAdjBySku: Record<string, number> = {};
+      (gapAdjLinesRes.data || []).forEach((r: any) => {
+        const anchor = lastCountDate[r.sku_id];
+        if (anchor && r.adjustment_date && r.adjustment_date <= anchor) return;
+        gapAdjBySku[r.sku_id] = (gapAdjBySku[r.sku_id] || 0) + Number(r.quantity);
       });
 
       // Usage: sum per-date usage only for dates > SKU's anchor
@@ -348,6 +362,7 @@ export function useDailyStockCount({
         ...Object.keys(baseOpening),
         ...Object.keys(gapCkBySku),
         ...Object.keys(gapExtBySku),
+        ...Object.keys(gapAdjBySku),
         ...Object.keys(gapUsageBySku),
       ]);
 
@@ -356,8 +371,9 @@ export function useDailyStockCount({
         const ck = gapCkBySku[skuId] ?? 0;
         const ext = gapExtBySku[skuId] ?? 0;
         const extConv = getSkuConverter(skuId);
+        const adj = gapAdjBySku[skuId] ?? 0;
         const usage = gapUsageBySku[skuId] ?? 0;
-        result[skuId] = Math.max(0, base + ck + ext * extConv - usage);
+        result[skuId] = Math.max(0, base + ck + ext * extConv + adj - usage);
       });
 
       return result;
