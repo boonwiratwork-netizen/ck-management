@@ -319,7 +319,7 @@ export default function StoreStockPage({
         .from("stock_adjustments")
         .select("sku_id, quantity, adjustment_date")
         .eq("branch_id", branchId)
-        .gt("adjustment_date", earliestSnap)
+        .gte("adjustment_date", earliestSnap)
         .lte("adjustment_date", today),
       // Step 7 — Sales (paginated)
       (async () => {
@@ -446,7 +446,7 @@ export default function StoreStockPage({
       const balance = Math.max(0, base + ckIn + extIn + adjNet - usageOut);
 
       // Only include if there's any activity or a snap
-      if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0) {
+      if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0 || adjNet !== 0) {
         resultRows.push({
           id: sku.id,
           branch_id: branchId,
