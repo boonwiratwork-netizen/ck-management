@@ -145,7 +145,7 @@ export function useStockCountData({
       setSessions((prev) => [toSession(sessionRow), ...prev]);
       return id;
     },
-    [skus, rmStockBalances, smStockBalances],
+    [skus, rmStockBalances, smStockBalances, pkStockBalances],
   );
 
   const updateLine = useCallback(
