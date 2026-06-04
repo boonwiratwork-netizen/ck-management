@@ -217,6 +217,11 @@ export function useStockCountData({
         .filter((l: any) => l.physical_qty !== null && l.variance !== 0);
 
       for (const line of freshLines) {
+        // SM uses anchor-based balance (physical_qty in stock_count_lines is the anchor).
+        // Writing a Stock Count adjustment for SM would cause double-counting when
+        // anchor path filters it out, and overcounting if anchor is ever deleted.
+        if (line.type === "SM") continue;
+
         const adj: Omit<StockAdjustment, "id"> = {
           skuId: line.sku_id,
           date: session.date,
@@ -225,8 +230,6 @@ export function useStockCountData({
         };
         if (line.type === "RM") {
           await addRmAdjustment(adj);
-        } else if (line.type === "SM") {
-          await addSmAdjustment(adj);
         } else if (line.type === "PK") {
           await addPkAdjustment(adj);
         }
@@ -256,6 +259,9 @@ export function useStockCountData({
         const sessionLines = lines.filter((l) => l.sessionId === sessionId);
         for (const line of sessionLines) {
           if (line.variance === 0 || line.physicalQty === null) continue;
+          // SM uses anchor — no Stock Count adjustment was written, so no reversal needed
+          if (line.type === "SM") continue;
+
           const reverseAdj: Omit<StockAdjustment, "id"> = {
             skuId: line.skuId,
             date: toLocalDateStr(new Date()),
@@ -264,8 +270,6 @@ export function useStockCountData({
           };
           if (line.type === "RM") {
             await addRmAdjustment(reverseAdj);
-          } else if (line.type === "SM") {
-            await addSmAdjustment(reverseAdj);
           } else if (line.type === "PK") {
             await addPkAdjustment(reverseAdj);
           }
