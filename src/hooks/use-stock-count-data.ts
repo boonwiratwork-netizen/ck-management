@@ -31,8 +31,10 @@ interface UseStockCountDataProps {
   skus: SKU[];
   rmStockBalances: StockBalance[];
   smStockBalances: SMStockBalance[];
+  pkStockBalances: StockBalance[];
   addRmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   addSmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
+  addPkAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   getStdUnitPrice: (skuId: string) => number;
   refreshSmStock?: () => Promise<void>;
 }
@@ -41,8 +43,10 @@ export function useStockCountData({
   skus,
   rmStockBalances,
   smStockBalances,
+  pkStockBalances,
   addRmAdjustment,
   addSmAdjustment,
+  addPkAdjustment,
   getStdUnitPrice,
   refreshSmStock,
 }: UseStockCountDataProps) {
@@ -113,6 +117,8 @@ export function useStockCountData({
           systemQty = rmStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         } else if (sku.type === "SM") {
           systemQty = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
+        } else if (sku.type === "PK") {
+          systemQty = pkStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         }
         return {
           session_id: id,
@@ -139,7 +145,7 @@ export function useStockCountData({
       setSessions((prev) => [toSession(sessionRow), ...prev]);
       return id;
     },
-    [skus, rmStockBalances, smStockBalances],
+    [skus, rmStockBalances, smStockBalances, pkStockBalances],
   );
 
   const updateLine = useCallback(
@@ -221,6 +227,8 @@ export function useStockCountData({
           await addRmAdjustment(adj);
         } else if (line.type === "SM") {
           await addSmAdjustment(adj);
+        } else if (line.type === "PK") {
+          await addPkAdjustment(adj);
         }
       }
 
@@ -236,7 +244,7 @@ export function useStockCountData({
         await refreshSmStock();
       }
     },
-    [sessions, addRmAdjustment, addSmAdjustment, refreshSmStock],
+    [sessions, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
 
   const softDeleteSession = useCallback(
@@ -258,6 +266,8 @@ export function useStockCountData({
             await addRmAdjustment(reverseAdj);
           } else if (line.type === "SM") {
             await addSmAdjustment(reverseAdj);
+          } else if (line.type === "PK") {
+            await addPkAdjustment(reverseAdj);
           }
         }
       }
@@ -281,7 +291,7 @@ export function useStockCountData({
         await refreshSmStock();
       }
     },
-    [sessions, lines, addRmAdjustment, addSmAdjustment, refreshSmStock],
+    [sessions, lines, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
 
   const getLinesForSession = useCallback(
