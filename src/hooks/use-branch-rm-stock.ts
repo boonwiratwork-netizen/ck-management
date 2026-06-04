@@ -352,15 +352,15 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       }
 
       // 7. Get latest stock on hand from daily_stock_counts
+      // Remove is_submitted filter — matches StoreStock/DSC behaviour (not submitted-gated)
       const { data: latestCounts } = await supabase
         .from("daily_stock_counts")
         .select("sku_id, physical_count, calculated_balance")
         .eq("branch_id", branchId)
-        .eq("is_submitted", true)
         .in("sku_id", skuIds)
         .order("count_date", { ascending: false });
 
-      // Keep only latest row per SKU
+      // Keep only latest row per SKU — prefer physical_count, fall back to calculated_balance
       const latestBySkuId: Record<string, { physical_count: number | null; calculated_balance: number }> = {};
       for (const row of latestCounts || []) {
         if (!latestBySkuId[row.sku_id]) {
