@@ -31,8 +31,10 @@ interface UseStockCountDataProps {
   skus: SKU[];
   rmStockBalances: StockBalance[];
   smStockBalances: SMStockBalance[];
+  pkStockBalances: StockBalance[];
   addRmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   addSmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
+  addPkAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
   getStdUnitPrice: (skuId: string) => number;
   refreshSmStock?: () => Promise<void>;
 }
