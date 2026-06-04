@@ -266,6 +266,8 @@ export function useStockCountData({
             await addRmAdjustment(reverseAdj);
           } else if (line.type === "SM") {
             await addSmAdjustment(reverseAdj);
+          } else if (line.type === "PK") {
+            await addPkAdjustment(reverseAdj);
           }
         }
       }
