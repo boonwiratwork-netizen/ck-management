@@ -117,6 +117,8 @@ export function useStockCountData({
           systemQty = rmStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         } else if (sku.type === "SM") {
           systemQty = smStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
+        } else if (sku.type === "PK") {
+          systemQty = pkStockBalances.find((b) => b.skuId === sku.id)?.currentStock ?? 0;
         }
         return {
           session_id: id,
