@@ -398,7 +398,7 @@ export function StockCard({
 
           setBranchRows(ledger);
         } else if (skuType === "RM") {
-          const [obRes, receiptsRes, adjRes, suppRes] = await Promise.all([
+          const [obRes, receiptsRes, adjRes, suppRes, allSessionsRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
             supabase
               .from("goods_receipts")
@@ -416,6 +416,11 @@ export function StockCard({
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
             supabase.from("suppliers").select("id, name"),
+            supabase
+              .from("stock_count_sessions")
+              .select("id, count_date, completed_at")
+              .eq("status", "Completed")
+              .is("deleted_at", null),
           ]);
           if (cancelled) return;
 
@@ -424,43 +429,98 @@ export function StockCard({
 
           const converter = sku.converter ?? 1;
 
-          // คำนวณ balance จริง ณ วันเริ่มต้น window
-          // = opening balance + GR ก่อน window + adjustments ก่อน window
-          const obQty = obRes.data?.quantity ?? 0;
+          // Step 2: Resolve stock count lines for this RM SKU
+          const sessions = allSessionsRes.data ?? [];
+          const sessionIds = sessions.map((s: any) => s.id);
+          const sessionMeta: Record<string, { count_date: string; completed_at: string }> = {};
+          for (const s of sessions as any[]) {
+            sessionMeta[s.id] = {
+              count_date: s.count_date,
+              completed_at: s.completed_at ?? s.count_date,
+            };
+          }
 
-          const [preGrRes, preAdjRes] = await Promise.all([
-            supabase
-              .from("goods_receipts")
-              .select("quantity_received")
+          let countLines: { physical_qty: number; session_id: string }[] = [];
+          if (sessionIds.length > 0) {
+            const { data: lineData } = await supabase
+              .from("stock_count_lines")
+              .select("physical_qty, session_id")
               .eq("sku_id", skuId)
-              .lt("receipt_date", fromDate),
-            supabase
-              .from("stock_adjustments")
-              .select("quantity")
-              .eq("sku_id", skuId)
-              .eq("stock_type", "RM")
-              .lt("adjustment_date", fromDate),
-          ]);
+              .eq("type", "RM")
+              .in("session_id", sessionIds)
+              .not("physical_qty", "is", null);
+            if (cancelled) return;
+            countLines = (lineData ?? []) as any;
+          }
 
-          const preGrTotal = (preGrRes.data ?? []).reduce((sum, r) => sum + Number(r.quantity_received) * converter, 0);
-          const preAdjTotal = (preAdjRes.data ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
-          const openingQty = obQty + preGrTotal + preAdjTotal;
+          // Step 3: Classify counts into pre-window and in-window
+          let preWindowCount: { physical_qty: number; count_date: string; completed_at: string } | null = null;
+          const inWindowCounts: { physical_qty: number; count_date: string; completed_at: string }[] = [];
 
-          const mvts: Movement[] = [
-            {
+          for (const line of countLines) {
+            const meta = sessionMeta[line.session_id];
+            if (!meta) continue;
+            if (meta.count_date < fromDate) {
+              if (!preWindowCount || meta.count_date > preWindowCount.count_date) {
+                preWindowCount = { physical_qty: line.physical_qty, ...meta };
+              }
+            } else {
+              inWindowCounts.push({ physical_qty: line.physical_qty, ...meta });
+            }
+          }
+
+          const mvts: Movement[] = [];
+
+          // Step 4: Opening row — prefer pre-window count as anchor
+          if (preWindowCount) {
+            mvts.push({
+              date: preWindowCount.count_date,
+              sortKey: `0000-00-00`,
+              type: "Opening",
+              reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
+              qtyIn: preWindowCount.physical_qty,
+              qtyOut: null,
+              isReset: true,
+            });
+          } else {
+            // Fallback: opening balance + pre-window GR + pre-window adj
+            const obQty = obRes.data?.quantity ?? 0;
+            const [preGrRes, preAdjRes] = await Promise.all([
+              supabase
+                .from("goods_receipts")
+                .select("quantity_received")
+                .eq("sku_id", skuId)
+                .lt("receipt_date", fromDate),
+              supabase
+                .from("stock_adjustments")
+                .select("quantity")
+                .eq("sku_id", skuId)
+                .eq("stock_type", "RM")
+                .lt("adjustment_date", fromDate),
+            ]);
+            if (cancelled) return;
+            const preGrTotal = (preGrRes.data ?? []).reduce(
+              (sum, r) => sum + Number(r.quantity_received) * converter,
+              0,
+            );
+            const preAdjTotal = (preAdjRes.data ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
+            const openingQty = obQty + preGrTotal + preAdjTotal;
+            mvts.push({
               date: "—",
               sortKey: "0000-00-00",
               type: "Opening",
               reference: "—",
               qtyIn: openingQty > 0 ? openingQty : null,
               qtyOut: null,
-            },
-          ];
+              isReset: true,
+            });
+          }
 
+          // Step 5: Goods receipts
           (receiptsRes.data ?? []).forEach((r) => {
             mvts.push({
               date: r.receipt_date,
-              sortKey: `${r.receipt_date}|${r.created_at}`,
+              sortKey: `${r.receipt_date}|1|${r.created_at}`,
               type: "Receipt",
               reference: supplierMap.get(r.supplier_id) ?? "—",
               qtyIn: r.quantity_received * converter,
@@ -469,25 +529,45 @@ export function StockCard({
             });
           });
 
+          // Step 6: Stock adjustments — skip Stock Count adjustments (rendered as reset rows)
           (adjRes.data ?? []).forEach((a) => {
+            if ((a.reason || "").includes("Stock Count")) return;
             const classified = classifyAdjustment(a.quantity, a.reason, skus);
             mvts.push({
               ...classified,
               date: a.adjustment_date,
-              sortKey: `${a.adjustment_date}|${a.created_at}`,
+              sortKey: `${a.adjustment_date}|1|${a.created_at}`,
               timestamp: a.created_at,
             });
           });
 
-          // Sort (keep Opening first)
+          // Step 7: In-window stock counts as reset rows
+          inWindowCounts.forEach((c) => {
+            mvts.push({
+              date: c.count_date,
+              sortKey: `${c.count_date}|2|${c.completed_at}`,
+              type: "StockCount",
+              reference: "Physical count",
+              qtyIn: c.physical_qty,
+              qtyOut: null,
+              timestamp: c.completed_at,
+              isReset: true,
+            });
+          });
+
+          // Step 8: Sort — keep Opening first
           const opening = mvts[0];
           const rest = mvts.slice(1).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
           const sorted = [opening, ...rest];
 
-          // Running balance
+          // Step 9: Running balance — reset rows hard-set bal
           let bal = 0;
           sorted.forEach((m) => {
-            bal += (m.qtyIn ?? 0) - (m.qtyOut ?? 0);
+            if (m.isReset) {
+              bal = m.qtyIn ?? 0;
+            } else {
+              bal += (m.qtyIn ?? 0) - (m.qtyOut ?? 0);
+            }
             m.runningBalance = bal;
           });
 
