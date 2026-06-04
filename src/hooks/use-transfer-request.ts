@@ -420,12 +420,11 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         }
       }
 
-      // Latest stock on hand
+      // Latest stock on hand — no is_submitted gate, matches StoreStock/DSC behaviour
       const { data: latestCounts } = await supabase
         .from("daily_stock_counts")
         .select("sku_id, physical_count, calculated_balance")
         .eq("branch_id", branchId)
-        .eq("is_submitted", true)
         .in("sku_id", skuIds)
         .order("count_date", { ascending: false });
       const latestBySkuId: Record<string, { physical_count: number | null; calculated_balance: number }> = {};
