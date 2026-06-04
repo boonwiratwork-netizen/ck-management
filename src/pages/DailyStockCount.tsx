@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SkeletonTable } from "@/components/SkeletonTable";
 import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
@@ -722,7 +723,29 @@ export default function DailyStockCountPage({
                           )}
                         </td>
                         <td className="text-right font-mono text-sm font-medium px-2 py-1">
-                          {fmt0(Math.max(0, row.calculatedBalance))}
+                          {row.adjNet !== 0 ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={`cursor-default ${row.adjNet > 0 ? "text-success" : "text-destructive"}`}>
+                                    {fmt0(Math.max(0, row.calculatedBalance))}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[220px]">
+                                  {row.adjDetails.map((d, i) => (
+                                    <div key={i} className="text-xs">
+                                      {d.quantity > 0
+                                        ? `ปรับเพิ่ม +${Math.abs(d.quantity).toLocaleString("th-TH")} น.`
+                                        : `ปรับลด ${Math.abs(d.quantity).toLocaleString("th-TH")} น.`}
+                                      {d.reason ? ` — ${d.reason}` : ""}
+                                    </div>
+                                  ))}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            fmt0(Math.max(0, row.calculatedBalance))
+                          )}
                         </td>
                         <td className="px-1.5 py-1 text-right">
                           {isSubmitted ? (
