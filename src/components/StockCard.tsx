@@ -412,6 +412,7 @@ export function StockCard({
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
               .eq("stock_type", "RM")
+              .is("branch_id", null)
               .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
@@ -496,6 +497,7 @@ export function StockCard({
                 .select("quantity")
                 .eq("sku_id", skuId)
                 .eq("stock_type", "RM")
+                .is("branch_id", null)
                 .lt("adjustment_date", fromDate),
             ]);
             if (cancelled) return;
