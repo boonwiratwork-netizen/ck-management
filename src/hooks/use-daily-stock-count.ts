@@ -9,6 +9,11 @@ import { SpBomLine } from "@/types/sp-bom";
 import { Menu } from "@/types/menu";
 import { Branch } from "@/types/branch";
 
+export interface AdjDetail {
+  quantity: number;
+  reason: string;
+}
+
 export interface DailyStockCountRow {
   id: string;
   branchId: string;
@@ -24,6 +29,8 @@ export interface DailyStockCountRow {
   variance: number;
   isSubmitted: boolean;
   submittedAt: string | null;
+  adjNet: number;
+  adjDetails: AdjDetail[];
 }
 
 const toLocal = (r: any): DailyStockCountRow => ({
@@ -41,6 +48,8 @@ const toLocal = (r: any): DailyStockCountRow => ({
   variance: Number(r.variance),
   isSubmitted: r.is_submitted,
   submittedAt: r.submitted_at,
+  adjNet: 0,
+  adjDetails: [],
 });
 
 interface UseDailyStockCountProps {
@@ -314,7 +323,7 @@ export function useDailyStockCount({
           .select("sku_id, quantity, adjustment_date")
           .eq("branch_id", branchId)
           .gt("adjustment_date", gapStartDate)
-          .lt("adjustment_date", beforeDate),
+          .lte("adjustment_date", beforeDate),
       ]);
 
       // Build per-SKU gap totals filtered by each SKU's own anchor date
@@ -581,7 +590,23 @@ export function useDailyStockCount({
       // Fetch gap-resilient opening balances
       const openingBySku = await computeOpeningWithGap(branchId, date);
 
-      // Patch rows with live receipt data, live expected usage, AND corrected opening balance
+      // Fetch branch adjustments for this date (adj_net term)
+      const { data: adjRows } = await supabase
+        .from("stock_adjustments")
+        .select("sku_id, quantity, reason")
+        .eq("branch_id", branchId)
+        .eq("adjustment_date", date);
+
+      // Build adj map: skuId → { net, details[] }
+      const adjMap = new Map<string, { net: number; details: AdjDetail[] }>();
+      for (const a of adjRows ?? []) {
+        const entry = adjMap.get(a.sku_id) ?? { net: 0, details: [] };
+        entry.net += Number(a.quantity);
+        entry.details.push({ quantity: Number(a.quantity), reason: a.reason ?? "" });
+        adjMap.set(a.sku_id, entry);
+      }
+
+      // Patch rows with live receipt data, live expected usage, corrected opening balance, and adj_net
       const patched = data.map((r) => {
         const ext = receipts.extBySku[r.sku_id] ?? Number(r.received_external);
         const ck = receipts.ckBySku[r.sku_id] ?? Number(r.received_from_ck);
@@ -590,7 +615,8 @@ export function useDailyStockCount({
         // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
         const extConv = getSkuConverter(r.sku_id);
         const opening = openingBySku[r.sku_id] ?? Number(r.opening_balance);
-        const calcBalance = opening + ck + ext * extConv - expUsage - waste;
+        const adjEntry = adjMap.get(r.sku_id) ?? { net: 0, details: [] };
+        const calcBalance = opening + ck + ext * extConv - expUsage - waste + adjEntry.net;
         const variance = r.physical_count !== null ? Number(r.physical_count) - calcBalance : 0;
         return {
           ...r,
@@ -600,6 +626,8 @@ export function useDailyStockCount({
           expected_usage: expUsage,
           calculated_balance: calcBalance,
           variance,
+          adjNet: adjEntry.net,
+          adjDetails: adjEntry.details,
         };
       });
 
@@ -665,7 +693,14 @@ export function useDailyStockCount({
         if (inserted) insertedRows = inserted;
       }
       setLoading(false);
-      setRows([...patched, ...insertedRows].map(toLocal));
+      // Merge adjNet/adjDetails into final rows (patched rows already have them; toLocal sets defaults for inserted)
+      const patchedWithAdj = patched.map((r) => {
+        const local = toLocal(r);
+        local.adjNet = r.adjNet ?? 0;
+        local.adjDetails = r.adjDetails ?? [];
+        return local;
+      });
+      setRows([...patchedWithAdj, ...insertedRows.map(toLocal)]);
     },
     [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap],
   );
@@ -696,6 +731,21 @@ export function useDailyStockCount({
 
       const openingBySku = await computeOpeningWithGap(branchId, date);
 
+      // Fetch branch adjustments for this date (adj_net term)
+      const { data: adjRows } = await supabase
+        .from("stock_adjustments")
+        .select("sku_id, quantity, reason")
+        .eq("branch_id", branchId)
+        .eq("adjustment_date", date);
+
+      const adjMap = new Map<string, { net: number; details: AdjDetail[] }>();
+      for (const a of adjRows ?? []) {
+        const entry = adjMap.get(a.sku_id) ?? { net: 0, details: [] };
+        entry.net += Number(a.quantity);
+        entry.details.push({ quantity: Number(a.quantity), reason: a.reason ?? "" });
+        adjMap.set(a.sku_id, entry);
+      }
+
       const relevantSkuIds = getBranchRelevantSkuIds(branchId);
       const activeSkus = skus.filter(
         (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM") && relevantSkuIds.has(s.id),
@@ -706,9 +756,10 @@ export function useDailyStockCount({
         const fromCk = receipts.ckBySku[sku.id] ?? 0;
         const receivedExternal = receipts.extBySku[sku.id] ?? 0;
         const expUsage = expectedUsage[sku.id] ?? 0;
+        const adjEntry = adjMap.get(sku.id) ?? { net: 0, details: [] };
         // ext is raw Purchase UOM — apply converter for calcBalance (Usage UOM)
         const extConv = getSkuConverter(sku.id);
-        const calcBalance = opening + fromCk + receivedExternal * extConv - expUsage;
+        const calcBalance = opening + fromCk + receivedExternal * extConv - expUsage + adjEntry.net;
 
         return {
           branch_id: branchId,
@@ -745,7 +796,13 @@ export function useDailyStockCount({
         if (inserted) allInserted.push(...inserted);
       }
 
-      setRows(allInserted.map(toLocal));
+      setRows(allInserted.map((r) => {
+        const local = toLocal(r);
+        const adjEntry = adjMap.get(r.sku_id) ?? { net: 0, details: [] };
+        local.adjNet = adjEntry.net;
+        local.adjDetails = adjEntry.details;
+        return local;
+      }));
       toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
       setGenerating(false);
     },
@@ -781,7 +838,7 @@ export function useDailyStockCount({
       // receivedExternal is raw Purchase UOM — apply converter for calcBalance
       const extConv = getSkuConverter(row.skuId);
       const calcBalance =
-        row.openingBalance + row.receivedFromCk + row.receivedExternal * extConv - row.expectedUsage - waste;
+        row.openingBalance + row.receivedFromCk + row.receivedExternal * extConv - row.expectedUsage - waste + row.adjNet;
       const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
       const { error } = await supabase
         .from("daily_stock_counts")
