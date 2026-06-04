@@ -94,7 +94,7 @@ export function useSmStockData(
     setIsStockDataReady(false);
     Promise.all([
       supabase.from("stock_opening_balances").select("*"),
-      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").order("created_at", { ascending: false }),
+      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }),
       supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
       supabase
         .from("transfer_orders")
@@ -301,7 +301,7 @@ export function useSmStockData(
   const refreshProductionRecords = useCallback(async () => {
     const [prodRes, adjRes] = await Promise.all([
       supabase.from("production_records").select("*").order("created_at", { ascending: false }),
-      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").order("created_at", { ascending: false }),
+      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }),
     ]);
     if (prodRes.data) {
       setLocalProductionRecords(

@@ -28,6 +28,7 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
       .from("stock_adjustments")
       .select("*")
       .eq("stock_type", "RM")
+      .is("branch_id", null)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data)
