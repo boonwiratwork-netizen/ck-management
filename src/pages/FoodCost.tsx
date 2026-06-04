@@ -12,6 +12,8 @@ import {
   subMonths,
   lastDayOfMonth,
   getDaysInMonth,
+  addDays,
+  subDays,
 } from "date-fns";
 import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X, Loader2 } from "lucide-react";
 import {
@@ -116,9 +118,13 @@ interface SkuVarianceRow {
   totalVarThb: number | null;
   movementDetail: {
     opening: number | null;
+    openingDate: string;        // actual date used (may differ from target if ±3d fallback)
+    openingIsApprox: boolean;   // true when fallback date was used
     received: number;
     closingActual: number | null;
     closingCalc: number | null;
+    closingDate: string;        // actual date used
+    closingIsApprox: boolean;   // true when fallback date was used
   } | null;
 }
 
@@ -187,6 +193,7 @@ export default function FoodCostPage({
     totalSkus: number;
     openingDate: string;
     closingDate: string;
+    hasApproxDates: boolean;
   } | null>(null);
 
   // Check if selected period is a full calendar month
@@ -519,18 +526,28 @@ export default function FoodCostPage({
       const openingDate = format(lastDayOfMonth(prevMonth), "yyyy-MM-dd");
       const closingDate = toStr;
 
-      // Fetch opening, closing, and receipts in parallel
+      // Fetch opening, closing (±3 day window), and receipts in parallel
+      const SNAP_WINDOW = 3; // days either side
+      const openingFrom = format(subDays(new Date(openingDate), SNAP_WINDOW), "yyyy-MM-dd");
+      const openingTo   = format(addDays(new Date(openingDate), SNAP_WINDOW), "yyyy-MM-dd");
+      const closingFrom = format(subDays(new Date(closingDate), SNAP_WINDOW), "yyyy-MM-dd");
+      const closingTo   = format(addDays(new Date(closingDate), SNAP_WINDOW), "yyyy-MM-dd");
+
       const [openingRes, closingRes, receiptsRes] = await Promise.all([
         supabase
           .from("daily_stock_counts")
-          .select("sku_id, physical_count, calculated_balance")
+          .select("sku_id, physical_count, calculated_balance, count_date")
           .eq("branch_id", branchId)
-          .eq("count_date", openingDate),
+          .gte("count_date", openingFrom)
+          .lte("count_date", openingTo)
+          .order("count_date", { ascending: false }),
         supabase
           .from("daily_stock_counts")
-          .select("sku_id, physical_count, calculated_balance")
+          .select("sku_id, physical_count, calculated_balance, count_date")
           .eq("branch_id", branchId)
-          .eq("count_date", closingDate),
+          .gte("count_date", closingFrom)
+          .lte("count_date", closingTo)
+          .order("count_date", { ascending: false }),
         supabase
           .from("branch_receipts")
           .select("sku_id, qty_received, actual_unit_price, actual_total, uom")
@@ -539,20 +556,52 @@ export default function FoodCostPage({
           .lte("receipt_date", toStr),
       ]);
 
-      // Build opening map
-      const openingBySku = new Map<string, number>();
-      for (const row of openingRes.data || []) {
-        const val = row.physical_count !== null ? row.physical_count : row.calculated_balance;
-        openingBySku.set(row.sku_id, val);
+      // Build opening map — prefer exact date, then nearest within ±3d
+      // For each SKU pick the row closest to openingDate (prefer physical_count)
+      const openingBySku = new Map<string, { val: number; date: string; isApprox: boolean }>();
+      {
+        const bySkuRows = new Map<string, typeof openingRes.data>();
+        for (const row of openingRes.data || []) {
+          const arr = bySkuRows.get(row.sku_id) || [];
+          arr.push(row);
+          bySkuRows.set(row.sku_id, arr);
+        }
+        for (const [skuId, rows] of bySkuRows) {
+          // Prefer row with physical_count; among those pick closest to openingDate
+          const withPhysical = rows.filter((r: any) => r.physical_count !== null);
+          const candidates = withPhysical.length > 0 ? withPhysical : rows;
+          const best = candidates.reduce((a: any, b: any) =>
+            Math.abs(new Date(a.count_date).getTime() - new Date(openingDate).getTime()) <=
+            Math.abs(new Date(b.count_date).getTime() - new Date(openingDate).getTime()) ? a : b
+          );
+          const val = best.physical_count !== null ? Number(best.physical_count) : Number(best.calculated_balance);
+          openingBySku.set(skuId, { val, date: best.count_date, isApprox: best.count_date !== openingDate });
+        }
       }
 
-      // Build closing map
-      const closingBySku = new Map<string, { actual: number | null; calc: number | null }>();
-      for (const row of closingRes.data || []) {
-        closingBySku.set(row.sku_id, {
-          actual: row.physical_count !== null ? row.physical_count : null,
-          calc: row.calculated_balance,
-        });
+      // Build closing map — same logic
+      const closingBySku = new Map<string, { actual: number | null; calc: number | null; date: string; isApprox: boolean }>();
+      {
+        const bySkuRows = new Map<string, typeof closingRes.data>();
+        for (const row of closingRes.data || []) {
+          const arr = bySkuRows.get(row.sku_id) || [];
+          arr.push(row);
+          bySkuRows.set(row.sku_id, arr);
+        }
+        for (const [skuId, rows] of bySkuRows) {
+          const withPhysical = rows.filter((r: any) => r.physical_count !== null);
+          const candidates = withPhysical.length > 0 ? withPhysical : rows;
+          const best = candidates.reduce((a: any, b: any) =>
+            Math.abs(new Date(a.count_date).getTime() - new Date(closingDate).getTime()) <=
+            Math.abs(new Date(b.count_date).getTime() - new Date(closingDate).getTime()) ? a : b
+          );
+          closingBySku.set(skuId, {
+            actual: best.physical_count !== null ? Number(best.physical_count) : null,
+            calc: Number(best.calculated_balance),
+            date: best.count_date,
+            isApprox: best.count_date !== closingDate,
+          });
+        }
       }
 
       // Build purchase maps
@@ -604,16 +653,18 @@ export default function FoodCostPage({
       let skusWithActual = 0;
 
       for (const sr of skuRows) {
-        const opening = openingBySku.get(sr.skuId);
-        const closing = closingBySku.get(sr.skuId);
+        const openingEntry = openingBySku.get(sr.skuId);
+        const closingEntry = closingBySku.get(sr.skuId);
         const purchases = purchaseQtyBySku.get(sr.skuId) || 0;
 
-        const hasStockData = opening !== undefined || closing !== undefined;
+        const hasStockData = openingEntry !== undefined || closingEntry !== undefined;
 
         let actQty: number | null = null;
         if (hasStockData) {
-          const openVal = opening ?? 0;
-          const closeVal = closing ? (closing.actual !== null ? closing.actual : (closing.calc ?? 0)) : 0;
+          const openVal = openingEntry?.val ?? 0;
+          const closeVal = closingEntry
+            ? (closingEntry.actual !== null ? closingEntry.actual : (closingEntry.calc ?? 0))
+            : 0;
           actQty = openVal + purchases - closeVal;
         }
 
@@ -658,10 +709,14 @@ export default function FoodCostPage({
           totalVarThb,
           movementDetail: hasStockData
             ? {
-                opening: opening ?? null,
+                opening: openingEntry?.val ?? null,
+                openingDate: openingEntry?.date ?? openingDate,
+                openingIsApprox: openingEntry?.isApprox ?? false,
                 received: purchases,
-                closingActual: closing?.actual ?? null,
-                closingCalc: closing?.calc ?? null,
+                closingActual: closingEntry?.actual ?? null,
+                closingCalc: closingEntry?.calc ?? null,
+                closingDate: closingEntry?.date ?? closingDate,
+                closingIsApprox: closingEntry?.isApprox ?? false,
               }
             : null,
         });
@@ -674,11 +729,15 @@ export default function FoodCostPage({
         priceVariance: sumPriceVar,
         usageVariance: sumTotalVar - sumPriceVar,
       });
+      const hasApproxDates = varianceRows.some(
+        (v) => v.movementDetail?.openingIsApprox || v.movementDetail?.closingIsApprox
+      );
       setVarianceDataCoverage({
         skusWithActual,
         totalSkus: skuRows.length,
         openingDate,
         closingDate,
+        hasApproxDates,
       });
     },
     [skuConverterMap, stdPriceMap],
@@ -1301,6 +1360,9 @@ export default function FoodCostPage({
                   <p className="text-xs text-muted-foreground">
                     {t("fc.dataCoverage")}: {varianceDataCoverage.skusWithActual}/{varianceDataCoverage.totalSkus} SKUs
                     · Opening: {varianceDataCoverage.openingDate} · Closing: {varianceDataCoverage.closingDate}
+                    {varianceDataCoverage.hasApproxDates && (
+                      <span className="ml-1 text-warning font-medium">(บางรายการใช้ข้อมูลวันใกล้เคียง ±3 วัน)</span>
+                    )}
                   </p>
                 );
               }
@@ -1698,8 +1760,11 @@ export default function FoodCostPage({
                                         {v.movementDetail ? (
                                           <div className="space-y-0.5 min-w-[160px]">
                                             <div className="flex justify-between gap-4">
-                                              <span>
-                                                {t("fc.opening")} ({varianceDataCoverage?.openingDate})
+                                              <span className="flex items-center gap-1">
+                                                {t("fc.opening")} ({v.movementDetail.openingDate})
+                                                {v.movementDetail.openingIsApprox && (
+                                                  <span title={`ไม่มีข้อมูลวันที่ ${varianceDataCoverage?.openingDate} — ใช้วันที่ ${v.movementDetail.openingDate} แทน`} className="text-warning cursor-help">⚠</span>
+                                                )}
                                               </span>
                                               <span className="font-mono">
                                                 {v.movementDetail.opening !== null
@@ -1714,8 +1779,11 @@ export default function FoodCostPage({
                                               </span>
                                             </div>
                                             <div className="flex justify-between gap-4">
-                                              <span>
-                                                − {t("fc.closing")} ({varianceDataCoverage?.closingDate})
+                                              <span className="flex items-center gap-1">
+                                                − {t("fc.closing")} ({v.movementDetail.closingDate})
+                                                {v.movementDetail.closingIsApprox && (
+                                                  <span title={`ไม่มีข้อมูลวันที่ ${varianceDataCoverage?.closingDate} — ใช้วันที่ ${v.movementDetail.closingDate} แทน`} className="text-warning cursor-help">⚠</span>
+                                                )}
                                               </span>
                                               <span className="font-mono">
                                                 {v.movementDetail.closingActual !== null ? (
