@@ -382,6 +382,9 @@ export function useDailyStockCount({
         const extConv = getSkuConverter(skuId);
         const adj = gapAdjBySku[skuId] ?? 0;
         const usage = gapUsageBySku[skuId] ?? 0;
+        if (skuId === '98c8f724-e2b4-43f1-9ac3-19e114b2e26b') {
+          console.log('[DSC-DEBUG] SM-0001 opening calc:', { base, ck, ext, extConv, adj, usage, result: Math.max(0, base + ck + ext * extConv + adj - usage) });
+        }
         result[skuId] = Math.max(0, base + ck + ext * extConv + adj - usage);
       });
 
