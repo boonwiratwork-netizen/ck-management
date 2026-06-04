@@ -370,11 +370,15 @@ export function StockCard({
             const hasPhysical = !!dsc;
             const physicalCount = hasPhysical ? Number(dsc.physical_count) : null;
 
+            // adj_net: sum all adjustments for this date
+            const adjEntries = adjMap.get(date) ?? [];
+            const adjNet = adjEntries.reduce((sum, a) => sum + a.quantity, 0);
+
             const opening = prevBalance;
-            const calcBal = opening + totalReceived - usage - waste;
+            const calcBal = opening + totalReceived - usage - waste + adjNet;
 
             // Only include days with activity
-            const hasAdj = (adjMap.get(date) ?? []).length > 0;
+            const hasAdj = adjEntries.length > 0;
             if (totalReceived === 0 && usage === 0 && !hasPhysical && waste === 0 && !hasAdj) {
               continue;
             }
