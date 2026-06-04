@@ -307,7 +307,7 @@ export function useBranchSmStock(branchId: string | null) {
       // 6. Snap + ledger balance: find most recent physical_count per SKU
       const { data: countData } = await supabase
         .from("daily_stock_counts")
-        .select("sku_id, physical_count, count_date")
+        .select("sku_id, physical_count, calculated_balance, count_date")
         .eq("branch_id", branchId)
         .lte("count_date", todayStr)
         .in("sku_id", skuIds)
@@ -316,8 +316,11 @@ export function useBranchSmStock(branchId: string | null) {
       const snapBySku: Record<string, { balance: number; date: string }> = {};
       for (const row of countData || []) {
         if (snapBySku[row.sku_id]) continue; // already have more recent
+        // Prefer physical_count; fall back to calculated_balance (matches StoreStock/DSC behaviour)
         if (row.physical_count !== null) {
           snapBySku[row.sku_id] = { balance: Number(row.physical_count), date: row.count_date };
+        } else if (row.calculated_balance !== null && row.calculated_balance !== undefined) {
+          snapBySku[row.sku_id] = { balance: Number(row.calculated_balance), date: row.count_date };
         }
       }
 
@@ -328,8 +331,8 @@ export function useBranchSmStock(branchId: string | null) {
         earliestSnap = snapValues.reduce((min, s) => (s.date < min ? s.date : min), snapValues[0].date);
       }
 
-      // 6b. Fetch CK receipts (transfer_order_lines) and external receipts after snap
-      const [ckRes, extRes, postSnapSalesRes] = await Promise.all([
+      // 6b. Fetch CK receipts, external receipts, sales, and adjustments after snap
+      const [ckRes, extRes, postSnapSalesRes, adjRes] = await Promise.all([
         supabase
           .from("branch_receipts")
           .select("sku_id, qty_received, receipt_date")
@@ -352,6 +355,13 @@ export function useBranchSmStock(branchId: string | null) {
           .eq("branch_id", branchId)
           .gt("sale_date", earliestSnap)
           .lte("sale_date", todayStr),
+        supabase
+          .from("stock_adjustments")
+          .select("sku_id, quantity, adjustment_date")
+          .eq("branch_id", branchId)
+          .gt("adjustment_date", earliestSnap)
+          .lte("adjustment_date", todayStr)
+          .in("sku_id", skuIds),
       ]);
 
       // Build CK receipt totals per SKU after each SKU's snap date
@@ -370,6 +380,14 @@ export function useBranchSmStock(branchId: string | null) {
         extInBySku[r.sku_id] = (extInBySku[r.sku_id] || 0) + Number(r.qty_received);
       }
 
+      // Build adjustment net per SKU after each SKU's snap date
+      const adjNetBySku: Record<string, number> = {};
+      for (const a of adjRes.data || []) {
+        const snap = snapBySku[a.sku_id];
+        if (snap && a.adjustment_date <= snap.date) continue;
+        adjNetBySku[a.sku_id] = (adjNetBySku[a.sku_id] || 0) + Number(a.quantity);
+      }
+
       // Build usage per SKU after snap from post-snap sales
       const postSnapUsageBySku: Record<string, number> = {};
       {
@@ -377,7 +395,7 @@ export function useBranchSmStock(branchId: string | null) {
         const salesByDate = new Map<string, { menu_code: string; qty: number }[]>();
         for (const s of postSnapSalesRes.data || []) {
           const arr = salesByDate.get(s.sale_date) || [];
-          arr.push({ menu_code: s.menu_code, qty: Number(s.qty) });
+          arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
           salesByDate.set(s.sale_date, arr);
         }
 
@@ -398,11 +416,13 @@ export function useBranchSmStock(branchId: string | null) {
               .from("menu_bom")
               .select("menu_id, sku_id, effective_qty")
               .in("menu_id", allMenuIds)
-              .in("sku_id", skuIds);
+              .in("sku_id", skuIds)
+              .or(`branch_id.is.null,branch_id.eq.${branchId}`);
             allBomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
           }
 
-          // Calculate usage per SKU per date, only counting after that SKU's snap
+          // Calculate usage per SKU per date — with branch-aware BOM + modifier rules
+          // Reuse bomRows (already branch-filtered) and modifierRules from the avgDailyUsage section above
           const bomByMenuId = new Map<string, { sku_id: string; effective_qty: number }[]>();
           for (const b of allBomRows) {
             const arr = bomByMenuId.get(b.menu_id) || [];
@@ -414,12 +434,42 @@ export function useBranchSmStock(branchId: string | null) {
             for (const sale of dateSales) {
               const mid = codeToId[sale.menu_code];
               if (!mid) continue;
+              const addUsage = (skuId: string, qty: number) => {
+                const snap = snapBySku[skuId];
+                if (snap && date <= snap.date) return;
+                postSnapUsageBySku[skuId] = (postSnapUsageBySku[skuId] || 0) + qty;
+              };
+              // Base BOM
               const lines = bomByMenuId.get(mid) || [];
               for (const line of lines) {
-                const snap = snapBySku[line.sku_id];
-                if (snap && date <= snap.date) continue;
-                postSnapUsageBySku[line.sku_id] =
-                  (postSnapUsageBySku[line.sku_id] || 0) + line.effective_qty * sale.qty;
+                addUsage(line.sku_id, line.effective_qty * sale.qty);
+              }
+              // Modifier rules
+              const menuName = (sale.menu_name || "").toLowerCase();
+              for (const rule of modifierRules) {
+                if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
+                if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
+                if (rule.ruleType === "submenu") {
+                  if (sale.menu_code !== rule.keyword) continue;
+                  for (const sbom of submenuBomLines) {
+                    if (sbom.menu_id !== rule.submenuId) continue;
+                    addUsage(sbom.sku_id, sbom.effective_qty * sale.qty);
+                  }
+                } else if (rule.ruleType === "swap") {
+                  if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+                  if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
+                    const swapBom = lines.find((b) => b.sku_id === rule.swapSkuId);
+                    if (swapBom) addUsage(rule.swapSkuId, -swapBom.effective_qty * sale.qty);
+                  }
+                  if (rule.skuId && skuIds.includes(rule.skuId)) {
+                    addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
+                  }
+                } else if (rule.ruleType === "add") {
+                  if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+                  if (rule.skuId && skuIds.includes(rule.skuId)) {
+                    addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
+                  }
+                }
               }
             }
           }
@@ -451,13 +501,14 @@ export function useBranchSmStock(branchId: string | null) {
         const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
         const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
 
-        // Snap + ledger balance
+        // Snap + ledger balance — matches StoreStock formula: snap + ck + ext + adj - usage
         const snap = snapBySku[skuId];
         const base = snap?.balance ?? 0;
         const ckIn = ckInBySku[skuId] || 0;
         const extIn = extInBySku[skuId] || 0;
+        const adjNet = adjNetBySku[skuId] || 0;
         const usageOut = postSnapUsageBySku[skuId] || 0;
-        const stockOnHand = Math.max(0, base + ckIn + extIn - usageOut);
+        const stockOnHand = Math.max(0, base + ckIn + extIn + adjNet - usageOut);
 
         const rop = avgDailyUsage * leadTime + safetyStock;
         const parstock = avgDailyUsage + peakDailyUsage * leadTime;
