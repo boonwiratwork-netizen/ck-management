@@ -291,7 +291,7 @@ export function useStockCountData({
         await refreshSmStock();
       }
     },
-    [sessions, lines, addRmAdjustment, addSmAdjustment, refreshSmStock],
+    [sessions, lines, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
 
   const getLinesForSession = useCallback(
