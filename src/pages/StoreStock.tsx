@@ -1035,11 +1035,12 @@ export default function StoreStockPage({
 
                   const signedQty = adjustDir === "out" ? -qty : qty;
                   const skuType = skuMap.get(adjustTarget.skuId)?.type ?? "RM";
+                  const today = new Date().toISOString().split("T")[0];
 
                   const { error } = await supabase.from("stock_adjustments").insert({
                     branch_id: adjustTarget.branchId,
                     sku_id: adjustTarget.skuId,
-                    adjustment_date: new Date().toISOString().split("T")[0],
+                    adjustment_date: today,
                     quantity: signedQty,
                     reason: reasonStr,
                     stock_type: skuType,
@@ -1049,6 +1050,23 @@ export default function StoreStockPage({
                   if (error) {
                     toast.error(error.message);
                     return;
+                  }
+
+                  // B1 fix: โอนระหว่างสาขา = 2 ขา — เพิ่มขารับให้สาขาปลายทางพร้อมกัน
+                  if (adjustReason === "transfer_out" && adjustTargetBranch) {
+                    const sourceBranchName = activeBranches.find((b) => b.id === adjustTarget.branchId)?.branchName ?? "";
+                    const { error: receiveErr } = await supabase.from("stock_adjustments").insert({
+                      branch_id: adjustTargetBranch,
+                      sku_id: adjustTarget.skuId,
+                      adjustment_date: today,
+                      quantity: qty,
+                      reason: "รับโอนจากสาขาอื่น → " + sourceBranchName,
+                      stock_type: skuType,
+                    });
+                    if (receiveErr) {
+                      toast.error("ตัดสต็อกต้นทางแล้ว แต่เพิ่มปลายทางไม่สำเร็จ: " + receiveErr.message);
+                      return;
+                    }
                   }
 
                   toast.success("บันทึก adjustment สำเร็จ");
