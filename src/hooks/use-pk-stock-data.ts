@@ -27,6 +27,7 @@ export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pr
       .from("stock_adjustments")
       .select("*")
       .eq("stock_type", "PK")
+      .is("branch_id", null)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data)
