@@ -314,7 +314,7 @@ export function useDailyStockCount({
           .select("sku_id, quantity, adjustment_date")
           .eq("branch_id", branchId)
           .gt("adjustment_date", gapStartDate)
-          .lte("adjustment_date", beforeDate),
+          .lt("adjustment_date", beforeDate),
       ]);
 
       // Build per-SKU gap totals filtered by each SKU's own anchor date
