@@ -194,8 +194,10 @@ const Index = () => {
     skus: skuData.skus,
     rmStockBalances: stockData.stockBalances,
     smStockBalances: smStockData.stockBalances,
+    pkStockBalances: pkStockData.stockBalances,
     addRmAdjustment: stockData.addAdjustment,
     addSmAdjustment: smStockData.addAdjustment,
+    addPkAdjustment: pkStockData.addAdjustment,
     getStdUnitPrice: stockData.getStdUnitPrice,
     refreshSmStock: smStockData.refreshProductionRecords,
   });
