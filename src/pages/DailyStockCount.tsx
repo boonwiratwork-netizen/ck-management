@@ -33,6 +33,7 @@ import {
   ClipboardList,
   GripVertical,
   Printer,
+  SlidersHorizontal,
 } from "lucide-react";
 import { StockCard } from "@/components/StockCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -723,29 +724,30 @@ export default function DailyStockCountPage({
                           )}
                         </td>
                         <td className="text-right font-mono text-sm font-medium px-2 py-1">
-                          {row.adjNet !== 0 ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className={`cursor-default ${row.adjNet > 0 ? "text-success" : "text-destructive"}`}>
-                                    {fmt0(Math.max(0, row.calculatedBalance))}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="max-w-[220px]">
-                                  {row.adjDetails.map((d, i) => (
-                                    <div key={i} className="text-xs">
-                                      {d.quantity > 0
-                                        ? `ปรับเพิ่ม +${Math.abs(d.quantity).toLocaleString("th-TH")} น.`
-                                        : `ปรับลด ${Math.abs(d.quantity).toLocaleString("th-TH")} น.`}
-                                      {d.reason ? ` — ${d.reason}` : ""}
-                                    </div>
-                                  ))}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            fmt0(Math.max(0, row.calculatedBalance))
-                          )}
+                          <span className="inline-flex items-center justify-end gap-1">
+                            {fmt0(Math.max(0, row.calculatedBalance))}
+                            {row.adjNet !== 0 && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default text-muted-foreground opacity-40 hover:opacity-90 transition-opacity">
+                                      <SlidersHorizontal className="w-2.5 h-2.5" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="max-w-[240px]">
+                                    {row.adjDetails.map((d, i) => (
+                                      <div key={i} className="text-xs">
+                                        {d.quantity > 0
+                                          ? `ปรับเพิ่ม +${Math.abs(d.quantity).toLocaleString("th-TH")} น.`
+                                          : `ปรับลด ${Math.abs(d.quantity).toLocaleString("th-TH")} น.`}
+                                        {d.reason ? ` — ${d.reason}` : ""}
+                                      </div>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </span>
                         </td>
                         <td className="px-1.5 py-1 text-right">
                           {isSubmitted ? (
