@@ -227,6 +227,8 @@ export function useStockCountData({
           await addRmAdjustment(adj);
         } else if (line.type === "SM") {
           await addSmAdjustment(adj);
+        } else if (line.type === "PK") {
+          await addPkAdjustment(adj);
         }
       }
 
