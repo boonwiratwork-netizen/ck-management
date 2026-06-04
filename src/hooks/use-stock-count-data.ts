@@ -244,7 +244,7 @@ export function useStockCountData({
         await refreshSmStock();
       }
     },
-    [sessions, addRmAdjustment, addSmAdjustment, refreshSmStock],
+    [sessions, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
 
   const softDeleteSession = useCallback(
