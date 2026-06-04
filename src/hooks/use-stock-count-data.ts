@@ -43,8 +43,10 @@ export function useStockCountData({
   skus,
   rmStockBalances,
   smStockBalances,
+  pkStockBalances,
   addRmAdjustment,
   addSmAdjustment,
+  addPkAdjustment,
   getStdUnitPrice,
   refreshSmStock,
 }: UseStockCountDataProps) {
