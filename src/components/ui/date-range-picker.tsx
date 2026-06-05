@@ -151,6 +151,12 @@ function DateRangePicker({
           className="p-3 pointer-events-auto"
           onDayMouseEnter={(day) => setHoverDate(stripTime(day))}
           onDayMouseLeave={() => setHoverDate(undefined)}
+          classNames={{
+            day_selected: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white focus:bg-orange-500 focus:text-white rounded-full",
+            day_range_start: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
+            day_range_end: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
+            day_range_middle: "aria-selected:bg-orange-100 aria-selected:text-orange-900 aria-selected:rounded-none",
+          }}
         />
       </PopoverContent>
     </Popover>
