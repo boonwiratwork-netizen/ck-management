@@ -392,7 +392,7 @@ export function useBranchSmStock(branchId: string | null) {
       const postSnapUsageBySku: Record<string, number> = {};
       {
         // Group sales by date
-        const salesByDate = new Map<string, { menu_code: string; qty: number }[]>();
+        const salesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
         for (const s of postSnapSalesRes.data || []) {
           const arr = salesByDate.get(s.sale_date) || [];
           arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
