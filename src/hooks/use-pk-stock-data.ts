@@ -9,6 +9,7 @@ import { toast } from "sonner";
 export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[]) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
+  const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number; count_date: string }>>({});
 
   useEffect(() => {
     supabase
@@ -41,6 +42,37 @@ export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pr
             })),
           );
       });
+
+    // Fetch latest physical count anchor per PK SKU
+    (async () => {
+      const { data: sessions } = await supabase
+        .from("stock_count_sessions")
+        .select("id, count_date")
+        .eq("status", "Completed")
+        .is("deleted_at", null);
+      if (!sessions || sessions.length === 0) return;
+      const sessionDateById: Record<string, string> = {};
+      sessions.forEach((s: any) => {
+        sessionDateById[s.id] = s.count_date;
+      });
+      const { data: lines } = await supabase
+        .from("stock_count_lines")
+        .select("session_id, sku_id, physical_qty, type")
+        .eq("type", "PK")
+        .not("physical_qty", "is", null)
+        .in("session_id", sessions.map((s: any) => s.id));
+      if (!lines) return;
+      const map: Record<string, { physical_qty: number; count_date: string }> = {};
+      lines.forEach((l: any) => {
+        const date = sessionDateById[l.session_id];
+        if (!date) return;
+        const existing = map[l.sku_id];
+        if (!existing || date > existing.count_date) {
+          map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date };
+        }
+      });
+      setAnchorMap(map);
+    })();
   }, []);
 
   const pkSkus = useMemo(() => skus.filter((s) => s.type === "PK"), [skus]);
@@ -48,24 +80,40 @@ export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pr
   const stockBalances = useMemo((): StockBalance[] => {
     return pkSkus.map((sku) => {
       const opening = openingStocks[sku.id] ?? 0;
-      const totalReceived = receipts
-        .filter((r) => r.skuId === sku.id)
-        .reduce((sum, r) => sum + r.quantityReceived * (sku.converter ?? 1), 0);
-      const totalConsumed = 0;
       const skuAdjustments = adjustments.filter((a) => a.skuId === sku.id);
-      const netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
-      const openingClamped = Math.max(0, opening);
-      const currentStock = openingClamped + totalReceived - totalConsumed + netAdjustment;
+      const anchor = anchorMap[sku.id];
+
+      let totalReceived: number;
+      let netAdjustment: number;
+      let currentStock: number;
+
+      if (anchor) {
+        totalReceived = receipts
+          .filter((r) => r.skuId === sku.id && r.receiptDate > anchor.count_date)
+          .reduce((sum, r) => sum + r.quantityReceived * (sku.converter ?? 1), 0);
+        netAdjustment = skuAdjustments
+          .filter((a) => a.date > anchor.count_date && !(a.reason ?? "").startsWith("Stock Count"))
+          .reduce((sum, a) => sum + a.quantity, 0);
+        currentStock = anchor.physical_qty + totalReceived + netAdjustment;
+      } else {
+        totalReceived = receipts
+          .filter((r) => r.skuId === sku.id)
+          .reduce((sum, r) => sum + r.quantityReceived * (sku.converter ?? 1), 0);
+        netAdjustment = skuAdjustments.reduce((sum, a) => sum + a.quantity, 0);
+        const openingClamped = Math.max(0, opening);
+        currentStock = openingClamped + totalReceived + netAdjustment;
+      }
+
       return {
         skuId: sku.id,
         openingStock: opening,
         totalReceived,
-        totalConsumed,
+        totalConsumed: 0,
         adjustments: skuAdjustments,
         currentStock,
       };
     });
-  }, [pkSkus, receipts, openingStocks, adjustments]);
+  }, [pkSkus, receipts, openingStocks, adjustments, anchorMap]);
 
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase
