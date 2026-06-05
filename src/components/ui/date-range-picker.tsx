@@ -44,7 +44,7 @@ function DateRangePicker({
       return `${format(pendingStart, "d MMM yyyy")} – ...`;
     }
     if (from && to) return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
-    if (from) return `${format(from, "d MMM yyyy")} – ...`;
+    if (from) return format(from, "d MMM yyyy");
     return placeholder;
   }, [from, to, pendingStart, hoverDate, placeholder]);
 
@@ -59,16 +59,20 @@ function DateRangePicker({
   const handleSelect = (day: Date | undefined) => {
     if (!day) return;
     const clicked = stripTime(day);
+
+    // FIX 1: allow single-day selection — if clicked same day as pendingStart, confirm it
     if (!pendingStart) {
       setPendingStart(clicked);
       onChange({ from: clicked, to: undefined });
       return;
     }
     if (clicked < pendingStart) {
+      // clicked before start → restart selection
       setPendingStart(clicked);
       onChange({ from: clicked, to: undefined });
       return;
     }
+    // clicked same day or after → confirm range (single day = from === to)
     onChange({ from: pendingStart, to: clicked });
     setPendingStart(undefined);
     setHoverDate(undefined);
@@ -84,8 +88,13 @@ function DateRangePicker({
     setOpen(false);
   };
 
-  const calendarSelected = pendingStart
-    ? { from: pendingStart, to: hoverDate && hoverDate > pendingStart ? hoverDate : undefined }
+  // FIX 2: use mode="range" with proper DateRange object so shadcn Calendar
+  // renders the built-in range highlight correctly instead of custom modifiers
+  const selectedRange = pendingStart
+    ? {
+        from: pendingStart,
+        to: hoverDate && hoverDate >= pendingStart ? hoverDate : undefined,
+      }
     : { from, to };
 
   const hasValue = !!(from || to);
@@ -127,28 +136,21 @@ function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="z-50 w-auto p-0" align={align}>
+        {/* FIX 3: use mode="range" — lets DayPicker handle range styling natively
+            with correct colors from design tokens, no custom modifiers needed */}
         <Calendar
-          mode="single"
-          selected={pendingStart ?? from}
-          onSelect={handleSelect}
+          mode="range"
+          selected={selectedRange}
+          onSelect={(range) => {
+            if (!range) return;
+            const clickedDay = range.to ?? range.from;
+            if (clickedDay) handleSelect(clickedDay);
+          }}
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
           onDayMouseEnter={(day) => setHoverDate(stripTime(day))}
           onDayMouseLeave={() => setHoverDate(undefined)}
-          modifiers={{
-            range_start: calendarSelected.from ? [calendarSelected.from] : [],
-            range_end: calendarSelected.to ? [calendarSelected.to] : [],
-            range_middle:
-              calendarSelected.from && calendarSelected.to
-                ? { after: calendarSelected.from, before: calendarSelected.to }
-                : [],
-          }}
-          modifiersClassNames={{
-            range_start: "bg-primary text-primary-foreground rounded-l-full rounded-r-none",
-            range_end: "bg-primary text-primary-foreground rounded-r-full rounded-l-none",
-            range_middle: "bg-primary/15 text-foreground rounded-none",
-          }}
         />
       </PopoverContent>
     </Popover>
