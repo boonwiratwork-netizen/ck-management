@@ -1,6 +1,7 @@
 import * as React from "react";
 import { format, isSameDay, isBefore, startOfDay } from "date-fns";
 import { CalendarIcon, ChevronDown, X } from "lucide-react";
+import { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,17 +32,18 @@ function DateRangePicker({
   labelPosition = "above",
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const [pendingStart, setPendingStart] = React.useState<Date | undefined>(undefined);
-  const [hoverDate, setHoverDate] = React.useState<Date | undefined>(undefined);
+  // null = no pending; Date = first click anchor
+  const [anchor, setAnchor] = React.useState<Date | null>(null);
+  const [hover, setHover] = React.useState<Date | null>(null);
 
   const strip = (d: Date) => startOfDay(d);
 
-  // Display label in trigger
+  // What the trigger button shows
   const display = React.useMemo(() => {
-    if (pendingStart) {
-      const previewEnd = hoverDate && !isBefore(hoverDate, pendingStart) ? hoverDate : undefined;
-      if (previewEnd) return `${format(pendingStart, "d MMM yyyy")} – ${format(previewEnd, "d MMM yyyy")}`;
-      return `${format(pendingStart, "d MMM yyyy")} – ...`;
+    if (anchor) {
+      const previewEnd = hover && !isBefore(hover, anchor) ? hover : null;
+      if (previewEnd) return `${format(anchor, "d MMM yyyy")} – ${format(previewEnd, "d MMM yyyy")}`;
+      return `${format(anchor, "d MMM yyyy")} – ...`;
     }
     if (from && to) {
       if (isSameDay(from, to)) return format(from, "d MMM yyyy");
@@ -49,40 +51,38 @@ function DateRangePicker({
     }
     if (from) return format(from, "d MMM yyyy");
     return placeholder;
-  }, [from, to, pendingStart, hoverDate, placeholder]);
+  }, [from, to, anchor, hover, placeholder]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next) {
-      setPendingStart(undefined);
-      setHoverDate(undefined);
-    }
+    if (!next) { setAnchor(null); setHover(null); }
   };
 
-  // Option A: Smart Single/Range click logic
-  const handleDayClick = (day: Date) => {
-    const clicked = strip(day);
+  // DayPicker v8 mode="range" calls onSelect with the new DateRange every click.
+  // We intercept it here and apply our Option-A logic instead.
+  const handleSelect = (range: DateRange | undefined) => {
+    // DayPicker passes the day that was just clicked as range.to (second click)
+    // or range.from (first click when resetting).
+    // We bypass DayPicker's internal range logic entirely via anchor state.
+    const clicked = range?.to ? strip(range.to) : range?.from ? strip(range.from) : null;
+    if (!clicked) return;
 
-    if (!pendingStart) {
-      // First click — set anchor
-      setPendingStart(clicked);
+    if (!anchor) {
+      // First click — set anchor, stay open
+      setAnchor(clicked);
       return;
     }
 
     // Second click
-    if (isSameDay(clicked, pendingStart)) {
-      // Same day → single day selection
-      onChange({ from: clicked, to: clicked });
-    } else if (isBefore(clicked, pendingStart)) {
-      // Before anchor → swap
-      onChange({ from: clicked, to: pendingStart });
+    if (isSameDay(clicked, anchor)) {
+      onChange({ from: clicked, to: clicked });         // single day
+    } else if (isBefore(clicked, anchor)) {
+      onChange({ from: clicked, to: anchor });          // swap
     } else {
-      // After anchor → normal range
-      onChange({ from: pendingStart, to: clicked });
+      onChange({ from: anchor, to: clicked });          // normal range
     }
-
-    setPendingStart(undefined);
-    setHoverDate(undefined);
+    setAnchor(null);
+    setHover(null);
     setOpen(false);
   };
 
@@ -90,20 +90,18 @@ function DateRangePicker({
     e.stopPropagation();
     e.preventDefault();
     onChange({ from: undefined, to: undefined });
-    setPendingStart(undefined);
-    setHoverDate(undefined);
+    setAnchor(null);
+    setHover(null);
     setOpen(false);
   };
 
-  // Pass range to Calendar for built-in highlight rendering
-  // pendingStart → preview range using hover; confirmed → from/to
-  const selectedRange = React.useMemo(() => {
-    if (pendingStart) {
-      const previewEnd = hoverDate && !isBefore(hoverDate, pendingStart) ? hoverDate : undefined;
-      return { from: pendingStart, to: previewEnd };
-    }
-    return { from, to };
-  }, [pendingStart, hoverDate, from, to]);
+  // What the Calendar highlights — preview during anchor state, confirmed otherwise
+  const calendarSelected: DateRange = anchor
+    ? {
+        from: anchor,
+        to: hover && !isBefore(hover, anchor) ? hover : undefined,
+      }
+    : { from, to };
 
   const hasValue = !!(from || to);
 
@@ -116,7 +114,7 @@ function DateRangePicker({
           className={cn(
             "h-10 min-w-[260px] max-w-[320px] justify-start text-left font-normal",
             "border-input focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
-            !from && !pendingStart && "text-muted-foreground",
+            !from && !anchor && "text-muted-foreground",
             className,
           )}
         >
@@ -142,13 +140,14 @@ function DateRangePicker({
       <PopoverContent className="z-50 w-auto p-0" align={align}>
         <Calendar
           mode="range"
-          selected={selectedRange}
-          onDayClick={handleDayClick}
+          selected={calendarSelected}
+          onSelect={handleSelect}
+          disabled={false}
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
-          onDayMouseEnter={(day) => { if (pendingStart) setHoverDate(strip(day)); }}
-          onDayMouseLeave={() => setHoverDate(undefined)}
+          onDayMouseEnter={(day) => { if (anchor) setHover(strip(day)); }}
+          onDayMouseLeave={() => setHover(null)}
           classNames={{
             day_selected:
               "bg-orange-500 text-white hover:bg-orange-500 hover:text-white focus:bg-orange-500 focus:text-white rounded-full",
@@ -165,19 +164,9 @@ function DateRangePicker({
   );
 
   if (!label) return trigger;
-
   const labelEl = <label className="text-sm text-muted-foreground whitespace-nowrap">{label}</label>;
-
-  if (labelPosition === "left") {
-    return <div className="flex items-center gap-2">{labelEl}{trigger}</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {labelEl}
-      {trigger}
-    </div>
-  );
+  if (labelPosition === "left") return <div className="flex items-center gap-2">{labelEl}{trigger}</div>;
+  return <div className="flex flex-col gap-1">{labelEl}{trigger}</div>;
 }
 
 DateRangePicker.displayName = "DateRangePicker";
