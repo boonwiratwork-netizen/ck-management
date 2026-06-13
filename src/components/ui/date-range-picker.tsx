@@ -67,9 +67,11 @@ function DateRangePicker({
       return;
     }
     if (clicked < pendingStart) {
-      // clicked before start → restart selection
-      setPendingStart(clicked);
-      onChange({ from: clicked, to: undefined });
+      // clicked before start → swap: treat pendingStart as end, clicked as new start
+      onChange({ from: clicked, to: pendingStart });
+      setPendingStart(undefined);
+      setHoverDate(undefined);
+      setOpen(false);
       return;
     }
     // clicked same day or after → confirm range (single day = from === to)
