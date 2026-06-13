@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, isSameDay, isAfter, isBefore, startOfDay } from "date-fns";
 import { CalendarIcon, ChevronDown, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -31,19 +31,25 @@ function DateRangePicker({
   labelPosition = "above",
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  // pendingStart = user clicked first day, waiting for second click
   const [pendingStart, setPendingStart] = React.useState<Date | undefined>(undefined);
   const [hoverDate, setHoverDate] = React.useState<Date | undefined>(undefined);
 
-  const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const strip = (d: Date) => startOfDay(d);
 
+  // Display text in trigger button
   const display = React.useMemo(() => {
     if (pendingStart) {
-      if (hoverDate && hoverDate > pendingStart) {
-        return `${format(pendingStart, "d MMM yyyy")} – ${format(hoverDate, "d MMM yyyy")}`;
+      const previewEnd = hoverDate && !isBefore(hoverDate, pendingStart) ? hoverDate : undefined;
+      if (previewEnd) {
+        return `${format(pendingStart, "d MMM yyyy")} – ${format(previewEnd, "d MMM yyyy")}`;
       }
       return `${format(pendingStart, "d MMM yyyy")} – ...`;
     }
-    if (from && to) return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
+    if (from && to) {
+      if (isSameDay(from, to)) return format(from, "d MMM yyyy");
+      return `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`;
+    }
     if (from) return format(from, "d MMM yyyy");
     return placeholder;
   }, [from, to, pendingStart, hoverDate, placeholder]);
@@ -56,26 +62,28 @@ function DateRangePicker({
     }
   };
 
-  const handleSelect = (day: Date | undefined) => {
-    if (!day) return;
-    const clicked = stripTime(day);
+  // Core click logic: Option A — Smart Single/Range
+  const handleDayClick = (day: Date) => {
+    const clicked = strip(day);
 
-    // FIX 1: allow single-day selection — if clicked same day as pendingStart, confirm it
     if (!pendingStart) {
+      // First click — set anchor, wait for second
       setPendingStart(clicked);
-      onChange({ from: clicked, to: undefined });
       return;
     }
-    if (clicked < pendingStart) {
-      // clicked before start → swap: treat pendingStart as end, clicked as new start
+
+    // Second click
+    if (isSameDay(clicked, pendingStart)) {
+      // Same day twice → single day
+      onChange({ from: clicked, to: clicked });
+    } else if (isBefore(clicked, pendingStart)) {
+      // Clicked before anchor → swap
       onChange({ from: clicked, to: pendingStart });
-      setPendingStart(undefined);
-      setHoverDate(undefined);
-      setOpen(false);
-      return;
+    } else {
+      // Clicked after anchor → normal range
+      onChange({ from: pendingStart, to: clicked });
     }
-    // clicked same day or after → confirm range (single day = from === to)
-    onChange({ from: pendingStart, to: clicked });
+
     setPendingStart(undefined);
     setHoverDate(undefined);
     setOpen(false);
@@ -90,14 +98,30 @@ function DateRangePicker({
     setOpen(false);
   };
 
-  // FIX 2: use mode="range" with proper DateRange object so shadcn Calendar
-  // renders the built-in range highlight correctly instead of custom modifiers
-  const selectedRange = pendingStart
-    ? {
-        from: pendingStart,
-        to: hoverDate && hoverDate >= pendingStart ? hoverDate : undefined,
-      }
-    : { from, to };
+  // Compute custom modifiers for range highlight using mode="single"
+  // We own all the state — DayPicker just renders what we tell it
+  const modifiers = React.useMemo(() => {
+    const start = pendingStart ?? from;
+    const end = pendingStart
+      ? (hoverDate && !isBefore(hoverDate, pendingStart) ? hoverDate : undefined)
+      : to;
+
+    if (!start) return {};
+
+    return {
+      range_start: start,
+      range_end: end ?? start,
+      range_middle: end && !isSameDay(start, end)
+        ? { after: start, before: end }
+        : undefined,
+    };
+  }, [pendingStart, hoverDate, from, to]);
+
+  const modifiersClassNames = {
+    range_start: "bg-orange-500 !text-white rounded-full",
+    range_end: "bg-orange-500 !text-white rounded-full",
+    range_middle: "bg-orange-100 text-orange-900 rounded-none",
+  };
 
   const hasValue = !!(from || to);
 
@@ -123,9 +147,7 @@ function DateRangePicker({
               aria-label="Clear date range"
               onClick={handleClear}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  handleClear(e);
-                }
+                if (e.key === "Enter" || e.key === " ") handleClear(e);
               }}
               onPointerDown={(e) => e.stopPropagation()}
               className="ml-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
@@ -138,27 +160,17 @@ function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="z-50 w-auto p-0" align={align}>
-        {/* FIX 3: use mode="range" — lets DayPicker handle range styling natively
-            with correct colors from design tokens, no custom modifiers needed */}
         <Calendar
-          mode="range"
-          selected={selectedRange}
-          onSelect={(range) => {
-            if (!range) return;
-            const clickedDay = range.to ?? range.from;
-            if (clickedDay) handleSelect(clickedDay);
-          }}
+          mode="single"
+          selected={pendingStart ?? from}
+          onSelect={(day) => { if (day) handleDayClick(day); }}
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
-          onDayMouseEnter={(day) => setHoverDate(stripTime(day))}
+          modifiers={modifiers}
+          modifiersClassNames={modifiersClassNames}
+          onDayMouseEnter={(day) => { if (pendingStart) setHoverDate(strip(day)); }}
           onDayMouseLeave={() => setHoverDate(undefined)}
-          classNames={{
-            day_selected: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white focus:bg-orange-500 focus:text-white rounded-full",
-            day_range_start: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
-            day_range_end: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
-            day_range_middle: "aria-selected:bg-orange-100 aria-selected:text-orange-900 aria-selected:rounded-none",
-          }}
         />
       </PopoverContent>
     </Popover>
