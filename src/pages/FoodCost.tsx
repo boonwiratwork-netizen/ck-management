@@ -1085,11 +1085,17 @@ export default function FoodCostPage({
               from={dateFrom}
               to={dateTo}
               onChange={(r) => {
-                if (r.from) {
-                  setDateFrom(r.from);
-                  setPreset("custom");
+                if (!r.from && !r.to) {
+                  // cleared — reset to today
+                  const t = new Date();
+                  setDateFrom(t);
+                  setDateTo(t);
+                  setPreset("today");
+                  return;
                 }
-                if (r.to) {
+                // only commit when range is fully confirmed (both from+to present)
+                if (r.from && r.to) {
+                  setDateFrom(r.from);
                   setDateTo(r.to);
                   setPreset("custom");
                 }
