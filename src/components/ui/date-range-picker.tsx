@@ -1,7 +1,6 @@
 import * as React from "react";
 import { format, isSameDay, isBefore, startOfDay } from "date-fns";
 import { CalendarIcon, ChevronDown, X } from "lucide-react";
-import { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,13 +31,11 @@ function DateRangePicker({
   labelPosition = "above",
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
-  // null = no pending; Date = first click anchor
   const [anchor, setAnchor] = React.useState<Date | null>(null);
   const [hover, setHover] = React.useState<Date | null>(null);
 
   const strip = (d: Date) => startOfDay(d);
 
-  // What the trigger button shows
   const display = React.useMemo(() => {
     if (anchor) {
       const previewEnd = hover && !isBefore(hover, anchor) ? hover : null;
@@ -58,28 +55,19 @@ function DateRangePicker({
     if (!next) { setAnchor(null); setHover(null); }
   };
 
-  // DayPicker v8 mode="range" calls onSelect with the new DateRange every click.
-  // We intercept it here and apply our Option-A logic instead.
-  const handleSelect = (range: DateRange | undefined) => {
-    // DayPicker passes the day that was just clicked as range.to (second click)
-    // or range.from (first click when resetting).
-    // We bypass DayPicker's internal range logic entirely via anchor state.
-    const clicked = range?.to ? strip(range.to) : range?.from ? strip(range.from) : null;
-    if (!clicked) return;
-
+  // onDayClick fires with the exact day clicked — no DayPicker range logic interference
+  const handleDayClick = (day: Date) => {
+    const clicked = strip(day);
     if (!anchor) {
-      // First click — set anchor, stay open
       setAnchor(clicked);
       return;
     }
-
-    // Second click
     if (isSameDay(clicked, anchor)) {
-      onChange({ from: clicked, to: clicked });         // single day
+      onChange({ from: clicked, to: clicked });
     } else if (isBefore(clicked, anchor)) {
-      onChange({ from: clicked, to: anchor });          // swap
+      onChange({ from: clicked, to: anchor });
     } else {
-      onChange({ from: anchor, to: clicked });          // normal range
+      onChange({ from: anchor, to: clicked });
     }
     setAnchor(null);
     setHover(null);
@@ -95,13 +83,22 @@ function DateRangePicker({
     setOpen(false);
   };
 
-  // What the Calendar highlights — preview during anchor state, confirmed otherwise
-  const calendarSelected: DateRange = anchor
-    ? {
-        from: anchor,
-        to: hover && !isBefore(hover, anchor) ? hover : undefined,
-      }
-    : { from, to };
+  // Compute modifiers manually for highlight — mode="default" needs this
+  const modifiers = React.useMemo(() => {
+    const start = anchor ?? from;
+    const end = anchor
+      ? (hover && !isBefore(hover, anchor) ? hover : anchor)
+      : to;
+    if (!start) return {};
+    const result: Record<string, Date | { after: Date; before: Date }> = {
+      range_start: start,
+      range_end: end ?? start,
+    };
+    if (end && !isSameDay(start, end)) {
+      result.range_middle = { after: start, before: end };
+    }
+    return result;
+  }, [anchor, hover, from, to]);
 
   const hasValue = !!(from || to);
 
@@ -139,24 +136,18 @@ function DateRangePicker({
       </PopoverTrigger>
       <PopoverContent className="z-50 w-auto p-0" align={align}>
         <Calendar
-          mode="range"
-          selected={calendarSelected}
-          onSelect={handleSelect}
-          disabled={false}
+          mode="default"
           numberOfMonths={2}
           initialFocus
           className="p-3 pointer-events-auto"
+          onDayClick={handleDayClick}
           onDayMouseEnter={(day) => { if (anchor) setHover(strip(day)); }}
           onDayMouseLeave={() => setHover(null)}
-          classNames={{
-            day_selected:
-              "bg-orange-500 text-white hover:bg-orange-500 hover:text-white focus:bg-orange-500 focus:text-white rounded-full",
-            day_range_start:
-              "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
-            day_range_end:
-              "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
-            day_range_middle:
-              "aria-selected:bg-orange-100 aria-selected:text-orange-900 aria-selected:rounded-none",
+          modifiers={modifiers}
+          modifiersClassNames={{
+            range_start: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
+            range_end: "bg-orange-500 text-white hover:bg-orange-500 hover:text-white rounded-full",
+            range_middle: "bg-orange-100 text-orange-900 rounded-none",
           }}
         />
       </PopoverContent>
