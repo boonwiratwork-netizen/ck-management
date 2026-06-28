@@ -218,10 +218,12 @@ export function useDailyStockCount({
                   addUsage(saleDate, rule.skuId, modQty);
                 }
               } else if (rule.ruleType === "submenu") {
+                const matchCount = menuName.split(rule.keyword).length - 1;
+                if (matchCount === 0) continue;
                 if (rule.submenuId) {
                   const subBomLines = bomByMenuId.get(rule.submenuId) || [];
                   for (const line of subBomLines) {
-                    const ingredientQty2 = line.effectiveQty * qty;
+                    const ingredientQty2 = line.effectiveQty * qty * matchCount;
                     const sku2 = skuMap.get(line.skuId);
                     if (sku2 && sku2.type === "SP") {
                       const spLines = spBomBySpSku.get(line.skuId) || [];
@@ -528,10 +530,12 @@ export function useDailyStockCount({
                 }
               } else if (rule.ruleType === "submenu") {
                 // Expand the submenu's BOM
+                const matchCount = menuName.split(rule.keyword).length - 1;
+                if (matchCount === 0) continue;
                 if (rule.submenuId) {
                   const subBomLines = bomByMenuId.get(rule.submenuId) || [];
                   for (const line of subBomLines) {
-                    const ingredientQty2 = line.effectiveQty * qty;
+                    const ingredientQty2 = line.effectiveQty * qty * matchCount;
                     const sku2 = skuMap.get(line.skuId);
                     if (sku2 && sku2.type === "SP") {
                       const spLines = spBomBySpSku.get(line.skuId) || [];
