@@ -307,11 +307,11 @@ export function StockCard({
                         const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === line.sku_id);
                         for (const sp of spLines) {
                           const spQty =
-                            (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                            (Number(line.effective_qty) * qty * matchCount * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
                           usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
                         }
                       } else {
-                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty);
+                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty * matchCount);
                       }
                     }
                   }
