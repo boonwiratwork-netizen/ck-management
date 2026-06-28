@@ -280,8 +280,9 @@ export function StockCard({
               const menuName = (sale.menu_name || "").toLowerCase();
               for (const rule of modRules) {
                 if (!rule.keyword || !rule.is_active) continue;
-                const keyword = rule.keyword.toLowerCase();
-                if (!menuName.includes(keyword)) continue;
+                  const keyword = rule.keyword.toLowerCase();
+                  const matchCount = menuName.split(keyword).length - 1;
+                  if (matchCount === 0) continue;
 
                 // Check menu scope
                 const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
