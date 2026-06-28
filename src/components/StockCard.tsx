@@ -280,8 +280,9 @@ export function StockCard({
               const menuName = (sale.menu_name || "").toLowerCase();
               for (const rule of modRules) {
                 if (!rule.keyword || !rule.is_active) continue;
-                const keyword = rule.keyword.toLowerCase();
-                if (!menuName.includes(keyword)) continue;
+                  const keyword = rule.keyword.toLowerCase();
+                  const matchCount = menuName.split(keyword).length - 1;
+                  if (matchCount === 0) continue;
 
                 // Check menu scope
                 const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
@@ -306,11 +307,11 @@ export function StockCard({
                         const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === line.sku_id);
                         for (const sp of spLines) {
                           const spQty =
-                            (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
+                            (Number(line.effective_qty) * qty * matchCount * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
                           usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
                         }
                       } else {
-                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty);
+                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty * matchCount);
                       }
                     }
                   }
