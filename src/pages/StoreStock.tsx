@@ -112,8 +112,11 @@ function calculateUsageFromSales(
     const menuName = sale.menu_name || "";
     for (const rule of activeRules) {
       if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
+      let matchCount = 0;
       if (rule.ruleType === "submenu") {
-        if (sale.menu_code !== rule.keyword) continue;
+        const keywordLower = rule.keyword.toLowerCase();
+        matchCount = menuName.toLowerCase().split(keywordLower).length - 1;
+        if (matchCount === 0) continue;
       } else {
         if (!menuName.includes(rule.keyword)) continue;
       }

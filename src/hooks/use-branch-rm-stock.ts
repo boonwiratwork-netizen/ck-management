@@ -310,18 +310,20 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if ((sale as any).menu_code !== rule.keyword) continue;
+            const keywordLower = rule.keyword.toLowerCase();
+            const matchCount = (menuName.split(keywordLower).length - 1);
+            if (matchCount === 0) continue;
             for (const sbom of submenuBomAll) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (skuIds.includes(sbom.sku_id)) {
-                totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
+                totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * matchCount * sbom.effective_qty;
               } else {
                 const spLines = submenuSpBom.filter((sp) => sp.sp_sku_id === sbom.sku_id);
                 for (const sp of spLines) {
                   const batchYield = Number(sp.batch_yield_qty) || 1;
                   totalUsageBySkuId[sp.ingredient_sku_id] =
                     (totalUsageBySkuId[sp.ingredient_sku_id] || 0) +
-                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                    saleQty * matchCount * sbom.effective_qty * (sp.qty_per_batch / batchYield);
                 }
               }
             }
@@ -418,13 +420,15 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if ((sale as any).menu_code !== rule.keyword) continue;
+            const keywordLower = rule.keyword.toLowerCase();
+            const matchCount = (menuName.split(keywordLower).length - 1);
+            if (matchCount === 0) continue;
             for (const sbom of submenuBomAll) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (skuIds.includes(sbom.sku_id)) {
                 if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
                 dailyUsageBySkuId[sbom.sku_id][date] =
-                  (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
+                  (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * matchCount * sbom.effective_qty;
               } else {
                 const spLines = submenuSpBom.filter((sp) => sp.sp_sku_id === sbom.sku_id);
                 for (const sp of spLines) {
@@ -432,7 +436,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
                   if (!dailyUsageBySkuId[sp.ingredient_sku_id]) dailyUsageBySkuId[sp.ingredient_sku_id] = {};
                   dailyUsageBySkuId[sp.ingredient_sku_id][date] =
                     (dailyUsageBySkuId[sp.ingredient_sku_id][date] || 0) +
-                    saleQty * sbom.effective_qty * (sp.qty_per_batch / batchYield);
+                    saleQty * matchCount * sbom.effective_qty * (sp.qty_per_batch / batchYield);
                 }
               }
             }
