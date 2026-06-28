@@ -112,8 +112,11 @@ function calculateUsageFromSales(
     const menuName = sale.menu_name || "";
     for (const rule of activeRules) {
       if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
+      let matchCount = 0;
       if (rule.ruleType === "submenu") {
-        if (sale.menu_code !== rule.keyword) continue;
+        const keywordLower = rule.keyword.toLowerCase();
+        matchCount = menuName.toLowerCase().split(keywordLower).length - 1;
+        if (matchCount === 0) continue;
       } else {
         if (!menuName.includes(rule.keyword)) continue;
       }
@@ -141,7 +144,7 @@ function calculateUsageFromSales(
         if (rule.submenuId) {
           const subBomLines = bomByMenuId.get(rule.submenuId) || [];
           for (const line of subBomLines) {
-            const ingredientQty2 = line.effectiveQty * qty;
+            const ingredientQty2 = line.effectiveQty * qty * matchCount;
             const sku2 = skuMap.get(line.skuId);
             if (sku2 && sku2.type === "SP") {
               const spLines = spBomBySpSku.get(line.skuId) || [];
