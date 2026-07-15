@@ -133,7 +133,7 @@ export function useSmStockData(
       const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
       for (const line of toLineRes.data || []) {
         if (!validToIds.has(line.to_id)) continue;
-        const qty = line.actual_qty > 0 ? line.actual_qty : toStatusMap[line.to_id] === "Sent" ? line.planned_qty : 0;
+        const qty = line.actual_qty != null ? line.actual_qty : (line.planned_qty ?? 0);
         delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
         lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
       }
@@ -347,7 +347,7 @@ export function useSmStockData(
     const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
     for (const line of toLineRes.data || []) {
       if (!validToIds.has(line.to_id)) continue;
-      const qty = line.actual_qty > 0 ? line.actual_qty : toStatusMap[line.to_id] === "Sent" ? line.planned_qty : 0;
+      const qty = line.actual_qty != null ? line.actual_qty : (line.planned_qty ?? 0);
       delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
       lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
     }
