@@ -491,7 +491,7 @@ export default function TransferOrderPage({
     setFormState(null);
     fetchHistory();
     refreshSmStock?.();
-  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t]);
+  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t, skus, lotLines]);
 
   // ─── Cancel form ───
   const handleCancelForm = useCallback(() => {
