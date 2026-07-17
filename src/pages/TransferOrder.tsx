@@ -731,6 +731,90 @@ export default function TransferOrderPage({
     [prodRecordsMap, skus],
   );
 
+  // ─── Reconcile lot assignment to match new packs (FIFO: trim newest first, top up oldest unused first) ───
+  const reconcileLotsToPacks = useCallback(
+    async (lineId: string, skuId: string, newPacks: number, packSize: number) => {
+      const current = (lotLinesRef.current[lineId] || []).map((l) => ({ ...l }));
+      const records = prodRecordsMapRef.current[skuId] || [];
+      const assigned = current.reduce((s, l) => s + (l.packs || 0), 0);
+
+      if (newPacks === assigned) return;
+
+      if (newPacks < assigned) {
+        // Trim from newest (end of array) backward
+        let over = assigned - newPacks;
+        const toDelete: { id?: string }[] = [];
+        const toUpdate: { lot: LotLineLocal }[] = [];
+        for (let i = current.length - 1; i >= 0 && over > 0; i--) {
+          const lot = current[i];
+          if (lot.packs <= over) {
+            over -= lot.packs;
+            lot.packs = 0;
+            toDelete.push({ id: lot.id });
+          } else {
+            lot.packs -= over;
+            over = 0;
+            toUpdate.push({ lot });
+          }
+        }
+        for (const d of toDelete) {
+          if (d.id) await supabase.from("transfer_order_lot_lines").delete().eq("id", d.id);
+        }
+        for (const u of toUpdate) {
+          if (u.lot.id) {
+            await supabase
+              .from("transfer_order_lot_lines")
+              .update({ packs: u.lot.packs, pack_weight_g: u.lot.packWeightG })
+              .eq("id", u.lot.id);
+          }
+        }
+        const next = current.filter((l) => l.packs > 0);
+        setLotLines((prev) => ({ ...prev, [lineId]: next }));
+        return;
+      }
+
+      // newPacks > assigned → top up from unused records (oldest first)
+      let remaining = newPacks - assigned;
+      const usedIds = new Set(current.map((l) => l.productionRecordId).filter(Boolean));
+      const next = [...current];
+      const newAdds: { idx: number; lot: LotLineLocal }[] = [];
+
+      for (const rec of records) {
+        if (remaining <= 0) break;
+        if (usedIds.has(rec.id)) continue;
+        const newLot: LotLineLocal = {
+          productionRecordId: rec.id,
+          productionDate: rec.productionDate,
+          packs: remaining,
+          packWeightG: packSize,
+        };
+        newAdds.push({ idx: next.length, lot: newLot });
+        next.push(newLot);
+        remaining = 0;
+        break;
+      }
+
+      // Fallback: no unused record — dump remainder into newest existing lot
+      if (remaining > 0 && next.length > 0) {
+        const lastIdx = next.length - 1;
+        next[lastIdx] = { ...next[lastIdx], packs: next[lastIdx].packs + remaining };
+        remaining = 0;
+        if (next[lastIdx].id) {
+          await supabase
+            .from("transfer_order_lot_lines")
+            .update({ packs: next[lastIdx].packs, pack_weight_g: next[lastIdx].packWeightG })
+            .eq("id", next[lastIdx].id);
+        }
+      }
+
+      setLotLines((prev) => ({ ...prev, [lineId]: next }));
+      for (const a of newAdds) {
+        await handleLotLineSave(lineId, a.idx, a.lot);
+      }
+    },
+    [handleLotLineSave],
+  );
+
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
 
