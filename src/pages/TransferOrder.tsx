@@ -1153,30 +1153,7 @@ export default function TransferOrderPage({
                                         const packs = Math.round(Number(e.target.value) || 0);
                                         const grams = packs * packSize;
                                         handleLineUpdate(line.id, "actualQty", grams);
-
-                                        // FIFO auto-fill lots if empty (read from refs to avoid stale closures)
-                                        const currentLots = lotLinesRef.current[line.id] || [];
-                                        const hasManualLots = currentLots.some((l) => l.packs > 0);
-                                        const records = prodRecordsMapRef.current[line.skuId] || [];
-                                        if (packs > 0 && !hasManualLots && records.length > 0) {
-                                          let remaining = packs;
-                                          const newLotLines: LotLineLocal[] = [];
-                                          for (const record of records) {
-                                            if (remaining <= 0) break;
-                                            const allocate = remaining;
-                                            newLotLines.push({
-                                              productionRecordId: record.id,
-                                              productionDate: record.productionDate,
-                                              packs: allocate,
-                                              packWeightG: packSize,
-                                            });
-                                            remaining -= allocate;
-                                          }
-                                          setLotLines((prev) => ({ ...prev, [line.id]: newLotLines }));
-                                          for (let i = 0; i < newLotLines.length; i++) {
-                                            handleLotLineSave(line.id, i, newLotLines[i]);
-                                          }
-                                        }
+                                        reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === "Tab" || e.key === "Enter") {
