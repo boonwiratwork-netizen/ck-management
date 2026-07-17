@@ -448,9 +448,7 @@ export default function TransferOrderPage({
 
     // Normal draft save
     for (const l of formState.lines) {
-      if (l.actualQty > 0) {
-        await updateTOLine(l.id, l.actualQty, l.note);
-      }
+      await updateTOLine(l.id, l.actualQty, l.note);
     }
     const total = formState.lines.reduce((sum, l) => sum + l.actualQty * l.unitCost, 0);
     await supabase.from("transfer_orders").update({ total_value: total }).eq("id", formState.toId);
