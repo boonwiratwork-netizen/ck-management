@@ -754,12 +754,15 @@ export default function TransferOrderPage({
       if (newPacks === assigned) return;
 
       if (newPacks < assigned) {
-        // Trim from newest (end of array) backward
+        // Trim from newest production date first (FIFO — preserve oldest lots)
         let over = assigned - newPacks;
         const toDelete: { id?: string }[] = [];
         const toUpdate: { lot: LotLineLocal }[] = [];
-        for (let i = current.length - 1; i >= 0 && over > 0; i--) {
-          const lot = current[i];
+        const sortedNewestFirst = [...current].sort((a, b) =>
+          (b.productionDate || "").localeCompare(a.productionDate || ""),
+        );
+        for (const lot of sortedNewestFirst) {
+          if (over <= 0) break;
           if (lot.packs <= over) {
             over -= lot.packs;
             lot.packs = 0;
@@ -786,6 +789,7 @@ export default function TransferOrderPage({
         return;
       }
 
+
       // newPacks > assigned → top up from unused records (oldest first)
       let remaining = newPacks - assigned;
       const usedIds = new Set(current.map((l) => l.productionRecordId).filter(Boolean));
@@ -807,18 +811,24 @@ export default function TransferOrderPage({
         break;
       }
 
-      // Fallback: no unused record — dump remainder into newest existing lot
+      // Fallback: no unused record — dump remainder into lot with newest production date
       if (remaining > 0 && next.length > 0) {
-        const lastIdx = next.length - 1;
-        next[lastIdx] = { ...next[lastIdx], packs: next[lastIdx].packs + remaining };
+        let newestIdx = 0;
+        for (let i = 1; i < next.length; i++) {
+          if ((next[i].productionDate || "").localeCompare(next[newestIdx].productionDate || "") > 0) {
+            newestIdx = i;
+          }
+        }
+        next[newestIdx] = { ...next[newestIdx], packs: next[newestIdx].packs + remaining };
         remaining = 0;
-        if (next[lastIdx].id) {
+        if (next[newestIdx].id) {
           await supabase
             .from("transfer_order_lot_lines")
-            .update({ packs: next[lastIdx].packs, pack_weight_g: next[lastIdx].packWeightG })
-            .eq("id", next[lastIdx].id);
+            .update({ packs: next[newestIdx].packs, pack_weight_g: next[newestIdx].packWeightG })
+            .eq("id", next[newestIdx].id);
         }
       }
+
 
       setLotLines((prev) => ({ ...prev, [lineId]: next }));
       for (const a of newAdds) {
