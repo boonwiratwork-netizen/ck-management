@@ -754,12 +754,15 @@ export default function TransferOrderPage({
       if (newPacks === assigned) return;
 
       if (newPacks < assigned) {
-        // Trim from newest (end of array) backward
+        // Trim from newest production date first (FIFO — preserve oldest lots)
         let over = assigned - newPacks;
         const toDelete: { id?: string }[] = [];
         const toUpdate: { lot: LotLineLocal }[] = [];
-        for (let i = current.length - 1; i >= 0 && over > 0; i--) {
-          const lot = current[i];
+        const sortedNewestFirst = [...current].sort((a, b) =>
+          (b.productionDate || "").localeCompare(a.productionDate || ""),
+        );
+        for (const lot of sortedNewestFirst) {
+          if (over <= 0) break;
           if (lot.packs <= over) {
             over -= lot.packs;
             lot.packs = 0;
@@ -785,6 +788,7 @@ export default function TransferOrderPage({
         setLotLines((prev) => ({ ...prev, [lineId]: next }));
         return;
       }
+
 
       // newPacks > assigned → top up from unused records (oldest first)
       let remaining = newPacks - assigned;
