@@ -467,6 +467,19 @@ export default function TransferOrderPage({
       toast.error(t("to.qtyError"));
       return;
     }
+    // Lot-assignment mismatch guard
+    const mismatched: string[] = [];
+    for (const l of formState.lines) {
+      const ps = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+      if (ps <= 0) continue;
+      const currentPacks = Math.round(l.actualQty / ps);
+      const assignedPacks = (lotLines[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
+      if (currentPacks !== assignedPacks) mismatched.push(l.skuCode || l.skuName);
+    }
+    if (mismatched.length > 0) {
+      toast.error(`Lot mismatch: ${mismatched.join(", ")} — please fix Lot Assignment before sending`);
+      return;
+    }
     setFormSending(true);
     const result = await sendTO(formState.toId, formState.lines);
     setFormSending(false);
@@ -478,7 +491,7 @@ export default function TransferOrderPage({
     setFormState(null);
     fetchHistory();
     refreshSmStock?.();
-  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t]);
+  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t, skus, lotLines]);
 
   // ─── Cancel form ───
   const handleCancelForm = useCallback(() => {
@@ -729,6 +742,90 @@ export default function TransferOrderPage({
       }));
     },
     [prodRecordsMap, skus],
+  );
+
+  // ─── Reconcile lot assignment to match new packs (FIFO: trim newest first, top up oldest unused first) ───
+  const reconcileLotsToPacks = useCallback(
+    async (lineId: string, skuId: string, newPacks: number, packSize: number) => {
+      const current = (lotLinesRef.current[lineId] || []).map((l) => ({ ...l }));
+      const records = prodRecordsMapRef.current[skuId] || [];
+      const assigned = current.reduce((s, l) => s + (l.packs || 0), 0);
+
+      if (newPacks === assigned) return;
+
+      if (newPacks < assigned) {
+        // Trim from newest (end of array) backward
+        let over = assigned - newPacks;
+        const toDelete: { id?: string }[] = [];
+        const toUpdate: { lot: LotLineLocal }[] = [];
+        for (let i = current.length - 1; i >= 0 && over > 0; i--) {
+          const lot = current[i];
+          if (lot.packs <= over) {
+            over -= lot.packs;
+            lot.packs = 0;
+            toDelete.push({ id: lot.id });
+          } else {
+            lot.packs -= over;
+            over = 0;
+            toUpdate.push({ lot });
+          }
+        }
+        for (const d of toDelete) {
+          if (d.id) await supabase.from("transfer_order_lot_lines").delete().eq("id", d.id);
+        }
+        for (const u of toUpdate) {
+          if (u.lot.id) {
+            await supabase
+              .from("transfer_order_lot_lines")
+              .update({ packs: u.lot.packs, pack_weight_g: u.lot.packWeightG })
+              .eq("id", u.lot.id);
+          }
+        }
+        const next = current.filter((l) => l.packs > 0);
+        setLotLines((prev) => ({ ...prev, [lineId]: next }));
+        return;
+      }
+
+      // newPacks > assigned → top up from unused records (oldest first)
+      let remaining = newPacks - assigned;
+      const usedIds = new Set(current.map((l) => l.productionRecordId).filter(Boolean));
+      const next = [...current];
+      const newAdds: { idx: number; lot: LotLineLocal }[] = [];
+
+      for (const rec of records) {
+        if (remaining <= 0) break;
+        if (usedIds.has(rec.id)) continue;
+        const newLot: LotLineLocal = {
+          productionRecordId: rec.id,
+          productionDate: rec.productionDate,
+          packs: remaining,
+          packWeightG: packSize,
+        };
+        newAdds.push({ idx: next.length, lot: newLot });
+        next.push(newLot);
+        remaining = 0;
+        break;
+      }
+
+      // Fallback: no unused record — dump remainder into newest existing lot
+      if (remaining > 0 && next.length > 0) {
+        const lastIdx = next.length - 1;
+        next[lastIdx] = { ...next[lastIdx], packs: next[lastIdx].packs + remaining };
+        remaining = 0;
+        if (next[lastIdx].id) {
+          await supabase
+            .from("transfer_order_lot_lines")
+            .update({ packs: next[lastIdx].packs, pack_weight_g: next[lastIdx].packWeightG })
+            .eq("id", next[lastIdx].id);
+        }
+      }
+
+      setLotLines((prev) => ({ ...prev, [lineId]: next }));
+      for (const a of newAdds) {
+        await handleLotLineSave(lineId, a.idx, a.lot);
+      }
+    },
+    [handleLotLineSave],
   );
 
   // Qty input refs for Tab navigation
@@ -1069,30 +1166,7 @@ export default function TransferOrderPage({
                                         const packs = Math.round(Number(e.target.value) || 0);
                                         const grams = packs * packSize;
                                         handleLineUpdate(line.id, "actualQty", grams);
-
-                                        // FIFO auto-fill lots if empty (read from refs to avoid stale closures)
-                                        const currentLots = lotLinesRef.current[line.id] || [];
-                                        const hasManualLots = currentLots.some((l) => l.packs > 0);
-                                        const records = prodRecordsMapRef.current[line.skuId] || [];
-                                        if (packs > 0 && !hasManualLots && records.length > 0) {
-                                          let remaining = packs;
-                                          const newLotLines: LotLineLocal[] = [];
-                                          for (const record of records) {
-                                            if (remaining <= 0) break;
-                                            const allocate = remaining;
-                                            newLotLines.push({
-                                              productionRecordId: record.id,
-                                              productionDate: record.productionDate,
-                                              packs: allocate,
-                                              packWeightG: packSize,
-                                            });
-                                            remaining -= allocate;
-                                          }
-                                          setLotLines((prev) => ({ ...prev, [line.id]: newLotLines }));
-                                          for (let i = 0; i < newLotLines.length; i++) {
-                                            handleLotLineSave(line.id, i, newLotLines[i]);
-                                          }
-                                        }
+                                        reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === "Tab" || e.key === "Enter") {
