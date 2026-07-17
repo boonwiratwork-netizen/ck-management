@@ -467,6 +467,19 @@ export default function TransferOrderPage({
       toast.error(t("to.qtyError"));
       return;
     }
+    // Lot-assignment mismatch guard
+    const mismatched: string[] = [];
+    for (const l of formState.lines) {
+      const ps = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+      if (ps <= 0) continue;
+      const currentPacks = Math.round(l.actualQty / ps);
+      const assignedPacks = (lotLines[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
+      if (currentPacks !== assignedPacks) mismatched.push(l.skuCode || l.skuName);
+    }
+    if (mismatched.length > 0) {
+      toast.error(`Lot mismatch: ${mismatched.join(", ")} — please fix Lot Assignment before sending`);
+      return;
+    }
     setFormSending(true);
     const result = await sendTO(formState.toId, formState.lines);
     setFormSending(false);
