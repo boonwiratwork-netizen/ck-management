@@ -448,9 +448,7 @@ export default function TransferOrderPage({
 
     // Normal draft save
     for (const l of formState.lines) {
-      if (l.actualQty > 0) {
-        await updateTOLine(l.id, l.actualQty, l.note);
-      }
+      await updateTOLine(l.id, l.actualQty, l.note);
     }
     const total = formState.lines.reduce((sum, l) => sum + l.actualQty * l.unitCost, 0);
     await supabase.from("transfer_orders").update({ total_value: total }).eq("id", formState.toId);
@@ -789,7 +787,6 @@ export default function TransferOrderPage({
         return;
       }
 
-
       // newPacks > assigned → top up from unused records (oldest first)
       let remaining = newPacks - assigned;
       const usedIds = new Set(current.map((l) => l.productionRecordId).filter(Boolean));
@@ -828,7 +825,6 @@ export default function TransferOrderPage({
             .eq("id", next[newestIdx].id);
         }
       }
-
 
       setLotLines((prev) => ({ ...prev, [lineId]: next }));
       for (const a of newAdds) {
@@ -1192,7 +1188,7 @@ export default function TransferOrderPage({
                                       }}
                                       className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       style={{ textAlign: "right" }}
-                                      key={`packs-${line.id}`}
+                                      key={`packs-${line.id}-${line.actualQty}`}
                                     />
                                     {(() => {
                                       const estG = currentPacks * packSize;
@@ -1265,7 +1261,7 @@ export default function TransferOrderPage({
                                     placeholder="override"
                                     className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border border-input bg-amber-50/60 opacity-80 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     style={{ textAlign: "right" }}
-                                    key={`wt-${line.id}`}
+                                    key={`wt-${line.id}-${line.actualQty}`}
                                   />
                                   <div className="text-xs text-muted-foreground mt-0.5 text-right font-mono">
                                     = {formatNumber(currentPacks * packSize, 0)} g
