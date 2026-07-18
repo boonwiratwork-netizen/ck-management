@@ -260,82 +260,83 @@ export default function TransferOrderPage({
     const skuIds = formState.lines.map((l) => l.skuId);
     const lineIds = formState.lines.map((l) => l.id);
 
-    // Query A: production records per SKU (for lot date dropdown)
-    supabase
-      .from("production_records")
-      .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
-      .in("sm_sku_id", skuIds)
-      .order("production_date", { ascending: true })
-      .then(({ data }) => {
-        if (!data) return;
-        const bySkuRecords: Record<string, ProdRecord[]> = {};
-        for (const r of data) {
-          if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
-          bySkuRecords[r.sm_sku_id].push({
+    // Load production records (for the lot date dropdown) AND existing saved lots together,
+    // then auto-fill sequentially — never in parallel. The previous parallel version had a
+    // race: auto-fill checked lotLinesRef (still empty) before the DB load resolved, so it
+    // created a junk lot (packs derived from weight/packSize, e.g. 28) and persisted it,
+    // duplicating the real saved lot (e.g. 25). We now only auto-fill lines that truly have
+    // no saved lot after the DB load completes, and we seed from packsCount, not weight.
+    (async () => {
+      // Step 1: production records per SKU
+      const { data: prodData } = await supabase
+        .from("production_records")
+        .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
+        .in("sm_sku_id", skuIds)
+        .order("production_date", { ascending: true });
+
+      const bySkuRecords: Record<string, ProdRecord[]> = {};
+      for (const r of prodData || []) {
+        if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
+        bySkuRecords[r.sm_sku_id].push({
+          id: r.id,
+          productionDate: r.production_date,
+          actualOutputG: r.actual_output_g,
+          batchesProduced: r.batches_produced,
+        });
+      }
+      setProdRecordsMap(bySkuRecords);
+
+      // Step 2: existing saved lots for this TO (source of truth — load BEFORE any auto-fill)
+      const savedByLine: Record<string, LotLineLocal[]> = {};
+      if (lineIds.length > 0) {
+        const { data: lotData } = await supabase
+          .from("transfer_order_lot_lines")
+          .select("*")
+          .in("to_line_id", lineIds);
+        for (const r of lotData || []) {
+          if (!savedByLine[r.to_line_id]) savedByLine[r.to_line_id] = [];
+          savedByLine[r.to_line_id].push({
             id: r.id,
+            productionRecordId: r.production_record_id || "",
             productionDate: r.production_date,
-            actualOutputG: r.actual_output_g,
-            batchesProduced: r.batches_produced,
+            packs: r.packs,
+            packWeightG: r.pack_weight_g,
           });
         }
-        setProdRecordsMap(bySkuRecords);
+      }
 
-        // Auto-fill lots for lines that already have packs but no lot assignment yet
-        setTimeout(() => {
-          if (!formStateRef.current) return;
-          for (const line of formStateRef.current.lines) {
-            const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
-            if (ps <= 0) continue;
-            const currentPacks = Math.round(line.actualQty / ps);
-            if (currentPacks <= 0) continue;
-            const existing = lotLinesRef.current[line.id] || [];
-            if (existing.some((l) => l.packs > 0)) continue;
-            const records = bySkuRecords[line.skuId] || [];
-            if (records.length === 0) continue;
-            const newLot: LotLineLocal = {
-              productionRecordId: records[0].id,
-              productionDate: records[0].productionDate,
-              packs: currentPacks,
-              packWeightG: ps,
-            };
-            setLotLines((prev) => ({ ...prev, [line.id]: [newLot] }));
-            handleLotLineSave(line.id, 0, newLot);
-          }
-          setAutoFillVersion((v) => v + 1);
-        }, 0);
-      });
-
-    // Query B: existing lot lines for this TO
-    if (lineIds.length > 0) {
-      supabase
-        .from("transfer_order_lot_lines")
-        .select("*")
-        .in("to_line_id", lineIds)
-        .then(({ data }) => {
-          if (!data) return;
-          const byLine: Record<string, LotLineLocal[]> = {};
-          for (const r of data) {
-            if (!byLine[r.to_line_id]) byLine[r.to_line_id] = [];
-            byLine[r.to_line_id].push({
-              id: r.id,
-              productionRecordId: r.production_record_id || "",
-              productionDate: r.production_date,
-              packs: r.packs,
-              packWeightG: r.pack_weight_g,
-            });
-          }
-          setLotLines((prev) => {
-            // Only set lots from DB for lines that don't already have auto-filled lots
-            const merged = { ...prev };
-            for (const lineId of Object.keys(byLine)) {
-              if (!merged[lineId] || merged[lineId].length === 0) {
-                merged[lineId] = byLine[lineId];
-              }
-            }
-            return merged;
-          });
-        });
-    }
+      // Step 3: seed state from saved lots, then auto-fill only lines with NO saved lot.
+      const seeded: Record<string, LotLineLocal[]> = {};
+      const toPersist: { lineId: string; lot: LotLineLocal }[] = [];
+      for (const line of formState.lines) {
+        const existing = savedByLine[line.id] || [];
+        if (existing.length > 0) {
+          seeded[line.id] = existing; // real saved lots win, no auto-fill
+          continue;
+        }
+        // No saved lot — auto-fill one from the oldest production record, using packsCount
+        const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+        if (ps <= 0) continue;
+        const packs = line.packsCount != null ? line.packsCount : Math.round(line.actualQty / ps);
+        if (packs <= 0) continue;
+        const records = bySkuRecords[line.skuId] || [];
+        if (records.length === 0) continue;
+        const newLot: LotLineLocal = {
+          productionRecordId: records[0].id,
+          productionDate: records[0].productionDate,
+          packs,
+          packWeightG: ps,
+        };
+        seeded[line.id] = [newLot];
+        toPersist.push({ lineId: line.id, lot: newLot });
+      }
+      setLotLines(seeded);
+      // Persist only the freshly auto-filled lots (real saved lots already have ids)
+      for (const p of toPersist) {
+        await handleLotLineSave(p.lineId, 0, p.lot);
+      }
+      setAutoFillVersion((v) => v + 1);
+    })();
   }, [formState?.toId, formState?.lines.length]);
 
   // ─── Create TO from TR ───
