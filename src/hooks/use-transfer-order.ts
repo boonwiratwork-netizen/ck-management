@@ -588,14 +588,32 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   );
 
   // ─── Delete TO line ───
-  const deleteTOLine = useCallback(async (lineId: string) => {
-    const { error } = await supabase.from("transfer_order_lines").delete().eq("id", lineId);
-    if (error) {
-      toast.error("Failed to delete line");
-      return false;
-    }
-    return true;
-  }, []);
+  // trLineId + reason: when the line originated from a TR, mark that TR line as
+  // declined (with a reason) so the branch can see their request wasn't fulfilled.
+  const deleteTOLine = useCallback(
+    async (lineId: string, trLineId: string | null, reason?: string, declinedBy?: string | null) => {
+      const { error } = await supabase.from("transfer_order_lines").delete().eq("id", lineId);
+      if (error) {
+        toast.error("Failed to delete line");
+        return false;
+      }
+      if (trLineId) {
+        const { error: declineErr } = await supabase
+          .from("transfer_request_lines")
+          .update({
+            decline_reason: reason || null,
+            declined_at: new Date().toISOString(),
+            declined_by: declinedBy || null,
+          })
+          .eq("id", trLineId);
+        if (declineErr) {
+          toast.error("Line removed, but failed to record the decline reason: " + declineErr.message);
+        }
+      }
+      return true;
+    },
+    [],
+  );
 
   return {
     pendingTRs,

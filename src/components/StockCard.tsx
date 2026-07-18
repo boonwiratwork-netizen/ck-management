@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
+import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 import type { SKU } from "@/types/sku";
 
 interface StockCardProps {
@@ -597,7 +598,7 @@ export function StockCard({
                 "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, updated_at, branches(branch_name))",
               )
               .eq("sku_id", skuId)
-              .in("transfer_orders.status", ["Sent", "Received", "Partially Received"])
+              .in("transfer_orders.status", TO_DELIVERED_STATUSES)
               .gte("transfer_orders.delivery_date", fromDate),
             supabase
               .from("stock_adjustments")
@@ -683,7 +684,7 @@ export function StockCard({
                 .from("transfer_order_lines")
                 .select("actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)")
                 .eq("sku_id", skuId)
-                .in("transfer_orders.status", ["Sent", "Received"])
+                .in("transfer_orders.status", TO_DELIVERED_STATUSES)
                 .lt("transfer_orders.delivery_date", fromDate),
               supabase
                 .from("stock_adjustments")
@@ -696,7 +697,8 @@ export function StockCard({
             if (cancelled) return;
             const preProd = (preProdRes.data ?? []).reduce((s, r) => s + Number(r.actual_output_g), 0);
             const preDel = (preToRes.data ?? []).reduce(
-              (s, l: any) => s + (l.actual_qty > 0 ? Number(l.actual_qty) : Number(l.planned_qty)),
+              (s, l: any) =>
+                s + computeToLineQty(Number(l.actual_qty), Number(l.planned_qty), l.transfer_orders?.status),
               0,
             );
             const preAdj = (preAdjRes.data ?? []).reduce((s, a) => s + Number(a.quantity), 0);
@@ -745,7 +747,7 @@ export function StockCard({
           toLines.forEach((line: any) => {
             const to = line.transfer_orders;
             if (!to) return;
-            const qty = line.actual_qty > 0 ? line.actual_qty : line.planned_qty;
+            const qty = computeToLineQty(line.actual_qty, line.planned_qty, to.status);
             const branchName = to.branches?.branch_name ?? "";
             const lots = lotLookup[line.id] ?? [];
             let lotText = "";

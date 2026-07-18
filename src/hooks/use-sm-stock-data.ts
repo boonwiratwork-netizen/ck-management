@@ -8,6 +8,7 @@ import { BomByproduct } from "@/types/byproduct";
 import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 
 export interface SMStockBalance {
   skuId: string;
@@ -99,7 +100,7 @@ export function useSmStockData(
       supabase
         .from("transfer_orders")
         .select("id, status, delivery_date")
-        .in("status", ["Sent", "Received", "Partially Received"]),
+        .in("status", TO_DELIVERED_STATUSES),
       fetchAnchorData(),
     ]).then(([obRes, adjRes, toLineRes, toRes]) => {
       if (obRes.data) {
@@ -133,7 +134,7 @@ export function useSmStockData(
       const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
       for (const line of toLineRes.data || []) {
         if (!validToIds.has(line.to_id)) continue;
-        const qty = line.actual_qty > 0 ? line.actual_qty : toStatusMap[line.to_id] === "Sent" ? line.planned_qty : 0;
+        const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
         delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
         lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
       }
@@ -334,7 +335,7 @@ export function useSmStockData(
   const refreshToDelivered = useCallback(async () => {
     const [toLineRes, toRes] = await Promise.all([
       supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
-      supabase.from("transfer_orders").select("id, status, delivery_date").in("status", ["Sent", "Received"]),
+      supabase.from("transfer_orders").select("id, status, delivery_date").in("status", TO_DELIVERED_STATUSES),
     ]);
     const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
     const toStatusMap: Record<string, string> = {};
@@ -347,7 +348,7 @@ export function useSmStockData(
     const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
     for (const line of toLineRes.data || []) {
       if (!validToIds.has(line.to_id)) continue;
-      const qty = line.actual_qty > 0 ? line.actual_qty : toStatusMap[line.to_id] === "Sent" ? line.planned_qty : 0;
+      const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
       delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
       lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
     }

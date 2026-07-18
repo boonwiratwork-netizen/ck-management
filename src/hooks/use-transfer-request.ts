@@ -52,6 +52,8 @@ export interface TRDetailLine {
   peakDailyUsage: number;
   rop: number;
   parstock: number;
+  declineReason: string | null;
+  declinedAt: string | null;
 }
 
 const statusOrder: Record<BranchSmStockStatus, number> = {
@@ -693,7 +695,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     const { data, error } = await supabase
       .from("transfer_request_lines")
       .select(
-        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, peak_daily_usage, rop, parstock",
+        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, peak_daily_usage, rop, parstock, decline_reason, declined_at",
       )
       .eq("tr_id", trId);
     if (error || !data) return [];
@@ -719,6 +721,8 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       peakDailyUsage: d.peak_daily_usage,
       rop: d.rop,
       parstock: d.parstock,
+      declineReason: d.decline_reason,
+      declinedAt: d.declined_at,
     }));
   }, []);
 

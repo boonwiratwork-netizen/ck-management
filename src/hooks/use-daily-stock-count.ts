@@ -320,7 +320,7 @@ export function useDailyStockCount({
         calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
         supabase
           .from("stock_adjustments")
-          .select("sku_id, quantity, adjustment_date")
+          .select("sku_id, quantity, adjustment_date, reason")
           .eq("branch_id", branchId)
           .gt("adjustment_date", gapStartDate)
           .lt("adjustment_date", beforeDate),
@@ -343,11 +343,16 @@ export function useDailyStockCount({
         gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
       });
 
-      // Stock adjustments: group by sku, only include rows where adjustment_date > SKU's anchor
+      // Stock adjustments: group by sku, only include rows where adjustment_date > SKU's anchor.
+      // Also exclude "Stock Count" reason rows, matching the CK-side canonical formulas
+      // (use-sm-stock-data.ts / use-stock-data.ts / use-pk-stock-data.ts) — currently a no-op
+      // here since branch-level adjustments are only ever written by StoreStock.tsx's fixed
+      // reason enum (never "Stock Count"), but kept as a defensive guard against future drift.
       const gapAdjBySku: Record<string, number> = {};
       (gapAdjLinesRes.data || []).forEach((r: any) => {
         const anchor = lastCountDate[r.sku_id];
         if (anchor && r.adjustment_date && r.adjustment_date <= anchor) return;
+        if ((r.reason ?? "").includes("Stock Count")) return;
         gapAdjBySku[r.sku_id] = (gapAdjBySku[r.sku_id] || 0) + Number(r.quantity);
       });
 

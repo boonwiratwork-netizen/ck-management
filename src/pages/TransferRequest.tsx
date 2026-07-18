@@ -1805,10 +1805,21 @@ export default function TransferRequestPage() {
                     </thead>
                     <tbody>
                       {detailLines.map((l) => (
-                        <tr key={l.id} className={tableTokens.dataRow}>
+                        <tr
+                          key={l.id}
+                          className={`${tableTokens.dataRow} ${l.declineReason ? "bg-destructive/[0.04]" : ""}`}
+                        >
                           <td className={`${tableTokens.dataCell} font-mono text-xs`}>{l.skuCode}</td>
                           <td className={tableTokens.truncatedCell} title={l.skuName}>
                             {l.skuName}
+                            {l.declineReason && (
+                              <div className="flex items-center gap-1 text-xs text-destructive mt-0.5">
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                <span className="truncate" title={l.declineReason}>
+                                  ไม่ได้ส่ง: {l.declineReason}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className={tableTokens.dataCellMono}>{formatNumber(l.stockOnHand, 0)}</td>
                           <td className={`${tableTokens.dataCellMono} text-muted-foreground`}>

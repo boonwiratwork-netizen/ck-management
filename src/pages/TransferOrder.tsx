@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UnitLabel } from "@/components/ui/unit-label";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -126,6 +126,20 @@ export default function TransferOrderPage({
 
   // Delete TO confirmation
   const [deleteTarget, setDeleteTarget] = useState<TOHistoryRow | null>(null);
+
+  // Delete TO line confirmation (with required reason when the line came from a TR)
+  const [deleteLineTarget, setDeleteLineTarget] = useState<{
+    lineId: string;
+    trLineId: string | null;
+    skuName: string;
+  } | null>(null);
+  const [deleteLineReason, setDeleteLineReason] = useState("");
+
+  // Over-stock warning (send qty exceeds CK's real current stock) — non-blocking, confirm-to-proceed
+  const [overStockWarning, setOverStockWarning] = useState<{
+    shortfalls: { skuName: string; needed: number; available: number }[];
+    onConfirm: () => void;
+  } | null>(null);
 
   // Standalone form pre-create state
   const [standaloneOpen, setStandaloneOpen] = useState(false);
@@ -257,6 +271,213 @@ export default function TransferOrderPage({
     });
   }, [formState?.toId, formState?.lines.length, skus]);
 
+  // ─── Current ground-truth stock balance per SKU (SM/RM/PK) ───
+  // Same anchor-based formula as the SM/RM/PK Stock pages: physical count anchor +
+  // production/receipts after anchor − deliveries after anchor + non-Stock-Count
+  // adjustments after anchor (falls back to opening + total in − total out when no
+  // anchor exists yet). Both the lot-capping effect below and the send-time over-stock
+  // warning call this same function, so the two numbers can never drift apart.
+  const computeCurrentStockForSkus = useCallback(
+    async (skuIdsInput: string[]): Promise<Record<string, number>> => {
+      const currentStockMap: Record<string, number> = {};
+      if (skuIdsInput.length === 0) return currentStockMap;
+
+      const smSkuIds = skuIdsInput.filter((id) => skus.find((s) => s.id === id)?.type === "SM");
+      const rmPkSkuIds = skuIdsInput.filter((id) => {
+        const t = skus.find((s) => s.id === id)?.type;
+        return t === "RM" || t === "PK";
+      });
+
+      const { data: sessions } = await supabase
+        .from("stock_count_sessions")
+        .select("id, count_date, completed_at")
+        .eq("status", "Completed")
+        .is("deleted_at", null);
+      const sessionIds = (sessions || []).map((s: any) => s.id);
+      const sessionDateMap: Record<string, string> = {};
+      const sessionCompletedAtMap: Record<string, string> = {};
+      for (const s of sessions || []) {
+        sessionDateMap[s.id] = s.count_date;
+        sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
+      }
+
+      // ── SM ──
+      if (smSkuIds.length > 0) {
+        const { data: prodData } = await supabase
+          .from("production_records")
+          .select("sm_sku_id, production_date, actual_output_g, created_at")
+          .in("sm_sku_id", smSkuIds);
+        const bySkuRecords: Record<
+          string,
+          { actualOutputG: number; createdAt: string; productionDate: string }[]
+        > = {};
+        for (const r of prodData || []) {
+          if (!bySkuRecords[r.sm_sku_id]) bySkuRecords[r.sm_sku_id] = [];
+          bySkuRecords[r.sm_sku_id].push({
+            actualOutputG: r.actual_output_g,
+            createdAt: r.created_at,
+            productionDate: r.production_date,
+          });
+        }
+
+        const anchorMap: Record<string, { physical_qty: number; count_date: string; completed_at: string }> = {};
+        if (sessionIds.length > 0) {
+          const { data: lines } = await supabase
+            .from("stock_count_lines")
+            .select("sku_id, physical_qty, session_id")
+            .in("session_id", sessionIds)
+            .eq("type", "SM")
+            .in("sku_id", smSkuIds)
+            .not("physical_qty", "is", null);
+          for (const row of lines || []) {
+            const countDate = sessionDateMap[row.session_id];
+            if (!countDate) continue;
+            const existing = anchorMap[row.sku_id];
+            if (!existing || countDate > existing.count_date) {
+              anchorMap[row.sku_id] = {
+                physical_qty: row.physical_qty,
+                count_date: countDate,
+                completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
+              };
+            }
+          }
+        }
+
+        const { data: toLineRows } = await supabase
+          .from("transfer_order_lines")
+          .select("sku_id, planned_qty, actual_qty, to_id")
+          .in("sku_id", smSkuIds);
+        const { data: toRows } = await supabase
+          .from("transfer_orders")
+          .select("id, status, delivery_date")
+          .in("status", ["Sent", "Received", "Partially Received"]);
+        const validToIds = new Set((toRows || []).map((t: any) => t.id));
+        const toStatusMap: Record<string, string> = {};
+        const toDateMap: Record<string, string> = {};
+        for (const t of toRows || []) {
+          toStatusMap[t.id] = t.status;
+          toDateMap[t.id] = t.delivery_date;
+        }
+        const deliveredBySku: Record<string, { qty: number; date: string }[]> = {};
+        for (const l of toLineRows || []) {
+          if (!validToIds.has(l.to_id)) continue;
+          const qty = l.actual_qty > 0 ? l.actual_qty : toStatusMap[l.to_id] === "Sent" ? l.planned_qty : 0;
+          if (!deliveredBySku[l.sku_id]) deliveredBySku[l.sku_id] = [];
+          deliveredBySku[l.sku_id].push({ qty, date: toDateMap[l.to_id] });
+        }
+
+        const { data: adjRows } = await supabase
+          .from("stock_adjustments")
+          .select("sku_id, quantity, adjustment_date, reason")
+          .eq("stock_type", "SM")
+          .is("branch_id", null)
+          .in("sku_id", smSkuIds);
+
+        const { data: openingRows } = await supabase
+          .from("stock_opening_balances")
+          .select("sku_id, quantity")
+          .in("sku_id", smSkuIds);
+        const openingMap: Record<string, number> = {};
+        for (const o of openingRows || []) openingMap[o.sku_id] = o.quantity;
+
+        for (const skuId of smSkuIds) {
+          const anchor = anchorMap[skuId];
+          const produced = bySkuRecords[skuId] || [];
+          if (anchor) {
+            const producedAfter = produced
+              .filter((r) => (r.createdAt ?? r.productionDate) > anchor.completed_at)
+              .reduce((sum, r) => sum + r.actualOutputG, 0);
+            const deliveredAfter = (deliveredBySku[skuId] || [])
+              .filter((d) => d.date > anchor.count_date)
+              .reduce((sum, d) => sum + d.qty, 0);
+            const adjustmentsAfter = (adjRows || [])
+              .filter(
+                (a: any) =>
+                  a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
+              )
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
+          } else {
+            const totalProduced = produced.reduce((sum, r) => sum + r.actualOutputG, 0);
+            const totalDelivered = (deliveredBySku[skuId] || []).reduce((sum, d) => sum + d.qty, 0);
+            const netAdjustment = (adjRows || [])
+              .filter((a: any) => a.sku_id === skuId)
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = (openingMap[skuId] || 0) + totalProduced - totalDelivered + netAdjustment;
+          }
+        }
+      }
+
+      // ── RM/PK ── same anchor formula as RMStock/PKStock pages (use-stock-data.ts /
+      // use-pk-stock-data.ts), scoped to just the requested SKUs.
+      if (rmPkSkuIds.length > 0) {
+        const { data: rmPkAnchorLines } = await supabase
+          .from("stock_count_lines")
+          .select("sku_id, physical_qty, session_id, type")
+          .in("session_id", sessionIds)
+          .in("type", ["RM", "PK"])
+          .in("sku_id", rmPkSkuIds)
+          .not("physical_qty", "is", null);
+        const rmPkAnchorMap: Record<string, { physical_qty: number; count_date: string }> = {};
+        for (const row of rmPkAnchorLines || []) {
+          const countDate = sessionDateMap[row.session_id];
+          if (!countDate) continue;
+          const existing = rmPkAnchorMap[row.sku_id];
+          if (!existing || countDate > existing.count_date) {
+            rmPkAnchorMap[row.sku_id] = { physical_qty: row.physical_qty, count_date: countDate };
+          }
+        }
+
+        const { data: receiptRows } = await supabase
+          .from("goods_receipts")
+          .select("sku_id, quantity_received, receipt_date")
+          .in("sku_id", rmPkSkuIds);
+
+        const { data: rmPkAdjRows } = await supabase
+          .from("stock_adjustments")
+          .select("sku_id, quantity, adjustment_date, reason, stock_type")
+          .in("stock_type", ["RM", "PK"])
+          .is("branch_id", null)
+          .in("sku_id", rmPkSkuIds);
+
+        const { data: rmPkOpeningRows } = await supabase
+          .from("stock_opening_balances")
+          .select("sku_id, quantity")
+          .in("sku_id", rmPkSkuIds);
+        const rmPkOpeningMap: Record<string, number> = {};
+        for (const o of rmPkOpeningRows || []) rmPkOpeningMap[o.sku_id] = o.quantity;
+
+        for (const skuId of rmPkSkuIds) {
+          const converter = skus.find((s) => s.id === skuId)?.converter ?? 1;
+          const anchor = rmPkAnchorMap[skuId];
+          if (anchor) {
+            const receivedAfter = (receiptRows || [])
+              .filter((r) => r.sku_id === skuId && r.receipt_date > anchor.count_date)
+              .reduce((sum, r) => sum + r.quantity_received * converter, 0);
+            const adjustmentsAfter = (rmPkAdjRows || [])
+              .filter(
+                (a: any) =>
+                  a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
+              )
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = anchor.physical_qty + receivedAfter + adjustmentsAfter;
+          } else {
+            const totalReceived = (receiptRows || [])
+              .filter((r) => r.sku_id === skuId)
+              .reduce((sum, r) => sum + r.quantity_received * converter, 0);
+            const netAdjustment = (rmPkAdjRows || [])
+              .filter((a: any) => a.sku_id === skuId)
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = Math.max(0, rmPkOpeningMap[skuId] || 0) + totalReceived + netAdjustment;
+          }
+        }
+      }
+
+      return currentStockMap;
+    },
+    [skus],
+  );
+
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
     if (!formState || formState.lines.length === 0) {
@@ -295,112 +516,7 @@ export default function TransferOrderPage({
       }
       setProdRecordsMap(bySkuRecords);
 
-      // Step 1b: compute each SKU's current ground-truth stock balance, using the exact same
-      // anchor formula as the SM Stock page (physical count anchor + production after anchor
-      // − deliveries after anchor + non-Stock-Count adjustments after anchor; falls back to
-      // opening balance + total produced − total delivered + net adjustments when no anchor
-      // exists yet). This is scoped to just this form's SKUs rather than the whole system.
-      const currentStockMap: Record<string, number> = {};
-      {
-        const { data: sessions } = await supabase
-          .from("stock_count_sessions")
-          .select("id, count_date, completed_at")
-          .eq("status", "Completed")
-          .is("deleted_at", null);
-        const sessionIds = (sessions || []).map((s: any) => s.id);
-        const sessionDateMap: Record<string, string> = {};
-        const sessionCompletedAtMap: Record<string, string> = {};
-        for (const s of sessions || []) {
-          sessionDateMap[s.id] = s.count_date;
-          sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
-        }
-        const anchorMap: Record<string, { physical_qty: number; count_date: string; completed_at: string }> = {};
-        if (sessionIds.length > 0) {
-          const { data: lines } = await supabase
-            .from("stock_count_lines")
-            .select("sku_id, physical_qty, session_id")
-            .in("session_id", sessionIds)
-            .eq("type", "SM")
-            .in("sku_id", skuIds)
-            .not("physical_qty", "is", null);
-          for (const row of lines || []) {
-            const countDate = sessionDateMap[row.session_id];
-            if (!countDate) continue;
-            const existing = anchorMap[row.sku_id];
-            if (!existing || countDate > existing.count_date) {
-              anchorMap[row.sku_id] = {
-                physical_qty: row.physical_qty,
-                count_date: countDate,
-                completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
-              };
-            }
-          }
-        }
-
-        const { data: toLineRows } = await supabase
-          .from("transfer_order_lines")
-          .select("sku_id, planned_qty, actual_qty, to_id")
-          .in("sku_id", skuIds);
-        const { data: toRows } = await supabase
-          .from("transfer_orders")
-          .select("id, status, delivery_date")
-          .in("status", ["Sent", "Received", "Partially Received"]);
-        const validToIds = new Set((toRows || []).map((t: any) => t.id));
-        const toStatusMap: Record<string, string> = {};
-        const toDateMap: Record<string, string> = {};
-        for (const t of toRows || []) {
-          toStatusMap[t.id] = t.status;
-          toDateMap[t.id] = t.delivery_date;
-        }
-        const deliveredBySku: Record<string, { qty: number; date: string }[]> = {};
-        for (const l of toLineRows || []) {
-          if (!validToIds.has(l.to_id)) continue;
-          const qty = l.actual_qty > 0 ? l.actual_qty : toStatusMap[l.to_id] === "Sent" ? l.planned_qty : 0;
-          if (!deliveredBySku[l.sku_id]) deliveredBySku[l.sku_id] = [];
-          deliveredBySku[l.sku_id].push({ qty, date: toDateMap[l.to_id] });
-        }
-
-        const { data: adjRows } = await supabase
-          .from("stock_adjustments")
-          .select("sku_id, quantity, adjustment_date, reason")
-          .eq("stock_type", "SM")
-          .is("branch_id", null)
-          .in("sku_id", skuIds);
-
-        const { data: openingRows } = await supabase
-          .from("stock_opening_balances")
-          .select("sku_id, quantity")
-          .in("sku_id", skuIds);
-        const openingMap: Record<string, number> = {};
-        for (const o of openingRows || []) openingMap[o.sku_id] = o.quantity;
-
-        for (const skuId of skuIds) {
-          const anchor = anchorMap[skuId];
-          const produced = bySkuRecords[skuId] || [];
-          if (anchor) {
-            const producedAfter = produced
-              .filter((r) => (r.createdAt ?? r.productionDate) > anchor.completed_at)
-              .reduce((sum, r) => sum + r.actualOutputG, 0);
-            const deliveredAfter = (deliveredBySku[skuId] || [])
-              .filter((d) => d.date > anchor.count_date)
-              .reduce((sum, d) => sum + d.qty, 0);
-            const adjustmentsAfter = (adjRows || [])
-              .filter(
-                (a: any) =>
-                  a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
-              )
-              .reduce((sum, a: any) => sum + a.quantity, 0);
-            currentStockMap[skuId] = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
-          } else {
-            const totalProduced = produced.reduce((sum, r) => sum + r.actualOutputG, 0);
-            const totalDelivered = (deliveredBySku[skuId] || []).reduce((sum, d) => sum + d.qty, 0);
-            const netAdjustment = (adjRows || [])
-              .filter((a: any) => a.sku_id === skuId)
-              .reduce((sum, a: any) => sum + a.quantity, 0);
-            currentStockMap[skuId] = (openingMap[skuId] || 0) + totalProduced - totalDelivered + netAdjustment;
-          }
-        }
-      }
+      const currentStockMap = await computeCurrentStockForSkus(skuIds);
       setCurrentStockBySku(currentStockMap);
 
       // Step 2: existing saved lots for this TO (source of truth — load BEFORE any auto-fill)
@@ -456,7 +572,7 @@ export default function TransferOrderPage({
       }
       setAutoFillVersion((v) => v + 1);
     })();
-  }, [formState?.toId, formState?.lines.length]);
+  }, [formState?.toId, formState?.lines.length, computeCurrentStockForSkus]);
 
   // ─── Create TO from TR ───
   const handleCreateFromTR = useCallback(
@@ -574,14 +690,28 @@ export default function TransferOrderPage({
 
   // ─── Delete line ───
   const handleDeleteLine = useCallback(
-    async (lineId: string) => {
-      const ok = await deleteTOLine(lineId);
+    async (lineId: string, trLineId: string | null, reason: string) => {
+      const ok = await deleteTOLine(lineId, trLineId, reason, profileId);
       if (ok) {
-        setFormState((prev) => (prev ? { ...prev, lines: prev.lines.filter((l) => l.id !== lineId) } : prev));
+        setFormState((prev) => {
+          if (!prev) return prev;
+          const remaining = prev.lines.filter((l) => l.id !== lineId);
+          if (remaining.length === 0) {
+            toast.warning("ใบโอนนี้ไม่มีรายการเหลือแล้ว — พิจารณายกเลิกใบโอนนี้ทั้งใบ");
+          }
+          return { ...prev, lines: remaining };
+        });
       }
     },
-    [deleteTOLine],
+    [deleteTOLine, profileId],
   );
+
+  const confirmDeleteLine = useCallback(async () => {
+    if (!deleteLineTarget) return;
+    await handleDeleteLine(deleteLineTarget.lineId, deleteLineTarget.trLineId, deleteLineReason.trim());
+    setDeleteLineTarget(null);
+    setDeleteLineReason("");
+  }, [deleteLineTarget, deleteLineReason, handleDeleteLine]);
 
   // ─── Save Draft / Save Sent Edit ───
   const handleSaveDraft = useCallback(async () => {
@@ -608,14 +738,24 @@ export default function TransferOrderPage({
   }, [formState, updateTOLine, skus, fetchHistory, refreshSmStock]);
 
   // ─── Send TO ───
-  const handleSend = useCallback(async () => {
+  const executeSend = useCallback(async () => {
     if (!formState) return;
-    const invalidLines = formState.lines.filter((l) => l.actualQty < 0);
-    if (invalidLines.length > 0) {
-      toast.error(t("to.qtyError"));
+    setFormSending(true);
+    const result = await sendTO(formState.toId, formState.lines);
+    setFormSending(false);
+    if (result.error) {
+      toast.error(result.error);
       return;
     }
-    // Lot-assignment mismatch guard — SM items only (PK/RM have no production lots)
+    toast.success(`${formState.toNumber} ${t("to.sentSuccess")}`);
+    setFormState(null);
+    fetchHistory();
+    refreshSmStock?.();
+  }, [formState, sendTO, fetchHistory, refreshSmStock, t]);
+
+  // Lot-assignment mismatch guard — SM items only (PK/RM have no production lots) — then send
+  const checkLotsAndSend = useCallback(() => {
+    if (!formState) return;
     const mismatched: string[] = [];
     for (const l of formState.lines) {
       const skuInfo = skus.find((s) => s.id === l.skuId);
@@ -630,18 +770,36 @@ export default function TransferOrderPage({
       toast.error(`Lot mismatch: ${mismatched.join(", ")} — please fix Lot Assignment before sending`);
       return;
     }
-    setFormSending(true);
-    const result = await sendTO(formState.toId, formState.lines);
-    setFormSending(false);
-    if (result.error) {
-      toast.error(result.error);
+    executeSend();
+  }, [formState, skus, lotLines, packsOverride, executeSend]);
+
+  const handleSend = useCallback(async () => {
+    if (!formState) return;
+    const invalidLines = formState.lines.filter((l) => l.actualQty < 0);
+    if (invalidLines.length > 0) {
+      toast.error(t("to.qtyError"));
       return;
     }
-    toast.success(`${formState.toNumber} ${t("to.sentSuccess")}`);
-    setFormState(null);
-    fetchHistory();
-    refreshSmStock?.();
-  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t, skus, lotLines, packsOverride]);
+
+    // Over-stock warning — non-blocking, confirm-to-proceed (audit signal, matching this
+    // codebase's existing philosophy of surfacing over-committed values rather than blocking).
+    const shortfalls = formState.lines
+      .filter((l) => l.actualQty > 0)
+      .map((l) => ({ skuName: l.skuName, needed: l.actualQty, available: currentStockBySku[l.skuId] ?? 0 }))
+      .filter((s) => s.needed > s.available);
+    if (shortfalls.length > 0) {
+      setOverStockWarning({
+        shortfalls,
+        onConfirm: () => {
+          setOverStockWarning(null);
+          checkLotsAndSend();
+        },
+      });
+      return;
+    }
+
+    checkLotsAndSend();
+  }, [formState, t, currentStockBySku, checkLotsAndSend]);
 
   // ─── Cancel form ───
   const handleCancelForm = useCallback(() => {
@@ -756,7 +914,7 @@ export default function TransferOrderPage({
   );
 
   // ─── Send from detail modal ───
-  const handleSendFromDetail = useCallback(async () => {
+  const executeSendFromDetail = useCallback(async () => {
     if (!detailTO) return;
     setFormSending(true);
     const result = await sendTO(detailTO.id, detailLines);
@@ -770,6 +928,28 @@ export default function TransferOrderPage({
     fetchHistory();
     refreshSmStock?.();
   }, [detailTO, detailLines, sendTO, fetchHistory, refreshSmStock, t]);
+
+  const handleSendFromDetail = useCallback(async () => {
+    if (!detailTO) return;
+    // Over-stock warning — same non-blocking check as the full edit form, computed fresh
+    // since this "quick send from detail" path doesn't have currentStockBySku pre-loaded.
+    const stockMap = await computeCurrentStockForSkus(detailLines.map((l) => l.skuId));
+    const shortfalls = detailLines
+      .filter((l) => l.actualQty > 0)
+      .map((l) => ({ skuName: l.skuName, needed: l.actualQty, available: stockMap[l.skuId] ?? 0 }))
+      .filter((s) => s.needed > s.available);
+    if (shortfalls.length > 0) {
+      setOverStockWarning({
+        shortfalls,
+        onConfirm: () => {
+          setOverStockWarning(null);
+          executeSendFromDetail();
+        },
+      });
+      return;
+    }
+    executeSendFromDetail();
+  }, [detailTO, detailLines, computeCurrentStockForSkus, executeSendFromDetail]);
 
   const totalFormValue = useMemo(
     () => formState?.lines.reduce((s, l) => s + l.actualQty * l.unitCost, 0) ?? 0,
@@ -1455,7 +1635,10 @@ export default function TransferOrderPage({
                                     onBlur={(e) => {
                                       const grams = Number(e.target.value) || 0;
                                       if (grams > 0) {
-                                        handleLineUpdate(line.id, "actualQty", grams);
+                                        const packs = packSize > 0 ? Math.round(grams / packSize) : null;
+                                        if (packs !== null) setPacksOverride((prev) => ({ ...prev, [line.id]: packs }));
+                                        handleLineUpdate(line.id, "actualQty", grams, packs ?? undefined);
+                                        if (packs !== null) reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }
                                     }}
                                     placeholder="override"
@@ -1512,12 +1695,18 @@ export default function TransferOrderPage({
                                       )}
                                     </Button>
                                   )}
-                                  {canEdit && !line.trLineId && (
+                                  {canEdit && !formState.isEditingSent && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7 text-destructive hover:text-destructive"
-                                      onClick={() => handleDeleteLine(line.id)}
+                                      onClick={() =>
+                                        setDeleteLineTarget({
+                                          lineId: line.id,
+                                          trLineId: line.trLineId,
+                                          skuName: line.skuName,
+                                        })
+                                      }
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
@@ -2094,6 +2283,94 @@ export default function TransferOrderPage({
           refreshSmStock?.();
         }}
       />
+
+      {/* ═══ Delete TO Line Confirmation ═══ */}
+      <Dialog
+        open={!!deleteLineTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteLineTarget(null);
+            setDeleteLineReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ลบรายการ {deleteLineTarget?.skuName ?? ""}?</DialogTitle>
+          </DialogHeader>
+          {deleteLineTarget?.trLineId && (
+            <div className="py-2 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                รายการนี้มาจากใบขอของสาขา — ระบุเหตุผลที่ไม่มีของส่ง สาขาจะเห็นเหตุผลนี้
+              </p>
+              <Input
+                placeholder="เหตุผล เช่น ของหมดสต็อก"
+                value={deleteLineReason}
+                onChange={(e) => setDeleteLineReason(e.target.value)}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteLineTarget(null);
+                setDeleteLineReason("");
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!!deleteLineTarget?.trLineId && !deleteLineReason.trim()}
+              onClick={confirmDeleteLine}
+            >
+              ยืนยันลบ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ Over-stock Warning (non-blocking — confirm to proceed) ═══ */}
+      <Dialog
+        open={!!overStockWarning}
+        onOpenChange={(o) => {
+          if (!o) setOverStockWarning(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+              จำนวนที่จะส่งเกินสต็อกจริงที่ CK มี
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-1 max-h-64 overflow-y-auto">
+            {overStockWarning?.shortfalls.map((s, i) => (
+              <div key={i} className="flex justify-between text-sm border-b py-1.5 last:border-b-0">
+                <span className="truncate mr-2">{s.skuName}</span>
+                <span className="font-mono text-right shrink-0">
+                  ต้องการ {formatNumber(s.needed, 0)} / มี {formatNumber(s.available, 0)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ยังกด "ส่งต่อ" ได้ถ้าต้องการ แต่สต็อก CK อาจติดลบหลังจากส่งใบโอนนี้
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverStockWarning(null)}>
+              ยกเลิก
+            </Button>
+            <Button
+              className="bg-warning hover:bg-warning/90 text-warning-foreground"
+              onClick={() => overStockWarning?.onConfirm()}
+            >
+              ส่งต่อ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

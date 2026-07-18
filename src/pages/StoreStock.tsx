@@ -257,18 +257,30 @@ export default function StoreStockPage({
     });
     setPriceMap(pm);
 
-    // Step 3 — Most recent physical_count per SKU (last 90 days only)
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
-
-    const { data: countData } = await supabase
-      .from("daily_stock_counts")
-      .select("sku_id, physical_count, count_date")
-      .eq("branch_id", branchId)
-      .gte("count_date", ninetyDaysAgoStr)
-      .lte("count_date", today)
-      .order("count_date", { ascending: false });
+    // Step 3 — Most recent physical_count per SKU (no age cutoff — always anchor to the
+    // branch's actual latest count, however old, matching every other stock formula in
+    // the app; a 90-day cutoff here previously discarded stale-but-real counts and reset
+    // the balance to a 2020 baseline, which was a regression, not intentional behavior).
+    // Paginated (like the sales_entries fetch below) since without a date bound this can
+    // exceed the default row cap for a branch with a long count history.
+    let countData: any[] = [];
+    {
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("daily_stock_counts")
+          .select("sku_id, physical_count, count_date")
+          .eq("branch_id", branchId)
+          .lte("count_date", today)
+          .order("count_date", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        countData = countData.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+    }
 
     const lastSnapBySku = new Map<string, { balance: number; date: string }>();
     (countData || []).forEach((r: any) => {

@@ -1812,6 +1812,9 @@ export type Database = {
         Row: {
           avg_daily_usage: number
           created_at: string
+          decline_reason: string | null
+          declined_at: string | null
+          declined_by: string | null
           id: string
           notes: string
           parstock: number
@@ -1828,6 +1831,9 @@ export type Database = {
         Insert: {
           avg_daily_usage?: number
           created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          declined_by?: string | null
           id?: string
           notes?: string
           parstock?: number
@@ -1844,6 +1850,9 @@ export type Database = {
         Update: {
           avg_daily_usage?: number
           created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          declined_by?: string | null
           id?: string
           notes?: string
           parstock?: number
@@ -1870,6 +1879,13 @@ export type Database = {
             columns: ["tr_id"]
             isOneToOne: false
             referencedRelation: "transfer_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_request_lines_declined_by_fkey"
+            columns: ["declined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
