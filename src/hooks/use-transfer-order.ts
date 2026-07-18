@@ -398,7 +398,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       totalValue += lv;
       await supabase
         .from("transfer_order_lines")
-        .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note })
+        .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note, packs_count: l.packsCount })
         .eq("id", l.id);
     }
     await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId);
