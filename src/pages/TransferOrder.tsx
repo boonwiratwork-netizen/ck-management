@@ -201,6 +201,11 @@ export default function TransferOrderPage({
   // ─── Duplicate lot save guard ───
   const [savingLotLines, setSavingLotLines] = useState<Set<string>>(new Set());
   const [autoFillVersion, setAutoFillVersion] = useState(0);
+  // ─── Pack count the manager explicitly typed, kept independent from WEIGHT (g) ───
+  // Without this, PACKS is derived from actualQty/packSize on every render, so editing
+  // WEIGHT alone (e.g. sending more/less than the standard pack weight in one batch)
+  // silently recalculates and overwrites the PACKS the manager already confirmed.
+  const [packsOverride, setPacksOverride] = useState<Record<string, number>>({});
 
   // Refs to avoid stale closures in onBlur handlers
   const lotLinesRef = useRef<Record<string, LotLineLocal[]>>({});
@@ -210,6 +215,7 @@ export default function TransferOrderPage({
   }, [formState]);
   const prodRecordsMapRef = useRef<Record<string, ProdRecord[]>>({});
   const savingLotLinesRef = useRef<Set<string>>(new Set());
+  const packsOverrideRef = useRef<Record<string, number>>({});
   useEffect(() => {
     lotLinesRef.current = lotLines;
   }, [lotLines]);
@@ -219,6 +225,27 @@ export default function TransferOrderPage({
   useEffect(() => {
     savingLotLinesRef.current = savingLotLines;
   }, [savingLotLines]);
+  useEffect(() => {
+    packsOverrideRef.current = packsOverride;
+  }, [packsOverride]);
+
+  // Seed packsOverride from actualQty the first time each line is seen (new TO opened, or
+  // line freshly added) — after that, only the PACKS input's own onBlur updates it.
+  useEffect(() => {
+    if (!formState) return;
+    setPacksOverride((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const line of formState.lines) {
+        if (next[line.id] === undefined) {
+          const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
+          next[line.id] = ps > 0 ? Math.round(line.actualQty / ps) : 0;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [formState?.toId, formState?.lines.length, skus]);
 
   // Fetch production data + existing lot lines when form opens
   useEffect(() => {
@@ -470,7 +497,7 @@ export default function TransferOrderPage({
     for (const l of formState.lines) {
       const ps = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
       if (ps <= 0) continue;
-      const currentPacks = Math.round(l.actualQty / ps);
+      const currentPacks = packsOverride[l.id] ?? Math.round(l.actualQty / ps);
       const assignedPacks = (lotLines[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
       if (currentPacks !== assignedPacks) mismatched.push(l.skuCode || l.skuName);
     }
@@ -489,7 +516,7 @@ export default function TransferOrderPage({
     setFormState(null);
     fetchHistory();
     refreshSmStock?.();
-  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t, skus, lotLines]);
+  }, [formState, sendTO, saveTOEdits, fetchHistory, refreshSmStock, t, skus, lotLines, packsOverride]);
 
   // ─── Cancel form ───
   const handleCancelForm = useCallback(() => {
@@ -1078,7 +1105,8 @@ export default function TransferOrderPage({
                       const packSize = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
                       const sku = smSkus.find((s) => s.id === line.skuId);
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
-                      const currentPacks = packSize > 0 ? Math.round(line.actualQty / packSize) : 0;
+                      const currentPacks =
+                        packsOverride[line.id] ?? (packSize > 0 ? Math.round(line.actualQty / packSize) : 0);
                       const isExpanded = expandedLines[line.id] || false;
                       const lineLots = lotLines[line.id] || [];
                       const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
@@ -1173,6 +1201,7 @@ export default function TransferOrderPage({
                                       onBlur={(e) => {
                                         const packs = Math.round(Number(e.target.value) || 0);
                                         const grams = packs * packSize;
+                                        setPacksOverride((prev) => ({ ...prev, [line.id]: packs }));
                                         handleLineUpdate(line.id, "actualQty", grams);
                                         reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }}
@@ -1190,7 +1219,7 @@ export default function TransferOrderPage({
                                       }}
                                       className="h-8 w-full text-sm font-mono text-right px-2 rounded-md border-2 border-primary/40 bg-amber-50 focus:border-primary focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       style={{ textAlign: "right" }}
-                                      key={`packs-${line.id}-${line.actualQty}`}
+                                      key={`packs-${line.id}-${packsOverride[line.id] ?? "init"}`}
                                     />
                                     {(() => {
                                       const estG = currentPacks * packSize;
