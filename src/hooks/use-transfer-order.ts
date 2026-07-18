@@ -178,11 +178,24 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             for (const p of prices || []) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
           }
 
+          // Fetch pack_size for each SKU so we can seed packs_count for SM lines
+          const allSkuIds = [...new Set(params.trLines.map((l) => l.skuId))];
+          const packSizeMap: Record<string, number> = {};
+          if (allSkuIds.length > 0) {
+            const { data: skuRows } = await supabase
+              .from("skus")
+              .select("id, pack_size")
+              .in("id", allSkuIds);
+            for (const s of skuRows || []) packSizeMap[s.id] = Number(s.pack_size) || 0;
+          }
+
           const lineInserts = params.trLines.map((l) => {
             const unitCost =
               l.skuType === "RM" || l.skuType === "PK"
                 ? (rmPriceMap[l.skuId] ?? 0)
                 : (getBomCostPerGram?.(l.skuId) ?? 0);
+            const ps = packSizeMap[l.skuId] || 0;
+            const packsCount = ps > 0 ? Math.round(l.requestedQty / ps) : null;
             return {
               to_id: toRow.id,
               sku_id: l.skuId,
@@ -194,6 +207,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
               notes: "",
               tr_line_id: l.id,
               sku_type: l.skuType,
+              packs_count: packsCount,
             };
           });
 
@@ -203,7 +217,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             .select();
           if (lErr) return { error: lErr.message };
 
-          toLines = (insertedLines || []).map((il) => {
+          toLines = (insertedLines || []).map((il: any) => {
             const trLine = params.trLines!.find((tl) => tl.skuId === il.sku_id);
             return {
               id: il.id,
@@ -217,6 +231,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
               lineValue: il.line_value,
               note: il.notes,
               trLineId: il.tr_line_id,
+              packsCount: il.packs_count ?? null,
             };
           });
 
