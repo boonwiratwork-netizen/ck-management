@@ -194,6 +194,11 @@ export default function TransferOrderPage({
 
   // ─── Production records per SKU (for lot assignment) ───
   const [prodRecordsMap, setProdRecordsMap] = useState<Record<string, ProdRecord[]>>({});
+  // ─── Shipped grams per production lot (production_record_id -> total shipped grams) ───
+  // Counts ONLY clean lot-assignment data (created on/after 2026-07-18). Used purely to
+  // compute each lot's remaining stock so the lot dropdown can hide sold-out lots. This is
+  // a display filter only — it does not affect any stock/dashboard/food-cost number.
+  const [shippedByLot, setShippedByLot] = useState<Record<string, number>>({});
   // ─── Lot lines per TO line ───
   const [lotLines, setLotLines] = useState<Record<string, LotLineLocal[]>>({});
   // ─── Expanded lot rows ───
@@ -285,6 +290,29 @@ export default function TransferOrderPage({
         });
       }
       setProdRecordsMap(bySkuRecords);
+
+      // Step 1b: compute shipped grams per production lot from CLEAN data only.
+      // "Clean" = lot-assignment rows recorded on/after 2026-07-18 (the fix date). Rows before
+      // then contained duplicated auto-fill junk and are excluded, so the dropdown starts fresh
+      // today and gets cleaner as new clean shipments accumulate. Counts shipments across ALL
+      // TOs (a lot can be drawn down by many orders), keyed by production_record_id.
+      const allRecordIds = Object.values(bySkuRecords)
+        .flat()
+        .map((r) => r.id);
+      const shipped: Record<string, number> = {};
+      if (allRecordIds.length > 0) {
+        const { data: shipData } = await supabase
+          .from("transfer_order_lot_lines")
+          .select("production_record_id, packs, pack_weight_g, created_at")
+          .in("production_record_id", allRecordIds)
+          .gte("created_at", "2026-07-18");
+        for (const s of shipData || []) {
+          if (!s.production_record_id) continue;
+          shipped[s.production_record_id] =
+            (shipped[s.production_record_id] || 0) + (s.packs || 0) * (s.pack_weight_g || 0);
+        }
+      }
+      setShippedByLot(shipped);
 
       // Step 2: existing saved lots for this TO (source of truth — load BEFORE any auto-fill)
       const savedByLine: Record<string, LotLineLocal[]> = {};
@@ -870,6 +898,26 @@ export default function TransferOrderPage({
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
 
+  // Filter the lot dropdown to production runs that still have stock left.
+  // remaining = produced (actual_output_g) − shipped from that lot (clean data ≥ 2026-07-18).
+  // Always keep a lot that's currently selected on this line (so a selection never vanishes
+  // mid-edit), and if filtering would leave nothing for an item that has production history,
+  // fall back to showing all lots so the manager can always pick something.
+  const getVisibleRecords = useCallback(
+    (lineId: string, skuRecords: ProdRecord[]): ProdRecord[] => {
+      if (skuRecords.length === 0) return skuRecords;
+      const selectedIds = new Set(
+        (lotLines[lineId] || []).map((l) => l.productionRecordId).filter(Boolean),
+      );
+      const visible = skuRecords.filter((r) => {
+        const remaining = (r.actualOutputG || 0) - (shippedByLot[r.id] || 0);
+        return remaining > 0 || selectedIds.has(r.id);
+      });
+      return visible.length > 0 ? visible : skuRecords;
+    },
+    [lotLines, shippedByLot],
+  );
+
   const thSortable = `${tableTokens.headerCell} cursor-pointer select-none hover:bg-muted/50`;
 
   return (
@@ -1424,7 +1472,7 @@ export default function TransferOrderPage({
                                             handleLotLineSave(line.id, lotIdx, updated);
                                           }}
                                         >
-                                          {skuRecords.map((r) => (
+                                          {getVisibleRecords(line.id, skuRecords).map((r) => (
                                             <option key={r.id} value={r.id}>
                                               {new Date(r.productionDate + "T00:00:00").toLocaleDateString("en-GB", {
                                                 day: "2-digit",
