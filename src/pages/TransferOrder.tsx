@@ -431,7 +431,9 @@ export default function TransferOrderPage({
           seeded[line.id] = existing; // real saved lots win, no auto-fill
           continue;
         }
-        // No saved lot — auto-fill one from the oldest production record, using packsCount
+        // No saved lot — auto-fill one from the oldest production record, using packsCount.
+        // SM items only: PK/RM have no production lots and must never be auto-assigned a lot.
+        if (skus.find((s) => s.id === line.skuId)?.type !== "SM") continue;
         const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
         if (ps <= 0) continue;
         const packs = line.packsCount != null ? line.packsCount : Math.round(line.actualQty / ps);
@@ -613,10 +615,12 @@ export default function TransferOrderPage({
       toast.error(t("to.qtyError"));
       return;
     }
-    // Lot-assignment mismatch guard
+    // Lot-assignment mismatch guard — SM items only (PK/RM have no production lots)
     const mismatched: string[] = [];
     for (const l of formState.lines) {
-      const ps = skus.find((s) => s.id === l.skuId)?.packSize ?? 0;
+      const skuInfo = skus.find((s) => s.id === l.skuId);
+      if (skuInfo?.type !== "SM") continue;
+      const ps = skuInfo.packSize ?? 0;
       if (ps <= 0) continue;
       const currentPacks = packsOverride[l.id] ?? Math.round(l.actualQty / ps);
       const assignedPacks = (lotLines[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
@@ -1259,6 +1263,11 @@ export default function TransferOrderPage({
                     {formState.lines.map((line, idx) => {
                       const packSize = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
                       const sku = smSkus.find((s) => s.id === line.skuId);
+                      // Lot assignment is SM-only. RM and PK items also carry a packSize, so
+                      // packSize > 0 alone is NOT enough to gate the lot UI — it would wrongly
+                      // pull PK/RM lines into lot assignment and then block sending on a lot
+                      // mismatch. Only genuine SM items have production lots.
+                      const isSmLine = skus.find((s) => s.id === line.skuId)?.type === "SM";
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
                       const currentPacks =
                         packsOverride[line.id] ??
@@ -1488,7 +1497,7 @@ export default function TransferOrderPage({
                             <td className={`${tableTokens.dataCell} text-center align-middle`}>
                               <div>
                                 <div className="flex items-center justify-center gap-0.5">
-                                  {packSize > 0 && (
+                                  {packSize > 0 && isSmLine && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
