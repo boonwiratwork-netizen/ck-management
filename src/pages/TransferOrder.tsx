@@ -229,8 +229,9 @@ export default function TransferOrderPage({
     packsOverrideRef.current = packsOverride;
   }, [packsOverride]);
 
-  // Seed packsOverride from actualQty the first time each line is seen (new TO opened, or
-  // line freshly added) — after that, only the PACKS input's own onBlur updates it.
+  // Seed packsOverride from persisted packsCount (or actualQty/packSize fallback for legacy
+  // orders that predate the packs_count column). After that, only the PACKS input's own
+  // onBlur updates it.
   useEffect(() => {
     if (!formState) return;
     setPacksOverride((prev) => {
@@ -239,7 +240,8 @@ export default function TransferOrderPage({
       for (const line of formState.lines) {
         if (next[line.id] === undefined) {
           const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
-          next[line.id] = ps > 0 ? Math.round(line.actualQty / ps) : 0;
+          next[line.id] =
+            line.packsCount != null ? line.packsCount : ps > 0 ? Math.round(line.actualQty / ps) : 0;
           changed = true;
         }
       }
