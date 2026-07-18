@@ -36,6 +36,7 @@ export interface TOLine {
   lineValue: number;
   note: string;
   trLineId: string | null;
+  packsCount: number | null;
 }
 
 export interface TOHistoryRow {
