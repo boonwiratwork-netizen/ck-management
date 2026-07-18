@@ -550,6 +550,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           notes: "",
           tr_line_id: null,
           sku_type: skuType,
+          packs_count: 0,
         })
         .select()
         .single();
@@ -569,6 +570,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         lineValue: 0,
         note: "",
         trLineId: null,
+        packsCount: (data as any).packs_count ?? 0,
       };
     },
     [getBomCostPerGram],
