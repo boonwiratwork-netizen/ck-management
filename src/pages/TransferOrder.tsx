@@ -405,7 +405,7 @@ export default function TransferOrderPage({
 
   // ─── Update line locally ───
   const handleLineUpdate = useCallback(
-    (lineId: string, field: "actualQty" | "note", value: any) => {
+    (lineId: string, field: "actualQty" | "note", value: any, packsCount?: number | null) => {
       setFormState((prev) => {
         if (!prev) return prev;
         return {
@@ -415,13 +415,14 @@ export default function TransferOrderPage({
             const updated = { ...l, [field]: value };
             if (field === "actualQty") {
               updated.lineValue = updated.actualQty * updated.unitCost;
+              if (packsCount !== undefined) updated.packsCount = packsCount;
             }
             return updated;
           }),
         };
       });
       if (field === "actualQty") {
-        updateTOLine(lineId, value as number);
+        updateTOLine(lineId, value as number, undefined, packsCount);
       } else {
         updateTOLine(lineId, 0).then(() => {
           // Update note via separate call
