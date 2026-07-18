@@ -662,12 +662,50 @@ export function StockCard({
 
           // Step 3: Opening row
           if (preWindowCount) {
+            // The count itself is exact as of its own date, but the visible window
+            // starts at fromDate (14/30 days back) — anything that happened strictly
+            // between the count and fromDate would otherwise be silently dropped from
+            // the replay, causing a false "Balance mismatch" banner. Fold that gap into
+            // the opening figure the same way the no-anchor fallback below already does.
+            const [gapProdRes, gapToRes, gapAdjRes] = await Promise.all([
+              supabase
+                .from("production_records")
+                .select("actual_output_g")
+                .eq("sm_sku_id", skuId)
+                .gt("production_date", preWindowCount.count_date)
+                .lt("production_date", fromDate),
+              supabase
+                .from("transfer_order_lines")
+                .select("actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)")
+                .eq("sku_id", skuId)
+                .in("transfer_orders.status", TO_DELIVERED_STATUSES)
+                .gt("transfer_orders.delivery_date", preWindowCount.count_date)
+                .lt("transfer_orders.delivery_date", fromDate),
+              supabase
+                .from("stock_adjustments")
+                .select("quantity, reason")
+                .eq("sku_id", skuId)
+                .eq("stock_type", "SM")
+                .is("branch_id", null)
+                .gt("adjustment_date", preWindowCount.count_date)
+                .lt("adjustment_date", fromDate),
+            ]);
+            if (cancelled) return;
+            const gapProd = (gapProdRes.data ?? []).reduce((s, r) => s + Number(r.actual_output_g), 0);
+            const gapDel = (gapToRes.data ?? []).reduce(
+              (s, l: any) =>
+                s + computeToLineQty(Number(l.actual_qty), Number(l.planned_qty), l.transfer_orders?.status),
+              0,
+            );
+            const gapAdj = (gapAdjRes.data ?? [])
+              .filter((a: any) => !(a.reason || "").includes("Stock Count"))
+              .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,
               sortKey: `0000-00-00`,
               type: "Opening",
               reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
-              qtyIn: preWindowCount.physical_qty,
+              qtyIn: preWindowCount.physical_qty + gapProd - gapDel + gapAdj,
               qtyOut: null,
               isReset: true,
             });
