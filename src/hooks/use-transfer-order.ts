@@ -36,6 +36,7 @@ export interface TOLine {
   lineValue: number;
   note: string;
   trLineId: string | null;
+  packsCount: number | null;
 }
 
 export interface TOHistoryRow {
@@ -177,11 +178,24 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             for (const p of prices || []) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
           }
 
+          // Fetch pack_size for each SKU so we can seed packs_count for SM lines
+          const allSkuIds = [...new Set(params.trLines.map((l) => l.skuId))];
+          const packSizeMap: Record<string, number> = {};
+          if (allSkuIds.length > 0) {
+            const { data: skuRows } = await supabase
+              .from("skus")
+              .select("id, pack_size")
+              .in("id", allSkuIds);
+            for (const s of skuRows || []) packSizeMap[s.id] = Number(s.pack_size) || 0;
+          }
+
           const lineInserts = params.trLines.map((l) => {
             const unitCost =
               l.skuType === "RM" || l.skuType === "PK"
                 ? (rmPriceMap[l.skuId] ?? 0)
                 : (getBomCostPerGram?.(l.skuId) ?? 0);
+            const ps = packSizeMap[l.skuId] || 0;
+            const packsCount = ps > 0 ? Math.round(l.requestedQty / ps) : null;
             return {
               to_id: toRow.id,
               sku_id: l.skuId,
@@ -193,6 +207,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
               notes: "",
               tr_line_id: l.id,
               sku_type: l.skuType,
+              packs_count: packsCount,
             };
           });
 
@@ -202,7 +217,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             .select();
           if (lErr) return { error: lErr.message };
 
-          toLines = (insertedLines || []).map((il) => {
+          toLines = (insertedLines || []).map((il: any) => {
             const trLine = params.trLines!.find((tl) => tl.skuId === il.sku_id);
             return {
               id: il.id,
@@ -216,6 +231,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
               lineValue: il.line_value,
               note: il.notes,
               trLineId: il.tr_line_id,
+              packsCount: il.packs_count ?? null,
             };
           });
 
@@ -233,14 +249,20 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   );
 
   // ─── Update TO line ───
-  const updateTOLine = useCallback(async (lineId: string, actualQty: number, note?: string) => {
-    const costUpdate: any = { actual_qty: actualQty };
-    if (note !== undefined) costUpdate.notes = note;
-    // line_value will be recalculated on send
-    const { error } = await supabase.from("transfer_order_lines").update(costUpdate).eq("id", lineId);
-    if (error) toast.error("Failed to update line");
-    return !error;
-  }, []);
+  // packsCount: pass a number to persist explicit pack count; leave undefined to preserve the
+  // existing packs_count (e.g. when only WEIGHT is being edited). Pass null to clear.
+  const updateTOLine = useCallback(
+    async (lineId: string, actualQty: number, note?: string, packsCount?: number | null) => {
+      const costUpdate: any = { actual_qty: actualQty };
+      if (note !== undefined) costUpdate.notes = note;
+      if (packsCount !== undefined) costUpdate.packs_count = packsCount;
+      // line_value will be recalculated on send
+      const { error } = await supabase.from("transfer_order_lines").update(costUpdate).eq("id", lineId);
+      if (error) toast.error("Failed to update line");
+      return !error;
+    },
+    [],
+  );
 
   // ─── Send TO ───
   const sendTO = useCallback(
@@ -252,7 +274,12 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         totalValue += lv;
         await supabase
           .from("transfer_order_lines")
-          .update({ actual_qty: line.actualQty, line_value: lv, notes: line.note })
+          .update({
+            actual_qty: line.actualQty,
+            line_value: lv,
+            notes: line.note,
+            packs_count: line.packsCount,
+          })
           .eq("id", line.id);
       }
 
@@ -371,7 +398,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       totalValue += lv;
       await supabase
         .from("transfer_order_lines")
-        .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note })
+        .update({ actual_qty: l.actualQty, line_value: lv, notes: l.note, packs_count: l.packsCount })
         .eq("id", l.id);
     }
     await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId);
@@ -488,7 +515,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   const fetchTODetail = useCallback(async (toId: string): Promise<TOLine[]> => {
     const { data, error } = await supabase
       .from("transfer_order_lines")
-      .select("id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes, tr_line_id")
+      .select("id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes, tr_line_id, packs_count")
       .eq("to_id", toId);
     if (error || !data) return [];
 
@@ -499,7 +526,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       for (const s of skus || []) skuMap[s.id] = { code: s.sku_id, name: s.name };
     }
 
-    return data.map((d) => ({
+    return data.map((d: any) => ({
       id: d.id,
       skuId: d.sku_id,
       skuCode: skuMap[d.sku_id]?.code || "",
@@ -511,6 +538,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       lineValue: d.line_value,
       note: d.notes,
       trLineId: d.tr_line_id,
+      packsCount: d.packs_count ?? null,
     }));
   }, []);
 
@@ -533,6 +561,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           notes: "",
           tr_line_id: null,
           sku_type: skuType,
+          packs_count: 0,
         })
         .select()
         .single();
@@ -552,6 +581,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         lineValue: 0,
         note: "",
         trLineId: null,
+        packsCount: (data as any).packs_count ?? 0,
       };
     },
     [getBomCostPerGram],

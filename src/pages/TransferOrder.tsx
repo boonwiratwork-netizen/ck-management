@@ -229,8 +229,9 @@ export default function TransferOrderPage({
     packsOverrideRef.current = packsOverride;
   }, [packsOverride]);
 
-  // Seed packsOverride from actualQty the first time each line is seen (new TO opened, or
-  // line freshly added) — after that, only the PACKS input's own onBlur updates it.
+  // Seed packsOverride from persisted packsCount (or actualQty/packSize fallback for legacy
+  // orders that predate the packs_count column). After that, only the PACKS input's own
+  // onBlur updates it.
   useEffect(() => {
     if (!formState) return;
     setPacksOverride((prev) => {
@@ -239,7 +240,8 @@ export default function TransferOrderPage({
       for (const line of formState.lines) {
         if (next[line.id] === undefined) {
           const ps = skus.find((s) => s.id === line.skuId)?.packSize ?? 0;
-          next[line.id] = ps > 0 ? Math.round(line.actualQty / ps) : 0;
+          next[line.id] =
+            line.packsCount != null ? line.packsCount : ps > 0 ? Math.round(line.actualQty / ps) : 0;
           changed = true;
         }
       }
@@ -403,7 +405,7 @@ export default function TransferOrderPage({
 
   // ─── Update line locally ───
   const handleLineUpdate = useCallback(
-    (lineId: string, field: "actualQty" | "note", value: any) => {
+    (lineId: string, field: "actualQty" | "note", value: any, packsCount?: number | null) => {
       setFormState((prev) => {
         if (!prev) return prev;
         return {
@@ -413,13 +415,14 @@ export default function TransferOrderPage({
             const updated = { ...l, [field]: value };
             if (field === "actualQty") {
               updated.lineValue = updated.actualQty * updated.unitCost;
+              if (packsCount !== undefined) updated.packsCount = packsCount;
             }
             return updated;
           }),
         };
       });
       if (field === "actualQty") {
-        updateTOLine(lineId, value as number);
+        updateTOLine(lineId, value as number, undefined, packsCount);
       } else {
         updateTOLine(lineId, 0).then(() => {
           // Update note via separate call
@@ -1106,7 +1109,12 @@ export default function TransferOrderPage({
                       const sku = smSkus.find((s) => s.id === line.skuId);
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
                       const currentPacks =
-                        packsOverride[line.id] ?? (packSize > 0 ? Math.round(line.actualQty / packSize) : 0);
+                        packsOverride[line.id] ??
+                        (line.packsCount != null
+                          ? line.packsCount
+                          : packSize > 0
+                            ? Math.round(line.actualQty / packSize)
+                            : 0);
                       const isExpanded = expandedLines[line.id] || false;
                       const lineLots = lotLines[line.id] || [];
                       const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
@@ -1202,7 +1210,7 @@ export default function TransferOrderPage({
                                         const packs = Math.round(Number(e.target.value) || 0);
                                         const grams = packs * packSize;
                                         setPacksOverride((prev) => ({ ...prev, [line.id]: packs }));
-                                        handleLineUpdate(line.id, "actualQty", grams);
+                                        handleLineUpdate(line.id, "actualQty", grams, packs);
                                         reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }}
                                       onKeyDown={(e) => {
@@ -1859,7 +1867,10 @@ export default function TransferOrderPage({
                               {detailPackSize > 0 ? (
                                 <div>
                                   <span>
-                                    {Math.round(l.actualQty / detailPackSize)} {detailPackUnit}
+                                    {l.packsCount != null
+                                      ? l.packsCount
+                                      : Math.round(l.actualQty / detailPackSize)}{" "}
+                                    {detailPackUnit}
                                   </span>
                                   <div className="text-xs text-muted-foreground">
                                     {formatNumber(l.actualQty, 0)}
