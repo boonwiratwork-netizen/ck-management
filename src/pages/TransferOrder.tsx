@@ -1210,7 +1210,7 @@ export default function TransferOrderPage({
                                         const packs = Math.round(Number(e.target.value) || 0);
                                         const grams = packs * packSize;
                                         setPacksOverride((prev) => ({ ...prev, [line.id]: packs }));
-                                        handleLineUpdate(line.id, "actualQty", grams);
+                                        handleLineUpdate(line.id, "actualQty", grams, packs);
                                         reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
                                       }}
                                       onKeyDown={(e) => {
