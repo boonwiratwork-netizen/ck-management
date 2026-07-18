@@ -53,6 +53,7 @@ interface ProdRecord {
   productionDate: string;
   actualOutputG: number;
   batchesProduced: number;
+  createdAt?: string;
 }
 
 function formatTOTimestamp(isoStr?: string): string {
@@ -194,11 +195,13 @@ export default function TransferOrderPage({
 
   // ─── Production records per SKU (for lot assignment) ───
   const [prodRecordsMap, setProdRecordsMap] = useState<Record<string, ProdRecord[]>>({});
-  // ─── Shipped grams per production lot (production_record_id -> total shipped grams) ───
-  // Counts ONLY clean lot-assignment data (created on/after 2026-07-18). Used purely to
-  // compute each lot's remaining stock so the lot dropdown can hide sold-out lots. This is
-  // a display filter only — it does not affect any stock/dashboard/food-cost number.
-  const [shippedByLot, setShippedByLot] = useState<Record<string, number>>({});
+  // ─── Current ground-truth stock balance per SM SKU (same anchor formula as SM Stock page) ───
+  // Used to cap the lot dropdown to only the most-recently-produced lots whose cumulative
+  // production fits within the SKU's actual current stock — older lots are excluded outright,
+  // regardless of shipment history, since the anchor-based balance is already the trusted
+  // source of truth (physical counts + production − deliveries + adjustments). This is a
+  // display filter only — it does not affect any stock/dashboard/food-cost number.
+  const [currentStockBySku, setCurrentStockBySku] = useState<Record<string, number>>({});
   // ─── Lot lines per TO line ───
   const [lotLines, setLotLines] = useState<Record<string, LotLineLocal[]>>({});
   // ─── Expanded lot rows ───
@@ -275,7 +278,7 @@ export default function TransferOrderPage({
       // Step 1: production records per SKU
       const { data: prodData } = await supabase
         .from("production_records")
-        .select("id, sm_sku_id, production_date, actual_output_g, batches_produced")
+        .select("id, sm_sku_id, production_date, actual_output_g, batches_produced, created_at")
         .in("sm_sku_id", skuIds)
         .order("production_date", { ascending: true });
 
@@ -287,36 +290,118 @@ export default function TransferOrderPage({
           productionDate: r.production_date,
           actualOutputG: r.actual_output_g,
           batchesProduced: r.batches_produced,
+          createdAt: r.created_at,
         });
       }
       setProdRecordsMap(bySkuRecords);
 
-      // Step 1b: compute shipped grams per production lot from CLEAN data only.
-      // "Clean" = lot-assignment rows recorded at/after 2026-07-18T05:00:00Z — a precise
-      // timestamp, not just a calendar date. A date-only cutoff ("2026-07-18") was found to
-      // still include auto-fill-bug junk created earlier that same day (03:07–04:04 UTC,
-      // before the fix went live at 04:32–04:56 UTC), which double-counted shipped quantity
-      // for the affected lots. This timestamp sits safely after both fix deployments. Rows before
-      // then contained duplicated auto-fill junk and are excluded, so the dropdown starts fresh
-      // today and gets cleaner as new clean shipments accumulate. Counts shipments across ALL
-      // TOs (a lot can be drawn down by many orders), keyed by production_record_id.
-      const allRecordIds = Object.values(bySkuRecords)
-        .flat()
-        .map((r) => r.id);
-      const shipped: Record<string, number> = {};
-      if (allRecordIds.length > 0) {
-        const { data: shipData } = await supabase
-          .from("transfer_order_lot_lines")
-          .select("production_record_id, packs, pack_weight_g, created_at")
-          .in("production_record_id", allRecordIds)
-          .gte("created_at", "2026-07-18T05:00:00Z");
-        for (const s of shipData || []) {
-          if (!s.production_record_id) continue;
-          shipped[s.production_record_id] =
-            (shipped[s.production_record_id] || 0) + (s.packs || 0) * (s.pack_weight_g || 0);
+      // Step 1b: compute each SKU's current ground-truth stock balance, using the exact same
+      // anchor formula as the SM Stock page (physical count anchor + production after anchor
+      // − deliveries after anchor + non-Stock-Count adjustments after anchor; falls back to
+      // opening balance + total produced − total delivered + net adjustments when no anchor
+      // exists yet). This is scoped to just this form's SKUs rather than the whole system.
+      const currentStockMap: Record<string, number> = {};
+      {
+        const { data: sessions } = await supabase
+          .from("stock_count_sessions")
+          .select("id, count_date, completed_at")
+          .eq("status", "Completed")
+          .is("deleted_at", null);
+        const sessionIds = (sessions || []).map((s: any) => s.id);
+        const sessionDateMap: Record<string, string> = {};
+        const sessionCompletedAtMap: Record<string, string> = {};
+        for (const s of sessions || []) {
+          sessionDateMap[s.id] = s.count_date;
+          sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
+        }
+        const anchorMap: Record<string, { physical_qty: number; count_date: string; completed_at: string }> = {};
+        if (sessionIds.length > 0) {
+          const { data: lines } = await supabase
+            .from("stock_count_lines")
+            .select("sku_id, physical_qty, session_id")
+            .in("session_id", sessionIds)
+            .eq("type", "SM")
+            .in("sku_id", skuIds)
+            .not("physical_qty", "is", null);
+          for (const row of lines || []) {
+            const countDate = sessionDateMap[row.session_id];
+            if (!countDate) continue;
+            const existing = anchorMap[row.sku_id];
+            if (!existing || countDate > existing.count_date) {
+              anchorMap[row.sku_id] = {
+                physical_qty: row.physical_qty,
+                count_date: countDate,
+                completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
+              };
+            }
+          }
+        }
+
+        const { data: toLineRows } = await supabase
+          .from("transfer_order_lines")
+          .select("sku_id, planned_qty, actual_qty, to_id")
+          .in("sku_id", skuIds);
+        const { data: toRows } = await supabase
+          .from("transfer_orders")
+          .select("id, status, delivery_date")
+          .in("status", ["Sent", "Received", "Partially Received"]);
+        const validToIds = new Set((toRows || []).map((t: any) => t.id));
+        const toStatusMap: Record<string, string> = {};
+        const toDateMap: Record<string, string> = {};
+        for (const t of toRows || []) {
+          toStatusMap[t.id] = t.status;
+          toDateMap[t.id] = t.delivery_date;
+        }
+        const deliveredBySku: Record<string, { qty: number; date: string }[]> = {};
+        for (const l of toLineRows || []) {
+          if (!validToIds.has(l.to_id)) continue;
+          const qty = l.actual_qty > 0 ? l.actual_qty : toStatusMap[l.to_id] === "Sent" ? l.planned_qty : 0;
+          if (!deliveredBySku[l.sku_id]) deliveredBySku[l.sku_id] = [];
+          deliveredBySku[l.sku_id].push({ qty, date: toDateMap[l.to_id] });
+        }
+
+        const { data: adjRows } = await supabase
+          .from("stock_adjustments")
+          .select("sku_id, quantity, adjustment_date, reason")
+          .eq("stock_type", "SM")
+          .is("branch_id", null)
+          .in("sku_id", skuIds);
+
+        const { data: openingRows } = await supabase
+          .from("stock_opening_balances")
+          .select("sku_id, quantity")
+          .in("sku_id", skuIds);
+        const openingMap: Record<string, number> = {};
+        for (const o of openingRows || []) openingMap[o.sku_id] = o.quantity;
+
+        for (const skuId of skuIds) {
+          const anchor = anchorMap[skuId];
+          const produced = bySkuRecords[skuId] || [];
+          if (anchor) {
+            const producedAfter = produced
+              .filter((r) => (r.createdAt ?? r.productionDate) > anchor.completed_at)
+              .reduce((sum, r) => sum + r.actualOutputG, 0);
+            const deliveredAfter = (deliveredBySku[skuId] || [])
+              .filter((d) => d.date > anchor.count_date)
+              .reduce((sum, d) => sum + d.qty, 0);
+            const adjustmentsAfter = (adjRows || [])
+              .filter(
+                (a: any) =>
+                  a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
+              )
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
+          } else {
+            const totalProduced = produced.reduce((sum, r) => sum + r.actualOutputG, 0);
+            const totalDelivered = (deliveredBySku[skuId] || []).reduce((sum, d) => sum + d.qty, 0);
+            const netAdjustment = (adjRows || [])
+              .filter((a: any) => a.sku_id === skuId)
+              .reduce((sum, a: any) => sum + a.quantity, 0);
+            currentStockMap[skuId] = (openingMap[skuId] || 0) + totalProduced - totalDelivered + netAdjustment;
+          }
         }
       }
-      setShippedByLot(shipped);
+      setCurrentStockBySku(currentStockMap);
 
       // Step 2: existing saved lots for this TO (source of truth — load BEFORE any auto-fill)
       const savedByLine: Record<string, LotLineLocal[]> = {};
@@ -902,24 +987,38 @@ export default function TransferOrderPage({
   // Qty input refs for Tab navigation
   const qtyRefs = useRef<Record<string, HTMLInputElement>>({});
 
-  // Filter the lot dropdown to production runs that still have stock left.
-  // remaining = produced (actual_output_g) − shipped from that lot (clean data ≥ 2026-07-18).
-  // Always keep a lot that's currently selected on this line (so a selection never vanishes
-  // mid-edit), and if filtering would leave nothing for an item that has production history,
-  // fall back to showing all lots so the manager can always pick something.
+  // Filter the lot dropdown to only the most-recently-produced lots whose cumulative
+  // production fits within the SKU's actual current stock (ground-truth anchor balance).
+  // Older lots are excluded outright — e.g. if current stock is 5,000g and the two most
+  // recent production runs already sum to that, any older lot (however much it once
+  // produced) is assumed used up already and is hidden, with no need to reconstruct
+  // historical shipment records (which is what made the old lot dropdown never clean up
+  // stale entries — the fix and fallback logic differ, see history). Always keeps a lot
+  // that's currently selected on this line visible (so a selection never vanishes mid-edit),
+  // and if filtering would leave nothing for an item that has production history, falls back
+  // to showing all lots so the manager can always pick something.
   const getVisibleRecords = useCallback(
-    (lineId: string, skuRecords: ProdRecord[]): ProdRecord[] => {
+    (lineId: string, skuId: string, skuRecords: ProdRecord[]): ProdRecord[] => {
       if (skuRecords.length === 0) return skuRecords;
       const selectedIds = new Set(
         (lotLines[lineId] || []).map((l) => l.productionRecordId).filter(Boolean),
       );
-      const visible = skuRecords.filter((r) => {
-        const remaining = (r.actualOutputG || 0) - (shippedByLot[r.id] || 0);
-        return remaining > 0 || selectedIds.has(r.id);
-      });
+      const currentStock = currentStockBySku[skuId];
+      if (currentStock == null) return skuRecords; // stock not yet computed — don't filter
+      const sortedNewestFirst = [...skuRecords].sort((a, b) =>
+        (b.productionDate || "").localeCompare(a.productionDate || ""),
+      );
+      const withinStock = new Set<string>();
+      let cumulative = 0;
+      for (const r of sortedNewestFirst) {
+        if (cumulative >= currentStock) break;
+        withinStock.add(r.id);
+        cumulative += r.actualOutputG || 0;
+      }
+      const visible = skuRecords.filter((r) => withinStock.has(r.id) || selectedIds.has(r.id));
       return visible.length > 0 ? visible : skuRecords;
     },
-    [lotLines, shippedByLot],
+    [lotLines, currentStockBySku],
   );
 
   const thSortable = `${tableTokens.headerCell} cursor-pointer select-none hover:bg-muted/50`;
@@ -1476,7 +1575,7 @@ export default function TransferOrderPage({
                                             handleLotLineSave(line.id, lotIdx, updated);
                                           }}
                                         >
-                                          {getVisibleRecords(line.id, skuRecords).map((r) => (
+                                          {getVisibleRecords(line.id, line.skuId, skuRecords).map((r) => (
                                             <option key={r.id} value={r.id}>
                                               {new Date(r.productionDate + "T00:00:00").toLocaleDateString("en-GB", {
                                                 day: "2-digit",
