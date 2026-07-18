@@ -249,14 +249,20 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   );
 
   // ─── Update TO line ───
-  const updateTOLine = useCallback(async (lineId: string, actualQty: number, note?: string) => {
-    const costUpdate: any = { actual_qty: actualQty };
-    if (note !== undefined) costUpdate.notes = note;
-    // line_value will be recalculated on send
-    const { error } = await supabase.from("transfer_order_lines").update(costUpdate).eq("id", lineId);
-    if (error) toast.error("Failed to update line");
-    return !error;
-  }, []);
+  // packsCount: pass a number to persist explicit pack count; leave undefined to preserve the
+  // existing packs_count (e.g. when only WEIGHT is being edited). Pass null to clear.
+  const updateTOLine = useCallback(
+    async (lineId: string, actualQty: number, note?: string, packsCount?: number | null) => {
+      const costUpdate: any = { actual_qty: actualQty };
+      if (note !== undefined) costUpdate.notes = note;
+      if (packsCount !== undefined) costUpdate.packs_count = packsCount;
+      // line_value will be recalculated on send
+      const { error } = await supabase.from("transfer_order_lines").update(costUpdate).eq("id", lineId);
+      if (error) toast.error("Failed to update line");
+      return !error;
+    },
+    [],
+  );
 
   // ─── Send TO ───
   const sendTO = useCallback(
@@ -268,7 +274,12 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         totalValue += lv;
         await supabase
           .from("transfer_order_lines")
-          .update({ actual_qty: line.actualQty, line_value: lv, notes: line.note })
+          .update({
+            actual_qty: line.actualQty,
+            line_value: lv,
+            notes: line.note,
+            packs_count: line.packsCount,
+          })
           .eq("id", line.id);
       }
 
