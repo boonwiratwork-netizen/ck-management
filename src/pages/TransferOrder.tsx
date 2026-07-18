@@ -1109,7 +1109,12 @@ export default function TransferOrderPage({
                       const sku = smSkus.find((s) => s.id === line.skuId);
                       const requestedPacks = packSize > 0 ? Math.round(line.plannedQty / packSize) : 0;
                       const currentPacks =
-                        packsOverride[line.id] ?? (packSize > 0 ? Math.round(line.actualQty / packSize) : 0);
+                        packsOverride[line.id] ??
+                        (line.packsCount != null
+                          ? line.packsCount
+                          : packSize > 0
+                            ? Math.round(line.actualQty / packSize)
+                            : 0);
                       const isExpanded = expandedLines[line.id] || false;
                       const lineLots = lotLines[line.id] || [];
                       const assignedPacks = lineLots.reduce((s, l) => s + l.packs, 0);
