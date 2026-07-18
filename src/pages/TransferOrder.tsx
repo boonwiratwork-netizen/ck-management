@@ -1867,7 +1867,10 @@ export default function TransferOrderPage({
                               {detailPackSize > 0 ? (
                                 <div>
                                   <span>
-                                    {Math.round(l.actualQty / detailPackSize)} {detailPackUnit}
+                                    {l.packsCount != null
+                                      ? l.packsCount
+                                      : Math.round(l.actualQty / detailPackSize)}{" "}
+                                    {detailPackUnit}
                                   </span>
                                   <div className="text-xs text-muted-foreground">
                                     {formatNumber(l.actualQty, 0)}
