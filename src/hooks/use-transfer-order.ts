@@ -504,7 +504,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   const fetchTODetail = useCallback(async (toId: string): Promise<TOLine[]> => {
     const { data, error } = await supabase
       .from("transfer_order_lines")
-      .select("id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes, tr_line_id")
+      .select("id, sku_id, planned_qty, actual_qty, uom, unit_cost, line_value, notes, tr_line_id, packs_count")
       .eq("to_id", toId);
     if (error || !data) return [];
 
@@ -515,7 +515,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       for (const s of skus || []) skuMap[s.id] = { code: s.sku_id, name: s.name };
     }
 
-    return data.map((d) => ({
+    return data.map((d: any) => ({
       id: d.id,
       skuId: d.sku_id,
       skuCode: skuMap[d.sku_id]?.code || "",
@@ -527,6 +527,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       lineValue: d.line_value,
       note: d.notes,
       trLineId: d.tr_line_id,
+      packsCount: d.packs_count ?? null,
     }));
   }, []);
 
