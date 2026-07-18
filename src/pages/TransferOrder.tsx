@@ -292,7 +292,11 @@ export default function TransferOrderPage({
       setProdRecordsMap(bySkuRecords);
 
       // Step 1b: compute shipped grams per production lot from CLEAN data only.
-      // "Clean" = lot-assignment rows recorded on/after 2026-07-18 (the fix date). Rows before
+      // "Clean" = lot-assignment rows recorded at/after 2026-07-18T05:00:00Z — a precise
+      // timestamp, not just a calendar date. A date-only cutoff ("2026-07-18") was found to
+      // still include auto-fill-bug junk created earlier that same day (03:07–04:04 UTC,
+      // before the fix went live at 04:32–04:56 UTC), which double-counted shipped quantity
+      // for the affected lots. This timestamp sits safely after both fix deployments. Rows before
       // then contained duplicated auto-fill junk and are excluded, so the dropdown starts fresh
       // today and gets cleaner as new clean shipments accumulate. Counts shipments across ALL
       // TOs (a lot can be drawn down by many orders), keyed by production_record_id.
@@ -305,7 +309,7 @@ export default function TransferOrderPage({
           .from("transfer_order_lot_lines")
           .select("production_record_id, packs, pack_weight_g, created_at")
           .in("production_record_id", allRecordIds)
-          .gte("created_at", "2026-07-18");
+          .gte("created_at", "2026-07-18T05:00:00Z");
         for (const s of shipData || []) {
           if (!s.production_record_id) continue;
           shipped[s.production_record_id] =
