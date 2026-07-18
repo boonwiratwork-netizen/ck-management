@@ -1630,6 +1630,7 @@ export type Database = {
           id: string
           line_value: number
           notes: string
+          packs_count: number | null
           planned_qty: number
           sku_id: string
           sku_type: string
@@ -1644,6 +1645,7 @@ export type Database = {
           id?: string
           line_value?: number
           notes?: string
+          packs_count?: number | null
           planned_qty?: number
           sku_id: string
           sku_type?: string
@@ -1658,6 +1660,7 @@ export type Database = {
           id?: string
           line_value?: number
           notes?: string
+          packs_count?: number | null
           planned_qty?: number
           sku_id?: string
           sku_type?: string
