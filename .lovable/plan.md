@@ -1,100 +1,71 @@
-# Transfer Order / Stock flow — correctness audit
+# Review: 6 audit fixes in commit 78b3519
 
-Diagnosis only. No fix applied. Findings ordered by confidence.
+Traced each commit against the current code. Verdict per fix below.
 
-## HIGH confidence (real bugs)
+---
 
-### 1. `use-ck-dashboard-data.ts:499` — TO status filter missing "Partially Received", and second divergent qty formula
-```ts
-.in('status', ['Sent', 'Received'])          // missing "Partially Received"
-...
-if (!to || tl.actual_qty <= 0) continue;      // no fallback to planned_qty for "Sent"
-const val = tl.actual_qty * tl.unit_cost;
-```
-Two independent violations of the invariant from fixes #4 / `to-line-qty.ts`:
-- "Partially Received" TOs are silently excluded from the Distribution Summary (SM/RM values by branch understated).
-- A third, hand-rolled "delivered quantity" formula that ignores `computeToLineQty`'s `Sent → planned_qty` fallback. A "Sent" TO with no `actual_qty` yet entered contributes 0 to the dashboard but non-zero to SM Stock / StockCard, so the dashboard and the stock pages will disagree.
+## 1. Branch-context StockCard anchor — **CORRECT**
+`src/components/StockCard.tsx` lines 158–440.
 
-Should be `TO_DELIVERED_STATUSES` + `computeToLineQty(...)`, matching every other stock-side caller.
+- Anchor lookup correctly filters `is_submitted = true` and `physical_count IS NOT NULL`, and only returns counts strictly `< resolvedStartDate` — unsubmitted / null drafts can't poison the anchor.
+- The day-by-day loop now walks from `effectiveStartDate` (anchor date) to today. `prevBalance = nextBalance` is assigned on **every** path: on the pre-window `continue`, on the no-activity `continue`, and on the display push. So skipped/hidden days still advance the running balance — the classic bug of "forgetting to advance state on `continue`" is not present.
+- Never-counted branch: `anchor` is `null` → `effectiveStartDate = resolvedStartDate`, no gap days walked, `prevBalance` starts at 0 — identical to pre-fix behavior, as intended.
+- Minor observation (not a bug): the anchor day itself only snaps prevBalance to `physicalCount`; if a receipt/sale/adj also happened that day it's still captured through the day's normal aggregation before the snap. Consistent with the SM ledger convention.
 
-### 2. `StockCard.tsx:481-490` — RM CK ledger: pre-window count gap NOT folded (same bug fix #5 addressed for SM)
-```ts
-if (preWindowCount) {
-  mvts.push({
-    ...
-    qtyIn: preWindowCount.physical_qty,   // no gap production/receipts/adj added
-    ...
-```
-When the last physical RM count is older than the 14/30-day window, movements between `count_date` and `fromDate` are silently dropped from the Opening figure. Compare to the SM path a few hundred lines below (664-711) which correctly folds `gapProd - gapDel + gapAdj` (excluding "Stock Count" adjustments). Consequence: RM StockCard will flash false "Balance mismatch" banners and its Opening won't reconcile with RM Stock's `currentStock`. This is exactly the shape of the just-fixed SM bug.
+## 2. RM/PK Opening-row gap fold — **CORRECT**
+`src/components/StockCard.tsx` lines 518–556.
 
-### 3. `StockCard.tsx:158-404` — branch-context ledger silently starts from zero
-```ts
-let prevBalance = 0;
-for (const date of allDates) { ... }
-```
-The branch ledger initialises `prevBalance = 0` at the start of the window and only queries data from `resolvedStartDate` onward. There is no pre-window `daily_stock_counts.physical_count` anchor read, no opening-balance fetch, no gap fold. If the SKU already had any real stock before the window opens (the normal case), the first activity day's calculated_balance starts from 0 and every downstream `variance = physical - calc` will be wrong until the branch happens to enter a physical count inside the window. Same category as fix #5, unfixed on this path.
+- Gap query boundaries: `.gt(count_date).lt(fromDate)` for both goods_receipts and stock_adjustments. Main in-window queries (lines 450, 459) use `.gte(fromDate)`. **No overlap, no double-count** — gap is strictly `< fromDate`, in-window is `>= fromDate`.
+- Converter applied to gap goods_receipts (`× converter`) — matches how in-window receipts are converted downstream.
+- "Stock Count" reason exclusion in gap adjustments matches the canonical anchor formula.
+- Anchor-day activity: anything ON `count_date` is neither in gap (`.gt`) nor in the main window (`.gte fromDate` when count < fromDate) — but this is the standing convention (physical count is "as-of" that date; same-day movements are subsumed into the snap). Consistent with the SM path and with `use-stock-data.ts`.
 
-### 4. `use-branch-sm-stock.ts:328` — arbitrary "2020-01-01" baseline when no snap exists
-```ts
-let earliestSnap = "2020-01-01";
-```
-This is the same anti-pattern fix #6 removed from StoreStock: a hardcoded date used when a SKU has no `daily_stock_counts` history. Because `earliestSnap` is later used with `.gt(receipt_date, earliestSnap)` etc., a SKU that has receipts before 2020 (unlikely) or a system-clock skew produces wrong totals; more importantly, `snapBySku[sku_id]` is optional per-SKU inside the aggregation loop that follows, so any SKU never snapped uses this floor date — silently including years of movements as "post-snap". Confirm behaviour matches intent; either way, the "2020-01-01" literal is the same code-smell fix #6 flagged.
+## 3. CK Dashboard Distribution — **CORRECT**
+`src/hooks/use-ck-dashboard-data.ts` lines 496–528.
 
-### 5. `use-branch-sm-stock.ts:358-364` — branch adjustments query does not exclude "Stock Count" reason
-```ts
-supabase.from("stock_adjustments")
-  .select("sku_id, quantity, adjustment_date")
-  .eq("branch_id", branchId)
-  .gt("adjustment_date", earliestSnap)
-```
-Every other anchor-based path (`use-sm-stock-data.ts:166`, `use-stock-data.ts:96`, `StockCard.tsx:541/701/815`) filters out `reason includes 'Stock Count'` — this one doesn't. Any branch-level Stock Count adjustment after the snap will be double-counted (once via the physical count anchor, once via this sum). Currently might be unreachable if branch counts never generate `stock_adjustments`, but it violates the documented invariant and is the same shape as the defensive filter added in fix #7.
+- Now uses `TO_DELIVERED_STATUSES` and `computeToLineQty` from `src/lib/to-line-qty.ts`. Grep confirms this is the single formula also used by `use-sm-stock-data.ts` and `StockCard.tsx`.
+- Behavior change to flag (intentional, but worth calling out to Bucci): Sent TOs with `actual_qty = 0` (or null) now contribute `planned_qty × unit_cost` to the Distribution Summary, whereas before they contributed nothing. This is exactly what makes it agree with SM Stock, but the dashboard total for the current in-flight period **will nudge up** vs. yesterday's number if any recent Sent TOs haven't had actuals entered yet. Not a bug — that's the whole point of the fix.
+- `Partially Received` now included, matching SM/RM stock.
 
-### 6. `StockCard.tsx:281-323` — submenu / all rule types still use boolean `.includes(keyword)` in branch context
-```ts
-if (!menuName.includes(keyword)) continue;
-```
-The count-based submenu-match fix (`matchCount = menuName.split(keyword).length - 1`) that the user asked for last week is NOT present in this file (search for "matchCount" / "split(keyword)" returns no hits across the repo). Same regression pattern in `use-daily-stock-count.ts:200` and `:511`, `use-branch-rm-stock.ts:329/341/440/455`, and `StoreStock.tsx:115`. A Delivery Set containing the same submenu keyword twice (customer picked the same ramen for both bowls) is only expanded once → RM/SM usage understated → cover day / balance mismatch. Either the earlier fix was reverted, or it was never merged; either way the current code does not do count-based matching anywhere.
+## 4. `use-branch-sm-stock.ts` — **CORRECT with one minor perf note**
+`src/hooks/use-branch-sm-stock.ts` lines 324–410.
 
-## MEDIUM confidence
+- Conditional `.gt()` chaining is valid Supabase JS pattern (reassign `query = query.gt(...)`) — filters compose correctly.
+- CK receipts / external receipts / adjustments queries are all further bounded by `.eq("branch_id", branchId)` and `.in("sku_id", skuIds)` — even when `earliestSnap` is null, the result set is bounded by branch+SKU list. Safe.
+- `.in("reason")`-style filter isn't applied SQL-side; instead the "Stock Count" exclusion is done in JS on the fetched rows. Fine functionally; results are correct.
+- **Minor perf concern (not correctness):** the sales query is scoped by branch and by date `<= todayStr`, but it has **no `.in("menu_code", …)` filter** and no lower bound when `earliestSnap` is null. For a brand-new branch (no snap anywhere in the batch) this fetches the branch's entire sales history. In practice a branch always has at least one snap for at least one SM SKU very quickly, so this window is small — but flagging it in case a truly untouched branch ever hits this path.
 
-### 7. `use-sm-stock-data.ts:161` — deliveries anchored on `delivery_date > count_date` while production uses `completed_at`
-```ts
-const producedAfter = ... > anchor.completed_at
-const deliveredAfter = ... l.delivery_date > anchor.count_date
-```
-Asymmetric anchoring: a TO delivered on the same day as (but after) the count is treated as pre-anchor and NOT deducted — under-deducts real out-flow. The production side was moved to timestamp-based comparison in fix #5's sibling work; the delivery side wasn't. `transfer_orders.delivery_date` is date-only, so a full fix requires using `updated_at` for the "shipped after count" test (as StockCard's SM sort key already does at line 803). Real risk on count days that also had a same-day delivery.
+## 5. `checkLotsAndSend` fallback — **CORRECT**
+`src/pages/TransferOrder.tsx` line 765.
 
-### 8. `TransferOrder.tsx:257-272` — `packsOverride` seed effect keyed on `formState?.lines.length`
-```ts
-useEffect(() => { ... }, [formState?.toId, formState?.lines.length, skus]);
-```
-If a line is deleted AND another added in the same render tick (length unchanged), or if a server-side `packsCount` mutates without the local `lines.length` changing, the seed won't re-run and `packsOverride` stays stale. `checkLotsAndSend` (line 765) then compares assigned lots against a stale pack count and either blocks a legitimate send or lets through a real mismatch. Low practical incidence, but the dependency array is a classic footgun.
+- New chain `packsOverride[l.id] ?? l.packsCount ?? Math.round(l.actualQty / ps)` matches the other three fallback sites in the file (266, 1454, 2224).
+- Common-case is a no-op: whenever `packsOverride[l.id]` is defined (which is the normal seeded state), the second and third terms aren't evaluated → identical behavior.
+- Only changes the rare "override momentarily unseeded" path, and in the right direction (persisted `packsCount` beats weight-derived guess).
 
-### 9. `TransferOrder.tsx:765` — send-time lot check fallback derives packs from weight
-```ts
-const currentPacks = packsOverride[l.id] ?? Math.round(l.actualQty / ps);
-```
-The fallback is `actual_qty / packSize`, not `line.packsCount ?? Math.round(...)`. In every other place (lines 266, 1454, 2224) the priority is `packsOverride → packsCount → derived`. If the seed effect above ever misses a line, the send-guard silently reverts to weight-derived packs, defeating the very invariant fix #3 protects. Small code drift, easy to bring into line with the other three sites.
+## 6. SM delivery boundary → `updated_at` — **CORRECT BUT WITH A REAL CAVEAT TO FLAG**
+`src/hooks/use-sm-stock-data.ts` lines 40, 101–147, 161–171, 347–374.
 
-## LOW confidence / stylistic
+Correctness of the mechanical change: both initial load and `refreshToDelivered` fetch `updated_at`, both map it into `toUpdatedAtMap`, both fall back to `delivery_date` when null. The comparison `l.deliveredAt > anchor.completed_at` is symmetric with the production side. No divergence between the two code paths. Good.
 
-### 10. `use-transfer-order.ts:189` — pack size seeding uses `Number(s.pack_size) || 0`
-Falsy coerce (`|| 0`) turns a legitimate `pack_size = 0` and `null` into the same thing — fine here because both correctly bypass `packs_count` seeding, but flagged only because the same pattern in a stock formula would be silently wrong.
+**However — the caveat you specifically asked about is real.** `transfer_orders.updated_at` is written by Postgres/Supabase (or a trigger) on any UPDATE to the row, not just on the send event. Concretely, in this codebase:
 
-### 11. `TransferOrder.tsx:1451` — `requestedPacks = Math.round(line.plannedQty / packSize)`
-`plannedQty` is not user-entered as packs on the TR side either, so recomputing is defensible. Not a bug, but worth noting: if the TR ever gains its own `packs_count`, this display would silently diverge for exactly the same reason fix #3 was needed on TO.
+- `sendTO` writes to `transfer_orders` → bumps `updated_at` to the send moment. ✅ intended.
+- `saveTOEdits` (edit-after-send) writes to `transfer_orders` → bumps `updated_at` to the **edit** moment. ⚠️
+- Status changes to `Received` / `Partially Received` / `Declined` from the branch-receipt flow write to `transfer_orders` → bump `updated_at` to the receive moment, not the send moment. ⚠️
+- Notes / delivery-date edits on a Sent TO → bump `updated_at`.
+- Line-level edits (`transfer_order_lines`) do NOT bump the parent's `updated_at` unless there's a trigger — I did not find one in the migrations.
 
-### 12. `BranchReceipt.tsx:1010` and `:331` — branch's TO view does not `select packs_count`
-Branch never sees the CK-declared pack count; the branch inputs its own `receivedQty` and derives packs from `receivedQty / packSize`. Not a correctness bug for balances (receipts are stored in grams both sides), but a traceability gap: if CK sent "25 packs, 9500g" and the branch inputs "27 packs, 9500g", nothing in the UI surfaces the mismatch. Low-priority.
+Concrete scenario this can produce: CK sends TO on Monday, physical count runs Tuesday morning (count anchor = Tue 09:00). Branch marks the TO Received on Tuesday afternoon → `transfer_orders.updated_at` moves to Tue afternoon. Now `deliveredAt (Tue PM) > anchor.completed_at (Tue AM)` is **true** → the same delivery that was correctly deducted before is now deducted *again* on top of the post-count anchor, silently double-counting the deduction and understating SM stock.
 
-## Explicit confirmations (nothing to fix)
+The pre-fix code (comparing `delivery_date > count_date`) had the opposite same-day bug (missed a same-day-after-count delivery). The new code correctly handles the same-day-after-count case, but introduces a **timestamp-drift** bug whenever anything mutates the TO row after the delivery moment.
 
-- Fix #1 (delete TR-originated TO line → decline source TR line): in place.
-- Fix #2 (over-stock warning uses same anchor formula for SM and equivalent for RM/PK): `computeCurrentStockForSkus` at TransferOrder.tsx:280 is the single source both the send warning and the lot-cap effect call.
-- Fix #3 (weight input does not touch `packs_count`): reverted state confirmed at TransferOrder.tsx:1638 comment + `use-transfer-order.ts:258` `if (packsCount !== undefined)` guard. No other file writes `packs_count`.
-- Fix #4 (shared `computeToLineQty` and `TO_DELIVERED_STATUSES`): used in `use-sm-stock-data.ts` and `StockCard.tsx`. Divergent copies remain only in `use-ck-dashboard-data.ts` (finding #1).
-- Fix #5 (SM StockCard gap fold): in place at lines 664-711.
-- Fix #6 (StoreStock 90-day cutoff removed): no other page has a `90` cutoff on the anchor.
-- Fix #7 (DSC gap-period Stock-Count exclusion): in place; the same defensive filter is missing on `use-branch-sm-stock.ts` (finding #5).
-- Lot-assignment SM gating: `TransferOrder.tsx:552` and `:762` both check `sku.type === "SM"`, not `packSize > 0`. No stale `packSize > 0` guard remains for lot logic.
-- `transfer_order_lot_lines` is read only for display (`StockCard.tsx:774` for lot chips, `TransferOrder.tsx` UI). No stock/dashboard/food-cost number depends on it.
+Recommendation (not implementing — review only): consider persisting a dedicated `sent_at` / `delivered_at` timestamp column that's written once at send/receive time and never mutated by later edits, and compare against that instead of `updated_at`. Until then, this fix trades a rare edge case for a more common one. Worth Bucci's explicit go/no-go before we consider #6 truly closed.
+
+---
+
+## Summary
+- Fixes 1, 2, 3, 5 — clean, no concerns.
+- Fix 4 — correct; one minor perf note on the sales query when a brand-new branch has no snaps anywhere.
+- Fix 6 — mechanically correct and matches production's semantics, **but** `updated_at` isn't a stable delivery timestamp; recommend a follow-up to introduce a dedicated column before considering this fully resolved.
+
+No code changes proposed here — this is a review only.
