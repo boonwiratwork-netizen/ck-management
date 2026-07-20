@@ -158,8 +158,30 @@ export function StockCard({
         if (context === "branch") {
           // Branch context: reconstruct day-by-day ledger from raw transactions
 
-          // Step 1 — Find earliest snap date
+          // Step 1 — Find the display window, then look up the most recent physical
+          // count anchor before it (mirrors the CK-side preWindowCount pattern). Without
+          // this, the ledger always started prevBalance at 0 regardless of real prior
+          // stock, silently corrupting the calculated_balance/variance columns for any
+          // branch/SKU with history before the selected window.
           const resolvedStartDate = fromDate;
+          const { data: anchorRows } = await supabase
+            .from("daily_stock_counts")
+            .select("count_date, physical_count")
+            .eq("branch_id", branchId!)
+            .eq("sku_id", skuId)
+            .eq("is_submitted", true)
+            .not("physical_count", "is", null)
+            .lt("count_date", resolvedStartDate)
+            .order("count_date", { ascending: false })
+            .limit(1);
+          if (cancelled) return;
+          const anchor = anchorRows && anchorRows.length > 0 ? anchorRows[0] : null;
+          // Fetch from the anchor date forward (not just the display window) so the
+          // day-by-day loop below can walk through the anchor day itself — which
+          // correctly snaps prevBalance to the anchor's physical_count — plus any gap
+          // days between the anchor and the display window, before reaching the rows
+          // that actually get shown.
+          const effectiveStartDate = anchor ? anchor.count_date : resolvedStartDate;
 
           // Step 2 — Fetch all data in parallel
           const [dscRes, brRes, salesRes, mbRes, menusRes, spRes, mrRes, ruleMenusRes, skusRes, adjStockRes] =
@@ -171,20 +193,20 @@ export function StockCard({
                 )
                 .eq("branch_id", branchId!)
                 .eq("sku_id", skuId)
-                .gte("count_date", resolvedStartDate)
+                .gte("count_date", effectiveStartDate)
                 .order("count_date", { ascending: true }),
               supabase
                 .from("branch_receipts")
                 .select("receipt_date, qty_received, transfer_order_id, sku_id")
                 .eq("branch_id", branchId!)
                 .eq("sku_id", skuId)
-                .gte("receipt_date", resolvedStartDate)
+                .gte("receipt_date", effectiveStartDate)
                 .order("receipt_date", { ascending: true }),
               supabase
                 .from("sales_entries")
                 .select("sale_date, menu_code, menu_name, qty")
                 .eq("branch_id", branchId!)
-                .gte("sale_date", resolvedStartDate)
+                .gte("sale_date", effectiveStartDate)
                 .order("sale_date", { ascending: true }),
               supabase
                 .from("menu_bom")
@@ -200,7 +222,7 @@ export function StockCard({
                 .select("adjustment_date, quantity, reason, created_at")
                 .eq("branch_id", branchId!)
                 .eq("sku_id", skuId)
-                .gte("adjustment_date", resolvedStartDate)
+                .gte("adjustment_date", effectiveStartDate)
                 .order("adjustment_date", { ascending: true })
                 .order("created_at", { ascending: true }),
             ]);
@@ -349,10 +371,13 @@ export function StockCard({
             }
           }
 
-          // Step 5 — Build day-by-day ledger
+          // Step 5 — Build day-by-day ledger. Walk from effectiveStartDate (the anchor
+          // date, if one exists) so prevBalance correctly snaps on the anchor day and
+          // evolves through any gap days — but only display rows from resolvedStartDate
+          // (the user's selected window) onward, below.
           const today = new Date().toISOString().slice(0, 10);
           const allDates: string[] = [];
-          const d = new Date(resolvedStartDate);
+          const d = new Date(effectiveStartDate);
           const end = new Date(today);
           while (d <= end) {
             allDates.push(d.toISOString().slice(0, 10));
@@ -378,12 +403,26 @@ export function StockCard({
             const opening = prevBalance;
             const calcBal = opening + totalReceived - usage - waste + adjNet;
 
+            // Snap balance to physical if available — must happen for every walked date
+            // (including pre-window gap/anchor days) regardless of whether the row is
+            // displayed, so prevBalance is correct by the time display rows are reached.
+            const variance = physicalCount !== null ? physicalCount - calcBal : 0;
+            const nextBalance = physicalCount !== null ? physicalCount : calcBal;
+
+            // Only display rows within the user's selected window — gap/anchor days
+            // before resolvedStartDate still ran through the calc above (to seed
+            // prevBalance correctly) but aren't shown.
+            if (date < resolvedStartDate) {
+              prevBalance = nextBalance;
+              continue;
+            }
+
             // Only include days with activity
             const hasAdj = adjEntries.length > 0;
             if (totalReceived === 0 && usage === 0 && !hasPhysical && waste === 0 && !hasAdj) {
+              prevBalance = nextBalance;
               continue;
             }
-            const variance = physicalCount !== null ? physicalCount - calcBal : 0;
 
             ledger.push({
               count_date: date,
@@ -397,8 +436,7 @@ export function StockCard({
               variance,
             });
 
-            // Snap balance to physical if available
-            prevBalance = physicalCount !== null ? physicalCount : calcBal;
+            prevBalance = nextBalance;
           }
 
           setBranchRows(ledger);
