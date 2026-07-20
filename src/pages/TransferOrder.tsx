@@ -1635,10 +1635,14 @@ export default function TransferOrderPage({
                                     onBlur={(e) => {
                                       const grams = Number(e.target.value) || 0;
                                       if (grams > 0) {
-                                        const packs = packSize > 0 ? Math.round(grams / packSize) : null;
-                                        if (packs !== null) setPacksOverride((prev) => ({ ...prev, [line.id]: packs }));
-                                        handleLineUpdate(line.id, "actualQty", grams, packs ?? undefined);
-                                        if (packs !== null) reconcileLotsToPacks(line.id, line.skuId, packs, packSize);
+                                        // Intentionally does NOT touch packs_count — PACKS is the
+                                        // manager's physical count (exact, discrete); WEIGHT is an
+                                        // independent true measurement of that same count, which
+                                        // naturally won't divide evenly by the standard pack size.
+                                        // See the packsOverride comment above and CLAUDE.md's
+                                        // "packs_count... persisted so history doesn't re-derive
+                                        // packs from weight."
+                                        handleLineUpdate(line.id, "actualQty", grams);
                                       }
                                     }}
                                     placeholder="override"
