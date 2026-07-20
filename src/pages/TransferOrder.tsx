@@ -762,7 +762,7 @@ export default function TransferOrderPage({
       if (skuInfo?.type !== "SM") continue;
       const ps = skuInfo.packSize ?? 0;
       if (ps <= 0) continue;
-      const currentPacks = packsOverride[l.id] ?? Math.round(l.actualQty / ps);
+      const currentPacks = packsOverride[l.id] ?? l.packsCount ?? Math.round(l.actualQty / ps);
       const assignedPacks = (lotLines[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
       if (currentPacks !== assignedPacks) mismatched.push(l.skuCode || l.skuName);
     }
