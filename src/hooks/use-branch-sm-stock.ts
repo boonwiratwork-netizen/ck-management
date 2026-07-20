@@ -324,44 +324,56 @@ export function useBranchSmStock(branchId: string | null) {
         }
       }
 
-      // Find earliest snap date for transaction queries
-      let earliestSnap = "2020-01-01";
+      // Find earliest snap date for transaction queries — null (no lower bound) when
+      // NO SKU in this batch has ever been counted, rather than a hardcoded date
+      // standing in for "the beginning of time" (same anti-pattern as StoreStock's
+      // removed 90-day cutoff, though this one doesn't roll forward and cut off real
+      // history the way a relative-day cutoff would).
+      let earliestSnap: string | null = null;
       const snapValues = Object.values(snapBySku);
       if (snapValues.length > 0) {
         earliestSnap = snapValues.reduce((min, s) => (s.date < min ? s.date : min), snapValues[0].date);
       }
 
       // 6b. Fetch CK receipts, external receipts, sales, and adjustments after snap
+      let ckQuery = supabase
+        .from("branch_receipts")
+        .select("sku_id, qty_received, receipt_date")
+        .eq("branch_id", branchId)
+        .not("transfer_order_id", "is", null)
+        .lte("receipt_date", todayStr)
+        .in("sku_id", skuIds);
+      if (earliestSnap) ckQuery = ckQuery.gt("receipt_date", earliestSnap);
+
+      let extQuery = supabase
+        .from("branch_receipts")
+        .select("sku_id, qty_received, receipt_date")
+        .eq("branch_id", branchId)
+        .is("transfer_order_id", null)
+        .lte("receipt_date", todayStr)
+        .in("sku_id", skuIds);
+      if (earliestSnap) extQuery = extQuery.gt("receipt_date", earliestSnap);
+
+      let salesQuery = supabase
+        .from("sales_entries")
+        .select("menu_code, menu_name, qty, sale_date")
+        .eq("branch_id", branchId)
+        .lte("sale_date", todayStr);
+      if (earliestSnap) salesQuery = salesQuery.gt("sale_date", earliestSnap);
+
+      let adjQuery = supabase
+        .from("stock_adjustments")
+        .select("sku_id, quantity, adjustment_date, reason")
+        .eq("branch_id", branchId)
+        .lte("adjustment_date", todayStr)
+        .in("sku_id", skuIds);
+      if (earliestSnap) adjQuery = adjQuery.gt("adjustment_date", earliestSnap);
+
       const [ckRes, extRes, postSnapSalesRes, adjRes] = await Promise.all([
-        supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, receipt_date")
-          .eq("branch_id", branchId)
-          .not("transfer_order_id", "is", null)
-          .gt("receipt_date", earliestSnap)
-          .lte("receipt_date", todayStr)
-          .in("sku_id", skuIds),
-        supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, receipt_date")
-          .eq("branch_id", branchId)
-          .is("transfer_order_id", null)
-          .gt("receipt_date", earliestSnap)
-          .lte("receipt_date", todayStr)
-          .in("sku_id", skuIds),
-        supabase
-          .from("sales_entries")
-          .select("menu_code, menu_name, qty, sale_date")
-          .eq("branch_id", branchId)
-          .gt("sale_date", earliestSnap)
-          .lte("sale_date", todayStr),
-        supabase
-          .from("stock_adjustments")
-          .select("sku_id, quantity, adjustment_date")
-          .eq("branch_id", branchId)
-          .gt("adjustment_date", earliestSnap)
-          .lte("adjustment_date", todayStr)
-          .in("sku_id", skuIds),
+        ckQuery,
+        extQuery,
+        salesQuery,
+        adjQuery,
       ]);
 
       // Build CK receipt totals per SKU after each SKU's snap date
@@ -380,11 +392,16 @@ export function useBranchSmStock(branchId: string | null) {
         extInBySku[r.sku_id] = (extInBySku[r.sku_id] || 0) + Number(r.qty_received);
       }
 
-      // Build adjustment net per SKU after each SKU's snap date
+      // Build adjustment net per SKU after each SKU's snap date. Excludes "Stock
+      // Count" reason rows, matching the canonical anchor-based formulas
+      // (use-sm-stock-data.ts / use-stock-data.ts / StockCard.tsx) — a Stock Count
+      // adjustment represents the count itself, not a real movement, so counting it
+      // here too would double-count against the snap it's already reflected in.
       const adjNetBySku: Record<string, number> = {};
       for (const a of adjRes.data || []) {
         const snap = snapBySku[a.sku_id];
         if (snap && a.adjustment_date <= snap.date) continue;
+        if ((a.reason || "").includes("Stock Count")) continue;
         adjNetBySku[a.sku_id] = (adjNetBySku[a.sku_id] || 0) + Number(a.quantity);
       }
 
