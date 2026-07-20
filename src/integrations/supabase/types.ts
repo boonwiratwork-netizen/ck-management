@@ -1868,6 +1868,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "transfer_request_lines_declined_by_fkey"
+            columns: ["declined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transfer_request_lines_sku_id_fkey"
             columns: ["sku_id"]
             isOneToOne: false
@@ -1879,13 +1886,6 @@ export type Database = {
             columns: ["tr_id"]
             isOneToOne: false
             referencedRelation: "transfer_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transfer_request_lines_declined_by_fkey"
-            columns: ["declined_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
