@@ -14,6 +14,7 @@ import { Branch } from "@/types/branch";
 import { Menu } from "@/types/menu";
 import { ModifierRule } from "@/types/modifier-rule";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -75,6 +76,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     fetchEntries,
     bulkInsert,
     deleteEntry,
+    updateEntry,
     profiles,
     saveProfile,
     deleteProfile,
@@ -312,6 +314,8 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
     loadPreview();
   }, []);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [editEntry, setEditEntry] = useState<SalesEntry | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   type SESortKey =
     | "saleDate"
@@ -1367,23 +1371,40 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                             <td className="px-3 py-2 text-sm">{branchMap[e.branchId] || "-"}</td>
                             {(isManagement || isStoreManager) && (
                               <td className="px-3 py-2">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="icon-btn-delete h-7 w-7"
-                                        onClick={() =>
-                                          setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })
-                                        }
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Delete</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <div className="flex items-center gap-0.5">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7"
+                                          onClick={() => setEditEntry(e)}
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Edit</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="icon-btn-delete h-7 w-7"
+                                          onClick={() =>
+                                            setDeleteConfirm({ id: e.id, name: `${e.menuCode} — ${e.saleDate}` })
+                                          }
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Delete</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -1697,6 +1718,112 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
         onSave={handleProfileSave}
         onDelete={deleteProfile}
       />
+
+      <Dialog
+        open={!!editEntry}
+        onOpenChange={(o) => {
+          if (!o) setEditEntry(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Sales Entry</DialogTitle>
+          </DialogHeader>
+          {editEntry && (
+            <div className="grid grid-cols-2 gap-3 py-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Sale Date</label>
+                <Input
+                  type="date"
+                  defaultValue={editEntry.saleDate}
+                  onChange={(e) => setEditEntry({ ...editEntry, saleDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Order Type</label>
+                <Input
+                  defaultValue={editEntry.orderType}
+                  onChange={(e) => setEditEntry({ ...editEntry, orderType: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Menu Code</label>
+                <Input
+                  defaultValue={editEntry.menuCode}
+                  onChange={(e) => setEditEntry({ ...editEntry, menuCode: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Channel</label>
+                <Input
+                  defaultValue={editEntry.channel}
+                  onChange={(e) => setEditEntry({ ...editEntry, channel: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground">Menu Name</label>
+                <Input
+                  defaultValue={editEntry.menuName}
+                  onChange={(e) => setEditEntry({ ...editEntry, menuName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Qty</label>
+                <Input
+                  type="number"
+                  defaultValue={editEntry.qty}
+                  onChange={(e) => setEditEntry({ ...editEntry, qty: Number(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Unit Price</label>
+                <Input
+                  type="number"
+                  defaultValue={editEntry.unitPrice}
+                  onChange={(e) => setEditEntry({ ...editEntry, unitPrice: Number(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground">Net Amount</label>
+                <Input
+                  type="number"
+                  defaultValue={editEntry.netAmount}
+                  onChange={(e) => setEditEntry({ ...editEntry, netAmount: Number(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEntry(null)} disabled={editSaving}>
+              Cancel
+            </Button>
+            <Button
+              disabled={editSaving}
+              onClick={async () => {
+                if (!editEntry) return;
+                setEditSaving(true);
+                const ok = await updateEntry(editEntry.id, {
+                  saleDate: editEntry.saleDate,
+                  orderType: editEntry.orderType,
+                  menuCode: editEntry.menuCode,
+                  menuName: editEntry.menuName,
+                  channel: editEntry.channel,
+                  qty: editEntry.qty,
+                  unitPrice: editEntry.unitPrice,
+                  netAmount: editEntry.netAmount,
+                });
+                setEditSaving(false);
+                if (ok) {
+                  toast.success("Entry updated");
+                  setEditEntry(null);
+                }
+              }}
+            >
+              {editSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

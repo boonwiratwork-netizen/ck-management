@@ -33,8 +33,10 @@ import {
   ClipboardList,
   GripVertical,
   Printer,
+  Trash2,
 } from "lucide-react";
 import { StockCard } from "@/components/StockCard";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -130,6 +132,7 @@ export default function DailyStockCountPage({
   );
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [stockCardSkuId, setStockCardSkuId] = useState<string | null>(null);
+  const [deleteRowTarget, setDeleteRowTarget] = useState<{ id: string; skuName: string } | null>(null);
   const physicalCountRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   // Sort state — default: TYPE column, SM→RM→PK
@@ -169,6 +172,7 @@ export default function DailyStockCountPage({
     generateSheet,
     updatePhysicalCount,
     updateWaste,
+    deleteRow,
     submitSheet,
     unlockSheet,
   } = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
@@ -623,6 +627,7 @@ export default function DailyStockCountPage({
                   <col style={{ width: 90 }} />
                   <col style={{ width: 90 }} />
                   <col style={{ width: 80 }} />
+                  <col style={{ width: 40 }} />
                 </colgroup>
                 <thead className="sticky-thead">
                   <tr className="bg-table-header border-b">
@@ -658,6 +663,7 @@ export default function DailyStockCountPage({
                       <div>{t("col.variance")}</div>
                       <div className="text-xs font-normal text-muted-foreground">{t("dsc.usageUomSuffix")}</div>
                     </th>
+                    {(isManagement || isStoreManager) && <th className={thClass} />}
                   </tr>
                 </thead>
                 <tbody>
@@ -780,6 +786,20 @@ export default function DailyStockCountPage({
                         <td className="text-right font-mono text-sm font-medium px-2 py-1">
                           {row.physicalCount !== null ? fmt0(row.variance) : "—"}
                         </td>
+                        {(isManagement || isStoreManager) && (
+                          <td className="text-center px-1 py-1">
+                            {!row.isSubmitted && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteRowTarget({ id: row.id, skuName: sku.name })}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -923,6 +943,23 @@ export default function DailyStockCountPage({
             />
           );
         })()}
+      <ConfirmDialog
+        open={!!deleteRowTarget}
+        onOpenChange={(o) => {
+          if (!o) setDeleteRowTarget(null);
+        }}
+        title={`ลบรายการนับสต็อก ${deleteRowTarget?.skuName ?? ""}?`}
+        description="ลบได้เฉพาะรายการที่ยังไม่ยืนยัน (submit) การกระทำนี้ย้อนกลับไม่ได้"
+        confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!deleteRowTarget) return;
+          const target = deleteRowTarget;
+          setDeleteRowTarget(null);
+          await deleteRow(target.id);
+        }}
+      />
     </div>
   );
 }

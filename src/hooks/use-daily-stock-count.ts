@@ -860,6 +860,23 @@ export function useDailyStockCount({
     [rows],
   );
 
+  // Delete a single row — only while its sheet is unsubmitted (protects the
+  // physical-count anchor every other stock formula in the app relies on).
+  const deleteRow = useCallback(
+    async (rowId: string) => {
+      const row = rows.find((r) => r.id === rowId);
+      if (!row || row.isSubmitted) return;
+
+      const { error } = await supabase.from("daily_stock_counts").delete().eq("id", rowId);
+      if (error) {
+        toast.error("Failed to delete row");
+        return;
+      }
+      setRows((prev) => prev.filter((r) => r.id !== rowId));
+    },
+    [rows],
+  );
+
   // Submit count
   const submitSheet = useCallback(async (branchId: string, date: string) => {
     const now = new Date().toISOString();
@@ -899,6 +916,7 @@ export function useDailyStockCount({
     generateSheet,
     updatePhysicalCount,
     updateWaste,
+    deleteRow,
     submitSheet,
     unlockSheet,
   };

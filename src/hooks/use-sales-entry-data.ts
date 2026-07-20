@@ -487,12 +487,36 @@ export function useSalesEntryData() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  const updateEntry = useCallback(
+    async (id: string, fields: Partial<Omit<SalesEntry, "id" | "branchId" | "receiptNo">>) => {
+      const patch: Record<string, unknown> = {};
+      if (fields.saleDate !== undefined) patch.sale_date = fields.saleDate;
+      if (fields.menuCode !== undefined) patch.menu_code = fields.menuCode;
+      if (fields.menuName !== undefined) patch.menu_name = fields.menuName;
+      if (fields.orderType !== undefined) patch.order_type = fields.orderType;
+      if (fields.qty !== undefined) patch.qty = fields.qty;
+      if (fields.unitPrice !== undefined) patch.unit_price = fields.unitPrice;
+      if (fields.netAmount !== undefined) patch.net_amount = fields.netAmount;
+      if (fields.channel !== undefined) patch.channel = fields.channel;
+
+      const { error } = await supabase.from("sales_entries").update(patch).eq("id", id);
+      if (error) {
+        toast.error("Failed to update entry");
+        return false;
+      }
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...fields } : e)));
+      return true;
+    },
+    [],
+  );
+
   return {
     entries,
     loading,
     fetchEntries,
     bulkInsert,
     deleteEntry,
+    updateEntry,
     profiles,
     fetchProfiles,
     saveProfile,
