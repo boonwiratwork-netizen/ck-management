@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { TO_DELIVERED_STATUSES, computeToLineQty } from '@/lib/to-line-qty';
 
 /* ── Types ── */
 
@@ -496,10 +497,12 @@ export function useCkDashboardData({
         supabase
           .from('transfer_orders')
           .select('id, branch_id, status, delivery_date')
-          .in('status', ['Sent', 'Received'])
+          .in('status', TO_DELIVERED_STATUSES)
           .gte('delivery_date', rangeStart)
           .lte('delivery_date', rangeEnd),
-        supabase.from('transfer_order_lines').select('to_id, sku_id, sku_type, actual_qty, unit_cost'),
+        supabase
+          .from('transfer_order_lines')
+          .select('to_id, sku_id, sku_type, actual_qty, planned_qty, unit_cost'),
       ]);
 
       const validTos = new Map((toRes.data || []).map((t: any) => [t.id, t]));
@@ -508,8 +511,10 @@ export function useCkDashboardData({
 
       for (const tl of tolRes.data || []) {
         const to = validTos.get(tl.to_id);
-        if (!to || tl.actual_qty <= 0) continue;
-        const val = tl.actual_qty * tl.unit_cost;
+        if (!to) continue;
+        const qty = computeToLineQty(tl.actual_qty, tl.planned_qty, to.status);
+        if (qty <= 0) continue;
+        const val = qty * tl.unit_cost;
         const bName = branchMap.get(to.branch_id) ?? 'Unknown';
 
         if (!branchDist.has(bName)) branchDist.set(bName, { smValue: 0, rmValue: 0 });
