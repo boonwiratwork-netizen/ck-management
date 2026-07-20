@@ -1320,7 +1320,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                             <SeSortIcon col="branch" />
                           </span>
                         </th>
-                        {isManagement && (
+                        {(isManagement || isStoreManager) && (
                           <th className="w-10 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground" />
                         )}
                       </tr>
@@ -1365,7 +1365,7 @@ export default function SalesEntryPage({ branches, menus, modifierRules }: Sales
                             </td>
                             <td className="px-3 py-2 text-sm">{e.channel}</td>
                             <td className="px-3 py-2 text-sm">{branchMap[e.branchId] || "-"}</td>
-                            {isManagement && (
+                            {(isManagement || isStoreManager) && (
                               <td className="px-3 py-2">
                                 <TooltipProvider>
                                   <Tooltip>
