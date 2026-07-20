@@ -517,12 +517,40 @@ export function StockCard({
 
           // Step 4: Opening row — prefer pre-window count as anchor
           if (preWindowCount) {
+            // Same gap-fold as the SM ledger below: the count is exact as of its own
+            // date, but the visible window starts at fromDate — anything that happened
+            // strictly between the count and fromDate would otherwise be silently
+            // dropped from the replay, causing a false "Balance mismatch" banner.
+            const [gapGrRes, gapAdjRes] = await Promise.all([
+              supabase
+                .from("goods_receipts")
+                .select("quantity_received")
+                .eq("sku_id", skuId)
+                .gt("receipt_date", preWindowCount.count_date)
+                .lt("receipt_date", fromDate),
+              supabase
+                .from("stock_adjustments")
+                .select("quantity, reason")
+                .eq("sku_id", skuId)
+                .eq("stock_type", "RM")
+                .is("branch_id", null)
+                .gt("adjustment_date", preWindowCount.count_date)
+                .lt("adjustment_date", fromDate),
+            ]);
+            if (cancelled) return;
+            const gapGr = (gapGrRes.data ?? []).reduce(
+              (s, r) => s + Number(r.quantity_received) * converter,
+              0,
+            );
+            const gapAdj = (gapAdjRes.data ?? [])
+              .filter((a: any) => !(a.reason || "").includes("Stock Count"))
+              .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,
               sortKey: `0000-00-00`,
               type: "Opening",
               reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
-              qtyIn: preWindowCount.physical_qty,
+              qtyIn: preWindowCount.physical_qty + gapGr + gapAdj,
               qtyOut: null,
               isReset: true,
             });
