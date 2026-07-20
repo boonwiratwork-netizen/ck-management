@@ -40,9 +40,9 @@ export function useSmStockData(
   const [isStockDataReady, setIsStockDataReady] = useState(false);
   const [toDelivered, setToDelivered] = useState<Record<string, number>>({});
   // TO lines with delivery dates for anchor filtering
-  const [toLineDetails, setToLineDetails] = useState<
-    Array<{ sku_id: string; qty: number; delivery_date: string; deliveredAt: string }>
-  >([]);
+  const [toLineDetails, setToLineDetails] = useState<Array<{ sku_id: string; qty: number; delivery_date: string }>>(
+    [],
+  );
   const [localProductionRecords, setLocalProductionRecords] = useState<ProductionRecord[]>(productionRecords);
   const [anchorMap, setAnchorMap] = useState<Record<string, AnchorData>>({});
 
@@ -101,7 +101,7 @@ export function useSmStockData(
       supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
       supabase
         .from("transfer_orders")
-        .select("id, status, delivery_date, updated_at")
+        .select("id, status, delivery_date")
         .in("status", TO_DELIVERED_STATUSES),
       fetchAnchorData(),
     ]).then(([obRes, adjRes, toLineRes, toRes]) => {
@@ -127,15 +127,13 @@ export function useSmStockData(
       const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
       const toStatusMap: Record<string, string> = {};
       const toDateMap: Record<string, string> = {};
-      const toUpdatedAtMap: Record<string, string> = {};
       for (const t of toRes.data || []) {
         toStatusMap[t.id] = t.status;
         toDateMap[t.id] = t.delivery_date;
-        toUpdatedAtMap[t.id] = t.updated_at ?? t.delivery_date;
       }
 
       const delivered: Record<string, number> = {};
-      const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string; deliveredAt: string }> = [];
+      const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
       for (const line of toLineRes.data || []) {
         if (!validToIds.has(line.to_id)) continue;
         const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
@@ -144,7 +142,6 @@ export function useSmStockData(
           sku_id: line.sku_id,
           qty,
           delivery_date: toDateMap[line.to_id],
-          deliveredAt: toUpdatedAtMap[line.to_id],
         });
       }
       setToDelivered(delivered);
@@ -161,16 +158,13 @@ export function useSmStockData(
       const anchor = anchorMap[sku.id];
 
       if (anchor) {
-        // Anchor-based: balance = anchor physical_qty + production after anchor (timestamp) - deliveries after anchor (timestamp) + non-StockCount adjustments after anchor
-        // Both production and delivery compare against anchor.completed_at (a timestamp,
-        // not just count_date) so a TO delivered later the same day as the count isn't
-        // wrongly treated as pre-anchor and left out of the deduction.
+        // Anchor-based: balance = anchor physical_qty + production after anchor (timestamp) - deliveries strictly after anchor date + non-StockCount adjustments after anchor
         const producedAfter = localProductionRecords
           .filter((r) => r.smSkuId === sku.id && (r.createdAt ?? r.productionDate) > anchor.completed_at)
           .reduce((sum, r) => sum + r.actualOutputG, 0);
 
         const deliveredAfter = toLineDetails
-          .filter((l) => l.sku_id === sku.id && l.deliveredAt > anchor.completed_at)
+          .filter((l) => l.sku_id === sku.id && l.delivery_date > anchor.count_date)
           .reduce((sum, l) => sum + l.qty, 0);
 
         const skuAdjustments = adjustments.filter((a) => a.skuId === sku.id);
@@ -347,32 +341,22 @@ export function useSmStockData(
   const refreshToDelivered = useCallback(async () => {
     const [toLineRes, toRes] = await Promise.all([
       supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
-      supabase
-        .from("transfer_orders")
-        .select("id, status, delivery_date, updated_at")
-        .in("status", TO_DELIVERED_STATUSES),
+      supabase.from("transfer_orders").select("id, status, delivery_date").in("status", TO_DELIVERED_STATUSES),
     ]);
     const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
     const toStatusMap: Record<string, string> = {};
     const toDateMap: Record<string, string> = {};
-    const toUpdatedAtMap: Record<string, string> = {};
     for (const t of toRes.data || []) {
       toStatusMap[t.id] = t.status;
       toDateMap[t.id] = t.delivery_date;
-      toUpdatedAtMap[t.id] = t.updated_at ?? t.delivery_date;
     }
     const delivered: Record<string, number> = {};
-    const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string; deliveredAt: string }> = [];
+    const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string }> = [];
     for (const line of toLineRes.data || []) {
       if (!validToIds.has(line.to_id)) continue;
       const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
       delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
-      lineDetails.push({
-        sku_id: line.sku_id,
-        qty,
-        delivery_date: toDateMap[line.to_id],
-        deliveredAt: toUpdatedAtMap[line.to_id],
-      });
+      lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id] });
     }
     setToDelivered(delivered);
     setToLineDetails(lineDetails);
