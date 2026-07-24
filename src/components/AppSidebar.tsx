@@ -232,22 +232,40 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { lang, toggleLang, t } = useLanguage();
   const [pendingTRCount, setPendingTRCount] = useState(0);
 
-  // Fetch pending TR count for badge (only 'Submitted' status)
+  // Fetch pending TR count for badge. Mirrors the pending-TR box's TO-linkage rule
+  // (use-transfer-order.ts fetchPendingTRs): a TR counts as pending only when it has NO
+  // active (non-cancelled) TO — derived from the TO table, not the fragile TR.status flag —
+  // so the badge and the box never diverge.
   useEffect(() => {
     if (!isManagement && !isCkManager) return;
-    const fetchCount = () => {
-      supabase
+    const fetchCount = async () => {
+      const { data: candidates } = await supabase
         .from("transfer_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "Submitted")
-        .then(({ count }) => setPendingTRCount(count || 0));
+        .select("id")
+        .in("status", ["Submitted", "Acknowledged"]);
+      const candidateIds = (candidates || []).map((t) => t.id);
+      if (candidateIds.length === 0) {
+        setPendingTRCount(0);
+        return;
+      }
+      const { data: activeTOs } = await supabase
+        .from("transfer_orders")
+        .select("tr_id")
+        .in("tr_id", candidateIds)
+        .neq("status", "Cancelled");
+      const covered = new Set((activeTOs || []).map((t) => t.tr_id).filter(Boolean));
+      setPendingTRCount(candidateIds.filter((id) => !covered.has(id)).length);
     };
     fetchCount();
     const interval = setInterval(fetchCount, 30000); // 30s for faster clearing
-    // Listen for realtime changes on transfer_requests to refresh badge immediately
+    // Refresh immediately on changes to EITHER table — a TR submit/cancel, or a TO
+    // send/cancel — both can change the derived count.
     const channel = supabase
       .channel("tr-badge-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "transfer_requests" }, () => {
+        fetchCount();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transfer_orders" }, () => {
         fetchCount();
       })
       .subscribe();

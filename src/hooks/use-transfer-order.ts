@@ -62,17 +62,33 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   const [isLoading, setIsLoading] = useState(false);
 
   // ─── Load pending TRs ───
+  // A TR is "pending CK action" when it has NO active (non-cancelled) Transfer
+  // Order referencing it — derived from the TO table, NOT from transfer_requests.status.
+  // The status flag alone was unreliable: createTO/sendTO flip it fire-and-forget, so a
+  // silently-failed status write left a TR pinned at 'Submitted' and stuck in this box
+  // forever even after its TO was sent. Deriving from TO existence is self-healing and
+  // also makes a cancelled TO correctly reopen its TR here.
   const fetchPendingTRs = useCallback(async () => {
-    const { data: trs, error } = await supabase
+    const { data: candidates, error } = await supabase
       .from("transfer_requests")
       .select("id, tr_number, branch_id, requested_date, required_date, status")
-      .eq("status", "Submitted")
+      .in("status", ["Submitted", "Acknowledged"])
       .order("required_date", { ascending: true });
-    if (error || !trs) {
+    if (error || !candidates || candidates.length === 0) {
       setPendingTRs([]);
       return;
     }
 
+    // Exclude any candidate that already has a non-cancelled TO (Draft/Sent/Received/etc.)
+    const candidateIds = candidates.map((t) => t.id);
+    const { data: activeTOs } = await supabase
+      .from("transfer_orders")
+      .select("tr_id, status")
+      .in("tr_id", candidateIds)
+      .neq("status", "Cancelled");
+    const coveredTrIds = new Set((activeTOs || []).map((t) => t.tr_id).filter(Boolean));
+
+    const trs = candidates.filter((t) => !coveredTrIds.has(t.id));
     if (trs.length === 0) {
       setPendingTRs([]);
       return;
@@ -235,8 +251,13 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             };
           });
 
-          // Update TR status to Acknowledged
-          await supabase.from("transfer_requests").update({ status: "Acknowledged" }).eq("id", params.trId);
+          // Update TR status to Acknowledged (surface failures instead of swallowing them —
+          // the status column still feeds the cover-day "pending incoming" calc).
+          const { error: ackErr } = await supabase
+            .from("transfer_requests")
+            .update({ status: "Acknowledged" })
+            .eq("id", params.trId);
+          if (ackErr) toast.error("TO created, but failed to update the request status: " + ackErr.message);
         }
 
         fetchPendingTRs();
@@ -315,9 +336,14 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         }
       }
 
-      // Update linked TR to Fulfilled
+      // Update linked TR to Fulfilled (surface failures — status feeds the cover-day calc;
+      // the pending-TR box itself no longer depends on this flip, but keep it honest).
       if (to?.tr_id) {
-        await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.tr_id);
+        const { error: fulErr } = await supabase
+          .from("transfer_requests")
+          .update({ status: "Fulfilled" })
+          .eq("id", to.tr_id);
+        if (fulErr) toast.error("TO sent, but failed to update the request status: " + fulErr.message);
       }
 
       fetchPendingTRs();
@@ -328,12 +354,27 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
 
   // ─── Cancel TO ───
   const cancelTO = useCallback(async (toId: string) => {
+    // Read the linked TR first so we can reopen it after cancelling.
+    const { data: to } = await supabase.from("transfer_orders").select("tr_id").eq("id", toId).single();
+
     const { error } = await supabase.from("transfer_orders").update({ status: "Cancelled" }).eq("id", toId);
     if (error) {
       toast.error("Failed to cancel TO");
       return;
     }
+
+    // Reopen the source TR so it returns to the pending queue and stops inflating the
+    // TransferRequest cover-day "pending incoming" calc (which still reads TR.status).
+    if (to?.tr_id) {
+      const { error: trErr } = await supabase
+        .from("transfer_requests")
+        .update({ status: "Submitted" })
+        .eq("id", to.tr_id);
+      if (trErr) toast.error("TO cancelled, but failed to reopen the linked request: " + trErr.message);
+    }
+
     toast.success("TO cancelled");
+    fetchPendingTRs();
     fetchHistory();
   }, []);
 
