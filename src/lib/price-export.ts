@@ -39,6 +39,17 @@ export const PRICE_EXPORT_HEADERS = [
   "Note",
 ];
 
+export function derivePricePerPack(
+  price: Pick<Price, "pricePerUsageUom">,
+  sku: Pick<SKU, "packSize" | "converter"> | undefined,
+): number | null {
+  if (!sku) return null;
+  const packSize = sku.packSize ?? 0;
+  const converter = sku.converter ?? 0;
+  if (packSize <= 0 || converter <= 0) return null;
+  return price.pricePerUsageUom * packSize * converter;
+}
+
 export function buildActivePriceRows(
   prices: Price[],
   skus: SKU[],
@@ -61,7 +72,7 @@ export function buildActivePriceRows(
         packSize: sku?.packSize ?? 0,
         packUnit: sku?.packUnit || "",
         purchaseUom: sku?.purchaseUom || "",
-        pricePerPack: bom ? null : p.pricePerPurchaseUom,
+        pricePerPack: bom ? derivePricePerPack(p, sku) : p.pricePerPurchaseUom,
         usageUom: sku?.usageUom || "",
         pricePerUsageUom: p.pricePerUsageUom,
         vat: p.vat ? "Yes" : "No",
