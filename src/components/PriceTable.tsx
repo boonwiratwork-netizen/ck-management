@@ -176,11 +176,18 @@ export function PriceTable({ prices, skus, suppliers, onEdit, onDelete, loading,
                         </td>
                         <td className="px-4 py-3 text-right font-mono tabular-nums">
                           {isBom ? (
-                            <span className="text-muted-foreground italic text-xs">from BOM</span>
+                            derivePricePerPack(price, sku) !== null ? (
+                              <span className="text-muted-foreground" title="Derived from BOM cost per usage unit">
+                                {derivePricePerPack(price, sku)!.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic text-xs">from BOM</span>
+                            )
                           ) : (
                             price.pricePerPurchaseUom.toFixed(2)
                           )}
                         </td>
+
                         <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold">
                           {price.pricePerUsageUom.toFixed(4)}
                         </td>
