@@ -72,7 +72,7 @@ export function buildActivePriceRows(
         packSize: sku?.packSize ?? 0,
         packUnit: sku?.packUnit || "",
         purchaseUom: sku?.purchaseUom || "",
-        pricePerPack: bom ? null : p.pricePerPurchaseUom,
+        pricePerPack: bom ? derivePricePerPack(p, sku) : p.pricePerPurchaseUom,
         usageUom: sku?.usageUom || "",
         pricePerUsageUom: p.pricePerUsageUom,
         vat: p.vat ? "Yes" : "No",
