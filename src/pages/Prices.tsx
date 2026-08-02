@@ -9,7 +9,11 @@ import { PriceFormModal } from '@/components/PriceFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter, Download, FileSpreadsheet, ClipboardCopy } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { buildActivePriceRows, exportActivePricesXlsx, activePricesToTsv } from '@/lib/price-export';
 import { toast } from 'sonner';
 import { toLocalDateStr } from '@/lib/utils';
 import { isBomPrice } from '@/lib/bom-price-sync';
@@ -120,6 +124,27 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
     }
   };
 
+  const exportRows = useMemo(
+    () => buildActivePriceRows(prices, skus, allSuppliers),
+    [prices, skus, allSuppliers],
+  );
+
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) { toast.error('No active prices to export'); return; }
+    exportActivePricesXlsx(exportRows);
+    toast.success(`Exported ${exportRows.length} active prices`);
+  };
+
+  const handleCopyClipboard = async () => {
+    if (exportRows.length === 0) { toast.error('No active prices to export'); return; }
+    try {
+      await navigator.clipboard.writeText(activePricesToTsv(exportRows));
+      toast.success(`Copied ${exportRows.length} rows to clipboard`);
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -128,9 +153,25 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
           <p className="page-subtitle">Manage SKU pricing across suppliers</p>
         </div>
         <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="w-4 h-4" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover z-50">
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" /> Download Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyClipboard}>
+                <ClipboardCopy className="w-4 h-4 mr-2" /> Copy to clipboard
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
             <Upload className="w-4 h-4" /> {t('btn.importCsv')}
           </Button>
+
           <Button onClick={handleAdd}>
             <Plus className="w-4 h-4" /> {t('btn.addPrice')}
           </Button>
