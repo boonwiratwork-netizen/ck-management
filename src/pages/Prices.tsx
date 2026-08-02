@@ -9,7 +9,11 @@ import { PriceFormModal } from '@/components/PriceFormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from '@/components/CSVImportModal';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, Upload, AlertTriangle, Filter, Download, FileSpreadsheet, ClipboardCopy } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { buildActivePriceRows, exportActivePricesXlsx, activePricesToTsv } from '@/lib/price-export';
 import { toast } from 'sonner';
 import { toLocalDateStr } from '@/lib/utils';
 import { isBomPrice } from '@/lib/bom-price-sync';
