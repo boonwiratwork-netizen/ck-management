@@ -12,6 +12,8 @@ import { SkeletonTable } from '@/components/SkeletonTable';
 import { EmptyState } from '@/components/EmptyState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { isBomPrice, BOM_SUPPLIER_NAME } from '@/lib/bom-price-sync';
+import { derivePricePerPack } from '@/lib/price-export';
+
 
 interface PriceTableProps {
   prices: Price[];
