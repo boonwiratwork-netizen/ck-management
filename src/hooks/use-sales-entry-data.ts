@@ -489,7 +489,16 @@ export function useSalesEntryData() {
 
   const updateEntry = useCallback(
     async (id: string, fields: Partial<Omit<SalesEntry, "id" | "branchId" | "receiptNo">>) => {
-      const patch: Record<string, unknown> = {};
+      const patch: {
+        sale_date?: string;
+        menu_code?: string;
+        menu_name?: string;
+        order_type?: string;
+        qty?: number;
+        unit_price?: number;
+        net_amount?: number;
+        channel?: string;
+      } = {};
       if (fields.saleDate !== undefined) patch.sale_date = fields.saleDate;
       if (fields.menuCode !== undefined) patch.menu_code = fields.menuCode;
       if (fields.menuName !== undefined) patch.menu_name = fields.menuName;
