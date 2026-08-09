@@ -178,8 +178,14 @@ export interface NoodleUsage {
   total: number;
 }
 
-// Finds every active RM sku whose name contains "เส้น" (any noodle, not just one kind)
-// and sums its sales-driven theoretical usage across all given branches for one date.
+// Finds every active RM sku that IS a noodle (any kind), and sums its sales-driven
+// theoretical usage across all given branches for one date.
+//
+// Matches on "name starts with เส้น" rather than "name contains เส้น" — the SKU
+// master consistently names actual noodles that way ("เส้นบะหมี่", "เส้นตรง
+// โฮมเมด..."), while เส้น also shows up mid-name in unrelated items (a brand name
+// "...ตราเส้นไหม", "สาหร่ายย่างตัดเส้น", "หมูสันนอก...เต็มเส้น") which a plain
+// substring match wrongly pulled in.
 export async function computeAllNoodleUsage(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -191,7 +197,7 @@ export async function computeAllNoodleUsage(
     .select("id, name, usage_uom")
     .eq("type", "RM")
     .eq("status", "Active")
-    .ilike("name", "%เส้น%");
+    .ilike("name", "เส้น%");
 
   const results: NoodleUsage[] = [];
   for (const sku of (skuMatches || []) as Array<{ id: string; name: string; usage_uom: string }>) {
