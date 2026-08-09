@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.agent-data-read]
 verify_jwt = false
+
+[functions.daily-sales-report]
+verify_jwt = false
+
+[functions.daily-production-report]
+verify_jwt = false
+
+[functions.to-sent-report]
+verify_jwt = false
