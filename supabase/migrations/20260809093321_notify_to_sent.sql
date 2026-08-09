@@ -6,13 +6,12 @@
 -- Prerequisites (do these first, outside this file):
 --   1. Deploy to-sent-report.
 --   2. Add secrets: LINE_CHANNEL_ACCESS_TOKEN, LINE_GROUP_ID.
---   3. Enable the "pg_net" extension via the Dashboard's Database ->
---      Extensions toggle (skip if already enabled for the other
---      report's cron migration).
 --
 -- No secret/service_role key needed in this file: to-sent-report has
 -- verify_jwt = false and (confirmed by a direct browser request) the
 -- project's gateway doesn't require an apikey header for it either.
+
+create extension if not exists pg_net;
 
 create or replace function public.notify_to_sent()
 returns trigger
