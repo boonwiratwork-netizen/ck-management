@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
 
     const message =
       `รายงานยอดขายประจำวัน ${formatThaiDate(targetDate)}\n\n` +
-      `ยอดขายรายสาขา (รวม VAT 7% + Service Charge 5% เฉพาะ Dine-in)\n${salesLines || "(ไม่มีข้อมูล)"}\n` +
+      `ยอดขายรายสาขา (รวม VAT 7% ทุกออเดอร์ + Service Charge 5% เพิ่มเฉพาะ Dine-in)\n${salesLines || "(ไม่มีข้อมูล)"}\n` +
       `รวมทั้งหมด: ${formatBaht(totalSales)} บาท\n\n` +
       `${menuBlocks.join("\n\n") || "(ไม่มีข้อมูลยอดขายเมนู)"}\n\n` +
       `ยอดใช้เส้น (ตามสูตร)\n${noodleLines}`;
