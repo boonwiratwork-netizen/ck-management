@@ -178,6 +178,10 @@ export interface NoodleUsage {
   total: number;
 }
 
+// Excluded by Bucci — matched by the "starts with เส้น" rule but not wanted in
+// this report.
+const EXCLUDED_NOODLE_NAMES = new Set(["เส้นบะหมี่", "เส้นหมี่ ตรากิเลนคู่"]);
+
 // Finds every active RM sku that IS a noodle (any kind), and sums its sales-driven
 // theoretical usage across all given branches for one date.
 //
@@ -199,8 +203,12 @@ export async function computeAllNoodleUsage(
     .eq("status", "Active")
     .ilike("name", "เส้น%");
 
+  const filtered = ((skuMatches || []) as Array<{ id: string; name: string; usage_uom: string }>).filter(
+    (sku) => !EXCLUDED_NOODLE_NAMES.has(sku.name),
+  );
+
   const results: NoodleUsage[] = [];
-  for (const sku of (skuMatches || []) as Array<{ id: string; name: string; usage_uom: string }>) {
+  for (const sku of filtered) {
     let total = 0;
     for (const b of branches) {
       total += await computeRmUsageForBranchDate(supabase, b.id, b.brand_name, sku.id, targetDate);
