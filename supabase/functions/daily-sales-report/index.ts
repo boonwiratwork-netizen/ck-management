@@ -1,6 +1,8 @@
 // Edge function: daily-sales-report
-// Cron-triggered at 21:00 Bangkok time. Reports on TODAY's sales so far:
+// Cron-triggered at 21:15 Bangkok time. Reports on TODAY's sales so far:
 //   - total sales by branch, split Dine-in / Delivery, gross of VAT + service charge
+//   - bill count per branch (distinct receipt_no — no pax/headcount field exists)
+//     and average baht per bill
 //   - top 5 best-selling menu items per branch, ranked by (gross) revenue
 //   - sales-driven theoretical usage of every "เส้น" (noodle) RM item
 // Pushes the result to a LINE group via the LINE Messaging API.
@@ -44,10 +46,11 @@ Deno.serve(async (req) => {
 
     const { data: salesRows } = await supabase
       .from("sales_entries")
-      .select("branch_id, menu_code, menu_name, order_type, qty, net_amount")
+      .select("branch_id, menu_code, menu_name, order_type, qty, net_amount, receipt_no")
       .eq("sale_date", targetDate);
     const sales = (salesRows || []) as Array<{
       branch_id: string; menu_code: string; menu_name: string; order_type: string; qty: number; net_amount: number;
+      receipt_no: string;
     }>;
 
     // sales_entries.menu_name carries the customer's full modifier selection
@@ -74,15 +77,33 @@ Deno.serve(async (req) => {
         dineInByBranch[row.branch_id] = (dineInByBranch[row.branch_id] || 0) + amt;
       }
     }
+    // Bill count per branch — distinct receipt_no (scoped per branch in case
+    // receipt numbers repeat across branches on the same day). No customer
+    // headcount/pax field exists in sales_entries, so this is the closest
+    // available proxy for "number of customers".
+    const billSetByBranch: Record<string, Set<string>> = {};
+    for (const row of sales) {
+      (billSetByBranch[row.branch_id] ||= new Set()).add(row.receipt_no || "");
+    }
+
     const salesLines = branchList
-      .flatMap((b) => [
-        `${b.branch_name} (Dine-in): ${formatBaht(dineInByBranch[b.id] || 0)} บาท`,
-        `${b.branch_name} (Delivery): ${formatBaht(deliveryByBranch[b.id] || 0)} บาท`,
-      ])
+      .flatMap((b) => {
+        const dineIn = dineInByBranch[b.id] || 0;
+        const delivery = deliveryByBranch[b.id] || 0;
+        const billCount = billSetByBranch[b.id]?.size || 0;
+        const perBill = billCount > 0 ? (dineIn + delivery) / billCount : 0;
+        return [
+          `${b.branch_name} (Dine-in): ${formatBaht(dineIn)} บาท`,
+          `${b.branch_name} (Delivery): ${formatBaht(delivery)} บาท`,
+          `${b.branch_name} จำนวนบิล: ${billCount} บิล, เฉลี่ย ${formatBaht(perBill)} บาท/บิล`,
+        ];
+      })
       .join("\n");
     const totalSales =
       Object.values(deliveryByBranch).reduce((a, b) => a + b, 0) +
       Object.values(dineInByBranch).reduce((a, b) => a + b, 0);
+    const totalBillCount = Object.values(billSetByBranch).reduce((sum, s) => sum + s.size, 0);
+    const overallPerBill = totalBillCount > 0 ? totalSales / totalBillCount : 0;
 
     // Top 5 menus per branch, ranked by gross revenue, keyed by menu_code
     const menuBlocks: string[] = [];
@@ -115,7 +136,7 @@ Deno.serve(async (req) => {
     const message =
       `รายงานยอดขายประจำวัน ${formatThaiDate(targetDate)}\n\n` +
       `ยอดขายรายสาขา (รวม VAT 7% ทุกออเดอร์ + Service Charge 5% เพิ่มเฉพาะ Dine-in)\n${salesLines || "(ไม่มีข้อมูล)"}\n` +
-      `รวมทั้งหมด: ${formatBaht(totalSales)} บาท\n\n` +
+      `รวมทั้งหมด: ${formatBaht(totalSales)} บาท, ${totalBillCount} บิล, เฉลี่ย ${formatBaht(overallPerBill)} บาท/บิล\n\n` +
       `${menuBlocks.join("\n\n") || "(ไม่มีข้อมูลยอดขายเมนู)"}\n\n` +
       `ยอดใช้เส้น (ตามสูตร)\n${noodleLines}`;
 
