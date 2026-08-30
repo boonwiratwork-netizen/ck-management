@@ -340,6 +340,7 @@ export function useProductionData(
       }
       const smSkuId = oldRecord.smSkuId;
       const deltaBatches = data.batchesProduced - oldRecord.batchesProduced;
+      const dateChanged = oldRecord.productionDate !== data.productionDate;
 
       const { error } = await supabase
         .from("production_records")
@@ -366,7 +367,7 @@ export function useProductionData(
         ),
       );
 
-      if (deltaBatches === 0) return;
+      if (deltaBatches === 0 && !dateChanged) return;
 
       const bomHeader = bomHeaders.find((h) => h.smSkuId === smSkuId);
       if (!bomHeader) return;
@@ -413,27 +414,38 @@ export function useProductionData(
       const skuTypeMap = new Map<string, string>();
       (skuRows || []).forEach((s) => skuTypeMap.set(s.id, s.type));
 
-      const sign = deltaBatches > 0 ? "+" : "";
-      const reason = `Production correction: ${data.batchesProduced} batches of ${smSkuId} (delta ${sign}${deltaBatches})`;
-
-      for (const line of resolvedLines) {
-        const deltaQty = -(line.qty * deltaBatches);
-        const skuType = skuTypeMap.get(line.rmSkuId) || "RM";
+      const insertAdjustment = async (rmSkuId: string, quantity: number, adjustmentDate: string, reason: string) => {
+        const skuType = skuTypeMap.get(rmSkuId) || "RM";
         if (skuType === "SM") {
           await supabase.from("stock_adjustments").insert({
-            sku_id: line.rmSkuId,
-            adjustment_date: data.productionDate,
-            quantity: deltaQty,
+            sku_id: rmSkuId,
+            adjustment_date: adjustmentDate,
+            quantity,
             reason,
             stock_type: "SM",
           });
         } else {
-          addStockAdjustment({
-            skuId: line.rmSkuId,
-            date: data.productionDate,
-            quantity: deltaQty,
-            reason,
-          });
+          addStockAdjustment({ skuId: rmSkuId, date: adjustmentDate, quantity, reason });
+        }
+      };
+
+      if (dateChanged) {
+        // A plain quantity delta can't fix a date change — it would still leave
+        // the original full deduction attributed to the old (wrong) date. Instead,
+        // fully reverse the old deduction on the old date and fully re-apply the
+        // new one on the new date. This also correctly covers a simultaneous
+        // quantity change, since both amounts are computed independently.
+        const reverseReason = `Production correction (date moved from ${oldRecord.productionDate}): reverse ${oldRecord.batchesProduced} batches of ${smSkuId}`;
+        const applyReason = `Production correction (date moved to ${data.productionDate}): ${data.batchesProduced} batches of ${smSkuId}`;
+        for (const line of resolvedLines) {
+          await insertAdjustment(line.rmSkuId, line.qty * oldRecord.batchesProduced, oldRecord.productionDate, reverseReason);
+          await insertAdjustment(line.rmSkuId, -(line.qty * data.batchesProduced), data.productionDate, applyReason);
+        }
+      } else {
+        const sign = deltaBatches > 0 ? "+" : "";
+        const reason = `Production correction: ${data.batchesProduced} batches of ${smSkuId} (delta ${sign}${deltaBatches})`;
+        for (const line of resolvedLines) {
+          await insertAdjustment(line.rmSkuId, -(line.qty * deltaBatches), data.productionDate, reason);
         }
       }
     },
