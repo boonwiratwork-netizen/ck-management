@@ -96,7 +96,7 @@ function SortableArrangeRow({ skuId, sku }: { skuId: string; sku: SKU }) {
       >
         {sku.skuId}
       </td>
-      <td className="max-w-[150px] truncate px-2 py-1.5 text-sm" title={sku.name}>
+      <td className="max-w-[170px] truncate px-2 py-1.5 text-sm" title={sku.name}>
         {sku.name}
       </td>
       <td className="px-2 py-1.5 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
@@ -551,8 +551,8 @@ export default function DailyStockCountPage({
                   <table className="w-full table-fixed text-xs">
                     <colgroup>
                       <col style={{ width: 32 }} />
-                      <col style={{ width: 90 }} />
-                      <col style={{ width: 150 }} />
+                      <col style={{ width: 70 }} />
+                      <col style={{ width: 170 }} />
                       <col style={{ width: 90 }} />
                       <col style={{ width: 60 }} />
                       <col style={{ width: 80 }} />
@@ -616,8 +616,8 @@ export default function DailyStockCountPage({
               </div>
               <table className="w-full table-fixed text-xs">
                 <colgroup>
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 150 }} />
+                  <col style={{ width: 70 }} />
+                  <col style={{ width: 170 }} />
                   <col style={{ width: 90 }} />
                   <col style={{ width: 60 }} />
                   <col style={{ width: 80 }} />
@@ -691,8 +691,8 @@ export default function DailyStockCountPage({
                             <Clock className="w-3 h-3" />
                           </button>
                         </td>
-                        <td className="max-w-[150px] px-2 py-1 text-sm" title={sku.name}>
-                          <span className="truncate">{sku.name}</span>
+                        <td className="max-w-[170px] truncate px-2 py-1 text-sm" title={sku.name}>
+                          {sku.name}
                         </td>
                         <td className="px-2 py-1 text-xs text-muted-foreground">{fmtPackSize(sku)}</td>
                         <td className="px-2 py-1 text-sm text-muted-foreground text-center">{sku.usageUom}</td>
