@@ -586,9 +586,24 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   // ─── Add standalone line ───
   const addTOLine = useCallback(
     async (toId: string, skuId: string, skuCode: string, skuName: string, uom: string): Promise<TOLine | null> => {
-      const costPerG = getBomCostPerGram?.(skuId) ?? 0;
       const { data: skuRow } = await supabase.from("skus").select("type").eq("id", skuId).single();
       const skuType = skuRow?.type === "PK" ? "PK" : skuRow?.type === "RM" ? "RM" : "SM";
+      // Same pricing as TR-created lines: RM/PK → active price, SM → BOM cost
+      let costPerG = 0;
+      if (skuType === "RM" || skuType === "PK") {
+        const { data: priceRow } = await supabase
+          .from("prices")
+          .select("price_per_usage_uom")
+          .eq("sku_id", skuId)
+          .eq("is_active", true)
+          .order("effective_date", { ascending: false })
+          .order("id")
+          .limit(1)
+          .maybeSingle();
+        costPerG = Number(priceRow?.price_per_usage_uom) || 0;
+      } else {
+        costPerG = getBomCostPerGram?.(skuId) ?? 0;
+      }
       const { data, error } = await supabase
         .from("transfer_order_lines")
         .insert({

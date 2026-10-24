@@ -32,7 +32,7 @@ import {
 import { StatusDot } from "@/components/ui/status-dot";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getWeekNumber } from "@/types/goods-receipt";
@@ -162,6 +162,8 @@ export default function BranchReceiptPage({
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dupWarning, setDupWarning] = useState<string | null>(null);
+  const dupConfirmedRef = useRef(false);
   const [pendingSupplierId, setPendingSupplierId] = useState<string>("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
@@ -411,10 +413,14 @@ export default function BranchReceiptPage({
       .map((s) => ({
         skuId: s.id,
         sku: s,
-        stdUnitPrice: getBomCostPerGram?.(s.id) ?? 0,
+        // SM has no purchase price → BOM cost; RM/PK → active std price (BOM cost is 0 for them)
+        stdUnitPrice:
+          s.type === "SM"
+            ? (getBomCostPerGram?.(s.id) ?? 0)
+            : (prices.find((p) => p.skuId === s.id && p.isActive)?.pricePerUsageUom ?? 0),
       }))
       .sort((a, b) => a.sku.skuId.localeCompare(b.sku.skuId));
-  }, [branchId, selectedBranch, skus, brandRmSkuIds, getBomCostPerGram]);
+  }, [branchId, selectedBranch, skus, brandRmSkuIds, getBomCostPerGram, prices]);
 
   // Brand supplier IDs — suppliers with active prices for brand's RM SKUs
   const brandSupplierIds = useMemo(() => {
@@ -606,12 +612,42 @@ export default function BranchReceiptPage({
     }));
   }, []);
 
+  // CK goods entered twice (once ad-hoc, once via TO) double-count branch stock.
+  // Returns CK receipts within ±2 days with the same SKU and same qty:
+  // via a TO (againstTO) or ad-hoc. Same-qty keeps normal daily deliveries from warning.
+  const findCkDoubleReceipts = useCallback(
+    async (lines: { skuId: string; qty: number }[], againstTO: boolean): Promise<string[]> => {
+      if (!branchId || lines.length === 0) return [];
+      const qtyBySku = new Map(lines.map((l) => [l.skuId, l.qty]));
+      let query = supabase
+        .from("branch_receipts")
+        .select("sku_id, qty_received, uom, receipt_date, transfer_orders(to_number)")
+        .eq("branch_id", branchId)
+        .eq("supplier_name", "Central Kitchen")
+        .in("sku_id", [...qtyBySku.keys()])
+        .gte("receipt_date", format(addDays(receiptDate, -2), "yyyy-MM-dd"))
+        .lte("receipt_date", format(addDays(receiptDate, 2), "yyyy-MM-dd"));
+      query = againstTO ? query.not("transfer_order_id", "is", null) : query.is("transfer_order_id", null);
+      const { data } = await query.order("receipt_date").order("id");
+      const sameQty = (data || []).filter((r) => Number(r.qty_received) === qtyBySku.get(r.sku_id));
+      return sameQty.map((r) => {
+        const sku = skuMap[r.sku_id];
+        const via = r.transfer_orders?.to_number ?? "ไม่มีใบโอน";
+        return `${sku?.skuId ?? ""} ${sku?.name ?? ""} ${Number(r.qty_received).toLocaleString()} ${r.uom} (${r.receipt_date}, ${via})`;
+      });
+    },
+    [branchId, receiptDate, skuMap],
+  );
+
   // Save all — handles both external and CK receipts
   const handleSaveAll = useCallback(async () => {
     if (!branchId) {
       toast.error("Please select a branch");
       return;
     }
+    // Set by the double-receipt warning dialog when the user chooses to save anyway
+    const skipDupCheck = dupConfirmedRef.current;
+    dupConfirmedRef.current = false;
     setSaving(true);
 
     if (isCKSupplier && isCkAdHoc) {
@@ -620,6 +656,19 @@ export default function BranchReceiptPage({
         toast.error("No items with quantity to save");
         setSaving(false);
         return;
+      }
+      if (!skipDupCheck) {
+        const dups = await findCkDoubleReceipts(
+          linesToSave.map((row) => ({ skuId: row.skuId, qty: ckAdHocEdits[row.skuId]?.qty ?? 0 })),
+          true,
+        );
+        if (dups.length > 0) {
+          setDupWarning(
+            `ของเหล่านี้เพิ่งรับผ่านใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ไม่ต้องบันทึกซ้ำ ให้กดยกเลิก`,
+          );
+          setSaving(false);
+          return;
+        }
       }
 
       const rows: Omit<BranchReceipt, "id" | "createdAt">[] = linesToSave.map((row) => {
@@ -668,6 +717,19 @@ export default function BranchReceiptPage({
         toast.error("No items with quantity to save");
         setSaving(false);
         return;
+      }
+      if (!skipDupCheck) {
+        const dups = await findCkDoubleReceipts(
+          linesToSave.map((l) => ({ skuId: l.skuId, qty: l.receivedQty })),
+          false,
+        );
+        if (dups.length > 0) {
+          setDupWarning(
+            `ของเหล่านี้เพิ่งรับจากครัวกลางแบบไม่มีใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ให้กดยกเลิก แล้วลบรายการเก่าที่ไม่มีใบโอนออกก่อน`,
+          );
+          setSaving(false);
+          return;
+        }
       }
 
       const rows: Omit<BranchReceipt, "id" | "createdAt">[] = linesToSave.map((l) => {
@@ -878,6 +940,7 @@ export default function BranchReceiptPage({
     isCkAdHoc,
     ckAdHocRows,
     ckAdHocEdits,
+    findCkDoubleReceipts,
   ]);
 
   // Batch save all
@@ -3693,6 +3756,22 @@ export default function BranchReceiptPage({
         confirmLabel="Continue"
         variant="warning"
         onConfirm={confirmSupplierChange}
+      />
+      <ConfirmDialog
+        open={dupWarning !== null}
+        onOpenChange={(o) => {
+          if (!o) setDupWarning(null);
+        }}
+        title="อาจรับของซ้ำ"
+        description={dupWarning ?? ""}
+        confirmLabel="ไม่ซ้ำ บันทึกต่อ"
+        cancelLabel="ยกเลิก"
+        variant="warning"
+        onConfirm={() => {
+          dupConfirmedRef.current = true;
+          setDupWarning(null);
+          handleSaveAll();
+        }}
       />
       {/* Decline TO Dialog */}
       <Dialog
