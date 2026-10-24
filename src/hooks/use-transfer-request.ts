@@ -253,7 +253,8 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         const { data: sbom } = await supabase
           .from("menu_bom")
           .select("menu_id, sku_id, effective_qty")
-          .in("menu_id", submenuIdList);
+          .in("menu_id", submenuIdList)
+          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
         submenuBomAll = (sbom || []) as any[];
         const submenuSpSkuIds = [
           ...new Set(submenuBomAll.filter((b) => !skuIds.includes(b.sku_id)).map((b) => b.sku_id)),

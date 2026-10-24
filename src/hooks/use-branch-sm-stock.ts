@@ -177,7 +177,8 @@ export function useBranchSmStock(branchId: string | null) {
           .from("menu_bom")
           .select("menu_id, sku_id, effective_qty")
           .in("menu_id", submenuIdList)
-          .in("sku_id", skuIds);
+          .in("sku_id", skuIds)
+          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
         submenuBomLines = (sbom || []) as any[];
       }
 

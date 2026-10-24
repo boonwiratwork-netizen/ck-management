@@ -107,7 +107,11 @@ export async function computeRmUsageForBranchDate(
   let submenuBom: Array<{ menu_id: string; sku_id: string; effective_qty: number }> = [];
   let submenuSpBom: Array<{ sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number; batch_yield_qty: number }> = [];
   if (submenuIds.length > 0) {
-    const { data } = await supabase.from("menu_bom").select("menu_id, sku_id, effective_qty").in("menu_id", submenuIds);
+    const { data } = await supabase
+      .from("menu_bom")
+      .select("menu_id, sku_id, effective_qty")
+      .in("menu_id", submenuIds)
+      .or(`branch_id.is.null,branch_id.eq.${branchId}`);
     submenuBom = data || [];
     const spIds = [...new Set(submenuBom.filter((b) => b.sku_id !== targetSkuId).map((b) => b.sku_id))];
     if (spIds.length > 0) {
