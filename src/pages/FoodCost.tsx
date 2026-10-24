@@ -335,8 +335,11 @@ export default function FoodCostPage({
         for (const rule of activeRules) {
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           const menuName = sale.menu_name || "";
+          // Submenu: POS puts set items inside menu_name ("Set Menu : MN-011 …"), so match code or name
           const ruleMatches =
-            rule.ruleType === "submenu" ? sale.menu_code === rule.keyword : menuName.includes(rule.keyword);
+            rule.ruleType === "submenu"
+              ? sale.menu_code === rule.keyword || menuName.includes(rule.keyword)
+              : menuName.includes(rule.keyword);
           if (ruleMatches) {
             if (rule.ruleType === "swap") {
               if (rule.swapSkuId) {
@@ -427,7 +430,9 @@ export default function FoodCostPage({
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           const menuName = sale.menu_name || "";
           const ruleMatches =
-            rule.ruleType === "submenu" ? sale.menu_code === rule.keyword : menuName.includes(rule.keyword);
+            rule.ruleType === "submenu"
+              ? sale.menu_code === rule.keyword || menuName.includes(rule.keyword)
+              : menuName.includes(rule.keyword);
           if (ruleMatches) {
             if (rule.ruleType === "swap") {
               if (rule.swapSkuId) {

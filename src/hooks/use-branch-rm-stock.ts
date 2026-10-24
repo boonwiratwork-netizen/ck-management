@@ -310,7 +310,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if ((sale as any).menu_code !== rule.keyword) continue;
+            if ((sale as any).menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
             for (const sbom of submenuBomAll) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (skuIds.includes(sbom.sku_id)) {
@@ -418,7 +418,7 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if ((sale as any).menu_code !== rule.keyword) continue;
+            if ((sale as any).menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
             for (const sbom of submenuBomAll) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (skuIds.includes(sbom.sku_id)) {

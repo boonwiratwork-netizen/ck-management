@@ -122,7 +122,7 @@ Physical counts are **ground truth** — they snap the balance on entry and over
 ## Calculation rules
 
 - **avgDailyUsage** (unified across all pages/hooks): `(salesUsage + waste) / actualSaleDays`, where `salesUsage = Menu BOM × effective_qty + SP expansion + Modifier Rules`, `waste` from `daily_stock_counts.waste`.
-- **Modifier rules** (`menu_modifier_rules`, keywords match menu **name** strings): swap/add → `sale.menu_name.includes(rule.keyword)`; submenu → `sale.menu_code === rule.keyword` (keyword IS the menu_code, e.g. "MN-011").
+- **Modifier rules** (`menu_modifier_rules`, keywords match menu **name** strings): swap/add → `sale.menu_name.includes(rule.keyword)`; submenu → `sale.menu_code === rule.keyword || menu_name.includes(rule.keyword)`. The POS never sends the set item's code in `menu_code` — it sits inside `menu_name` ("Set Menu : MN-011 …"), so code-only matching silently never fires (it didn't, Jun–Oct 2026, everywhere except Daily Stock Count).
 - **Cover Day scorecards:** weighted average `Σ(currentStock) ÷ Σ(dailyUsage)` per storage group, not a simple average.
 - **Stock Value:** `price_per_usage_uom × Math.max(0, physical_count ?? calculated_balance)`.
 - **Food Cost Act Qty:** `Opening (last physical count of prev month, fallback calc balance) + branch_receipts in period − Closing (last physical count this month, fallback calc balance)`. Don't add adjustments — closing already reflects them. Variance shows only for a past full month with a single branch selected.

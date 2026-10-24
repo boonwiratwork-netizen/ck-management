@@ -81,7 +81,8 @@ export async function computeRmUsageForBranchDate(
   }
 
   // Modifier rules (submenu / swap / add) — same matching rules as elsewhere:
-  // submenu -> sale.menu_code === rule.keyword; swap/add -> menu_name.includes(keyword)
+  // submenu -> menu_code === keyword OR menu_name includes keyword (POS puts set items
+  // inside menu_name, e.g. "Set Menu : MN-011 …"); swap/add -> menu_name.includes(keyword)
   const [modRulesRes, modRuleMenusRes] = await Promise.all([
     supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
     supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
@@ -130,7 +131,7 @@ export async function computeRmUsageForBranchDate(
       if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
 
       if (rule.ruleType === "submenu") {
-        if (sale.menu_code !== rule.keyword) continue;
+        if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
         for (const sbom of submenuBom) {
           if (sbom.menu_id !== rule.submenuId) continue;
           if (sbom.sku_id === targetSkuId) {

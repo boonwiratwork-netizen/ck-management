@@ -218,7 +218,7 @@ export function useBranchSmStock(branchId: string | null) {
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if (sale.menu_code !== rule.keyword) continue;
+            if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
             for (const sbom of submenuBomLines) {
               if (sbom.menu_id !== rule.submenuId) continue;
               totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
@@ -271,7 +271,7 @@ export function useBranchSmStock(branchId: string | null) {
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if (sale.menu_code !== rule.keyword) continue;
+            if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
             for (const sbom of submenuBomLines) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
@@ -467,7 +467,7 @@ export function useBranchSmStock(branchId: string | null) {
                 if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
                 if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
                 if (rule.ruleType === "submenu") {
-                  if (sale.menu_code !== rule.keyword) continue;
+                  if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
                   for (const sbom of submenuBomLines) {
                     if (sbom.menu_id !== rule.submenuId) continue;
                     addUsage(sbom.sku_id, sbom.effective_qty * sale.qty);
