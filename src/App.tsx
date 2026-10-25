@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/hooks/use-language";
 import Index from "./pages/Index";
-import MobileApp from "./pages/MobileApp";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import InitialSetup from "./pages/InitialSetup";
@@ -14,6 +13,8 @@ import NotFound from "./pages/NotFound";
 import DesignSystem from "./pages/DesignSystem";
 import { lazy, Suspense } from "react";
 
+// Old phone page: separate download, most people never open it
+const MobileApp = lazy(() => import("./pages/MobileApp"));
 // Dev-only screen harness; the import is dropped from production builds
 const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuSetupDemo")) : null;
 
@@ -59,7 +60,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/setup" element={<SetupRoute />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/mobile" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
+              <Route path="/mobile" element={<ProtectedRoute><Suspense fallback={null}><MobileApp /></Suspense></ProtectedRoute>} />
               <Route path="/:tab" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/design" element={<DesignSystem />} />
               {MenuSetupDemo && <Route path="/dev/menu-setup" element={<Suspense fallback={null}><MenuSetupDemo /></Suspense>} />}

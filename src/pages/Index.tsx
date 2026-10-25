@@ -23,10 +23,7 @@ import { useMenuBomData } from "@/hooks/use-menu-bom-data";
 import { useSkuCategories } from "@/hooks/use-sku-categories";
 import { useAuth } from "@/hooks/use-auth";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
-import { SummaryCards } from "@/components/SummaryCards";
-import { SKUTable } from "@/components/SKUTable";
-import { SKUFormModal } from "@/components/SKUFormModal";
-import { CSVImportModal, CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
+import type { CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
 const SuppliersPage = lazy(() => import("@/pages/Suppliers"));
 const PricesPage = lazy(() => import("@/pages/Prices"));
 const BOMPage = lazy(() => import("@/pages/BOM"));
@@ -43,6 +40,11 @@ const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
 const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
 const MenuBOMPage = lazy(() => import("@/pages/MenuBOM"));
 const MenuSetupPage = lazy(() => import("@/pages/MenuSetup"));
+// SKU page pieces and dialogs: only the SKU page and open dialogs need them
+const SummaryCards = lazy(() => import("@/components/SummaryCards").then((m) => ({ default: m.SummaryCards })));
+const SKUTable = lazy(() => import("@/components/SKUTable").then((m) => ({ default: m.SKUTable })));
+const SKUFormModal = lazy(() => import("@/components/SKUFormModal").then((m) => ({ default: m.SKUFormModal })));
+const CSVImportModal = lazy(() => import("@/components/CSVImportModal").then((m) => ({ default: m.CSVImportModal })));
 const SpBomPage = lazy(() => import("@/pages/SpBom"));
 const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
 const SalesEntryPage = lazy(() => import("@/pages/SalesEntry"));
@@ -60,7 +62,6 @@ import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sid
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Upload, Package, Download } from "lucide-react";
-import { exportAllBoms } from "@/lib/bom-export";
 import { toast } from "sonner";
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
@@ -460,8 +461,9 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 className="ml-auto"
-                onClick={() =>
-                  exportAllBoms({
+                onClick={async () =>
+                  // The Excel library is ~900 KB: load it only when someone exports
+                  (await import("@/lib/bom-export")).exportAllBoms({
                     bomHeaders: bomData.headers,
                     bomLines: bomData.lines,
                     bomSteps: bomData.steps,
@@ -736,19 +738,22 @@ const Index = () => {
       </div>
 
       {(isManagement || role === "ck_manager") && (
-        <>
-          <SKUFormModal
-            open={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSubmit={handleSubmit}
-            editingSku={editingSku}
-            activeSuppliers={activeSuppliers}
-            isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
-            allSkus={skus}
-            skuCategories={skuCategoryData.categories}
-            onAddCategory={skuCategoryData.addCategory}
-            onManageCategories={() => handleTabChange("sku-categories")}
-          />
+        <Suspense fallback={null}>
+          {/* Mounted only while open, so their code loads on first use */}
+          {modalOpen && (
+            <SKUFormModal
+              open={modalOpen}
+              onClose={() => setModalOpen(false)}
+              onSubmit={handleSubmit}
+              editingSku={editingSku}
+              activeSuppliers={activeSuppliers}
+              isSkuUsed={editingSku ? isSkuUsed(editingSku.id) : false}
+              allSkus={skus}
+              skuCategories={skuCategoryData.categories}
+              onAddCategory={skuCategoryData.addCategory}
+              onManageCategories={() => handleTabChange("sku-categories")}
+            />
+          )}
 
           <ConfirmDialog
             open={!!deleteConfirm}
@@ -759,15 +764,17 @@ const Index = () => {
             onConfirm={handleDeleteConfirm}
           />
 
-          <CSVImportModal
-            open={csvImportOpen}
-            onClose={() => setCsvImportOpen(false)}
-            title="SKU Master"
-            columns={skuCsvColumns}
-            validate={validateSkuCsv}
-            onConfirm={handleSkuCsvConfirm}
-          />
-        </>
+          {csvImportOpen && (
+            <CSVImportModal
+              open={csvImportOpen}
+              onClose={() => setCsvImportOpen(false)}
+              title="SKU Master"
+              columns={skuCsvColumns}
+              validate={validateSkuCsv}
+              onConfirm={handleSkuCsvConfirm}
+            />
+          )}
+        </Suspense>
       )}
     </SidebarProvider>
   );
