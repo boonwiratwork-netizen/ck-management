@@ -12,14 +12,11 @@ export async function computeRmUsageForBranchDate(
   targetSkuId: string,
   targetDate: string,
 ): Promise<number> {
-  const [menusRes, overridesRes] = await Promise.all([
-    supabase.from("menus").select("id, menu_code").eq("brand_name", brandName).eq("status", "Active"),
-    supabase.from("branch_menu_overrides").select("menu_id").eq("branch_id", branchId).eq("is_active", false),
-  ]);
+  // A menu closed at a branch (branch_menu_overrides) is only hidden from lists;
+  // if the POS sold it, it still used stock — same as the app's other screens.
+  const menusRes = await supabase.from("menus").select("id, menu_code").eq("brand_name", brandName).eq("status", "Active");
   // deno-lint-ignore no-explicit-any
-  const suppressed = new Set((overridesRes.data || []).map((o: any) => o.menu_id));
-  // deno-lint-ignore no-explicit-any
-  const menus = (menusRes.data || []).filter((m: any) => !suppressed.has(m.id));
+  const menus = (menusRes.data || []) as any[];
   if (menus.length === 0) return 0;
 
   const { data: salesRows } = await supabase
