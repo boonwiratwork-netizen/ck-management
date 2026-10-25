@@ -53,7 +53,8 @@ const SalesEntryPage = lazy(() => import("@/pages/Sales"));
 const DailyStockCountPage = lazy(() => import("@/pages/DailyStockCount"));
 // One receiving page for phones and computers (replaced BranchReceipt + BranchReceiptMobile)
 const ReceivePage = lazy(() => import("@/pages/Receive"));
-const TransferRequestPage = lazy(() => import("@/pages/TransferRequest"));
+// One request page for phones and computers (replaced TransferRequest)
+const TransferRequestPage = lazy(() => import("@/pages/Request"));
 const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
 const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
 const StoreStockPage = lazy(() => import("@/pages/StoreStock"));
@@ -681,7 +682,7 @@ const Index = () => {
                     getBomCostPerGram={smStockData.getBomCostPerGram}
                   />
                 ) : activeTab === "transfer-request" ? (
-                  <TransferRequestPage />
+                  <TransferRequestPage branches={isAreaManager ? areaManagerBranches : branchData.branches} />
                 ) : activeTab === "transfer-order" ? (
                   <TransferOrderPage
                     getBomCostPerGram={smStockData.getBomCostPerGram}

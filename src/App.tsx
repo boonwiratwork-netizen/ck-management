@@ -20,6 +20,7 @@ const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuS
 const ReceiveDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ReceiveDemo")) : null;
 const LoadingDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/LoadingDemo")) : null;
 const SalesDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/SalesDemo")) : null;
+const RequestDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/RequestDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => (
               {ReceiveDemo && <Route path="/dev/receive" element={<Suspense fallback={null}><ReceiveDemo /></Suspense>} />}
               {LoadingDemo && <Route path="/dev/loading" element={<Suspense fallback={null}><LoadingDemo /></Suspense>} />}
               {SalesDemo && <Route path="/dev/sales" element={<Suspense fallback={null}><SalesDemo /></Suspense>} />}
+              {RequestDemo && <Route path="/dev/request" element={<Suspense fallback={null}><RequestDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
