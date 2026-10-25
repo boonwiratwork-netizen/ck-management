@@ -9,6 +9,8 @@ import { Price } from "@/types/price";
 import { Branch } from "@/types/branch";
 import { Supplier } from "@/types/supplier";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ShowMoreRows } from "@/components/ShowMoreRows";
+import { useProgressiveList } from "@/hooks/use-progressive-list";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1152,9 +1154,13 @@ export default function BranchReceiptPage({
     sortDir: hSortDir,
     handleSort: hHandleSort,
   } = useSortableTable(filteredHistory, historyComparators);
-  const displayHistory = hSortKey
-    ? sortedHistory
-    : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  // Memoised so paging below doesn't reset on every keystroke elsewhere on the page
+  const displayHistory = useMemo(
+    () => (hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate))),
+    [hSortKey, sortedHistory, filteredHistory],
+  );
+  const historyPage = useProgressiveList(displayHistory);
+  const [deleteTarget, setDeleteTarget] = useState<BranchReceipt | null>(null);
   const totalActual = useMemo(() => filteredHistory.reduce((s, r) => s + r.actualTotal, 0), [filteredHistory]);
   const totalStd = useMemo(() => filteredHistory.reduce((s, r) => s + r.stdTotal, 0), [filteredHistory]);
   const totalVariance = totalActual - totalStd;
@@ -3458,7 +3464,7 @@ export default function BranchReceiptPage({
                 </tr>
               </thead>
               <tbody>
-                {displayHistory.map((r) => {
+                {historyPage.visible.map((r) => {
                   const sku = skuMap[r.skuId];
                   const branch = branchMap[r.branchId];
                   const isCK = !!r.transferOrderId || r.supplierName === "Central Kitchen";
@@ -3469,43 +3475,19 @@ export default function BranchReceiptPage({
                       className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors"
                     >
                       <td className={tdReadOnly}>{r.receiptDate}</td>
-                      <td className={`${tdReadOnly} truncate`}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="truncate">{sku?.skuId || "—"}</span>
-                            </TooltipTrigger>
-                            {sku?.skuId && (
-                              <TooltipContent side="top">
-                                <p>{sku.skuId}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
+                      {/* Plain title tooltips: a Radix tooltip per cell was thousands of extra components */}
+                      <td className={`${tdReadOnly} truncate`} title={sku?.skuId}>
+                        {sku?.skuId || "—"}
                       </td>
                       <td className={tdReadOnly}>
                         <div className="flex items-center gap-1 min-w-0">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="truncate block">{sku?.name || "—"}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p>{sku?.name}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <span className="truncate block" title={sku?.name}>
+                            {sku?.name || "—"}
+                          </span>
                           {r.notes && (
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p className="text-xs">{r.notes}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <span title={r.notes} className="shrink-0">
+                              <MessageSquare className="w-3 h-3 text-muted-foreground" aria-label={r.notes} />
+                            </span>
                           )}
                         </div>
                       </td>
@@ -3585,10 +3567,8 @@ export default function BranchReceiptPage({
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7 text-destructive hover:text-destructive"
-                                  onClick={() => {
-                                    deleteReceipt(r.id);
-                                    toast.success("Deleted");
-                                  }}
+                                  aria-label="ลบรายการรับของ"
+                                  onClick={() => setDeleteTarget(r)}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
@@ -3610,6 +3590,14 @@ export default function BranchReceiptPage({
             </table>
           </div>
         </div>
+
+        <ShowMoreRows
+          shown={historyPage.shown}
+          total={historyPage.total}
+          hasMore={historyPage.hasMore}
+          onMore={historyPage.showMore}
+          onAll={historyPage.showAll}
+        />
 
         {filteredHistory.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
@@ -3748,6 +3736,26 @@ export default function BranchReceiptPage({
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
+        title="ลบรายการรับของ"
+        description={
+          deleteTarget
+            ? `ลบ ${skuMap[deleteTarget.skuId]?.name ?? "รายการนี้"} ${deleteTarget.qtyReceived.toLocaleString()} ${skuMap[deleteTarget.skuId]?.purchaseUom ?? deleteTarget.uom} วันที่ ${deleteTarget.receiptDate}?\nสต๊อกและต้นทุนของสาขาจะคำนวณใหม่โดยไม่มีรายการนี้`
+            : ""
+        }
+        confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
+        variant="destructive"
+        onConfirm={async () => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          if (target && (await deleteReceipt(target.id))) toast.success("ลบแล้ว");
+        }}
+      />
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

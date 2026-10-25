@@ -27,7 +27,7 @@ function getNinetyDaysAgo(): string {
   return d.toISOString().split('T')[0];
 }
 
-export function useGoodsReceiptData() {
+export function useGoodsReceiptData(enabled = true) {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
   const [isFullHistory, setIsFullHistory] = useState(false);
   const [isLoadingAll, setIsLoadingAll] = useState(false);
@@ -44,8 +44,10 @@ export function useGoodsReceiptData() {
   }, []);
 
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     fetchReceipts(false);
-  }, [fetchReceipts]);
+  }, [fetchReceipts, enabled]);
 
   const loadAllHistory = useCallback(async () => {
     setIsLoadingAll(true);
@@ -107,8 +109,9 @@ export function useGoodsReceiptData() {
 
   const deleteReceipt = useCallback(async (id: string) => {
     const { error } = await supabase.from('goods_receipts').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete receipt: ' + error.message); return; }
+    if (error) { toast.error('ลบรายการรับของไม่สำเร็จ: ' + error.message); return false; }
     setReceipts(prev => prev.filter(r => r.id !== id));
+    return true;
   }, []);
 
   return { receipts, addReceipt, updateReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };

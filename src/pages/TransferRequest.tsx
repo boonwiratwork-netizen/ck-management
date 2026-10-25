@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { ShowMoreRows } from "@/components/ShowMoreRows";
+import { useProgressiveList } from "@/hooks/use-progressive-list";
 import { useAuth } from "@/hooks/use-auth";
 import { useTransferRequest, TRHistoryRow, TRDetailLine } from "@/hooks/use-transfer-request";
 import { usePurchaseRequest, PRHistoryRow, PRDetailLine } from "@/hooks/use-purchase-request";
@@ -91,6 +93,8 @@ export default function TransferRequestPage() {
 
   // PR hook
   const prHook = usePurchaseRequest(effectiveBranchId || null);
+  const trHistoryPage = useProgressiveList(trHook.history);
+  const prHistoryPage = useProgressiveList(prHook.history);
 
   // RM stock hook (for external supplier)
   const {
@@ -1529,7 +1533,7 @@ export default function TransferRequestPage() {
                     </td>
                   </tr>
                 ) : (
-                  trHook.history.map((tr) => (
+                  trHistoryPage.visible.map((tr) => (
                     <tr key={tr.id} className={tableTokens.dataRow}>
                       <td
                         className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
@@ -1582,6 +1586,13 @@ export default function TransferRequestPage() {
               </tbody>
             </table>
           </div>
+          <ShowMoreRows
+            shown={trHistoryPage.shown}
+            total={trHistoryPage.total}
+            hasMore={trHistoryPage.hasMore}
+            onMore={trHistoryPage.showMore}
+            onAll={trHistoryPage.showAll}
+          />
         </div>
       </div>
 
@@ -1681,7 +1692,7 @@ export default function TransferRequestPage() {
                     </td>
                   </tr>
                 ) : (
-                  prHook.history.map((pr) => (
+                  prHistoryPage.visible.map((pr) => (
                     <tr key={pr.id} className={tableTokens.dataRow}>
                       <td
                         className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
@@ -1738,6 +1749,13 @@ export default function TransferRequestPage() {
               </tbody>
             </table>
           </div>
+          <ShowMoreRows
+            shown={prHistoryPage.shown}
+            total={prHistoryPage.total}
+            hasMore={prHistoryPage.hasMore}
+            onMore={prHistoryPage.showMore}
+            onAll={prHistoryPage.showAll}
+          />
         </div>
       </div>
 

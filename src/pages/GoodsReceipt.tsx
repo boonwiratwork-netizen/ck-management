@@ -9,6 +9,8 @@ import { useSortableTable } from "@/hooks/use-sortable-table";
 import { SortableHeader } from "@/components/SortableHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ShowMoreRows } from "@/components/ShowMoreRows";
+import { useProgressiveList } from "@/hooks/use-progressive-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -364,9 +366,13 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
     sortDir: hSortDir,
     handleSort: hHandleSort,
   } = useSortableTable(filteredHistory, comparators);
-  const displayHistory = hSortKey
-    ? sortedHistory
-    : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  // Memoised so paging below doesn't reset on every keystroke elsewhere on the page
+  const displayHistory = useMemo(
+    () => (hSortKey ? sortedHistory : [...filteredHistory].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate))),
+    [hSortKey, sortedHistory, filteredHistory],
+  );
+  const historyPage = useProgressiveList(displayHistory);
+  const [deleteTarget, setDeleteTarget] = useState<GoodsReceipt | null>(null);
 
   const thClass =
     "text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap";
@@ -1143,28 +1149,19 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                     </td>
                   </tr>
                 ) : (
-                  displayHistory.map((r) => {
+                  historyPage.visible.map((r) => {
                     const sku = skuMap[r.skuId];
                     const supplier = supplierMap[r.supplierId];
                     return (
-                      <TooltipProvider key={r.id}>
-                        <tr className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
+                        <tr key={r.id} className="border-b border-table-border last:border-0 hover:bg-table-hover transition-colors">
                           <td className={tdReadOnly}>{r.receiptDate}</td>
 
+                          {/* Plain title tooltips: a Radix tooltip per row was hundreds of extra components */}
                           <td className={tdReadOnly}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="truncate">
-                                  <span className="font-mono text-xs text-muted-foreground">{sku?.skuId}</span>
-                                  <span className="ml-1 font-medium">{sku?.name || "—"}</span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p>
-                                  {sku?.skuId} — {sku?.name}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <div className="truncate" title={`${sku?.skuId ?? ""} — ${sku?.name ?? ""}`}>
+                              <span className="font-mono text-xs text-muted-foreground">{sku?.skuId}</span>
+                              <span className="ml-1 font-medium">{sku?.name || "—"}</span>
+                            </div>
                           </td>
                           <td className={`${tdReadOnly} truncate`}>{supplier?.name || "—"}</td>
                           <td className={`${tdReadOnly} text-right font-mono font-semibold `}>
@@ -1201,16 +1198,9 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                           </td>
                           <td className={`${tdReadOnly} text-muted-foreground truncate`}>
                             {r.note ? (
-                              <TooltipProvider delayDuration={150}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="block truncate cursor-default">{r.note}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs whitespace-pre-wrap break-words">
-                                    {r.note}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <span className="block truncate cursor-default" title={r.note}>
+                                {r.note}
+                              </span>
                             ) : (
                               "—"
                             )}
@@ -1220,13 +1210,13 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => deleteReceipt(r.id)}
+                              aria-label="ลบรายการรับของ"
+                              onClick={() => setDeleteTarget(r)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </td>
                         </tr>
-                      </TooltipProvider>
                     );
                   })
                 )}
@@ -1234,6 +1224,13 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
             </table>
           </div>
         </div>
+        <ShowMoreRows
+          shown={historyPage.shown}
+          total={historyPage.total}
+          hasMore={historyPage.hasMore}
+          onMore={historyPage.showMore}
+          onAll={historyPage.showAll}
+        />
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
             {displayHistory.length} of {receipts.length} receipts shown
@@ -1253,6 +1250,26 @@ export default function GoodsReceiptPage({ receiptData, skus, suppliers, prices,
         </div>
       </div>
 
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
+        title="ลบรายการรับของ"
+        description={
+          deleteTarget
+            ? `ลบ ${skuMap[deleteTarget.skuId]?.name ?? "รายการนี้"} ${deleteTarget.quantityReceived.toLocaleString()} ${skuMap[deleteTarget.skuId]?.purchaseUom ?? ""} วันที่ ${deleteTarget.receiptDate}?\nสต๊อก RM และต้นทุนครัวกลางจะคำนวณใหม่โดยไม่มีรายการนี้`
+            : ""
+        }
+        confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
+        variant="destructive"
+        onConfirm={async () => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          if (target && (await deleteReceipt(target.id))) toast.success("ลบแล้ว");
+        }}
+      />
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

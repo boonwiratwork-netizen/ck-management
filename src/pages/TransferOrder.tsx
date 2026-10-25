@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ShowMoreRows } from "@/components/ShowMoreRows";
+import { useProgressiveList } from "@/hooks/use-progressive-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -861,6 +863,7 @@ export default function TransferOrderPage({
     });
     return list;
   }, [toHistory, sortKey, sortDir]);
+  const toHistoryPage = useProgressiveList(sortedHistory);
 
   // ─── Edit Draft TO ───
   const handleEditDraft = useCallback(
@@ -2012,7 +2015,7 @@ export default function TransferOrderPage({
                     </td>
                   </tr>
                 ) : (
-                  sortedHistory.map((to) => (
+                  toHistoryPage.visible.map((to) => (
                     <tr key={to.id} className={tableTokens.dataRow}>
                       <td
                         className={`${tableTokens.dataCell} font-mono text-xs cursor-pointer text-primary hover:underline`}
@@ -2114,6 +2117,13 @@ export default function TransferOrderPage({
               </tbody>
             </table>
           </div>
+          <ShowMoreRows
+            shown={toHistoryPage.shown}
+            total={toHistoryPage.total}
+            hasMore={toHistoryPage.hasMore}
+            onMore={toHistoryPage.showMore}
+            onAll={toHistoryPage.showAll}
+          />
         </div>
       </div>
 

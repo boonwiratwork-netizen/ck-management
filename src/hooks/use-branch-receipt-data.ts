@@ -118,10 +118,11 @@ export function useBranchReceiptData() {
   const deleteReceipt = useCallback(async (id: string) => {
     const { error } = await supabase.from("branch_receipts").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete receipt");
-      return;
+      toast.error("ลบรายการรับของไม่สำเร็จ: " + error.message);
+      return false;
     }
     setReceipts((prev) => prev.filter((r) => r.id !== id));
+    return true;
   }, []);
 
   return { receipts, loading, saveReceipts, updateReceipt, deleteReceipt, fetchReceipts };
