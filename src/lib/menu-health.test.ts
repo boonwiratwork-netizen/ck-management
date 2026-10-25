@@ -162,16 +162,17 @@ describe("swap on a linked recipe", () => {
   const link = rule({ id: "link", ruleType: "submenu", keyword: "Tonkotsu Ramen (Line Man)", submenuId: "m1", menuIds: ["m1l"] });
   const swap = rule({ id: "sw", ruleType: "swap", keyword: "เส้นโฮมเมด", skuId: "home", swapSkuId: "noodle", menuIds: ["m1l"] });
 
-  it("warns that the swap can't take the noodle out of the linked recipe", () => {
+  it("doesn't flag a swap whose old ingredient comes from the linked recipe", () => {
     const s = summarizeMenu(base({ menu: lm, menus: [menu({}), lm], rules: [link, swap] }));
-    expect(ids(s, "warn")).toContain("swap-linked-sw");
-    expect(ids(s, "error")).not.toContain("swap-sw");
+    expect(s.worst).toBe("ok");
   });
 
   it("flags a branch the linking rule doesn't cover", () => {
     const only = rule({ ...link, branchIds: ["thaniya"] });
     const s = summarizeMenu(base({ menu: lm, menus: [menu({}), lm], rules: [only], branches: [branch("shiro"), branch("thaniya")] }));
-    expect(ids(s, "error")).toContain("unreached-shiro");
+    expect(ids(s, "warn")).toContain("unreached-shiro");
+    const sold = summarizeMenu(base({ menu: lm, menus: [menu({}), lm], rules: [only], branches: [branch("shiro"), branch("thaniya")], soldByBranch: { shiro: 3 } }));
+    expect(ids(sold, "error")).toContain("unreached-shiro");
     expect(ids(s, "error")).not.toContain("unreached-thaniya");
   });
 });

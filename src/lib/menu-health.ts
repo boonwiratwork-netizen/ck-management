@@ -283,7 +283,8 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       if (b.open && !reached)
         add({
           id: `unreached-${b.branchId}`,
-          level: "error",
+          // Only a real problem once that branch actually sells it
+          level: b.sold > 0 ? "error" : "warn",
           area: "branches",
           title: `${b.branchName}: ขายแล้วไม่ตัดของ`,
           detail: `กฎที่ดึงสูตร ${linkedRecipes.map((x) => x.menu.menuCode).join(", ")} ไม่ได้เลือกสาขานี้ · เพิ่มสาขานี้ในกฎ หรือปิดขายที่สาขานี้`,
@@ -303,19 +304,11 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     if (r.ruleType === "swap" && r.swapSkuId) {
       const ruleBranches = r.branchIds.length > 0 ? branches.filter((b) => r.branchIds.includes(b.branchId)) : branches;
       const missing = ruleBranches.filter((b) => !b.lines.some((l) => l.skuId === r.swapSkuId));
-      // The swap only takes lines out of this menu's own recipe, not out of a linked one
-      const inLinked = missing.filter((b) =>
-        linkedRecipes.some(({ menu: sub }) => input.lines.some((l) => l.menuId === sub.id && l.skuId === r.swapSkuId && (!l.branchId || l.branchId === b.branchId))),
+      // A line that comes from a linked recipe isn't "missing": delivery bills (e.g. Line Man)
+      // carry only the menu name, no options, so the swap never fires on them anyway
+      const notFound = missing.filter(
+        (b) => !linkedRecipes.some(({ menu: sub }) => input.lines.some((l) => l.menuId === sub.id && l.skuId === r.swapSkuId && (!l.branchId || l.branchId === b.branchId))),
       );
-      const notFound = missing.filter((b) => !inLinked.includes(b));
-      if (inLinked.length > 0)
-        add({
-          id: `swap-linked-${r.id}`,
-          level: "warn",
-          area: "rules",
-          title: `ถ้าเลือก "${r.keyword}" จะตัดทั้งของเดิมและของใหม่`,
-          detail: `${inLinked.map((b) => b.branchName).join(", ")}: ${skuName(r.swapSkuId)} มาจากสูตร ${linkedRecipes.map((x) => x.menu.menuCode).join(", ")} ซึ่งกฎเปลี่ยนเอาออกไม่ได้ (เอาออกได้เฉพาะสูตรของเมนูเอง) — ต้องปรับวิธีคำนวณ หรือตั้งสูตรให้เมนูนี้เอง`,
-        });
       if (notFound.length > 0 || (branches.length === 0 && !sharedLines.some((l) => l.skuId === r.swapSkuId)))
         add({
           id: `swap-${r.id}`,
