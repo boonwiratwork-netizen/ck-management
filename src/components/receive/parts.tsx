@@ -155,6 +155,7 @@ export function NoteField({ value, onChange }: { value: string; onChange: (v: st
       defaultValue={value}
       onBlur={(e) => onChange(e.target.value)}
       placeholder="เช่น ถุงรั่ว 1 แพ็ค"
+      data-noflow=""
       className="h-10"
       aria-label="หมายเหตุ"
     />
@@ -187,36 +188,85 @@ export function ActionFooter({ title, sub, action, onAction, busy, disabled }: {
 }
 
 /**
- * Pack items can carry their real weighed amount (the old page's weight box):
- * 3 bags that weigh 2,600 g are stored as 2,600, not 3 × 1,000.
+ * A labelled number box in the right-hand column of a line, the same width as the
+ * pack stepper so every box on a line lines up under it: จำนวน → รับจริง → ราคา.
+ */
+export function FieldBox({ label, unit, children }: { label: string; unit?: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
+      <span className="whitespace-nowrap">{label}</span>
+      <span className="flex h-11 w-[128px] shrink-0 items-center overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+        {children}
+        {unit && <span className="shrink-0 pr-3 text-sm text-muted-foreground">{unit}</span>}
+      </span>
+    </label>
+  );
+}
+
+const boxInput = "h-full w-full min-w-0 bg-transparent px-3 text-right font-mono text-base tabular-nums text-foreground outline-none placeholder:text-muted-foreground/60";
+
+/**
+ * Pack items can carry what actually arrived (the old page's weight box):
+ * 3 bags that weigh 2,600 g are stored as 2,600, not 3 × 1,000. Always shown
+ * under the stepper so staff never have to look for it.
  */
 export function WeightField({ sku, qty, onChange }: { sku: SKU | undefined; qty: number; onChange: (qty: number) => void }) {
-  const exact = !!sku && isPacksMode(sku) && qty % (sku.packSize || 1) !== 0;
-  const [open, setOpen] = useState(exact);
   if (!sku || !isPacksMode(sku)) return null;
   const unit = sku.purchaseUom || sku.usageUom || "";
-  if (!open)
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="flex min-h-[36px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        ชั่งจริง
-      </button>
-    );
   return (
-    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-      ชั่งจริง
-      <Input
+    <FieldBox label="รับจริง" unit={unit}>
+      <input
         inputMode="decimal"
         defaultValue={qty || ""}
         key={qty}
+        onFocus={(e) => e.target.select()}
         onBlur={(e) => {
-          const v = Math.max(0, Number(e.target.value) || 0);
+          const v = Math.max(0, Number(e.target.value.replace(/,/g, "")) || 0);
           if (v > 0 && v !== qty) onChange(v);
         }}
-        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="h-10 w-28 text-right font-mono"
-        aria-label={`น้ำหนักจริง (${unit})`}
+        className={boxInput}
+        aria-label={`รับจริง (${unit})`}
       />
-      {unit}
-    </label>
+    </FieldBox>
   );
+}
+
+/** Invoice price per pack; empty = standard price (shown as the placeholder) */
+export function PriceField({ value, std, unit, warn, onChange }: { value: number; std: number; unit: string; warn?: boolean; onChange: (v: number) => void }) {
+  return (
+    <FieldBox label={`ราคา/${unit}`}>
+      <input
+        inputMode="decimal"
+        defaultValue={value || ""}
+        key={value}
+        placeholder={std > 0 ? std.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "ราคาในบิล"}
+        onFocus={(e) => e.target.select()}
+        onBlur={(e) => {
+          const v = Math.max(0, Number(e.target.value.replace(/,/g, "")) || 0);
+          if (v !== value) onChange(v);
+        }}
+        className={cn(boxInput, warn && "text-warning")}
+        aria-label={`ราคาต่อ${unit}`}
+      />
+    </FieldBox>
+  );
+}
+
+/**
+ * Enter moves to the next box in the list (จำนวน → รับจริง → ราคา → next line),
+ * so a whole delivery can be keyed in without touching the mouse. Put on the list.
+ */
+export function onEnterNext(e: React.KeyboardEvent<HTMLElement>) {
+  const t = e.target as HTMLElement;
+  if (e.key !== "Enter" || t.tagName !== "INPUT") return;
+  e.preventDefault();
+  const list = e.currentTarget;
+  const before = [...list.querySelectorAll("input:not([data-noflow])")].indexOf(t as HTMLInputElement);
+  (t as HTMLInputElement).blur();
+  // After the blur's save re-renders (a filled line grows new boxes), find the next one
+  setTimeout(() => {
+    const inputs = [...list.querySelectorAll<HTMLInputElement>("input:not([data-noflow])")];
+    const next = inputs[before + 1];
+    if (next) next.focus();
+  }, 0);
 }

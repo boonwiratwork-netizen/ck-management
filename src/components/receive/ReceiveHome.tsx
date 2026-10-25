@@ -29,7 +29,6 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
   const recent = recentIds.map((id) => supplierById.get(id)).filter((s): s is Supplier => !!s).slice(0, 5);
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const match = (s: Supplier) => words.every((w) => s.name.toLowerCase().includes(w));
-  const waiting = pendingTOs.length + prGroups.length;
 
   const row = (view: string, label: React.ReactNode, sub?: React.ReactNode) => (
     <li key={view}>
@@ -50,8 +49,8 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
   return (
     <div className="flex flex-col gap-3">
       <div data-tour="recv-waiting" className="flex flex-col gap-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รอรับ · {loading ? "…" : waiting}</div>
-        {!loading && waiting === 0 && <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">ไม่มีใบโอนหรือใบขอซื้อที่รอรับ</div>}
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รอรับจากครัวกลาง · {loading ? "…" : pendingTOs.length}</div>
+        {!loading && pendingTOs.length === 0 && <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">ยังไม่มีใบโอนจากครัวกลางที่รอรับ</div>}
         {pendingTOs.map((to) => (
           <section key={to.id} className={cn("flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card", activeView === `to/${to.id}` ? "border-primary" : "border-border")}>
             <div className="flex items-center gap-3">
@@ -75,6 +74,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
             </div>
           </section>
         ))}
+        {prGroups.length > 0 && <div className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ใบขอซื้อถึงกำหนด · {prGroups.length}</div>}
         {prGroups.map((g) => {
           const s = supplierById.get(g.supplierId);
           return (
@@ -113,7 +113,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
           </div>
         )}
         <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-          {!words.length && row("ck", "ครัวกลาง (ไม่มีใบโอน)")}
+          {!words.length && row("ck", "ครัวกลาง (กรณีไม่มีใบโอน)")}
           {!words.length && row("branch", "รับจากสาขาอื่น")}
           {brandSuppliers.filter(match).map((s) => row(`sup/${s.id}`, s.name))}
           {otherSuppliers.filter(match).length > 0 && (

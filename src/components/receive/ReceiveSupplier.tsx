@@ -10,7 +10,7 @@ import { isPacksMode, packsFromQty, qtyFromPacks, stdUnitPriceFor, supplierRow, 
 import { fileToBase64, matchSkuFromRawName, type MatchConfidence, type ScanItem } from "@/lib/receive-scan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ActionFooter, NoteField, PackStepper, RemoveButton, SkuPicker, WeightField, baht, packHint } from "./parts";
+import { ActionFooter, NoteField, PackStepper, PriceField, RemoveButton, SkuPicker, WeightField, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
 
 interface Line {
@@ -61,7 +61,6 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
   const [picker, setPicker] = useState<{ open: boolean; assignKey?: string; q?: string }>({ open: false });
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [priceEdit, setPriceEdit] = useState<string | null>(null);
   const camRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -202,7 +201,7 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`ค้นสินค้าของ ${supplier.name}…`} className="h-11 pl-9" aria-label="ค้นสินค้า" />
       </div>
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2" onKeyDown={onEnterNext}>
         {shown.map((l) => {
           if (!l.skuId)
             return (
@@ -223,53 +222,39 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
           const pricey = row && variance > VARIANCE_TOL;
           const filled = l.qty > 0;
           return (
-            <li key={l.key} className={cn("flex flex-col gap-2 rounded-2xl border bg-card p-3 shadow-card", pricey ? "border-warning/50" : "border-border", !filled && "shadow-none")}>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className={cn("truncate text-[15px]", filled ? "font-semibold" : "text-muted-foreground")}>{sku?.name}</div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    {packHint(sku) || sku?.purchaseUom || sku?.usageUom}
-                    {l.confidence && l.confidence !== "none" && ` · AI ${l.confidence === "high" ? "มั่นใจสูง" : "ไม่แน่ใจ ช่วยเช็ค"}`}
+            <li key={l.key} className={cn("flex items-start gap-3 rounded-2xl border bg-card p-3 shadow-card", pricey ? "border-warning/50" : "border-border", !filled && "shadow-none")}>
+              <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
+                <div className={cn("text-[15px] leading-snug", filled ? "font-semibold" : "text-muted-foreground")}>{sku?.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {packHint(sku) || sku?.purchaseUom || sku?.usageUom}
+                  {l.confidence && l.confidence !== "none" && ` · AI ${l.confidence === "high" ? "มั่นใจสูง" : "ไม่แน่ใจ ช่วยเช็ค"}`}
+                </div>
+                {pricey && <div className="text-sm font-medium text-warning">แพงกว่าปกติ +{baht(row!.priceVariance)}</div>}
+                {filled && (
+                  <div className="mt-auto pt-1">
+                    <NoteField value={l.note} onChange={(note) => patch(l.key, { note })} />
                   </div>
-                </div>
-                <PackStepper label={`จำนวน ${sku?.name ?? ""}`} value={packsFromQty(sku, l.qty)} onChange={(v) => patch(l.key, { qty: qtyFromPacks(sku, v) })} />
+                )}
               </div>
-              {filled && (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  {priceEdit === l.key ? (
-                    <Input
-                      autoFocus
-                      inputMode="decimal"
-                      defaultValue={l.invoicePrice || ""}
-                      placeholder="ราคาในบิล"
-                      aria-label={`ราคาต่อ${isPacksMode(sku) ? sku?.packUnit : "หน่วย"}`}
-                      className="h-10 w-32 text-right font-mono"
-                      onBlur={(e) => {
-                        patch(l.key, { invoicePrice: Math.max(0, Number(e.target.value) || 0) });
-                        setPriceEdit(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPriceEdit(l.key)}
-                      className={cn("min-h-[36px] rounded-full border px-3 font-mono", pricey ? "border-warning/50 bg-warning-soft text-warning" : "border-border")}
-                    >
-                      {l.invoicePrice > 0 ? baht(l.invoicePrice, 2) : "ใส่ราคา"} / {isPacksMode(sku) ? sku?.packUnit : `${(sku?.packSize ?? 1) > 1 ? `${sku?.packSize} ` : ""}${sku?.purchaseUom || "หน่วย"}`}
-                    </button>
-                  )}
-                  {pricey && <span className="text-warning">แพงกว่าปกติ +{baht(row!.priceVariance)}</span>}
-                  {l.invoicePrice <= 0 && <span className="text-muted-foreground">คิดราคามาตรฐาน</span>}
-                  <span className="ml-auto font-mono font-semibold tabular-nums">{row ? baht(row.actualTotal) : "—"}</span>
-                </div>
-              )}
-              {filled && (
-                <div className="flex flex-wrap items-center gap-x-4">
-                  <WeightField sku={sku} qty={l.qty} onChange={(qty) => patch(l.key, { qty })} />
-                  <div className="min-w-0 flex-1"><NoteField value={l.note} onChange={(note) => patch(l.key, { note })} /></div>
-                </div>
-              )}
+              {/* Everything staff type sits in one column on the right, top to bottom */}
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <PackStepper label={`จำนวน ${sku?.name ?? ""}`} value={packsFromQty(sku, l.qty)} onChange={(v) => patch(l.key, { qty: qtyFromPacks(sku, v) })} />
+                {filled && <WeightField sku={sku} qty={l.qty} onChange={(qty) => patch(l.key, { qty })} />}
+                {filled && (
+                  <PriceField
+                    value={l.invoicePrice}
+                    std={row ? row.stdUnitPrice * Math.max(1, sku?.packSize || 1) : 0}
+                    unit={isPacksMode(sku) ? sku?.packUnit || "แพ็ค" : `${(sku?.packSize ?? 1) > 1 ? `${sku?.packSize} ` : ""}${sku?.purchaseUom || "หน่วย"}`}
+                    warn={pricey}
+                    onChange={(invoicePrice) => patch(l.key, { invoicePrice })}
+                  />
+                )}
+                {filled && (
+                  <div className="pt-0.5 text-right text-sm text-muted-foreground">
+                    {l.invoicePrice <= 0 && "ราคามาตรฐาน · "}รวม <span className="font-mono text-base font-semibold tabular-nums text-foreground">{row ? baht(row.actualTotal) : "—"}</span>
+                  </div>
+                )}
+              </div>
             </li>
           );
         })}

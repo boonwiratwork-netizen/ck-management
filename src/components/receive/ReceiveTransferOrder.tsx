@@ -6,7 +6,7 @@ import { isPacksMode, packsFromQty, qtyFromPacks, transferOrderRow, transferOrde
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ActionFooter, NoteField, PackStepper, WeightField, baht, packHint, packLabel } from "./parts";
+import { ActionFooter, NoteField, PackStepper, WeightField, baht, onEnterNext, packHint, packLabel } from "./parts";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -100,7 +100,7 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
         </Button>
       )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2" onKeyDown={onEnterNext}>
         {to.lines.map((l) => {
           const sku = skuMap.get(l.skuId);
           const s = lines[l.id];
@@ -108,30 +108,37 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
           const isShort = s.checked && s.qty < sent;
           const showStepper = s.editing || isShort;
           return (
-            <li key={l.id} className={cn("flex flex-col gap-2 rounded-2xl border bg-card p-3 shadow-card", isShort ? "border-warning/50" : "border-border")}>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-semibold">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</div>
-                  <div className={cn("text-sm", isShort ? "text-warning" : "text-muted-foreground")}>
-                    ส่งมา {packLabel(sku, sent)}
-                    {isShort && ` · ได้จริง ${packLabel(sku, s.qty)}`}
-                    {!isShort && packHint(sku) && ` · ${packHint(sku)}`}
-                  </div>
+            <li key={l.id} className={cn("flex items-start gap-3 rounded-2xl border bg-card p-3 shadow-card", isShort ? "border-warning/50" : "border-border")}>
+              <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
+                <div className="text-[15px] font-semibold leading-snug">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</div>
+                <div className={cn("text-sm", isShort ? "text-warning" : "text-muted-foreground")}>
+                  ส่งมา {packLabel(sku, sent)}
+                  {isShort && ` · ได้จริง ${packLabel(sku, s.qty)}`}
+                  {!isShort && packHint(sku) && ` · ${packHint(sku)}`}
                 </div>
-                {!showStepper &&
-                  (s.checked ? (
-                    <span className="flex min-h-[36px] items-center gap-1 rounded-full bg-success-soft px-3 text-sm font-semibold text-success">
-                      <Check className="h-4 w-4" /> ครบ
-                    </span>
-                  ) : (
-                    <Button variant="outline" className="h-11 border-foreground px-4 font-semibold" onClick={() => set(l.id, { checked: true, qty: sent })}>
-                      ครบ
-                    </Button>
-                  ))}
+                {showStepper && (
+                  <div className="mt-auto pt-1">
+                    <NoteField value={s.note} onChange={(note) => set(l.id, { note })} />
+                  </div>
+                )}
+              </div>
+              {/* What staff tap or type stays in one column on the right */}
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
                 {!showStepper && (
-                  <button type="button" aria-label="แก้จำนวน" onClick={() => set(l.id, { editing: true, checked: true })} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border">
-                    <PencilLine className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {s.checked ? (
+                      <span className="flex min-h-[36px] items-center gap-1 rounded-full bg-success-soft px-3 text-sm font-semibold text-success">
+                        <Check className="h-4 w-4" /> ครบ
+                      </span>
+                    ) : (
+                      <Button variant="outline" className="h-11 border-foreground px-4 font-semibold" onClick={() => set(l.id, { checked: true, qty: sent })}>
+                        ครบ
+                      </Button>
+                    )}
+                    <button type="button" aria-label="แก้จำนวน" onClick={() => set(l.id, { editing: true, checked: true })} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border">
+                      <PencilLine className="h-4 w-4" />
+                    </button>
+                  </div>
                 )}
                 {showStepper && (
                   <PackStepper
@@ -141,13 +148,8 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
                     onChange={(v) => set(l.id, { qty: qtyFromPacks(sku, v), checked: true })}
                   />
                 )}
+                {showStepper && <WeightField sku={sku} qty={s.qty} onChange={(qty) => set(l.id, { qty, checked: true })} />}
               </div>
-              {showStepper && (
-                <div className="flex flex-wrap items-center gap-x-4">
-                  <WeightField sku={sku} qty={s.qty} onChange={(qty) => set(l.id, { qty, checked: true })} />
-                  <div className="min-w-0 flex-1"><NoteField value={s.note} onChange={(note) => set(l.id, { note })} /></div>
-                </div>
-              )}
             </li>
           );
         })}

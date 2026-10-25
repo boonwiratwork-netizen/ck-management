@@ -48,7 +48,7 @@ export function ReceiveHistory({ history, loading, skuMap, branches, showBranch,
   }, [history]);
   const dayTotal = (d: string) => history.filter((r) => r.receiptDate === d).reduce((s, r) => s + r.actualTotal, 0);
   const branchName = (id: string) => branches.find((b) => b.id === id)?.branchName ?? "";
-  const source = (r: HistoryReceipt) => (r.toNumber ? r.toNumber : r.supplierName === CK_SUPPLIER_NAME ? "ครัวกลาง (ไม่มีใบโอน)" : r.supplierName || "—");
+  const source = (r: HistoryReceipt) => (r.toNumber ? r.toNumber : r.supplierName === CK_SUPPLIER_NAME ? "ครัวกลาง (กรณีไม่มีใบโอน)" : r.supplierName || "—");
 
   return (
     <div className="flex flex-col gap-3">

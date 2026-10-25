@@ -6,7 +6,7 @@ import { branchTransferRow, kitchenAdHocRow, packsFromQty, qtyFromPacks, type Re
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ActionFooter, NoteField, PackStepper, RemoveButton, SkuPicker, WeightField, baht, packHint } from "./parts";
+import { ActionFooter, NoteField, PackStepper, RemoveButton, SkuPicker, WeightField, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
 
 export interface PricedSku {
@@ -74,28 +74,32 @@ export function ReceiveKitchenAdHoc({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นสินค้า…" className="h-11 pl-9" aria-label="ค้นสินค้า" />
       </div>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2" onKeyDown={onEnterNext}>
         {shown.map(({ sku, stdUnitPrice }) => {
           const q = qty[sku.id] ?? 0;
           return (
-            <li key={sku.id} className={cn("flex flex-col gap-2 rounded-2xl border border-border bg-card p-3", q > 0 && "shadow-card")}>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className={cn("truncate text-[15px]", q > 0 ? "font-semibold" : "text-muted-foreground")}>{sku.name}</div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    <span className="font-mono">{sku.skuId}</span>
-                    {packHint(sku) && ` · ${packHint(sku)}`}
-                    {q > 0 && ` · ${baht(q * stdUnitPrice)}`}
+            <li key={sku.id} className={cn("flex items-start gap-3 rounded-2xl border border-border bg-card p-3", q > 0 && "shadow-card")}>
+              <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
+                <div className={cn("text-[15px] leading-snug", q > 0 ? "font-semibold" : "text-muted-foreground")}>{sku.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-mono">{sku.skuId}</span>
+                  {packHint(sku) && ` · ${packHint(sku)}`}
+                </div>
+                {q > 0 && (
+                  <div className="mt-auto pt-1">
+                    <NoteField value={notes[sku.id] ?? ""} onChange={(v) => setNotes((p) => ({ ...p, [sku.id]: v }))} />
                   </div>
-                </div>
-                <PackStepper label={`จำนวน ${sku.name}`} value={packsFromQty(sku, q)} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: qtyFromPacks(sku, v) }))} />
+                )}
               </div>
-              {q > 0 && (
-                <div className="flex flex-wrap items-center gap-x-4">
-                  <WeightField sku={sku} qty={q} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: v }))} />
-                  <div className="min-w-0 flex-1"><NoteField value={notes[sku.id] ?? ""} onChange={(v) => setNotes((p) => ({ ...p, [sku.id]: v }))} /></div>
-                </div>
-              )}
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <PackStepper label={`จำนวน ${sku.name}`} value={packsFromQty(sku, q)} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: qtyFromPacks(sku, v) }))} />
+                {q > 0 && <WeightField sku={sku} qty={q} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: v }))} />}
+                {q > 0 && (
+                  <div className="pt-0.5 text-right text-sm text-muted-foreground">
+                    รวม <span className="font-mono text-base font-semibold tabular-nums text-foreground">{baht(q * stdUnitPrice)}</span>
+                  </div>
+                )}
+              </div>
             </li>
           );
         })}
@@ -172,20 +176,23 @@ export function ReceiveFromBranch({
       </fieldset>
       {source && (
         <>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2" onKeyDown={onEnterNext}>
             {lines.map((l, i) => (
-              <li key={l.sku.id} className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 shadow-card">
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[15px] font-semibold">{l.sku.name}</div>
-                    <div className="truncate text-sm text-muted-foreground">{packHint(l.sku) || l.sku.usageUom} · {baht(l.qty * l.std)}</div>
+              <li key={l.sku.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card p-3 shadow-card">
+                <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
+                  <div className="text-[15px] font-semibold leading-snug">{l.sku.name}</div>
+                  <div className="text-sm text-muted-foreground">{packHint(l.sku) || l.sku.usageUom}</div>
+                  <div className="mt-auto flex items-center gap-1 pt-1">
+                    <NoteField value={l.note} onChange={(note) => setLines((p) => p.map((x, j) => (j === i ? { ...x, note } : x)))} />
+                    <RemoveButton label={`ลบ ${l.sku.name}`} onClick={() => setLines((p) => p.filter((_, j) => j !== i))} />
                   </div>
-                  <PackStepper label={`จำนวน ${l.sku.name}`} value={packsFromQty(l.sku, l.qty)} onChange={(v) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty: qtyFromPacks(x.sku, v) } : x)))} />
-                  <RemoveButton label={`ลบ ${l.sku.name}`} onClick={() => setLines((p) => p.filter((_, j) => j !== i))} />
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4">
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <PackStepper label={`จำนวน ${l.sku.name}`} value={packsFromQty(l.sku, l.qty)} onChange={(v) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty: qtyFromPacks(x.sku, v) } : x)))} />
                   <WeightField sku={l.sku} qty={l.qty} onChange={(qty) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty } : x)))} />
-                  <div className="min-w-0 flex-1"><NoteField value={l.note} onChange={(note) => setLines((p) => p.map((x, j) => (j === i ? { ...x, note } : x)))} /></div>
+                  <div className="pt-0.5 text-right text-sm text-muted-foreground">
+                    รวม <span className="font-mono text-base font-semibold tabular-nums text-foreground">{baht(l.qty * l.std)}</span>
+                  </div>
                 </div>
               </li>
             ))}
