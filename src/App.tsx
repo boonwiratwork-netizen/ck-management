@@ -19,6 +19,7 @@ const MobileApp = lazy(() => import("./pages/MobileApp"));
 const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuSetupDemo")) : null;
 const ReceiveDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ReceiveDemo")) : null;
 const LoadingDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/LoadingDemo")) : null;
+const SalesDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/SalesDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => (
               {MenuSetupDemo && <Route path="/dev/menu-setup" element={<Suspense fallback={null}><MenuSetupDemo /></Suspense>} />}
               {ReceiveDemo && <Route path="/dev/receive" element={<Suspense fallback={null}><ReceiveDemo /></Suspense>} />}
               {LoadingDemo && <Route path="/dev/loading" element={<Suspense fallback={null}><LoadingDemo /></Suspense>} />}
+              {SalesDemo && <Route path="/dev/sales" element={<Suspense fallback={null}><SalesDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

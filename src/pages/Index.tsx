@@ -48,7 +48,8 @@ const SKUFormModal = lazy(() => import("@/components/SKUFormModal").then((m) => 
 const CSVImportModal = lazy(() => import("@/components/CSVImportModal").then((m) => ({ default: m.CSVImportModal })));
 const SpBomPage = lazy(() => import("@/pages/SpBom"));
 const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
-const SalesEntryPage = lazy(() => import("@/pages/SalesEntry"));
+// One sales page for phones and computers (replaced SalesEntry)
+const SalesEntryPage = lazy(() => import("@/pages/Sales"));
 const DailyStockCountPage = lazy(() => import("@/pages/DailyStockCount"));
 // One receiving page for phones and computers (replaced BranchReceipt + BranchReceiptMobile)
 const ReceivePage = lazy(() => import("@/pages/Receive"));
