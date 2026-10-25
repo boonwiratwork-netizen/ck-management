@@ -22,11 +22,12 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
   return out;
 }
 
-export function useSmDailyUsage(skus: SKU[]) {
+export function useSmDailyUsage(skus: SKU[], enabled = true) {
   const [smDailyUsage, setSmDailyUsage] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (skus.length === 0) return;
+    // Reads a week of sales; only kitchen pages need it (see Index)
+    if (!enabled || skus.length === 0) return;
     let cancelled = false;
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -102,7 +103,7 @@ export function useSmDailyUsage(skus: SKU[]) {
     return () => {
       cancelled = true;
     };
-  }, [skus]);
+  }, [skus, enabled]);
 
   return smDailyUsage;
 }

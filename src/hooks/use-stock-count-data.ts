@@ -28,6 +28,7 @@ const toLine = (r: any): StockCountLine => ({
 });
 
 interface UseStockCountDataProps {
+  enabled?: boolean;
   skus: SKU[];
   rmStockBalances: StockBalance[];
   smStockBalances: SMStockBalance[];
@@ -49,11 +50,14 @@ export function useStockCountData({
   addPkAdjustment,
   getStdUnitPrice,
   refreshSmStock,
+  enabled = true,
 }: UseStockCountDataProps) {
   const [sessions, setSessions] = useState<StockCountSession[]>([]);
   const [lines, setLines] = useState<StockCountLine[]>([]);
 
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     Promise.all([
       supabase
         .from("stock_count_sessions")
@@ -65,7 +69,7 @@ export function useStockCountData({
       if (!s.error) setSessions((s.data || []).map(toSession));
       if (!l.error) setLines((l.data || []).map(toLine));
     });
-  }, []);
+  }, [enabled]);
 
   const createSession = useCallback(
     async (date: string, note: string): Promise<string> => {

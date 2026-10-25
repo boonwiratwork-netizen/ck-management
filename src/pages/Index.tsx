@@ -174,15 +174,34 @@ function MobileNav({ role, activeTab, onTabChange }: { role: string | null; acti
 
 const Index = () => {
   const { isManagement, role, isStoreManager, isAreaManager, profile, brandAssignments } = useAuth();
+  const navigate = useNavigate();
+  const { tab: pathTab } = useParams<{ tab?: string }>();
+  // Page comes from the URL path (/menu-bom); old links with ?tab= still work
+  const requestedTab = useMemo<TabKey | null>(() => {
+    if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
+    const legacy = new URLSearchParams(window.location.search).get("tab");
+    return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
+  }, [pathTab]);
+  const activeTab: TabKey =
+    requestedTab && (!role || canAccessTab(role, requestedTab)) ? requestedTab : getDefaultTab(role);
+
+  // Kitchen stock/production data (≈20 requests, the slowest ones) is only used on
+  // kitchen pages. Load it the first time one is opened, then keep it; branch pages
+  // and store managers never wait for it.
+  const [kitchenData, setKitchenData] = useState(false);
+  const onKitchenPage = tabContextMap[activeTab] !== "store" && tabContextMap[activeTab] !== "management";
+  useEffect(() => {
+    if (role && onKitchenPage) setKitchenData(true);
+  }, [role, onKitchenPage]);
   const skuData = useSkuData();
   const supplierData = useSupplierData();
   const priceData = usePriceData();
   const bomData = useBomData();
   const byproductData = useByproductData();
-  const receiptData = useGoodsReceiptData();
-  const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices);
-  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps);
-  const deliveryData = useDeliveryData();
+  const receiptData = useGoodsReceiptData(kitchenData);
+  const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
+  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps, kitchenData);
+  const deliveryData = useDeliveryData(kitchenData);
   const smStockData = useSmStockData(
     skuData.skus,
     productionData.records,
@@ -192,15 +211,16 @@ const Index = () => {
     priceData.prices,
     bomData.steps,
     byproductData.byproducts,
+    kitchenData,
   );
-  const smDailyUsage = useSmDailyUsage(skuData.skus);
-  const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices);
+  const smDailyUsage = useSmDailyUsage(skuData.skus, kitchenData);
+  const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
   const branchData = useBranchData();
 
   useVisibilityRefresh([
-    () => smStockData.refreshProductionRecords(),
-    () => smStockData.refreshToDelivered(),
-    () => receiptData.fetchReceipts(receiptData.isFullHistory),
+    () => (kitchenData ? smStockData.refreshProductionRecords() : undefined),
+    () => (kitchenData ? smStockData.refreshToDelivered() : undefined),
+    () => (kitchenData ? receiptData.fetchReceipts(receiptData.isFullHistory) : undefined),
   ]);
   const menuData = useMenuData();
   const menuBomData = useMenuBomData();
@@ -218,20 +238,11 @@ const Index = () => {
     addPkAdjustment: pkStockData.addAdjustment,
     getStdUnitPrice: stockData.getStdUnitPrice,
     refreshSmStock: smStockData.refreshProductionRecords,
+    enabled: kitchenData,
   });
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const navigate = useNavigate();
-  const { tab: pathTab } = useParams<{ tab?: string }>();
-  // Page comes from the URL path (/menu-bom); old links with ?tab= still work
-  const requestedTab = useMemo<TabKey | null>(() => {
-    if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
-    const legacy = new URLSearchParams(window.location.search).get("tab");
-    return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
-  }, [pathTab]);
-  const activeTab: TabKey =
-    requestedTab && (!role || canAccessTab(role, requestedTab)) ? requestedTab : getDefaultTab(role);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
@@ -382,6 +393,8 @@ const Index = () => {
   }, [skus]);
 
   const isSkuUsed = (skuId: string) => {
+    // Receipts/production aren't loaded until a kitchen page opens: play safe meanwhile
+    if (!kitchenData || !smStockData.isStockDataReady) return true;
     const inBom = bomData.lines.some((l) => l.rmSkuId === skuId) || bomData.headers.some((h) => h.smSkuId === skuId);
     const inReceipt = receiptData.receipts.some((r) => r.skuId === skuId);
     const inProduction = productionData.records.some((r) => r.smSkuId === skuId);

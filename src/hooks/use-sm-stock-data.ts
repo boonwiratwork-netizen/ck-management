@@ -34,6 +34,7 @@ export function useSmStockData(
   prices: Price[],
   bomSteps: BOMStep[] = [],
   bomByproducts: BomByproduct[] = [],
+  enabled = true,
 ) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
@@ -95,6 +96,8 @@ export function useSmStockData(
 
   useEffect(() => {
     setIsStockDataReady(false);
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     Promise.all([
       supabase.from("stock_opening_balances").select("*"),
       supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }),
@@ -149,7 +152,7 @@ export function useSmStockData(
 
       setIsStockDataReady(true);
     });
-  }, []);
+  }, [enabled]);
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM"), [skus]);
 

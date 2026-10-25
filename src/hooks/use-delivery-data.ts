@@ -14,16 +14,18 @@ const toLocal = (row: any): Delivery => ({
   note: row.note,
 });
 
-export function useDeliveryData() {
+export function useDeliveryData(enabled = true) {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
 
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     supabase.from('deliveries').select('*').order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (error) { toast.error('Failed to load deliveries'); return; }
         setDeliveries((data || []).map(toLocal));
       });
-  }, []);
+  }, [enabled]);
 
   const addDelivery = useCallback(async (data: Omit<Delivery, 'id' | 'weekNumber'>) => {
     const weekNumber = getWeekNumber(data.deliveryDate);

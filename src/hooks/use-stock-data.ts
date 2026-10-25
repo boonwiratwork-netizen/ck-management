@@ -6,13 +6,15 @@ import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[]) {
+export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[], enabled = true) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number; count_date: string }>>({});
 
   // Load opening balances, adjustments, and stock count anchors
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     supabase
       .from("stock_opening_balances")
       .select("*")
@@ -74,7 +76,7 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
       });
       setAnchorMap(map);
     })();
-  }, []);
+  }, [enabled]);
 
   const rmSkus = useMemo(() => skus.filter((s) => s.type === "RM"), [skus]);
 

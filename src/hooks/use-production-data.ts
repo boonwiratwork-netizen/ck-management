@@ -42,11 +42,14 @@ export function useProductionData(
   bomLines: BOMLine[],
   addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void,
   bomSteps: BOMStep[] = [],
+  enabled = true,
 ) {
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [records, setRecords] = useState<ProductionRecord[]>([]);
 
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     Promise.all([
       supabase.from("production_plans").select("*").order("created_at", { ascending: false }),
       supabase.from("production_records").select("*").order("created_at", { ascending: false }),
@@ -54,7 +57,7 @@ export function useProductionData(
       if (!p.error) setPlans((p.data || []).map(toPlan));
       if (!r.error) setRecords((r.data || []).map(toRecord));
     });
-  }, []);
+  }, [enabled]);
 
   const getOutputPerBatch = useCallback(
     (smSkuId: string): number => {

@@ -6,12 +6,14 @@ import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[]) {
+export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[], enabled = true) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number; count_date: string }>>({});
 
   useEffect(() => {
+    // Kitchen data loads only once a kitchen page is opened (see Index)
+    if (!enabled) return;
     supabase
       .from("stock_opening_balances")
       .select("*")
@@ -73,7 +75,7 @@ export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pr
       });
       setAnchorMap(map);
     })();
-  }, []);
+  }, [enabled]);
 
   const pkSkus = useMemo(() => skus.filter((s) => s.type === "PK"), [skus]);
 
