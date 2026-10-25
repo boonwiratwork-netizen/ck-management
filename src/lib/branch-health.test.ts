@@ -27,7 +27,7 @@ describe("summarizeBranch", () => {
   });
 
   it("flags codes sold here that aren't menus", () => {
-    const s = run({ menus: [menu("a", "MN-1")], sold: { "MN-1": { new: 3 }, "MN-99": { new: 5, old: 1 } } });
+    const s = run({ menus: [menu("a", "MN-1")], sold: { "MN-1": { new: 3 }, "MN-99": { new: 5, old: 1 }, OP122: { new: 9 }, "OP-027": { new: 2 }, คิดภาษี: { new: 4 } } });
     expect(s.unknownCodes).toEqual([{ code: "MN-99", qty: 5 }]);
     expect(ids(s, "error")).toContain("unknown-codes");
   });

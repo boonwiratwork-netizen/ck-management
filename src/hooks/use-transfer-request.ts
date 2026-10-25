@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,11 +157,15 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const dateFrom = toLocalDateStr(sevenDaysAgo);
 
-      const { data: salesRows } = await supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .gte("sale_date", dateFrom);
+      const { data: salesRows } = await fetchAllRows((a, b) =>
+        supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty, sale_date")
+          .eq("branch_id", branchId)
+          .gte("sale_date", dateFrom)
+          .order("id")
+          .range(a, b),
+      );
       const menuCodes = [...new Set((salesRows || []).map((s) => s.menu_code))];
       let menuCodeToId: Record<string, string> = {};
       if (menuCodes.length > 0) {

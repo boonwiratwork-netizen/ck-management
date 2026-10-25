@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,11 +153,15 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
       const dateFrom = toLocalDateStr(sevenDaysAgo);
 
       // Get sales for this branch last 7 days
-      const { data: salesRows } = await supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .gte("sale_date", dateFrom);
+      const { data: salesRows } = await fetchAllRows((a, b) =>
+        supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty, sale_date")
+          .eq("branch_id", branchId)
+          .gte("sale_date", dateFrom)
+          .order("id")
+          .range(a, b),
+      );
 
       // Get menu_id lookup from menu_code
       const menuCodes = [...new Set((salesRows || []).map((s) => s.menu_code))];

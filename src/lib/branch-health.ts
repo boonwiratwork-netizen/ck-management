@@ -90,6 +90,9 @@ export function summarizeBranch(input: {
     const known = new Set(menus.map((m) => m.menuCode));
     for (const [code, byBranch] of Object.entries(soldByCode)) {
       const qty = byBranch[branch.id] ?? 0;
+      // OP-xxx rows were options in the old POS (before 17 Oct 2026; the new POS writes
+      // options into the bill name) and lines like "คิดภาษี" aren't menus at all
+      if (/^OP/i.test(code) || !/\d/.test(code)) continue;
       if (qty > 0 && !known.has(code)) unknownCodes.push({ code, qty });
     }
     unknownCodes.sort((a, b) => b.qty - a.qty);

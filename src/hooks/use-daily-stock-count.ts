@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
@@ -120,12 +121,16 @@ export function useDailyStockCount({
   const calculateExpectedUsageRangeByDate = useCallback(
     async (branchId: string, fromDate: string, toDate: string): Promise<Record<string, Record<string, number>>> => {
       const [salesRes, overridesRes] = await Promise.all([
-        supabase
-          .from("sales_entries")
-          .select("*")
-          .eq("branch_id", branchId)
-          .gt("sale_date", fromDate)
-          .lt("sale_date", toDate),
+        fetchAllRows((a, b) =>
+          supabase
+            .from("sales_entries")
+            .select("*")
+            .eq("branch_id", branchId)
+            .gt("sale_date", fromDate)
+            .lt("sale_date", toDate)
+            .order("id")
+            .range(a, b),
+        ),
         supabase
           .from("branch_menu_overrides")
           .select("menu_id, is_active")

@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetch-all";
 import { useEffect, useState } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 
@@ -203,16 +204,24 @@ export function StockCard({
                 .eq("sku_id", skuId)
                 .gte("receipt_date", effectiveStartDate)
                 .order("receipt_date", { ascending: true }),
-              supabase
-                .from("sales_entries")
-                .select("sale_date, menu_code, menu_name, qty")
-                .eq("branch_id", branchId!)
-                .gte("sale_date", effectiveStartDate)
-                .order("sale_date", { ascending: true }),
-              supabase
-                .from("menu_bom")
-                .select("menu_id, sku_id, effective_qty")
-                .or(`branch_id.is.null,branch_id.eq.${branchId}`),
+              fetchAllRows((a, b) =>
+                supabase
+                  .from("sales_entries")
+                  .select("sale_date, menu_code, menu_name, qty")
+                  .eq("branch_id", branchId!)
+                  .gte("sale_date", effectiveStartDate)
+                  .order("sale_date", { ascending: true })
+                  .order("id")
+                  .range(a, b),
+              ),
+              fetchAllRows((a, b) =>
+                supabase
+                  .from("menu_bom")
+                  .select("menu_id, sku_id, effective_qty")
+                  .or(`branch_id.is.null,branch_id.eq.${branchId}`)
+                  .order("id")
+                  .range(a, b),
+              ),
               supabase.from("menus").select("id, menu_code"),
               supabase.from("sp_bom").select("sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty"),
               supabase.from("menu_modifier_rules").select("*").eq("is_active", true),

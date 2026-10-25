@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,11 +109,15 @@ export function useBranchSmStock(branchId: string | null) {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const dateFrom = toLocalDateStr(sevenDaysAgo);
 
-      const { data: salesRows } = await supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .gte("sale_date", dateFrom);
+      const { data: salesRows } = await fetchAllRows((a, b) =>
+        supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty, sale_date")
+          .eq("branch_id", branchId)
+          .gte("sale_date", dateFrom)
+          .order("id")
+          .range(a, b),
+      );
 
       // Get menu_id lookup from menu_code
       const menuCodes = [...new Set((salesRows || []).map((s) => s.menu_code))];
@@ -356,12 +361,16 @@ export function useBranchSmStock(branchId: string | null) {
         .in("sku_id", skuIds);
       if (earliestSnap) extQuery = extQuery.gt("receipt_date", earliestSnap);
 
-      let salesQuery = supabase
-        .from("sales_entries")
-        .select("menu_code, menu_name, qty, sale_date")
-        .eq("branch_id", branchId)
-        .lte("sale_date", todayStr);
-      if (earliestSnap) salesQuery = salesQuery.gt("sale_date", earliestSnap);
+      // Sales since the earliest count can be many thousands of rows: page through all
+      const salesQuery = fetchAllRows((a, b) => {
+        let q = supabase
+          .from("sales_entries")
+          .select("menu_code, menu_name, qty, sale_date")
+          .eq("branch_id", branchId)
+          .lte("sale_date", todayStr);
+        if (earliestSnap) q = q.gt("sale_date", earliestSnap);
+        return q.order("id").range(a, b);
+      });
 
       let adjQuery = supabase
         .from("stock_adjustments")
