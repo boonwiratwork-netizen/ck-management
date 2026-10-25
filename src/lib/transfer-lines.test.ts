@@ -54,7 +54,7 @@ describe("check before sending", () => {
   const line = (id: string, skuId: string, planned: number, actual: number, packs: number | null, tr = true) => ({ id, skuId, skuName: id, plannedQty: planned, actualQty: actual, packsCount: packs, trLineId: tr ? `t-${id}` : null });
   it("flags over-stock, lot gaps (SM only), short and changed lines", () => {
     const res = checkBeforeSend(
-      [line("pork", "sm", 1400, 1400, 4), line("cup", "pk", 50, 50, 1), line("duck", "sm", 1750, 1880, 5), line("soup", "sm", 9000, 6000, 2)],
+      [line("pork", "sm", 1400, 1400, 4), line("cup", "pk", 50, 50, 1), line("duck", "sm", 1750, 1880, 5), line("soup", "sm", 7000, 6000, 2)],
       (id) => skus[id],
       { sm: 1050 },
       { pork: [{ productionRecordId: "r", productionDate: "2026-10-21", packs: 3, packWeightG: 350 }], duck: [{ productionRecordId: "r", productionDate: "2026-10-15", packs: 5, packWeightG: 350 }], soup: [{ productionRecordId: "r", productionDate: "2026-10-14", packs: 2, packWeightG: 350 }] },
@@ -81,6 +81,10 @@ describe("the two shortfall labels", () => {
     expect(kitchenShortCount([{ trLineId: "t", plannedQty: 3300, actualQty: 2180, packsCount: 3, packSize: 1100 }], 0)).toBe(0);
     // ขอ 5 แพ็ค ส่ง 4
     expect(kitchenShortCount([{ trLineId: "t", plannedQty: 2000, actualQty: 1605, packsCount: 4, packSize: 400 }], 0)).toBe(1);
+  });
+  it("a request made before the pack size changed is not judged by packs", () => {
+    // asked 3 × 1,100 g; the pack is now 800 g, so 3,300 g isn't a whole number of packs
+    expect(kitchenShortCount([{ trLineId: "t", plannedQty: 3300, actualQty: 2180, packsCount: 3, packSize: 800 }], 0)).toBe(0);
   });
   it("branch short compares with what the kitchen sent, not what was asked", () => {
     expect(branchShortCount(lines, new Map([["duck", 1750], ["soup", 6000], ["cup", 50]]))).toBe(1);

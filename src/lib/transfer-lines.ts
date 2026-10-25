@@ -22,7 +22,14 @@ export const sentQtyOf = (l: { actualQty: number; plannedQty: number }) => (l.ac
  * others compare quantity with the 10% allowance.
  */
 export function kitchenSentShort(l: { plannedQty: number; actualQty: number; packsCount: number | null }, packSize: number): boolean {
-  if (packSize > 1) return packsOf(l, packSize) < Math.round(l.plannedQty / packSize);
+  if (packSize > 1) {
+    // Branches ask in whole packs, so the request is a whole number of packs —
+    // unless the pack size changed after it was made (SM-0007: 1,100 → 800 g on
+    // 25 Oct 2026); then the packs asked for are unknown and nothing is flagged.
+    const asked = l.plannedQty / packSize;
+    if (Math.abs(asked - Math.round(asked)) > 0.01) return false;
+    return packsOf(l, packSize) < Math.round(asked);
+  }
   return isShort(l.actualQty, l.plannedQty);
 }
 
