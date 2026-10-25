@@ -347,7 +347,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                         if (collapsed) return null;
                         return (
                           <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5">
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-orange-50">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-brand-soft-foreground bg-brand-soft">
                               {item.subLabel}
                             </span>
                           </li>
@@ -364,10 +364,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                               setOpenMobile(false);
                             }}
                             tooltip={label}
-                            className={`cursor-pointer rounded-md transition-all duration-150 ${
+                            className={`cursor-pointer rounded-xl transition-all duration-150 ${
                               isActive
-                                ? "bg-warning text-warning-foreground font-semibold [&>svg]:text-background [&>svg]:opacity-100"
-                                : "text-sidebar-foreground hover:bg-accent/50 hover:text-sidebar-foreground [&>svg]:opacity-90"
+                                ? "!bg-primary !text-primary-foreground font-semibold border-l-4 border-brand shadow-raised [&>svg]:opacity-100"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:opacity-90"
                             }`}
                           >
                             <item.icon className="w-4 h-4 shrink-0" />
@@ -376,7 +376,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                               pendingTRCount > 0 &&
                               (isManagement || isCkManager) &&
                               !collapsed && (
-                                <span className="bg-warning text-warning-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium ml-auto">
+                                <span className="bg-brand text-brand-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium ml-auto">
                                   {pendingTRCount}
                                 </span>
                               )}

@@ -14,10 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
-        heading: ['Syne', 'system-ui', 'sans-serif'],
-        body: ['DM Sans', 'system-ui', 'sans-serif'],
-        mono: ['DM Mono', 'monospace'],
+        sans: ['Anuphan', 'system-ui', 'sans-serif'],
+        heading: ['Anuphan', 'system-ui', 'sans-serif'],
+        body: ['Anuphan', 'system-ui', 'sans-serif'],
+        // Numbers use the same face with tabular figures (set on body), not a code font
+        mono: ['Anuphan', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'page-title': ['24px', { lineHeight: '1.2', fontWeight: '700' }],
@@ -43,7 +44,15 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          soft: "hsl(var(--destructive-soft))",
         },
+        brand: {
+          DEFAULT: "hsl(var(--brand))",
+          foreground: "hsl(var(--brand-foreground))",
+          soft: "hsl(var(--brand-soft))",
+          "soft-foreground": "hsl(var(--brand-soft-foreground))",
+        },
+        highlight: "hsl(var(--highlight))",
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -63,10 +72,12 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          soft: "hsl(var(--success-soft))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          soft: "hsl(var(--warning-soft))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
@@ -89,7 +100,12 @@ export default {
         "table-hover": "hsl(var(--table-hover))",
         "table-border": "hsl(var(--table-border))",
       },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        raised: "var(--shadow-raised)",
+      },
       borderRadius: {
+        "2xl": "calc(var(--radius) + 8px)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",

@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import InitialSetup from "./pages/InitialSetup";
 import NotFound from "./pages/NotFound";
+import DesignSystem from "./pages/DesignSystem";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/setup" element={<SetupRoute />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/mobile" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
+              <Route path="/design" element={<DesignSystem />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

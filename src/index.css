@@ -2,76 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500&family=DM+Mono:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap");
 
 @layer base {
   :root {
-    --background: 43 20% 96%;
-    --foreground: 220 20% 10%;
+    /* ── 1. PALETTE ─────────────────────────────────────────────────────────
+       Brand colors live here only (HSL triplets). To re-skin the app,
+       change these values; every semantic token below points at them. */
+    --palette-ink: 0 0% 8%; /* #141414 primary buttons, selected nav */
+    --palette-orange: 22 89% 53%; /* #F26B1D brand accent */
+    --palette-orange-soft: 24 100% 93%; /* #FFE9DA */
+    --palette-orange-deep: 21 89% 38%; /* #B5470B text on orange-soft */
+    --palette-gold: 35 83% 42%; /* #C27A12 key numbers */
+    --palette-canvas: 0 0% 98%; /* #FAFAFA app background (neutral, no cream) */
+    --palette-surface: 0 0% 100%; /* #FFFFFF cards */
+    --palette-surface-2: 240 9% 96%; /* #F4F4F6 sunken / stat cards */
+    --palette-line: 240 6% 90%; /* #E6E6E9 borders */
+    --palette-text-muted: 213 5% 39%; /* #5F6368 */
+    --palette-green: 145 74% 26%; /* #11733A */
+    --palette-green-soft: 141 66% 92%; /* #DCF7E5 */
+    --palette-amber: 36 100% 27%; /* #8A5300 */
+    --palette-amber-soft: 44 100% 89%; /* #FFF0C7 */
+    --palette-red: 357 68% 42%; /* #B4232A */
+    --palette-red-soft: 0 100% 94%; /* #FFE1E1 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    /* ── 2. SEMANTIC TOKENS (components use these) ───────────────────────── */
+    --background: var(--palette-canvas);
+    --foreground: var(--palette-ink);
 
-    --border: 220 13% 88%;
-    --radius: 0.625rem;
+    --card: var(--palette-surface);
+    --card-foreground: var(--palette-ink);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --border: var(--palette-line);
+    --radius: 0.875rem;
 
-    --primary: 220 10% 10%;
+    --popover: var(--palette-surface);
+    --popover-foreground: var(--palette-ink);
+
+    --primary: var(--palette-ink);
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 25%;
+    /* Brand accent: create/add actions, icons, active markers */
+    --brand: var(--palette-orange);
+    --brand-foreground: 0 0% 100%;
+    --brand-soft: var(--palette-orange-soft);
+    --brand-soft-foreground: var(--palette-orange-deep);
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* Highlight: the one or two numbers per page that should stand out */
+    --highlight: var(--palette-gold);
 
-    --accent: 43 20% 93%;
-    --accent-foreground: 220 10% 20%;
+    --secondary: var(--palette-surface-2);
+    --secondary-foreground: var(--palette-ink);
 
-    --destructive: 0 72% 51%;
+    --muted: var(--palette-surface-2);
+    --muted-foreground: var(--palette-text-muted);
+
+    --accent: var(--palette-surface-2);
+    --accent-foreground: var(--palette-ink);
+
+    --destructive: var(--palette-red);
     --destructive-foreground: 0 0% 100%;
+    --destructive-soft: var(--palette-red-soft);
 
-    --input: 220 13% 91%;
-    --ring: 220 10% 10%;
+    --input: var(--palette-line);
+    --ring: var(--palette-orange);
 
-    /* --radius moved above */
-
-    /* Custom semantic tokens */
-    --success: 142 71% 35%;
+    --success: var(--palette-green);
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --success-soft: var(--palette-green-soft);
+    --warning: var(--palette-amber);
     --warning-foreground: 0 0% 100%;
-    --info: 217 91% 60%;
+    --warning-soft: var(--palette-amber-soft);
+    --info: var(--palette-ink);
     --info-foreground: 0 0% 100%;
 
-    --surface-elevated: 0 0% 100%;
-    --surface-sunken: 220 20% 96%;
+    --surface-elevated: var(--palette-surface);
+    --surface-sunken: var(--palette-surface-2);
+
+    /* Elevation */
+    --shadow-card: 0 1px 2px rgb(20 20 20 / 0.04), 0 10px 28px rgb(20 20 20 / 0.06);
+    --shadow-raised: 0 10px 24px rgb(20 20 20 / 0.18);
 
     /* Table tokens */
-    --table-header: 220 14% 97%;
-    --table-alt: 220 20% 99%;
-    --table-hover: 43 20% 93%;
-    --table-border: 220 13% 96%;
+    --table-header: var(--palette-surface-2);
+    --table-alt: 0 0% 99%;
+    --table-hover: var(--palette-surface-2);
+    --table-border: 240 6% 94%;
 
     /* Sidebar */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 9% 46%;
-    --sidebar-primary: 220 10% 10%;
+    --sidebar-background: var(--palette-surface);
+    --sidebar-foreground: var(--palette-text-muted);
+    --sidebar-primary: var(--palette-ink);
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 10% 18%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 13% 93%;
-    --sidebar-ring: 220 10% 10%;
-    --sidebar-muted: 220 9% 64%;
-    --sidebar-section: 220 9% 72%;
+    --sidebar-accent: var(--palette-surface-2); /* hover */
+    --sidebar-accent-foreground: var(--palette-ink);
+    --sidebar-border: var(--palette-line);
+    --sidebar-ring: var(--palette-orange);
+    --sidebar-muted: 213 5% 55%;
+    --sidebar-section: 213 5% 55%;
 
-    /* Badge colors */
-    --badge-rm: 24 94% 53%;
-    --badge-sm: 217 91% 60%;
+    /* Badge colors (SKU type) */
+    --badge-rm: var(--palette-orange);
+    --badge-sm: var(--palette-ink);
     --badge-sp: 271 81% 56%;
-    --badge-pk: 142 71% 35%;
+    --badge-pk: var(--palette-green);
   }
 
   .dark {
@@ -127,12 +161,13 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
-      "DM Sans",
+      "Anuphan",
       system-ui,
       -apple-system,
       sans-serif;
     font-size: 14px;
     line-height: 1.6;
+    font-variant-numeric: tabular-nums;
   }
 
   h1,
@@ -142,10 +177,11 @@
   h5,
   h6 {
     font-family:
-      "Syne",
+      "Anuphan",
       system-ui,
       -apple-system,
       sans-serif;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -243,20 +279,20 @@
     color: hsl(var(--muted-foreground));
   }
   .var-good {
-    color: hsl(142 71% 35%);
-    background-color: hsl(142 71% 35% / 0.08);
+    color: hsl(var(--success));
+    background-color: hsl(var(--success-soft) / 0.6);
   }
   .var-great {
-    color: hsl(142 71% 25%);
-    background-color: hsl(142 71% 25% / 0.12);
+    color: hsl(var(--success));
+    background-color: hsl(var(--success-soft));
   }
   .var-minor-loss {
-    color: hsl(24 94% 53%);
-    background-color: hsl(24 94% 53% / 0.08);
+    color: hsl(var(--brand-soft-foreground));
+    background-color: hsl(var(--brand-soft) / 0.7);
   }
   .var-major-loss {
-    color: hsl(0 72% 51%);
-    background-color: hsl(0 72% 51% / 0.1);
+    color: hsl(var(--destructive));
+    background-color: hsl(var(--destructive-soft));
   }
 
   /* Unsaved row indicator */
@@ -365,7 +401,7 @@
     padding: 2px 7px;
     border-radius: 4px;
     white-space: nowrap;
-    font-family: "DM Sans", sans-serif;
+    font-family: inherit;
   }
 
   /* Table row comfortable spacing */
