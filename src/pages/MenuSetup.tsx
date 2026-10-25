@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle } from "lucide-react";
 import type { Menu } from "@/types/menu";
 import type { MenuBomLine } from "@/types/menu-bom";
@@ -11,7 +12,7 @@ import { useMenuSetupExtras, SALES_WINDOW_DAYS } from "@/hooks/use-menu-setup-ex
 import { useMenuCategories } from "@/hooks/use-menu-categories";
 import { summarizeMenu, describeRule, brandBranches, type CheckLevel, type CheckArea, type HealthCheck, type MenuSetupSummary } from "@/lib/menu-health";
 import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
-import { PosOptionsView } from "@/components/menu-setup/PosOptionsView";
+import { PosOptionsView, RuleDraftForm } from "@/components/menu-setup/PosOptionsView";
 import { BranchSetupView } from "@/components/menu-setup/BranchSetupView";
 import { NewMenuForm } from "@/components/menu-setup/NewMenuForm";
 import { SetupOverview } from "@/components/menu-setup/SetupOverview";
@@ -45,6 +46,7 @@ interface MenuSetupProps {
   getNextCode: () => string;
   /** SP recipes, so the bill check expands SP items exactly like stock does */
   spBomLines: SpBomLine[];
+  updateRule: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<void>;
   /** Dev harness only: use these instead of what the hooks load */
   demoExtras?: {
     overrides: Record<string, Record<string, boolean>>;
@@ -55,8 +57,8 @@ interface MenuSetupProps {
 }
 
 /** Hash without "#"; a hand-typed "%" must not crash the page */
-function readHash(): string {
-  const raw = window.location.hash.slice(1);
+function readHash(hash: string): string {
+  const raw = hash.slice(1);
   try {
     return decodeURIComponent(raw);
   } catch {
@@ -107,22 +109,25 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, demoExtras }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const canEdit = !readOnly;
 
-  const [code, setCode] = useState(() => readHash());
-  useEffect(() => {
-    const onHash = () => setCode(readHash());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+  // The view lives in the URL hash, read through the router so the bottom bar and
+  // sidebar (which navigate to plain /menu-setup) always bring back the list
+  const location = useLocation();
+  const navigate = useNavigate();
+  const code = readHash(location.hash);
+  const go = (hash: string, opts?: { replace?: boolean; from?: string }) =>
+    navigate({ pathname: location.pathname, hash: hash ? `#${hash}` : "" }, { replace: opts?.replace, state: opts?.from !== undefined ? { from: opts.from } : undefined });
+  // Where "back" goes from a menu: the view it was opened from (overview, branches, POS…) or the list
+  const backTo = (location.state as { from?: string } | null)?.from ?? "";
   const open = (m: Menu | null) => {
-    if (m) window.location.hash = encodeURIComponent(m.menuCode);
-    else if (window.location.hash) window.history.back();
+    if (m) go(encodeURIComponent(m.menuCode), { from: code && !menus.some((x) => x.menuCode === code) ? location.hash.slice(1) : "" });
+    else go(backTo);
   };
 
   // Real bills through the stock maths (same function the stock screens use)
@@ -182,13 +187,13 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
-        <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎตัวเลือก POS · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
+        <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎพิเศษ · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
       </div>
       <SegmentedTabs<View>
         tabs={viewTabs}
         value={posView ? "pos" : branchView ? "branches" : overviewView ? "overview" : "menus"}
         onChange={(v) => {
-          window.location.hash = v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : "";
+          go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : "");
         }}
       />
     </div>
@@ -208,8 +213,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           summaries={summaries}
           soldByCode={extras.soldByCode}
           onOpenMenu={(m) => open(m)}
-          onOpenBranch={(id) => (window.location.hash = `${BRANCHES_HASH}/${id}`)}
-          onOpenPos={() => (window.location.hash = POS_HASH)}
+          onOpenBranch={(id) => go(`${BRANCHES_HASH}/${id}`, { from: OVERVIEW_HASH })}
+          onOpenPos={() => go(POS_HASH)}
           onNavigate={onNavigate}
         />
       </div>
@@ -282,7 +287,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
             selectedId={selected?.id ?? null}
             onSelect={open}
             loading={menuBom.loading}
-            onNew={canEdit ? () => (window.location.hash = NEW_HASH) : undefined}
+            onNew={canEdit ? () => go(NEW_HASH) : undefined}
           />
         </div>
         <div className={cn("min-w-0", !selected && !isNew && "hidden lg:block")}>
@@ -296,9 +301,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               onCreated={(m) => {
                 setFreshIds((f) => new Set(f).add(m.id));
                 // Replace "#new" so the back button doesn't reopen the empty form
-                window.location.replace(`#${encodeURIComponent(m.menuCode)}`);
+                go(encodeURIComponent(m.menuCode), { replace: true });
               }}
-              onCancel={() => window.history.back()}
+              onCancel={() => go("")}
             />
           ) : selected ? (
             <MenuWorkspace
@@ -318,6 +323,10 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               onBack={() => open(null)}
               onOpenMenu={(m) => open(m)}
               onNavigate={onNavigate}
+              bills={extras.bills}
+              lines={menuBom.lines}
+              addRule={addRule}
+              updateRule={updateRule}
               isNew={freshIds.has(selected.id)}
               onChecklistDone={() =>
                 setFreshIds((f) => {
@@ -434,7 +443,7 @@ function MenuList({
             ))}
           </div>
         )}
-        <SegmentedTabs<MenuFilter> tabs={filters} value={filter} onChange={setFilter} className="[&_button]:min-h-[36px] [&_button]:px-3" />
+        <SegmentedTabs<MenuFilter> tabs={filters} value={filter} onChange={setFilter} className="[&_[role=tab]]:min-h-[36px] [&_[role=tab]]:px-3" />
       </div>
 
       <ul className="flex-1 divide-y divide-border overflow-y-auto overscroll-contain" aria-busy={loading}>
@@ -495,6 +504,10 @@ interface WorkspaceProps {
   onBack: () => void;
   onOpenMenu: (m: Menu) => void;
   onNavigate: (tab: TabKey) => void;
+  bills: Bill[] | null;
+  lines: MenuBomLine[];
+  addRule: MenuSetupProps["addRule"];
+  updateRule: MenuSetupProps["updateRule"];
   /** Just created in this visit: show the setup steps */
   isNew?: boolean;
   onChecklistDone?: () => void;
@@ -511,7 +524,7 @@ function MenuWorkspace(props: WorkspaceProps) {
     { key: "bills", label: summary.bills ? `บิลจริง · ${summary.bills.plates.toLocaleString()}` : "บิลจริง" },
     { key: "recipe", label: `สูตร · ${lineCount}` },
     { key: "branches", label: `สาขา · ${summary.branches.filter((b) => b.open).length}/${summary.branches.length}` },
-    { key: "rules", label: `กฎตัวเลือก · ${summary.ownRules.length + summary.usedAsTopping.length}` },
+    { key: "rules", label: `กฎพิเศษ · ${summary.ownRules.length + summary.usedAsTopping.length}` },
     { key: "info", label: "ข้อมูลเมนู" },
   ];
 
@@ -616,7 +629,7 @@ function MenuWorkspace(props: WorkspaceProps) {
 function HealthPanel({ checks, onGo }: { checks: HealthCheck[]; onGo: (area: CheckArea) => void }) {
   const order: Record<CheckLevel, number> = { error: 0, warn: 1, ok: 2 };
   const sorted = [...checks].sort((a, b) => order[a.level] - order[b.level]);
-  const areaLabel: Record<CheckArea, string> = { info: "ข้อมูลเมนู", recipe: "สูตร", branches: "สาขา", rules: "กฎตัวเลือก" };
+  const areaLabel: Record<CheckArea, string> = { info: "ข้อมูลเมนู", recipe: "สูตร", branches: "สาขา", rules: "กฎพิเศษ" };
   return (
     <ul className="flex flex-col gap-2">
       {sorted.map((c) => {
@@ -684,7 +697,10 @@ function BranchesPanel({ menu, summary, canEdit, salesLoaded, setBranchOpen }: W
   );
 }
 
-function RulesPanel({ menu, menus, summary, skus, allBranches, onNavigate, onOpenMenu }: WorkspaceProps) {
+function RulesPanel({ menu, menus, summary, skus, prices, allBranches, onNavigate, onOpenMenu, canEdit, bills, lines, addRule, updateRule }: WorkspaceProps) {
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const branchName = (id: string) => allBranches.find((b) => b.id === id)?.branchName ?? "สาขาที่ถูกลบ";
   const branchNames = (ids: string[]) => ids.map((id) => allBranches.find((b) => b.id === id)?.branchName ?? "สาขาที่ถูกลบ").join(", ");
   const typeLabel = { add: "เพิ่ม", swap: "เปลี่ยน", submenu: "ท็อปปิ้ง/ชุด" } as const;
   const ruleCard = (r: ModifierRule, extra?: React.ReactNode) => (
@@ -694,7 +710,24 @@ function RulesPanel({ menu, menus, summary, skus, allBranches, onNavigate, onOpe
         {!r.isActive && <Badge variant="warning">ปิดอยู่</Badge>}
         {r.branchIds.length > 0 && <Badge variant="brand">เฉพาะ {branchNames(r.branchIds)}</Badge>}
       </div>
-      <p className="text-[15px]">{describeRule(r, skus, menus)}</p>
+      <div className="flex items-start gap-3">
+        <p className="min-w-0 flex-1 text-[15px]">{describeRule(r, skus, menus)}</p>
+        {canEdit && (
+          <label className="flex min-h-[40px] shrink-0 items-center gap-2 text-sm text-muted-foreground">
+            {r.isActive ? "เปิด" : "ปิด"}
+            <Switch
+              checked={r.isActive}
+              disabled={busy === r.id}
+              aria-label={`เปิดใช้กฎ ${r.keyword}`}
+              onCheckedChange={async (v) => {
+                setBusy(r.id);
+                await updateRule(r.id, { isActive: v });
+                setBusy(null);
+              }}
+            />
+          </label>
+        )}
+      </div>
       {extra}
     </li>
   );
@@ -710,6 +743,29 @@ function RulesPanel({ menu, menus, summary, skus, allBranches, onNavigate, onOpe
         ) : (
           <p className="px-4 py-4 text-sm text-muted-foreground">ไม่มี</p>
         )}
+        {canEdit &&
+          (adding ? (
+            <div className="border-t border-border bg-secondary/50 p-3">
+              <RuleDraftForm
+                presetMenus={[menu]}
+                bills={bills}
+                menus={menus}
+                lines={lines}
+                skus={skus}
+                prices={prices}
+                branches={allBranches}
+                addRule={addRule}
+                branchName={branchName}
+                onDone={() => setAdding(false)}
+              />
+            </div>
+          ) : (
+            <div className="border-t border-border p-2">
+              <Button variant="ghost" className="h-11 w-full justify-start text-[15px]" onClick={() => setAdding(true)}>
+                <Plus className="h-4 w-4" /> เพิ่มกฎพิเศษให้เมนูนี้
+              </Button>
+            </div>
+          ))}
       </section>
 
       {summary.usedAsTopping.length > 0 && (
@@ -917,7 +973,7 @@ function BillsPanel({ bills, skus, branches, loaded }: { bills?: MenuBillCheck; 
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-sm text-muted-foreground">
-        บิลจริง {SALES_WINDOW_DAYS} วัน คิดด้วยสูตรเดียวกับที่ตัดสต๊อก (สูตรของเมนู + สูตรที่ดึงมาจากกฎ + กฎตัวเลือก) · ตัวเลขต่อ 1 จาน
+        บิลจริง {SALES_WINDOW_DAYS} วัน คิดด้วยสูตรเดียวกับที่ตัดสต๊อก (สูตรของเมนู + สูตรที่ดึงมาจากกฎ + กฎพิเศษ) · ตัวเลขต่อ 1 จาน
       </p>
       {shown.map((g) => (
         <section

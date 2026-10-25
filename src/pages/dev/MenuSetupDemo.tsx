@@ -86,6 +86,10 @@ export default function MenuSetupDemo() {
           },
         }}
         spBomLines={data.spLines}
+        updateRule={async (id, patch) => {
+          await wait();
+          setRules((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+        }}
         addMenu={async (m) => {
           await wait();
           const menu = { ...m, id: crypto.randomUUID() };

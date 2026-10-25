@@ -80,7 +80,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   branches: { title: "Branches", subtitle: "Manage your restaurant locations" },
   users: { title: "User Management", subtitle: "Team access and permissions" },
   store: { title: "Store Overview", subtitle: "Branch operations at a glance" },
-  "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎตัวเลือก ในที่เดียว" },
+  "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎพิเศษ ในที่เดียว" },
   "menu-master": { title: "Menu Master", subtitle: "Your menu catalog" },
   "menu-bom": { title: "Menu BOM", subtitle: "Ingredients behind every menu item" },
   "sp-bom": { title: "SP BOM", subtitle: "Special product recipes" },
@@ -482,7 +482,7 @@ const Index = () => {
           </header>
 
           <main className="flex-1 overflow-auto pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
-            <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">กำลังโหลด…</div>}>
+            <Suspense fallback={<div className="page-shell text-sm text-muted-foreground">กำลังโหลด…</div>}>
             {activeTab === "branch-receipt-mobile" ? (
               <BranchReceiptMobilePage
                 skus={skus}
@@ -491,7 +491,7 @@ const Index = () => {
                 suppliers={supplierData.suppliers}
               />
             ) : (
-              <div className="max-w-[1400px] mx-auto px-8 py-6">
+              <div className="page-shell">
                 {activeTab === "dashboard" ? (
                   <Dashboard
                     skus={skus}
@@ -635,6 +635,7 @@ const Index = () => {
                     addMenu={menuData.addMenu}
                     getNextCode={menuData.getNextCode}
                     spBomLines={spBomData.lines}
+                    updateRule={modifierRuleData.updateRule}
                   />
                 ) : activeTab === "menu-master" ? (
                   <MenuMasterPage menuData={menuData} branches={branchData.branches} />

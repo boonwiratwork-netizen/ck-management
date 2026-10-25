@@ -149,7 +149,7 @@ export function PosOptionsView(props: PosOptionsViewProps) {
             ))}
           </div>
         )}
-        <SegmentedTabs<Filter> tabs={tabs} value={filter} onChange={setFilter} className="[&_button]:min-h-[36px] [&_button]:px-3" />
+        <SegmentedTabs<Filter> tabs={tabs} value={filter} onChange={setFilter} className="[&_[role=tab]]:min-h-[36px] [&_[role=tab]]:px-3" />
       </div>
 
       {groups.length === 0 && (
@@ -293,8 +293,14 @@ function OptionDetail(
   );
 }
 
-function RuleDraftForm({
+/**
+ * Builds a rule and tests it on real bills before saving. From the POS catalog it
+ * starts from an option (entry); from a menu's rules tab it starts empty, limited
+ * to that menu (presetMenus).
+ */
+export function RuleDraftForm({
   entry,
+  presetMenus,
   bills,
   menus,
   lines,
@@ -304,15 +310,20 @@ function RuleDraftForm({
   addRule,
   onDone,
   branchName,
-}: PosOptionsViewProps & { entry: OptionEntry; onDone: () => void; branchName: (id: string) => string }) {
+}: Pick<PosOptionsViewProps, "bills" | "menus" | "lines" | "skus" | "prices" | "branches" | "addRule"> & {
+  entry?: OptionEntry;
+  presetMenus?: Menu[];
+  onDone: () => void;
+  branchName: (id: string) => string;
+}) {
   const menuByCode = useMemo(() => new Map(menus.map((m) => [m.menuCode, m])), [menus]);
   const seenMenus = useMemo(
-    () => [...entry.menuCodes.keys()].map((c) => menuByCode.get(c)).filter((m): m is Menu => !!m),
-    [entry, menuByCode],
+    () => (entry ? [...entry.menuCodes.keys()].map((c) => menuByCode.get(c)).filter((m): m is Menu => !!m) : presetMenus ?? []),
+    [entry, presetMenus, menuByCode],
   );
   const [draft, setDraft] = useState<RuleDraft>({
-    ruleType: entry.group.toLowerCase().includes("topping") ? "submenu" : "add",
-    keyword: entry.value,
+    ruleType: entry?.group.toLowerCase().includes("topping") ? "submenu" : "add",
+    keyword: entry?.value ?? "",
     skuId: null,
     swapSkuId: null,
     submenuId: null,
@@ -330,7 +341,7 @@ function RuleDraftForm({
   const test = useMemo(() => testDraft(live, bills ?? [], menus, lines), [live.ruleType, live.keyword, live.skuId, live.swapSkuId, live.qtyPerMatch, live.menuIds, live.branchIds, bills, menus, lines]); // eslint-disable-line react-hooks/exhaustive-deps
   // When the keyword also hits other options, offer the POS's longer wording
   const better = useMemo(() => {
-    if (test.options.length <= 1) return null;
+    if (!entry || test.options.length <= 1) return null;
     for (const k of specificKeywords(entry, entry.example)) {
       if (k === draft.keyword) continue;
       const t = testDraft({ ...live, keyword: k }, bills ?? [], menus, lines);
@@ -363,7 +374,7 @@ function RuleDraftForm({
       skuId: draft.ruleType === "submenu" ? "" : draft.skuId ?? "",
       qtyPerMatch: draft.ruleType === "submenu" ? 1 : Number(qty),
       uom: draft.ruleType === "submenu" ? "" : sku?.usageUom ?? "",
-      description: `สร้างจากตัวเลือก POS: ${entry.group} : ${entry.value}`,
+      description: entry ? `สร้างจากตัวเลือก POS: ${entry.group} : ${entry.value}` : "สร้างจากหน้าตั้งค่าเมนู",
       isActive: true,
       menuId: null,
       menuIds: draft.menuIds,
@@ -485,7 +496,7 @@ function RuleDraftForm({
         )}
         {test.options.length > 1 && (
           <p className="text-warning">
-            คำนี้ไปโดนตัวเลือกอื่นด้วย: {test.options.filter((o) => !(o.value === entry.value && o.group === entry.group)).map((o) => `${o.group} : ${o.value} (${o.plates})`).join(", ")} — ใช้คำที่เจาะจงกว่านี้
+            คำนี้ไปโดนตัวเลือกอื่นด้วย: {test.options.filter((o) => !(o.value === entry?.value && o.group === entry?.group)).map((o) => `${o.group} : ${o.value} (${o.plates})`).join(", ")} — ใช้คำที่เจาะจงกว่านี้
           </p>
         )}
         {better && (
@@ -509,7 +520,7 @@ function RuleDraftForm({
         </Button>
       </div>
       <p className="-mt-2 text-right text-xs text-muted-foreground">
-        สาขาที่ขาย: {[...entry.branchIds].map(branchName).join(", ")}
+        {entry ? `สาขาที่ขาย: ${[...entry.branchIds].map(branchName).join(", ")}` : "ใส่คำตามที่ POS เขียนในบิล ดูตัวอย่างได้ที่แท็บบิลจริง"}
       </p>
     </form>
   );

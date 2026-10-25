@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,7 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
+  // Both the auth listener and getSession() report the session on start; look the
+  // user up once per user, not twice
+  const fetchedFor = useRef<string | null>(null);
+
   const fetchUserData = async (userId: string) => {
+    if (fetchedFor.current === userId) return;
+    fetchedFor.current = userId;
+    // Show the last known role/branch at once (screens only; the database still
+    // checks every permission), then refresh from the server
+    const cacheKey = `ck-user-${userId}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached) {
+        setProfile(cached.profile ?? null);
+        setRole(cached.role ?? null);
+        setBrandAssignments(cached.brands ?? []);
+      }
+    } catch {
+      // No saved copy: wait for the server
+    }
     setProfileLoading(true);
     try {
       const [profileRes, roleRes, brandRes] = await Promise.all([
@@ -41,9 +60,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from('user_roles').select('role').eq('user_id', userId).single(),
         supabase.from('user_brand_assignments').select('brand').eq('user_id', userId),
       ]);
-      setProfile(profileRes.data || null);
-      setRole((roleRes.data?.role as AppRole) || null);
-      setBrandAssignments((brandRes.data || []).map(b => b.brand));
+      const fresh = {
+        profile: profileRes.data || null,
+        role: (roleRes.data?.role as AppRole) || null,
+        brands: (brandRes.data || []).map(b => b.brand),
+      };
+      setProfile(fresh.profile);
+      setRole(fresh.role);
+      setBrandAssignments(fresh.brands);
+      if (!profileRes.error && !roleRes.error) {
+        try { localStorage.setItem(cacheKey, JSON.stringify(fresh)); } catch { /* storage full or blocked */ }
+      }
+    } catch {
+      fetchedFor.current = null; // let the next session event retry
     } finally {
       setProfileLoading(false);
     }
@@ -58,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => fetchUserData(session.user.id), 0);
         } else {
+          fetchedFor.current = null;
           setProfile(null);
           setRole(null);
           setBrandAssignments([]);

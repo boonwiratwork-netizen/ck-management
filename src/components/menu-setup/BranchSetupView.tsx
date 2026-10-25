@@ -152,7 +152,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นเมนู…" className="h-11 pl-9" aria-label="ค้นเมนู" />
           </div>
-          <SegmentedTabs<Filter> tabs={tabs} value={filter} onChange={setFilter} className="[&_button]:min-h-[36px] [&_button]:px-3" />
+          <SegmentedTabs<Filter> tabs={tabs} value={filter} onChange={setFilter} className="[&_[role=tab]]:min-h-[36px] [&_[role=tab]]:px-3" />
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex min-h-[40px] items-center gap-2 text-sm">
