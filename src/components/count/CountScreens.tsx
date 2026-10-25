@@ -313,7 +313,7 @@ export function CountReview({
         open={shortConfirm}
         onOpenChange={setShortConfirm}
         title={`ช่วงปิดเดือน นับได้ ${pct}%`}
-        description={`ยังไม่ได้นับ ${monthTotal - monthCounted} รายการ ตัวที่ไม่ได้นับจะใช้ยอดคงเหลือแทน ต้นทุนอาหารเดือนนี้อาจคลาดตามไปด้วย ถ้ายังนับต่อได้ ให้กลับไปนับก่อน`}
+        description={`ยังไม่ได้นับ ${monthTotal - monthCounted} รายการ ตัวที่ไม่ได้นับจะใช้ยอดคงเหลือแทน`}
         confirmLabel="นับเสร็จเลย"
         cancelLabel="กลับไปนับต่อ"
         variant="warning"
