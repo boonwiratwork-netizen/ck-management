@@ -1,5 +1,5 @@
 import { fetchAllRows } from "@/lib/fetch-all";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -269,22 +269,53 @@ export function useDailyStockCount({
   // Gap-resilient opening balance: reconstructs from last submitted count + gap transactions
   const computeOpeningWithGap = useCallback(
     async (branchId: string, beforeDate: string): Promise<Record<string, number>> => {
-      // Step 1 — Find most recent count per SKU (submitted or not — calculated_balance is valid regardless)
-      const { data: recentCounts } = await supabase
-        .from("daily_stock_counts")
-        .select("sku_id, physical_count, calculated_balance, count_date")
-        .eq("branch_id", branchId)
-        .lt("count_date", beforeDate)
-        .order("count_date", { ascending: false });
+      // Step 1 — Find most recent count per SKU (submitted or not — calculated_balance is valid regardless).
+      // The last 14 days first (paged: one sheet is ~124 rows, so a single request
+      // used to stop at ~8 days); then, for products with no physical count in that
+      // window, their latest physical count further back. Without this a product
+      // last counted more than ~8 days ago started from 0.
+      const recentFrom = new Date(`${beforeDate}T00:00:00`);
+      recentFrom.setDate(recentFrom.getDate() - 14);
+      const { data: recentCounts } = await fetchAllRows((a, b) =>
+        supabase
+          .from("daily_stock_counts")
+          .select("id, sku_id, physical_count, calculated_balance, count_date")
+          .eq("branch_id", branchId)
+          .lt("count_date", beforeDate)
+          .gte("count_date", toLocalDateStr(recentFrom))
+          .order("count_date", { ascending: false })
+          .order("id")
+          .range(a, b),
+      );
+      const countedRecently = new Set((recentCounts as any[]).filter((r) => r.physical_count !== null).map((r) => r.sku_id));
+      const olderNeeded = [...new Set((recentCounts as any[]).map((r) => r.sku_id))].filter((id) => !countedRecently.has(id));
+      let olderCounts: any[] = [];
+      if (olderNeeded.length) {
+        const { data } = await fetchAllRows((a, b) =>
+          supabase
+            .from("daily_stock_counts")
+            .select("id, sku_id, physical_count, calculated_balance, count_date")
+            .eq("branch_id", branchId)
+            .lt("count_date", toLocalDateStr(recentFrom))
+            .not("physical_count", "is", null)
+            .in("sku_id", olderNeeded)
+            .order("count_date", { ascending: false })
+            .order("id")
+            .range(a, b),
+        );
+        olderCounts = data as any[];
+      }
+      // Latest physical count wins; a product never counted keeps its latest calculated row
+      const allCounts = [...(recentCounts as any[]), ...olderCounts].sort((x, y) => (x.count_date < y.count_date ? 1 : x.count_date > y.count_date ? -1 : 0));
 
       const lastCountBySku = new Map<string, any>();
-      (recentCounts || []).forEach((r) => {
+      allCounts.forEach((r) => {
         if (lastCountBySku.has(r.sku_id)) return;
         if (r.physical_count !== null) {
           lastCountBySku.set(r.sku_id, r);
         }
       });
-      (recentCounts || []).forEach((r) => {
+      allCounts.forEach((r) => {
         if (!lastCountBySku.has(r.sku_id)) {
           lastCountBySku.set(r.sku_id, r);
         }
@@ -310,27 +341,39 @@ export function useDailyStockCount({
 
       // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date)
       const [gapCkLinesRes, gapExtLinesRes, gapUsageByDate, gapAdjLinesRes] = await Promise.all([
-        supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, receipt_date")
-          .eq("branch_id", branchId)
-          .not("transfer_order_id", "is", null)
-          .gt("receipt_date", gapStartDate)
-          .lt("receipt_date", beforeDate),
-        supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, receipt_date")
-          .eq("branch_id", branchId)
-          .is("transfer_order_id", null)
-          .gt("receipt_date", gapStartDate)
-          .lt("receipt_date", beforeDate),
+        fetchAllRows((a, b) =>
+          supabase
+            .from("branch_receipts")
+            .select("id, sku_id, qty_received, receipt_date")
+            .eq("branch_id", branchId)
+            .not("transfer_order_id", "is", null)
+            .gt("receipt_date", gapStartDate)
+            .lt("receipt_date", beforeDate)
+            .order("id")
+            .range(a, b),
+        ),
+        fetchAllRows((a, b) =>
+          supabase
+            .from("branch_receipts")
+            .select("id, sku_id, qty_received, receipt_date")
+            .eq("branch_id", branchId)
+            .is("transfer_order_id", null)
+            .gt("receipt_date", gapStartDate)
+            .lt("receipt_date", beforeDate)
+            .order("id")
+            .range(a, b),
+        ),
         calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
-        supabase
-          .from("stock_adjustments")
-          .select("sku_id, quantity, adjustment_date, reason")
-          .eq("branch_id", branchId)
-          .gt("adjustment_date", gapStartDate)
-          .lt("adjustment_date", beforeDate),
+        fetchAllRows((a, b) =>
+          supabase
+            .from("stock_adjustments")
+            .select("id, sku_id, quantity, adjustment_date, reason")
+            .eq("branch_id", branchId)
+            .gt("adjustment_date", gapStartDate)
+            .lt("adjustment_date", beforeDate)
+            .order("id")
+            .range(a, b),
+        ),
       ]);
 
       // Build per-SKU gap totals filtered by each SKU's own anchor date
@@ -596,9 +639,18 @@ export function useDailyStockCount({
 
       if (sheetResult.error) {
         toast.error("Failed to load count sheet");
+        setLoading(false);
         return;
       }
       const data = sheetResult.data || [];
+      // No sheet yet: show nothing and create nothing. Opening a day used to create
+      // its whole sheet, which left empty "not counted" sheets behind; a sheet is
+      // now made only when counting starts (generateSheet)
+      if (data.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
 
       // Fetch gap-resilient opening balances
       const openingBySku = await computeOpeningWithGap(branchId, date);
@@ -652,7 +704,9 @@ export function useDailyStockCount({
           p.received_from_ck !== Number(data[i].received_from_ck) ||
           p.expected_usage !== Number(data[i].expected_usage),
       );
-      if (updates.length > 0) {
+      // A finished (submitted) sheet is a record: opening it must not rewrite it
+      const finished = data.length > 0 && data.every((r) => r.is_submitted);
+      if (updates.length > 0 && !finished) {
         for (const u of updates) {
           supabase
             .from("daily_stock_counts")
@@ -682,12 +736,14 @@ export function useDailyStockCount({
           const ext = receipts.extBySku[sku.id] ?? 0;
           const ck = receipts.ckBySku[sku.id] ?? 0;
           const extConvNew = getSkuConverter(sku.id);
-          const calcBalance = ck + ext * extConvNew - expUsage;
+          const openingNew = openingBySku[sku.id] ?? 0;
+          const adjNew = adjMap.get(sku.id)?.net ?? 0;
+          const calcBalance = openingNew + ck + ext * extConvNew - expUsage + adjNew;
           newSkuRows.push({
             branch_id: branchId,
             count_date: date,
             sku_id: sku.id,
-            opening_balance: 0,
+            opening_balance: openingNew,
             received_from_ck: ck,
             received_external: ext,
             expected_usage: expUsage,
@@ -822,24 +878,92 @@ export function useDailyStockCount({
     [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter, computeOpeningWithGap],
   );
 
+  // ── Saving counts: every box saves on its own; when the phone has no internet
+  // (walk-in freezers) the value waits on the device and is sent when it can be ──
+  type Pending = { physical_count?: number | null; waste?: number; calculated_balance?: number; variance: number };
+  const QUEUE_KEY = "ck-count-queue";
+  const readQueue = (): Record<string, Pending> => {
+    try {
+      return JSON.parse(localStorage.getItem(QUEUE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  };
+  const writeQueue = (q: Record<string, Pending>) => {
+    try {
+      if (Object.keys(q).length) localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+      else localStorage.removeItem(QUEUE_KEY);
+    } catch {
+      // storage blocked: the value stays in memory until the page closes
+    }
+  };
+  const [saveState, setSaveState] = useState<Record<string, "saving" | "waiting">>({});
+  const queueRef = useRef<Record<string, Pending>>(readQueue());
+  const isOffline = (msg?: string) => (typeof navigator !== "undefined" && navigator.onLine === false) || /fetch|network|load failed/i.test(msg ?? "");
+
+  const send = useCallback(async (rowId: string, patch: Pending) => {
+    setSaveState((p) => ({ ...p, [rowId]: "saving" }));
+    const { error } = await supabase.from("daily_stock_counts").update(patch).eq("id", rowId);
+    if (!error) {
+      const q = { ...queueRef.current };
+      delete q[rowId];
+      queueRef.current = q;
+      writeQueue(q);
+      setSaveState((p) => {
+        const n = { ...p };
+        delete n[rowId];
+        return n;
+      });
+      return true;
+    }
+    if (isOffline(error.message)) {
+      // Merge with anything already waiting for this row, newest value wins
+      const q = { ...queueRef.current, [rowId]: { ...queueRef.current[rowId], ...patch } };
+      queueRef.current = q;
+      writeQueue(q);
+      setSaveState((p) => ({ ...p, [rowId]: "waiting" }));
+      return false;
+    }
+    setSaveState((p) => {
+      const n = { ...p };
+      delete n[rowId];
+      return n;
+    });
+    toast.error("บันทึกไม่สำเร็จ: " + error.message);
+    return false;
+  }, []);
+
+  /** Send everything waiting on this device; true when nothing is left */
+  const flushQueue = useCallback(async () => {
+    const entries = Object.entries(queueRef.current);
+    for (const [rowId, patch] of entries) await send(rowId, patch);
+    return Object.keys(queueRef.current).length === 0;
+  }, [send]);
+
+  useEffect(() => {
+    // Values left from a page closed while offline show as waiting until sent
+    const waiting = Object.keys(queueRef.current);
+    if (waiting.length) setSaveState(Object.fromEntries(waiting.map((id) => [id, "waiting" as const])));
+    const onOnline = () => flushQueue();
+    window.addEventListener("online", onOnline);
+    const t = setInterval(() => Object.keys(queueRef.current).length && flushQueue(), 20_000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(t);
+    };
+  }, [flushQueue]);
+
   // Update physical count — staff enters directly in Usage UOM, no conversion needed
   const updatePhysicalCount = useCallback(
     async (rowId: string, physicalCount: number | null) => {
       const row = rows.find((r) => r.id === rowId);
       if (!row || row.isSubmitted) return;
-
       const variance = physicalCount !== null ? physicalCount - row.calculatedBalance : 0;
-      const { error } = await supabase
-        .from("daily_stock_counts")
-        .update({ physical_count: physicalCount, variance })
-        .eq("id", rowId);
-      if (error) {
-        toast.error("Failed to update");
-        return;
-      }
+      // Shown at once; saved (or queued) behind it
       setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, physicalCount, variance } : r)));
+      await send(rowId, { physical_count: physicalCount, variance });
     },
-    [rows],
+    [rows, send],
   );
 
   // Update waste
@@ -853,20 +977,44 @@ export function useDailyStockCount({
       const calcBalance =
         row.openingBalance + row.receivedFromCk + row.receivedExternal * extConv - row.expectedUsage - waste + row.adjNet;
       const variance = row.physicalCount !== null ? row.physicalCount - calcBalance : 0;
-      const { error } = await supabase
-        .from("daily_stock_counts")
-        .update({ waste, calculated_balance: calcBalance, variance })
-        .eq("id", rowId);
-      if (error) {
-        toast.error("Failed to update waste");
-        return;
-      }
       setRows((prev) =>
         prev.map((r) => (r.id === rowId ? { ...r, waste, calculatedBalance: calcBalance, variance } : r)),
       );
+      await send(rowId, { waste, calculated_balance: calcBalance, variance });
     },
-    [rows],
+    [rows, send, getSkuConverter],
   );
+
+  /** Several products counted as 0 at once (month-end: "not carried here") */
+  const setZero = useCallback(
+    async (rowIds: string[]) => {
+      const targets = rows.filter((r) => rowIds.includes(r.id) && !r.isSubmitted);
+      setRows((prev) => prev.map((r) => (rowIds.includes(r.id) && !r.isSubmitted ? { ...r, physicalCount: 0, variance: -r.calculatedBalance } : r)));
+      await Promise.all(targets.map((r) => send(r.id, { physical_count: 0, variance: -r.calculatedBalance })));
+    },
+    [rows, send],
+  );
+
+  /**
+   * Pick up what someone else counted on another phone (two people, two zones),
+   * without touching values still waiting to be sent from this one.
+   */
+  const refreshCounts = useCallback(async (branchId: string, date: string) => {
+    const { data } = await supabase.from("daily_stock_counts").select("id, physical_count, waste, variance").eq("branch_id", branchId).eq("count_date", date);
+    if (!data) return;
+    const byId = new Map(data.map((d) => [d.id, d]));
+    setRows((prev) =>
+      prev.map((r) => {
+        const d = byId.get(r.id);
+        if (!d || queueRef.current[r.id]) return r;
+        const physicalCount = d.physical_count !== null ? Number(d.physical_count) : null;
+        const waste = Number(d.waste ?? 0);
+        if (physicalCount === r.physicalCount && waste === r.waste) return r;
+        const calculatedBalance = r.calculatedBalance + r.waste - waste;
+        return { ...r, physicalCount, waste, calculatedBalance, variance: physicalCount !== null ? physicalCount - calculatedBalance : 0 };
+      }),
+    );
+  }, []);
 
   // Delete a single row — only while its sheet is unsubmitted (protects the
   // physical-count anchor every other stock formula in the app relies on).
@@ -887,6 +1035,10 @@ export function useDailyStockCount({
 
   // Submit count
   const submitSheet = useCallback(async (branchId: string, date: string) => {
+    if (!(await flushQueue())) {
+      toast.error("ยังมียอดนับที่ยังไม่บันทึก (เน็ตหลุด) ต่อเน็ตแล้วลองกดอีกครั้ง");
+      return false;
+    }
     const now = new Date().toISOString();
     const { error } = await supabase
       .from("daily_stock_counts")
@@ -895,10 +1047,26 @@ export function useDailyStockCount({
       .eq("count_date", date);
     if (error) {
       toast.error("Failed to submit: " + error.message);
-      return;
+      return false;
     }
     setRows((prev) => prev.map((r) => ({ ...r, isSubmitted: true, submittedAt: now })));
-    toast.success("Count sheet submitted");
+    return true;
+  }, [flushQueue]);
+
+  /** Finish days left open (staff off, sheet opened but not finished): counts kept as they are */
+  const finishDays = useCallback(async (branchId: string, dates: string[]) => {
+    if (!dates.length) return true;
+    const { error } = await supabase
+      .from("daily_stock_counts")
+      .update({ is_submitted: true, submitted_at: new Date().toISOString() })
+      .eq("branch_id", branchId)
+      .in("count_date", dates)
+      .eq("is_submitted", false);
+    if (error) {
+      toast.error("บันทึกไม่สำเร็จ: " + error.message);
+      return false;
+    }
+    return true;
   }, []);
 
   // Unlock (admin only)
@@ -924,6 +1092,11 @@ export function useDailyStockCount({
     generateSheet,
     updatePhysicalCount,
     updateWaste,
+    setZero,
+    refreshCounts,
+    saveState,
+    flushQueue,
+    finishDays,
     deleteRow,
     submitSheet,
     unlockSheet,

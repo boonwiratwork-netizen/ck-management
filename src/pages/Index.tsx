@@ -50,7 +50,8 @@ const SpBomPage = lazy(() => import("@/pages/SpBom"));
 const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
 // One sales page for phones and computers (replaced SalesEntry)
 const SalesEntryPage = lazy(() => import("@/pages/Sales"));
-const DailyStockCountPage = lazy(() => import("@/pages/DailyStockCount"));
+// The daily branch count, rebuilt (replaced DailyStockCount)
+const DailyStockCountPage = lazy(() => import("@/pages/DailyCount"));
 // One receiving page for phones and computers (replaced BranchReceipt + BranchReceiptMobile)
 const ReceivePage = lazy(() => import("@/pages/Receive"));
 // One request page for phones and computers (replaced TransferRequest)
@@ -697,6 +698,7 @@ const Index = () => {
                     menus={menuData.menus}
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
                     menuBomLoading={menuBomLoading}
+                    onNavigate={handleTabChange}
                   />
                 ) : activeTab === "store-stock" ? (
                   <StoreStockPage
