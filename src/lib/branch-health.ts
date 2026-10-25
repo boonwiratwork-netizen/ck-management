@@ -42,8 +42,12 @@ export function summarizeBranch(input: {
     return {
       menu,
       open: at?.open ?? true,
-      // Set menus that take their items through topping/set rules aren't "no recipe" (same as the menu checks)
-      noRecipe: (at?.lines.length ?? 0) === 0 && !linkedHere && !(s?.ownRules ?? []).some((r) => r.isActive && r.ruleType === "submenu"),
+      // Real bills at this branch decide; without sales, judge from the setup. Set menus
+      // fed by topping/set rules aren't "no recipe" (same as the menu checks)
+      noRecipe:
+        (s?.bills?.platesByBranch[branch.id] ?? 0) > 0
+          ? (s?.bills?.emptyByBranch[branch.id] ?? 0) > 0
+          : (at?.lines.length ?? 0) === 0 && !linkedHere && !(s?.ownRules ?? []).some((r) => r.isActive && r.ruleType === "submenu"),
       cost: at?.cost ?? 0,
       costPct: at?.costPct ?? null,
       sold: soldByCode?.[menu.menuCode]?.[branch.id] ?? 0,
@@ -81,7 +85,7 @@ export function summarizeBranch(input: {
       id: "no-recipe",
       level: "error",
       area: "recipe",
-      title: `ขายอยู่แต่ไม่มีสูตร ${soldNoRecipe.length} เมนู`,
+      title: `ขายแล้วไม่ตัดของ ${soldNoRecipe.length} เมนู`,
       detail: `${soldNoRecipe.map((r) => r.menu.menuCode).join(", ")} · ขายแล้วไม่ตัดวัตถุดิบ`,
     });
 

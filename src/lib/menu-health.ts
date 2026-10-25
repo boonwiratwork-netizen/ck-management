@@ -4,6 +4,7 @@ import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
+import type { MenuBillCheck } from "@/lib/bill-check";
 
 /**
  * Everything the Menu Setup screen says about one menu, worked out in one place:
@@ -52,6 +53,8 @@ export interface MenuSetupInput {
   overrides: Record<string, boolean>;
   /** Qty sold per branch for this menu over the period loaded; undefined = not loaded yet */
   soldByBranch?: Record<string, number>;
+  /** Real bills of this menu run through the stock maths; undefined = not loaded or no sales */
+  bills?: MenuBillCheck;
 }
 
 export interface MenuSetupSummary {
@@ -69,6 +72,7 @@ export interface MenuSetupSummary {
   linkedRecipes: { rule: ModifierRule; menu: Menu }[];
   checks: HealthCheck[];
   worst: CheckLevel;
+  bills?: MenuBillCheck;
 }
 
 export function activeUnitCost(prices: Price[], skuId: string): number {
@@ -174,7 +178,22 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     });
 
   // ── Recipe ──
-  if (menuLines.length === 0 && linkedRecipes.length > 0) {
+  const billed = input.bills && input.bills.plates > 0 ? input.bills : null;
+  if (billed) {
+    // Real bills decide: whatever the recipe/rule setup, did every plate deduct something?
+    const empty = billed.groups.find((g) => g.empty);
+    add(
+      billed.emptyPlates === 0
+        ? { id: "no-recipe", level: "ok", area: "recipe", title: `บิลจริง ${billed.plates.toLocaleString()} จาน ตัดของทุกจาน` }
+        : {
+            id: "no-recipe",
+            level: "error",
+            area: "recipe",
+            title: `${billed.emptyPlates.toLocaleString()} จาก ${billed.plates.toLocaleString()} จานขายแล้วไม่ตัดของ`,
+            detail: `เช่นบิล "${empty?.name ?? ""}" · เพิ่มสูตร หรือกฎที่มีคำตรงกับในบิล (ดูแท็บบิลจริง)`,
+          },
+    );
+  } else if (menuLines.length === 0 && linkedRecipes.length > 0) {
     add({
       id: "no-recipe",
       level: "ok",
@@ -299,6 +318,8 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
   }
   if (menuLines.length > 0 || linkedRecipes.length > 0)
     for (const b of branches) {
+      // Real bills at this branch already answer this (see the bill check above)
+      if ((billed?.platesByBranch[b.branchId] ?? 0) > 0) continue;
       const reached = b.lines.length > 0 || linkedRecipes.some(({ rule }) => rule.branchIds.length === 0 || rule.branchIds.includes(b.branchId));
       if (b.open && !reached)
         add({
@@ -363,7 +384,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     });
 
   const worst: CheckLevel = checks.some((c) => c.level === "error") ? "error" : checks.some((c) => c.level === "warn") ? "warn" : "ok";
-  return { branches, sharedLines, branchLines, ownRules, usedAsTopping, globalRuleCount, linkedRecipes, checks, worst };
+  return { branches, sharedLines, branchLines, ownRules, usedAsTopping, globalRuleCount, linkedRecipes, checks, worst, bills: input.bills };
 }
 
 /** True when a rule keyword is the menu's own code or part of its own name, so it fires on every sale */

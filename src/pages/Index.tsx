@@ -632,6 +632,7 @@ const Index = () => {
                     addRule={modifierRuleData.addRule}
                     addMenu={menuData.addMenu}
                     getNextCode={menuData.getNextCode}
+                    spBomLines={spBomData.lines}
                   />
                 ) : activeTab === "menu-master" ? (
                   <MenuMasterPage menuData={menuData} branches={branchData.branches} />

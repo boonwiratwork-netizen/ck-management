@@ -7,6 +7,7 @@ import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
 import type { Bill } from "@/lib/pos-options";
+import type { SpBomLine } from "@/types/sp-bom";
 
 interface Fixture {
   menus: Menu[];
@@ -18,6 +19,7 @@ interface Fixture {
   overrides: Record<string, Record<string, boolean>>;
   soldByCode: Record<string, Record<string, number>>;
   bills: Bill[];
+  spLines: SpBomLine[];
 }
 
 /**
@@ -83,6 +85,7 @@ export default function MenuSetupDemo() {
             return true;
           },
         }}
+        spBomLines={data.spLines}
         addMenu={async (m) => {
           await wait();
           const menu = { ...m, id: crypto.randomUUID() };

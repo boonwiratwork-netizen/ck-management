@@ -17,6 +17,9 @@ import { NewMenuForm } from "@/components/menu-setup/NewMenuForm";
 import { SetupOverview } from "@/components/menu-setup/SetupOverview";
 import { usePosOptionsData } from "@/hooks/use-pos-options-data";
 import type { Bill } from "@/lib/pos-options";
+import type { SpBomLine } from "@/types/sp-bom";
+import { buildUsageContext } from "@/lib/sale-usage";
+import { checkBills, type MenuBillCheck } from "@/lib/bill-check";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { SaveBar } from "@/components/form/SaveBar";
 import { FieldError } from "@/components/form/FieldError";
@@ -40,6 +43,8 @@ interface MenuSetupProps {
   addRule: (data: Omit<ModifierRule, "id">) => Promise<ModifierRule | null>;
   addMenu: (data: Omit<Menu, "id">) => Promise<Menu | null>;
   getNextCode: () => string;
+  /** SP recipes, so the bill check expands SP items exactly like stock does */
+  spBomLines: SpBomLine[];
   /** Dev harness only: use these instead of what the hooks load */
   demoExtras?: {
     overrides: Record<string, Record<string, boolean>>;
@@ -64,7 +69,7 @@ const BRANCHES_HASH = "branches";
 const NEW_HASH = "new";
 const OVERVIEW_HASH = "overview";
 
-type WorkTab = "health" | "recipe" | "branches" | "rules" | "info";
+type WorkTab = "health" | "bills" | "recipe" | "branches" | "rules" | "info";
 type MenuFilter = "all" | "error" | "warn" | "inactive";
 
 const baht = (n: number) => `฿${n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -102,7 +107,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, demoExtras }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, demoExtras }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -120,6 +125,19 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     else if (window.location.hash) window.history.back();
   };
 
+  // Real bills through the stock maths (same function the stock screens use)
+  const billChecks = useMemo(() => {
+    if (!extras.bills) return null;
+    const ctx = buildUsageContext({
+      menus: menus.map((m) => ({ id: m.id, menuCode: m.menuCode })),
+      bomLines: menuBom.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId ?? null })),
+      rules,
+      spLines: spBomLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: l.qtyPerBatch, batchYieldQty: l.batchYieldQty || 1 })),
+      skus,
+    });
+    return checkBills(ctx, extras.bills);
+  }, [extras.bills, menus, menuBom.lines, rules, spBomLines, skus]);
+
   const summaries = useMemo(() => {
     const out = new Map<string, MenuSetupSummary>();
     for (const menu of menus) {
@@ -135,11 +153,12 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           branches,
           overrides: extras.overrides[menu.id] ?? {},
           soldByBranch: extras.soldByCode ? extras.soldByCode[menu.menuCode] ?? {} : undefined,
+          bills: billChecks?.get(menu.menuCode),
         }),
       );
     }
     return out;
-  }, [menus, menuBom.lines, rules, skus, prices, branches, extras.overrides, extras.soldByCode]);
+  }, [menus, menuBom.lines, rules, skus, prices, branches, extras.overrides, extras.soldByCode, billChecks]);
 
   // "#pos" / "#branches" / "#new" are views; any other hash is a menu code
   const posView = code === POS_HASH;
@@ -221,8 +240,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       <div className="flex flex-col gap-4">
         {header}
         <PosOptionsView
-          bills={demoExtras ? demoExtras.bills : pos.bills}
-          loadError={!demoExtras && pos.error}
+          bills={extras.bills}
+          loadError={!demoExtras && extras.salesError}
           noStock={demoExtras ? demoNoStock : pos.noStock}
           setNoStockKeys={
             demoExtras
@@ -489,6 +508,7 @@ function MenuWorkspace(props: WorkspaceProps) {
 
   const tabs: { key: WorkTab; label: string }[] = [
     { key: "health", label: problems ? `เช็คการตั้งค่า · ${problems}` : "เช็คการตั้งค่า" },
+    { key: "bills", label: summary.bills ? `บิลจริง · ${summary.bills.plates.toLocaleString()}` : "บิลจริง" },
     { key: "recipe", label: `สูตร · ${lineCount}` },
     { key: "branches", label: `สาขา · ${summary.branches.filter((b) => b.open).length}/${summary.branches.length}` },
     { key: "rules", label: `กฎตัวเลือก · ${summary.ownRules.length + summary.usedAsTopping.length}` },
@@ -588,6 +608,7 @@ function MenuWorkspace(props: WorkspaceProps) {
       {tab === "branches" && <BranchesPanel {...props} />}
       {tab === "rules" && <RulesPanel {...props} />}
       {tab === "info" && <InfoPanel {...props} />}
+      {tab === "bills" && <BillsPanel bills={summary.bills} skus={props.skus} branches={props.allBranches} loaded={props.salesLoaded} />}
     </div>
   );
 }
@@ -877,5 +898,63 @@ function NewMenuChecklist({
         ภายหลัง: เช็คตัวเลือก POS ที่หน้า "ตัวเลือก POS"
       </Button>
     </section>
+  );
+}
+
+/** What real bills of this menu deducted, per plate — the proof behind the recipe check */
+function BillsPanel({ bills, skus, branches, loaded }: { bills?: MenuBillCheck; skus: SKU[]; branches: Branch[]; loaded: boolean }) {
+  const [all, setAll] = useState(false);
+  if (!loaded) return <div className="h-24 animate-pulse rounded-2xl bg-card shadow-card" aria-busy="true" />;
+  if (!bills || bills.plates === 0)
+    return (
+      <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-card">
+        ไม่มียอดขายใน {SALES_WINDOW_DAYS} วัน — ยังลองกับบิลจริงไม่ได้
+      </div>
+    );
+  const sku = (id: string) => skus.find((s) => s.id === id);
+  const branchName = (id: string) => branches.find((b) => b.id === id)?.branchName ?? "สาขาที่ถูกลบ";
+  const shown = all ? bills.groups : bills.groups.slice(0, 8);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="px-1 text-sm text-muted-foreground">
+        บิลจริง {SALES_WINDOW_DAYS} วัน คิดด้วยสูตรเดียวกับที่ตัดสต๊อก (สูตรของเมนู + สูตรที่ดึงมาจากกฎ + กฎตัวเลือก) · ตัวเลขต่อ 1 จาน
+      </p>
+      {shown.map((g) => (
+        <section
+          key={`${g.branchId}-${g.name}`}
+          className={cn("overflow-hidden rounded-2xl border bg-card shadow-card", g.empty ? "border-destructive/40" : "border-border")}
+        >
+          <header className="flex items-start gap-3 border-b border-border px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="break-words text-sm">{g.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {branchName(g.branchId)} · {g.plates.toLocaleString()} จาน
+              </p>
+            </div>
+            {g.empty && <Badge variant="danger">ไม่ตัดของ</Badge>}
+          </header>
+          {g.empty ? (
+            <p className="px-4 py-3 text-sm text-destructive">บิลนี้ไม่ตัดวัตถุดิบเลย — ไม่มีสูตร และไม่มีกฎที่มีคำตรงกับบิล</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {g.perPlate.map(([id, q]) => (
+                <li key={id} className="flex items-center gap-3 px-4 py-2">
+                  <span className="min-w-0 flex-1 truncate text-[15px]">{sku(id)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
+                  <span className={cn("shrink-0 font-mono text-sm tabular-nums", q < 0 && "text-warning")}>
+                    {q > 0 ? "" : "−"}
+                    {Math.abs(q).toLocaleString(undefined, { maximumFractionDigits: 2 })} {sku(id)?.usageUom ?? ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
+      {!all && bills.groups.length > 8 && (
+        <Button variant="outline" className="h-11" onClick={() => setAll(true)}>
+          ดูอีก {bills.groups.length - 8} แบบบิล
+        </Button>
+      )}
+    </div>
   );
 }

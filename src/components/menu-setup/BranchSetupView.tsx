@@ -77,7 +77,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
     { key: "all", label: `ทั้งหมด ${counts.all}` },
     { key: "open", label: `เปิดขาย ${counts.open}` },
     { key: "closed", label: `ปิดขาย ${counts.closed}` },
-    { key: "norecipe", label: `ไม่มีสูตร ${counts.norecipe}` },
+    { key: "norecipe", label: `ไม่ตัดของ ${counts.norecipe}` },
   ];
 
   const apply = async (ids: string[], open: boolean, key: string) => {
@@ -200,7 +200,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
                   <div className={cn("truncate text-[15px] font-medium", !r.open && "text-muted-foreground")}>{r.menu.menuName}</div>
                   <div className="truncate text-sm text-muted-foreground">
                     <span className="font-mono">{r.menu.menuCode}</span>
-                    {r.noRecipe ? <span className={r.sold > 0 ? "text-destructive" : "text-warning"}> · ไม่มีสูตร</span> : <> · ต้นทุน {pct(r.costPct)}</>}
+                    {r.noRecipe ? <span className={r.sold > 0 ? "text-destructive" : "text-warning"}> · {r.sold > 0 ? "ขายแล้วไม่ตัดของ" : "ไม่มีสูตร"}</span> : <> · ต้นทุน {pct(r.costPct)}</>}
                     {soldByCode && ` · ขาย ${r.sold.toLocaleString()}`}
                   </div>
                 </div>

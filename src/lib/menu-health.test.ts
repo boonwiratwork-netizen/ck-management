@@ -185,3 +185,21 @@ describe("set menus without their own recipe", () => {
     expect(s.checks.find((c) => c.id === "no-recipe")?.level).toBe("warn");
   });
 });
+
+describe("real bills decide", () => {
+  const bills = (plates: number, emptyPlates: number) => ({
+    plates,
+    emptyPlates,
+    platesByBranch: { shiro: plates },
+    emptyByBranch: emptyPlates ? { shiro: emptyPlates } : {},
+    groups: [{ name: "Mystery set", branchId: "shiro", plates, perPlate: [], empty: emptyPlates > 0 }],
+  });
+  it("a menu with no recipe whose bills all deduct is fine", () => {
+    const s = summarizeMenu(base({ lines: [], bills: bills(5, 0) }));
+    expect(s.checks.find((c) => c.id === "no-recipe")?.level).toBe("ok");
+  });
+  it("a menu with a recipe whose bills deduct nothing is an error", () => {
+    const s = summarizeMenu(base({ bills: bills(5, 2) }));
+    expect(s.checks.find((c) => c.id === "no-recipe")).toMatchObject({ level: "error" });
+  });
+});

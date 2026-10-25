@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { CheckBill } from "@/lib/bill-check";
 
 /** How many days of sales the Menu Setup screen looks at */
 export const SALES_WINDOW_DAYS = 30;
@@ -27,6 +28,9 @@ export function useMenuSetupExtras() {
   const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
   /** menu_code → branchId → qty */
   const [soldByCode, setSoldByCode] = useState<Record<string, Record<string, number>> | null>(null);
+  /** The same 30 days of sales with bill names (for the bill check and POS options) */
+  const [bills, setBills] = useState<CheckBill[] | null>(null);
+  const [salesError, setSalesError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,8 +45,8 @@ export function useMenuSetupExtras() {
           fetchAll<{ menu_id: string; branch_id: string; is_active: boolean }>((a, b) =>
             supabase.from("branch_menu_overrides").select("id, menu_id, branch_id, is_active").order("id").range(a, b),
           ),
-          fetchAll<{ menu_code: string; branch_id: string; qty: number }>((a, b) =>
-            supabase.from("sales_entries").select("id, menu_code, branch_id, qty").gte("sale_date", sinceStr).order("id").range(a, b),
+          fetchAll<CheckBill>((a, b) =>
+            supabase.from("sales_entries").select("id, menu_code, menu_name, branch_id, qty").gte("sale_date", sinceStr).order("id").range(a, b),
           ),
         ]);
         if (cancelled) return;
@@ -55,8 +59,12 @@ export function useMenuSetupExtras() {
         }
         setOverrides(o);
         setSoldByCode(s);
+        setBills(sales);
       } catch {
-        if (!cancelled) toast.error("โหลดยอดขาย/สถานะเปิดขายไม่สำเร็จ");
+        if (!cancelled) {
+          toast.error("โหลดยอดขาย/สถานะเปิดขายไม่สำเร็จ");
+          setSalesError(true);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,5 +108,5 @@ export function useMenuSetupExtras() {
     return true;
   }, []);
 
-  return { overrides, soldByCode, loading, setBranchOpen, setBranchOpenMany };
+  return { overrides, soldByCode, bills, salesError, loading, setBranchOpen, setBranchOpenMany };
 }
