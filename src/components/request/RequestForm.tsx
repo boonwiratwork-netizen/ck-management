@@ -170,7 +170,10 @@ export function RequestForm({
                   <div className={cn("text-sm font-medium", tone)}>{word}</div>
                   <div className="text-xs text-muted-foreground">
                     เหลือ {n0(Math.max(0, item.stockOnHand))} {item.uom}
-                    {item.avgDailyUsage > 0 && ` · ใช้วันละ ~${n0(item.avgDailyUsage)}`} · 1 {item.packUnit} = {n0(item.packSize)} {item.uom}
+                    {item.avgDailyUsage > 0 && ` · ใช้วันละ ~${n0(item.avgDailyUsage)} ${item.uom}`}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    1 {item.packUnit} = {n0(item.packSize)} {item.uom}
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
