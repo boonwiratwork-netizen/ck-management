@@ -53,8 +53,9 @@ const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
 const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
 const StoreStockPage = lazy(() => import("@/pages/StoreStock"));
 const SkuCategoriesPage = lazy(() => import("@/pages/SkuCategories"));
-import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from "@/components/AppSidebar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
+import { BottomNavBar } from "@/components/BottomNavBar";
+import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Upload, Package, Download } from "lucide-react";
@@ -153,6 +154,20 @@ function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: stri
     return <span className="text-helper text-muted-foreground">Store{branchName ? ` — ${branchName}` : ""}</span>;
   }
   return null;
+}
+
+/** Phone bottom bar; must render inside SidebarProvider so "เมนู" can open the drawer */
+function MobileNav({ role, activeTab, onTabChange }: { role: string | null; activeTab: TabKey; onTabChange: (t: TabKey) => void }) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <BottomNavBar
+      className="md:hidden"
+      items={bottomNavFor(role as Parameters<typeof bottomNavFor>[0])}
+      activeKey={activeTab}
+      onSelect={(k) => onTabChange(k as TabKey)}
+      onMore={() => setOpenMobile(true)}
+    />
+  );
 }
 
 const Index = () => {
@@ -414,11 +429,11 @@ const Index = () => {
         <AppSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top header bar */}
-          <header className="h-14 flex items-center border-b bg-card px-6 gap-4 shrink-0">
+          <header className="sticky top-0 z-30 h-14 flex items-center border-b bg-card/95 backdrop-blur px-3 md:px-6 gap-3 md:gap-4 shrink-0 pt-[env(safe-area-inset-top)]">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border" />
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold text-foreground truncate">{currentTab.title}</h1>
+              <h1 className="text-base md:text-sm font-semibold text-foreground truncate">{currentTab.title}</h1>
             </div>
             {readOnly && (
               <span className="ml-2 text-helper uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
@@ -444,12 +459,12 @@ const Index = () => {
                   })
                 }
               >
-                <Download className="w-4 h-4" /> Export BOM
+                <Download className="w-4 h-4" /> <span className="hidden md:inline">Export BOM</span>
               </Button>
             )}
           </header>
 
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
             <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">กำลังโหลด…</div>}>
             {activeTab === "branch-receipt-mobile" ? (
               <BranchReceiptMobilePage
@@ -685,6 +700,7 @@ const Index = () => {
             )}
             </Suspense>
           </main>
+          <MobileNav role={role} activeTab={activeTab} onTabChange={handleTabChange} />
         </div>
       </div>
 

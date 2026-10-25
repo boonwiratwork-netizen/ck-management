@@ -211,6 +211,41 @@ const roleLabels: Record<string, string> = {
   area_manager: "Area Manager",
 };
 
+/** The 4 daily jobs per role shown in the phone bottom bar (everything else: "เมนู") */
+export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string; icon: React.ElementType }[] {
+  switch (role) {
+    case "store_manager":
+      return [
+        { key: "branch-receipt-mobile", label: "รับของ", icon: ScanLine },
+        { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
+        { key: "transfer-request", label: "ขอเบิก", icon: ArrowUpFromLine },
+        { key: "sales-entry", label: "ยอดขาย", icon: ShoppingCart },
+      ];
+    case "ck_manager":
+      return [
+        { key: "receipt", label: "รับของ", icon: ClipboardList },
+        { key: "production", label: "ผลิต", icon: Factory },
+        { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
+        { key: "smstock", label: "สต๊อก SM", icon: BoxesIcon },
+      ];
+    case "area_manager":
+      return [
+        { key: "food-cost", label: "ต้นทุน", icon: PieChart },
+        { key: "store", label: "ภาพรวม", icon: Store },
+        { key: "store-stock", label: "สต๊อก", icon: LayoutGrid },
+        { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
+      ];
+    case "management":
+    default:
+      return [
+        { key: "dashboard", label: "ภาพรวม", icon: LayoutDashboard },
+        { key: "food-cost", label: "ต้นทุน", icon: PieChart },
+        { key: "menu-bom", label: "เมนู/สูตร", icon: BookOpen },
+        { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
+      ];
+  }
+}
+
 export function getDefaultTab(role: AppRole | null): TabKey {
   switch (role) {
     case "store_manager":

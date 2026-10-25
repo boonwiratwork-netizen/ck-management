@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Plus, ShieldCheck, Soup, AlertTriangle, Check } from "lucide-react";
+import { Plus, ShieldCheck, Soup, AlertTriangle, Check, ScanLine, ClipboardCheck, ArrowUpFromLine, ShoppingCart } from "lucide-react";
+import { BottomNavBar } from "@/components/BottomNavBar";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -49,6 +51,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function DesignSystem() {
   const [tab, setTab] = useState(tabs[0]);
+  const [navKey, setNavKey] = useState("count");
   const [pick, setPick] = useState("");
   const [qty, setQty] = useState("0");
   const [saving, setSaving] = useState(false);
@@ -177,6 +180,33 @@ export default function DesignSystem() {
         </section>
 
         <section className="flex flex-col gap-4">
+          <SectionLabel>มือถือ · แถบล่างของหน้าร้าน</SectionLabel>
+          <div className="relative mx-auto h-[420px] w-full max-w-[390px] overflow-hidden rounded-[32px] border border-border bg-background shadow-card">
+            <div className="flex h-14 items-center border-b bg-card px-4 text-base font-semibold">นับสต๊อกรายวัน</div>
+            <div className="flex flex-col gap-3 p-4">
+              {["ซุปทงคตสึ", "สันคอหมูชาชู", "ทาเระ โชยุ"].map((n) => (
+                <div key={n} className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-card">
+                  <span className="text-base">{n}</span>
+                  <Input type="number" defaultValue="0" className="h-11 w-24" aria-label={`จำนวน ${n}`} />
+                </div>
+              ))}
+            </div>
+            <BottomNavBar
+              className="!absolute"
+              items={[
+                { key: "receive", label: "รับของ", icon: ScanLine },
+                { key: "count", label: "นับสต๊อก", icon: ClipboardCheck },
+                { key: "request", label: "ขอเบิก", icon: ArrowUpFromLine },
+                { key: "sales", label: "ยอดขาย", icon: ShoppingCart },
+              ]}
+              activeKey={navKey}
+              onSelect={setNavKey}
+              onMore={() => setNavKey("more")}
+            />
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4">
           <SectionLabel>หัวหน้าเมนู · แท็บ · เช็คลิสต์</SectionLabel>
           <div className="flex flex-col gap-6 rounded-[28px] bg-primary p-6 text-primary-foreground shadow-raised md:flex-row md:items-end md:justify-between md:p-8">
             <div className="flex items-center gap-4">
@@ -200,33 +230,18 @@ export default function DesignSystem() {
             </div>
           </div>
 
-          <div role="tablist" className="inline-flex w-fit flex-wrap gap-1 rounded-full border border-border bg-card p-1 shadow-card">
-            {tabs.map((t) => (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={cn(
-                  "min-h-[40px] rounded-full px-5 text-sm transition-colors",
-                  tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs tabs={tabs.map((t) => ({ key: t, label: t }))} value={tab} onChange={setTab} />
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Card className="flex items-start gap-4 border-warning-soft p-5">
+            <Card className="flex flex-wrap items-start gap-4 border-warning-soft p-5">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-soft text-warning">
                 <AlertTriangle className="h-5 w-5" />
               </span>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1 basis-48">
                 <div className="font-semibold">ตัวเลือก POS ยังไม่มีกฎ 1 ข้อความ</div>
                 <div className="text-sm text-muted-foreground">"Full Topping" (Shiro) · ยังไม่ถูกตัดวัตถุดิบ</div>
               </div>
-              <Button variant="link" className="h-auto p-0 text-brand">
+              <Button variant="brand" size="sm" className="ml-auto">
                 ผูกกฎ
               </Button>
             </Card>
