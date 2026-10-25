@@ -67,7 +67,11 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
       return "";
     }
   });
-  const branchId = lockedBranch ?? (activeBranches.some((b) => b.id === pickedBranch) ? pickedBranch : activeBranches[0]?.id ?? "");
+  // Start loading with the branch remembered on this device right away; checking it
+  // against the branch list waits for the app's base data (~2.5 s on the live site)
+  const branchId =
+    lockedBranch ??
+    (activeBranches.length === 0 ? pickedBranch : activeBranches.some((b) => b.id === pickedBranch) ? pickedBranch : activeBranches[0].id);
   const branch = activeBranches.find((b) => b.id === branchId);
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const today = format(new Date(), "yyyy-MM-dd");
