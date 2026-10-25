@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { CountReminder } from "@/components/count/CountReminder";
 import { BaseLoadingBar, BasePageSkeleton, useBaseStatus } from "@/components/BaseLoading";
 import { useNavigate, useParams } from "react-router-dom";
 import { SKU, SKUType } from "@/types/sku";
@@ -487,6 +488,9 @@ const Index = () => {
           </header>
 
           <main className="flex-1 overflow-auto pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
+            {isStoreManager && tabContextMap[activeTab] === "store" && activeTab !== "daily-stock-count" && (
+              <CountReminder branchId={profile?.branch_id ?? null} onGo={() => handleTabChange("daily-stock-count")} />
+            )}
             <BaseLoadingBar />
             <Suspense fallback={<div className="page-shell"><BasePageSkeleton /></div>}>
             {baseLoad === "first-load" ? (

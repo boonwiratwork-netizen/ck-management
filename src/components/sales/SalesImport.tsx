@@ -244,6 +244,7 @@ export function CheckView({
       )}
 
       <ActionFooter
+        tour="sales-save"
         title={count ? `บันทึก ${writing.length} วัน · ${count.toLocaleString()} รายการ` : "ไม่มีอะไรต้องบันทึก"}
         sub={count ? baht(total) : "ทุกวันมีครบแล้ว"}
         action="บันทึก"

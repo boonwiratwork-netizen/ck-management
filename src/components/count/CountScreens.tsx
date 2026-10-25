@@ -293,8 +293,8 @@ export function CountReview({
           <Lock className="h-4 w-4" /> นับเสร็จแล้ว แก้ไม่ได้ · ผู้จัดการปลดล็อกได้
         </div>
       ) : (
-        <div data-tour="count-finish">
-          <ActionFooter
+        <ActionFooter
+            tour="count-finish"
             title={allCounted ? "นับครบแล้ว" : monthEnd ? `ช่วงปิดเดือน ต้องนับครบก่อน` : `นับแล้ว ${counted}/${lines.length}`}
             sub={monthEnd && !allCounted ? "กดนับเสร็จได้เมื่อนับครบทุกตัว" : "กดแล้วแก้ไม่ได้ (ผู้จัดการปลดล็อกได้)"}
             action="นับเสร็จ"
@@ -302,7 +302,6 @@ export function CountReview({
             disabled={!canFinish}
             onAction={onFinish}
           />
-        </div>
       )}
     </div>
   );

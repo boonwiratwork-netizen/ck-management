@@ -58,42 +58,24 @@ interface MenuSetupProps {
 }
 
 const GUIDE: GuideStep[] = [
-  {
-    title: "หน้าตั้งค่าเมนูแบบใหม่",
-    body: "ทุกอย่างของเมนูอยู่ในที่เดียว: สูตร สาขาที่ขาย กฎพิเศษ และเช็คว่าตั้งครบหรือยัง ไม่ต้องสลับหลายหน้าแล้ว",
-  },
-  {
-    target: "setup-tabs",
-    title: "4 มุมมอง",
-    body: (
-      <>
-        <b>ภาพรวม</b> = งานที่ยังค้างทั้งหมด · <b>เมนู</b> = รายการเมนูและสูตร · <b>สาขา</b> = เมนูไหนเปิดขายที่สาขาไหน · <b>ตัวเลือก POS</b> = ตัวเลือกในบิล (เส้น ท็อปปิ้ง ฯลฯ) ถูกตัดสต๊อกแล้วหรือยัง
-      </>
-    ),
-  },
+  { title: "ตั้งค่าเมนูในที่เดียว", body: "สูตร สาขาที่ขาย กฎพิเศษ และเช็คว่าตั้งครบหรือยัง อยู่ในหน้าเดียว คำแนะนำนี้จะพาเปิดเมนูดู 1 ครั้ง" },
   {
     target: "setup-filter",
     title: "จุดสีบอกว่าต้องทำอะไร",
     body: (
       <>
-        <b className="text-destructive">แดง</b> = ต้องแก้ เช่น ขายแล้วแต่ยังไม่มีสูตร · <b className="text-warning">เหลือง</b> = ควรดู · <b className="text-success">เขียว</b> = ครบ กดตัวกรองเพื่อดูเฉพาะที่ต้องแก้
+        <b className="text-destructive">แดง</b> = ต้องแก้ · <b className="text-warning">เหลือง</b> = ควรดู · <b className="text-success">เขียว</b> = ครบ แตะ “ต้องแก้” เพื่อดูเฉพาะที่ต้องทำ
       </>
     ),
   },
+  { target: "setup-tabs", title: "มุมมองอื่น", body: "ภาพรวม = งานค้างทั้งหมด · สาขา = เมนูไหนเปิดขายที่ไหน · ตัวเลือก POS = ตัวเลือกในบิลถูกตัดสต๊อกหรือยัง" },
+  { target: "setup-list", title: "แตะเมนูเพื่อเปิด", body: "ลองแตะเมนูแรกในรายการ", until: "click" },
   {
-    target: "setup-new",
-    title: "เพิ่มเมนูใหม่",
-    body: "ระบบพาทำทีละขั้น: ข้อมูลเมนู → สูตร → สาขาที่ขาย → กฎพิเศษ ทำครบแล้วจะมีเครื่องหมายถูก",
+    target: "setup-menu-tabs",
+    title: "ทุกอย่างของเมนูอยู่ในแท็บนี้",
+    body: "เช็คการตั้งค่า · บิลจริง · สูตร · สาขา · กฎพิเศษ · ข้อมูลเมนู แก้แล้วกดบันทึกที่แถบล่างจอ",
   },
-  {
-    target: "setup-list",
-    title: "กดเมนูเพื่อแก้",
-    body: "ในเมนูมีแท็บ เช็คการตั้งค่า · บิลจริง · สูตร · สาขา · กฎพิเศษ · ข้อมูลเมนู แก้แล้วกดบันทึกที่แถบล่างจอ",
-  },
-  {
-    title: "ดูคำแนะนำนี้อีกครั้งได้",
-    body: "กดปุ่ม “วิธีใช้” ด้านบนของหน้านี้เมื่อไหร่ก็ได้",
-  },
+
 ];
 
 /** Hash without "#"; a hand-typed "%" must not crash the page */
@@ -161,7 +143,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   const location = useLocation();
   const navigate = useNavigate();
   const code = readHash(location.hash);
-  const guide = useGuide("menu-setup-v2");
+  const guide = useGuide("menu-setup-v3");
   const go = (hash: string, opts?: { replace?: boolean; from?: string }) =>
     navigate({ pathname: location.pathname, hash: hash ? `#${hash}` : "" }, { replace: opts?.replace, state: opts?.from !== undefined ? { from: opts.from } : undefined });
   // Where "back" goes from a menu: the view it was opened from (overview, branches, POS…) or the list
@@ -244,7 +226,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       />
       </div>
       </div>
-      <GuideTour steps={GUIDE} open={guide.open && (code === "" || overviewView)} onClose={guide.close} />
+      <GuideTour steps={GUIDE} open={guide.open} onClose={guide.close} />
     </div>
   );
 
@@ -635,7 +617,9 @@ function MenuWorkspace(props: WorkspaceProps) {
 
       {props.isNew && <NewMenuChecklist summary={summary} tab={tab} onGo={setTab} onDone={props.onChecklistDone} />}
 
-      <SegmentedTabs<WorkTab> tabs={tabs} value={tab} onChange={setTab} />
+      <div data-tour="setup-menu-tabs">
+        <SegmentedTabs<WorkTab> tabs={tabs} value={tab} onChange={setTab} />
+      </div>
 
       {tab === "health" && <HealthPanel checks={summary.checks} onGo={(area) => setTab(areaTab[area])} />}
       {tab === "recipe" && summary.linkedRecipes.length > 0 && (

@@ -31,47 +31,35 @@ const LAST_BRANCH_KEY = "ck-sales-branch";
 
 const GUIDE: GuideStep[] = [
   {
-    title: "หน้ายอดขายแบบใหม่",
-    body: "ทำงานเหมือนเดิม คือเอายอดขายจาก POS เข้าระบบวันละครั้ง แต่ดูง่ายขึ้นและกันพลาดมากขึ้น ใช้เวลาอ่านไม่ถึงนาที",
-  },
-  {
-    target: "days",
-    title: "ดูว่าวันไหนยังไม่มียอด",
+    title: "เอายอดขายเข้าวันละครั้ง 3 ขั้น",
     body: (
       <>
-        จุดเขียว = มียอดแล้ว · <b className="text-warning">กรอบส้ม “ขาด”</b> = วันที่ผ่านมาแล้วแต่ยังไม่มียอดในระบบ ให้เอายอดวันนั้นเข้าด้วย ไม่งั้นสต๊อกและต้นทุนอาหารจะคลาด กดที่วันเพื่อดูรายการของวันนั้น
+        <b>1 วางยอดจาก POS</b> → <b>2 กดตรวจข้อมูล</b> → <b>3 กดบันทึก</b> คำแนะนำนี้จะพาทำทีละขั้น
       </>
     ),
   },
   {
+    target: "days",
+    title: "ดูก่อนว่าวันไหนยังไม่มียอด",
+    body: (
+      <>
+        จุดเขียว = มียอดแล้ว · <b className="text-warning">กรอบส้ม “ขาด”</b> = ยังไม่มียอด ต้องเอาเข้าด้วย ไม่งั้นสต๊อกและต้นทุนจะคลาด
+      </>
+    ),
+  },
+  { target: "history", title: "ดูย้อนหลัง / แก้ / ลบ", body: "แตะ “ประวัติ” เลือกวันที่และสาขาได้ แก้รายการด้วยปุ่มดินสอ" },
+  {
     target: "import",
-    title: "วางยอดจาก POS ที่นี่",
-    body: "คัดลอกรายงานยอดขายจาก POS แล้ววาง หรือเลือกไฟล์ CSV ไม่ต้องเลือกรูปแบบ POS แล้ว ระบบดูให้เอง วางหลายวันพร้อมกันก็ได้",
+    title: "ขั้น 1: วางยอดจาก POS",
+    body: "ใน POS เปิดรายงานยอดขายรายเมนู กดคัดลอก แล้วมากดค้างในช่องนี้ เลือก “วาง” (วางหลายวันพร้อมกันได้ ไม่ต้องเลือกรูปแบบ POS)",
   },
+  { target: "check", title: "ขั้น 2: แตะ “ตรวจข้อมูล”", body: "วางเสร็จแล้วแตะปุ่มนี้ ระบบจะสรุปยอดแยกรายวันให้ดูก่อน ยังไม่บันทึก", until: "click" },
   {
-    target: "check",
-    title: "กดตรวจก่อน แล้วค่อยบันทึก",
-    body: "ระบบสรุปยอดแยกรายวันให้ดูก่อน วันที่มีในระบบแล้วจะข้ามให้เอง ไม่บันทึกซ้ำ ถ้าวางผิดหน้า ระบบจะบอกและไม่บันทึก",
+    target: "sales-save",
+    title: "ขั้น 3: ดูยอดรายวัน แล้วแตะ “บันทึก”",
+    body: "วันที่มีในระบบแล้วจะข้ามให้เอง ไม่บันทึกซ้ำ ถ้าวางผิดหน้า ระบบจะบอกว่าอ่านไม่ออกและไม่ให้บันทึก",
   },
-  {
-    target: "add",
-    title: "ขายนอก POS กด “เพิ่มเอง”",
-    body: "ใช้กับของที่ไม่ได้ขายผ่าน POS หรือแถวที่ POS ไม่มีรหัสเมนู เลือกเมนู ตัวเลือก จำนวน แล้วบันทึก",
-  },
-  {
-    target: "history",
-    title: "ดูย้อนหลังหลายวัน หลายสาขา",
-    body: "กด “ประวัติ” เลือกช่วงวันที่และเลือกได้หลายสาขาพร้อมกัน ดูยอดรวม คัดลอกไป Excel และลบหลายรายการได้ (ผู้บริหาร)",
-  },
-  {
-    target: "saved",
-    title: "แก้หรือลบรายการ",
-    body: "กดที่วัน แล้วกดปุ่มดินสอที่รายการที่ต้องการแก้ ปุ่มลบอยู่ในหน้าต่างแก้ไข",
-  },
-  {
-    title: "ดูคำแนะนำนี้อีกครั้งได้",
-    body: "กดปุ่ม “วิธีใช้” มุมขวาบนของหน้านี้เมื่อไหร่ก็ได้",
-  },
+
 ];
 
 /**
@@ -85,7 +73,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
   const go = (v: string, replace = false) => navigate({ pathname: location.pathname, hash: v ? `#${v}` : "" }, { replace });
-  const guide = useGuide("sales-v2");
+  const guide = useGuide("sales-v3");
 
   // ── Branch ──
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
@@ -356,7 +344,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
       </div>
 
       <ProfilesDialog open={profilesOpen} onClose={() => setProfilesOpen(false)} profiles={data.profiles} onSave={data.saveProfile} onDelete={data.deleteProfile} />
-      <GuideTour steps={GUIDE} open={guide.open && !workOpen} onClose={guide.close} />
+      <GuideTour steps={GUIDE} open={guide.open} onClose={guide.close} />
     </div>
   );
 }

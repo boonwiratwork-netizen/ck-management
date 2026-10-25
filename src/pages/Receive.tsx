@@ -48,45 +48,25 @@ const LAST_BRANCH_KEY = "ck-receive-branch";
 const HISTORY_DAYS = 30;
 const GUIDE: GuideStep[] = [
   {
-    title: "หน้ารับของแบบใหม่",
-    body: "รวมหน้ารับของบนคอมกับบนมือถือเป็นหน้าเดียว ของที่รอรับขึ้นมาให้ก่อน กดรับได้ในไม่กี่ขั้น ใช้เวลาอ่านไม่ถึงนาที",
-  },
-  {
-    target: "recv-branch",
-    title: "สาขาและวันที่รับ",
-    body: "ดูให้แน่ใจว่าเป็นสาขาที่ถูก ถ้ารับของย้อนหลัง เปลี่ยนวันที่ตรงนี้ก่อน ระบบจะเตือนเมื่อไม่ใช่วันนี้",
-  },
-  {
-    target: "recv-waiting",
-    title: "ของที่รอรับ",
+    title: "รับของ 3 ขั้น",
     body: (
       <>
-        <b>รอรับจากครัวกลาง</b> = ใบโอนที่ครัวกลางส่งมา กด “รับของ” แล้วใส่จำนวนที่ได้จริง ถ้าไม่รับทั้งใบกด “ปฏิเสธ” พร้อมเหตุผล · <b>ใบขอซื้อที่ถึงกำหนด</b> กด “รับตามใบ” ระบบใส่รายการที่สั่งไว้ให้
+        <b>1 เลือกว่าของมาจากไหน</b> → <b>2 ใส่จำนวนที่ได้จริง</b> → <b>3 กดบันทึก</b> คำแนะนำนี้จะพาทำทีละขั้น
       </>
     ),
   },
+  { target: "recv-branch", title: "เช็คสาขาและวันที่รับ", body: "ถ้ารับของย้อนหลัง เปลี่ยนวันที่ตรงนี้ก่อน" },
+  { target: "recv-other", title: "ของที่ไม่มีใบโอน", body: "ค้นชื่อซัพพลายเออร์ หรือเลือก “ครัวกลาง (กรณีไม่มีใบโอน)” แล้วใส่จำนวนแบบเดียวกัน" },
+  { target: "recv-history", title: "แก้หรือลบที่รับไปแล้ว", body: "แตะ “ดูประวัติ” ย้อนหลัง 30 วัน" },
+  { target: "recv-take", title: "ขั้น 1: ของจากครัวกลาง แตะ “รับของ”", body: "ใบโอนที่ครัวกลางส่งมาจะขึ้นตรงนี้ แตะ “รับของ” ที่ใบนั้น", until: "click" },
   {
-    target: "recv-other",
-    title: "ของที่ไม่มีใบ",
-    body: "ค้นชื่อซัพพลายเออร์ หรือเลือก “ครัวกลาง (กรณีไม่มีใบโอน)” / “รับจากสาขาอื่น” แล้วกดเพิ่มสินค้า",
+    target: "recv-lines",
+    title: "ขั้น 2: เช็คทีละรายการ",
+    body: "ได้ครบตามใบ แตะ “ครบ” · ได้ไม่ครบ แตะดินสอแล้วใส่จำนวนที่ได้จริงทางขวา (กด Enter ไปตัวถัดไป)",
   },
-  {
-    title: "กรอกเรียงลงมาทางขวา",
-    body: (
-      <>
-        แต่ละสินค้ากรอกจากบนลงล่างในแถวเดียวทางขวา: <b>จำนวนแพ็ค → รับจริง (น้ำหนัก/ปริมาณที่ได้จริง) → ราคาในบิล</b> กด Enter เพื่อไปช่องถัดไปได้เลย ช่องราคาเว้นว่างไว้ = คิดราคามาตรฐาน
-      </>
-    ),
-  },
-  {
-    target: "recv-history",
-    title: "แก้หรือลบสิ่งที่รับไปแล้ว",
-    body: "กด “ดูประวัติ” ดูย้อนหลัง 30 วัน แก้จำนวนหรือราคา และลบได้ (มีถามยืนยันก่อนลบ)",
-  },
-  {
-    title: "ดูคำแนะนำนี้อีกครั้งได้",
-    body: "กดปุ่ม “วิธีใช้” ด้านบนของหน้านี้เมื่อไหร่ก็ได้",
-  },
+  { target: "recv-save", title: "ขั้น 3: แตะ “บันทึก”", body: "เช็คครบแล้วแตะบันทึกที่แถบล่าง เป็นอันเสร็จ" },
+
+
 ];
 
 const NOT_A_SHOP = /^(central kitchen|ck\b|ck \(|ครัวกลาง|store production|bom calculation)/i;
@@ -102,7 +82,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
   const go = (v: string, replace = false) => navigate({ pathname: location.pathname, hash: v ? `#${v}` : "" }, { replace });
-  const guide = useGuide("receive-v2");
+  const guide = useGuide("receive-v3");
 
   // ── Branch & date ──
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
@@ -385,7 +365,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         </div>
       </div>
 
-      <GuideTour steps={GUIDE} open={guide.open && view === ""} onClose={guide.close} />
+      <GuideTour steps={GUIDE} open={guide.open} onClose={guide.close} />
       <DeclineDialog
         open={declineFor !== null}
         toNumber={declineFor?.toNumber ?? ""}

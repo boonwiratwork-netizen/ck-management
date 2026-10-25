@@ -51,7 +51,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
       <div data-tour="recv-waiting" className="flex flex-col gap-3">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รอรับจากครัวกลาง · {loading ? "…" : pendingTOs.length}</div>
         {!loading && pendingTOs.length === 0 && <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">ยังไม่มีใบโอนจากครัวกลางที่รอรับ</div>}
-        {pendingTOs.map((to) => (
+        {pendingTOs.map((to, ti) => (
           <section key={to.id} className={cn("flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card", activeView === `to/${to.id}` ? "border-primary" : "border-border")}>
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
@@ -68,7 +68,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
               <Button variant="outline" className="h-11 flex-1" onClick={() => onDeclineAsk(to)}>
                 ปฏิเสธ
               </Button>
-              <Button variant="brand" className="h-11 flex-[2] text-[15px]" onClick={() => onOpen(`to/${to.id}`)}>
+              <Button data-tour={ti === 0 ? "recv-take" : undefined} variant="brand" className="h-11 flex-[2] text-[15px]" onClick={() => onOpen(`to/${to.id}`)}>
                 รับของ
               </Button>
             </div>

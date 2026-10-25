@@ -100,7 +100,7 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
         </Button>
       )}
 
-      <ul className="flex flex-col gap-2" onKeyDown={onEnterNext}>
+      <ul data-tour="recv-lines" className="flex flex-col gap-2" onKeyDown={onEnterNext}>
         {to.lines.map((l) => {
           const sku = skuMap.get(l.skuId);
           const s = lines[l.id];
@@ -156,6 +156,7 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
       </ul>
 
       <ActionFooter
+        tour="recv-save"
         title={status === "Received" ? "รับครบทั้งใบ" : status === "Partially Received" ? `รับบางส่วน · ${counts.full} จาก ${to.lines.length}` : "ยังไม่ได้รับอะไร"}
         sub={`มูลค่า ${baht(total)}${counts.unchecked ? ` · ยังไม่เช็ค ${counts.unchecked}` : ""}`}
         action="บันทึก"

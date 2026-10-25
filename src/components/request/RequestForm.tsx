@@ -202,6 +202,7 @@ export function RequestForm({
       </label>
 
       <ActionFooter
+        tour="req-send"
         title={picked.length ? `${picked.length} รายการ · ส่ง ${thaiDay(date)}` : "ยังไม่ได้ใส่จำนวน"}
         sub={notFilled.length && picked.length ? `ยังมีของควรสั่งที่ยังไม่ใส่ ${notFilled.length} รายการ` : undefined}
         action="ส่งคำขอ"

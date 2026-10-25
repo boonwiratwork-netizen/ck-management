@@ -93,7 +93,7 @@ export function RequestHome({
           )}
         </div>
         {canCreate && (
-          <Button variant="brand" className="h-12 text-base" onClick={onNew}>
+          <Button data-tour="req-go" variant="brand" className="h-12 text-base" onClick={onNew}>
             เริ่มขอเบิก
           </Button>
         )}

@@ -171,9 +171,9 @@ export function RemoveButton({ onClick, label }: { onClick: () => void; label: s
 }
 
 /** Dark sticky footer: summary + main action (same look as the SaveBar) */
-export function ActionFooter({ title, sub, action, onAction, busy, disabled }: { title: React.ReactNode; sub?: React.ReactNode; action: string; onAction: () => void; busy?: boolean; disabled?: boolean }) {
+export function ActionFooter({ title, sub, action, onAction, busy, disabled, tour }: { title: React.ReactNode; sub?: React.ReactNode; action: string; onAction: () => void; busy?: boolean; disabled?: boolean; tour?: string }) {
   return (
-    <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-4 md:bottom-4">
+    <div data-tour={tour} className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-4 md:bottom-4">
       <div className="flex items-center gap-3 rounded-2xl bg-primary py-3 pl-4 pr-3 text-primary-foreground shadow-raised">
         <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-semibold">{title}</div>

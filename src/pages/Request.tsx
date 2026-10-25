@@ -18,37 +18,29 @@ import { cn } from "@/lib/utils";
 
 const LAST_BRANCH_KEY = "ck-request-branch";
 
-const HOME_GUIDE: GuideStep[] = [
-  { title: "หน้าขอเบิกแบบใหม่", body: "ระบบคำนวณให้ว่าของตัวไหนจะไม่พอ แล้วแนะนำจำนวนให้ ไม่ต้องไล่ดูตารางยาวเหมือนเดิม ใช้เวลาอ่านไม่ถึงนาที" },
+const GUIDE: GuideStep[] = [
   {
-    target: "req-start",
-    title: "เริ่มจากตรงนี้",
-    body: "ตัวเลขสีส้มคือจำนวนรายการที่ควรสั่ง กด “เริ่มขอเบิก” ระบบตั้งวันส่งเป็นพรุ่งนี้ให้เลย",
-  },
-  {
-    target: "req-sent",
-    title: "ติดตามใบที่ส่งไปแล้ว",
+    title: "ขอเบิก 3 ขั้น",
     body: (
       <>
-        <b>รอครัวกลาง</b> = ครัวกลางยังไม่เปิดดู · <b>ครัวกลางรับเรื่องแล้ว</b> = กำลังเตรียมของ · <b>ได้ของแล้ว</b> = รับของในหน้ารับของแล้ว กดที่ใบเพื่อดูรายการ คัดลอกข้อความไลน์ หรือยกเลิก
+        <b>1 แตะเริ่มขอเบิก</b> → <b>2 ใส่ตามที่แนะนำ</b> → <b>3 ส่งคำขอ แล้วคัดลอกข้อความไปไลน์</b> คำแนะนำนี้จะพาทำทีละขั้น
       </>
     ),
   },
-  { target: "req-supplier", title: "สั่งของจากซัพพลายเออร์", body: "นาน ๆ ใช้ จึงย้ายมาไว้ล่างสุด เลือกร้านแล้วใส่จำนวนแบบเดียวกับขอเบิก" },
-  { title: "ดูคำแนะนำนี้อีกครั้งได้", body: "กดปุ่ม “วิธีใช้” ด้านบนของหน้านี้เมื่อไหร่ก็ได้" },
-];
-const FORM_GUIDE: GuideStep[] = [
-  { target: "req-date", title: "วันส่ง", body: "ตั้งเป็นพรุ่งนี้ไว้ให้แล้ว ถ้าต้องการวันอื่นกด “มะรืน” หรือ “วันอื่น”" },
-  { target: "req-fill", title: "ใส่ตามที่แนะนำได้ปุ่มเดียว", body: "ระบบคิดจำนวนให้พอขายถึงรอบส่งถัดไป หักของที่ขอไปแล้วแต่ยังไม่มาออกให้แล้ว แก้จำนวนทีหลังได้" },
+  { target: "req-sent", title: "ติดตามใบที่ส่งไปแล้ว", body: "รอครัวกลาง → ครัวกลางรับเรื่องแล้ว → ได้ของแล้ว แตะที่ใบเพื่อดูหรือยกเลิก" },
+  { target: "req-go", title: "ขั้น 1: แตะ “เริ่มขอเบิก”", body: "ตัวเลขสีส้มด้านบนคือจำนวนรายการที่ควรสั่ง วันส่งตั้งเป็นพรุ่งนี้ให้แล้ว", until: "click" },
+  { target: "req-fill", title: "ขั้น 2: แตะ “ใส่ตามที่แนะนำ”", body: "ระบบคิดจำนวนให้พอขายถึงรอบส่งถัดไป หักของที่ขอไปแล้วแต่ยังไม่มาให้แล้ว", until: "click" },
   {
     target: "req-lines",
-    title: "แต่ละรายการ",
+    title: "แก้จำนวนได้",
     body: (
       <>
-        ซ้ายบอกสถานะ: <b className="text-destructive">หมดแล้ว</b> · <b className="text-warning">พอขาย N วัน</b> (ใกล้หมด) · <b className="text-info">กำลังมา</b> (ขอไปแล้ว) ขวาคือจำนวนแพ็คที่ขอ กด Enter เพื่อไปตัวถัดไป
+        กด − / + ทางขวาของแต่ละรายการ · <b className="text-destructive">หมดแล้ว</b> · <b className="text-warning">พอขาย N วัน</b> · <b className="text-info">กำลังมา</b> = ขอไปแล้ว
       </>
     ),
   },
+  { target: "req-send", title: "ขั้น 3: แตะ “ส่งคำขอ”", body: "ส่งแล้วจะมีข้อความให้กดคัดลอก ไปวางในไลน์กลุ่มครัวกลาง" },
+
 ];
 
 /**
@@ -62,8 +54,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
   const go = (v: string, replace = false) => navigate({ pathname: location.pathname, hash: v ? `#${v}` : "" }, { replace });
-  const homeGuide = useGuide("request-v2");
-  const formGuide = useGuide("request-form-v2");
+  const guide = useGuide("request-v3");
 
   // ── Branch (management and area managers pick; store managers have theirs) ──
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
@@ -306,7 +297,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
             ))}
           </div>
         )}
-        <Button variant="outline" className="h-10" onClick={() => (isForm ? formGuide.start() : homeGuide.start())}>
+        <Button variant="outline" className="h-10" onClick={() => { go("", true); guide.start(); }}>
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
       </div>
@@ -342,8 +333,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
         </div>
       </div>
 
-      <GuideTour steps={HOME_GUIDE} open={homeGuide.open && isHome} onClose={homeGuide.close} />
-      <GuideTour steps={FORM_GUIDE} open={formGuide.open && isForm && !tr.isLoading} onClose={formGuide.close} />
+      <GuideTour steps={GUIDE} open={guide.open} onClose={guide.close} />
     </div>
   );
 }
