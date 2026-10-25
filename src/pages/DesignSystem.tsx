@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { FieldError } from "@/components/form/FieldError";
+import { SaveBar } from "@/components/form/SaveBar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,12 +33,34 @@ const status = [
 
 const tabs = ["ภาพรวม", "สูตร", "ตัวเลือก POS", "สาขาและราคา"];
 
+// 3,000 sample rows to show the dropdown stays instant with a big list
+const demoOptions = [
+  { value: "g-rm", label: "วัตถุดิบ (RM)", isGroupHeader: true },
+  ...Array.from({ length: 3000 }, (_, i) => ({
+    value: `rm-${i}`,
+    label: `ตัวอย่างวัตถุดิบ ${String(i + 1).padStart(4, "0")}`,
+    sublabel: `RM-${String(i + 1).padStart(4, "0")}`,
+  })),
+];
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{children}</div>;
 }
 
 export default function DesignSystem() {
   const [tab, setTab] = useState(tabs[0]);
+  const [pick, setPick] = useState("");
+  const [qty, setQty] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState(3);
+  const qtyError = Number(qty) <= 0 ? "ปริมาณต้องมากกว่า 0" : null;
+  const fakeSave = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      setPending(0);
+    }, 1200);
+  };
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 md:px-12 md:py-12">
@@ -113,6 +138,42 @@ export default function DesignSystem() {
               <span className="text-sm text-muted-foreground">หน่วยเครื่องดื่ม / 100 ชาม</span>
             </div>
           </Card>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <SectionLabel>ปุ่มและช่องกรอก</SectionLabel>
+          <Card className="grid gap-6 p-6 md:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">เลือกวัตถุดิบ (3,000 รายการ)</label>
+              <SearchableSelect value={pick} onValueChange={setPick} options={demoOptions} placeholder="เลือกวัตถุดิบ" />
+              <p className="text-sm text-muted-foreground">พิมพ์หลายคำได้ · ลูกศรขึ้นลง · Enter เลือก · Esc ปิด</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="ds-qty" className="text-sm font-medium">ปริมาณต่อชาม (กรัม)</label>
+              <Input
+                id="ds-qty"
+                type="number"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                aria-invalid={!!qtyError}
+                className={cn(qtyError && "input-error")}
+              />
+              <FieldError message={qtyError} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">ปุ่มระหว่างบันทึก</span>
+              <div className="flex flex-wrap gap-2">
+                <Button loading={saving} onClick={fakeSave}>
+                  {saving ? "กำลังบันทึก…" : "บันทึก"}
+                </Button>
+                <Button variant="outline" onClick={() => setPending(3)}>
+                  แก้ 3 รายการ
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">กดแล้วปุ่มล็อกทันที กดซ้ำไม่ได้</p>
+            </div>
+          </Card>
+          <SaveBar pending={pending} saving={saving} onSave={fakeSave} onDiscard={() => setPending(0)} />
         </section>
 
         <section className="flex flex-col gap-4">
