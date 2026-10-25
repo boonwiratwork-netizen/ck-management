@@ -19,6 +19,8 @@ import { skuOptions } from "./sku-options";
 
 interface PosOptionsViewProps {
   bills: Bill[] | null;
+  /** Loading bills failed */
+  loadError?: boolean;
   noStock: Set<string>;
   setNoStockKeys: (keys: string[], on: boolean) => Promise<boolean>;
   menus: Menu[];
@@ -92,6 +94,16 @@ export function PosOptionsView(props: PosOptionsViewProps) {
     await setNoStockKeys(keys, on);
     setBusy(null);
   };
+
+  if (!bills && props.loadError)
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 text-center shadow-card">
+        <p className="text-sm text-muted-foreground">โหลดบิลขายไม่สำเร็จ</p>
+        <Button variant="outline" className="h-11" onClick={() => window.location.reload()}>
+          ลองใหม่
+        </Button>
+      </div>
+    );
 
   if (!bills)
     return (

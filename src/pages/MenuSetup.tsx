@@ -49,6 +49,16 @@ interface MenuSetupProps {
   };
 }
 
+/** Hash without "#"; a hand-typed "%" must not crash the page */
+function readHash(): string {
+  const raw = window.location.hash.slice(1);
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 const POS_HASH = "pos";
 const BRANCHES_HASH = "branches";
 const NEW_HASH = "new";
@@ -99,9 +109,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const canEdit = !readOnly;
 
-  const [code, setCode] = useState(() => decodeURIComponent(window.location.hash.slice(1)));
+  const [code, setCode] = useState(() => readHash());
   useEffect(() => {
-    const onHash = () => setCode(decodeURIComponent(window.location.hash.slice(1)));
+    const onHash = () => setCode(readHash());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -212,6 +222,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
         {header}
         <PosOptionsView
           bills={demoExtras ? demoExtras.bills : pos.bills}
+          loadError={!demoExtras && pos.error}
           noStock={demoExtras ? demoNoStock : pos.noStock}
           setNoStockKeys={
             demoExtras

@@ -28,9 +28,11 @@ export function registerPwa() {
         });
       });
 
+      // Reload only when a new version replaces an old one, not on the very first install
+      const hadController = !!navigator.serviceWorker.controller;
       let reloaded = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (reloaded) return;
+        if (reloaded || !hadController) return;
         reloaded = true;
         window.location.reload();
       });

@@ -152,7 +152,8 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       detail: usedAsTopping.length > 0 ? undefined : "ไม่มีราคา = คิด % ต้นทุนไม่ได้ ใส่ราคาขายที่หน้าร้าน",
     });
 
-  const sameCode = menus.filter((m) => m.id !== menu.id && m.menuCode.trim().toLowerCase() === menu.menuCode.trim().toLowerCase());
+  // Sales match codes exactly (case and all), so only an exact duplicate is a clash
+  const sameCode = menus.filter((m) => m.id !== menu.id && m.menuCode.trim() === menu.menuCode.trim());
   if (sameCode.length > 0)
     add({
       id: "dup-code",
@@ -179,6 +180,25 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "ok",
       area: "recipe",
       title: `ใช้สูตรของ ${linkedRecipes.map((x) => x.menu.menuCode).join(", ")} ผ่านกฎ`,
+    });
+  } else if (menuLines.length === 0 && ownRules.some((r) => r.isActive && r.ruleType === "submenu")) {
+    // Set menus often have no recipe of their own: the bill lists the set items and
+    // topping/set rules add each item's recipe. Don't push people to add one (double deduct).
+    const n = ownRules.filter((r) => r.isActive && r.ruleType === "submenu").length;
+    add({
+      id: "no-recipe",
+      level: "warn",
+      area: "recipe",
+      title: `ไม่มีสูตรของตัวเอง — ตัดของผ่านกฎท็อปปิ้ง/ชุด ${n} ตัว`,
+      detail: "ถ้าเป็นเมนูชุด แบบนี้ถูกแล้ว ไม่ต้องเพิ่มสูตร (จะตัดซ้ำ) · เช็คที่ตัวเลือก POS ว่าของในชุดมีกฎครบ",
+    });
+  } else if (menuLines.length === 0 && /set|ชุด|เซ็ต|เซต/i.test(`${menu.menuName} ${menu.category}`) && activeRules.some((r) => r.ruleType === "submenu" && r.menuIds.length === 0)) {
+    add({
+      id: "no-recipe",
+      level: "warn",
+      area: "recipe",
+      title: "เมนูชุด ไม่มีสูตรของตัวเอง",
+      detail: "ถ้าบิลของชุดนี้มีรหัส/ชื่อของในชุด กฎท็อปปิ้งจะตัดของให้เอง ไม่ต้องเพิ่มสูตร (จะตัดซ้ำ) · เช็คที่ตัวเลือก POS",
     });
   } else if (menuLines.length === 0) {
     const needed = usedAsTopping.length > 0 || totalSold > 0 || menu.status === "Active";

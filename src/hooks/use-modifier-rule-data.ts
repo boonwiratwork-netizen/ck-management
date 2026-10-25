@@ -33,6 +33,12 @@ export function useModifierRuleData() {
         setLoading(false);
         return;
       }
+      if (junctionRes.error) {
+        // Without the links every rule would look like "all menus": better to show nothing
+        toast.error("โหลดเมนูของกฎไม่สำเร็จ ลองรีเฟรช");
+        setLoading(false);
+        return;
+      }
       const junctionData = (junctionRes.data || []) as any[];
       const menusByRule = new Map<string, string[]>();
       junctionData.forEach((j: any) => {
@@ -45,14 +51,18 @@ export function useModifierRuleData() {
     });
   }, []);
 
-  const syncMenuIds = useCallback(async (ruleId: string, menuIds: string[]) => {
-    // Delete all existing, then insert new
-    await (supabase.from("modifier_rule_menus" as any) as any).delete().eq("rule_id", ruleId);
+  // Replace a rule's menu links. Returns an error message or null. A rule with no
+  // links applies to EVERY menu, so callers must not report success on failure.
+  const syncMenuIds = useCallback(async (ruleId: string, menuIds: string[]): Promise<string | null> => {
+    const del = await (supabase.from("modifier_rule_menus" as any) as any).delete().eq("rule_id", ruleId);
+    if (del.error) return del.error.message;
     if (menuIds.length > 0) {
-      await (supabase.from("modifier_rule_menus" as any) as any).insert(
+      const ins = await (supabase.from("modifier_rule_menus" as any) as any).insert(
         menuIds.map((menu_id) => ({ rule_id: ruleId, menu_id })),
       );
+      if (ins.error) return ins.error.message;
     }
+    return null;
   }, []);
 
   const addRule = useCallback(
@@ -65,7 +75,9 @@ export function useModifierRuleData() {
           qty_per_match: data.qtyPerMatch,
           uom: data.uom,
           description: data.description,
-          is_active: data.isActive,
+          // A rule limited to some menus starts off until its menu links are saved,
+          // so it never counts against every menu in between
+          is_active: data.menuIds.length > 0 ? false : data.isActive,
           menu_id: null, // deprecated, use junction table
           rule_type: data.ruleType,
           swap_sku_id: data.swapSkuId,
@@ -78,7 +90,16 @@ export function useModifierRuleData() {
         toast.error("Failed to add rule: " + error.message);
         return null;
       }
-      await syncMenuIds(row.id, data.menuIds);
+      if (data.menuIds.length > 0) {
+        const linkError = await syncMenuIds(row.id, data.menuIds);
+        const activate = !linkError && data.isActive ? await supabase.from("menu_modifier_rules").update({ is_active: true }).eq("id", row.id) : null;
+        if (linkError || activate?.error) {
+          await supabase.from("menu_modifier_rules").delete().eq("id", row.id);
+          toast.error("บันทึกกฎไม่สำเร็จ: " + (linkError ?? activate?.error?.message));
+          return null;
+        }
+        row.is_active = data.isActive;
+      }
       const newRule = toLocal(row, data.menuIds);
       setRules((prev) => [...prev, newRule]);
       return newRule;
@@ -107,12 +128,19 @@ export function useModifierRuleData() {
       }
 
       if (data.menuIds !== undefined) {
-        await syncMenuIds(id, data.menuIds);
+        const previous = rules.find((r) => r.id === id)?.menuIds ?? [];
+        const linkError = await syncMenuIds(id, data.menuIds);
+        if (linkError) {
+          // Put the old links back so the rule doesn't turn into "every menu"
+          await syncMenuIds(id, previous);
+          toast.error("บันทึกเมนูของกฎไม่สำเร็จ: " + linkError);
+          return;
+        }
       }
 
       setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
     },
-    [syncMenuIds],
+    [syncMenuIds, rules],
   );
 
   const deleteRule = useCallback(async (id: string) => {

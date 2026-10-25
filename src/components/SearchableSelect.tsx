@@ -55,15 +55,16 @@ export function SearchableSelect({
   const selected = options.find(o => o.value === value);
 
   // Every word must appear in the label or sublabel ("ทาเระ โชยุ", "RM-0018")
-  const filtered = useMemo(() => {
-    const words = deferredSearch.toLowerCase().split(/\s+/).filter(Boolean);
+  const matchOptions = useCallback((text: string) => {
+    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length === 0) return options;
     return options.filter(o => {
       if (o.isGroupHeader) return false;
       const hay = `${o.label} ${o.sublabel ?? ''}`.toLowerCase();
       return words.every(w => hay.includes(w));
     });
-  }, [options, deferredSearch]);
+  }, [options]);
+  const filtered = useMemo(() => matchOptions(deferredSearch), [matchOptions, deferredSearch]);
 
   const selectable = useCallback((i: number) => !!filtered[i] && !filtered[i].isGroupHeader, [filtered]);
 
@@ -157,9 +158,16 @@ export function SearchableSelect({
     else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
     else if (e.key === 'Enter') {
       e.preventDefault();
-      const o = filtered[active];
+      // Typed fast: the drawn list may still be for the previous text, so pick from the current text
+      const list = search === deferredSearch ? filtered : matchOptions(search);
+      const o = search === deferredSearch ? list[active] : list.find(x => !x.isGroupHeader);
       if (o && !o.isGroupHeader) choose(o);
-    } else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    } else if (e.key === 'Escape') {
+      // Close the list only; don't also cancel the row/form the dropdown sits in
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
   };
 
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);

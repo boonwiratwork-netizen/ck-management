@@ -176,3 +176,12 @@ describe("swap on a linked recipe", () => {
     expect(ids(s, "error")).not.toContain("unreached-thaniya");
   });
 });
+
+describe("set menus without their own recipe", () => {
+  it("is a warning, not an error, when topping/set rules supply the items", () => {
+    const set = menu({ id: "s1", menuCode: "MN-075", menuName: "Delivery Set A" });
+    const r = rule({ ruleType: "submenu", keyword: "Ajitama", submenuId: "m1", menuIds: ["s1"] });
+    const s = summarizeMenu(base({ menu: set, menus: [menu({}), set], rules: [r], lines: [line({})] }));
+    expect(s.checks.find((c) => c.id === "no-recipe")?.level).toBe("warn");
+  });
+});
