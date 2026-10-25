@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { StockCountSession, StockCountLine } from "@/types/stock-count";
 import { StockBalance, StockAdjustment } from "@/types/stock";
 import { SMStockBalance } from "@/hooks/use-sm-stock-data";
@@ -6,6 +6,7 @@ import { SKU } from "@/types/sku";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
+import { fetchAllRows } from "@/lib/fetch-all";
 
 const toSession = (r: any): StockCountSession => ({
   id: r.id,
@@ -54,6 +55,8 @@ export function useStockCountData({
 }: UseStockCountDataProps) {
   const [sessions, setSessions] = useState<StockCountSession[]>([]);
   const [lines, setLines] = useState<StockCountLine[]>([]);
+  /** Count saves still on their way (a refresh waits for them) */
+  const pendingSaves = useRef(new Set<Promise<unknown>>());
 
   useEffect(() => {
     // Kitchen data loads only once a kitchen page is opened (see Index)
@@ -64,7 +67,8 @@ export function useStockCountData({
         .select("*")
         .is("deleted_at", null)
         .order("created_at", { ascending: false }),
-      supabase.from("stock_count_lines").select("*").order("created_at", { ascending: false }),
+      // Paged: every count adds ~224 lines (3,900+ now); one read stops at 1,000
+      fetchAllRows<any>((f, t) => supabase.from("stock_count_lines").select("*").order("created_at", { ascending: false }).order("id").range(f, t)),
     ]).then(([s, l]) => {
       if (!s.error) setSessions((s.data || []).map(toSession));
       if (!l.error) setLines((l.data || []).map(toLine));
@@ -160,7 +164,10 @@ export function useStockCountData({
       const updates: any = { physical_qty: physicalQty, variance };
       if (noteText !== undefined) updates.note = noteText;
 
-      const { error } = await supabase.from("stock_count_lines").update(updates).eq("id", lineId);
+      const req = Promise.resolve(supabase.from("stock_count_lines").update(updates).eq("id", lineId));
+      pendingSaves.current.add(req);
+      const { error } = await req;
+      pendingSaves.current.delete(req);
       if (error) {
         toast.error("Failed to update line: " + error.message);
         return;
@@ -199,11 +206,11 @@ export function useStockCountData({
 
       if (lockError) {
         toast.error("Failed to confirm session: " + lockError.message);
-        return;
+        return false;
       }
       if (!lockResult || lockResult.length === 0) {
         toast.info("Session already confirmed or no longer Draft");
-        return;
+        return false;
       }
 
       // Fix 2: Read fresh lines from DB, not React state
@@ -214,7 +221,7 @@ export function useStockCountData({
 
       if (linesError) {
         toast.error("Failed to fetch count lines: " + linesError.message);
-        return;
+        return false;
       }
 
       const freshLines = (dbLines || [])
@@ -250,6 +257,7 @@ export function useStockCountData({
       if (refreshSmStock) {
         await refreshSmStock();
       }
+      return true;
     },
     [sessions, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
@@ -270,7 +278,8 @@ export function useStockCountData({
             skuId: line.skuId,
             date: toLocalDateStr(new Date()),
             quantity: -line.variance,
-            reason: `Reversed: Stock Count ${session.date}`,
+            // Starts with "Stock Count" so every balance formula leaves it out, like the count adjustment it undoes
+            reason: `Stock Count reversed: ${session.date}`,
           };
           if (line.type === "RM") {
             await addRmAdjustment(reverseAdj);
@@ -302,10 +311,45 @@ export function useStockCountData({
     [sessions, lines, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
   );
 
+  /**
+   * "อัปเดตยอดระบบ": a draft made before the count day holds old system figures;
+   * bring them to the current balances. Only system_qty and variance are written,
+   * against counts read fresh from the database (after any count still saving),
+   * so a count typed here or on another screen is never overwritten.
+   */
+  const refreshSystemQty = useCallback(
+    async (sessionId: string): Promise<boolean> => {
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session || session.status !== "Draft") return false;
+      await Promise.all(pendingSaves.current);
+      const balanceOf = (type: string, skuId: string) =>
+        (type === "RM" ? rmStockBalances : type === "SM" ? smStockBalances : type === "PK" ? pkStockBalances : []).find((b) => b.skuId === skuId)?.currentStock ?? 0;
+      const { data: fresh, error: readErr } = await supabase.from("stock_count_lines").select("id, sku_id, type, physical_qty").eq("session_id", sessionId);
+      if (readErr || !fresh) {
+        toast.error("อัปเดตยอดระบบไม่ได้: " + (readErr?.message ?? ""));
+        return false;
+      }
+      const rows = fresh.map((l) => {
+        const systemQty = balanceOf(l.type, l.sku_id);
+        return { id: l.id, system_qty: systemQty, variance: l.physical_qty !== null ? Number(l.physical_qty) - systemQty : 0 };
+      });
+      const results = await Promise.all(rows.map((r) => supabase.from("stock_count_lines").update({ system_qty: r.system_qty, variance: r.variance }).eq("id", r.id)));
+      const failed = results.find((r) => r.error);
+      if (failed?.error) {
+        toast.error("อัปเดตยอดระบบไม่ครบ: " + failed.error.message);
+        return false;
+      }
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      setLines((prev) => prev.map((l) => (byId.has(l.id) ? { ...l, systemQty: byId.get(l.id)!.system_qty, variance: byId.get(l.id)!.variance } : l)));
+      return true;
+    },
+    [sessions, rmStockBalances, smStockBalances, pkStockBalances],
+  );
+
   const getLinesForSession = useCallback(
     (sessionId: string) => lines.filter((l) => l.sessionId === sessionId),
     [lines],
   );
 
-  return { sessions, lines, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession };
+  return { sessions, lines, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession, refreshSystemQty };
 }

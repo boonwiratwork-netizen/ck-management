@@ -25,6 +25,7 @@ const DailyCountDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/Dail
 const TransferDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/TransferDemo")) : null;
 const KitchenReceiveDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/KitchenReceiveDemo")) : null;
 const ProduceDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ProduceDemo")) : null;
+const KitchenCountDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/KitchenCountDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
               {TransferDemo && <Route path="/dev/transfer" element={<Suspense fallback={null}><TransferDemo /></Suspense>} />}
               {KitchenReceiveDemo && <Route path="/dev/kitchen-receive" element={<Suspense fallback={null}><KitchenReceiveDemo /></Suspense>} />}
               {ProduceDemo && <Route path="/dev/production" element={<Suspense fallback={null}><ProduceDemo /></Suspense>} />}
+              {KitchenCountDemo && <Route path="/dev/kitchen-count" element={<Suspense fallback={null}><KitchenCountDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

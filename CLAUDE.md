@@ -31,7 +31,7 @@ Always run `npm run build` and `npm run test` before considering a change comple
 
 ```
 src/
-  pages/          # one file per screen (TransferOrder.tsx, DailyStockCount.tsx, FoodCost.tsx, ...)
+  pages/          # one file per screen (Transfer.tsx, DailyCount.tsx, KitchenCount.tsx, FoodCost.tsx, ...)
   hooks/          # domain data hooks (use-sm-stock-data.ts, use-transfer-order.ts, ...)
   components/     # shared components; components/ui = shadcn primitives
   types/          # domain TS types (sku.ts, bom.ts, stock.ts, ...)

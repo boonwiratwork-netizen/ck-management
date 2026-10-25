@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { StockBalance, StockAdjustment } from "@/types/stock";
 import { GoodsReceipt } from "@/types/goods-receipt";
 import { SKU } from "@/types/sku";
@@ -57,13 +58,20 @@ export function usePkStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pr
       sessions.forEach((s: any) => {
         sessionDateById[s.id] = s.count_date;
       });
-      const { data: lines } = await supabase
-        .from("stock_count_lines")
-        .select("session_id, sku_id, physical_qty, type")
-        .eq("type", "PK")
-        .not("physical_qty", "is", null)
-        .in("session_id", sessions.map((s: any) => s.id));
-      if (!lines) return;
+      // Paged: counted lines pass 1,000 rows (one monthly count adds ~120), and an
+      // unordered capped read could miss the latest count
+      const { data: lines, error: linesErr } = await fetchAllRows<any>((f, t) =>
+        supabase
+          .from("stock_count_lines")
+          .select("id, session_id, sku_id, physical_qty, type")
+          .eq("type", "PK")
+          .not("physical_qty", "is", null)
+          .in("session_id", sessions.map((s: any) => s.id))
+          .order("id")
+          .range(f, t),
+      );
+      // A partly read set could fall back to an older count: keep what we had
+      if (!lines || linesErr) return;
       const map: Record<string, { physical_qty: number; count_date: string }> = {};
       lines.forEach((l: any) => {
         const date = sessionDateById[l.session_id];

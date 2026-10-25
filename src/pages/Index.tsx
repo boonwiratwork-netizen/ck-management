@@ -34,7 +34,7 @@ const RMStockPage = lazy(() => import("@/pages/RMStock"));
 const ProductionPage = lazy(() => import("@/pages/Produce"));
 const SMStockPage = lazy(() => import("@/pages/SMStock"));
 const PKStockPage = lazy(() => import("@/pages/PKStock"));
-const StockCountPage = lazy(() => import("@/pages/StockCount"));
+const StockCountPage = lazy(() => import("@/pages/KitchenCount"));
 const DeliveryToBranchesPage = lazy(() => import("@/pages/DeliveryToBranches"));
 const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
 const BranchesPage = lazy(() => import("@/pages/Branches"));
@@ -79,7 +79,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   stock: { title: "RM Stock", subtitle: "Raw material inventory levels" },
   production: { title: "การผลิต", subtitle: "บันทึกผลผลิตและวางแผน" },
   smstock: { title: "SM Stock", subtitle: "Semi-finished goods inventory" },
-  stockcount: { title: "Stock Count", subtitle: "Verify your physical inventory" },
+  stockcount: { title: "นับสต๊อกครัว", subtitle: "นับเดือนละครั้ง" },
   delivery: { title: "Delivery to Branches", subtitle: "Track what leaves the kitchen" },
   "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
   branches: { title: "Branches", subtitle: "Manage your restaurant locations" },
@@ -601,7 +601,7 @@ const Index = () => {
                     getStdUnitPrice={stockData.getStdUnitPrice}
                     bomHeaders={bomData.headers}
                     bomLines={bomData.lines}
-                    isManagement={isManagement || role === 'ck_manager'}
+                    canEdit={isManagement || role === 'ck_manager'}
                   />
                 ) : activeTab === "branches" ? (
                   <BranchesPage branchData={branchData} readOnly={readOnly} />

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { StockAdjustment } from "@/types/stock";
 import { SKU } from "@/types/sku";
 import { ProductionRecord } from "@/types/production";
@@ -71,13 +72,20 @@ export function useSmStockData(
       sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
     }
 
-    const { data: lines } = await supabase
-      .from("stock_count_lines")
-      .select("sku_id, physical_qty, session_id")
-      .in("session_id", sessionIds)
-      .eq("type", "SM")
-      .not("physical_qty", "is", null);
+    // Paged: counted lines pass 1,000 rows over time; a capped read could miss the latest count
+    const { data: lines, error: linesErr } = await fetchAllRows<any>((f, t) =>
+      supabase
+        .from("stock_count_lines")
+        .select("id, sku_id, physical_qty, session_id")
+        .in("session_id", sessionIds)
+        .eq("type", "SM")
+        .not("physical_qty", "is", null)
+        .order("id")
+        .range(f, t),
+    );
 
+    // A partly read set could fall back to an older count: keep what we had
+    if (linesErr) return;
     const map: Record<string, AnchorData> = {};
     for (const row of lines || []) {
       const countDate = sessionDateMap[row.session_id];
