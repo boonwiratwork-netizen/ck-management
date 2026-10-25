@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 import { ModifierRule } from "@/types/modifier-rule";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 
 const toLocal = (row: any, menuIds: string[]): ModifierRule => ({
   id: row.id,
@@ -24,29 +26,29 @@ export function useModifierRuleData() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      supabase.from("menu_modifier_rules").select("*").order("created_at"),
-      supabase.from("modifier_rule_menus" as any).select("rule_id, menu_id"),
-    ]).then(([rulesRes, junctionRes]) => {
-      if (rulesRes.error) {
-        toast.error("Failed to load modifier rules");
-        setLoading(false);
-        return;
-      }
-      if (junctionRes.error) {
-        // Without the links every rule would look like "all menus": better to show nothing
-        toast.error("โหลดเมนูของกฎไม่สำเร็จ ลองรีเฟรช");
-        setLoading(false);
-        return;
-      }
-      const junctionData = (junctionRes.data || []) as any[];
+    // Rules + their menu links as one device copy, so a saved copy never pairs
+    // today's rules with yesterday's links
+    const fetchRules = async () => {
+      const [rulesRes, junctionRes] = await Promise.all([
+        fetchAllRows((a, b) => supabase.from("menu_modifier_rules").select("*").order("created_at").order("id").range(a, b)),
+        fetchAllRows((a, b) => (supabase.from("modifier_rule_menus" as any) as any).select("rule_id, menu_id").order("rule_id").order("menu_id").range(a, b)),
+      ]);
+      if (rulesRes.error) return { data: null, error: { kind: "rules" } };
+      // Without the links every rule would look like "all menus": better to show nothing
+      if (junctionRes.error) return { data: null, error: { kind: "links" } };
       const menusByRule = new Map<string, string[]>();
-      junctionData.forEach((j: any) => {
+      (junctionRes.data as any[]).forEach((j) => {
         const arr = menusByRule.get(j.rule_id) || [];
         arr.push(j.menu_id);
         menusByRule.set(j.rule_id, arr);
       });
-      setRules((rulesRes.data || []).map((r) => toLocal(r, menusByRule.get(r.id) || [])));
+      return { data: (rulesRes.data as any[]).map((r) => ({ ...r, _menu_ids: menusByRule.get(r.id) || [] })), error: null };
+    };
+    loadWithDeviceCopy("modifier_rules", fetchRules, (rows: any[], fromDevice) => {
+      setRules(rows.map((r) => toLocal(r, r._menu_ids || [])));
+      if (fromDevice) setLoading(false);
+    }).then(({ error }) => {
+      if (error) toast.error((error as { kind: string }).kind === "links" ? "โหลดเมนูของกฎไม่สำเร็จ ลองรีเฟรช" : "Failed to load modifier rules");
       setLoading(false);
     });
   }, []);

@@ -18,6 +18,7 @@ const MobileApp = lazy(() => import("./pages/MobileApp"));
 // Dev-only screen harness; the import is dropped from production builds
 const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuSetupDemo")) : null;
 const ReceiveDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ReceiveDemo")) : null;
+const LoadingDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/LoadingDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/design" element={<DesignSystem />} />
               {MenuSetupDemo && <Route path="/dev/menu-setup" element={<Suspense fallback={null}><MenuSetupDemo /></Suspense>} />}
               {ReceiveDemo && <Route path="/dev/receive" element={<Suspense fallback={null}><ReceiveDemo /></Suspense>} />}
+              {LoadingDemo && <Route path="/dev/loading" element={<Suspense fallback={null}><LoadingDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

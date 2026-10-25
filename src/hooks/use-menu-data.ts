@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { Menu } from '@/types/menu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,12 +21,17 @@ export function useMenuData() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('menus').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load menus'); }
-        else { setMenus((data || []).map(toLocal)); }
-        setLoading(false);
-      });
+    loadWithDeviceCopy(
+      'menus',
+      () => fetchAllRows((a, b) => supabase.from('menus').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
+      (rows, fromDevice) => {
+        setMenus(rows.map(toLocal));
+        if (fromDevice) setLoading(false);
+      },
+    ).then(({ error }) => {
+      if (error) toast.error('Failed to load menus');
+      setLoading(false);
+    });
   }, []);
 
   const getNextCode = useCallback((): string => {

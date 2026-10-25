@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { SKU, SKUType } from '@/types/sku';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -53,11 +55,12 @@ export function useSkuData() {
   const [skus, setSkus] = useState<SKU[]>([]);
 
   useEffect(() => {
-    supabase.from('skus').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load SKUs'); return; }
-        setSkus((data || []).map(toLocal));
-      });
+    // Device copy first, fresh in the background (see base-cache); paged past 1,000 rows
+    loadWithDeviceCopy(
+      'skus',
+      () => fetchAllRows((a, b) => supabase.from('skus').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
+      (rows) => setSkus(rows.map(toLocal)),
+    ).then(({ error }) => { if (error) toast.error('Failed to load SKUs'); });
   }, []);
 
   const generateSkuId = (type: SKUType, existing: SKU[]): string => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -14,17 +15,17 @@ export function useSkuCategories() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('sku_categories').select('*').order('code')
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load SKU categories'); }
-        else setCategories((data || []).map(r => ({
-          id: r.id,
-          code: r.code,
-          nameEn: r.name_en,
-          nameTh: r.name_th,
-        })));
-        setLoading(false);
-      });
+    loadWithDeviceCopy(
+      'sku_categories',
+      () => supabase.from('sku_categories').select('*').order('code'),
+      (rows, fromDevice) => {
+        setCategories(rows.map(r => ({ id: r.id, code: r.code, nameEn: r.name_en, nameTh: r.name_th })));
+        if (fromDevice) setLoading(false);
+      },
+    ).then(({ error }) => {
+      if (error) toast.error('Failed to load SKU categories');
+      setLoading(false);
+    });
   }, []);
 
   const addCategory = useCallback(async (code: string, nameEn: string, nameTh: string) => {

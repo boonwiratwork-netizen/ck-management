@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { MenuBomLine } from '@/types/menu-bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,12 +22,17 @@ export function useMenuBomData() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('menu_bom').select('*').order('created_at')
-      .then(({ data, error }) => {
-        if (error) toast.error('Failed to load Menu BOM');
-        else setLines((data || []).map(toLocal));
-        setLoading(false);
-      });
+    loadWithDeviceCopy(
+      'menu_bom',
+      () => fetchAllRows((a, b) => supabase.from('menu_bom').select('*').order('created_at').order('id').range(a, b)),
+      (rows, fromDevice) => {
+        setLines(rows.map(toLocal));
+        if (fromDevice) setLoading(false);
+      },
+    ).then(({ error }) => {
+      if (error) toast.error('Failed to load Menu BOM');
+      setLoading(false);
+    });
   }, []);
 
   const getLinesForMenu = useCallback((menuId: string) => {

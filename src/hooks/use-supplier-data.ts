@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { Supplier } from '@/types/supplier';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -39,10 +40,13 @@ export function useSupplierData() {
     // Management & CK can read full table (including phone, contact_person)
     // Other roles use the safe view that excludes sensitive columns
     const canReadFull = isManagement || isCkManager;
-    const runQuery = () =>
+    const rawQuery = () =>
       canReadFull
         ? supabase.from('suppliers').select('*').order('created_at', { ascending: false })
         : supabase.from('suppliers_safe' as any).select('*').order('created_at', { ascending: false });
+    // Device copy first (kept apart for full vs safe view), fresh in the background
+    const runQuery = () =>
+      loadWithDeviceCopy(canReadFull ? 'suppliers-full' : 'suppliers-safe', rawQuery as any, (rows: any[]) => setSuppliers(rows.map(toLocal)));
 
     let cancelled = false;
     const attempt = async (isRetry: boolean) => {

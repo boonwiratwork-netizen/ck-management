@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { BaseLoadingBar, BasePageSkeleton, useBaseStatus } from "@/components/BaseLoading";
 import { useNavigate, useParams } from "react-router-dom";
 import { SKU, SKUType } from "@/types/sku";
 import { useSpBomData } from "@/hooks/use-sp-bom-data";
@@ -190,6 +191,7 @@ const Index = () => {
   // kitchen pages. Load it the first time one is opened, then keep it; branch pages
   // and store managers never wait for it.
   const [kitchenData, setKitchenData] = useState(false);
+  const baseLoad = useBaseStatus();
   const onKitchenPage = tabContextMap[activeTab] !== "store" && tabContextMap[activeTab] !== "management";
   useEffect(() => {
     if (role && onKitchenPage) setKitchenData(true);
@@ -482,8 +484,11 @@ const Index = () => {
           </header>
 
           <main className="flex-1 overflow-auto pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
-            <Suspense fallback={<div className="page-shell text-sm text-muted-foreground">กำลังโหลด…</div>}>
-            {(
+            <BaseLoadingBar />
+            <Suspense fallback={<div className="page-shell"><BasePageSkeleton /></div>}>
+            {baseLoad === "first-load" ? (
+              <div className="page-shell"><BasePageSkeleton /></div>
+            ) : (
               <div className="page-shell">
                 {activeTab === "dashboard" ? (
                   <Dashboard

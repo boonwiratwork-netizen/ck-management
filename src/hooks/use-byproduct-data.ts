@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { BomByproduct } from '@/types/byproduct';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,10 +18,7 @@ export function useByproductData() {
   const [byproducts, setByproducts] = useState<BomByproduct[]>([]);
 
   useEffect(() => {
-    supabase.from('bom_byproducts' as any).select('*').order('created_at', { ascending: true })
-      .then(({ data, error }: any) => {
-        if (!error && data) setByproducts(data.map(toByproduct));
-      });
+    loadWithDeviceCopy('bom_byproducts', () => supabase.from('bom_byproducts' as any).select('*').order('created_at', { ascending: true }) as any, (rows: any[]) => setByproducts(rows.map(toByproduct)));
   }, []);
 
   const getByproductsForHeader = useCallback((headerId: string) => {

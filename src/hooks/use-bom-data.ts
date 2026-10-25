@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { BOMHeader, BOMLine, BOMStep } from '@/types/bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,15 +26,10 @@ export function useBomData() {
   const [steps, setSteps] = useState<BOMStep[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('bom_headers').select('*').order('created_at', { ascending: false }),
-      supabase.from('bom_lines').select('*').order('created_at', { ascending: false }),
-      supabase.from('bom_steps').select('*').order('step_number', { ascending: true }),
-    ]).then(([h, l, s]) => {
-      if (!h.error) setHeaders((h.data || []).map(toHeader));
-      if (!l.error) setLines((l.data || []).map(toLine));
-      if (!s.error) setSteps((s.data || []).map(toStep));
-    });
+    // Device copies first, fresh in the background (see base-cache)
+    loadWithDeviceCopy('bom_headers', () => fetchAllRows((a, b) => supabase.from('bom_headers').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setHeaders(rows.map(toHeader)));
+    loadWithDeviceCopy('bom_lines', () => fetchAllRows((a, b) => supabase.from('bom_lines').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setLines(rows.map(toLine)));
+    loadWithDeviceCopy('bom_steps', () => fetchAllRows((a, b) => supabase.from('bom_steps').select('*').order('step_number', { ascending: true }).order('id').range(a, b)), (rows) => setSteps(rows.map(toStep)));
   }, []);
 
   const addHeader = useCallback(async (data: Omit<BOMHeader, 'id'>): Promise<string> => {

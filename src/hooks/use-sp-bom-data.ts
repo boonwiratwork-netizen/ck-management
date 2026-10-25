@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { SpBomLine } from '@/types/sp-bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,12 +21,17 @@ export function useSpBomData() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('sp_bom').select('*').order('created_at')
-      .then(({ data, error }) => {
-        if (error) toast.error('Failed to load SP BOM');
-        else setLines((data || []).map(toLocal));
-        setLoading(false);
-      });
+    loadWithDeviceCopy(
+      'sp_bom',
+      () => fetchAllRows((a, b) => supabase.from('sp_bom').select('*').order('created_at').order('id').range(a, b)),
+      (rows, fromDevice) => {
+        setLines(rows.map(toLocal));
+        if (fromDevice) setLoading(false);
+      },
+    ).then(({ error }) => {
+      if (error) toast.error('Failed to load SP BOM');
+      setLoading(false);
+    });
   }, []);
 
   const getLinesForSp = useCallback((spSkuId: string) => {

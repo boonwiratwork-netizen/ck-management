@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { Price } from '@/types/price';
 import { SKU } from '@/types/sku';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,9 +22,13 @@ export function usePriceData() {
   const [prices, setPrices] = useState<Price[]>([]);
 
   const fetchAll = useCallback(async () => {
-    const { data, error } = await supabase.from('prices').select('*').order('created_at', { ascending: false });
-    if (error) { toast.error('Failed to load prices'); return; }
-    setPrices((data || []).map(toLocal));
+    // Device copy first, fresh in the background; price history can pass 1,000 rows
+    const { error } = await loadWithDeviceCopy(
+      'prices',
+      () => fetchAllRows((a, b) => supabase.from('prices').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
+      (rows) => setPrices(rows.map(toLocal)),
+    );
+    if (error) toast.error('Failed to load prices');
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

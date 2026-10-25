@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { Branch } from '@/types/branch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,11 +17,8 @@ export function useBranchData() {
   const [branches, setBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
-    supabase.from('branches').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load branches'); return; }
-        setBranches((data || []).map(toLocal));
-      });
+    loadWithDeviceCopy('branches', () => supabase.from('branches').select('*').order('created_at', { ascending: false }), (rows) => setBranches(rows.map(toLocal)))
+      .then(({ error }) => { if (error) toast.error('Failed to load branches'); });
   }, []);
 
   const addBranch = useCallback(async (data: Omit<Branch, 'id'>) => {
