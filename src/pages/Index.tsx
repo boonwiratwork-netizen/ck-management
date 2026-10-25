@@ -49,8 +49,8 @@ const SpBomPage = lazy(() => import("@/pages/SpBom"));
 const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
 const SalesEntryPage = lazy(() => import("@/pages/SalesEntry"));
 const DailyStockCountPage = lazy(() => import("@/pages/DailyStockCount"));
-const BranchReceiptPage = lazy(() => import("@/pages/BranchReceipt"));
-const BranchReceiptMobilePage = lazy(() => import("@/pages/BranchReceiptMobile"));
+// One receiving page for phones and computers (replaced BranchReceipt + BranchReceiptMobile)
+const ReceivePage = lazy(() => import("@/pages/Receive"));
 const TransferRequestPage = lazy(() => import("@/pages/TransferRequest"));
 const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
 const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
@@ -86,8 +86,8 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "sp-bom": { title: "SP BOM", subtitle: "Special product recipes" },
   "modifier-rules": { title: "Modifier Rules", subtitle: "Auto-adjust ingredients for menu options" },
   "sales-entry": { title: "Sales Entry", subtitle: "Record daily sales data" },
-  "branch-receipt": { title: "Branch Receipt", subtitle: "Track incoming stock at branches" },
-  "branch-receipt-mobile": { title: "รับของ (มือถือ)", subtitle: "บันทึกรับสินค้าจากซัพพลายเออร์" },
+  "branch-receipt": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
+  "branch-receipt-mobile": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
   "transfer-request": { title: "Transfer Request", subtitle: "Request SM ingredients from Central Kitchen" },
   "daily-stock-count": { title: "Daily Stock Count", subtitle: "Daily branch inventory check" },
   "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
@@ -483,14 +483,7 @@ const Index = () => {
 
           <main className="flex-1 overflow-auto pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
             <Suspense fallback={<div className="page-shell text-sm text-muted-foreground">กำลังโหลด…</div>}>
-            {activeTab === "branch-receipt-mobile" ? (
-              <BranchReceiptMobilePage
-                skus={skus}
-                prices={priceData.prices}
-                branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                suppliers={supplierData.suppliers}
-              />
-            ) : (
+            {(
               <div className="page-shell">
                 {activeTab === "dashboard" ? (
                   <Dashboard
@@ -671,8 +664,8 @@ const Index = () => {
                     menus={menuData.menus}
                     modifierRules={modifierRuleData.rules}
                   />
-                ) : activeTab === "branch-receipt" ? (
-                  <BranchReceiptPage
+                ) : activeTab === "branch-receipt" || activeTab === "branch-receipt-mobile" ? (
+                  <ReceivePage
                     skus={skus}
                     prices={priceData.prices}
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}

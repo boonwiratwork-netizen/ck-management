@@ -178,7 +178,6 @@ const storeGroup: NavGroup = {
     { subLabel: "Daily" },
     { key: "sales-entry", labelKey: "nav.salesEntry", icon: ShoppingCart },
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
-    { key: "branch-receipt-mobile", labelKey: "nav.branchReceiptMobile", icon: ScanLine },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
     { subLabel: "Monitor" },
@@ -220,7 +219,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
   switch (role) {
     case "store_manager":
       return [
-        { key: "branch-receipt-mobile", label: "รับของ", icon: ScanLine },
+        { key: "branch-receipt", label: "รับของ", icon: ScanLine },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
         { key: "transfer-request", label: "ขอเบิก", icon: ArrowUpFromLine },
         { key: "sales-entry", label: "ยอดขาย", icon: ShoppingCart },
@@ -253,7 +252,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
 export function getDefaultTab(role: AppRole | null): TabKey {
   switch (role) {
     case "store_manager":
-      return "branch-receipt-mobile";
+      return "branch-receipt";
     case "ck_manager":
       return "receipt";
     case "area_manager":
