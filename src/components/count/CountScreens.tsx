@@ -5,6 +5,7 @@ import { ZONES, differenceHint, differenceOf, type Zone } from "@/lib/stock-coun
 import type { SheetLine } from "./CountSheet";
 import { ActionFooter } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +90,7 @@ export function CountHome({
       {monthEnd && (
         <section className="flex flex-col gap-2 rounded-2xl bg-primary p-4 text-primary-foreground">
           <div className="text-sm font-semibold text-brand-soft">ช่วงปิดเดือน</div>
-          <h2 className="text-lg font-bold">ต้องนับครบทุกตัว 100%</h2>
+          <h2 className="text-lg font-bold">นับให้ครบทุกตัว ให้ได้ 100%</h2>
           <p className="text-sm text-primary-foreground/75">ยอดนับช่วงนี้ใช้คิดต้นทุนอาหารของทั้งเดือน นับให้ครบทุกวันจนถึงวันที่ {Number(monthEnd[4].slice(8))}</p>
           <div className="grid grid-cols-5 gap-1.5 pt-1">
             {monthEnd.map((d) => (
@@ -160,7 +161,7 @@ export function CountHome({
       {hasSheet && dormantCount > 0 && (
         <button type="button" onClick={onShowDormant} className="flex min-h-[52px] items-center gap-3 rounded-2xl border border-dashed border-border px-4 text-left text-sm text-muted-foreground hover:text-foreground">
           <span className="flex-1">
-            ไม่มีที่สาขานี้ {dormantCount} รายการ {monthEnd ? "(ช่วงปิดเดือนต้องยืนยัน)" : "(พับไว้ ไม่ต้องนับ)"}
+            ไม่มีที่สาขานี้ {dormantCount} รายการ {monthEnd ? "(ช่วงปิดเดือนควรยืนยัน)" : "(พับไว้ ไม่ต้องนับ)"}
           </span>
           <span>ดู</span>
         </button>
@@ -218,7 +219,12 @@ export function CountReview({
   const dormantLeft = dormant.filter((l) => l.row.physicalCount === null);
   const wasted = lines.filter((l) => l.row.waste > 0).length;
   const allCounted = uncounted.length === 0 && (!monthEnd || dormantLeft.length === 0);
-  const canFinish = !locked && (monthEnd ? allCounted : counted > 0);
+  const canFinish = !locked && counted > 0;
+  // Month-end asks for everything, but a partial count (say 80%) may still be finished, with a clear yes
+  const [shortConfirm, setShortConfirm] = useState(false);
+  const monthTotal = lines.length + dormant.length;
+  const monthCounted = counted + dormant.filter((l) => l.row.physicalCount !== null).length;
+  const pct = monthTotal ? Math.round((monthCounted / monthTotal) * 100) : 100;
 
   return (
     <div className="flex flex-col gap-3">
@@ -275,13 +281,13 @@ export function CountReview({
           <Button variant="outline" className="mt-3 h-11 w-full" onClick={onBack}>
             กลับไปนับให้ครบ
           </Button>
-          {!monthEnd && <p className="mt-2 text-xs text-muted-foreground">ตัวที่ไม่นับ ระบบใช้ยอดคงเหลือแทน</p>}
+          <p className="mt-2 text-xs text-muted-foreground">ตัวที่ไม่นับ ระบบใช้ยอดคงเหลือแทน</p>
         </div>
       )}
 
       {monthEnd && dormantLeft.length > 0 && (
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-sm">
-          <span className="flex-1">ไม่มีที่สาขานี้ {dormantLeft.length} ตัว ช่วงปิดเดือนต้องยืนยัน</span>
+          <span className="flex-1">ไม่มีที่สาขานี้ {dormantLeft.length} ตัว ช่วงปิดเดือนควรยืนยัน</span>
           <Button variant="outline" className="h-10" onClick={onZeroDormant}>
             ยืนยันว่าไม่มี = 0
           </Button>
@@ -295,14 +301,27 @@ export function CountReview({
       ) : (
         <ActionFooter
             tour="count-finish"
-            title={allCounted ? "นับครบแล้ว" : monthEnd ? `ช่วงปิดเดือน ต้องนับครบก่อน` : `นับแล้ว ${counted}/${lines.length}`}
-            sub={monthEnd && !allCounted ? "กดนับเสร็จได้เมื่อนับครบทุกตัว" : "กดแล้วแก้ไม่ได้ (ผู้จัดการปลดล็อกได้)"}
+            title={allCounted ? "นับครบแล้ว" : monthEnd ? `ช่วงปิดเดือน นับได้ ${pct}%` : `นับแล้ว ${counted}/${lines.length}`}
+            sub={monthEnd && !allCounted ? "ช่วงปิดเดือนควรนับให้ครบ ยิ่งครบต้นทุนอาหารยิ่งแม่น" : "กดแล้วแก้ไม่ได้ (ผู้จัดการปลดล็อกได้)"}
             action="นับเสร็จ"
             busy={busy}
             disabled={!canFinish}
-            onAction={onFinish}
+            onAction={() => (monthEnd && !allCounted ? setShortConfirm(true) : onFinish())}
           />
       )}
+      <ConfirmDialog
+        open={shortConfirm}
+        onOpenChange={setShortConfirm}
+        title={`ช่วงปิดเดือน นับได้ ${pct}%`}
+        description={`ยังไม่ได้นับ ${monthTotal - monthCounted} รายการ ตัวที่ไม่ได้นับจะใช้ยอดคงเหลือแทน ต้นทุนอาหารเดือนนี้อาจคลาดตามไปด้วย ถ้ายังนับต่อได้ ให้กลับไปนับก่อน`}
+        confirmLabel="นับเสร็จเลย"
+        cancelLabel="กลับไปนับต่อ"
+        variant="warning"
+        onConfirm={() => {
+          setShortConfirm(false);
+          onFinish();
+        }}
+      />
     </div>
   );
 }
