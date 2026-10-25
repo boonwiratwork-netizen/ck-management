@@ -42,7 +42,8 @@ export function summarizeBranch(input: {
     return {
       menu,
       open: at?.open ?? true,
-      noRecipe: (at?.lines.length ?? 0) === 0 && !linkedHere,
+      // Set menus that take their items through topping/set rules aren't "no recipe" (same as the menu checks)
+      noRecipe: (at?.lines.length ?? 0) === 0 && !linkedHere && !(s?.ownRules ?? []).some((r) => r.isActive && r.ruleType === "submenu"),
       cost: at?.cost ?? 0,
       costPct: at?.costPct ?? null,
       sold: soldByCode?.[menu.menuCode]?.[branch.id] ?? 0,

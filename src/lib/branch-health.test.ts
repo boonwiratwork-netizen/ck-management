@@ -39,6 +39,12 @@ describe("summarizeBranch", () => {
     expect(c?.detail).not.toContain("MN-2");
   });
 
+  it("doesn't call a set menu fed by set rules 'no recipe'", () => {
+    const set = menu("s", "MN-075");
+    const s = run({ menus: [menu("a", "MN-1"), set], lines: [{ menuId: "a", skuId: "x", branchId: null, qtyPerServing: 1, yieldPct: 100 } as MenuBomLine], rules: [rule({ ruleType: "submenu", submenuId: "a", menuIds: ["s"] })], sold: { "MN-075": { new: 4 } } });
+    expect(s.checks.find((c) => c.id === "no-recipe")).toBeUndefined();
+  });
+
   it("warns about rules limited to other branches", () => {
     const s = run({ menus: [menu("a", "MN-1")], rules: [rule({ branchIds: ["old"], menuIds: ["a"] })] });
     expect(ids(s, "warn")).toContain("rules-elsewhere");
