@@ -44,6 +44,7 @@ interface Props {
 
 const LAST_BRANCH_KEY = "ck-receive-branch";
 const HISTORY_DAYS = 30;
+const NOT_A_SHOP = /^(central kitchen|ck\b|ck \(|ครัวกลาง|store production|bom calculation)/i;
 
 /**
  * One receiving page for phones and computers (replaces Branch Receipt and the
@@ -96,7 +97,13 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   );
   const brandSkuIds = useMemo(() => (branch ? brandSkuIdsFor(branch.brandName) : new Set<string>()), [branch, brandSkuIdsFor]);
   const brandSupplierIds = useMemo(() => new Set(prices.filter((p) => p.isActive && brandSkuIds.has(p.skuId)).map((p) => p.supplierId)), [prices, brandSkuIds]);
-  const activeSuppliers = useMemo(() => suppliers.filter((s) => s.status === "Active").sort((a, b) => a.name.localeCompare(b.name)), [suppliers]);
+  // Supplier records that stand for the kitchen or for calculations, not real shops.
+  // Receiving through them would write a kitchen-named row with supplier units;
+  // the kitchen has its own buttons above. Hidden here only (data untouched).
+  const activeSuppliers = useMemo(
+    () => suppliers.filter((s) => s.status === "Active" && !NOT_A_SHOP.test(s.name.trim())).sort((a, b) => a.name.localeCompare(b.name)),
+    [suppliers],
+  );
   const brandSuppliers = activeSuppliers.filter((s) => brandSupplierIds.has(s.id));
   const otherSuppliers = activeSuppliers.filter((s) => !brandSupplierIds.has(s.id));
   const purchasableSkus = useMemo(() => skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "PK")).sort((a, b) => a.skuId.localeCompare(b.skuId)), [skus]);
