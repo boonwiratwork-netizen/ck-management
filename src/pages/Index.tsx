@@ -29,7 +29,7 @@ import type { CSVColumnDef, CSVValidationError } from "@/components/CSVImportMod
 const SuppliersPage = lazy(() => import("@/pages/Suppliers"));
 const PricesPage = lazy(() => import("@/pages/Prices"));
 const BOMPage = lazy(() => import("@/pages/BOM"));
-const GoodsReceiptPage = lazy(() => import("@/pages/GoodsReceipt"));
+const GoodsReceiptPage = lazy(() => import("@/pages/KitchenReceive"));
 const RMStockPage = lazy(() => import("@/pages/RMStock"));
 const ProductionPage = lazy(() => import("@/pages/Production"));
 const SMStockPage = lazy(() => import("@/pages/SMStock"));
@@ -75,7 +75,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   supplier: { title: "Suppliers", subtitle: "Your trusted ingredient partners" },
   price: { title: "Price Master", subtitle: "Track costs across all suppliers" },
   bom: { title: "BOM Master", subtitle: "Track what goes into every dish" },
-  receipt: { title: "Goods Receipt", subtitle: "Record incoming ingredients" },
+  receipt: { title: "รับของเข้าครัว", subtitle: "ใส่ตามบิลซัพพลายเออร์" },
   stock: { title: "RM Stock", subtitle: "Raw material inventory levels" },
   production: { title: "Production", subtitle: "Plan and track your kitchen output" },
   smstock: { title: "SM Stock", subtitle: "Semi-finished goods inventory" },
@@ -565,13 +565,7 @@ const Index = () => {
                     byproductData={byproductData}
                   />
                 ) : activeTab === "receipt" ? (
-                  <GoodsReceiptPage
-                    receiptData={receiptData}
-                    skus={skus}
-                    suppliers={supplierData.suppliers}
-                    prices={priceData.prices}
-                    bomLines={bomData.lines}
-                  />
+                  <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
                 ) : activeTab === "stock" ? (
                   <RMStockPage
                     skus={skus}

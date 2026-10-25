@@ -19,6 +19,7 @@ const toLocal = (row: any): GoodsReceipt => ({
   standardPrice: row.standard_price,
   priceVariance: row.price_variance,
   note: row.note,
+  createdAt: row.created_at,
 });
 
 function getNinetyDaysAgo(): string {
@@ -95,6 +96,18 @@ export function useGoodsReceiptData(enabled = true) {
     setReceipts(prev => [toLocal(row), ...prev]);
   }, []);
 
+  /** A whole bill in one insert: either every line is saved or none is */
+  const addReceipts = useCallback(async (
+    rows: { data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>; sku: SKU | undefined }[],
+    prices: Price[]
+  ): Promise<boolean> => {
+    if (rows.length === 0) return true;
+    const { data, error } = await supabase.from('goods_receipts').insert(rows.map((r) => buildDbRow(r.data, r.sku, prices))).select();
+    if (error) { toast.error('บันทึกบิลไม่สำเร็จ: ' + error.message); return false; }
+    setReceipts(prev => [...(data || []).map(toLocal), ...prev]);
+    return true;
+  }, []);
+
   const updateReceipt = useCallback(async (
     id: string,
     data: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'>,
@@ -103,8 +116,29 @@ export function useGoodsReceiptData(enabled = true) {
   ) => {
     const dbRow = buildDbRow(data, sku, prices);
     const { error } = await supabase.from('goods_receipts').update(dbRow).eq('id', id);
-    if (error) { toast.error('Failed to update receipt: ' + error.message); return; }
-    setReceipts(prev => prev.map(r => r.id === id ? { ...r, ...toLocal({ id, ...dbRow }) } : r));
+    if (error) { toast.error('แก้รายการไม่สำเร็จ: ' + error.message); return false; }
+    setReceipts(prev => prev.map(r => r.id === id ? { ...r, ...toLocal({ id, created_at: r.createdAt, ...dbRow }) } : r));
+    return true;
+  }, []);
+
+  /**
+   * Fix a saved line: quantity, amount, note. Keeps the standard price stored on
+   * the line (a later price change must not rewrite an old line's variance).
+   */
+  const editReceipt = useCallback(async (r: GoodsReceipt, qty: number, total: number, note: string): Promise<boolean> => {
+    const standard = r.stdUnitPrice * qty;
+    const patch = {
+      quantity_received: qty,
+      actual_total: total,
+      actual_unit_price: qty > 0 ? total / qty : 0,
+      standard_price: standard,
+      price_variance: total - standard,
+      note,
+    };
+    const { error } = await supabase.from('goods_receipts').update(patch).eq('id', r.id);
+    if (error) { toast.error('แก้รายการไม่สำเร็จ: ' + error.message); return false; }
+    setReceipts(prev => prev.map(x => x.id === r.id ? { ...x, quantityReceived: qty, actualTotal: total, actualUnitPrice: patch.actual_unit_price, standardPrice: standard, priceVariance: patch.price_variance, note } : x));
+    return true;
   }, []);
 
   const deleteReceipt = useCallback(async (id: string) => {
@@ -114,5 +148,5 @@ export function useGoodsReceiptData(enabled = true) {
     return true;
   }, []);
 
-  return { receipts, addReceipt, updateReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };
+  return { receipts, addReceipt, addReceipts, updateReceipt, editReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };
 }

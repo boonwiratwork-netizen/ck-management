@@ -144,7 +144,7 @@ Physical counts are **ground truth** — they snap the balance on entry and over
 ## Reference implementations
 
 - Table inputs (defaultValue+onBlur): `GoodsReceiptTable.tsx`
-- Table layout (table-fixed + colgroup): `GoodsReceipt.tsx`
+- Table layout (table-fixed + colgroup): `src/components/transfer/PackSheet.tsx`
 - Anchor-based stock formula: `use-sm-stock-data.ts`
 - SM cover day (shared hook, used by Dashboard + SM Stock): `use-sm-daily-usage.ts`
 - Lot capping by current stock: `src/lib/transfer-lines.ts` (`visibleRecords`, `reconcileLots`)

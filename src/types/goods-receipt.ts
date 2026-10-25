@@ -14,6 +14,8 @@ export interface GoodsReceipt {
   standardPrice: number;     // stdUnitPrice × qty (total standard value)
   priceVariance: number;     // actualTotal − standardPrice
   note: string;
+  /** When it was entered (to spot receipts typed in days later) */
+  createdAt?: string;
 }
 
 export const EMPTY_GOODS_RECEIPT: Omit<GoodsReceipt, 'id' | 'weekNumber' | 'usageUom' | 'stdUnitPrice' | 'standardPrice' | 'priceVariance' | 'actualUnitPrice'> = {
