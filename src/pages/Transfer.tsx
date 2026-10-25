@@ -448,6 +448,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   } else if (view === "history")
     work = (
       <TransferHistory
+        packSizeOf={(id) => skuOf(id)?.packSize ?? 0}
         rows={to.toHistory}
         loading={to.historyLoading}
         branches={activeBranches.map((b) => ({ id: b.id, name: b.branchName }))}

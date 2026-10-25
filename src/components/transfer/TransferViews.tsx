@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Check, ChevronDown, ChevronRight, Copy, Pencil, Plus, Printer, Undo2 } from "lucide-react";
 import type { PendingTR, TOHistoryRow, TOLine } from "@/hooks/use-transfer-order";
-import { isShort, sentQtyOf, transferBadges, type Badge, type SendCheck } from "@/lib/transfer-lines";
+import { isShort, kitchenSentShort, sentQtyOf, transferBadges, type Badge, type SendCheck } from "@/lib/transfer-lines";
 import { ActionFooter, baht } from "@/components/receive/parts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -297,7 +297,7 @@ export function ReviewSend({
               <span className="shrink-0">ไม่ส่ง · {d.reason || "ไม่ระบุเหตุผล"}</span>
             </div>
           ))}
-          <p className="mt-1 text-[13px] text-muted-foreground">ใบนี้จะขึ้นป้าย “ครัวส่งไม่ครบ” ถ้ามีรายการที่ไม่ส่ง หรือส่งน้อยกว่าที่ขอเกิน 10%</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">ใบนี้จะขึ้นป้าย “ครัวกลางส่งไม่ครบ” ถ้ามีรายการที่ไม่ส่ง หรือส่งน้อยกว่าที่ขอเกิน 10%</p>
         </section>
       )}
 
@@ -407,7 +407,7 @@ export function SentDone({
         {declined.length > 0 && (
           <>
             <br />
-            ใบนี้ขึ้นป้าย <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[13px] font-semibold text-brand">ครัวส่งไม่ครบ {declined.length}</span> ({declined.map((d) => `${d.name} · ${d.reason || "ไม่ระบุ"}`).join(", ")})
+            ใบนี้ขึ้นป้าย <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[13px] font-semibold text-brand">ครัวกลางส่งไม่ครบ {declined.length}</span> ({declined.map((d) => `${d.name} · ${d.reason || "ไม่ระบุ"}`).join(", ")})
           </>
         )}
       </div>
@@ -458,7 +458,7 @@ export interface OrderDetail {
 }
 
 export type Kind = "all" | "waiting" | "kitchen" | "branch" | "cancelled";
-export const kindLabel: Record<Kind, string> = { all: "ทั้งหมด", waiting: "รอสาขารับ", kitchen: "ครัวส่งไม่ครบ", branch: "สาขารับไม่ครบ", cancelled: "ยกเลิก" };
+export const kindLabel: Record<Kind, string> = { all: "ทั้งหมด", waiting: "รอสาขารับ", kitchen: "ครัวกลางส่งไม่ครบ", branch: "สาขารับไม่ครบ", cancelled: "ยกเลิก" };
 export function ofKind(r: TOHistoryRow, k: Kind) {
   if (k === "all") return r.status !== "Draft";
   if (k === "waiting") return r.status === "Sent";
@@ -487,7 +487,9 @@ export function TransferHistory({
   onPrint,
   onBack,
   openId,
+  packSizeOf,
 }: {
+  packSizeOf: (skuId: string) => number;
   rows: TOHistoryRow[];
   loading: boolean;
   branches: { id: string; name: string }[];
@@ -606,6 +608,7 @@ export function TransferHistory({
                   onCancel={onCancel}
                   onDelete={onDelete}
                   onPrint={onPrint}
+                  packSizeOf={packSizeOf}
                 />
               ))}
             </div>
@@ -640,7 +643,9 @@ function HistoryRow({
   onCancel,
   onDelete,
   onPrint,
+  packSizeOf,
 }: {
+  packSizeOf: (skuId: string) => number;
   row: TOHistoryRow;
   open: boolean;
   onToggle: () => void;
@@ -701,7 +706,7 @@ function HistoryRow({
                   {detail.lines.map((l) => {
                     const sent = sentQtyOf(l);
                     const got = detail.receivedBySku?.get(l.skuId) ?? 0;
-                    const kitchenShort = !!l.trLineId && isShort(l.actualQty, l.plannedQty);
+                    const kitchenShort = !!l.trLineId && kitchenSentShort(l, packSizeOf(l.skuId));
                     const branchShort = received && isShort(got, sent);
                     const diff = sent > 0 ? Math.round(((got - sent) / sent) * 100) : 0;
                     return (
@@ -717,7 +722,7 @@ function HistoryRow({
                           {branchShort
                             ? `สาขารับขาด ${num(sent - got)} ${l.uom} (${Math.abs(diff)}%)`
                             : kitchenShort
-                              ? "ครัวส่งไม่ครบ"
+                              ? "ครัวกลางส่งไม่ครบ"
                               : received && Math.abs(got - sent) > 0.5
                                 ? `ต่าง ${Math.abs(diff)}% · นับว่าครบ`
                                 : received

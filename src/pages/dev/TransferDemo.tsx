@@ -143,6 +143,7 @@ export default function TransferDemo() {
   else if (view === "history")
     work = (
       <TransferHistory
+        packSizeOf={(id) => skuOf(id)?.packSize ?? 0}
         rows={HISTORY}
         loading={false}
         branches={[{ id: "Shiro", name: "Shiro" }, { id: "Thaniya", name: "Thaniya" }]}

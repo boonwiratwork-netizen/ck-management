@@ -72,16 +72,22 @@ describe("the two shortfall labels", () => {
     { skuId: "soup", trLineId: "t2", plannedQty: 9000, actualQty: 9000 },
     { skuId: "cup", trLineId: null, plannedQty: 0, actualQty: 50 },
   ];
-  it("kitchen short counts declined lines and lines sent >10% under the request", () => {
-    expect(kitchenShortCount(lines, 1)).toBe(1);
-    expect(kitchenShortCount([{ trLineId: "t", plannedQty: 1000, actualQty: 800 }], 0)).toBe(1);
+  it("kitchen short counts declined lines and lines sent short", () => {
+    expect(kitchenShortCount(lines.map((l) => ({ ...l, packsCount: null, packSize: 0 })), 1)).toBe(1);
+    expect(kitchenShortCount([{ trLineId: "t", plannedQty: 1000, actualQty: 800, packsCount: null, packSize: 0 }], 0)).toBe(1);
+  });
+  it("pack items compare packs: all packs sent but lighter is not short", () => {
+    // ขอ 3 แพ็ค (3,300 ก.) ส่ง 3 แพ็ค หนัก 2,180 ก.
+    expect(kitchenShortCount([{ trLineId: "t", plannedQty: 3300, actualQty: 2180, packsCount: 3, packSize: 1100 }], 0)).toBe(0);
+    // ขอ 5 แพ็ค ส่ง 4
+    expect(kitchenShortCount([{ trLineId: "t", plannedQty: 2000, actualQty: 1605, packsCount: 4, packSize: 400 }], 0)).toBe(1);
   });
   it("branch short compares with what the kitchen sent, not what was asked", () => {
     expect(branchShortCount(lines, new Map([["duck", 1750], ["soup", 6000], ["cup", 50]]))).toBe(1);
     expect(branchShortCount(lines, new Map([["duck", 1750], ["soup", 9000]]))).toBe(1); // cup never arrived
   });
   it("badges", () => {
-    expect(transferBadges({ status: "Sent", kitchenShort: 1, branchShort: 0 }).map((b) => b.text)).toEqual(["ครัวส่งไม่ครบ 1", "รอสาขารับ"]);
+    expect(transferBadges({ status: "Sent", kitchenShort: 1, branchShort: 0 }).map((b) => b.text)).toEqual(["ครัวกลางส่งไม่ครบ 1", "รอสาขารับ"]);
     expect(transferBadges({ status: "Partially Received", kitchenShort: 0, branchShort: 0 }).map((b) => b.text)).toEqual(["สาขารับครบ"]);
     expect(transferBadges({ status: "Received", kitchenShort: 0, branchShort: 2 }).map((b) => b.text)).toEqual(["สาขารับไม่ครบ 2"]);
   });

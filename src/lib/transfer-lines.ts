@@ -2,7 +2,7 @@
  * Rules for the central kitchen's transfer orders (โอนสินค้า), kept apart from
  * the screens so they can be tested: packs on a line, which production lots a
  * line is picked from, what to check before sending, and the two shortfall
- * labels (ครัวส่งไม่ครบ / สาขารับไม่ครบ).
+ * labels (ครัวกลางส่งไม่ครบ / สาขารับไม่ครบ).
  */
 
 /** A difference up to 10% (weighing, trimming) still counts as complete */
@@ -15,6 +15,16 @@ export function isShort(got: number, expected: number): boolean {
 
 /** What actually left the kitchen on a line (actual qty once set, else the plan) */
 export const sentQtyOf = (l: { actualQty: number; plannedQty: number }) => (l.actualQty > 0 ? l.actualQty : l.plannedQty);
+
+/**
+ * The kitchen sent less than the branch asked for. Items counted in packs compare
+ * PACKS (a pack that weighs less than its set size is still a whole pack sent);
+ * others compare quantity with the 10% allowance.
+ */
+export function kitchenSentShort(l: { plannedQty: number; actualQty: number; packsCount: number | null }, packSize: number): boolean {
+  if (packSize > 1) return packsOf(l, packSize) < Math.round(l.plannedQty / packSize);
+  return isShort(l.actualQty, l.plannedQty);
+}
 
 /** Packs on a line: the count the kitchen typed, else derived from the weight */
 export function packsOf(l: { packsCount: number | null; actualQty: number }, packSize: number): number {
@@ -138,7 +148,7 @@ export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => Sku
       if (packs !== assigned) out.lotMismatch.push({ lineId: l.id, skuName: l.skuName, packs, assigned });
     }
     if (l.trLineId && l.plannedQty > 0) {
-      if (isShort(l.actualQty, l.plannedQty)) out.short.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
+      if (kitchenSentShort(l, sku?.packSize ?? 0)) out.short.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
       else if (Math.abs(l.actualQty - l.plannedQty) > 0.5) out.changed.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
     }
   }
@@ -147,9 +157,12 @@ export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => Sku
 
 // ─── After sending: the two labels ───
 
-/** Request lines the kitchen didn't send ("ส่งไม่ได้") or sent more than 10% short */
-export function kitchenShortCount(lines: { trLineId: string | null; plannedQty: number; actualQty: number }[], declinedRequestLines: number): number {
-  return declinedRequestLines + lines.filter((l) => l.trLineId && isShort(l.actualQty, l.plannedQty)).length;
+/** Request lines the kitchen didn't send ("ส่งไม่ได้") or sent short (fewer packs, or >10% less) */
+export function kitchenShortCount(
+  lines: { trLineId: string | null; plannedQty: number; actualQty: number; packsCount: number | null; packSize: number }[],
+  declinedRequestLines: number,
+): number {
+  return declinedRequestLines + lines.filter((l) => l.trLineId && kitchenSentShort(l, l.packSize)).length;
 }
 
 /**
@@ -175,7 +188,7 @@ export function transferBadges(to: { status: string; kitchenShort: number; branc
   if (to.status === "Draft") return [{ text: "ยังไม่ได้ส่ง", tone: "wait" }];
   if (to.status === "Cancelled") return [{ text: "ยกเลิก", tone: "off" }];
   if (to.status === "Declined") return [{ text: "สาขาปฏิเสธ", tone: "off" }];
-  if (to.kitchenShort > 0) out.push({ text: `ครัวส่งไม่ครบ ${to.kitchenShort}`, tone: "kitchen" });
+  if (to.kitchenShort > 0) out.push({ text: `ครัวกลางส่งไม่ครบ ${to.kitchenShort}`, tone: "kitchen" });
   if (to.status === "Sent") out.push({ text: "รอสาขารับ", tone: "info" });
   else if (to.branchShort > 0) out.push({ text: `สาขารับไม่ครบ ${to.branchShort}`, tone: "warn" });
   else out.push({ text: "สาขารับครบ", tone: "done" });

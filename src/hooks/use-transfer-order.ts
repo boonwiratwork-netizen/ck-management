@@ -292,7 +292,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       branchIds.length ? supabase.from("branches").select("id, branch_name").in("id", branchIds) : Promise.resolve({ data: [] as any[] }),
       trIds.length ? supabase.from("transfer_requests").select("id, tr_number").in("id", trIds) : Promise.resolve({ data: [] as any[] }),
       toIds.length
-        ? fetchAllRows<any>((f, t) => supabase.from("transfer_order_lines").select("id, to_id, sku_id, planned_qty, actual_qty, tr_line_id, notes").in("to_id", toIds).order("id").range(f, t))
+        ? fetchAllRows<any>((f, t) => supabase.from("transfer_order_lines").select("id, to_id, sku_id, planned_qty, actual_qty, tr_line_id, notes, packs_count, skus(pack_size)").in("to_id", toIds).order("id").range(f, t))
         : Promise.resolve({ data: [] as any[], error: null }),
       toIds.length
         ? fetchAllRows<any>((f, t) => supabase.from("branch_receipts").select("id, transfer_order_id, sku_id, qty_received").in("transfer_order_id", toIds).order("id").range(f, t))
@@ -323,6 +323,8 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           trLineId: l.tr_line_id,
           plannedQty: Number(l.planned_qty) || 0,
           actualQty: Number(l.actual_qty) || 0,
+          packsCount: l.packs_count ?? null,
+          packSize: Number(l.skus?.pack_size) || 0,
         }));
         const sent = d.status !== "Draft" && d.status !== "Cancelled";
         const received = d.status === "Received" || d.status === "Partially Received";
