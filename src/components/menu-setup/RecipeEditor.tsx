@@ -11,6 +11,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { FieldError } from "@/components/form/FieldError";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { activeUnitCost, effectiveQty, lineCost } from "@/lib/menu-health";
+import { skuOptions } from "./sku-options";
 
 export interface RecipeActions {
   addLine: (data: Omit<MenuBomLine, "id">) => Promise<boolean>;
@@ -189,19 +190,7 @@ function LineForm({ menu, line, branchId, sharedLines, scopeLines, skus, prices,
   const [saving, setSaving] = useState(false);
   const [tried, setTried] = useState(false);
 
-  const options = useMemo(() => {
-    const groups: { type: SKU["type"]; label: string }[] = [
-      { type: "SM", label: "ของจากครัวกลาง (SM)" },
-      { type: "RM", label: "วัตถุดิบ (RM)" },
-      { type: "SP", label: "เตรียมที่ร้าน (SP)" },
-    ];
-    return groups.flatMap((g) => {
-      const items = skus
-        .filter((s) => s.type === g.type && (s.status === "Active" || s.id === line?.skuId))
-        .map((s) => ({ value: s.id, label: s.name, sublabel: s.skuId, badge: activeUnitCost(prices, s.id) > 0 ? undefined : "ไม่มีราคา" }));
-      return items.length ? [{ value: `g-${g.type}`, label: g.label, isGroupHeader: true }, ...items] : [];
-    });
-  }, [skus, prices, line?.skuId]);
+  const options = useMemo(() => skuOptions(skus, prices, line?.skuId), [skus, prices, line?.skuId]);
 
   const sku = skus.find((s) => s.id === skuId);
   const qtyNum = Number(qty);

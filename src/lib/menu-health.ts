@@ -361,7 +361,8 @@ export function describeRule(rule: ModifierRule, skus: SKU[], menus: Menu[]): st
     return `${kw} → เอา ${name(rule.swapSkuId)} ออก ใส่ ${name(rule.skuId)} ${rule.qtyPerMatch} ${rule.uom || ""} แทน`.trim();
   if (rule.ruleType === "submenu") {
     const sub = menus.find((m) => m.id === rule.submenuId);
-    return `${kw} หรือรหัส ${rule.keyword} → ตัดของตามสูตร ${sub ? `${sub.menuCode} ${sub.menuName}` : "เมนูที่ถูกลบแล้ว"}`;
+    const codeLike = /^[A-Z]{2,3}-\d+$/i.test(rule.keyword.trim());
+    return `${codeLike ? `ถ้าบิลเป็นรหัส ${rule.keyword} หรือมีคำนี้` : kw} → ตัดของตามสูตร ${sub ? `${sub.menuCode} ${sub.menuName}` : "เมนูที่ถูกลบแล้ว"}`;
   }
   return `${kw} → ตัด ${name(rule.skuId)} เพิ่ม ${rule.qtyPerMatch} ${rule.uom || ""}`.trim();
 }

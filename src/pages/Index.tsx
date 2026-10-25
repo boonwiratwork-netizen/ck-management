@@ -616,6 +616,7 @@ const Index = () => {
                     branches={branchData.branches}
                     readOnly={!isManagement}
                     onNavigate={handleTabChange}
+                    addRule={modifierRuleData.addRule}
                   />
                 ) : activeTab === "menu-master" ? (
                   <MenuMasterPage menuData={menuData} branches={branchData.branches} />

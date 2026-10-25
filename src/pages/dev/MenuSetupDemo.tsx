@@ -6,6 +6,7 @@ import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
+import type { Bill } from "@/lib/pos-options";
 
 interface Fixture {
   menus: Menu[];
@@ -16,6 +17,7 @@ interface Fixture {
   branches: Branch[];
   overrides: Record<string, Record<string, boolean>>;
   soldByCode: Record<string, Record<string, number>>;
+  bills: Bill[];
 }
 
 /**
@@ -27,6 +29,7 @@ export default function MenuSetupDemo() {
   const [data, setData] = useState<Fixture | null>(null);
   const [lines, setLines] = useState<MenuBomLine[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [rules, setRules] = useState<ModifierRule[]>([]);
 
   useEffect(() => {
     fetch("/fixtures.local/menu-setup.json")
@@ -35,6 +38,7 @@ export default function MenuSetupDemo() {
         setData(d);
         setLines(d.lines);
         setMenus(d.menus);
+        setRules(d.rules);
       });
   }, []);
 
@@ -52,12 +56,18 @@ export default function MenuSetupDemo() {
           updateLine: async (id, patch) => (await wait(), setLines((p) => p.map((l) => (l.id === id ? { ...l, ...patch } : l))), true),
           deleteLine: async (id) => (await wait(), setLines((p) => p.filter((l) => l.id !== id)), true),
         }}
-        rules={data.rules}
+        rules={rules}
+        addRule={async (r) => {
+          await wait();
+          const rule = { ...r, id: crypto.randomUUID() };
+          setRules((p) => [...p, rule]);
+          return rule;
+        }}
         skus={data.skus}
         prices={data.prices}
         branches={data.branches}
         onNavigate={() => undefined}
-        demoExtras={{ overrides: data.overrides, soldByCode: data.soldByCode }}
+        demoExtras={{ overrides: data.overrides, soldByCode: data.soldByCode, bills: data.bills }}
       />
     </div>
   );

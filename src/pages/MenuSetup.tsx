@@ -11,6 +11,9 @@ import { useMenuSetupExtras, SALES_WINDOW_DAYS } from "@/hooks/use-menu-setup-ex
 import { useMenuCategories } from "@/hooks/use-menu-categories";
 import { summarizeMenu, describeRule, brandBranches, type CheckLevel, type CheckArea, type HealthCheck, type MenuSetupSummary } from "@/lib/menu-health";
 import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
+import { PosOptionsView } from "@/components/menu-setup/PosOptionsView";
+import { usePosOptionsData } from "@/hooks/use-pos-options-data";
+import type { Bill } from "@/lib/pos-options";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { SaveBar } from "@/components/form/SaveBar";
 import { FieldError } from "@/components/form/FieldError";
@@ -31,9 +34,12 @@ interface MenuSetupProps {
   branches: Branch[];
   readOnly?: boolean;
   onNavigate: (tab: TabKey) => void;
-  /** Dev harness only: use these instead of what the hook loads */
-  demoExtras?: { overrides: Record<string, Record<string, boolean>>; soldByCode: Record<string, Record<string, number>> };
+  addRule: (data: Omit<ModifierRule, "id">) => Promise<ModifierRule | null>;
+  /** Dev harness only: use these instead of what the hooks load */
+  demoExtras?: { overrides: Record<string, Record<string, boolean>>; soldByCode: Record<string, Record<string, number>>; bills: Bill[] };
 }
+
+const POS_HASH = "pos";
 
 type WorkTab = "health" | "recipe" | "branches" | "rules" | "info";
 type MenuFilter = "all" | "error" | "warn" | "inactive";
@@ -73,7 +79,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, demoExtras }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, demoExtras }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: async () => true } : loaded;
   const canEdit = !readOnly;
@@ -110,14 +116,69 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     return out;
   }, [menus, menuBom.lines, rules, skus, prices, branches, extras.overrides, extras.soldByCode]);
 
-  const selected = menus.find((m) => m.menuCode === code) ?? null;
+  // "#pos" opens the POS option catalog; any other hash is a menu code
+  const posView = code === POS_HASH;
+  const selected = posView ? null : menus.find((m) => m.menuCode === code) ?? null;
+  const pos = usePosOptionsData(posView && !demoExtras);
+  const [demoNoStock, setDemoNoStock] = useState<Set<string>>(new Set());
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-col gap-1", selected && "hidden lg:flex")}>
+  const viewTabs: { key: "menus" | "pos"; label: string }[] = [
+    { key: "menus", label: "เมนู" },
+    { key: "pos", label: "ตัวเลือก POS" },
+  ];
+  const header = (
+    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", selected && "hidden lg:flex")}>
+      <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
         <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎตัวเลือก POS · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
       </div>
+      <SegmentedTabs<"menus" | "pos">
+        tabs={viewTabs}
+        value={posView ? "pos" : "menus"}
+        onChange={(v) => {
+          window.location.hash = v === "pos" ? POS_HASH : "";
+        }}
+      />
+    </div>
+  );
+
+  if (posView)
+    return (
+      <div className="flex flex-col gap-4">
+        {header}
+        <PosOptionsView
+          bills={demoExtras ? demoExtras.bills : pos.bills}
+          noStock={demoExtras ? demoNoStock : pos.noStock}
+          setNoStockKeys={
+            demoExtras
+              ? async (keys, on) => {
+                  setDemoNoStock((prev) => {
+                    const next = new Set(prev);
+                    for (const k of keys) {
+                      if (on) next.add(k);
+                      else next.delete(k);
+                    }
+                    return next;
+                  });
+                  return true;
+                }
+              : pos.setNoStockKeys
+          }
+          menus={menus}
+          lines={menuBom.lines}
+          rules={rules}
+          skus={skus}
+          prices={prices}
+          branches={branches}
+          canEdit={canEdit}
+          addRule={addRule}
+        />
+      </div>
+    );
+
+  return (
+    <div className="flex flex-col gap-4">
+      {header}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className={cn("min-w-0", selected && "hidden lg:block")}>
