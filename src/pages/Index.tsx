@@ -42,6 +42,7 @@ const BranchesPage = lazy(() => import("@/pages/Branches"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
 const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
 const MenuBOMPage = lazy(() => import("@/pages/MenuBOM"));
+const MenuSetupPage = lazy(() => import("@/pages/MenuSetup"));
 const SpBomPage = lazy(() => import("@/pages/SpBom"));
 const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
 const SalesEntryPage = lazy(() => import("@/pages/SalesEntry"));
@@ -78,6 +79,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   branches: { title: "Branches", subtitle: "Manage your restaurant locations" },
   users: { title: "User Management", subtitle: "Team access and permissions" },
   store: { title: "Store Overview", subtitle: "Branch operations at a glance" },
+  "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎตัวเลือก ในที่เดียว" },
   "menu-master": { title: "Menu Master", subtitle: "Your menu catalog" },
   "menu-bom": { title: "Menu BOM", subtitle: "Ingredients behind every menu item" },
   "sp-bom": { title: "SP BOM", subtitle: "Special product recipes" },
@@ -601,6 +603,18 @@ const Index = () => {
                 ) : activeTab === "store" ? (
                   <StoreOverview
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    onNavigate={handleTabChange}
+                  />
+                ) : activeTab === "menu-setup" ? (
+                  <MenuSetupPage
+                    menus={menuData.menus}
+                    updateMenu={menuData.updateMenu}
+                    menuBom={menuBomData}
+                    rules={modifierRuleData.rules}
+                    skus={skus}
+                    prices={priceData.prices}
+                    branches={branchData.branches}
+                    readOnly={!isManagement}
                     onNavigate={handleTabChange}
                   />
                 ) : activeTab === "menu-master" ? (

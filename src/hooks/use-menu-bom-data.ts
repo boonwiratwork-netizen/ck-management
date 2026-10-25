@@ -43,8 +43,9 @@ export function useMenuBomData() {
       cost_per_serving: data.costPerServing,
       branch_id: data.branchId ?? null,
     }).select().single();
-    if (error) { toast.error('Failed to add ingredient: ' + error.message); return; }
+    if (error) { toast.error('เพิ่มวัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => [...prev, toLocal(row)]);
+    return true;
   }, []);
 
   const updateLine = useCallback(async (id: string, data: Partial<Omit<MenuBomLine, 'id'>>) => {
@@ -58,14 +59,16 @@ export function useMenuBomData() {
     if (data.branchId !== undefined) dbData.branch_id = data.branchId;
 
     const { error } = await supabase.from('menu_bom').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update ingredient: ' + error.message); return; }
+    if (error) { toast.error('แก้วัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+    return true;
   }, []);
 
   const deleteLine = useCallback(async (id: string) => {
     const { error } = await supabase.from('menu_bom').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete ingredient: ' + error.message); return; }
+    if (error) { toast.error('ลบวัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.filter(l => l.id !== id));
+    return true;
   }, []);
 
   return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine };

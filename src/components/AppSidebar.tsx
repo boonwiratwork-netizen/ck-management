@@ -37,6 +37,7 @@ import {
   ArrowRightLeft,
   LayoutGrid,
   ScanLine,
+  Layers,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -60,6 +61,7 @@ export type TabKey =
   | "branches"
   | "users"
   | "store"
+  | "menu-setup"
   | "menu-master"
   | "menu-bom"
   | "sp-bom"
@@ -92,6 +94,7 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   branches: "management",
   users: "management",
   store: "store",
+  "menu-setup": "store",
   "menu-master": "store",
   "menu-bom": "store",
   "sp-bom": "store",
@@ -183,6 +186,7 @@ const storeGroup: NavGroup = {
     { key: "store-stock", labelKey: "nav.storeStock", icon: LayoutGrid },
     { key: "food-cost", labelKey: "nav.foodCost", icon: PieChart },
     { subLabel: "Setup" },
+    { key: "menu-setup", labelKey: "nav.menuSetup", icon: Layers },
     { key: "menu-master", labelKey: "nav.menuMaster", icon: UtensilsCrossed },
     { key: "menu-bom", labelKey: "nav.menuBom", icon: BookOpen },
     { key: "sp-bom", labelKey: "nav.spBom", icon: Sparkles },
@@ -240,7 +244,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
       return [
         { key: "dashboard", label: "ภาพรวม", icon: LayoutDashboard },
         { key: "food-cost", label: "ต้นทุน", icon: PieChart },
-        { key: "menu-bom", label: "เมนู/สูตร", icon: BookOpen },
+        { key: "menu-setup", label: "ตั้งเมนู", icon: Layers },
         { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
       ];
   }

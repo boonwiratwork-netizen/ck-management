@@ -40,9 +40,9 @@ interface MenuBOMPageProps {
     lines: MenuBomLine[];
     loading: boolean;
     getLinesForMenu: (menuId: string) => MenuBomLine[];
-    addLine: (data: Omit<MenuBomLine, "id">) => Promise<void>;
-    updateLine: (id: string, data: Partial<Omit<MenuBomLine, "id">>) => Promise<void>;
-    deleteLine: (id: string) => Promise<void>;
+    addLine: (data: Omit<MenuBomLine, "id">) => Promise<boolean>;
+    updateLine: (id: string, data: Partial<Omit<MenuBomLine, "id">>) => Promise<boolean>;
+    deleteLine: (id: string) => Promise<boolean>;
   };
   menus: Menu[];
   skus: SKU[];
@@ -334,7 +334,7 @@ export default function MenuBOMPage({
     const costPerServing = calcCostPerServing(effectiveQty, formSkuId);
 
     if (editingLineId) {
-      await menuBomData.updateLine(editingLineId, {
+      const ok = await menuBomData.updateLine(editingLineId, {
         skuId: formSkuId,
         qtyPerServing: formQty,
         uom: formUom,
@@ -343,10 +343,11 @@ export default function MenuBOMPage({
         costPerServing,
         branchId: formBranchId,
       });
+      if (!ok) return;
       toast.success("Ingredient updated");
       setEditingLineId(null);
     } else {
-      await menuBomData.addLine({
+      const ok = await menuBomData.addLine({
         menuId: selectedMenuId,
         skuId: formSkuId,
         qtyPerServing: formQty,
@@ -356,6 +357,7 @@ export default function MenuBOMPage({
         costPerServing,
         branchId: null,
       });
+      if (!ok) return;
       toast.success("Ingredient added");
       // Auto-continue: reset form for next ingredient
       setFormSkuId("");
@@ -820,8 +822,7 @@ export default function MenuBOMPage({
         confirmLabel="Remove"
         onConfirm={async () => {
           if (deleteConfirm) {
-            await menuBomData.deleteLine(deleteConfirm.id);
-            toast.success("Ingredient removed");
+            if (await menuBomData.deleteLine(deleteConfirm.id)) toast.success("Ingredient removed");
             setDeleteConfirm(null);
           }
         }}

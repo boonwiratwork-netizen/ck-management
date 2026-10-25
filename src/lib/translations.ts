@@ -21,6 +21,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.stockCount": { th: "นับสต๊อก", en: "Stock Count" },
   "nav.storeOverview": { th: "ภาพรวมร้าน", en: "Store Overview" },
   "nav.menuMaster": { th: "รายการเมนู", en: "Menu Master" },
+  "nav.menuSetup": { th: "ตั้งค่าเมนู", en: "Menu Setup" },
   "nav.menuBom": { th: "BOM เมนู", en: "Menu BOM" },
   "nav.spBom": { th: "BOM SP", en: "SP BOM" },
   "nav.modifierRules": { th: "กฎพิเศษ", en: "Modifier Rules" },

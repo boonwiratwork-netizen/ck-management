@@ -12,6 +12,10 @@ import ResetPassword from "./pages/ResetPassword";
 import InitialSetup from "./pages/InitialSetup";
 import NotFound from "./pages/NotFound";
 import DesignSystem from "./pages/DesignSystem";
+import { lazy, Suspense } from "react";
+
+// Dev-only screen harness; the import is dropped from production builds
+const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuSetupDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -58,6 +62,7 @@ const App = () => (
               <Route path="/mobile" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
               <Route path="/:tab" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/design" element={<DesignSystem />} />
+              {MenuSetupDemo && <Route path="/dev/menu-setup" element={<Suspense fallback={null}><MenuSetupDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
