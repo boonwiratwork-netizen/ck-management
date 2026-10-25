@@ -97,8 +97,8 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
         })}
       </div>
 
-      <div data-tour="recv-other" className="flex flex-col gap-3">
-        <div className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รับจากที่อื่น</div>
+      <div className="flex flex-col gap-3">
+        <div data-tour="recv-other" className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รับจากที่อื่น</div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นซัพพลายเออร์…" className="h-11 pl-9" aria-label="ค้นซัพพลายเออร์" />

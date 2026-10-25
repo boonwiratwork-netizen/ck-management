@@ -149,8 +149,8 @@ export function SalesDay({
       )}
 
       <div className="flex flex-col gap-2">
-        {bills.map(([bill, items]) => (
-          <section key={bill} className="overflow-hidden rounded-2xl border border-border bg-card">
+        {bills.map(([bill, items], bi) => (
+          <section key={bill} data-tour={bi === 0 ? "saved" : undefined} className="overflow-hidden rounded-2xl border border-border bg-card">
             <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2 text-sm">
               <span className="font-mono font-semibold">{bill || "—"}</span>
               <span className="text-muted-foreground">· {items[0].channel || "—"}</span>

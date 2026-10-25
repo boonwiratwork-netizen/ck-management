@@ -69,13 +69,19 @@ export function GuideTour({ steps, open, onClose }: { steps: GuideStep[]; open: 
   const step = shown[i];
   const measure = useCallback(() => {
     const el = find(step?.target);
-    setRect(visible(el) ? el.getBoundingClientRect() : null);
+    if (!visible(el)) return setRect(null);
+    // Keep the ring on screen (a long list would otherwise ring off the edges)
+    const r = el.getBoundingClientRect();
+    const top = Math.max(8, r.top);
+    const bottom = Math.min(window.innerHeight - 8, r.bottom);
+    setRect(new DOMRect(r.left, top, r.width, Math.max(0, bottom - top)));
   }, [step]);
 
   useLayoutEffect(() => {
     if (!open || !step) return;
     const el = find(step.target);
-    if (visible(el)) el.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
+    // A part taller than most of the screen is shown from its top, not its middle
+    if (visible(el)) el.scrollIntoView({ block: el.getBoundingClientRect().height > window.innerHeight * 0.6 ? "start" : "center", behavior: "instant" as ScrollBehavior });
     measure();
     cardRef.current?.focus();
   }, [open, step, measure]);

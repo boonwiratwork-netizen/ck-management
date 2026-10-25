@@ -345,7 +345,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
             <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />
           )}
         </div>
-        <div data-tour="saved" className={cn("min-w-0", !workOpen && "hidden lg:block")}>
+        <div className={cn("min-w-0", !workOpen && "hidden lg:block")}>
           {workOpen && (
             <button type="button" onClick={() => go("")} className={cn("-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground", view !== "history" && "lg:hidden")}>
               <ArrowLeft className="h-4 w-4" /> ยอดขาย
