@@ -94,7 +94,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "branch-receipt": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
   "branch-receipt-mobile": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
   "transfer-request": { title: "ขอเบิก", subtitle: "ขอของจากครัวกลาง" },
-  "daily-stock-count": { title: "Daily Stock Count", subtitle: "Daily branch inventory check" },
+  "daily-stock-count": { title: "นับสต๊อก", subtitle: "นับของหน้าร้านทุกวัน" },
   "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
   "food-cost": { title: "Food Cost", subtitle: "Analyze your cost vs revenue" },
   "sku-categories": { title: "SKU Categories", subtitle: "Manage ingredient categories" },
