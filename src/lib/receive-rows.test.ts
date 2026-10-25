@@ -110,4 +110,8 @@ describe("transfer order status", () => {
   it("one line in full, the other none → partial, not still waiting (old bug)", () =>
     expect(transferOrderStatusAfter(lines, new Map([["a", 4]]))).toBe("Partially Received"));
   it("nothing received", () => expect(transferOrderStatusAfter(lines, new Map())).toBe("Sent"));
+  it("compares with what the kitchen sent, not what was asked", () =>
+    expect(transferOrderStatusAfter([{ id: "a", plannedQty: 2000, actualQty: 1000 }], new Map([["a", 1000]]))).toBe("Received"));
+  it("weighing up to 10% under still counts as received", () =>
+    expect(transferOrderStatusAfter([{ id: "a", plannedQty: 1750, actualQty: 1880 }], new Map([["a", 1750]]))).toBe("Received"));
 });

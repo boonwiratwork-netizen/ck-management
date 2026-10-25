@@ -1,4 +1,5 @@
 import type { SKU } from "@/types/sku";
+import { isShort } from "@/lib/transfer-lines";
 import type { Price } from "@/types/price";
 import type { BranchReceipt } from "@/hooks/use-branch-receipt-data";
 
@@ -158,19 +159,25 @@ export function branchTransferRow(
 }
 
 /**
- * Transfer order status after receiving, compared with each line's PLANNED qty:
- * every line at or above → Received; anything received but not all → Partially
- * Received; nothing received → stays Sent. (The old page only counted a SHORT line
- * with something received as partial, so "line A in full, line B none" stayed
- * Sent — still waiting — and could be received a second time, doubling stock.)
+ * Transfer order status after receiving, compared with what the kitchen actually
+ * SENT on each line (actual qty, else planned): every line within 10% of it →
+ * Received; anything received but not all → Partially Received; nothing received
+ * → stays Sent. (It used to compare with what the branch ASKED for, so a line the
+ * kitchen sent short, or a few grams of weighing, marked the whole order partial.
+ * And the page before that counted only a SHORT line with something received as
+ * partial, so "line A in full, line B none" stayed Sent and could be received twice.)
  */
-export function transferOrderStatusAfter(lines: { id: string; plannedQty: number }[], receivedByLine: Map<string, number>): "Received" | "Partially Received" | "Sent" {
+export function transferOrderStatusAfter(
+  lines: { id: string; plannedQty: number; actualQty?: number }[],
+  receivedByLine: Map<string, number>,
+): "Received" | "Partially Received" | "Sent" {
   let allReceived = true;
   let anyReceived = false;
   for (const line of lines) {
     const received = receivedByLine.get(line.id) || 0;
     if (received > 0) anyReceived = true;
-    if (received < line.plannedQty) allReceived = false;
+    const sent = (line.actualQty ?? 0) > 0 ? line.actualQty! : line.plannedQty;
+    if (isShort(received, sent)) allReceived = false;
   }
-  return allReceived ? "Received" : anyReceived ? "Partially Received" : "Sent";
+  return allReceived && anyReceived ? "Received" : anyReceived ? "Partially Received" : "Sent";
 }

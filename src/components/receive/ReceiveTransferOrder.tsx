@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, PencilLine } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { PendingTO } from "@/hooks/use-receive-data";
+import { isShort } from "@/lib/transfer-lines";
 import { isPacksMode, packsFromQty, qtyFromPacks, transferOrderRow, transferOrderStatusAfter, type ReceiptRow } from "@/lib/receive-rows";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
     for (const l of to.lines) {
       const s = lines[l.id];
       if (!s.checked) unchecked++;
-      else if (s.qty >= sentQty(l)) full++;
+      else if (!isShort(s.qty, sentQty(l))) full++;
       else short++;
     }
     return { full, short, unchecked };
@@ -105,16 +106,16 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
           const sku = skuMap.get(l.skuId);
           const s = lines[l.id];
           const sent = sentQty(l);
-          const isShort = s.checked && s.qty < sent;
-          const showStepper = s.editing || isShort;
+          const lessThanSent = s.checked && s.qty < sent;
+          const showStepper = s.editing || lessThanSent;
           return (
-            <li key={l.id} className={cn("flex items-start gap-3 rounded-2xl border bg-card p-3 shadow-card", isShort ? "border-warning/50" : "border-border")}>
+            <li key={l.id} className={cn("flex items-start gap-3 rounded-2xl border bg-card p-3 shadow-card", lessThanSent ? "border-warning/50" : "border-border")}>
               <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
                 <div className="text-[15px] font-semibold leading-snug">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</div>
-                <div className={cn("text-sm", isShort ? "text-warning" : "text-muted-foreground")}>
+                <div className={cn("text-sm", lessThanSent ? "text-warning" : "text-muted-foreground")}>
                   ส่งมา {packLabel(sku, sent)}
-                  {isShort && ` · ได้จริง ${packLabel(sku, s.qty)}`}
-                  {!isShort && packHint(sku) && ` · ${packHint(sku)}`}
+                  {lessThanSent && ` · ได้จริง ${packLabel(sku, s.qty)}`}
+                  {!lessThanSent && packHint(sku) && ` · ${packHint(sku)}`}
                 </div>
                 {showStepper && (
                   <div className="mt-auto pt-1">

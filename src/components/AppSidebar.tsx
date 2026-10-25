@@ -271,9 +271,9 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const [pendingTRCount, setPendingTRCount] = useState(0);
 
   // Fetch pending TR count for badge. Mirrors the pending-TR box's TO-linkage rule
-  // (use-transfer-order.ts fetchPendingTRs): a TR counts as pending only when it has NO
-  // active (non-cancelled) TO — derived from the TO table, not the fragile TR.status flag —
-  // so the badge and the box never diverge.
+  // (use-transfer-order.ts fetchPendingTRs): a TR counts as pending until it has a SENT
+  // (or received) TO — an unsent draft still counts — derived from the TO table, not the
+  // fragile TR.status flag, so the badge and the queue never diverge.
   useEffect(() => {
     if (!isManagement && !isCkManager) return;
     const fetchCount = async () => {
@@ -290,7 +290,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         .from("transfer_orders")
         .select("tr_id")
         .in("tr_id", candidateIds)
-        .neq("status", "Cancelled");
+        .not("status", "in", "(Cancelled,Draft)");
       const covered = new Set((activeTOs || []).map((t) => t.tr_id).filter(Boolean));
       setPendingTRCount(candidateIds.filter((id) => !covered.has(id)).length);
     };

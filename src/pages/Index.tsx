@@ -36,7 +36,7 @@ const SMStockPage = lazy(() => import("@/pages/SMStock"));
 const PKStockPage = lazy(() => import("@/pages/PKStock"));
 const StockCountPage = lazy(() => import("@/pages/StockCount"));
 const DeliveryToBranchesPage = lazy(() => import("@/pages/DeliveryToBranches"));
-const TransferOrderPage = lazy(() => import("@/pages/TransferOrder"));
+const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
 const BranchesPage = lazy(() => import("@/pages/Branches"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
 const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
@@ -81,7 +81,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   smstock: { title: "SM Stock", subtitle: "Semi-finished goods inventory" },
   stockcount: { title: "Stock Count", subtitle: "Verify your physical inventory" },
   delivery: { title: "Delivery to Branches", subtitle: "Track what leaves the kitchen" },
-  "transfer-order": { title: "Transfer Order", subtitle: "Create and send SM deliveries to branches" },
+  "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
   branches: { title: "Branches", subtitle: "Manage your restaurant locations" },
   users: { title: "User Management", subtitle: "Team access and permissions" },
   store: { title: "Store Overview", subtitle: "Branch operations at a glance" },
