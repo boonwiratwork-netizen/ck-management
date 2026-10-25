@@ -3,6 +3,7 @@ import type { SKU } from "@/types/sku";
 import type { StockCountLine, StockCountSession } from "@/types/stock-count";
 import type { useStockCountData } from "@/hooks/use-stock-count-data";
 import KitchenCountPage from "@/pages/KitchenCount";
+import { countDayEvents } from "@/lib/count-anchor";
 
 /** Dev-only harness: the kitchen count screens on made-up figures (nothing is written). */
 const sku = (id: string, name: string, type: string, storage: string, uom = "ก."): SKU => ({ id, skuId: id, name, type, status: "Active", storageCondition: storage, usageUom: uom, isDistributable: type !== "SM" }) as unknown as SKU;
@@ -22,6 +23,9 @@ const PRICE: Record<string, number> = { "SM-0006": 0.7, "RM-0200": 0.1, "PK-0001
 export default function KitchenCountDemo() {
   const [sessions, setSessions] = useState<StockCountSession[]>([{ id: "old", date: "2026-09-30", note: "", status: "Completed", createdAt: "2026-09-30T08:00:00Z", completedAt: "2026-09-30T08:40:00Z" }]);
   const [lines, setLines] = useState<StockCountLine[]>(SKUS.map((s) => ({ id: `old-${s.id}`, sessionId: "old", skuId: s.id, type: s.type as "SM", systemQty: SYS[s.id], physicalQty: SYS[s.id] * 0.95, variance: -SYS[s.id] * 0.05, note: "" })));
+  const [saved, setSaved] = useState<string | null>(null);
+  // ?quiet = a count day with nothing moving (no question); read once, the page drops the query
+  const [quiet] = useState(() => new URLSearchParams(window.location.search).has("quiet"));
   const data = {
     sessions,
     lines,
@@ -33,7 +37,11 @@ export default function KitchenCountDemo() {
     },
     updateLine: async (id: string, v: number | null, note?: string) =>
       setLines((p) => p.map((l) => (l.id === id ? { ...l, physicalQty: v, variance: v === null ? 0 : v - l.systemQty, note: note ?? l.note } : l))),
-    confirmSession: async (id: string) => setSessions((p) => p.map((s) => (s.id === id ? { ...s, status: "Completed" } : s))),
+    confirmSession: async (id: string, timing?: string) => {
+      setSessions((p) => p.map((s) => (s.id === id ? { ...s, status: "Completed" } : s)));
+      setSaved(timing ?? "(ไม่ส่ง)");
+      return true;
+    },
     softDeleteSession: async (id: string) => setSessions((p) => p.filter((s) => s.id !== id)),
     getLinesForSession: (id: string) => lines.filter((l) => l.sessionId === id),
     refreshSystemQty: async () => true,
@@ -41,7 +49,25 @@ export default function KitchenCountDemo() {
   return (
     <div className="min-h-screen bg-background">
       <div className="page-shell">
-        <KitchenCountPage skus={SKUS} stockCountData={data} getStdUnitPrice={(id) => PRICE[id] ?? 0.2} bomHeaders={[]} bomLines={[]} canEdit />
+        {saved && <div data-demo-saved className="mb-2 rounded-lg bg-secondary px-3 py-2 text-sm">demo: count_timing = {saved}</div>}
+        <KitchenCountPage
+          skus={SKUS}
+          stockCountData={data}
+          getStdUnitPrice={(id) => PRICE[id] ?? 0.2}
+          bomHeaders={[]}
+          bomLines={[]}
+          canEdit
+          loadDayEvents={async (date) =>
+            quiet
+              ? []
+              : countDayEvents({
+                  receipts: Array.from({ length: 12 }, (_, i) => ({ supplier: "Freshket", createdAt: `${date}T02:10:${String(i).padStart(2, "0")}Z` })),
+                  deliveries: [{ branch: "Shiro สีลม", lines: 11, sentAt: `${date}T02:30:00Z` }],
+                  production: [{ name: "ซุปโชยุ", grams: 30000, createdAt: `${date}T07:20:00Z` }],
+                  adjustments: [],
+                })
+          }
+        />
       </div>
     </div>
   );

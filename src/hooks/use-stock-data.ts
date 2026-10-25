@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { afterCount, type CountAnchor } from "@/lib/count-anchor";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { StockBalance, StockAdjustment } from "@/types/stock";
 import { GoodsReceipt } from "@/types/goods-receipt";
@@ -10,7 +11,7 @@ import { toast } from "sonner";
 export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Price[], enabled = true) {
   const [openingStocks, setOpeningStocksState] = useState<Record<string, number>>({});
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
-  const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number; count_date: string }>>({});
+  const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number } & CountAnchor>>({});
 
   // Load opening balances, adjustments, and stock count anchors
   useEffect(() => {
@@ -28,36 +29,43 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
           setOpeningStocksState(map);
         }
       });
-    supabase
-      .from("stock_adjustments")
-      .select("*")
-      .eq("stock_type", "RM")
-      .is("branch_id", null)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data)
-          setAdjustments(
-            data.map((r: any) => ({
-              id: r.id,
-              skuId: r.sku_id,
-              date: r.adjustment_date,
-              quantity: r.quantity,
-              reason: r.reason,
-            })),
-          );
-      });
+    // Paged: production and transfers write several rows a day (well past 1,000)
+    fetchAllRows<any>((f, t) =>
+      supabase
+        .from("stock_adjustments")
+        .select("*")
+        .eq("stock_type", "RM")
+        .is("branch_id", null)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(f, t),
+    ).then(({ data, error }) => {
+      if (!error)
+        setAdjustments(
+          data.map((r: any) => ({
+            id: r.id,
+            skuId: r.sku_id,
+            date: r.adjustment_date,
+            quantity: r.quantity,
+            reason: r.reason,
+            createdAt: r.created_at,
+          })),
+        );
+    });
 
     // Fetch latest physical count anchor per RM SKU
     (async () => {
       const { data: sessions } = await supabase
         .from("stock_count_sessions")
-        .select("id, count_date")
+        .select("id, count_date, completed_at, count_timing")
         .eq("status", "Completed")
         .is("deleted_at", null);
       if (!sessions || sessions.length === 0) return;
       const sessionDateById: Record<string, string> = {};
+      const sessionById: Record<string, any> = {};
       sessions.forEach((s: any) => {
         sessionDateById[s.id] = s.count_date;
+        sessionById[s.id] = s;
       });
       // Paged: counted lines pass 1,000 rows (one monthly count adds ~120), and an
       // unordered capped read could miss the latest count
@@ -73,13 +81,14 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
       );
       // A partly read set could fall back to an older count: keep what we had
       if (!lines || linesErr) return;
-      const map: Record<string, { physical_qty: number; count_date: string }> = {};
+      const map: Record<string, { physical_qty: number } & CountAnchor> = {};
       lines.forEach((l: any) => {
         const date = sessionDateById[l.session_id];
         if (!date) return;
         const existing = map[l.sku_id];
         if (!existing || date > existing.count_date) {
-          map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date };
+          const ss = sessionById[l.session_id];
+          map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date, completed_at: ss.completed_at, timing: ss.count_timing ?? null };
         }
       });
       setAnchorMap(map);
@@ -100,10 +109,10 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
 
       if (anchor) {
         totalReceived = receipts
-          .filter((r) => r.skuId === sku.id && r.receiptDate > anchor.count_date)
+          .filter((r) => r.skuId === sku.id && afterCount(anchor, r.receiptDate, r.createdAt))
           .reduce((sum, r) => sum + r.quantityReceived * (sku.converter ?? 1), 0);
         netAdjustment = skuAdjustments
-          .filter((a) => a.date > anchor.count_date && !(a.reason ?? "").startsWith("Stock Count"))
+          .filter((a) => afterCount(anchor, a.date, a.createdAt) && !(a.reason ?? "").startsWith("Stock Count"))
           .reduce((sum, a) => sum + a.quantity, 0);
         currentStock = anchor.physical_qty + totalReceived + netAdjustment;
       } else {
@@ -154,7 +163,7 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
       return;
     }
     setAdjustments((prev) => [
-      { id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason },
+      { id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason, createdAt: row.created_at },
       ...prev,
     ]);
   }, []);

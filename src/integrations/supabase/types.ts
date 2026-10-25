@@ -1523,6 +1523,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           count_date: string
+          count_timing: string | null
           created_at: string
           deleted_at: string | null
           id: string
@@ -1532,6 +1533,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           count_date?: string
+          count_timing?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -1541,6 +1543,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           count_date?: string
+          count_timing?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -1750,6 +1753,7 @@ export type Database = {
           delivery_date: string
           id: string
           notes: string
+          sent_at: string | null
           status: string
           to_number: string
           total_value: number
@@ -1764,6 +1768,7 @@ export type Database = {
           delivery_date?: string
           id?: string
           notes?: string
+          sent_at?: string | null
           status?: string
           to_number: string
           total_value?: number
@@ -1778,6 +1783,7 @@ export type Database = {
           delivery_date?: string
           id?: string
           notes?: string
+          sent_at?: string | null
           status?: string
           to_number?: string
           total_value?: number

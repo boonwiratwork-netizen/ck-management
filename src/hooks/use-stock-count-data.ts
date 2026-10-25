@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
+import type { CountTiming } from "@/lib/count-anchor";
 
 const toSession = (r: any): StockCountSession => ({
   id: r.id,
@@ -189,7 +190,7 @@ export function useStockCountData({
   );
 
   const confirmSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, timing?: CountTiming | null) => {
       const session = sessions.find((s) => s.id === sessionId);
       if (!session || session.status === "Completed") return;
 
@@ -199,6 +200,8 @@ export function useStockCountData({
         .update({
           status: "Completed",
           completed_at: new Date().toISOString(),
+          // Whether the count day's movements were already in the count (count-anchor.ts)
+          ...(timing ? { count_timing: timing } : {}),
         })
         .eq("id", sessionId)
         .eq("status", "Draft")

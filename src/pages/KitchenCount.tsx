@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { endOfMonth, format, subMonths } from "date-fns";
 import { HelpCircle } from "lucide-react";
@@ -8,6 +8,8 @@ import type { useStockCountData } from "@/hooks/use-stock-count-data";
 import { countSheetHtml, type SheetGroup } from "@/lib/count-sheet";
 import { CountHome, CountReview, CountSheet, TYPES, isBigDiff, type CountType, type SessionSummary } from "@/components/kitchen-count/CountViews";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
+import { loadCountDayEvents } from "@/lib/count-day-moves";
+import type { CountDayEvent, CountTiming } from "@/lib/count-anchor";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { thaiDay } from "@/components/sales/SalesDays";
@@ -37,6 +39,8 @@ interface Props {
   bomLines: BOMLine[];
   /** Management or CK manager (as before: count, confirm and delete) */
   canEdit: boolean;
+  /** Dev demo only: stands in for reading the count day's movements */
+  loadDayEvents?: typeof loadCountDayEvents;
 }
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
@@ -56,7 +60,7 @@ function dueDateFor(done: string[]): string {
  * The central kitchen's stock count (replaces StockCount): monthly, by SM / RM /
  * PK, from a printed A4 sheet. Hash: "" home, "c/<date>" counting, "r/<date>" review.
  */
-export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, canEdit }: Props) {
+export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, canEdit, loadDayEvents = loadCountDayEvents }: Props) {
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession, refreshSystemQty } = stockCountData;
   const location = useLocation();
   const navigate = useNavigate();
@@ -136,6 +140,26 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [refreshed, setRefreshed] = useState<Set<string>>(new Set());
 
+  // The count day's movements, read when the review opens (asked about before finishing)
+  const reviewing = !!session && view.startsWith("r/") && session.status === "Draft";
+  const [dayEvents, setDayEvents] = useState<{ date: string; events: CountDayEvent[] } | null>(null);
+  const [timing, setTiming] = useState<CountTiming | null>(null);
+  useEffect(() => {
+    if (!reviewing || !session) return;
+    let cancelled = false;
+    setDayEvents(null);
+    setTiming(null);
+    loadDayEvents(session.date, skuOf).then((events) => {
+      // A failed read doesn't hold the count up: it finishes as before (no question)
+      if (!cancelled) setDayEvents({ date: session.date, events: events ?? [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing, session?.date]);
+  const events = dayEvents && session && dayEvents.date === session.date ? dayEvents.events : undefined;
+
   let work: React.ReactNode;
   if (openDate && !session) work = <Empty text="ไม่พบใบนับของวันนี้" onBack={() => go("", true)} />;
   else if (session && view.startsWith("r/") && canEdit && session.status === "Draft")
@@ -146,12 +170,17 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         skuOf={skuOf}
         priceOf={getStdUnitPrice}
         busy={busy}
+        events={events}
+        timing={timing}
+        onTiming={setTiming}
         onBack={() => go(`c/${session.date}`, true)}
         onFix={() => go(`c/${session.date}`, true)}
         onConfirm={async () => {
-          if (busy) return;
+          if (busy || events === undefined || (events.length > 0 && !timing)) return;
           setBusy(true);
-          const ok = await confirmSession(session.id);
+          // Nothing moved on the count day (or the list couldn't be read): "after" — what's
+          // entered from now on is added, nothing before it
+          const ok = await confirmSession(session.id, events.length ? timing : "after");
           setBusy(false);
           if (!ok) return;
           toast.success("นับเสร็จแล้ว สต๊อกในระบบเปลี่ยนตามที่นับ");

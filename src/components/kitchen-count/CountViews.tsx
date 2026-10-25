@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import type { CountDayEvent, CountTiming } from "@/lib/count-anchor";
 
 export type CountType = "SM" | "RM" | "PK";
 export const TYPES: CountType[] = ["SM", "RM", "PK"];
@@ -433,6 +434,9 @@ export function CountReview({
   skuOf,
   priceOf,
   busy,
+  events,
+  timing,
+  onTiming,
   onBack,
   onFix,
   onConfirm,
@@ -442,10 +446,15 @@ export function CountReview({
   skuOf: (id: string) => SKU | undefined;
   priceOf: (skuId: string) => number;
   busy: boolean;
+  /** The count day's movements (undefined while loading) */
+  events: CountDayEvent[] | undefined;
+  timing: CountTiming | null;
+  onTiming: (t: CountTiming) => void;
   onBack: () => void;
   onFix: () => void;
   onConfirm: () => void;
 }) {
+  const mustAsk = !!events?.length;
   const counted = lines.filter((l) => l.physicalQty !== null);
   const value = counted.reduce((s, l) => s + l.variance * priceOf(l.skuId), 0);
   const big = lines.filter(isBigDiff).sort((a, b) => Math.abs(b.variance * priceOf(b.skuId)) - Math.abs(a.variance * priceOf(a.skuId)));
@@ -458,6 +467,7 @@ export function CountReview({
         </button>
         <h2 className="text-xl font-bold">ตรวจก่อนนับเสร็จ · {thaiDay(session.date)}</h2>
       </div>
+      {mustAsk && <CountTimingAsk date={session.date} events={events!} timing={timing} onTiming={onTiming} />}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-3 shadow-card">
           <div className="text-[13px] text-muted-foreground">นับแล้ว</div>
@@ -522,12 +532,81 @@ export function CountReview({
       )}
       <div data-tour="kc-confirm" className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-2 md:bottom-4">
         <div className="flex items-center gap-3 rounded-2xl bg-primary py-3 pl-4 pr-3 text-primary-foreground shadow-raised">
-          <div className="min-w-0 flex-1 truncate text-[15px] font-semibold">นับเสร็จแล้ว สต๊อกในระบบจะเปลี่ยนตามที่นับ</div>
-          <Button variant="brand" className="h-12 min-w-[120px] text-base" loading={busy} onClick={onConfirm}>
+          <div className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+            {events === undefined ? "กำลังดูของเข้า-ออกวันนับ…" : mustAsk && !timing ? "เลือกก่อนว่านับก่อนหรือหลังรายการด้านบน" : "นับเสร็จแล้ว สต๊อกในระบบจะเปลี่ยนตามที่นับ"}
+          </div>
+          <Button
+            variant="brand"
+            className="h-12 min-w-[120px] text-base"
+            loading={busy}
+            disabled={events === undefined || (mustAsk && !timing)}
+            onClick={onConfirm}
+          >
             นับเสร็จ
           </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+const hhmm = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+/** "Were these in the fridge when you counted?" — one row per movement of the count day, then two answers */
+function CountTimingAsk({ date, events, timing, onTiming }: { date: string; events: CountDayEvent[]; timing: CountTiming | null; onTiming: (t: CountTiming) => void }) {
+  const day = date === toLocalDateStr(new Date()) ? "วันนี้" : "วันนับ";
+  const options: { key: CountTiming; title: string; body: string; result: string }[] = [
+    {
+      key: "after",
+      title: "นับหลังรายการพวกนี้",
+      body: "ของที่รับ / ผลิต อยู่ในตู้แล้วตอนนับ · ของที่ส่งออกไปแล้วก่อนนับ",
+      result: "ผล: ยอดที่นับ = สต๊อก ไม่บวก ไม่หักเพิ่ม",
+    },
+    {
+      key: "before",
+      title: "นับก่อนรายการพวกนี้",
+      body: "ตอนนับยังไม่ได้รับ ยังไม่ได้ผลิต ยังไม่ได้ส่ง",
+      result: "ผล: ยอดที่นับ + ของเข้า − ของออก ตามรายการด้านบน",
+    },
+  ];
+  return (
+    <section data-tour="kc-timing" className="rounded-2xl border border-border border-l-4 border-l-brand bg-card p-3 shadow-card">
+      <h3 className="text-[15px] font-bold">
+        {day} มีของเข้า-ออก {events.length} รายการ · ตอนนับ ของพวกนี้อยู่ในตู้หรือยัง?
+      </h3>
+      <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
+        {events.map((e, i) => (
+          <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+            <span className="w-12 font-mono text-muted-foreground">{hhmm(e.at)}</span>
+            <span className={cn("w-4 text-center font-mono font-bold", e.sign === "+" ? "text-success" : "text-destructive")}>{e.sign}</span>
+            <span className="min-w-0 flex-1">{e.text}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onTiming(o.key)}
+            aria-pressed={timing === o.key}
+            className={cn(
+              "min-h-[44px] rounded-xl border p-3 text-left transition-colors",
+              timing === o.key ? "border-brand bg-brand/5 ring-1 ring-brand" : "border-border bg-card hover:bg-secondary",
+            )}
+          >
+            <div className="text-[15px] font-bold">{o.title}</div>
+            <div className="mt-0.5 text-[13px] text-muted-foreground">{o.body}</div>
+            <div className="mt-1 text-[13px] font-semibold">{o.result}</div>
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-[12px] text-muted-foreground">
+        บางอย่างก่อน บางอย่างหลัง · เลือกแบบที่ตรงกับส่วนใหญ่ แล้วแก้ที่เหลือด้วยการปรับยอดในหน้าสต๊อก · ของที่บันทึกหลังกด “นับเสร็จ” ระบบบวก/หักให้เสมอ
+      </p>
+    </section>
   );
 }

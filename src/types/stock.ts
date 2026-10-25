@@ -13,4 +13,6 @@ export interface StockAdjustment {
   date: string;               // ISO date
   quantity: number;           // positive = add, negative = subtract
   reason: string;
+  /** When it was entered (a count-day movement entered after the count is added) */
+  createdAt?: string;
 }

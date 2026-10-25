@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SKU } from "@/types/sku";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { afterCount, producedAfterCount, type CountAnchor } from "@/lib/count-anchor";
 
 /**
  * The kitchen's current stock per SKU (SM / RM / PK), moved here unchanged from the
@@ -24,7 +25,7 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
   const { data: sessions } = await fetchAllRows<any>((f, t) =>
     supabase
       .from("stock_count_sessions")
-      .select("id, count_date, completed_at")
+      .select("id, count_date, completed_at, count_timing")
       .eq("status", "Completed")
       .is("deleted_at", null)
       .order("id")
@@ -32,10 +33,10 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
   );
   const sessionIds = (sessions || []).map((s: any) => s.id);
   const sessionDateMap: Record<string, string> = {};
-  const sessionCompletedAtMap: Record<string, string> = {};
+  const sessionAnchorMap: Record<string, CountAnchor> = {};
   for (const s of sessions || []) {
     sessionDateMap[s.id] = s.count_date;
-    sessionCompletedAtMap[s.id] = s.completed_at ?? s.count_date;
+    sessionAnchorMap[s.id] = { count_date: s.count_date, completed_at: s.completed_at, timing: s.count_timing };
   }
 
   // ── SM ──
@@ -58,7 +59,7 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
       });
     }
 
-    const anchorMap: Record<string, { physical_qty: number; count_date: string; completed_at: string }> = {};
+    const anchorMap: Record<string, { physical_qty: number } & CountAnchor> = {};
     if (sessionIds.length > 0) {
       const { data: lines } = await fetchAllRows<any>((f, t) =>
         supabase
@@ -76,11 +77,7 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
         if (!countDate) continue;
         const existing = anchorMap[row.sku_id];
         if (!existing || countDate > existing.count_date) {
-          anchorMap[row.sku_id] = {
-            physical_qty: row.physical_qty,
-            count_date: countDate,
-            completed_at: sessionCompletedAtMap[row.session_id] ?? countDate,
-          };
+          anchorMap[row.sku_id] = { physical_qty: row.physical_qty, ...sessionAnchorMap[row.session_id] };
         }
       }
     }
@@ -96,7 +93,7 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
     const { data: toRows } = await fetchAllRows<any>((f, t) =>
       supabase
         .from("transfer_orders")
-        .select("id, status, delivery_date")
+        .select("id, status, delivery_date, sent_at")
         .in("status", ["Sent", "Received", "Partially Received"])
         .order("id")
         .range(f, t),
@@ -104,22 +101,24 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
     const validToIds = new Set((toRows || []).map((t: any) => t.id));
     const toStatusMap: Record<string, string> = {};
     const toDateMap: Record<string, string> = {};
+    const toSentAtMap: Record<string, string> = {};
     for (const t of toRows || []) {
       toStatusMap[t.id] = t.status;
       toDateMap[t.id] = t.delivery_date;
+      toSentAtMap[t.id] = t.sent_at;
     }
-    const deliveredBySku: Record<string, { qty: number; date: string }[]> = {};
+    const deliveredBySku: Record<string, { qty: number; date: string; sentAt?: string }[]> = {};
     for (const l of toLineRows || []) {
       if (!validToIds.has(l.to_id)) continue;
       const qty = l.actual_qty > 0 ? l.actual_qty : toStatusMap[l.to_id] === "Sent" ? l.planned_qty : 0;
       if (!deliveredBySku[l.sku_id]) deliveredBySku[l.sku_id] = [];
-      deliveredBySku[l.sku_id].push({ qty, date: toDateMap[l.to_id] });
+      deliveredBySku[l.sku_id].push({ qty, date: toDateMap[l.to_id], sentAt: toSentAtMap[l.to_id] });
     }
 
     const { data: adjRows } = await fetchAllRows<any>((f, t) =>
       supabase
         .from("stock_adjustments")
-        .select("sku_id, quantity, adjustment_date, reason")
+        .select("sku_id, quantity, adjustment_date, reason, created_at")
         .eq("stock_type", "SM")
         .is("branch_id", null)
         .in("sku_id", smSkuIds)
@@ -139,15 +138,15 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
       const produced = bySkuRecords[skuId] || [];
       if (anchor) {
         const producedAfter = produced
-          .filter((r) => (r.createdAt ?? r.productionDate) > anchor.completed_at)
+          .filter((r) => producedAfterCount(anchor, r.productionDate, r.createdAt))
           .reduce((sum, r) => sum + r.actualOutputG, 0);
         const deliveredAfter = (deliveredBySku[skuId] || [])
-          .filter((d) => d.date > anchor.count_date)
+          .filter((d) => afterCount(anchor, d.date, d.sentAt))
           .reduce((sum, d) => sum + d.qty, 0);
         const adjustmentsAfter = (adjRows || [])
           .filter(
             (a: any) =>
-              a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
+              a.sku_id === skuId && afterCount(anchor, a.adjustment_date, a.created_at) && !a.reason.includes("Stock Count"),
           )
           .reduce((sum, a: any) => sum + a.quantity, 0);
         currentStockMap[skuId] = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
@@ -176,23 +175,20 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
         .order("id")
         .range(f, t),
     );
-    const rmPkAnchorMap: Record<string, { physical_qty: number; count_date: string }> = {};
+    const rmPkAnchorMap: Record<string, { physical_qty: number } & CountAnchor> = {};
     for (const row of rmPkAnchorLines || []) {
       const countDate = sessionDateMap[row.session_id];
       if (!countDate) continue;
       const existing = rmPkAnchorMap[row.sku_id];
       if (!existing || countDate > existing.count_date) {
-        rmPkAnchorMap[row.sku_id] = {
-          physical_qty: row.physical_qty,
-          count_date: countDate,
-        };
+        rmPkAnchorMap[row.sku_id] = { physical_qty: row.physical_qty, ...sessionAnchorMap[row.session_id] };
       }
     }
 
     const { data: receiptRows } = await fetchAllRows<any>((f, t) =>
       supabase
         .from("goods_receipts")
-        .select("sku_id, quantity_received, receipt_date")
+        .select("sku_id, quantity_received, receipt_date, created_at")
         .in("sku_id", rmPkSkuIds)
         .order("id")
         .range(f, t),
@@ -201,7 +197,7 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
     const { data: rmPkAdjRows } = await fetchAllRows<any>((f, t) =>
       supabase
         .from("stock_adjustments")
-        .select("sku_id, quantity, adjustment_date, reason, stock_type")
+        .select("sku_id, quantity, adjustment_date, reason, stock_type, created_at")
         .in("stock_type", ["RM", "PK"])
         .is("branch_id", null)
         .in("sku_id", rmPkSkuIds)
@@ -221,12 +217,12 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
       const anchor = rmPkAnchorMap[skuId];
       if (anchor) {
         const receivedAfter = (receiptRows || [])
-          .filter((r) => r.sku_id === skuId && r.receipt_date > anchor.count_date)
+          .filter((r) => r.sku_id === skuId && afterCount(anchor, r.receipt_date, r.created_at))
           .reduce((sum, r) => sum + r.quantity_received * converter, 0);
         const adjustmentsAfter = (rmPkAdjRows || [])
           .filter(
             (a: any) =>
-              a.sku_id === skuId && a.adjustment_date > anchor.count_date && !a.reason.includes("Stock Count"),
+              a.sku_id === skuId && afterCount(anchor, a.adjustment_date, a.created_at) && !a.reason.includes("Stock Count"),
           )
           .reduce((sum, a: any) => sum + a.quantity, 0);
         currentStockMap[skuId] = anchor.physical_qty + receivedAfter + adjustmentsAfter;

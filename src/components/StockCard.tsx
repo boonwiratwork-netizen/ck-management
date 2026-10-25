@@ -9,6 +9,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { table } from "@/lib/design-tokens";
 import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 import type { SKU } from "@/types/sku";
+import { afterCount, producedAfterCount, type CountAnchor } from "@/lib/count-anchor";
+
+type LedgerCount = CountAnchor & { completed_at: string };
+
+/**
+ * Where a count row sits among the movements of its own day, matching the stock
+ * pages (count-anchor.ts): "before" = ahead of all of them, "after" = by the time
+ * it was finished, older counts = after all of them (as before).
+ */
+const countSortKey = (c: LedgerCount) =>
+  c.timing === "before" ? `${c.count_date}|0|` : c.timing === "after" ? `${c.count_date}|1|${c.completed_at}` : `${c.count_date}|2|${c.completed_at}`;
 
 interface StockCardProps {
   skuId: string;
@@ -478,7 +489,7 @@ export function StockCard({
             supabase.from("suppliers").select("id, name"),
             supabase
               .from("stock_count_sessions")
-              .select("id, count_date, completed_at")
+              .select("id, count_date, completed_at, count_timing")
               .eq("status", "Completed")
               .is("deleted_at", null),
           ]);
@@ -492,11 +503,12 @@ export function StockCard({
           // Step 2: Resolve stock count lines for this RM SKU
           const sessions = allSessionsRes.data ?? [];
           const sessionIds = sessions.map((s: any) => s.id);
-          const sessionMeta: Record<string, { count_date: string; completed_at: string }> = {};
+          const sessionMeta: Record<string, LedgerCount> = {};
           for (const s of sessions as any[]) {
             sessionMeta[s.id] = {
               count_date: s.count_date,
               completed_at: s.completed_at ?? s.count_date,
+              timing: s.count_timing,
             };
           }
 
@@ -514,8 +526,8 @@ export function StockCard({
           }
 
           // Step 3: Classify counts into pre-window and in-window
-          let preWindowCount: { physical_qty: number; count_date: string; completed_at: string } | null = null;
-          const inWindowCounts: { physical_qty: number; count_date: string; completed_at: string }[] = [];
+          let preWindowCount: ({ physical_qty: number } & LedgerCount) | null = null;
+          const inWindowCounts: ({ physical_qty: number } & LedgerCount)[] = [];
 
           for (const line of countLines) {
             const meta = sessionMeta[line.session_id];
@@ -540,26 +552,29 @@ export function StockCard({
             const [gapGrRes, gapAdjRes] = await Promise.all([
               supabase
                 .from("goods_receipts")
-                .select("quantity_received")
+                .select("quantity_received, receipt_date, created_at")
                 .eq("sku_id", skuId)
-                .gt("receipt_date", preWindowCount.count_date)
+                .gte("receipt_date", preWindowCount.count_date)
                 .lt("receipt_date", fromDate),
               supabase
                 .from("stock_adjustments")
-                .select("quantity, reason")
+                .select("quantity, reason, adjustment_date, created_at")
                 .eq("sku_id", skuId)
                 .eq("stock_type", "RM")
                 .is("branch_id", null)
-                .gt("adjustment_date", preWindowCount.count_date)
+                .gte("adjustment_date", preWindowCount.count_date)
                 .lt("adjustment_date", fromDate),
             ]);
             if (cancelled) return;
-            const gapGr = (gapGrRes.data ?? []).reduce(
+            const anchor = preWindowCount;
+            const gapGr = (gapGrRes.data ?? [])
+              .filter((r: any) => afterCount(anchor, r.receipt_date, r.created_at))
+              .reduce(
               (s, r) => s + Number(r.quantity_received) * converter,
               0,
             );
             const gapAdj = (gapAdjRes.data ?? [])
-              .filter((a: any) => !(a.reason || "").includes("Stock Count"))
+              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date, a.created_at))
               .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,
@@ -634,7 +649,7 @@ export function StockCard({
           inWindowCounts.forEach((c) => {
             mvts.push({
               date: c.count_date,
-              sortKey: `${c.count_date}|2|${c.completed_at}`,
+              sortKey: countSortKey(c),
               type: "StockCount",
               reference: "Physical count",
               qtyIn: c.physical_qty,
@@ -677,7 +692,7 @@ export function StockCard({
             supabase
               .from("transfer_order_lines")
               .select(
-                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, updated_at, branches(branch_name))",
+                "id, actual_qty, planned_qty, transfer_orders!inner(to_number, delivery_date, status, updated_at, sent_at, branches(branch_name))",
               )
               .eq("sku_id", skuId)
               .in("transfer_orders.status", TO_DELIVERED_STATUSES)
@@ -693,7 +708,7 @@ export function StockCard({
               .order("created_at", { ascending: true }),
             supabase
               .from("stock_count_sessions")
-              .select("id, count_date, completed_at")
+              .select("id, count_date, completed_at, count_timing")
               .eq("status", "Completed")
               .is("deleted_at", null),
           ]);
@@ -702,11 +717,12 @@ export function StockCard({
           // Step 2: Resolve in-window stock counts and the most recent pre-window count
           const sessions = allSessionsRes.data ?? [];
           const sessionIds = sessions.map((s: any) => s.id);
-          const sessionMeta: Record<string, { count_date: string; completed_at: string }> = {};
+          const sessionMeta: Record<string, LedgerCount> = {};
           for (const s of sessions as any[]) {
             sessionMeta[s.id] = {
               count_date: s.count_date,
               completed_at: s.completed_at ?? s.count_date,
+              timing: s.count_timing,
             };
           }
 
@@ -724,9 +740,9 @@ export function StockCard({
           }
 
           // Find pre-window count (most recent count with count_date < fromDate)
-          let preWindowCount: { physical_qty: number; count_date: string; completed_at: string } | null = null;
+          let preWindowCount: ({ physical_qty: number } & LedgerCount) | null = null;
           // In-window counts (count_date >= fromDate)
-          const inWindowCounts: { physical_qty: number; count_date: string; completed_at: string }[] = [];
+          const inWindowCounts: ({ physical_qty: number } & LedgerCount)[] = [];
 
           for (const line of countLines) {
             const meta = sessionMeta[line.session_id];
@@ -752,35 +768,40 @@ export function StockCard({
             const [gapProdRes, gapToRes, gapAdjRes] = await Promise.all([
               supabase
                 .from("production_records")
-                .select("actual_output_g")
+                .select("actual_output_g, production_date, created_at")
                 .eq("sm_sku_id", skuId)
-                .gt("production_date", preWindowCount.count_date)
+                .gte("production_date", preWindowCount.count_date)
                 .lt("production_date", fromDate),
               supabase
                 .from("transfer_order_lines")
-                .select("actual_qty, planned_qty, transfer_orders!inner(delivery_date, status)")
+                .select("actual_qty, planned_qty, transfer_orders!inner(delivery_date, status, sent_at)")
                 .eq("sku_id", skuId)
                 .in("transfer_orders.status", TO_DELIVERED_STATUSES)
-                .gt("transfer_orders.delivery_date", preWindowCount.count_date)
+                .gte("transfer_orders.delivery_date", preWindowCount.count_date)
                 .lt("transfer_orders.delivery_date", fromDate),
               supabase
                 .from("stock_adjustments")
-                .select("quantity, reason")
+                .select("quantity, reason, adjustment_date, created_at")
                 .eq("sku_id", skuId)
                 .eq("stock_type", "SM")
                 .is("branch_id", null)
-                .gt("adjustment_date", preWindowCount.count_date)
+                .gte("adjustment_date", preWindowCount.count_date)
                 .lt("adjustment_date", fromDate),
             ]);
             if (cancelled) return;
-            const gapProd = (gapProdRes.data ?? []).reduce((s, r) => s + Number(r.actual_output_g), 0);
-            const gapDel = (gapToRes.data ?? []).reduce(
+            const anchor = preWindowCount;
+            const gapProd = (gapProdRes.data ?? [])
+              .filter((r: any) => producedAfterCount(anchor, r.production_date, r.created_at))
+              .reduce((s, r) => s + Number(r.actual_output_g), 0);
+            const gapDel = (gapToRes.data ?? [])
+              .filter((l: any) => afterCount(anchor, l.transfer_orders?.delivery_date, l.transfer_orders?.sent_at))
+              .reduce(
               (s, l: any) =>
                 s + computeToLineQty(Number(l.actual_qty), Number(l.planned_qty), l.transfer_orders?.status),
               0,
             );
             const gapAdj = (gapAdjRes.data ?? [])
-              .filter((a: any) => !(a.reason || "").includes("Stock Count"))
+              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date, a.created_at))
               .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,
@@ -882,13 +903,14 @@ export function StockCard({
             }
             mvts.push({
               date: to.delivery_date,
-              sortKey: `${to.delivery_date}|1|${to.updated_at ?? to.delivery_date}`,
+              // sent_at = when the kitchen sent it (updated_at moves when the branch receives)
+              sortKey: `${to.delivery_date}|1|${to.sent_at ?? to.updated_at ?? to.delivery_date}`,
               type: "Delivery",
               reference: `${to.to_number} · ${branchName}`,
               qtyIn: null,
               qtyOut: qty,
               lotText: lotText || undefined,
-              timestamp: to.updated_at ?? undefined,
+              timestamp: to.sent_at ?? to.updated_at ?? undefined,
             });
           });
 
@@ -908,8 +930,7 @@ export function StockCard({
           inWindowCounts.forEach((c) => {
             mvts.push({
               date: c.count_date,
-              // sortKey suffix |2| ensures the count comes AFTER same-day movements
-              sortKey: `${c.count_date}|2|${c.completed_at}`,
+              sortKey: countSortKey(c),
               type: "StockCount",
               reference: "Physical count",
               qtyIn: c.physical_qty,
