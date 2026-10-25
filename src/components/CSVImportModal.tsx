@@ -25,7 +25,8 @@ interface Props {
   title: string;
   columns: CSVColumnDef[];
   validate: (rows: Record<string, string>[]) => { valid: Record<string, string>[]; errors: CSVValidationError[]; skipped: number };
-  onConfirm: (rows: Record<string, string>[]) => void;
+  /** May be async: the dialog stays open (busy) until it finishes */
+  onConfirm: (rows: Record<string, string>[]) => void | Promise<void>;
 }
 
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
@@ -88,9 +89,16 @@ export function CSVImportModal({ open, onClose, title, columns, validate, onConf
     e.target.value = '';
   }, [validate]);
 
-  const handleConfirm = () => {
-    onConfirm(validRows);
-    handleClose();
+  const [busy, setBusy] = useState(false);
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onConfirm(validRows);
+    } finally {
+      setBusy(false);
+      handleClose();
+    }
   };
 
   const previewRows = allRows.slice(0, 5);
@@ -195,7 +203,7 @@ export function CSVImportModal({ open, onClose, title, columns, validate, onConf
 
         <DialogFooter className="gap-2 pt-2">
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={!hasData || validRows.length === 0}>
+          <Button onClick={handleConfirm} loading={busy} disabled={busy || !hasData || validRows.length === 0}>
             <CheckCircle2 className="w-4 h-4" />
             Confirm Import ({validRows.length})
           </Button>

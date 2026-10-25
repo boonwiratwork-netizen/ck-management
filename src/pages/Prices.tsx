@@ -29,7 +29,7 @@ interface Props {
 }
 
 export default function PricesPage({ priceData, skus, activeSuppliers, allSuppliers, readOnly = false, bomHeaders = [] }: Props) {
-  const { prices, addPrice, updatePrice, deletePrice } = priceData;
+  const { prices, addPrice, updatePrice, deletePrice, recostPrices } = priceData;
   const { t } = useLanguage();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
@@ -68,12 +68,15 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
     return { valid, errors, skipped };
   }, [skus, allSuppliers]);
 
-  const handlePriceCsvConfirm = useCallback((rows: Record<string, string>[]) => {
-    rows.forEach(row => {
+  const handlePriceCsvConfirm = useCallback(async (rows: Record<string, string>[]) => {
+    // One by one (each switches off the item's other prices), then costs worked out once
+    const done: string[] = [];
+    for (const row of rows) {
       const sku = skus.find(s => s.name.toLowerCase() === row['SKU Name']?.trim().toLowerCase());
       const supplier = allSuppliers.find(s => s.name.toLowerCase() === row['Supplier Name']?.trim().toLowerCase());
-      if (!sku || !supplier) return;
-      addPrice({
+      // Recipe-made items get their price from the recipe, never from a file
+      if (!sku || !supplier || sku.type === 'SM' || sku.type === 'SP') continue;
+      const ok = await addPrice({
         skuId: sku.id,
         supplierId: supplier.id,
         pricePerPurchaseUom: Number(row['Price Per Purchase UOM']) || 0,
@@ -81,10 +84,12 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
         isActive: row['Active']?.trim().toLowerCase() !== 'false' && row['Active']?.trim() !== '0',
         effectiveDate: row['Effective Date']?.trim() || toLocalDateStr(new Date()),
         note: row['Note']?.trim() || '',
-      }, sku);
-    });
-    toast.success(`${rows.length} prices imported`);
-  }, [skus, allSuppliers, addPrice]);
+      }, sku, { batch: true });
+      if (ok) done.push(sku.id);
+    }
+    toast.success(`${done.length} prices imported`);
+    if (done.length) await recostPrices(...done);
+  }, [skus, allSuppliers, addPrice, recostPrices]);
 
   const activeCount = useMemo(() => prices.filter(p => p.isActive).length, [prices]);
 
@@ -106,22 +111,18 @@ export default function PricesPage({ priceData, skus, activeSuppliers, allSuppli
     const sku = skus.find(s => s.id === p?.skuId);
     setDeleteConfirm({ id, name: sku?.name || 'this price record' });
   };
-  const handleDeleteConfirm = () => {
-    if (deleteConfirm) {
-      deletePrice(deleteConfirm.id);
-      toast.success('Price deleted');
-      setDeleteConfirm(null);
-    }
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    const id = deleteConfirm.id;
+    setDeleteConfirm(null);
+    if (await deletePrice(id)) toast.success('Price deleted');
   };
 
-  const handleSubmit = (data: Omit<Price, 'id' | 'pricePerUsageUom'>, sku: SKU | undefined) => {
+  // Success only once the save went through (the hook shows the error otherwise)
+  const handleSubmit = async (data: Omit<Price, 'id' | 'pricePerUsageUom'>, sku: SKU | undefined) => {
     if (editing) {
-      updatePrice(editing.id, data, sku);
-      toast.success('Price updated');
-    } else {
-      addPrice(data, sku);
-      toast.success('Price added');
-    }
+      if (await updatePrice(editing.id, data, sku)) toast.success('Price updated');
+    } else if (await addPrice(data, sku)) toast.success('Price added');
   };
 
   const exportRows = useMemo(
