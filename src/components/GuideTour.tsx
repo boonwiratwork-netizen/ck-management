@@ -110,7 +110,14 @@ export function GuideTour({ steps, open, onClose }: { steps: GuideStep[]; open: 
   if (rect) {
     const left = Math.min(Math.max(16, rect.left + rect.width / 2 - cardW / 2), vw - cardW - 16);
     const below = rect.bottom + pad + 12;
-    cardStyle = below + 220 < vh ? { width: cardW, left, top: below } : { width: cardW, left, bottom: Math.max(16, vh - rect.top + pad + 12) };
+    const above = rect.top - pad - 12;
+    // Under the part, else over it, else (a tall part) pinned to the bottom of the screen
+    cardStyle =
+      below + 240 < vh
+        ? { width: cardW, left, top: below }
+        : above - 240 > 0
+          ? { width: cardW, left, bottom: vh - above }
+          : { width: cardW, left: (vw - cardW) / 2, bottom: 16 };
   }
   const last = i === shown.length - 1;
 

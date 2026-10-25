@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle, HelpCircle } from "lucide-react";
 import type { Menu } from "@/types/menu";
 import type { MenuBomLine } from "@/types/menu-bom";
 import type { ModifierRule } from "@/types/modifier-rule";
@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 
 interface MenuSetupProps {
   menus: Menu[];
@@ -55,6 +56,45 @@ interface MenuSetupProps {
     setBranchOpenMany: (menuIds: string[], branchId: string, open: boolean) => Promise<boolean>;
   };
 }
+
+const GUIDE: GuideStep[] = [
+  {
+    title: "หน้าตั้งค่าเมนูแบบใหม่",
+    body: "ทุกอย่างของเมนูอยู่ในที่เดียว: สูตร สาขาที่ขาย กฎพิเศษ และเช็คว่าตั้งครบหรือยัง ไม่ต้องสลับหลายหน้าแล้ว",
+  },
+  {
+    target: "setup-tabs",
+    title: "4 มุมมอง",
+    body: (
+      <>
+        <b>ภาพรวม</b> = งานที่ยังค้างทั้งหมด · <b>เมนู</b> = รายการเมนูและสูตร · <b>สาขา</b> = เมนูไหนเปิดขายที่สาขาไหน · <b>ตัวเลือก POS</b> = ตัวเลือกในบิล (เส้น ท็อปปิ้ง ฯลฯ) ถูกตัดสต๊อกแล้วหรือยัง
+      </>
+    ),
+  },
+  {
+    target: "setup-filter",
+    title: "จุดสีบอกว่าต้องทำอะไร",
+    body: (
+      <>
+        <b className="text-destructive">แดง</b> = ต้องแก้ เช่น ขายแล้วแต่ยังไม่มีสูตร · <b className="text-warning">เหลือง</b> = ควรดู · <b className="text-success">เขียว</b> = ครบ กดตัวกรองเพื่อดูเฉพาะที่ต้องแก้
+      </>
+    ),
+  },
+  {
+    target: "setup-new",
+    title: "เพิ่มเมนูใหม่",
+    body: "ระบบพาทำทีละขั้น: ข้อมูลเมนู → สูตร → สาขาที่ขาย → กฎพิเศษ ทำครบแล้วจะมีเครื่องหมายถูก",
+  },
+  {
+    target: "setup-list",
+    title: "กดเมนูเพื่อแก้",
+    body: "ในเมนูมีแท็บ เช็คการตั้งค่า · บิลจริง · สูตร · สาขา · กฎพิเศษ · ข้อมูลเมนู แก้แล้วกดบันทึกที่แถบล่างจอ",
+  },
+  {
+    title: "ดูคำแนะนำนี้อีกครั้งได้",
+    body: "กดปุ่ม “วิธีใช้” ด้านบนของหน้านี้เมื่อไหร่ก็ได้",
+  },
+];
 
 /** Hash without "#"; a hand-typed "%" must not crash the page */
 function readHash(hash: string): string {
@@ -121,6 +161,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   const location = useLocation();
   const navigate = useNavigate();
   const code = readHash(location.hash);
+  const guide = useGuide("menu-setup-v2");
   const go = (hash: string, opts?: { replace?: boolean; from?: string }) =>
     navigate({ pathname: location.pathname, hash: hash ? `#${hash}` : "" }, { replace: opts?.replace, state: opts?.from !== undefined ? { from: opts.from } : undefined });
   // Where "back" goes from a menu: the view it was opened from (overview, branches, POS…) or the list
@@ -189,6 +230,11 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
         <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎพิเศษ · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
       </div>
+      <div className="flex items-center gap-2">
+      <Button variant="outline" className="h-10 shrink-0" onClick={guide.start}>
+        <HelpCircle className="h-4 w-4" /> วิธีใช้
+      </Button>
+      <div data-tour="setup-tabs" className="min-w-0">
       <SegmentedTabs<View>
         tabs={viewTabs}
         value={posView ? "pos" : branchView ? "branches" : overviewView ? "overview" : "menus"}
@@ -196,6 +242,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : "");
         }}
       />
+      </div>
+      </div>
+      <GuideTour steps={GUIDE} open={guide.open && (code === "" || overviewView)} onClose={guide.close} />
     </div>
   );
 
@@ -418,7 +467,7 @@ function MenuList({
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]">
       <div className="flex flex-col gap-3 border-b border-border p-4">
         {onNew && (
-          <Button variant="brand" className="h-11 w-full" onClick={onNew}>
+          <Button data-tour="setup-new" variant="brand" className="h-11 w-full" onClick={onNew}>
             <Plus className="h-4 w-4" /> เมนูใหม่
           </Button>
         )}
@@ -443,15 +492,17 @@ function MenuList({
             ))}
           </div>
         )}
+        <div data-tour="setup-filter">
         <SegmentedTabs<MenuFilter> tabs={filters} value={filter} onChange={setFilter} className="[&_[role=tab]]:min-h-[36px] [&_[role=tab]]:px-3" />
+        </div>
       </div>
 
       <ul className="flex-1 divide-y divide-border overflow-y-auto overscroll-contain" aria-busy={loading}>
-        {shown.map((m) => {
+        {shown.map((m, i) => {
           const s = summaries.get(m.id);
           const first = s?.branches[0];
           return (
-            <li key={m.id}>
+            <li key={m.id} data-tour={i === 0 ? "setup-list" : undefined}>
               <button
                 type="button"
                 onClick={() => onSelect(m)}

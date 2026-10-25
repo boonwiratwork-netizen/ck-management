@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { addDays, format } from "date-fns";
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, HelpCircle, History } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
@@ -17,6 +17,8 @@ import { ReceiveKitchenAdHoc, ReceiveFromBranch, type PricedSku } from "@/compon
 import { ReceiveHistory } from "@/components/receive/ReceiveHistory";
 import { packLabel } from "@/components/receive/parts";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +46,41 @@ interface Props {
 
 const LAST_BRANCH_KEY = "ck-receive-branch";
 const HISTORY_DAYS = 30;
+const GUIDE: GuideStep[] = [
+  {
+    title: "หน้ารับของแบบใหม่",
+    body: "รวมหน้ารับของบนคอมกับบนมือถือเป็นหน้าเดียว ของที่รอรับขึ้นมาให้ก่อน กดรับได้ในไม่กี่ขั้น ใช้เวลาอ่านไม่ถึงนาที",
+  },
+  {
+    target: "recv-branch",
+    title: "สาขาและวันที่รับ",
+    body: "ดูให้แน่ใจว่าเป็นสาขาที่ถูก ถ้ารับของย้อนหลัง เปลี่ยนวันที่ตรงนี้ก่อน ระบบจะเตือนเมื่อไม่ใช่วันนี้",
+  },
+  {
+    target: "recv-waiting",
+    title: "ของที่รอรับ",
+    body: (
+      <>
+        <b>ใบโอนจากครัวกลาง</b> กด “รับของ” แล้วใส่จำนวนที่ได้จริง ถ้าไม่รับทั้งใบกด “ปฏิเสธ” พร้อมเหตุผล · <b>ใบขอซื้อที่ถึงกำหนด</b> กด “รับตามใบ” ระบบใส่รายการที่สั่งไว้ให้
+      </>
+    ),
+  },
+  {
+    target: "recv-other",
+    title: "ของที่ไม่มีใบ",
+    body: "ค้นชื่อซัพพลายเออร์ หรือเลือก “ครัวกลาง (ไม่มีใบโอน)” / “รับจากสาขาอื่น” แล้วกดเพิ่มสินค้า นับเป็นแพ็ค ถ้าชั่งได้น้ำหนักจริงกด “ชั่งจริง”",
+  },
+  {
+    target: "recv-history",
+    title: "แก้หรือลบสิ่งที่รับไปแล้ว",
+    body: "กด “ดูประวัติ” ดูย้อนหลัง 30 วัน แก้จำนวนหรือราคา และลบได้ (มีถามยืนยันก่อนลบ)",
+  },
+  {
+    title: "ดูคำแนะนำนี้อีกครั้งได้",
+    body: "กดปุ่ม “วิธีใช้” ด้านบนของหน้านี้เมื่อไหร่ก็ได้",
+  },
+];
+
 const NOT_A_SHOP = /^(central kitchen|ck\b|ck \(|ครัวกลาง|store production|bom calculation)/i;
 
 /**
@@ -57,6 +94,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
   const go = (v: string, replace = false) => navigate({ pathname: location.pathname, hash: v ? `#${v}` : "" }, { replace });
+  const guide = useGuide("receive-v2");
 
   // ── Branch & date ──
   const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
@@ -264,7 +302,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   return (
     <div className="flex flex-col gap-4">
       {/* Branch + date: on phones only on the queue screen */}
-      <div className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden lg:flex")}>
+      <div data-tour="recv-branch" className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden lg:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">รับของ</h1>
           <p className="text-sm text-muted-foreground">{branch ? `${branch.branchName} · ${branch.brandName}` : "เลือกสาขา"}</p>
@@ -296,6 +334,9 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
           <span className="text-muted-foreground">วันที่รับ</span>
           <Input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className="h-10 w-[160px]" />
         </label>
+        <Button variant="outline" className="h-10" onClick={guide.start}>
+          <HelpCircle className="h-4 w-4" /> วิธีใช้
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -336,6 +377,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         </div>
       </div>
 
+      <GuideTour steps={GUIDE} open={guide.open && view === ""} onClose={guide.close} />
       <DeclineDialog
         open={declineFor !== null}
         toNumber={declineFor?.toNumber ?? ""}
