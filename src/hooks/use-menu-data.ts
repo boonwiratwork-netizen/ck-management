@@ -36,7 +36,7 @@ export function useMenuData() {
     return `MN-${String(next).padStart(3, '0')}`;
   }, [menus]);
 
-  const addMenu = useCallback(async (data: Omit<Menu, 'id'>) => {
+  const addMenu = useCallback(async (data: Omit<Menu, 'id'>): Promise<boolean> => {
     const { data: row, error } = await supabase.from('menus').insert({
       menu_code: data.menuCode,
       menu_name: data.menuName,
@@ -46,11 +46,12 @@ export function useMenuData() {
       brand_name: data.brandName,
       is_maindish: data.isMaindish,
     }).select().single();
-    if (error) { toast.error('Failed to add menu: ' + error.message); return; }
+    if (error) { toast.error('บันทึกเมนูไม่สำเร็จ: ' + error.message); return false; }
     setMenus(prev => [toLocal(row), ...prev]);
+    return true;
   }, []);
 
-  const updateMenu = useCallback(async (id: string, data: Partial<Omit<Menu, 'id'>>) => {
+  const updateMenu = useCallback(async (id: string, data: Partial<Omit<Menu, 'id'>>): Promise<boolean> => {
     const dbData: any = {};
     if (data.menuCode !== undefined) dbData.menu_code = data.menuCode;
     if (data.menuName !== undefined) dbData.menu_name = data.menuName;
@@ -61,14 +62,27 @@ export function useMenuData() {
     if (data.isMaindish !== undefined) dbData.is_maindish = data.isMaindish;
 
     const { error } = await supabase.from('menus').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update menu: ' + error.message); return; }
+    if (error) { toast.error('บันทึกเมนูไม่สำเร็จ: ' + error.message); return false; }
     setMenus(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+    return true;
   }, []);
 
-  const deleteMenu = useCallback(async (id: string) => {
+  const deleteMenu = useCallback(async (id: string): Promise<boolean> => {
+    // Deleting a menu that rules point at would silently turn a "this menu only"
+    // rule into "every menu" (rule menus cascade away). Ask for Inactive instead.
+    const [scoped, asSubmenu] = await Promise.all([
+      supabase.from('modifier_rule_menus').select('id', { count: 'exact', head: true }).eq('menu_id', id),
+      supabase.from('menu_modifier_rules').select('id', { count: 'exact', head: true }).eq('submenu_id', id),
+    ]);
+    const linked = (scoped.count ?? 0) + (asSubmenu.count ?? 0);
+    if (linked > 0) {
+      toast.error(`ลบไม่ได้: มีกฎพิเศษ ${linked} ตัวผูกกับเมนูนี้ · ให้เปลี่ยนสถานะเป็น Inactive แทน`);
+      return false;
+    }
     const { error } = await supabase.from('menus').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete menu: ' + error.message); return; }
+    if (error) { toast.error('ลบเมนูไม่สำเร็จ: ' + error.message); return false; }
     setMenus(prev => prev.filter(m => m.id !== id));
+    return true;
   }, []);
 
   const bulkAddMenus = useCallback(async (rows: Omit<Menu, 'id'>[]) => {

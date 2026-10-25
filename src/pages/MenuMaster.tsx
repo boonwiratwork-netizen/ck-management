@@ -25,9 +25,9 @@ interface MenuMasterPageProps {
     menus: Menu[];
     loading: boolean;
     getNextCode: () => string;
-    addMenu: (data: Omit<Menu, 'id'>) => Promise<void>;
-    updateMenu: (id: string, data: Partial<Omit<Menu, 'id'>>) => Promise<void>;
-    deleteMenu: (id: string) => Promise<void>;
+    addMenu: (data: Omit<Menu, 'id'>) => Promise<boolean>;
+    updateMenu: (id: string, data: Partial<Omit<Menu, 'id'>>) => Promise<boolean>;
+    deleteMenu: (id: string) => Promise<boolean>;
     bulkAddMenus: (rows: Omit<Menu, 'id'>[]) => Promise<number>;
   };
   branches: Branch[];
@@ -208,20 +208,17 @@ export default function MenuMasterPage({ menuData, branches }: MenuMasterPagePro
       toast.error('Menu code and name are required');
       return;
     }
-    if (editing) {
-      await updateMenu(editing.id, form);
-      toast.success('Menu updated');
-    } else {
-      await addMenu(form);
-      toast.success('Menu added');
-    }
+    // Close and confirm only when the save really worked; errors are shown by the hook
+    const ok = editing ? await updateMenu(editing.id, form) : await addMenu(form);
+    if (!ok) return;
+    toast.success(editing ? 'บันทึกเมนูแล้ว' : 'เพิ่มเมนูแล้ว');
     setModalOpen(false);
   };
 
   const handleDeleteConfirm = async () => {
     if (deleteConfirm) {
-      await deleteMenu(deleteConfirm.id);
-      toast.success(`Menu "${deleteConfirm.name}" deleted`);
+      const ok = await deleteMenu(deleteConfirm.id);
+      if (ok) toast.success(`ลบเมนู "${deleteConfirm.name}" แล้ว`);
       setDeleteConfirm(null);
     }
   };

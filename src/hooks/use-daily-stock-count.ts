@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
@@ -180,7 +181,8 @@ export function useDailyStockCount({
         const menuName = sale.menu_name || "";
         const menu = menuByCode.get(menuCode);
 
-        if (menu && !suppressedMenuIds.has(menu.id)) {
+        // A menu closed at this branch still uses stock when the POS sold it
+        if (menu) {
           const bomLines = bomByMenuId.get(menu.id) || [];
           for (const line of bomLines) {
             const ingredientQty = line.effectiveQty * qty;
@@ -197,7 +199,7 @@ export function useDailyStockCount({
 
           for (const rule of activeRules) {
             if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-            if (menuName.includes(rule.keyword)) {
+            if (ruleMatchesSale(rule, sale)) {
               if (rule.ruleType === "swap") {
                 if (rule.swapSkuId) {
                   const bomLines2 = bomByMenuId.get(menu.id) || [];
@@ -489,7 +491,8 @@ export function useDailyStockCount({
         const menuName = sale.menu_name || "";
         const menu = menuByCode.get(menuCode);
 
-        if (menu && !suppressedMenuIds.has(menu.id)) {
+        // A menu closed at this branch still uses stock when the POS sold it
+        if (menu) {
           const bomLines = bomByMenuId.get(menu.id) || [];
           for (const line of bomLines) {
             const ingredientQty = line.effectiveQty * qty;
@@ -508,7 +511,7 @@ export function useDailyStockCount({
 
           for (const rule of activeRules) {
             if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-            if (menuName.includes(rule.keyword)) {
+            if (ruleMatchesSale(rule, sale)) {
               if (rule.ruleType === "swap") {
                 // Remove the swap SKU's BOM qty for this menu
                 if (rule.swapSkuId) {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { useLanguage } from "@/hooks/use-language";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -262,18 +263,26 @@ export default function FoodCostPage({
     return m;
   }, [menus]);
 
-  const bomByMenuId = useMemo(() => {
-    const filtered = menuBomLines.filter(
-      (l) => l.branchId === null || (selectedBranch !== "all" && l.branchId === selectedBranch),
-    );
-    const m = new Map<string, MenuBomLine[]>();
-    filtered.forEach((l) => {
-      const arr = m.get(l.menuId) || [];
-      arr.push(l);
-      m.set(l.menuId, arr);
-    });
-    return m;
-  }, [menuBomLines, selectedBranch]);
+  // Recipe lines per branch: shared lines + that branch's own lines.
+  // With "all branches" every sale uses its own branch's recipe (never another branch's).
+  const bomForBranch = useMemo(() => {
+    const cache = new Map<string, Map<string, MenuBomLine[]>>();
+    return (branchId: string | null | undefined) => {
+      const key = branchId ?? "__global__";
+      const hit = cache.get(key);
+      if (hit) return hit;
+      const m = new Map<string, MenuBomLine[]>();
+      menuBomLines
+        .filter((l) => l.branchId === null || (!!branchId && l.branchId === branchId))
+        .forEach((l) => {
+          const arr = m.get(l.menuId) || [];
+          arr.push(l);
+          m.set(l.menuId, arr);
+        });
+      cache.set(key, m);
+      return m;
+    };
+  }, [menuBomLines]);
 
   const spBomBySpSku = useMemo(() => {
     const m = new Map<string, SpBomLine[]>();
@@ -285,16 +294,22 @@ export default function FoodCostPage({
     return m;
   }, [spBomLines]);
 
-  const activeRules = useMemo(
-    () =>
-      modifierRules.filter((r) => {
+  // Rules that apply at a branch (empty branch list = every branch)
+  const rulesForBranch = useMemo(() => {
+    const cache = new Map<string, ModifierRule[]>();
+    return (branchId: string | null | undefined) => {
+      const key = branchId ?? "__all__";
+      const hit = cache.get(key);
+      if (hit) return hit;
+      const list = modifierRules.filter((r) => {
         if (!r.isActive) return false;
-        if (r.branchIds && r.branchIds.length > 0 && selectedBranch !== "all" && !r.branchIds.includes(selectedBranch))
-          return false;
+        if (r.branchIds && r.branchIds.length > 0 && (!branchId || !r.branchIds.includes(branchId))) return false;
         return true;
-      }),
-    [modifierRules, selectedBranch],
-  );
+      });
+      cache.set(key, list);
+      return list;
+    };
+  }, [modifierRules]);
 
   // ----- Ratio Analysis computations -----
   const distinctMenuCategories = useMemo(() => {
@@ -317,6 +332,9 @@ export default function FoodCostPage({
         if (qty === 0) continue;
         const menu = menuByCode.get(sale.menu_code);
         if (!menu) continue;
+        const saleBranch = selectedBranch === "all" ? sale.branch_id : selectedBranch;
+        const bomByMenuId = bomForBranch(saleBranch);
+        const activeRules = rulesForBranch(saleBranch);
 
         const bomLines = bomByMenuId.get(menu.id) || [];
         for (const line of bomLines) {
@@ -336,10 +354,7 @@ export default function FoodCostPage({
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           const menuName = sale.menu_name || "";
           // Submenu: POS puts set items inside menu_name ("Set Menu : MN-011 …"), so match code or name
-          const ruleMatches =
-            rule.ruleType === "submenu"
-              ? sale.menu_code === rule.keyword || menuName.includes(rule.keyword)
-              : menuName.includes(rule.keyword);
+          const ruleMatches = ruleMatchesSale(rule, sale);
           if (ruleMatches) {
             if (rule.ruleType === "swap") {
               if (rule.swapSkuId) {
@@ -393,7 +408,7 @@ export default function FoodCostPage({
       }
       return usage;
     },
-    [menuByCode, bomByMenuId, spBomBySpSku, skuMap, activeRules],
+    [menuByCode, bomForBranch, rulesForBranch, selectedBranch, spBomBySpSku, skuMap],
   );
 
   const calcMenuCosts = useCallback(
@@ -405,6 +420,9 @@ export default function FoodCostPage({
         if (qty === 0) continue;
         const menu = menuByCode.get(sale.menu_code);
         if (!menu) continue;
+        const saleBranch = selectedBranch === "all" ? sale.branch_id : selectedBranch;
+        const bomByMenuId = bomForBranch(saleBranch);
+        const activeRules = rulesForBranch(saleBranch);
 
         const existing = mMap.get(menu.menuCode) || { qtySold: 0, revenue: 0, stdCost: 0 };
         existing.qtySold += qty;
@@ -429,10 +447,7 @@ export default function FoodCostPage({
         for (const rule of activeRules) {
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
           const menuName = sale.menu_name || "";
-          const ruleMatches =
-            rule.ruleType === "submenu"
-              ? sale.menu_code === rule.keyword || menuName.includes(rule.keyword)
-              : menuName.includes(rule.keyword);
+          const ruleMatches = ruleMatchesSale(rule, sale);
           if (ruleMatches) {
             if (rule.ruleType === "swap") {
               if (rule.swapSkuId) {
@@ -514,7 +529,7 @@ export default function FoodCostPage({
         })
         .sort((a, b) => b.stdFcPct - a.stdFcPct);
     },
-    [menuByCode, bomByMenuId, spBomBySpSku, skuMap, stdPriceMap, activeRules],
+    [menuByCode, bomForBranch, rulesForBranch, selectedBranch, spBomBySpSku, skuMap, stdPriceMap],
   );
 
   const skuConverterMap = useMemo(() => {

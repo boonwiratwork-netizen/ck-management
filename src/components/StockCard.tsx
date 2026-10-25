@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -302,20 +303,25 @@ export function StockCard({
               // Modifier Rules
               const menuName = (sale.menu_name || "").toLowerCase();
               for (const rule of modRules) {
-                if (!rule.keyword || !rule.is_active) continue;
-                const keyword = rule.keyword.toLowerCase();
-                if (!menuName.includes(keyword)) continue;
+                if (!rule.is_active || !ruleMatchesSale(rule, sale)) continue;
+                // Branch scope: an empty list means every branch
+                const ruleBranches: string[] = rule.branch_ids ?? [];
+                if (ruleBranches.length > 0 && branchId && !ruleBranches.includes(branchId)) continue;
 
                 // Check menu scope
                 const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
                 if (scopeMenuIds.length > 0 && !scopeMenuIds.includes(menuId)) continue;
 
                 if (rule.rule_type === "swap") {
+                  // Same as Food Cost: take the swapped-out item's whole recipe line back out
                   if (rule.swap_sku_id) {
-                    usageMap.set(
-                      rule.swap_sku_id,
-                      (usageMap.get(rule.swap_sku_id) ?? 0) - Number(rule.qty_per_match) * qty,
-                    );
+                    for (const line of bomLines) {
+                      if (line.sku_id !== rule.swap_sku_id) continue;
+                      usageMap.set(
+                        rule.swap_sku_id,
+                        (usageMap.get(rule.swap_sku_id) ?? 0) - Number(line.effective_qty) * qty,
+                      );
+                    }
                   }
                   if (rule.sku_id) {
                     usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);

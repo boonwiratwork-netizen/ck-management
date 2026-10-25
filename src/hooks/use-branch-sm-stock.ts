@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
 
@@ -219,13 +220,13 @@ export function useBranchSmStock(branchId: string | null) {
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             for (const sbom of submenuBomLines) {
               if (sbom.menu_id !== rule.submenuId) continue;
               totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
             }
           } else if (rule.ruleType === "swap") {
-            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
               const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
@@ -237,7 +238,7 @@ export function useBranchSmStock(branchId: string | null) {
               totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
             }
           } else if (rule.ruleType === "add") {
-            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
             }
@@ -272,7 +273,7 @@ export function useBranchSmStock(branchId: string | null) {
           if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
           if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
           if (rule.ruleType === "submenu") {
-            if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             for (const sbom of submenuBomLines) {
               if (sbom.menu_id !== rule.submenuId) continue;
               if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
@@ -280,7 +281,7 @@ export function useBranchSmStock(branchId: string | null) {
                 (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
             }
           } else if (rule.ruleType === "swap") {
-            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
               const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
               if (swapBom) {
@@ -295,7 +296,7 @@ export function useBranchSmStock(branchId: string | null) {
                 (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
             }
           } else if (rule.ruleType === "add") {
-            if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+            if (!ruleMatchesSale(rule, sale)) continue;
             if (rule.skuId && skuIds.includes(rule.skuId)) {
               if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
               dailyUsageBySkuId[rule.skuId][date] =
@@ -468,13 +469,13 @@ export function useBranchSmStock(branchId: string | null) {
                 if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
                 if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
                 if (rule.ruleType === "submenu") {
-                  if (sale.menu_code !== rule.keyword && !menuName.includes(rule.keyword.toLowerCase())) continue;
+                  if (!ruleMatchesSale(rule, sale)) continue;
                   for (const sbom of submenuBomLines) {
                     if (sbom.menu_id !== rule.submenuId) continue;
                     addUsage(sbom.sku_id, sbom.effective_qty * sale.qty);
                   }
                 } else if (rule.ruleType === "swap") {
-                  if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+                  if (!ruleMatchesSale(rule, sale)) continue;
                   if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
                     const swapBom = lines.find((b) => b.sku_id === rule.swapSkuId);
                     if (swapBom) addUsage(rule.swapSkuId, -swapBom.effective_qty * sale.qty);
@@ -483,7 +484,7 @@ export function useBranchSmStock(branchId: string | null) {
                     addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
                   }
                 } else if (rule.ruleType === "add") {
-                  if (!menuName.includes(rule.keyword.toLowerCase())) continue;
+                  if (!ruleMatchesSale(rule, sale)) continue;
                   if (rule.skuId && skuIds.includes(rule.skuId)) {
                     addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
                   }

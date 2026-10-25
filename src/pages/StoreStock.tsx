@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { SKU } from "@/types/sku";
 import { Branch } from "@/types/branch";
 import { BOMHeader, BOMLine } from "@/types/bom";
@@ -112,7 +113,7 @@ function calculateUsageFromSales(
     const menuName = sale.menu_name || "";
     for (const rule of activeRules) {
       if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-      if (!menuName.includes(rule.keyword)) continue;
+      if (!ruleMatchesSale(rule, sale)) continue;
 
       if (rule.ruleType === "swap") {
         if (rule.swapSkuId) {
