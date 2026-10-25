@@ -79,5 +79,26 @@ export function useMenuSetupExtras() {
     return true;
   }, []);
 
-  return { overrides, soldByCode, loading, setBranchOpen };
+  /** Open or close many menus at one branch in one save */
+  const setBranchOpenMany = useCallback(async (menuIds: string[], branchId: string, open: boolean) => {
+    if (menuIds.length === 0) return true;
+    const { error } = await supabase
+      .from("branch_menu_overrides")
+      .upsert(
+        menuIds.map((menu_id) => ({ branch_id: branchId, menu_id, is_active: open })),
+        { onConflict: "branch_id,menu_id" },
+      );
+    if (error) {
+      toast.error("บันทึกการเปิดขายไม่สำเร็จ: " + error.message);
+      return false;
+    }
+    setOverrides((prev) => {
+      const next = { ...prev };
+      for (const id of menuIds) next[id] = { ...(next[id] ?? {}), [branchId]: open };
+      return next;
+    });
+    return true;
+  }, []);
+
+  return { overrides, soldByCode, loading, setBranchOpen, setBranchOpenMany };
 }

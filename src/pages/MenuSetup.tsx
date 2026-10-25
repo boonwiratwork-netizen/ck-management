@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle } from "lucide-react";
 import type { Menu } from "@/types/menu";
 import type { MenuBomLine } from "@/types/menu-bom";
 import type { ModifierRule } from "@/types/modifier-rule";
@@ -12,6 +12,8 @@ import { useMenuCategories } from "@/hooks/use-menu-categories";
 import { summarizeMenu, describeRule, brandBranches, type CheckLevel, type CheckArea, type HealthCheck, type MenuSetupSummary } from "@/lib/menu-health";
 import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
 import { PosOptionsView } from "@/components/menu-setup/PosOptionsView";
+import { BranchSetupView } from "@/components/menu-setup/BranchSetupView";
+import { NewMenuForm } from "@/components/menu-setup/NewMenuForm";
 import { usePosOptionsData } from "@/hooks/use-pos-options-data";
 import type { Bill } from "@/lib/pos-options";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -35,11 +37,20 @@ interface MenuSetupProps {
   readOnly?: boolean;
   onNavigate: (tab: TabKey) => void;
   addRule: (data: Omit<ModifierRule, "id">) => Promise<ModifierRule | null>;
+  addMenu: (data: Omit<Menu, "id">) => Promise<Menu | null>;
+  getNextCode: () => string;
   /** Dev harness only: use these instead of what the hooks load */
-  demoExtras?: { overrides: Record<string, Record<string, boolean>>; soldByCode: Record<string, Record<string, number>>; bills: Bill[] };
+  demoExtras?: {
+    overrides: Record<string, Record<string, boolean>>;
+    soldByCode: Record<string, Record<string, number>>;
+    bills: Bill[];
+    setBranchOpenMany: (menuIds: string[], branchId: string, open: boolean) => Promise<boolean>;
+  };
 }
 
 const POS_HASH = "pos";
+const BRANCHES_HASH = "branches";
+const NEW_HASH = "new";
 
 type WorkTab = "health" | "recipe" | "branches" | "rules" | "info";
 type MenuFilter = "all" | "error" | "warn" | "inactive";
@@ -79,9 +90,11 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, demoExtras }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, demoExtras }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
-  const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: async () => true } : loaded;
+  const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
+  // Menus created in this visit get the step-by-step checklist
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const canEdit = !readOnly;
 
   const [code, setCode] = useState(() => decodeURIComponent(window.location.hash.slice(1)));
@@ -116,31 +129,53 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     return out;
   }, [menus, menuBom.lines, rules, skus, prices, branches, extras.overrides, extras.soldByCode]);
 
-  // "#pos" opens the POS option catalog; any other hash is a menu code
+  // "#pos" / "#branches" / "#new" are views; any other hash is a menu code
   const posView = code === POS_HASH;
-  const selected = posView ? null : menus.find((m) => m.menuCode === code) ?? null;
+  const branchView = code === BRANCHES_HASH;
+  const isNew = code === NEW_HASH;
+  const selected = posView || branchView || isNew ? null : menus.find((m) => m.menuCode === code) ?? null;
   const pos = usePosOptionsData(posView && !demoExtras);
   const [demoNoStock, setDemoNoStock] = useState<Set<string>>(new Set());
 
-  const viewTabs: { key: "menus" | "pos"; label: string }[] = [
+  type View = "menus" | "pos" | "branches";
+  const viewTabs: { key: View; label: string }[] = [
     { key: "menus", label: "เมนู" },
+    { key: "branches", label: "สาขา" },
     { key: "pos", label: "ตัวเลือก POS" },
   ];
   const header = (
-    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", selected && "hidden lg:flex")}>
+    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
         <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎตัวเลือก POS · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
       </div>
-      <SegmentedTabs<"menus" | "pos">
+      <SegmentedTabs<View>
         tabs={viewTabs}
-        value={posView ? "pos" : "menus"}
+        value={posView ? "pos" : branchView ? "branches" : "menus"}
         onChange={(v) => {
-          window.location.hash = v === "pos" ? POS_HASH : "";
+          window.location.hash = v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : "";
         }}
       />
     </div>
   );
+
+  if (branchView)
+    return (
+      <div className="flex flex-col gap-4">
+        {header}
+        <BranchSetupView
+          branches={branches}
+          menus={menus}
+          rules={rules}
+          summaries={summaries}
+          soldByCode={extras.soldByCode}
+          canEdit={canEdit}
+          setBranchOpenMany={extras.setBranchOpenMany}
+          onOpenMenu={(m) => open(m)}
+          onNavigate={onNavigate}
+        />
+      </div>
+    );
 
   if (posView)
     return (
@@ -181,11 +216,32 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       {header}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div className={cn("min-w-0", selected && "hidden lg:block")}>
-          <MenuList menus={menus} summaries={summaries} selectedId={selected?.id ?? null} onSelect={open} loading={menuBom.loading} />
+        <div className={cn("min-w-0", (selected || isNew) && "hidden lg:block")}>
+          <MenuList
+            menus={menus}
+            summaries={summaries}
+            selectedId={selected?.id ?? null}
+            onSelect={open}
+            loading={menuBom.loading}
+            onNew={canEdit ? () => (window.location.hash = NEW_HASH) : undefined}
+          />
         </div>
-        <div className={cn("min-w-0", !selected && "hidden lg:block")}>
-          {selected ? (
+        <div className={cn("min-w-0", !selected && !isNew && "hidden lg:block")}>
+          {isNew && canEdit ? (
+            <NewMenuForm
+              menus={menus}
+              branches={branches}
+              nextCode={getNextCode()}
+              addMenu={addMenu}
+              closeAt={(menuId, ids) => Promise.all(ids.map((b) => extras.setBranchOpenMany([menuId], b, false))).then((r) => r.every(Boolean))}
+              onCreated={(m) => {
+                setFreshIds((f) => new Set(f).add(m.id));
+                // Replace "#new" so the back button doesn't reopen the empty form
+                window.location.replace(`#${encodeURIComponent(m.menuCode)}`);
+              }}
+              onCancel={() => window.history.back()}
+            />
+          ) : selected ? (
             <MenuWorkspace
               key={selected.id}
               menu={selected}
@@ -203,6 +259,14 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               onBack={() => open(null)}
               onOpenMenu={(m) => open(m)}
               onNavigate={onNavigate}
+              isNew={freshIds.has(selected.id)}
+              onChecklistDone={() =>
+                setFreshIds((f) => {
+                  const n = new Set(f);
+                  n.delete(selected.id);
+                  return n;
+                })
+              }
             />
           ) : (
             <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
@@ -225,12 +289,14 @@ function MenuList({
   selectedId,
   onSelect,
   loading,
+  onNew,
 }: {
   menus: Menu[];
   summaries: Map<string, MenuSetupSummary>;
   selectedId: string | null;
   onSelect: (m: Menu) => void;
   loading: boolean;
+  onNew?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [brand, setBrand] = useState("all");
@@ -283,6 +349,11 @@ function MenuList({
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]">
       <div className="flex flex-col gap-3 border-b border-border p-4">
+        {onNew && (
+          <Button variant="brand" className="h-11 w-full" onClick={onNew}>
+            <Plus className="h-4 w-4" /> เมนูใหม่
+          </Button>
+        )}
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นรหัส ชื่อ หรือหมวด…" className="h-11 pl-9" aria-label="ค้นเมนู" />
@@ -365,11 +436,14 @@ interface WorkspaceProps {
   onBack: () => void;
   onOpenMenu: (m: Menu) => void;
   onNavigate: (tab: TabKey) => void;
+  /** Just created in this visit: show the setup steps */
+  isNew?: boolean;
+  onChecklistDone?: () => void;
 }
 
 function MenuWorkspace(props: WorkspaceProps) {
   const { menu, summary, onBack } = props;
-  const [tab, setTab] = useState<WorkTab>(summary.worst === "ok" ? "recipe" : "health");
+  const [tab, setTab] = useState<WorkTab>(props.isNew || summary.worst === "ok" ? "recipe" : "health");
   const problems = summary.checks.filter((c) => c.level !== "ok").length;
   const lineCount = summary.sharedLines.length + Object.values(summary.branchLines).reduce((s, l) => s + l.length, 0);
 
@@ -434,6 +508,8 @@ function MenuWorkspace(props: WorkspaceProps) {
           </div>
         )}
       </section>
+
+      {props.isNew && <NewMenuChecklist summary={summary} tab={tab} onGo={setTab} onDone={props.onChecklistDone} />}
 
       <SegmentedTabs<WorkTab> tabs={tabs} value={tab} onChange={setTab} />
 
@@ -693,5 +769,73 @@ function InfoPanel({ menu, canEdit, updateMenu }: WorkspaceProps) {
       </div>
       {canEdit && <SaveBar pending={dirty} saving={saving} onSave={save} onDiscard={() => setForm(initial)} />}
     </div>
+  );
+}
+
+/** Steps for a menu created in this visit; each step jumps to where it's done */
+function NewMenuChecklist({
+  summary,
+  tab,
+  onGo,
+  onDone,
+}: {
+  summary: MenuSetupSummary;
+  tab: WorkTab;
+  onGo: (t: WorkTab) => void;
+  onDone?: () => void;
+}) {
+  const hasRecipe = summary.sharedLines.length > 0 || Object.keys(summary.branchLines).length > 0 || summary.linkedRecipes.length > 0;
+  const priced = !summary.checks.some((c) => c.id === "unpriced" && c.level !== "ok");
+  const sells = summary.branches.some((b) => b.open);
+  const steps: { done: boolean; label: string; hint: string; go: () => void; active: boolean }[] = [
+    { done: true, label: "ข้อมูลเมนู", hint: "รหัส ชื่อ ราคา แบรนด์", go: () => onGo("info"), active: tab === "info" },
+    { done: hasRecipe, label: "ตั้งสูตร", hint: "วัตถุดิบต่อจาน — ขายแล้วระบบตัดตามนี้", go: () => onGo("recipe"), active: tab === "recipe" },
+    { done: hasRecipe && priced, label: "วัตถุดิบมีราคาครบ", hint: "ไม่ครบ = ต้นทุนต่ำกว่าจริง", go: () => onGo("recipe"), active: false },
+    { done: sells, label: "เปิดขายอย่างน้อย 1 สาขา", hint: "เลือกสาขาที่ขายเมนูนี้", go: () => onGo("branches"), active: tab === "branches" },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card [box-shadow:inset_4px_0_0_hsl(var(--brand))]">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">เมนูใหม่ · ตั้งไปแล้ว {doneCount} จาก {steps.length}</div>
+          <p className="text-sm text-muted-foreground">ทำครบแล้วกด "เสร็จ" — หลังเริ่มขาย มาเช็คตัวเลือก POS ที่ลูกค้ากดอีกครั้ง</p>
+        </div>
+        {onDone && (
+          <Button variant={doneCount === steps.length ? "brand" : "outline"} className="h-10 shrink-0" onClick={onDone}>
+            เสร็จ
+          </Button>
+        )}
+      </div>
+      <ol className="grid gap-2 sm:grid-cols-2">
+        {steps.map((st, i) => (
+          <li key={st.label}>
+            <button
+              type="button"
+              onClick={st.go}
+              className={cn(
+                "flex min-h-[56px] w-full items-center gap-3 rounded-xl bg-secondary px-3 py-2 text-left transition-colors hover:bg-secondary/70",
+                st.active && "ring-2 ring-brand",
+              )}
+            >
+              {st.done ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" aria-label="เสร็จ" />
+              ) : (
+                <Circle className="h-5 w-5 shrink-0 text-muted-foreground" aria-label="ยังไม่เสร็จ" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium">
+                  {i + 1}. {st.label}
+                </span>
+                <span className="block text-sm text-muted-foreground">{st.hint}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <Button variant="ghost" className="h-10 self-start text-brand" onClick={() => (window.location.hash = POS_HASH)}>
+        ภายหลัง: เช็คตัวเลือก POS ที่หน้า "ตัวเลือก POS"
+      </Button>
+    </section>
   );
 }

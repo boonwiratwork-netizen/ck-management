@@ -25,7 +25,7 @@ interface MenuMasterPageProps {
     menus: Menu[];
     loading: boolean;
     getNextCode: () => string;
-    addMenu: (data: Omit<Menu, 'id'>) => Promise<boolean>;
+    addMenu: (data: Omit<Menu, 'id'>) => Promise<Menu | null>;
     updateMenu: (id: string, data: Partial<Omit<Menu, 'id'>>) => Promise<boolean>;
     deleteMenu: (id: string) => Promise<boolean>;
     bulkAddMenus: (rows: Omit<Menu, 'id'>[]) => Promise<number>;

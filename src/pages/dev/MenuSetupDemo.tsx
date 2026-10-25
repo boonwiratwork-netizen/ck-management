@@ -30,6 +30,7 @@ export default function MenuSetupDemo() {
   const [lines, setLines] = useState<MenuBomLine[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [rules, setRules] = useState<ModifierRule[]>([]);
+  const [overrides, setOverrides] = useState<Fixture["overrides"]>({});
 
   useEffect(() => {
     fetch("/fixtures.local/menu-setup.json")
@@ -39,6 +40,7 @@ export default function MenuSetupDemo() {
         setLines(d.lines);
         setMenus(d.menus);
         setRules(d.rules);
+        setOverrides(d.overrides);
       });
   }, []);
 
@@ -67,7 +69,27 @@ export default function MenuSetupDemo() {
         prices={data.prices}
         branches={data.branches}
         onNavigate={() => undefined}
-        demoExtras={{ overrides: data.overrides, soldByCode: data.soldByCode, bills: data.bills }}
+        demoExtras={{
+          overrides,
+          soldByCode: data.soldByCode,
+          bills: data.bills,
+          setBranchOpenMany: async (ids, branchId, open) => {
+            await wait();
+            setOverrides((p) => {
+              const n = { ...p };
+              for (const id of ids) n[id] = { ...(n[id] ?? {}), [branchId]: open };
+              return n;
+            });
+            return true;
+          },
+        }}
+        addMenu={async (m) => {
+          await wait();
+          const menu = { ...m, id: crypto.randomUUID() };
+          setMenus((p) => [menu, ...p]);
+          return menu;
+        }}
+        getNextCode={() => `MN-${String(Math.max(...menus.map((m) => Number(m.menuCode.match(/^MN-(\d+)$/)?.[1] ?? 0))) + 1).padStart(3, "0")}`}
       />
     </div>
   );

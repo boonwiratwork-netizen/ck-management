@@ -36,7 +36,8 @@ export function useMenuData() {
     return `MN-${String(next).padStart(3, '0')}`;
   }, [menus]);
 
-  const addMenu = useCallback(async (data: Omit<Menu, 'id'>): Promise<boolean> => {
+  // Returns the new menu (truthy) so callers can open it straight away
+  const addMenu = useCallback(async (data: Omit<Menu, 'id'>): Promise<Menu | null> => {
     const { data: row, error } = await supabase.from('menus').insert({
       menu_code: data.menuCode,
       menu_name: data.menuName,
@@ -46,9 +47,10 @@ export function useMenuData() {
       brand_name: data.brandName,
       is_maindish: data.isMaindish,
     }).select().single();
-    if (error) { toast.error('บันทึกเมนูไม่สำเร็จ: ' + error.message); return false; }
-    setMenus(prev => [toLocal(row), ...prev]);
-    return true;
+    if (error) { toast.error('บันทึกเมนูไม่สำเร็จ: ' + error.message); return null; }
+    const created = toLocal(row);
+    setMenus(prev => [created, ...prev]);
+    return created;
   }, []);
 
   const updateMenu = useCallback(async (id: string, data: Partial<Omit<Menu, 'id'>>): Promise<boolean> => {

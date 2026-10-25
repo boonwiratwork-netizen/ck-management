@@ -617,6 +617,8 @@ const Index = () => {
                     readOnly={!isManagement}
                     onNavigate={handleTabChange}
                     addRule={modifierRuleData.addRule}
+                    addMenu={menuData.addMenu}
+                    getNextCode={menuData.getNextCode}
                   />
                 ) : activeTab === "menu-master" ? (
                   <MenuMasterPage menuData={menuData} branches={branchData.branches} />
