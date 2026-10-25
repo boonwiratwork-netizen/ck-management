@@ -36,6 +36,7 @@ function seed(): SaleLine[] {
     for (let b = 0; b < 4; b++) {
       const bill = `B${k}${b}`;
       out.push({ id: `s${n++}`, branch_id: "shiro", sale_date: d, receipt_no: bill, menu_code: "MN-001", menu_name: "Standard Shio Ramen เลือกเส้น : เส้นโฮมเมด x 1 ระดับเส้น : ลวกเส้น : ปกติ x 1 ความเค็ม : ความเค็ม : ปกติ x 1", order_type: "Dine-In", qty: 1, unit_price: 369, net_amount: 339, channel: "หน้าร้าน" });
+      out.push({ id: `t${n++}`, branch_id: "thaniya", sale_date: d, receipt_no: `T${k}${b}`, menu_code: "MN-080", menu_name: "Trio Set", order_type: "Dine-In", qty: 1, unit_price: 49, net_amount: 49, channel: "หน้าร้าน" });
       out.push({ id: `s${n++}`, branch_id: "shiro", sale_date: d, receipt_no: bill, menu_code: "MN-032", menu_name: "Mineral water อุณหภูมิ : เย็น x 1 แก้ว : น้ำแข็ง x 2", order_type: "Dine-In", qty: 2, unit_price: 30, net_amount: 60, channel: "หน้าร้าน" });
     }
   }
@@ -91,6 +92,13 @@ export default function SalesDemo() {
       }
       return { inserted, failedDay: null };
     },
+    fetchHistory: useCallback(
+      async (ids: string[], f: string, t: string) => {
+        await wait();
+        return db.filter((r) => ids.includes(r.branch_id) && r.sale_date >= f && r.sale_date <= t).sort((a, b) => b.sale_date.localeCompare(a.sale_date) || a.receipt_no.localeCompare(b.receipt_no));
+      },
+      [db],
+    ),
     addLine: async (row) => {
       await wait();
       note(`INSERT sales_entries ${JSON.stringify(row)}`);

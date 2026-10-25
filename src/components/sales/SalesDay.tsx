@@ -12,7 +12,7 @@ import { thaiDay } from "./SalesDays";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Patch = Partial<Omit<SaleLine, "id" | "branch_id" | "receipt_no">>;
+export type Patch = Partial<Omit<SaleLine, "id" | "branch_id" | "receipt_no">>;
 
 /** One day's bills: search, copy to Excel, edit or delete lines (bulk delete for management) */
 export function SalesDay({
@@ -223,7 +223,7 @@ export function SalesDay({
 }
 
 /** The old edit form, in Thai: every field the old dialog had */
-function EditDialog({ line, onClose, onSave, onDelete }: { line: SaleLine | null; onClose: () => void; onSave: (p: Patch) => Promise<void>; onDelete: () => void }) {
+export function EditDialog({ line, onClose, onSave, onDelete }: { line: SaleLine | null; onClose: () => void; onSave: (p: Patch) => Promise<void>; onDelete: () => void }) {
   const [draft, setDraft] = useState<Patch>({});
   const [saving, setSaving] = useState(false);
   const v = { ...line, ...draft } as SaleLine;

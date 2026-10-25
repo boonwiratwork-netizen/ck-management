@@ -165,6 +165,28 @@ export function useSalesData({ branchId, from, to, day }: { branchId: string | n
     return { inserted, failedDay: null };
   }, []);
 
+  /** Every line of these branches between two dates (history screen) */
+  const fetchHistory = useCallback(async (branchIds: string[], dateFrom: string, dateTo: string): Promise<SaleLine[] | null> => {
+    if (!branchIds.length) return [];
+    const { data, error } = await fetchAllRows((a, b) =>
+      supabase
+        .from("sales_entries")
+        .select("*")
+        .in("branch_id", branchIds)
+        .gte("sale_date", dateFrom)
+        .lte("sale_date", dateTo)
+        .order("sale_date", { ascending: false })
+        .order("receipt_no")
+        .order("id")
+        .range(a, b),
+    );
+    if (error) {
+      toast.error("โหลดประวัติยอดขายไม่สำเร็จ");
+      return null;
+    }
+    return data.map(toLine);
+  }, []);
+
   const addLine = useCallback(async (row: SalesInsertRow) => {
     const { error } = await supabase.from("sales_entries").insert(row);
     if (error) {
@@ -221,7 +243,7 @@ export function useSalesData({ branchId, from, to, day }: { branchId: string | n
     [loadProfiles],
   );
 
-  return { days, daysLoading, lines, linesLoading, profiles, reloadDays: loadDays, reloadLines: loadLines, existingOn, saveImport, addLine, updateLine, deleteLines, saveProfile, deleteProfile };
+  return { days, daysLoading, lines, linesLoading, profiles, reloadDays: loadDays, reloadLines: loadLines, existingOn, saveImport, fetchHistory, addLine, updateLine, deleteLines, saveProfile, deleteProfile };
 }
 
 export type SalesData = ReturnType<typeof useSalesData>;

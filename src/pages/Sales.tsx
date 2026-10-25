@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { addDays, format } from "date-fns";
-import { ArrowLeft, HelpCircle, Plus } from "lucide-react";
+import { ArrowLeft, HelpCircle, History, Plus } from "lucide-react";
 import type { Branch } from "@/types/branch";
 import type { Menu } from "@/types/menu";
 import type { ModifierRule } from "@/types/modifier-rule";
@@ -12,6 +12,7 @@ import { DayStrip, MonthCalendar, RecentDays } from "@/components/sales/SalesDay
 import { CheckView, ImportCard, ProfilesDialog } from "@/components/sales/SalesImport";
 import { SalesDay } from "@/components/sales/SalesDay";
 import { SalesManual } from "@/components/sales/SalesManual";
+import { SalesHistory } from "@/components/sales/SalesHistory";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { baht } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,11 @@ const GUIDE: GuideStep[] = [
     target: "add",
     title: "ขายนอก POS กด “เพิ่มเอง”",
     body: "ใช้กับของที่ไม่ได้ขายผ่าน POS หรือแถวที่ POS ไม่มีรหัสเมนู เลือกเมนู ตัวเลือก จำนวน แล้วบันทึก",
+  },
+  {
+    target: "history",
+    title: "ดูย้อนหลังหลายวัน หลายสาขา",
+    body: "กด “ประวัติ” เลือกช่วงวันที่และเลือกได้หลายสาขาพร้อมกัน ดูยอดรวม คัดลอกไป Excel และลบหลายรายการได้ (ผู้บริหาร)",
   },
   {
     target: "saved",
@@ -195,6 +201,28 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
     ) : (
       <Empty text="ยังไม่ได้วางข้อมูล กลับไปวางข้อมูลจาก POS ก่อน" />
     );
+  else if (view === "history")
+    work = (
+      <SalesHistory
+        branches={lockedBranch ? activeBranches.filter((b) => b.id === lockedBranch) : activeBranches}
+        initialBranchIds={[branchId]}
+        lockBranches={!!lockedBranch}
+        today={today}
+        fetchHistory={data.fetchHistory}
+        canEdit={canEdit}
+        canBulk={canBulk}
+        onUpdate={async (id, patch) => {
+          const ok = await data.updateLine(id, patch);
+          if (ok) data.reloadDays();
+          return ok;
+        }}
+        onDelete={async (ids) => {
+          const ok = await data.deleteLines(ids);
+          if (ok) data.reloadDays();
+          return ok;
+        }}
+      />
+    );
   else if (view === "add")
     work = canEdit ? (
       <SalesManual
@@ -279,6 +307,9 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
             ))}
           </div>
         )}
+        <Button data-tour="history" variant="outline" className="h-10" onClick={() => go("history")}>
+          <History className="h-4 w-4" /> ประวัติ
+        </Button>
         <Button variant="outline" className="h-10" onClick={guide.start}>
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
@@ -289,8 +320,9 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <div className={cn("flex min-w-0 flex-col gap-4", workOpen && "hidden lg:flex")}>
+      {/* History needs the full width on computers; the other screens sit beside the day list */}
+      <div className={cn("grid grid-cols-1 gap-6", view !== "history" && "lg:grid-cols-[380px_minmax(0,1fr)]")}>
+        <div className={cn("flex min-w-0 flex-col gap-4", workOpen && "hidden", workOpen && view !== "history" && "lg:flex")}>
           {branchId ? (
             <>
               <div className="lg:hidden">
@@ -315,7 +347,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
         </div>
         <div data-tour="saved" className={cn("min-w-0", !workOpen && "hidden lg:block")}>
           {workOpen && (
-            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground lg:hidden">
+            <button type="button" onClick={() => go("")} className={cn("-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground", view !== "history" && "lg:hidden")}>
               <ArrowLeft className="h-4 w-4" /> ยอดขาย
             </button>
           )}
