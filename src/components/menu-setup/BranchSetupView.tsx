@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 interface BranchSetupViewProps {
+  initialBranchId?: string;
   branches: Branch[];
   menus: Menu[];
   rules: ModifierRule[];
@@ -40,9 +41,9 @@ const pct = (n: number | null) => (n === null ? "—" : `${n.toFixed(1)}%`);
  * menu, rules include it), and which menus it sells — open/close many at once.
  * This is the branch-side view that used to live only inside the Branches page.
  */
-export function BranchSetupView({ branches, menus, rules, summaries, soldByCode, canEdit, setBranchOpenMany, onOpenMenu, onNavigate }: BranchSetupViewProps) {
+export function BranchSetupView({ initialBranchId, branches, menus, rules, summaries, soldByCode, canEdit, setBranchOpenMany, onOpenMenu, onNavigate }: BranchSetupViewProps) {
   const active = branches.filter((b) => b.status === "Active");
-  const [branchId, setBranchId] = useState(active[0]?.id ?? "");
+  const [branchId, setBranchId] = useState(initialBranchId ?? active[0]?.id ?? "");
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());

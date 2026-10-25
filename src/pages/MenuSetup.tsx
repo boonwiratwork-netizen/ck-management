@@ -14,6 +14,7 @@ import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/Recipe
 import { PosOptionsView } from "@/components/menu-setup/PosOptionsView";
 import { BranchSetupView } from "@/components/menu-setup/BranchSetupView";
 import { NewMenuForm } from "@/components/menu-setup/NewMenuForm";
+import { SetupOverview } from "@/components/menu-setup/SetupOverview";
 import { usePosOptionsData } from "@/hooks/use-pos-options-data";
 import type { Bill } from "@/lib/pos-options";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -51,6 +52,7 @@ interface MenuSetupProps {
 const POS_HASH = "pos";
 const BRANCHES_HASH = "branches";
 const NEW_HASH = "new";
+const OVERVIEW_HASH = "overview";
 
 type WorkTab = "health" | "recipe" | "branches" | "rules" | "info";
 type MenuFilter = "all" | "error" | "warn" | "inactive";
@@ -131,14 +133,18 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
 
   // "#pos" / "#branches" / "#new" are views; any other hash is a menu code
   const posView = code === POS_HASH;
-  const branchView = code === BRANCHES_HASH;
+  // "#branches/<id>" opens one branch
+  const branchView = code === BRANCHES_HASH || code.startsWith(`${BRANCHES_HASH}/`);
+  const branchFromHash = code.startsWith(`${BRANCHES_HASH}/`) ? code.slice(BRANCHES_HASH.length + 1) : undefined;
+  const overviewView = code === OVERVIEW_HASH;
   const isNew = code === NEW_HASH;
-  const selected = posView || branchView || isNew ? null : menus.find((m) => m.menuCode === code) ?? null;
+  const selected = posView || branchView || isNew || overviewView ? null : menus.find((m) => m.menuCode === code) ?? null;
   const pos = usePosOptionsData(posView && !demoExtras);
   const [demoNoStock, setDemoNoStock] = useState<Set<string>>(new Set());
 
-  type View = "menus" | "pos" | "branches";
+  type View = "overview" | "menus" | "pos" | "branches";
   const viewTabs: { key: View; label: string }[] = [
+    { key: "overview", label: "ภาพรวม" },
     { key: "menus", label: "เมนู" },
     { key: "branches", label: "สาขา" },
     { key: "pos", label: "ตัวเลือก POS" },
@@ -151,19 +157,42 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       </div>
       <SegmentedTabs<View>
         tabs={viewTabs}
-        value={posView ? "pos" : branchView ? "branches" : "menus"}
+        value={posView ? "pos" : branchView ? "branches" : overviewView ? "overview" : "menus"}
         onChange={(v) => {
-          window.location.hash = v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : "";
+          window.location.hash = v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : "";
         }}
       />
     </div>
   );
+
+  if (overviewView)
+    return (
+      <div className="flex flex-col gap-4">
+        {header}
+        <SetupOverview
+          menus={menus}
+          lines={menuBom.lines}
+          rules={rules}
+          skus={skus}
+          prices={prices}
+          branches={branches}
+          summaries={summaries}
+          soldByCode={extras.soldByCode}
+          onOpenMenu={(m) => open(m)}
+          onOpenBranch={(id) => (window.location.hash = `${BRANCHES_HASH}/${id}`)}
+          onOpenPos={() => (window.location.hash = POS_HASH)}
+          onNavigate={onNavigate}
+        />
+      </div>
+    );
 
   if (branchView)
     return (
       <div className="flex flex-col gap-4">
         {header}
         <BranchSetupView
+          key={branchFromHash ?? "first"}
+          initialBranchId={branchFromHash}
           branches={branches}
           menus={menus}
           rules={rules}
