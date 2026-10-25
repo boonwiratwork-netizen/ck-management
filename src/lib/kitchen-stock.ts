@@ -141,12 +141,12 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
           .filter((r) => producedAfterCount(anchor, r.productionDate, r.createdAt))
           .reduce((sum, r) => sum + r.actualOutputG, 0);
         const deliveredAfter = (deliveredBySku[skuId] || [])
-          .filter((d) => afterCount(anchor, d.date, d.sentAt))
+          .filter((d) => afterCount(anchor, d.date))
           .reduce((sum, d) => sum + d.qty, 0);
         const adjustmentsAfter = (adjRows || [])
           .filter(
             (a: any) =>
-              a.sku_id === skuId && afterCount(anchor, a.adjustment_date, a.created_at) && !a.reason.includes("Stock Count"),
+              a.sku_id === skuId && afterCount(anchor, a.adjustment_date) && !a.reason.includes("Stock Count"),
           )
           .reduce((sum, a: any) => sum + a.quantity, 0);
         currentStockMap[skuId] = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;
@@ -217,12 +217,12 @@ export async function kitchenStockForSkus(skus: SKU[], skuIdsInput: string[]): P
       const anchor = rmPkAnchorMap[skuId];
       if (anchor) {
         const receivedAfter = (receiptRows || [])
-          .filter((r) => r.sku_id === skuId && afterCount(anchor, r.receipt_date, r.created_at))
+          .filter((r) => r.sku_id === skuId && afterCount(anchor, r.receipt_date))
           .reduce((sum, r) => sum + r.quantity_received * converter, 0);
         const adjustmentsAfter = (rmPkAdjRows || [])
           .filter(
             (a: any) =>
-              a.sku_id === skuId && afterCount(anchor, a.adjustment_date, a.created_at) && !a.reason.includes("Stock Count"),
+              a.sku_id === skuId && afterCount(anchor, a.adjustment_date) && !a.reason.includes("Stock Count"),
           )
           .reduce((sum, a: any) => sum + a.quantity, 0);
         currentStockMap[skuId] = anchor.physical_qty + receivedAfter + adjustmentsAfter;

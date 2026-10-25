@@ -1,14 +1,15 @@
 /**
  * Which stock movements come AFTER a physical count (and so are added to the
- * counted figure). The anchor model counts everything dated after the count day;
- * the question is the count day itself.
+ * counted figure). Everything dated after the count day is added; the question is
+ * the count day itself, and it goes by date only: kitchen bills are often keyed in a
+ * day later and counts are typed in from paper, so entry times say little about
+ * when something was physically in the fridge.
  *
  * - Counts saved before this rule (timing null): exactly as before — a movement
  *   on the count day is taken as already in the count (production compares its
  *   entry time with when the count was finished).
- * - "before" (นับก่อนรายการของวันนั้น): every movement on the count day is added.
- * - "after" (นับหลังรายการของวันนั้น): movements on the count day are in the
- *   count, except ones entered after the count was finished.
+ * - "before" (นับก่อนรายการของวันนั้น): every movement dated on the count day is added.
+ * - "after" (นับหลังรายการของวันนั้น): every movement dated on the count day is in the count.
  */
 
 export type CountTiming = "before" | "after";
@@ -20,19 +21,14 @@ export interface CountAnchor {
 }
 
 /** Receipts, adjustments and deliveries (dated movements) */
-export function afterCount(anchor: CountAnchor, date: string, createdAt?: string | null): boolean {
-  if (date > anchor.count_date) return true;
-  if (date < anchor.count_date || !anchor.timing) return false;
-  if (anchor.timing === "before") return true;
-  return !!createdAt && !!anchor.completed_at && createdAt > anchor.completed_at;
+export function afterCount(anchor: CountAnchor, date: string): boolean {
+  if (date === anchor.count_date) return anchor.timing === "before";
+  return date > anchor.count_date;
 }
 
-/**
- * Production records: the old rule (entered after the count was finished) stays;
- * "before" also adds what was made on the count day.
- */
+/** Production records: counts saved before this rule keep the old entry-time rule */
 export function producedAfterCount(anchor: CountAnchor, productionDate: string, createdAt?: string | null): boolean {
-  if (anchor.timing === "before" && productionDate >= anchor.count_date) return true;
+  if (anchor.timing) return afterCount(anchor, productionDate);
   return (createdAt ?? productionDate) > (anchor.completed_at ?? anchor.count_date);
 }
 
@@ -92,4 +88,37 @@ export function countDayEvents(raw: CountDayRaw): CountDayEvent[] {
   }
   for (const [no, g] of otherTos) out.push({ at: g.at, sign: "−", text: `ส่งของ ${no} · ${g.n} รายการ` });
   return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** A movement's effect on one SKU's kitchen stock, in the stock pages' units */
+export interface StockMove {
+  skuId: string;
+  date: string;
+  qty: number; // + in, − out
+}
+
+export interface CountNets {
+  /** Net movement dated on the count day, per SKU */
+  day: Record<string, number>;
+  /** Net movement dated after the count day (the count was typed in later), per SKU */
+  later: Record<string, number>;
+}
+
+export function countNets(moves: StockMove[], countDate: string): CountNets {
+  const nets: CountNets = { day: {}, later: {} };
+  for (const m of moves) {
+    if (m.date < countDate) continue;
+    const bucket = m.date === countDate ? nets.day : nets.later;
+    bucket[m.skuId] = (bucket[m.skuId] ?? 0) + m.qty;
+  }
+  return nets;
+}
+
+/**
+ * What the system should have shown at the moment of counting, from the system
+ * figure now (which already holds every movement entered so far): take off what is
+ * dated after the count day, and the count day itself when the count came first.
+ */
+export function systemAtCount(systemNow: number, skuId: string, nets: CountNets, timing: CountTiming | null): number {
+  return systemNow - (nets.later[skuId] ?? 0) - (timing === "before" ? nets.day[skuId] ?? 0 : 0);
 }

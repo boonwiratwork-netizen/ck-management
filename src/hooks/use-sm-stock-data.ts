@@ -184,12 +184,12 @@ export function useSmStockData(
           .reduce((sum, r) => sum + r.actualOutputG, 0);
 
         const deliveredAfter = toLineDetails
-          .filter((l) => l.sku_id === sku.id && afterCount(anchor, l.delivery_date, l.sent_at))
+          .filter((l) => l.sku_id === sku.id && afterCount(anchor, l.delivery_date))
           .reduce((sum, l) => sum + l.qty, 0);
 
         const skuAdjustments = adjustments.filter((a) => a.skuId === sku.id);
         const adjustmentsAfter = skuAdjustments
-          .filter((a) => afterCount(anchor, a.date, a.createdAt) && !a.reason.includes("Stock Count"))
+          .filter((a) => afterCount(anchor, a.date) && !a.reason.includes("Stock Count"))
           .reduce((sum, a) => sum + a.quantity, 0);
 
         const currentStock = anchor.physical_qty + producedAfter - deliveredAfter + adjustmentsAfter;

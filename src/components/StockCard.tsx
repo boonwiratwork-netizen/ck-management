@@ -15,11 +15,9 @@ type LedgerCount = CountAnchor & { completed_at: string };
 
 /**
  * Where a count row sits among the movements of its own day, matching the stock
- * pages (count-anchor.ts): "before" = ahead of all of them, "after" = by the time
- * it was finished, older counts = after all of them (as before).
+ * pages (count-anchor.ts): "before" = ahead of all of them, otherwise after them.
  */
-const countSortKey = (c: LedgerCount) =>
-  c.timing === "before" ? `${c.count_date}|0|` : c.timing === "after" ? `${c.count_date}|1|${c.completed_at}` : `${c.count_date}|2|${c.completed_at}`;
+const countSortKey = (c: LedgerCount) => (c.timing === "before" ? `${c.count_date}|0|` : `${c.count_date}|2|${c.completed_at}`);
 
 interface StockCardProps {
   skuId: string;
@@ -568,13 +566,13 @@ export function StockCard({
             if (cancelled) return;
             const anchor = preWindowCount;
             const gapGr = (gapGrRes.data ?? [])
-              .filter((r: any) => afterCount(anchor, r.receipt_date, r.created_at))
+              .filter((r: any) => afterCount(anchor, r.receipt_date))
               .reduce(
               (s, r) => s + Number(r.quantity_received) * converter,
               0,
             );
             const gapAdj = (gapAdjRes.data ?? [])
-              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date, a.created_at))
+              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date))
               .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,
@@ -794,14 +792,14 @@ export function StockCard({
               .filter((r: any) => producedAfterCount(anchor, r.production_date, r.created_at))
               .reduce((s, r) => s + Number(r.actual_output_g), 0);
             const gapDel = (gapToRes.data ?? [])
-              .filter((l: any) => afterCount(anchor, l.transfer_orders?.delivery_date, l.transfer_orders?.sent_at))
+              .filter((l: any) => afterCount(anchor, l.transfer_orders?.delivery_date))
               .reduce(
               (s, l: any) =>
                 s + computeToLineQty(Number(l.actual_qty), Number(l.planned_qty), l.transfer_orders?.status),
               0,
             );
             const gapAdj = (gapAdjRes.data ?? [])
-              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date, a.created_at))
+              .filter((a: any) => !(a.reason || "").includes("Stock Count") && afterCount(anchor, a.adjustment_date))
               .reduce((s, a: any) => s + Number(a.quantity), 0);
             mvts.push({
               date: preWindowCount.count_date,

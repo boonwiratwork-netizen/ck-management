@@ -109,10 +109,10 @@ export function useStockData(skus: SKU[], receipts: GoodsReceipt[], prices: Pric
 
       if (anchor) {
         totalReceived = receipts
-          .filter((r) => r.skuId === sku.id && afterCount(anchor, r.receiptDate, r.createdAt))
+          .filter((r) => r.skuId === sku.id && afterCount(anchor, r.receiptDate))
           .reduce((sum, r) => sum + r.quantityReceived * (sku.converter ?? 1), 0);
         netAdjustment = skuAdjustments
-          .filter((a) => afterCount(anchor, a.date, a.createdAt) && !(a.reason ?? "").startsWith("Stock Count"))
+          .filter((a) => afterCount(anchor, a.date) && !(a.reason ?? "").startsWith("Stock Count"))
           .reduce((sum, a) => sum + a.quantity, 0);
         currentStock = anchor.physical_qty + totalReceived + netAdjustment;
       } else {

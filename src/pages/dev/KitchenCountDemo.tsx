@@ -37,7 +37,8 @@ export default function KitchenCountDemo() {
     },
     updateLine: async (id: string, v: number | null, note?: string) =>
       setLines((p) => p.map((l) => (l.id === id ? { ...l, physicalQty: v, variance: v === null ? 0 : v - l.systemQty, note: note ?? l.note } : l))),
-    confirmSession: async (id: string, timing?: string) => {
+    confirmSession: async (id: string, timing?: string, systemAt?: Record<string, number>) => {
+      if (systemAt) setLines((p) => p.map((l) => (l.sessionId === id && systemAt[l.skuId] !== undefined ? { ...l, systemQty: systemAt[l.skuId], variance: l.physicalQty === null ? 0 : l.physicalQty - systemAt[l.skuId] } : l)));
       setSessions((p) => p.map((s) => (s.id === id ? { ...s, status: "Completed" } : s)));
       setSaved(timing ?? "(ไม่ส่ง)");
       return true;
@@ -57,15 +58,20 @@ export default function KitchenCountDemo() {
           bomHeaders={[]}
           bomLines={[]}
           canEdit
-          loadDayEvents={async (date) =>
+          loadDay={async (date) =>
             quiet
-              ? []
-              : countDayEvents({
+              ? { events: [], nets: { day: {}, later: {} }, systemNow: SYS }
+              : {
+                  // Freshket brought 2 kg of spring onion on the count day
+                  nets: { day: { "RM-0200": 2000 }, later: {} },
+                  systemNow: SYS,
+                  events: countDayEvents({
                   receipts: Array.from({ length: 12 }, (_, i) => ({ supplier: "Freshket", createdAt: `${date}T02:10:${String(i).padStart(2, "0")}Z` })),
                   deliveries: [{ branch: "Shiro สีลม", lines: 11, sentAt: `${date}T02:30:00Z` }],
                   production: [{ name: "ซุปโชยุ", grams: 30000, createdAt: `${date}T07:20:00Z` }],
                   adjustments: [],
-                })
+                }),
+                }
           }
         />
       </div>

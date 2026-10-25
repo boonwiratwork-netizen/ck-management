@@ -533,7 +533,7 @@ export function CountReview({
       <div data-tour="kc-confirm" className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-2 md:bottom-4">
         <div className="flex items-center gap-3 rounded-2xl bg-primary py-3 pl-4 pr-3 text-primary-foreground shadow-raised">
           <div className="min-w-0 flex-1 truncate text-[15px] font-semibold">
-            {events === undefined ? "กำลังดูของเข้า-ออกวันนับ…" : mustAsk && !timing ? "เลือกก่อนว่านับก่อนหรือหลังรายการด้านบน" : "นับเสร็จแล้ว สต๊อกในระบบจะเปลี่ยนตามที่นับ"}
+            {events === undefined ? "กำลังโหลด…" : mustAsk && !timing ? "ตอบคำถามด้านบนก่อน" : "นับเสร็จแล้ว สต๊อกในระบบจะเปลี่ยนตามที่นับ"}
           </div>
           <Button
             variant="brand"
@@ -550,9 +550,12 @@ export function CountReview({
   );
 }
 
-const hhmm = (iso: string) => {
+/** When it was keyed in: the time, plus the day if that wasn't the count day */
+const enteredAt = (iso: string, countDate: string) => {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (Number.isNaN(d.getTime())) return "";
+  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return toLocalDateStr(d) === countDate ? time : `${d.getDate()}/${d.getMonth() + 1} ${time}`;
 };
 
 /** "Were these in the fridge when you counted?" — one row per movement of the count day, then two answers */
@@ -579,8 +582,8 @@ function CountTimingAsk({ date, events, timing, onTiming }: { date: string; even
       </h3>
       <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
         {events.map((e, i) => (
-          <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
-            <span className="w-12 font-mono text-muted-foreground">{hhmm(e.at)}</span>
+          <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+            <span className="w-[4.5rem] shrink-0 font-mono text-muted-foreground">{enteredAt(e.at, date)}</span>
             <span className={cn("w-4 text-center font-mono font-bold", e.sign === "+" ? "text-success" : "text-destructive")}>{e.sign}</span>
             <span className="min-w-0 flex-1">{e.text}</span>
           </li>
@@ -605,8 +608,9 @@ function CountTimingAsk({ date, events, timing, onTiming }: { date: string; even
         ))}
       </div>
       <p className="mt-2 text-[12px] text-muted-foreground">
-        บางอย่างก่อน บางอย่างหลัง · เลือกแบบที่ตรงกับส่วนใหญ่ แล้วแก้ที่เหลือด้วยการปรับยอดในหน้าสต๊อก · ของที่บันทึกหลังกด “นับเสร็จ” ระบบบวก/หักให้เสมอ
+        ถ้าบางอย่างก่อน บางอย่างหลัง เลือกแบบที่ตรงกับส่วนใหญ่ แล้วไปปรับยอดที่เหลือในหน้าสต๊อก
       </p>
+      {timing === "after" && <p className="mt-1 text-[13px] font-semibold">ของที่เข้า-ออกหลังนับเสร็จ ให้ลงวันที่วันถัดไป ระบบถึงจะบวก/หักให้</p>}
     </section>
   );
 }

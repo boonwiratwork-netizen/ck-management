@@ -8,8 +8,8 @@ import type { useStockCountData } from "@/hooks/use-stock-count-data";
 import { countSheetHtml, type SheetGroup } from "@/lib/count-sheet";
 import { CountHome, CountReview, CountSheet, TYPES, isBigDiff, type CountType, type SessionSummary } from "@/components/kitchen-count/CountViews";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
-import { loadCountDayEvents } from "@/lib/count-day-moves";
-import type { CountDayEvent, CountTiming } from "@/lib/count-anchor";
+import { loadCountDay, type CountDay } from "@/lib/count-day-moves";
+import { systemAtCount, type CountTiming } from "@/lib/count-anchor";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { thaiDay } from "@/components/sales/SalesDays";
@@ -28,7 +28,7 @@ const GUIDE: GuideStep[] = [
   { target: "kc-start", title: "ขั้น 1: แตะ “เริ่มนับ”", body: "ระบบเก็บยอดในระบบ ณ ตอนนี้ไว้เทียบ", until: "click" },
   { target: "kc-types", title: "เลือก SM · RM · PK", body: "ตัวเลขบอกว่านับไปกี่ตัวแล้ว กรองตามช่องเก็บได้" },
   { target: "kc-lines", title: "ขั้น 2: ใส่ตัวเลขที่นับได้", body: "กด Enter ไปตัวถัดไป · บันทึกให้เองทันที · ช่องว่าง = ยังไม่นับ", until: "enter" },
-  { target: "kc-review", title: "ขั้น 3: แตะ “ตรวจแล้วนับเสร็จ”", body: "หน้าถัดไปบอกตัวที่ต่างมาก ให้เช็คก่อนจบ" },
+  { target: "kc-review", title: "ขั้น 3: แตะ “ตรวจแล้วนับเสร็จ”", body: "หน้าถัดไปบอกตัวที่ต่างมาก ให้เช็คก่อนจบ · ถ้าวันนับมีของเข้า-ออก จะถามว่านับก่อนหรือหลังรายการพวกนั้น" },
 ];
 
 interface Props {
@@ -40,7 +40,7 @@ interface Props {
   /** Management or CK manager (as before: count, confirm and delete) */
   canEdit: boolean;
   /** Dev demo only: stands in for reading the count day's movements */
-  loadDayEvents?: typeof loadCountDayEvents;
+  loadDay?: typeof loadCountDay;
 }
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
@@ -60,7 +60,7 @@ function dueDateFor(done: string[]): string {
  * The central kitchen's stock count (replaces StockCount): monthly, by SM / RM /
  * PK, from a printed A4 sheet. Hash: "" home, "c/<date>" counting, "r/<date>" review.
  */
-export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, canEdit, loadDayEvents = loadCountDayEvents }: Props) {
+export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, canEdit, loadDay = loadCountDay }: Props) {
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession, refreshSystemQty } = stockCountData;
   const location = useLocation();
   const navigate = useNavigate();
@@ -140,25 +140,39 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [refreshed, setRefreshed] = useState<Set<string>>(new Set());
 
-  // The count day's movements, read when the review opens (asked about before finishing)
+  // The count day's movements and the kitchen stock now, read together from the
+  // database when the review opens (nothing is written until "นับเสร็จ")
   const reviewing = !!session && view.startsWith("r/") && session.status === "Draft";
-  const [dayEvents, setDayEvents] = useState<{ date: string; events: CountDayEvent[] } | null>(null);
+  const [countDay, setCountDay] = useState<{ date: string; day: CountDay | null } | null>(null);
   const [timing, setTiming] = useState<CountTiming | null>(null);
+  const lineSkuIds = (ls: { skuId: string }[]) => [...new Set(ls.map((l) => l.skuId))];
   useEffect(() => {
     if (!reviewing || !session) return;
     let cancelled = false;
-    setDayEvents(null);
+    setCountDay(null);
     setTiming(null);
-    loadDayEvents(session.date, skuOf).then((events) => {
-      // A failed read doesn't hold the count up: it finishes as before (no question)
-      if (!cancelled) setDayEvents({ date: session.date, events: events ?? [] });
+    loadDay(session.date, skus, lineSkuIds(getLinesForSession(session.id))).then((day) => {
+      if (!cancelled) setCountDay({ date: session.date, day });
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewing, session?.date]);
-  const events = dayEvents && session && dayEvents.date === session.date ? dayEvents.events : undefined;
+  const loaded = countDay && session && countDay.date === session.date ? countDay : null;
+  // A failed read doesn't hold the count up: it finishes as before (no question)
+  const events = loaded ? loaded.day?.events ?? [] : undefined;
+  // A later count already finished: today's stock starts from that one, so this
+  // count's figures stay as they are
+  const newerCount = !!session && sessions.some((s) => s.status === "Completed" && s.date > session.date);
+  /** System figure at the moment of counting, per SKU (none = keep the saved one) */
+  const systemAtFor = (day: CountDay | null | undefined, t: CountTiming | null): Record<string, number> | undefined =>
+    day && !newerCount ? Object.fromEntries(Object.entries(day.systemNow).map(([id, now]) => [id, systemAtCount(now, id, day.nets, t)])) : undefined;
+  const systemAt = systemAtFor(loaded?.day, timing);
+  const reviewLines = lines.map((l) => {
+    const systemQty = systemAt?.[l.skuId];
+    return systemQty === undefined || systemQty === l.systemQty ? l : { ...l, systemQty, variance: l.physicalQty !== null ? l.physicalQty - systemQty : 0 };
+  });
 
   let work: React.ReactNode;
   if (openDate && !session) work = <Empty text="ไม่พบใบนับของวันนี้" onBack={() => go("", true)} />;
@@ -166,7 +180,7 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
     work = (
       <CountReview
         session={session}
-        lines={lines}
+        lines={reviewLines}
         skuOf={skuOf}
         priceOf={getStdUnitPrice}
         busy={busy}
@@ -178,9 +192,20 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         onConfirm={async () => {
           if (busy || events === undefined || (events.length > 0 && !timing)) return;
           setBusy(true);
-          // Nothing moved on the count day (or the list couldn't be read): "after" — what's
-          // entered from now on is added, nothing before it
-          const ok = await confirmSession(session.id, events.length ? timing : "after");
+          // Read again right before finishing: something entered meanwhile on the count
+          // day needs the question (again); otherwise use the freshest figures
+          const latest = await loadDay(session.date, skus, lineSkuIds(lines));
+          if (latest && latest.events.length !== events.length) {
+            setBusy(false);
+            setCountDay({ date: session.date, day: latest });
+            setTiming(null);
+            toast.info("มีรายการของวันนับเพิ่มเข้ามา ดูแล้วตอบอีกครั้ง");
+            return;
+          }
+          const t = events.length ? timing : "after";
+          // Nothing moved on the count day (or the list couldn't be read): "after" — the
+          // count day is in the count, as before
+          const ok = await confirmSession(session.id, t, systemAtFor(latest ?? loaded?.day, t));
           setBusy(false);
           if (!ok) return;
           toast.success("นับเสร็จแล้ว สต๊อกในระบบเปลี่ยนตามที่นับ");

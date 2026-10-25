@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { afterCount, countDayEvents, producedAfterCount, type CountAnchor } from "./count-anchor";
+import { afterCount, countDayEvents, countNets, producedAfterCount, systemAtCount, type CountAnchor } from "./count-anchor";
 
 const day = "2026-10-31";
 const done = "2026-10-31T10:00:00+00:00";
@@ -14,29 +14,48 @@ describe("afterCount (receipts, transfers, adjustments)", () => {
       expect(afterCount(a, "2026-10-30")).toBe(false);
     }
   });
-  it("older counts: the count day is already in the count", () => {
-    expect(afterCount(legacy, day, "2026-10-31T12:00:00+00:00")).toBe(false);
-  });
-  it("counted before: the whole count day is added", () => {
-    expect(afterCount(before, day, "2026-10-31T01:00:00+00:00")).toBe(true);
-    expect(afterCount(before, day)).toBe(true);
-  });
-  it("counted after: only what was entered after finishing is added", () => {
-    expect(afterCount(after, day, "2026-10-31T09:00:00+00:00")).toBe(false);
-    expect(afterCount(after, day, "2026-10-31T11:00:00+00:00")).toBe(true);
+  it("the count day: added only when the count came first", () => {
+    expect(afterCount(legacy, day)).toBe(false);
     expect(afterCount(after, day)).toBe(false);
+    expect(afterCount(before, day)).toBe(true);
   });
 });
 
 describe("producedAfterCount", () => {
-  it("keeps the old entry-time rule", () => {
+  it("older counts keep the entry-time rule", () => {
     expect(producedAfterCount(legacy, day, "2026-10-31T09:00:00+00:00")).toBe(false);
     expect(producedAfterCount(legacy, day, "2026-10-31T11:00:00+00:00")).toBe(true);
-    expect(producedAfterCount(after, day, "2026-10-31T11:00:00+00:00")).toBe(true);
   });
-  it("counted before: the count day's production is added even if entered earlier", () => {
+  it("answered counts go by date: a bill keyed in late doesn't count twice", () => {
+    expect(producedAfterCount(after, day, "2026-11-01T03:00:00+00:00")).toBe(false);
     expect(producedAfterCount(before, day, "2026-10-31T09:00:00+00:00")).toBe(true);
+    expect(producedAfterCount(after, "2026-11-01", "2026-10-31T09:00:00+00:00")).toBe(true);
     expect(producedAfterCount(before, "2026-10-30", "2026-10-30T09:00:00+00:00")).toBe(false);
+  });
+});
+
+describe("systemAtCount", () => {
+  const nets = countNets(
+    [
+      { skuId: "a", date: "2026-10-30", qty: 999 },
+      { skuId: "a", date: day, qty: 2000 },
+      { skuId: "a", date: day, qty: -500 },
+      { skuId: "a", date: "2026-11-01", qty: -300 },
+    ],
+    day,
+  );
+  it("splits the count day from later days", () => {
+    expect(nets).toEqual({ day: { a: 1500 }, later: { a: -300 } });
+  });
+  it("counted after: only later days come off", () => {
+    expect(systemAtCount(10000, "a", nets, "after")).toBe(10300);
+    expect(systemAtCount(10000, "a", nets, null)).toBe(10300);
+  });
+  it("counted before: the count day comes off too", () => {
+    expect(systemAtCount(10000, "a", nets, "before")).toBe(8800);
+  });
+  it("nothing moved: unchanged", () => {
+    expect(systemAtCount(10000, "b", nets, "before")).toBe(10000);
   });
 });
 

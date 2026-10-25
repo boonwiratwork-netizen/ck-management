@@ -190,7 +190,7 @@ export function useStockCountData({
   );
 
   const confirmSession = useCallback(
-    async (sessionId: string, timing?: CountTiming | null) => {
+    async (sessionId: string, timing?: CountTiming | null, systemAt?: Record<string, number>) => {
       const session = sessions.find((s) => s.id === sessionId);
       if (!session || session.status === "Completed") return;
 
@@ -225,6 +225,21 @@ export function useStockCountData({
       if (linesError) {
         toast.error("Failed to fetch count lines: " + linesError.message);
         return false;
+      }
+
+      // The system figure as it stood when counting (count-anchor.ts systemAtCount),
+      // read fresh from the database just before: saved now that the count is ours,
+      // so the differences recorded are fair. A failed save keeps the old figures.
+      if (systemAt) {
+        const changed = (dbLines || []).filter((l: any) => systemAt[l.sku_id] !== undefined && systemAt[l.sku_id] !== Number(l.system_qty));
+        for (const l of changed as any[]) {
+          l.system_qty = systemAt[l.sku_id];
+          l.variance = l.physical_qty !== null ? Number(l.physical_qty) - l.system_qty : 0;
+        }
+        const results = await Promise.all(changed.map((l: any) => supabase.from("stock_count_lines").update({ system_qty: l.system_qty, variance: l.variance }).eq("id", l.id)));
+        if (results.some((res) => res.error)) toast.error("บันทึกยอดระบบตอนนับไม่ครบ ตัวเลขต่างบางตัวอาจคลาด");
+        const byId = new Map((changed as any[]).map((l) => [l.id, l]));
+        setLines((prev) => prev.map((l) => (byId.has(l.id) ? { ...l, systemQty: byId.get(l.id).system_qty, variance: byId.get(l.id).variance } : l)));
       }
 
       const freshLines = (dbLines || [])
