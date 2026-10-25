@@ -21,6 +21,7 @@ import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -105,8 +106,23 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   });
   const branchId = lockedBranch ?? (activeBranches.some((b) => b.id === picked) ? picked : activeBranches[0]?.id ?? null);
   const branch = branches.find((b) => b.id === branchId);
-  const today = businessDate(new Date());
+  const [today, setToday] = useState(() => businessDate(new Date()));
   const [date, setDate] = useState(today);
+  // A page left open overnight moves on to the new count day (unless another day was picked)
+  useEffect(() => {
+    const check = () => {
+      const now = businessDate(new Date());
+      if (now === today) return;
+      setDate((d) => (d === today ? now : d));
+      setToday(now);
+    };
+    document.addEventListener("visibilitychange", check);
+    const t = setInterval(check, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      clearInterval(t);
+    };
+  }, [today]);
   const monthEnd = monthEndWindow(date);
 
   const liveDsc = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
@@ -117,7 +133,8 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   const baseReady = !menuBomLoading && menus.length > 0 && skus.length > 0;
   useEffect(() => {
     if (branchId && baseReady) dsc.loadSheet(branchId, date);
-  }, [branchId, date, baseReady]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Recipes refreshed in the background (device copy → fresh): work the sheet out again
+  }, [branchId, date, baseReady, menuBomLines, modifierRules, spBomLines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── The person's own order (the old จัดลำดับแถว), never changed by this page ──
   const [customOrder, setCustomOrder] = useState<string[] | null>(null);
@@ -186,12 +203,19 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
       go("", true);
     }
   };
-  const finishOpenDays = async () => {
+  const closeOpenDays = async () => {
     if (!branchId) return;
     if (await dsc.finishDays(branchId, status.openDays.map((d) => d.date))) {
       toast.success("ปิดวันที่ค้างแล้ว");
       reloadStatus();
     }
+  };
+  // Month-end days count for food cost: closing one that isn't fully counted needs a clear yes
+  const [monthEndWarn, setMonthEndWarn] = useState<string[] | null>(null);
+  const finishOpenDays = async () => {
+    const short = status.openDays.filter((d) => monthEndWindow(d.date) && d.counted < d.total).map((d) => d.date);
+    if (short.length) return setMonthEndWarn(short);
+    await closeOpenDays();
   };
   const saveOrder = async (order: string[]) => {
     if (!user?.id || !branchId) return;
@@ -382,6 +406,19 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
       )}
       <CountPrint open={printOpen} onClose={() => setPrintOpen(false)} branchName={branch?.branchName ?? ""} date={date} rows={ordered.map((l) => l.row)} skuMap={skuMap} />
       <GuideTour steps={GUIDE} open={guide.open} onClose={guide.close} />
+      <ConfirmDialog
+        open={monthEndWarn !== null}
+        onOpenChange={(o) => !o && setMonthEndWarn(null)}
+        title="วันปิดเดือนยังนับไม่ครบ"
+        description={`${(monthEndWarn ?? []).map(thaiDay).join(", ")} อยู่ในช่วงปิดเดือน แต่ยังนับไม่ครบทุกตัว ถ้าปิดไป ต้นทุนอาหารของเดือนนี้จะคลาด ถ้ายังเป็นวันนี้อยู่ ให้กลับไปนับให้ครบก่อน`}
+        confirmLabel="ปิดไปเลย"
+        cancelLabel="กลับไปนับ"
+        variant="warning"
+        onConfirm={async () => {
+          setMonthEndWarn(null);
+          await closeOpenDays();
+        }}
+      />
     </div>
   );
 }

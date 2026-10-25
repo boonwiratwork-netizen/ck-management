@@ -4,6 +4,7 @@ import { ruleMatchesSale } from "@/lib/modifier-rules";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
+import { SaveQueue, type Patch, type SaveState } from "@/lib/save-queue";
 import { SKU } from "@/types/sku";
 import { MenuBomLine } from "@/types/menu-bom";
 import { ModifierRule } from "@/types/modifier-rule";
@@ -74,6 +75,64 @@ export function useDailyStockCount({
   const [rows, setRows] = useState<DailyStockCountRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  // ── Saving counts: each box saves on its own through a per-row queue kept on the
+  // device (see SaveQueue): no lost counts without internet, no older value
+  // landing after a newer one ──
+  const [saveState, setSaveState] = useState<Record<string, SaveState>>({});
+  const queueObj = useRef<SaveQueue | null>(null);
+  if (!queueObj.current)
+    queueObj.current = new SaveQueue(
+      async (rowId, patch) => {
+        const { error } = await supabase
+          .from("daily_stock_counts")
+          .update(patch as { physical_count?: number | null; waste?: number; calculated_balance?: number; variance?: number })
+          .eq("id", rowId);
+        return { error: error ? { message: error.message } : null };
+      },
+      (rowId, st) =>
+        setSaveState((p) => {
+          const n = { ...p };
+          if (st) n[rowId] = st;
+          else delete n[rowId];
+          return n;
+        }),
+      (message, offline) => {
+        if (!offline) toast.error("บันทึกยอดนับไม่สำเร็จ ระบบจะลองใหม่เอง: " + message);
+      },
+    );
+  const queue = queueObj.current;
+  const enqueue = useCallback((rowId: string, patch: Patch) => queue.enqueue(rowId, patch), [queue]);
+  const flushQueue = useCallback(() => queue.flush(), [queue]);
+
+  useEffect(() => {
+    // Values left from a page closed while offline show as waiting until sent
+    const waiting = queue.pending();
+    if (waiting.length) setSaveState(Object.fromEntries(waiting.map((id) => [id, "waiting" as const])));
+    const onOnline = () => queue.flush();
+    window.addEventListener("online", onOnline);
+    const t = setInterval(() => queue.pending().length && queue.flush(), 20_000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(t);
+    };
+  }, [queue]);
+
+  /** Rows read from the database, with this device's unsent edits laid on top */
+  const overlayQueue = (list: DailyStockCountRow[]): DailyStockCountRow[] =>
+    list.map((r) => {
+      const q = queue.get(r.id) as { physical_count?: number | null; waste?: number; calculated_balance?: number; variance?: number } | undefined;
+      if (!q) return r;
+      return {
+        ...r,
+        physicalCount: q.physical_count !== undefined ? q.physical_count : r.physicalCount,
+        waste: q.waste ?? r.waste,
+        calculatedBalance: q.calculated_balance ?? r.calculatedBalance,
+        variance: q.variance ?? r.variance,
+      };
+    });
+  /** Only the latest loadSheet call may set the rows (switching days quickly) */
+  const loadToken = useRef(0);
 
   // Helper: compute branch-relevant SKU IDs from menus → BOM → SP expansion
   const getBranchRelevantSkuIds = useCallback(
@@ -288,16 +347,20 @@ export function useDailyStockCount({
           .range(a, b),
       );
       const countedRecently = new Set((recentCounts as any[]).filter((r) => r.physical_count !== null).map((r) => r.sku_id));
-      const olderNeeded = [...new Set((recentCounts as any[]).map((r) => r.sku_id))].filter((id) => !countedRecently.has(id));
+      // Every product of the branch without a physical count in the window (also
+      // those with no row at all in it: branch closed, product off the sheet for a while)
+      const olderNeeded = [...new Set([...(recentCounts as any[]).map((r) => r.sku_id), ...getBranchRelevantSkuIds(branchId)])].filter((id) => !countedRecently.has(id));
       let olderCounts: any[] = [];
       if (olderNeeded.length) {
+        const olderFrom = new Date(recentFrom);
+        olderFrom.setDate(olderFrom.getDate() - 90);
         const { data } = await fetchAllRows((a, b) =>
           supabase
             .from("daily_stock_counts")
             .select("id, sku_id, physical_count, calculated_balance, count_date")
             .eq("branch_id", branchId)
             .lt("count_date", toLocalDateStr(recentFrom))
-            .not("physical_count", "is", null)
+            .gte("count_date", toLocalDateStr(olderFrom))
             .in("sku_id", olderNeeded)
             .order("count_date", { ascending: false })
             .order("id")
@@ -305,7 +368,7 @@ export function useDailyStockCount({
         );
         olderCounts = data as any[];
       }
-      // Latest physical count wins; a product never counted keeps its latest calculated row
+      // Latest physical count wins (anywhere in the ~104 days); a product never counted keeps its latest calculated row
       const allCounts = [...(recentCounts as any[]), ...olderCounts].sort((x, y) => (x.count_date < y.count_date ? 1 : x.count_date > y.count_date ? -1 : 0));
 
       const lastCountBySku = new Map<string, any>();
@@ -442,7 +505,7 @@ export function useDailyStockCount({
 
       return result;
     },
-    [getSkuConverter, calculateExpectedUsageRangeByDate],
+    [getSkuConverter, calculateExpectedUsageRangeByDate, getBranchRelevantSkuIds],
   );
 
   // Fetch live receipt totals for a branch+date
@@ -625,6 +688,8 @@ export function useDailyStockCount({
   // Load existing count sheet — recalculate received + expected usage live from current BOM
   const loadSheet = useCallback(
     async (branchId: string, date: string) => {
+      const token = ++loadToken.current;
+      const stale = () => token !== loadToken.current;
       setLoading(true);
       const [sheetResult, receipts, expectedUsage] = await Promise.all([
         supabase
@@ -637,6 +702,7 @@ export function useDailyStockCount({
         calculateExpectedUsage(branchId, date),
       ]);
 
+      if (stale()) return;
       if (sheetResult.error) {
         toast.error("Failed to load count sheet");
         setLoading(false);
@@ -648,6 +714,12 @@ export function useDailyStockCount({
       // now made only when counting starts (generateSheet)
       if (data.length === 0) {
         setRows([]);
+        setLoading(false);
+        return;
+      }
+      // A finished (submitted) sheet is a record: show what was saved, rewrite and add nothing
+      if (data.every((r) => r.is_submitted)) {
+        setRows(overlayQueue(data.map(toLocal)));
         setLoading(false);
         return;
       }
@@ -704,9 +776,8 @@ export function useDailyStockCount({
           p.received_from_ck !== Number(data[i].received_from_ck) ||
           p.expected_usage !== Number(data[i].expected_usage),
       );
-      // A finished (submitted) sheet is a record: opening it must not rewrite it
-      const finished = data.length > 0 && data.every((r) => r.is_submitted);
-      if (updates.length > 0 && !finished) {
+      if (stale()) return;
+      if (updates.length > 0) {
         for (const u of updates) {
           supabase
             .from("daily_stock_counts")
@@ -761,6 +832,7 @@ export function useDailyStockCount({
         const { data: inserted } = await supabase.from("daily_stock_counts").insert(newSkuRows).select();
         if (inserted) insertedRows = inserted;
       }
+      if (stale()) return;
       setLoading(false);
       // Merge adjNet/adjDetails into final rows (patched rows already have them; toLocal sets defaults for inserted)
       const patchedWithAdj = patched.map((r) => {
@@ -769,7 +841,7 @@ export function useDailyStockCount({
         local.adjDetails = r.adjDetails ?? [];
         return local;
       });
-      setRows([...patchedWithAdj, ...insertedRows.map(toLocal)]);
+      setRows(overlayQueue([...patchedWithAdj, ...insertedRows.map(toLocal)]));
     },
     [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap],
   );
@@ -777,6 +849,8 @@ export function useDailyStockCount({
   // Generate count sheet
   const generateSheet = useCallback(
     async (branchId: string, date: string) => {
+      // A load still running from before must not replace the new sheet
+      ++loadToken.current;
       setGenerating(true);
 
       const { data: existing } = await supabase
@@ -878,81 +952,6 @@ export function useDailyStockCount({
     [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter, computeOpeningWithGap],
   );
 
-  // ── Saving counts: every box saves on its own; when the phone has no internet
-  // (walk-in freezers) the value waits on the device and is sent when it can be ──
-  type Pending = { physical_count?: number | null; waste?: number; calculated_balance?: number; variance: number };
-  const QUEUE_KEY = "ck-count-queue";
-  const readQueue = (): Record<string, Pending> => {
-    try {
-      return JSON.parse(localStorage.getItem(QUEUE_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  };
-  const writeQueue = (q: Record<string, Pending>) => {
-    try {
-      if (Object.keys(q).length) localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-      else localStorage.removeItem(QUEUE_KEY);
-    } catch {
-      // storage blocked: the value stays in memory until the page closes
-    }
-  };
-  const [saveState, setSaveState] = useState<Record<string, "saving" | "waiting">>({});
-  const queueRef = useRef<Record<string, Pending>>(readQueue());
-  const isOffline = (msg?: string) => (typeof navigator !== "undefined" && navigator.onLine === false) || /fetch|network|load failed/i.test(msg ?? "");
-
-  const send = useCallback(async (rowId: string, patch: Pending) => {
-    setSaveState((p) => ({ ...p, [rowId]: "saving" }));
-    const { error } = await supabase.from("daily_stock_counts").update(patch).eq("id", rowId);
-    if (!error) {
-      const q = { ...queueRef.current };
-      delete q[rowId];
-      queueRef.current = q;
-      writeQueue(q);
-      setSaveState((p) => {
-        const n = { ...p };
-        delete n[rowId];
-        return n;
-      });
-      return true;
-    }
-    if (isOffline(error.message)) {
-      // Merge with anything already waiting for this row, newest value wins
-      const q = { ...queueRef.current, [rowId]: { ...queueRef.current[rowId], ...patch } };
-      queueRef.current = q;
-      writeQueue(q);
-      setSaveState((p) => ({ ...p, [rowId]: "waiting" }));
-      return false;
-    }
-    setSaveState((p) => {
-      const n = { ...p };
-      delete n[rowId];
-      return n;
-    });
-    toast.error("บันทึกไม่สำเร็จ: " + error.message);
-    return false;
-  }, []);
-
-  /** Send everything waiting on this device; true when nothing is left */
-  const flushQueue = useCallback(async () => {
-    const entries = Object.entries(queueRef.current);
-    for (const [rowId, patch] of entries) await send(rowId, patch);
-    return Object.keys(queueRef.current).length === 0;
-  }, [send]);
-
-  useEffect(() => {
-    // Values left from a page closed while offline show as waiting until sent
-    const waiting = Object.keys(queueRef.current);
-    if (waiting.length) setSaveState(Object.fromEntries(waiting.map((id) => [id, "waiting" as const])));
-    const onOnline = () => flushQueue();
-    window.addEventListener("online", onOnline);
-    const t = setInterval(() => Object.keys(queueRef.current).length && flushQueue(), 20_000);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      clearInterval(t);
-    };
-  }, [flushQueue]);
-
   // Update physical count — staff enters directly in Usage UOM, no conversion needed
   const updatePhysicalCount = useCallback(
     async (rowId: string, physicalCount: number | null) => {
@@ -961,9 +960,9 @@ export function useDailyStockCount({
       const variance = physicalCount !== null ? physicalCount - row.calculatedBalance : 0;
       // Shown at once; saved (or queued) behind it
       setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, physicalCount, variance } : r)));
-      await send(rowId, { physical_count: physicalCount, variance });
+      await enqueue(rowId, { physical_count: physicalCount, variance });
     },
-    [rows, send],
+    [rows, enqueue],
   );
 
   // Update waste
@@ -980,9 +979,9 @@ export function useDailyStockCount({
       setRows((prev) =>
         prev.map((r) => (r.id === rowId ? { ...r, waste, calculatedBalance: calcBalance, variance } : r)),
       );
-      await send(rowId, { waste, calculated_balance: calcBalance, variance });
+      await enqueue(rowId, { waste, calculated_balance: calcBalance, variance });
     },
-    [rows, send, getSkuConverter],
+    [rows, enqueue, getSkuConverter],
   );
 
   /** Several products counted as 0 at once (month-end: "not carried here") */
@@ -990,9 +989,9 @@ export function useDailyStockCount({
     async (rowIds: string[]) => {
       const targets = rows.filter((r) => rowIds.includes(r.id) && !r.isSubmitted);
       setRows((prev) => prev.map((r) => (rowIds.includes(r.id) && !r.isSubmitted ? { ...r, physicalCount: 0, variance: -r.calculatedBalance } : r)));
-      await Promise.all(targets.map((r) => send(r.id, { physical_count: 0, variance: -r.calculatedBalance })));
+      await Promise.all(targets.map((r) => enqueue(r.id, { physical_count: 0, variance: -r.calculatedBalance })));
     },
-    [rows, send],
+    [rows, enqueue],
   );
 
   /**
@@ -1006,7 +1005,7 @@ export function useDailyStockCount({
     setRows((prev) =>
       prev.map((r) => {
         const d = byId.get(r.id);
-        if (!d || queueRef.current[r.id]) return r;
+        if (!d || queue.isPending(r.id)) return r;
         const physicalCount = d.physical_count !== null ? Number(d.physical_count) : null;
         const waste = Number(d.waste ?? 0);
         if (physicalCount === r.physicalCount && waste === r.waste) return r;
@@ -1056,6 +1055,10 @@ export function useDailyStockCount({
   /** Finish days left open (staff off, sheet opened but not finished): counts kept as they are */
   const finishDays = useCallback(async (branchId: string, dates: string[]) => {
     if (!dates.length) return true;
+    if (!(await flushQueue())) {
+      toast.error("ยังมียอดนับที่ยังไม่บันทึก (เน็ตหลุด) ต่อเน็ตแล้วลองกดอีกครั้ง");
+      return false;
+    }
     const { error } = await supabase
       .from("daily_stock_counts")
       .update({ is_submitted: true, submitted_at: new Date().toISOString() })
@@ -1067,7 +1070,7 @@ export function useDailyStockCount({
       return false;
     }
     return true;
-  }, []);
+  }, [flushQueue]);
 
   // Unlock (admin only)
   const unlockSheet = useCallback(async (branchId: string, date: string) => {
