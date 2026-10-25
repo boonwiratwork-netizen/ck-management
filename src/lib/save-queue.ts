@@ -86,10 +86,14 @@ export class SaveQueue {
     }
   }
 
-  /** Send everything waiting; true when the database has every edit */
-  async flush(): Promise<boolean> {
-    for (const rowId of Object.keys(this.queue)) await this.pump(rowId);
-    for (let i = 0; i < 40 && this.inflight.size; i++) await new Promise((r) => setTimeout(r, 100));
-    return this.pending().length === 0;
+  /**
+   * Send what is waiting (only these rows when given, e.g. one sheet); true when
+   * the database has every one of those edits
+   */
+  async flush(only?: string[]): Promise<boolean> {
+    const mine = (id: string) => !only || only.includes(id);
+    for (const rowId of Object.keys(this.queue).filter(mine)) await this.pump(rowId);
+    for (let i = 0; i < 40 && [...this.inflight].some(mine); i++) await new Promise((r) => setTimeout(r, 100));
+    return this.pending().filter(mine).length === 0;
   }
 }

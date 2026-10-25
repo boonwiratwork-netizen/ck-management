@@ -22,6 +22,7 @@ import { thaiDay } from "@/components/sales/SalesDays";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { useBaseStatus } from "@/components/BaseLoading";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -129,12 +130,13 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   const liveStatus = useCountStatus(demo ? null : branchId, date);
   const dsc = demo?.dsc ?? liveDsc;
   const { status, loading: statusLoading, reload: reloadStatus } = demo?.status ?? liveStatus;
-  // Wait for recipes and menus: a sheet worked out without them would show (and save) no usage
-  const baseReady = !menuBomLoading && menus.length > 0 && skus.length > 0;
+  // Wait for the fresh recipes and menus (not just this device's saved copy): a sheet
+  // worked out without them would show, and save, the wrong usage
+  const baseFresh = useBaseStatus() === "fresh";
+  const baseReady = (!!demo || baseFresh) && !menuBomLoading && menus.length > 0 && skus.length > 0;
   useEffect(() => {
     if (branchId && baseReady) dsc.loadSheet(branchId, date);
-    // Recipes refreshed in the background (device copy → fresh): work the sheet out again
-  }, [branchId, date, baseReady, menuBomLines, modifierRules, spBomLines]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [branchId, date, baseReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── The person's own order (the old จัดลำดับแถว), never changed by this page ──
   const [customOrder, setCustomOrder] = useState<string[] | null>(null);
