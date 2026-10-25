@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/hooks/use-language";
 import Index from "./pages/Index";
@@ -17,8 +17,10 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, sessionLoading, profile } = useAuth();
+  const location = useLocation();
   if (sessionLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  // Remember the page so a shared link (/menu-bom) opens after signing in
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (profile?.status === 'Inactive') return (
     <div className="min-h-screen flex items-center justify-center text-muted-foreground">
       Your account has been deactivated. Contact your administrator.
@@ -29,8 +31,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={(location.state as { from?: string } | null)?.from ?? "/"} replace />;
   return <>{children}</>;
 }
 
@@ -53,6 +56,7 @@ const App = () => (
               <Route path="/setup" element={<SetupRoute />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/mobile" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
+              <Route path="/:tab" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/design" element={<DesignSystem />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

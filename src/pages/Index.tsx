@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { SKU, SKUType } from "@/types/sku";
 import { useSpBomData } from "@/hooks/use-sp-bom-data";
 import { useModifierRuleData } from "@/hooks/use-modifier-rule-data";
@@ -21,37 +22,37 @@ import { useMenuData } from "@/hooks/use-menu-data";
 import { useMenuBomData } from "@/hooks/use-menu-bom-data";
 import { useSkuCategories } from "@/hooks/use-sku-categories";
 import { useAuth } from "@/hooks/use-auth";
-import Dashboard from "@/pages/Dashboard";
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
 import { SummaryCards } from "@/components/SummaryCards";
 import { SKUTable } from "@/components/SKUTable";
 import { SKUFormModal } from "@/components/SKUFormModal";
 import { CSVImportModal, CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
-import SuppliersPage from "@/pages/Suppliers";
-import PricesPage from "@/pages/Prices";
-import BOMPage from "@/pages/BOM";
-import GoodsReceiptPage from "@/pages/GoodsReceipt";
-import RMStockPage from "@/pages/RMStock";
-import ProductionPage from "@/pages/Production";
-import SMStockPage from "@/pages/SMStock";
-import PKStockPage from "@/pages/PKStock";
-import StockCountPage from "@/pages/StockCount";
-import DeliveryToBranchesPage from "@/pages/DeliveryToBranches";
-import TransferOrderPage from "@/pages/TransferOrder";
-import BranchesPage from "@/pages/Branches";
-import UserManagementPage from "@/pages/UserManagement";
-import MenuMasterPage from "@/pages/MenuMaster";
-import MenuBOMPage from "@/pages/MenuBOM";
-import SpBomPage from "@/pages/SpBom";
-import ModifierRulesPage from "@/pages/ModifierRules";
-import SalesEntryPage from "@/pages/SalesEntry";
-import DailyStockCountPage from "@/pages/DailyStockCount";
-import BranchReceiptPage from "@/pages/BranchReceipt";
-import BranchReceiptMobilePage from "@/pages/BranchReceiptMobile";
-import TransferRequestPage from "@/pages/TransferRequest";
-import FoodCostPage from "@/pages/FoodCost";
-import StoreOverview from "@/pages/StoreOverview";
-import StoreStockPage from "@/pages/StoreStock";
-import SkuCategoriesPage from "@/pages/SkuCategories";
+const SuppliersPage = lazy(() => import("@/pages/Suppliers"));
+const PricesPage = lazy(() => import("@/pages/Prices"));
+const BOMPage = lazy(() => import("@/pages/BOM"));
+const GoodsReceiptPage = lazy(() => import("@/pages/GoodsReceipt"));
+const RMStockPage = lazy(() => import("@/pages/RMStock"));
+const ProductionPage = lazy(() => import("@/pages/Production"));
+const SMStockPage = lazy(() => import("@/pages/SMStock"));
+const PKStockPage = lazy(() => import("@/pages/PKStock"));
+const StockCountPage = lazy(() => import("@/pages/StockCount"));
+const DeliveryToBranchesPage = lazy(() => import("@/pages/DeliveryToBranches"));
+const TransferOrderPage = lazy(() => import("@/pages/TransferOrder"));
+const BranchesPage = lazy(() => import("@/pages/Branches"));
+const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
+const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
+const MenuBOMPage = lazy(() => import("@/pages/MenuBOM"));
+const SpBomPage = lazy(() => import("@/pages/SpBom"));
+const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
+const SalesEntryPage = lazy(() => import("@/pages/SalesEntry"));
+const DailyStockCountPage = lazy(() => import("@/pages/DailyStockCount"));
+const BranchReceiptPage = lazy(() => import("@/pages/BranchReceipt"));
+const BranchReceiptMobilePage = lazy(() => import("@/pages/BranchReceiptMobile"));
+const TransferRequestPage = lazy(() => import("@/pages/TransferRequest"));
+const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
+const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
+const StoreStockPage = lazy(() => import("@/pages/StoreStock"));
+const SkuCategoriesPage = lazy(() => import("@/pages/SkuCategories"));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -204,38 +205,26 @@ const Index = () => {
   const { skus, addSku, bulkAddSkus, updateSku, deleteSku } = skuData;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSku, setEditingSku] = useState<SKU | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlTab = params.get("tab") as TabKey | null;
-      if (urlTab && urlTab in tabContextMap) return urlTab;
-    }
-    return getDefaultTab(role);
-  });
+  const navigate = useNavigate();
+  const { tab: pathTab } = useParams<{ tab?: string }>();
+  // Page comes from the URL path (/menu-bom); old links with ?tab= still work
+  const requestedTab = useMemo<TabKey | null>(() => {
+    if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
+    const legacy = new URLSearchParams(window.location.search).get("tab");
+    return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
+  }, [pathTab]);
+  const activeTab: TabKey =
+    requestedTab && (!role || canAccessTab(role, requestedTab)) ? requestedTab : getDefaultTab(role);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
-  // Update default tab when role loads (URL takes priority if accessible)
+  // Keep the address bar on the canonical /<page> path once the role is known
   useEffect(() => {
     if (!role) return;
-    const params = new URLSearchParams(window.location.search);
-    const urlTab = params.get("tab") as TabKey | null;
-    if (urlTab && urlTab in tabContextMap && canAccessTab(role, urlTab)) {
-      setActiveTab(urlTab);
-    } else {
-      setActiveTab(getDefaultTab(role));
+    if (pathTab !== activeTab || window.location.search) {
+      navigate(`/${activeTab}${window.location.hash}`, { replace: true });
     }
-  }, [role]);
-
-  // Sync active tab to URL via replaceState (no reload)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") !== activeTab) {
-      params.set("tab", activeTab);
-      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
-      window.history.replaceState({}, "", newUrl);
-    }
-  }, [activeTab]);
+  }, [role, pathTab, activeTab, navigate]);
 
   // Branch name for breadcrumbs
   const userBranchName = useMemo(() => {
@@ -256,10 +245,10 @@ const Index = () => {
   const handleTabChange = (tab: TabKey) => {
     if (!canAccessTab(role, tab)) {
       toast.error("You don't have access to that section");
-      setActiveTab(getDefaultTab(role));
+      navigate(`/${getDefaultTab(role)}`);
       return;
     }
-    setActiveTab(tab);
+    navigate(`/${tab}`);
   };
 
   // SKU CSV import columns
@@ -461,6 +450,7 @@ const Index = () => {
           </header>
 
           <main className="flex-1 overflow-auto">
+            <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">กำลังโหลด…</div>}>
             {activeTab === "branch-receipt-mobile" ? (
               <BranchReceiptMobilePage
                 skus={skus}
@@ -693,6 +683,7 @@ const Index = () => {
                 )}
               </div>
             )}
+            </Suspense>
           </main>
         </div>
       </div>
