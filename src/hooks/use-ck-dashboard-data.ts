@@ -350,7 +350,11 @@ export function useCkDashboardData({
 
           const smProdRecs = prodRecs.filter((r: any) => r.sm_sku_id === smId);
           const totalOutputG = smProdRecs.reduce((s: number, r: any) => s + r.actual_output_g, 0);
-          const totalBatches = smProdRecs.reduce((s: number, r: any) => s + r.batches_produced, 0);
+          // Standard use follows what was made: output ÷ output per batch (raw material is
+          // deducted by that same share since Oct 2026). Multi-step recipes keep the batch count.
+          const bhForShare = bomHeaders.find((h: any) => h.sm_sku_id === smId);
+          const perBatchOut = bhForShare && bhForShare.bom_mode !== "multistep" ? Number(bhForShare.batch_size) * Number(bhForShare.yield_percent) : 0;
+          const totalBatches = perBatchOut > 0 ? totalOutputG / perBatchOut : smProdRecs.reduce((s: number, r: any) => s + r.batches_produced, 0);
 
           // Standard cost (no byproduct allocation, SM ingredients = ฿0)
           const costPerGram = calcBomCostPerGram(smId, bomHeaders, bomLines, bomSteps, activePrices, smSkuIds);

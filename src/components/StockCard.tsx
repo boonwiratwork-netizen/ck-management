@@ -75,13 +75,14 @@ function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Move
   const base = { date: "", sortKey: "", qtyIn: null as number | null, qtyOut: null as number | null };
 
   if (reason.startsWith("Production:")) {
-    const match = reason.match(/Production:\s*(\d+)\s*batches?\s*of\s+(.+)/i);
+    // "Production: 0.73 batches of <sku id> [rec <record id>]" (share of a batch, tagged since Oct 2026)
+    const match = reason.match(/Production:\s*([\d.]+)\s*batches?\s*of\s+([^\s[]+)/i);
     let ref = reason;
     if (match) {
       const batches = match[1];
       const uuidOrCode = match[2].trim();
       const found = skus.find((s) => s.id === uuidOrCode);
-      ref = `${batches} batch${Number(batches) > 1 ? "es" : ""} · ${found ? found.skuId : uuidOrCode}`;
+      ref = `${batches} batch${Number(batches) !== 1 ? "es" : ""} · ${found ? found.skuId : uuidOrCode}`;
     }
     return {
       ...base,

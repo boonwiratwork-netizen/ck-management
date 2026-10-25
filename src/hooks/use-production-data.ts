@@ -10,6 +10,8 @@ import {
 import { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { fetchAllRows } from "@/lib/fetch-all";
+import { batchShare, batchesForRecord, deltas, ingredientsPerBatch, movementFor, recordTag, shareText } from "@/lib/production";
 
 const toPlan = (r: any): ProductionPlan => ({
   id: r.id,
@@ -29,6 +31,7 @@ const toRecord = (r: any): ProductionRecord => ({
   batchesProduced: r.batches_produced,
   actualOutputG: r.actual_output_g,
   createdAt: r.created_at,
+  notes: r.notes ?? "",
 });
 
 interface StockDeduction {
@@ -40,7 +43,7 @@ interface StockDeduction {
 export function useProductionData(
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
-  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void,
+  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void | Promise<void>,
   bomSteps: BOMStep[] = [],
   enabled = true,
 ) {
@@ -52,7 +55,8 @@ export function useProductionData(
     if (!enabled) return;
     Promise.all([
       supabase.from("production_plans").select("*").order("created_at", { ascending: false }),
-      supabase.from("production_records").select("*").order("created_at", { ascending: false }),
+      // Paged: there are more records than one 1,000-row page will hold
+      fetchAllRows<any>((f, t) => supabase.from("production_records").select("*").order("created_at", { ascending: false }).order("id").range(f, t)),
     ]).then(([p, r]) => {
       if (!p.error) setPlans((p.data || []).map(toPlan));
       if (!r.error) setRecords((r.data || []).map(toRecord));
@@ -172,297 +176,169 @@ export function useProductionData(
     setRecords((prev) => prev.filter((r) => r.planId !== id));
   }, []);
 
-  const addRecord = useCallback(
-    async (data: Omit<ProductionRecord, "id" | "smSkuId"> & { smSkuId?: string }): Promise<string | undefined> => {
-      const plan = plans.find((p) => p.id === data.planId);
-      const smSkuId = plan?.smSkuId ?? data.smSkuId;
-      if (!smSkuId) {
-        toast.error("Failed to find SKU for record");
-        return;
-      }
-
-      const { data: row, error } = await supabase
-        .from("production_records")
-        .insert({
-          plan_id: data.planId,
-          production_date: data.productionDate,
-          sm_sku_id: smSkuId,
-          batches_produced: data.batchesProduced,
-          actual_output_g: data.actualOutputG,
-        })
-        .select()
-        .single();
-      if (error) {
-        toast.error("Failed to add record: " + error.message);
-        return;
-      }
-      setRecords((prev) => [toRecord(row), ...prev]);
-
-      // Auto-deduct stock based on BOM
-      const bomHeader = bomHeaders.find((h) => h.smSkuId === smSkuId);
-      if (bomHeader) {
-        const bLines = bomLines.filter((l) => l.bomHeaderId === bomHeader.id);
-
-        // Resolve per-line qty: for multi-step BOMs, recalculate percent-type lines
-        const resolvedLines: { rmSkuId: string; qty: number }[] = [];
-
-        if (bomHeader.bomMode === "multistep") {
-          const steps = bomSteps
-            .filter((s) => s.bomHeaderId === bomHeader.id)
-            .sort((a, b) => a.stepNumber - b.stepNumber);
-          let prevStepOutput = 0;
-
-          steps.forEach((step, idx) => {
-            const stepLines = bLines.filter((l) => l.stepId === step.id);
-            // Step input = previous step's output (step 1 has no prev output, input comes from its own fixed lines)
-            const stepInput =
-              idx === 0
-                ? stepLines.filter((l) => !l.qtyType || l.qtyType === "fixed").reduce((s, l) => s + l.qtyPerBatch, 0)
-                : prevStepOutput;
-
-            stepLines.forEach((line) => {
-              if (line.qtyType === "percent" && line.percentOfInput) {
-                // Percent-type: resolve against the step's input qty
-                resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.percentOfInput * stepInput });
-              } else {
-                // Fixed-type: use stored qtyPerBatch as-is
-                resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
-              }
-            });
-
-            // Calculate step output for next step
-            const addedQty =
-              idx === 0
-                ? 0
-                : stepLines.reduce((s, l) => {
-                    if (l.qtyType === "percent" && l.percentOfInput) return s + l.percentOfInput * stepInput;
-                    return s + l.qtyPerBatch;
-                  }, 0);
-            const effectiveInput = idx === 0 ? stepInput : stepInput + addedQty;
-            prevStepOutput = effectiveInput * step.yieldPercent;
-          });
-        } else {
-          // Simple BOM: all lines are fixed, use qtyPerBatch directly
-          bLines.forEach((line) => {
-            resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
-          });
-        }
-
-        // Fetch SKU types for all ingredient SKUs to determine stock_type
-        const uniqueSkuIds = [...new Set(resolvedLines.map((l) => l.rmSkuId))];
-        const { data: skuRows } = await supabase.from("skus").select("id, type").in("id", uniqueSkuIds);
-        const skuTypeMap = new Map<string, string>();
-        (skuRows || []).forEach((s) => skuTypeMap.set(s.id, s.type));
-
-        for (const line of resolvedLines) {
-          const deductQty = -(line.qty * data.batchesProduced);
-          const skuType = skuTypeMap.get(line.rmSkuId) || "RM";
-          const reason = `Production: ${data.batchesProduced} batches of ${smSkuId}`;
-
-          if (skuType === "SM") {
-            // SM ingredients: insert directly with stock_type='SM'
-            await supabase.from("stock_adjustments").insert({
-              sku_id: line.rmSkuId,
-              adjustment_date: data.productionDate,
-              quantity: deductQty,
-              reason,
-              stock_type: "SM",
-            });
-          } else {
-            // RM/other: use existing addStockAdjustment (writes stock_type='RM')
-            addStockAdjustment({
-              skuId: line.rmSkuId,
-              date: data.productionDate,
-              quantity: deductQty,
-              reason,
-            });
-          }
-        }
-        // By-product stock IN adjustments
-        const { data: byproducts } = await supabase
-          .from("bom_byproducts")
-          .select("sku_id, output_qty")
-          .eq("bom_header_id", bomHeader.id)
-          .eq("tracks_inventory", true)
-          .not("sku_id", "is", null);
-
-        if (byproducts && byproducts.length > 0) {
-          for (const bp of byproducts) {
-            const { error: bpError } = await supabase.from("stock_adjustments").insert({
-              sku_id: bp.sku_id!,
-              adjustment_date: data.productionDate,
-              quantity: bp.output_qty * data.batchesProduced,
-              stock_type: "SM",
-              reason: `Production by-product: ${data.batchesProduced} batches of ${smSkuId}`,
-            });
-            if (bpError) console.error("By-product stock adjustment failed:", bpError.message);
-          }
-        }
-      }
-      return row.id;
+  // ─── Raw material for a record ───
+  // Every adjustment a record makes carries its tag ("[rec <id>]"), so a later edit
+  // or delete can see exactly what is out for it and only add the difference.
+  // Records saved before the tag (untagged) took whole batches: batches × per batch.
+  const perBatchFor = useCallback(
+    async (smSkuId: string) => {
+      const header = bomHeaders.find((h) => h.smSkuId === smSkuId);
+      if (!header) return null;
+      const ingredients = ingredientsPerBatch(header, bomLines, bomSteps);
+      const { data: bp } = await supabase
+        .from("bom_byproducts")
+        .select("sku_id, output_qty")
+        .eq("bom_header_id", header.id)
+        .eq("tracks_inventory", true)
+        .not("sku_id", "is", null);
+      const byproducts = (bp || []).map((b) => ({ skuId: b.sku_id as string, qty: Number(b.output_qty) || 0 }));
+      const { data: skuRows } = await supabase.from("skus").select("id, type").in("id", [...new Set(ingredients.map((l) => l.skuId))]);
+      const typeOf = new Map((skuRows || []).map((r) => [r.id, r.type as string]));
+      return { ingredients, byproducts, typeOf, byproductIds: new Set(byproducts.map((b) => b.skuId)) };
     },
-    [plans, bomHeaders, bomLines, bomSteps, addStockAdjustment],
+    [bomHeaders, bomLines, bomSteps],
   );
 
-  const updateRecord = useCallback(
-    async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
-      const { error } = await supabase
-        .from("production_records")
-        .update({
-          production_date: data.productionDate,
-          actual_output_g: data.actualOutputG,
-          batches_produced: data.batchesProduced,
-        })
-        .eq("id", id);
-      if (error) {
-        toast.error("Failed to update record: " + error.message);
+  /**
+   * What is out for a record now, by product (negative = taken out).
+   * - New records: the sum of their tagged rows.
+   * - Records saved before the tag ("legacy"): the old page took whole batches of
+   *   ingredients, untagged. The first time one is changed its batch count is
+   *   written into every tagged reason ("legacy=N"), so later changes still count
+   *   that untagged base. Their by-products are left as they were (the old edit
+   *   never moved them, so their true amount isn't known).
+   */
+  const currentFor = useCallback(async (record: ProductionRecord, per: NonNullable<Awaited<ReturnType<typeof perBatchFor>>>) => {
+    const { data } = await supabase.from("stock_adjustments").select("sku_id, quantity, reason").like("reason", `%${recordTag(record.id)}%`);
+    const rows = data || [];
+    const marked = rows.map((r) => /legacy=([\d.]+)/.exec(r.reason)?.[1]).find(Boolean);
+    const legacy = marked != null ? Number(marked) : rows.length === 0 ? record.batchesProduced : null;
+    const m = legacy != null ? movementFor(per.ingredients, [], legacy) : new Map<string, number>();
+    for (const r of rows) m.set(r.sku_id, (m.get(r.sku_id) || 0) + Number(r.quantity));
+    return { current: m, legacy };
+  }, []);
+
+  /** Write adjustments: ingredients (SM as SM, others as RM as before) and by-products (SM, own reason) */
+  const writeMoves = useCallback(
+    async (moves: { skuId: string; qty: number }[], date: string, reason: string, byproductReason: string, per: NonNullable<Awaited<ReturnType<typeof perBatchFor>>>) => {
+      for (const m of moves) {
+        const isBp = per.byproductIds.has(m.skuId);
+        if (isBp || per.typeOf.get(m.skuId) === "SM") {
+          const { error } = await supabase.from("stock_adjustments").insert({ sku_id: m.skuId, adjustment_date: date, quantity: m.qty, reason: isBp ? byproductReason : reason, stock_type: "SM" });
+          if (error) toast.error("ปรับสต๊อกไม่ได้: " + error.message);
+        } else await addStockAdjustment({ skuId: m.skuId, date, quantity: m.qty, reason });
+      }
+    },
+    [addStockAdjustment],
+  );
+
+  /** Find (or make) the week's plan row a record hangs on, as before */
+  const planFor = useCallback(
+    async (smSkuId: string, productionDate: string): Promise<string> => {
+      const ws = getWeekStart(productionDate);
+      const existing = plans.find((p) => p.smSkuId === smSkuId && p.weekStartDate === ws);
+      if (existing) return existing.id;
+      return addPlan({ smSkuId, targetQtyKg: 0, status: "In Progress", weekDate: productionDate });
+    },
+    [plans, addPlan],
+  );
+
+  const addRecord = useCallback(
+    async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string }): Promise<string | undefined> => {
+      const planId = await planFor(data.smSkuId, data.productionDate);
+      if (!planId) return;
+      const perOut = getOutputPerBatch(data.smSkuId);
+      const row: Record<string, unknown> = {
+        plan_id: planId,
+        production_date: data.productionDate,
+        sm_sku_id: data.smSkuId,
+        batches_produced: batchesForRecord(data.actualOutputG, perOut),
+        actual_output_g: data.actualOutputG,
+      };
+      if (data.notes) row.notes = data.notes;
+      const { data: saved, error } = await supabase.from("production_records").insert(row as never).select().single();
+      if (error || !saved) {
+        toast.error("บันทึกผลผลิตไม่ได้: " + (error?.message ?? ""));
         return;
       }
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                productionDate: data.productionDate,
-                actualOutputG: data.actualOutputG,
-                batchesProduced: data.batchesProduced,
-              }
-            : r,
-        ),
-      );
+      setRecords((prev) => [toRecord(saved), ...prev]);
+      const per = await perBatchFor(data.smSkuId);
+      if (per) {
+        const share = batchShare(data.actualOutputG, perOut);
+        const want = movementFor(per.ingredients, per.byproducts, share);
+        const tag = recordTag(saved.id);
+        await writeMoves(deltas(want, new Map()), data.productionDate, `Production: ${shareText(share)} batches of ${data.smSkuId} ${tag}`, `Production by-product: ${shareText(share)} batches of ${data.smSkuId} ${tag}`, per);
+      }
+      return saved.id;
     },
-    [],
+    [planFor, getOutputPerBatch, perBatchFor, writeMoves],
   );
 
   const updateRecordWithDelta = useCallback(
-    async (id: string, data: { productionDate: string; actualOutputG: number; batchesProduced: number }) => {
-      const oldRecord = records.find((r) => r.id === id);
-      if (!oldRecord) {
-        toast.error("Record not found");
-        return;
+    async (id: string, data: { productionDate: string; actualOutputG: number; notes?: string }) => {
+      const old = records.find((r) => r.id === id);
+      if (!old) {
+        toast.error("ไม่พบบันทึกนี้");
+        return false;
       }
-      const smSkuId = oldRecord.smSkuId;
-      const deltaBatches = data.batchesProduced - oldRecord.batchesProduced;
-      const dateChanged = oldRecord.productionDate !== data.productionDate;
-
-      const { error } = await supabase
-        .from("production_records")
-        .update({
-          production_date: data.productionDate,
-          actual_output_g: data.actualOutputG,
-          batches_produced: data.batchesProduced,
-        })
-        .eq("id", id);
+      const perOut = getOutputPerBatch(old.smSkuId);
+      const patch: Record<string, unknown> = {
+        production_date: data.productionDate,
+        actual_output_g: data.actualOutputG,
+        batches_produced: batchesForRecord(data.actualOutputG, perOut),
+      };
+      if (data.notes !== undefined) patch.notes = data.notes;
+      const { error } = await supabase.from("production_records").update(patch as never).eq("id", id);
       if (error) {
-        toast.error("Failed to update record: " + error.message);
-        return;
+        toast.error("แก้บันทึกไม่ได้: " + error.message);
+        return false;
+      }
+      const per = await perBatchFor(old.smSkuId);
+      if (per) {
+        const { current: now, legacy } = await currentFor(old, per);
+        const share = batchShare(data.actualOutputG, perOut);
+        // Legacy records: ingredients only (their by-products stay as they were)
+        const want = movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share);
+        const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
+        const bpReason = (what: string) => `Production by-product ${what} ${tag}`;
+        if (old.productionDate !== data.productionDate) {
+          // Moved to another day: take the old movement back on the old day, apply the new one on the new day
+          await writeMoves(deltas(new Map(), now), old.productionDate, `Production correction (date moved to ${data.productionDate}) ${tag}`, bpReason(`correction (date moved to ${data.productionDate})`), per);
+          await writeMoves(deltas(want, new Map()), data.productionDate, `Production: ${shareText(share)} batches of ${old.smSkuId} ${tag}`, `Production by-product: ${shareText(share)} batches of ${old.smSkuId} ${tag}`, per);
+        } else {
+          await writeMoves(deltas(want, now), data.productionDate, `Production correction: ${shareText(share)} batches of ${old.smSkuId} ${tag}`, bpReason(`correction: ${shareText(share)} batches of ${old.smSkuId}`), per);
+        }
       }
       setRecords((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                productionDate: data.productionDate,
-                actualOutputG: data.actualOutputG,
-                batchesProduced: data.batchesProduced,
-              }
-            : r,
-        ),
+        prev.map((r) => (r.id === id ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: batchesForRecord(data.actualOutputG, perOut), notes: data.notes ?? r.notes } : r)),
       );
-
-      if (deltaBatches === 0 && !dateChanged) return;
-
-      const bomHeader = bomHeaders.find((h) => h.smSkuId === smSkuId);
-      if (!bomHeader) return;
-      const bLines = bomLines.filter((l) => l.bomHeaderId === bomHeader.id);
-
-      // Resolve BOM lines — same logic as addRecord
-      const resolvedLines: { rmSkuId: string; qty: number }[] = [];
-      if (bomHeader.bomMode === "multistep") {
-        const steps = bomSteps
-          .filter((s) => s.bomHeaderId === bomHeader.id)
-          .sort((a, b) => a.stepNumber - b.stepNumber);
-        let prevStepOutput = 0;
-        steps.forEach((step, idx) => {
-          const stepLines = bLines.filter((l) => l.stepId === step.id);
-          const stepInput =
-            idx === 0
-              ? stepLines.filter((l) => !l.qtyType || l.qtyType === "fixed").reduce((s, l) => s + l.qtyPerBatch, 0)
-              : prevStepOutput;
-          stepLines.forEach((line) => {
-            if (line.qtyType === "percent" && line.percentOfInput) {
-              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.percentOfInput * stepInput });
-            } else {
-              resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
-            }
-          });
-          const addedQty =
-            idx === 0
-              ? 0
-              : stepLines.reduce((s, l) => {
-                  if (l.qtyType === "percent" && l.percentOfInput) return s + l.percentOfInput * stepInput;
-                  return s + l.qtyPerBatch;
-                }, 0);
-          const effectiveInput = idx === 0 ? stepInput : stepInput + addedQty;
-          prevStepOutput = effectiveInput * step.yieldPercent;
-        });
-      } else {
-        bLines.forEach((line) => {
-          resolvedLines.push({ rmSkuId: line.rmSkuId, qty: line.qtyPerBatch });
-        });
-      }
-
-      const uniqueSkuIds = [...new Set(resolvedLines.map((l) => l.rmSkuId))];
-      const { data: skuRows } = await supabase.from("skus").select("id, type").in("id", uniqueSkuIds);
-      const skuTypeMap = new Map<string, string>();
-      (skuRows || []).forEach((s) => skuTypeMap.set(s.id, s.type));
-
-      const insertAdjustment = async (rmSkuId: string, quantity: number, adjustmentDate: string, reason: string) => {
-        const skuType = skuTypeMap.get(rmSkuId) || "RM";
-        if (skuType === "SM") {
-          await supabase.from("stock_adjustments").insert({
-            sku_id: rmSkuId,
-            adjustment_date: adjustmentDate,
-            quantity,
-            reason,
-            stock_type: "SM",
-          });
-        } else {
-          addStockAdjustment({ skuId: rmSkuId, date: adjustmentDate, quantity, reason });
-        }
-      };
-
-      if (dateChanged) {
-        // A plain quantity delta can't fix a date change — it would still leave
-        // the original full deduction attributed to the old (wrong) date. Instead,
-        // fully reverse the old deduction on the old date and fully re-apply the
-        // new one on the new date. This also correctly covers a simultaneous
-        // quantity change, since both amounts are computed independently.
-        const reverseReason = `Production correction (date moved from ${oldRecord.productionDate}): reverse ${oldRecord.batchesProduced} batches of ${smSkuId}`;
-        const applyReason = `Production correction (date moved to ${data.productionDate}): ${data.batchesProduced} batches of ${smSkuId}`;
-        for (const line of resolvedLines) {
-          await insertAdjustment(line.rmSkuId, line.qty * oldRecord.batchesProduced, oldRecord.productionDate, reverseReason);
-          await insertAdjustment(line.rmSkuId, -(line.qty * data.batchesProduced), data.productionDate, applyReason);
-        }
-      } else {
-        const sign = deltaBatches > 0 ? "+" : "";
-        const reason = `Production correction: ${data.batchesProduced} batches of ${smSkuId} (delta ${sign}${deltaBatches})`;
-        for (const line of resolvedLines) {
-          await insertAdjustment(line.rmSkuId, -(line.qty * deltaBatches), data.productionDate, reason);
-        }
-      }
+      return true;
     },
-    [records, bomHeaders, bomLines, bomSteps, addStockAdjustment],
+    [records, getOutputPerBatch, perBatchFor, currentFor, writeMoves],
   );
 
-  const deleteRecord = useCallback(async (id: string) => {
-    const { error } = await supabase.from("production_records").delete().eq("id", id);
-    if (error) {
-      toast.error("Failed to delete record: " + error.message);
-      return;
-    }
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-  }, []);
+  /** Delete a record and give its raw material back (the old page left it taken out) */
+  const deleteRecord = useCallback(
+    async (id: string) => {
+      const old = records.find((r) => r.id === id);
+      const { error } = await supabase.from("production_records").delete().eq("id", id);
+      if (error) {
+        toast.error("ลบบันทึกไม่ได้: " + error.message);
+        return false;
+      }
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+      if (old) {
+        const per = await perBatchFor(old.smSkuId);
+        if (per) {
+          const { current: now, legacy } = await currentFor(old, per);
+          const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
+          await writeMoves(deltas(new Map(), now), old.productionDate, `Production correction (record deleted) ${tag}`, `Production by-product correction (record deleted) ${tag}`, per);
+        }
+      }
+      return true;
+    },
+    [records, perBatchFor, currentFor, writeMoves],
+  );
 
   const getRecordsForPlan = useCallback((planId: string) => records.filter((r) => r.planId === planId), [records]);
   const getTotalProducedForPlan = useCallback(
@@ -477,7 +353,6 @@ export function useProductionData(
     updatePlan,
     deletePlan,
     addRecord,
-    updateRecord,
     updateRecordWithDelta,
     deleteRecord,
     getRecordsForPlan,

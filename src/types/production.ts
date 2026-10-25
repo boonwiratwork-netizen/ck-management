@@ -21,6 +21,7 @@ export interface ProductionRecord {
   batchesProduced: number;
   actualOutputG: number; // actual output in grams
   createdAt?: string; // ISO datetime
+  notes?: string;
 }
 
 export const EMPTY_PRODUCTION_PLAN: Omit<

@@ -31,7 +31,7 @@ const PricesPage = lazy(() => import("@/pages/Prices"));
 const BOMPage = lazy(() => import("@/pages/BOM"));
 const GoodsReceiptPage = lazy(() => import("@/pages/KitchenReceive"));
 const RMStockPage = lazy(() => import("@/pages/RMStock"));
-const ProductionPage = lazy(() => import("@/pages/Production"));
+const ProductionPage = lazy(() => import("@/pages/Produce"));
 const SMStockPage = lazy(() => import("@/pages/SMStock"));
 const PKStockPage = lazy(() => import("@/pages/PKStock"));
 const StockCountPage = lazy(() => import("@/pages/StockCount"));
@@ -77,7 +77,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   bom: { title: "BOM Master", subtitle: "Track what goes into every dish" },
   receipt: { title: "รับของเข้าครัว", subtitle: "ใส่ตามบิลซัพพลายเออร์" },
   stock: { title: "RM Stock", subtitle: "Raw material inventory levels" },
-  production: { title: "Production", subtitle: "Plan and track your kitchen output" },
+  production: { title: "การผลิต", subtitle: "บันทึกผลผลิตและวางแผน" },
   smstock: { title: "SM Stock", subtitle: "Semi-finished goods inventory" },
   stockcount: { title: "Stock Count", subtitle: "Verify your physical inventory" },
   delivery: { title: "Delivery to Branches", subtitle: "Track what leaves the kitchen" },
@@ -578,14 +578,11 @@ const Index = () => {
                     productionData={productionData}
                     skus={skus}
                     bomHeaders={bomData.headers}
-                    stockBalances={stockData.stockBalances}
                     bomLines={bomData.lines}
                     bomSteps={bomData.steps}
                     smStockBalances={smStockData.stockBalances}
                     isStockDataReady={smStockData.isStockDataReady}
-                    menuBomLines={menuBomData.lines}
-                    menus={menuData.menus}
-                    bomByproducts={byproductData.byproducts}
+                    smDailyUsage={smDailyUsage}
                     refreshProductionRecords={smStockData.refreshProductionRecords}
                   />
                 ) : activeTab === "smstock" ? (
