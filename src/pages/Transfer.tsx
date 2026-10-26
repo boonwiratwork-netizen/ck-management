@@ -479,7 +479,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   const wide = (view === "pack" || view === "review") && !!form;
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden", !isHome && !wide && "lg:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden", !isHome && !wide && "split:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">โอนสินค้าให้สาขา</h1>
           <p className="text-sm text-muted-foreground">ครัวกลาง · {format(new Date(), "d/M/yyyy")}</p>
@@ -496,8 +496,8 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
         </Button>
       </div>
 
-      <div className={cn("grid grid-cols-1 gap-6", !wide && "lg:grid-cols-[340px_minmax(0,1fr)]")}>
-        <div className={cn("min-w-0", !isHome && "hidden", !isHome && !wide && "lg:block")}>
+      <div className={cn("grid grid-cols-1 gap-6", !wide && "split:grid-cols-[340px_minmax(0,1fr)]")}>
+        <div className={cn("min-w-0", !isHome && "hidden", !isHome && !wide && "split:block")}>
           <TransferHome
             pending={to.pendingTRs}
             loading={to.pendingLoading}
@@ -521,9 +521,9 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
             activeToId={form?.toId}
           />
         </div>
-        <div className={cn("min-w-0", isHome && "hidden lg:block")}>
+        <div className={cn("min-w-0", isHome && "hidden split:block")}>
           {work ?? (
-            <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center lg:flex">
+            <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center split:flex">
               <p className="font-medium">กด “เริ่มจัดของ” ที่ใบขอเบิกทางซ้าย</p>
               <p className="text-sm text-muted-foreground">หรือดูใบโอนทั้งหมดเพื่อเช็คว่าสาขารับครบหรือยัง</p>
             </div>

@@ -283,7 +283,7 @@ export function ReviewSend({
             const short = check.short.some((s) => s.lineId === c.lineId);
             return (
               <div key={c.lineId} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-                <span className="min-w-0 truncate">{c.skuName}</span>
+                <span className="min-w-0 break-words">{c.skuName}</span>
                 <span className={cn("shrink-0 font-mono", short && "font-semibold text-brand")}>
                   {qtyText(l, c.sent)} <span className="text-muted-foreground">(ขอ {qtyText(l, c.requested)})</span>
                   {short && " · ส่งไม่ครบ"}
@@ -293,7 +293,7 @@ export function ReviewSend({
           })}
           {form.declined.map((d) => (
             <div key={d.line.id} className="flex items-baseline justify-between gap-3 py-1.5 text-sm text-destructive">
-              <span className="min-w-0 truncate">{d.line.skuName}</span>
+              <span className="min-w-0 break-words">{d.line.skuName}</span>
               <span className="shrink-0">ไม่ส่ง · {d.reason || "ไม่ระบุเหตุผล"}</span>
             </div>
           ))}
@@ -323,7 +323,7 @@ export function ReviewSend({
                 .filter((l) => l.trLineId && !changedIds.has(l.id))
                 .map((l) => (
                   <li key={l.id} className="flex justify-between gap-3">
-                    <span className="truncate">{l.skuName}</span>
+                    <span className="break-words">{l.skuName}</span>
                     <span className="shrink-0 font-mono">{qtyText(l, l.actualQty)}</span>
                   </li>
                 ))}
@@ -338,7 +338,7 @@ export function ReviewSend({
             .filter((l) => !l.trLineId && l.actualQty > 0)
             .map((l) => (
               <div key={l.id} className="flex justify-between gap-3 py-1">
-                <span className="truncate">{l.skuName}</span>
+                <span className="break-words">{l.skuName}</span>
                 <span className="shrink-0 font-mono">{qtyText(l, l.actualQty)}</span>
               </div>
             ))}
@@ -711,7 +711,7 @@ function HistoryRow({
                     const diff = sent > 0 ? Math.round(((got - sent) / sent) * 100) : 0;
                     return (
                       <tr key={l.id} className="border-t border-border">
-                        <td className="truncate px-3 py-2" title={l.skuName}>
+                        <td className="break-words px-3 py-2" title={l.skuName}>
                           {l.skuName}
                           {l.note && <span className="block truncate text-[13px] text-muted-foreground">{l.note}</span>}
                         </td>

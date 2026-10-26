@@ -225,7 +225,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
                     <td className="truncate px-4 py-2">
                       <button type="button" onClick={() => onOpenProduct(r.skuId)} className="flex min-w-0 items-center gap-2 text-left hover:underline">
                         {ing && <KindBadge kind={ing.type} />}
-                        <span className="truncate">{ing?.name ?? "—"}</span>
+                        <span className="break-words">{ing?.name ?? "—"}</span>
                         {ing?.status === "Inactive" && <span className="shrink-0 text-destructive">· ปิดใช้แล้ว</span>}
                       </button>
                     </td>

@@ -1761,7 +1761,7 @@ export default function FoodCostPage({
                               className="border-b border-table-border hover:bg-table-hover transition-colors"
                             >
                               <td className="px-3 py-2 font-mono text-xs">{r.skuCode}</td>
-                              <td className="px-3 py-2 text-sm truncate">{r.skuName}</td>
+                              <td className="px-3 py-2 text-sm break-words">{r.skuName}</td>
                               <td className="px-3 py-2">
                                 <span
                                   className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}

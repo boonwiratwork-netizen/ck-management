@@ -124,8 +124,8 @@ export function ProductWorkspace(props: Props) {
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
             {/* Back says where it goes: the list, and (when we came from one) the screen before */}
-            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "lg:hidden")}>
-              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
+            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "split:hidden")}>
+              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground split:hidden">
                 <ArrowLeft className="h-4 w-4" /> สินค้าทั้งหมด
               </button>
               {props.prev && (
@@ -553,7 +553,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
                       <span className="text-muted-foreground">{p.isActive ? "ใช้กับบิลเจ้านี้" : "ราคาเก่า"}</span>
                     )}
                   </td>
-                  <td className="truncate px-2 py-2.5">
+                  <td className="break-words px-2 py-2.5">
                     <button type="button" className="hover:underline" onClick={() => onOpenSupplier(p.supplierId)}>
                       {supplierName(p.supplierId)}
                     </button>
@@ -651,7 +651,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
                   return (
                     <tr key={i} className="border-t border-border">
                       <td className="px-4 py-2.5">{new Date(b.date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</td>
-                      <td className="truncate px-2 py-2.5">{supplierName(b.supplierId)}</td>
+                      <td className="break-words px-2 py-2.5">{supplierName(b.supplierId)}</td>
                       <td className="px-2 py-2.5 text-right font-mono tabular-nums">
                         {b.qty.toLocaleString()} {sku.purchaseUom}
                       </td>
@@ -810,7 +810,7 @@ function RecipePanel(props: Props) {
                     <td className="truncate px-4 py-2.5">
                       <button type="button" onClick={() => onOpenProduct(r.id)} className="flex min-w-0 items-center gap-2 text-left hover:underline">
                         {ing && <KindBadge kind={ing.type} />}
-                        <span className="truncate">{ing?.name ?? "—"}</span>
+                        <span className="break-words">{ing?.name ?? "—"}</span>
                         {ing?.status === "Inactive" && <span className="shrink-0 text-destructive">· ปิดใช้แล้ว</span>}
                       </button>
                     </td>

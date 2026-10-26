@@ -267,7 +267,7 @@ export function SupplierPick({ suppliers, onPick }: { suppliers: SupplierOption[
         {list.map((s) => (
           <li key={s.id}>
             <button type="button" onClick={() => onPick(s)} className="flex min-h-[56px] w-full items-center gap-3 px-4 text-left hover:bg-secondary/60">
-              <span className="min-w-0 flex-1 truncate text-[15px]">{s.name}</span>
+              <span className="min-w-0 flex-1 break-words text-[15px]">{s.name}</span>
               {s.pendingCount > 0 && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">ค้าง {s.pendingCount} ใบ</span>}
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>

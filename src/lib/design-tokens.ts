@@ -283,7 +283,8 @@ export const buttons = {
  *   Currency: ฿ prefix, 2 decimal places
  *   Quantities: 0 decimal places
  *
- * Name cells: always truncate with title tooltip
+ * Name cells: never cut — the whole name wraps onto more lines (people count and
+ * receive by the name; "สันคอหมูชาชู ซูวีด์ รม…" was unreadable)
  *   <td className={table.truncatedCell}
  *       title={fullValue}>
  *
@@ -387,7 +388,7 @@ export const table = {
   dataCell: "px-3 py-2 text-sm",
   dataCellMono: "px-3 py-2 text-sm font-mono text-right",
   dataCellCenter: "px-3 py-2 text-sm text-center",
-  truncatedCell: "px-3 py-2 text-sm truncate",
+  truncatedCell: "px-3 py-2 text-sm break-words",
 
   // ─── Cells — compact (dense tables 8+ cols) ───
   dataCellCompact: "px-2 py-1 text-xs",

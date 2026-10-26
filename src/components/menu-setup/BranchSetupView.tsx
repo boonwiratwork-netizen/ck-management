@@ -197,7 +197,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
               )}
               <button type="button" onClick={() => onOpenMenu(r.menu)} className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 text-left">
                 <div className="min-w-0 flex-1">
-                  <div className={cn("truncate text-[15px] font-medium", !r.open && "text-muted-foreground")}>{r.menu.menuName}</div>
+                  <div className={cn("break-words text-[15px] font-medium", !r.open && "text-muted-foreground")}>{r.menu.menuName}</div>
                   <div className="truncate text-sm text-muted-foreground">
                     <span className="font-mono">{r.menu.menuCode}</span>
                     {r.noRecipe ? <span className={r.sold > 0 ? "text-destructive" : "text-warning"}> · {r.sold > 0 ? "ขายแล้วไม่ตัดของ" : "ไม่มีสูตร"}</span> : <> · ต้นทุน {pct(r.costPct)}</>}

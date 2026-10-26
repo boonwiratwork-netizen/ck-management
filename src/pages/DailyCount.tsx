@@ -296,7 +296,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden lg:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden split:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">นับสต๊อก</h1>
           <p className="text-sm text-muted-foreground">
@@ -352,10 +352,10 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
         </Button>
       </div>
 
-      {/* While counting, the left panel steps aside unless the screen is very wide, so the
-          count table gets the room (a 1280px laptop with the side menu open has ~900px) */}
-      <div className={cn("grid grid-cols-1 gap-6", isHome ? "lg:grid-cols-[320px_minmax(0,1fr)]" : "2xl:grid-cols-[320px_minmax(0,1fr)]")}>
-        <div className={cn("min-w-0", !isHome && "hidden 2xl:block")}>
+      {/* Side by side only on wide screens (split = 1440px): below that the panel and the
+          count are one at a time, so the table gets the room (a 1280px laptop has ~960px) */}
+      <div className={"grid grid-cols-1 gap-6 split:grid-cols-[320px_minmax(0,1fr)]"}>
+        <div className={cn("min-w-0", !isHome && "hidden split:block")}>
           {branchId && (
             <CountHome
               date={date}
@@ -380,14 +380,14 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
             />
           )}
         </div>
-        <div className={cn("min-w-0", isHome && "hidden lg:block")}>
+        <div className={cn("min-w-0", isHome && "hidden split:block")}>
           {!isHome && (
-            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground 2xl:hidden">
+            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground split:hidden">
               <ArrowLeft className="h-4 w-4" /> นับสต๊อก · {thaiDay(date)}
             </button>
           )}
           {work ?? (
-            <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center lg:flex">
+            <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center split:flex">
               <p className="font-medium">{finished ? "วันนี้นับเสร็จแล้ว" : hasSheet ? "กด “นับต่อ” ทางซ้าย" : "เช็คให้ครบ แล้วกด “เริ่มนับ” ทางซ้าย"}</p>
             </div>
           )}

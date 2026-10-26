@@ -115,7 +115,7 @@ export function GRSide({
               <li key={b.key}>
                 <button type="button" onClick={() => onOpenBill(b)} className="flex min-h-[56px] w-full items-center gap-3 px-3 py-2 text-left hover:bg-secondary/60">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{b.place || supplierName(b.supplierId)}</span>
+                    <span className="block break-words text-sm font-semibold">{b.place || supplierName(b.supplierId)}</span>
                     <span className="block text-[13px] text-muted-foreground">{b.lines.length} รายการ</span>
                   </span>
                   <span className="font-mono text-sm">{baht(b.total)}</span>
@@ -247,7 +247,7 @@ export function GRHistory({
             const uom = sku?.purchaseUom || sku?.usageUom || "";
             return (
               <div key={`${s.skuId}${s.supplierId}`} className="flex flex-wrap justify-between gap-x-3 border-t border-border px-3 py-2 first:border-0">
-                <span className="min-w-0 truncate">
+                <span className="min-w-0 break-words">
                   {sku?.name} <span className="text-muted-foreground">· {supplierName(s.supplierId)}</span>
                 </span>
                 <span className="font-mono">
@@ -309,7 +309,7 @@ export function GRHistory({
                                 const note = noteWithoutPlace(r.note);
                                 return (
                                   <tr key={r.id} className="border-t border-border">
-                                    <td className="truncate px-3 py-2" title={sku?.name}>
+                                    <td className="break-words px-3 py-2" title={sku?.name}>
                                       {sku?.name ?? "สินค้าที่ถูกลบ"}
                                       {note && <span className="block truncate text-[13px] text-muted-foreground">{note}</span>}
                                     </td>

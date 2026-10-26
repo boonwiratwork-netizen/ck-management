@@ -150,7 +150,7 @@ function ManualAssumptionInline({
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {menus.map(m => (
             <div key={m.menuId} className="flex items-center gap-2">
-              <span className="text-[11px] truncate flex-1" title={`${m.menuCode} ${m.menuName}`}>
+              <span className="text-[11px] min-w-0 break-words flex-1" title={`${m.menuCode} ${m.menuName}`}>
                 {m.menuName}
               </span>
               <input
@@ -288,7 +288,7 @@ export function PlanningAgentPanel({
                       {br.misconfigured && (
                         <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
                       )}
-                      <span className="text-xs font-medium truncate flex-1" title={br.branchName}>
+                      <span className="text-xs font-medium min-w-0 break-words flex-1" title={br.branchName}>
                         {br.branchName}
                       </span>
 
@@ -372,7 +372,7 @@ export function PlanningAgentPanel({
                       <StatusDot status={getBatchColor(s.suggestedBatches)} size="sm" />
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-mono text-muted-foreground">{s.skuCode}</div>
-                        <div className="text-xs truncate" title={s.skuName}>{s.skuName}</div>
+                        <div className="text-xs break-words" title={s.skuName}>{s.skuName}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm font-mono font-semibold">

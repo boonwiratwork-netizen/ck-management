@@ -88,7 +88,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
                 <ClipboardList className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-semibold">{s?.name ?? "ซัพพลายเออร์"} · ใบขอซื้อถึงกำหนด</span>
+                <span className="block break-words text-[15px] font-semibold">{s?.name ?? "ซัพพลายเออร์"} · ใบขอซื้อถึงกำหนด</span>
                 <span className="block truncate text-sm text-muted-foreground">{g.lines.length} รายการ · {g.prNumbers.join(", ")}</span>
               </span>
               <span className="shrink-0 text-sm font-semibold">รับตามใบ</span>

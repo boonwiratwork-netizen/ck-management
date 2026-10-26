@@ -208,7 +208,7 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
               <li key={l.key} className="flex items-center gap-2 rounded-2xl border border-dashed border-warning bg-card p-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-warning">AI อ่านได้แต่ยังไม่รู้ว่าเป็นสินค้าไหน</div>
-                  <div className="truncate text-[15px] font-semibold">"{l.rawName}" × {l.qty}</div>
+                  <div className="break-words text-[15px] font-semibold">"{l.rawName}" × {l.qty}</div>
                 </div>
                 <Button variant="outline" className="h-11 border-foreground font-semibold" onClick={() => setPicker({ open: true, assignKey: l.key, q: "" })}>
                   เลือกสินค้า

@@ -227,9 +227,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     { key: "pos", label: "ตัวเลือก POS" },
   ];
   const header = outerHeader ? (
-    <div className={cn((selected || isNew) && "hidden lg:block")}>{outerHeader}</div>
+    <div className={cn((selected || isNew) && "hidden split:block")}>{outerHeader}</div>
   ) : (
-    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
+    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden split:flex")}>
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
         <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎพิเศษ · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
@@ -333,8 +333,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     <div className="flex flex-col gap-4">
       {header}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div className={cn("min-w-0", (selected || isNew) && "hidden lg:block")}>
+      <div className="grid grid-cols-1 gap-4 split:grid-cols-[340px_minmax(0,1fr)]">
+        <div className={cn("min-w-0", (selected || isNew) && "hidden split:block")}>
           <MenuList
             menus={menus}
             summaries={summaries}
@@ -344,7 +344,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
             onNew={canEdit ? () => go(NEW_HASH) : undefined}
           />
         </div>
-        <div className={cn("min-w-0", !selected && !isNew && "hidden lg:block")}>
+        <div className={cn("min-w-0", !selected && !isNew && "hidden split:block")}>
           {isNew && canEdit ? (
             <NewMenuForm
               menus={menus}
@@ -470,7 +470,7 @@ function MenuList({
   ];
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card split:sticky split:top-20 split:max-h-[calc(100dvh-7rem)]">
       <div className="flex flex-col gap-3 border-b border-border p-4">
         {onNew && (
           <Button data-tour="setup-new" variant="brand" className="h-11 w-full" onClick={onNew}>
@@ -521,7 +521,7 @@ function MenuList({
               >
                 <HealthDot level={s?.worst ?? "ok"} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-medium">{m.menuName}</div>
+                  <div className="break-words text-[15px] font-medium">{m.menuName}</div>
                   <div className="truncate text-sm text-muted-foreground">
                     <span className="font-mono">{m.menuCode}</span> · {m.brandName || "ไม่ระบุแบรนด์"}
                     {m.status === "Inactive" && " · ปิดเมนู"}
@@ -531,7 +531,7 @@ function MenuList({
                   <div className="font-mono text-sm tabular-nums">{s ? costLabel(s) : "—"}</div>
                   <div className="font-mono text-sm tabular-nums text-muted-foreground">{first ? pct(first.costPct) : ""}</div>
                 </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground lg:hidden" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground split:hidden" aria-hidden="true" />
               </button>
             </li>
           );
@@ -594,8 +594,8 @@ function MenuWorkspace(props: WorkspaceProps) {
       <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-raised md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
-            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "lg:hidden")}>
-              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
+            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "split:hidden")}>
+              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground split:hidden">
                 <ArrowLeft className="h-4 w-4" /> เมนูทั้งหมด
               </button>
               {props.prev && (
@@ -637,7 +637,7 @@ function MenuWorkspace(props: WorkspaceProps) {
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {summary.branches.map((b) => (
               <div key={b.branchId} className="rounded-xl bg-white/[0.06] px-3 py-2">
-                <div className="truncate text-sm text-primary-foreground/70">{b.branchName}</div>
+                <div className="break-words text-sm text-primary-foreground/70">{b.branchName}</div>
                 <div className="font-mono text-base tabular-nums">
                   {baht(b.cost)} <span className="text-highlight">{pct(b.costPct)}</span>
                 </div>
@@ -664,7 +664,7 @@ function MenuWorkspace(props: WorkspaceProps) {
               onClick={() => props.onOpenMenu(sub)}
               className="flex min-h-[48px] items-center gap-3 rounded-xl bg-card px-4 text-left text-foreground shadow-card hover:bg-secondary"
             >
-              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+              <span className="min-w-0 flex-1 break-words text-[15px] font-medium">
                 <span className="font-mono text-muted-foreground">{sub.menuCode}</span> {sub.menuName}
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -1062,7 +1062,7 @@ function BillsPanel({ bills, skus, branches, loaded }: { bills?: MenuBillCheck; 
             <ul className="divide-y divide-border">
               {g.perPlate.map(([id, q]) => (
                 <li key={id} className="flex items-center gap-3 px-4 py-2">
-                  <span className="min-w-0 flex-1 truncate text-[15px]">{sku(id)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
+                  <span className="min-w-0 flex-1 break-words text-[15px]">{sku(id)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
                   <span className={cn("shrink-0 font-mono text-sm tabular-nums", q < 0 && "text-warning")}>
                     {q > 0 ? "" : "−"}
                     {Math.abs(q).toLocaleString(undefined, { maximumFractionDigits: 2 })} {sku(id)?.usageUom ?? ""}

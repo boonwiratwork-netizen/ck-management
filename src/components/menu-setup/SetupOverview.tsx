@@ -110,7 +110,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
                   <st.icon className={cn("h-5 w-5", st.text)} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold">
+                  <span className="block break-words text-[15px] font-semibold">
                     {branch.branchName} <span className="font-normal text-muted-foreground">· {branch.brandName || "ไม่มีแบรนด์"}</span>
                   </span>
                   <span className="block truncate text-sm text-muted-foreground">
@@ -162,7 +162,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
                             className="flex min-h-[48px] w-full items-center gap-3 rounded-xl bg-card px-3 py-2 text-left shadow-card hover:bg-secondary"
                           >
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[15px]">
+                              <span className="block break-words text-[15px]">
                                 <span className="font-mono text-muted-foreground">{menu.menuCode}</span> {menu.menuName}
                               </span>
                               {detail !== g.title && <span className="block truncate text-sm text-muted-foreground">{detail}</span>}
@@ -196,7 +196,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
             {(allUnpriced ? unpriced : unpriced.slice(0, 8)).map((u) => (
               <li key={u.skuId} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px]">{u.sku?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
+                  <span className="block break-words text-[15px]">{u.sku?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
                   <span className="block truncate text-sm text-muted-foreground">
                     <span className="font-mono">{u.sku?.skuId ?? "—"}</span> · {u.menus.map((m) => m.menuCode).slice(0, 6).join(", ")}
                     {u.menus.length > 6 ? " …" : ""}

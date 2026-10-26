@@ -493,7 +493,7 @@ export default function MenuBOMPage({
         )}
       </div>
 
-      <div className={`grid gap-4 ${fullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-[320px_1fr]"}`}>
+      <div className={`grid gap-4 ${fullscreen ? "grid-cols-1" : "grid-cols-1 split:grid-cols-[320px_1fr]"}`}>
         {/* Left panel: menu list */}
         {!fullscreen && (
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
@@ -709,7 +709,7 @@ export default function MenuBOMPage({
                             >
                               {sku?.skuId ?? "—"}
                             </TableCell>
-                            <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
+                            <TableCell className="text-sm break-words overflow-hidden py-2 px-3" title={sku?.name ?? "—"}>
                               <div>{sku?.name ?? "—"}</div>
                               {branchName && (
                                 <span className="inline-block mt-0.5 px-1.5 py-0 text-[10px] leading-4 rounded-full bg-amber-100 text-amber-800">

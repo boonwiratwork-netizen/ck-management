@@ -290,7 +290,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   return (
     <div className="flex flex-col gap-4">
       {/* Branch + date: on phones only on the queue screen */}
-      <div data-tour="recv-branch" className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden lg:flex")}>
+      <div data-tour="recv-branch" className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden split:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">รับของ</h1>
           <p className="text-sm text-muted-foreground">{branch ? `${branch.branchName} · ${branch.brandName}` : "เลือกสาขา"}</p>
@@ -327,8 +327,8 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <div className={cn("min-w-0", view !== "" && "hidden lg:block")}>
+      <div className="grid grid-cols-1 gap-6 split:grid-cols-[360px_minmax(0,1fr)]">
+        <div className={cn("min-w-0", view !== "" && "hidden split:block")}>
           {branchId ? (
             <ReceiveHome
               pendingTOs={data.pendingTOs}
@@ -347,9 +347,9 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
             <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />
           )}
         </div>
-        <div className={cn("min-w-0", view === "" && "hidden lg:block")}>
+        <div className={cn("min-w-0", view === "" && "hidden split:block")}>
           {view !== "" && (
-            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground lg:hidden">
+            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground split:hidden">
               <ArrowLeft className="h-4 w-4" /> รับของ
             </button>
           )}
@@ -358,7 +358,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
           )}
           {workOpen ? work : history}
           {workOpen && (
-            <button type="button" onClick={() => go("history")} className="mt-6 hidden min-h-[44px] items-center gap-2 text-sm text-muted-foreground hover:text-foreground lg:inline-flex">
+            <button type="button" onClick={() => go("history")} className="mt-6 hidden min-h-[44px] items-center gap-2 text-sm text-muted-foreground hover:text-foreground split:inline-flex">
               <History className="h-4 w-4" /> ดูประวัติ
             </button>
           )}

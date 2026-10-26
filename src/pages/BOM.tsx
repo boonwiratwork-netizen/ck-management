@@ -947,7 +947,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                   return (
                     <TableRow key={line.id} className="h-9">
                       <TableCell className="text-sm font-mono py-2 px-3">{rmSku?.skuId ?? "—"}</TableCell>
-                      <TableCell className="text-sm truncate overflow-hidden py-2 px-3" title={rmSku?.name ?? "—"}>
+                      <TableCell className="text-sm break-words overflow-hidden py-2 px-3" title={rmSku?.name ?? "—"}>
                         {rmSku?.name ?? "—"}
                       </TableCell>
                       <TableCell className="text-sm text-right font-mono py-2 px-3">{line.qtyPerBatch}</TableCell>
@@ -1186,7 +1186,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                             <TableRow key={ing.id} className="h-9">
                               <TableCell className="text-sm font-mono py-2 px-3">{rmSku?.skuId ?? "—"}</TableCell>
                               <TableCell
-                                className="text-sm truncate overflow-hidden py-2 px-3"
+                                className="text-sm break-words overflow-hidden py-2 px-3"
                                 title={rmSku?.name ?? "—"}
                               >
                                 {rmSku?.name ?? "—"}

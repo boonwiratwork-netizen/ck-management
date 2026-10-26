@@ -464,7 +464,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
         )}
       </div>
 
-      <div className={`grid gap-4 ${fullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-[320px_1fr]"}`}>
+      <div className={`grid gap-4 ${fullscreen ? "grid-cols-1" : "grid-cols-1 split:grid-cols-[320px_1fr]"}`}>
         {/* Left panel */}
         {!fullscreen && (
           <Card className="h-fit max-h-[calc(100vh-200px)] flex flex-col">
@@ -699,7 +699,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
                             >
                               {sku?.skuId ?? "—"}
                             </TableCell>
-                            <TableCell className="text-sm truncate overflow-hidden py-1 px-2" title={sku?.name ?? "—"}>
+                            <TableCell className="text-sm break-words overflow-hidden py-1 px-2" title={sku?.name ?? "—"}>
                               {sku?.name ?? "—"}
                             </TableCell>
                             <TableCell

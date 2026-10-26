@@ -13,6 +13,12 @@ export default {
       },
     },
     extend: {
+      screens: {
+        // Pages with a left panel + a work area go side by side only from here: the
+        // side menu takes 256px, so at "lg" (1024) the work area was left ~400px and
+        // tables squeezed their names to nothing (1280 laptops, Windows zoom 150%)
+        split: "1440px",
+      },
       fontFamily: {
         sans: ['Anuphan', 'system-ui', 'sans-serif'],
         heading: ['Anuphan', 'system-ui', 'sans-serif'],

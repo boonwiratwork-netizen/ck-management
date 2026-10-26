@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 import { AlertTriangle, ArrowLeft, Check, MoreHorizontal, Plus, Undo2, X } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { PendingTRLine, TOLine } from "@/hooks/use-transfer-order";
@@ -212,6 +213,8 @@ interface SheetProps {
  * button. A table on computers, cards on phones.
  */
 export function PackSheet(p: SheetProps) {
+  // Table only when this sheet really has the room for it (not "is the screen wide")
+  const [fitRef, fits] = useFitsWidth(1060);
   const { form, skuOf, lots, check } = p;
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [lotFor, setLotFor] = useState<TOLine | null>(null);
@@ -236,7 +239,7 @@ export function PackSheet(p: SheetProps) {
             {form.trNumber && <> · ตามใบขอ <span className="font-mono">{form.trNumber}</span></>}
             {form.requiredDate && <> · ต้องการ {thaiDay(form.requiredDate)}</>}
             {!edit && " · บันทึกให้อัตโนมัติ"}
-            <span className="hidden lg:inline"> · กด Enter ไปช่องถัดไป</span>
+            {fits && <span> · กด Enter ไปช่องถัดไป</span>}
           </p>
         </div>
         {!edit && (
@@ -274,8 +277,10 @@ export function PackSheet(p: SheetProps) {
 
       {lots.loading && <p className="text-sm text-muted-foreground">กำลังดูสต๊อกและล็อตในครัว…</p>}
 
-      {/* Computer: a table */}
-      <div data-tour="to-lines" className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:block" onKeyDown={onEnterNext}>
+      {/* One box around table + cards: it is what gets measured (no extra gap) */}
+      <div ref={fitRef} className="flex flex-col gap-3">
+{/* Computer: a table */}
+      <div data-tour="to-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
         <table className="w-full table-fixed text-sm">
           <colgroup>
             <col />
@@ -322,7 +327,7 @@ export function PackSheet(p: SheetProps) {
       </div>
 
       {/* Phone: cards */}
-      <ul className="flex flex-col gap-2 lg:hidden" onKeyDown={onEnterNext} data-tour="to-lines">
+      <ul className={fits ? "hidden" : "flex flex-col gap-2"} onKeyDown={onEnterNext} data-tour="to-lines">
         {shown.map((line) => (
           <MobileCard key={line.id} line={line} sku={skuOf(line.skuId)} lots={lots} edit={!!edit} onLot={() => setLotFor(line)} {...p} />
         ))}
@@ -342,6 +347,7 @@ export function PackSheet(p: SheetProps) {
             </li>
           ))}
       </ul>
+      </div>
 
       {!form.trId && !edit && (
         <Button variant="outline" className="h-12 border-dashed font-semibold" onClick={p.onAdd}>

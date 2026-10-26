@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, Sparkles } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -87,7 +88,7 @@ export function ProdSide({
             {dayRecords.map((r) => (
               <li key={r.id} className="flex items-center gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{nameOf(r.smSkuId)}</span>
+                  <span className="block break-words">{nameOf(r.smSkuId)}</span>
                   {r.notes && <span className="block truncate text-[13px] text-muted-foreground">{r.notes}</span>}
                 </span>
                 <span className="shrink-0 font-mono">{gramsText(r.actualOutputG)}</span>
@@ -138,6 +139,8 @@ export function RecordView({
   const today = iso(new Date());
   const yesterday = iso(addDays(new Date(), -1));
   const [added, setAdded] = useState<string[]>([]);
+  // Table only when this view really has the room for it (not "is the screen wide")
+  const [fitRef, fits] = useFitsWidth(830);
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -214,8 +217,10 @@ export function RecordView({
         </div>
       ) : (
         <>
+          {/* One box around table + cards: it is what gets measured (no extra gap) */}
+          <div ref={fitRef} className="flex flex-col gap-3">
           {/* Computer */}
-          <div data-tour="prod-lines" className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:block" onKeyDown={onEnterNext}>
+          <div data-tour="prod-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col />
@@ -241,11 +246,12 @@ export function RecordView({
             </table>
           </div>
           {/* Phone */}
-          <ul data-tour="prod-lines" className="flex flex-col gap-2 lg:hidden" onKeyDown={onEnterNext}>
+          <ul data-tour="prod-lines" className={fits ? "hidden" : "flex flex-col gap-2"} onKeyDown={onEnterNext}>
             {todo.map((r) => (
               <RecordRow key={r.sku.id} r={r} grams={typed[r.sku.id] || 0} note={notes[r.sku.id] || ""} busy={busy === r.sku.id} canEdit={canEdit} onGrams={(g) => setTyped((p) => ({ ...p, [r.sku.id]: g }))} onNote={(n) => setNotes((p) => ({ ...p, [r.sku.id]: n }))} onRecord={(g) => record(r.sku.id, false, g)} />
             ))}
           </ul>
+          </div>
         </>
       )}
 
@@ -258,7 +264,7 @@ export function RecordView({
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card text-sm">
               {done.map((r) => (
                 <li key={r.sku.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                  <span className="truncate">{r.sku.name}</span>
+                  <span className="break-words">{r.sku.name}</span>
                   <span className="flex shrink-0 items-center gap-2 font-mono">
                     {gramsText(r.made)} / {gramsText(r.plan)}
                     {canEdit && (

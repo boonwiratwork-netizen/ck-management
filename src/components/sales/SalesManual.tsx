@@ -78,7 +78,7 @@ export function SalesManual({
               <li key={m.id}>
                 <button type="button" onClick={() => pick(m)} className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left hover:bg-secondary/60">
                   <span className="w-[68px] shrink-0 font-mono text-sm text-muted-foreground">{m.menuCode}</span>
-                  <span className="min-w-0 flex-1 truncate text-[15px]">{m.menuName}</span>
+                  <span className="min-w-0 flex-1 break-words text-[15px]">{m.menuName}</span>
                   <span className={cn("font-mono text-sm", m.sellingPrice > 0 ? "" : "text-warning")}>{m.sellingPrice > 0 ? baht(m.sellingPrice) : "ไม่มีราคา"}</span>
                 </button>
               </li>

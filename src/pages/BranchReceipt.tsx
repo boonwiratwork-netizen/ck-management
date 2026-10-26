@@ -1779,7 +1779,7 @@ export default function BranchReceiptPage({
                       >
                         <td className={`${tdReadOnly} font-mono align-middle`}>{sku?.skuId || "—"}</td>
                         <td className={`${tdReadOnly} align-middle`}>
-                          <div className="truncate" title={sku?.name}>
+                          <div className="break-words" title={sku?.name}>
                             {sku?.name || "—"}
                           </div>
                           {line.note && (
@@ -1987,7 +1987,7 @@ export default function BranchReceiptPage({
                           </div>
                         </td>
                         <td className={`${tdReadOnly} align-middle`} title={sku.name}>
-                          <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                          <span className={cn("block break-words", hasQty ? "font-semibold text-foreground" : "")}>
                             {sku.name}
                           </span>
                         </td>
@@ -2167,7 +2167,7 @@ export default function BranchReceiptPage({
                               </td>
                               <td className={`${tdReadOnly} align-middle`} title={sku.name}>
                                 <div>
-                                  <span className={cn("block truncate", hasQty ? "font-semibold" : "")}>
+                                  <span className={cn("block break-words", hasQty ? "font-semibold" : "")}>
                                     {sku.name}
                                   </span>
                                   {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
@@ -2636,7 +2636,7 @@ export default function BranchReceiptPage({
                           </td>
                           <td className={`${tdReadOnly} align-middle`} title={sku.name}>
                             <div>
-                              <span className={cn("block truncate", hasQty ? "font-semibold text-foreground" : "")}>
+                              <span className={cn("block break-words", hasQty ? "font-semibold text-foreground" : "")}>
                                 {sku.name}
                               </span>
                               {isPacksMode && <div className="text-xs mt-0.5 invisible">·</div>}
@@ -3481,7 +3481,7 @@ export default function BranchReceiptPage({
                       </td>
                       <td className={tdReadOnly}>
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="truncate block" title={sku?.name}>
+                          <span className="break-words block" title={sku?.name}>
                             {sku?.name || "—"}
                           </span>
                           {r.notes && (

@@ -124,7 +124,7 @@ export function SkuPicker({
             <li key={s.id}>
               <button type="button" onClick={() => onPick(s)} className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left hover:bg-secondary/60">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px]">{s.name}</span>
+                  <span className="block break-words text-[15px]">{s.name}</span>
                   <span className="block text-sm text-muted-foreground">
                     <span className="font-mono">{s.skuId}</span>
                     {packHint(s) && ` · ${packHint(s)}`}

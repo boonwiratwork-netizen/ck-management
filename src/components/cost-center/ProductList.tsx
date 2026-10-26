@@ -82,7 +82,7 @@ export function ProductList({
   const types: TypeFilter[] = ["all", "RM", "SM", "SP", "PK"];
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card split:sticky split:top-20 split:max-h-[calc(100dvh-7rem)]">
       <div className="flex flex-col gap-3 border-b border-border p-4">
         {onNew && (
           <Button data-tour="cc-new" variant="brand" className="h-11 w-full" onClick={onNew}>
@@ -131,13 +131,13 @@ export function ProductList({
                 <LevelDot level={s.level} />
                 <KindBadge kind={s.sku.type} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-medium">{s.sku.name}</div>
+                  <div className="break-words text-[15px] font-medium">{s.sku.name}</div>
                   <div className={cn("truncate text-sm", why ? (s.level === "error" ? "text-destructive" : "text-muted-foreground") : "text-muted-foreground")}>
                     {why ? why.title : <span className="font-mono">{s.sku.skuId}</span>}
                   </div>
                 </div>
                 <div className="shrink-0 text-right font-mono text-sm tabular-nums">{packPriceLabel(s)}</div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground lg:hidden" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground split:hidden" aria-hidden="true" />
               </button>
             </li>
           );

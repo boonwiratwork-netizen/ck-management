@@ -337,7 +337,7 @@ const Dashboard = ({
                               : 'text-muted-foreground';
                             return (
                               <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
-                                <td className="px-3 py-2 font-medium truncate max-w-[180px]" title={row.skuName}>{row.skuName}</td>
+                                <td className="px-3 py-2 font-medium break-words max-w-[180px]" title={row.skuName}>{row.skuName}</td>
                                 <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
                                 <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
                                 <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>

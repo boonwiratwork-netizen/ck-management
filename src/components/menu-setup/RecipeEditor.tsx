@@ -108,7 +108,7 @@ export function RecipeEditor({ menu, sharedLines, branchLines, branches, skus, p
                       className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors enabled:hover:bg-secondary/60 disabled:cursor-default"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[15px] font-medium">{skuById.get(line.skuId)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</div>
+                        <div className="break-words text-[15px] font-medium">{skuById.get(line.skuId)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</div>
                         <div className="text-sm text-muted-foreground">
                           <span className="font-mono">{skuById.get(line.skuId)?.skuId ?? "—"}</span>
                           {line.yieldPct !== 100 && <span> · yield {line.yieldPct}%</span>}

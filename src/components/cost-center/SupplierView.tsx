@@ -51,11 +51,11 @@ export function SupplierView(props: Props) {
   const [creating, setCreating] = useState(false);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <div className={cn("min-w-0", (selected || creating) && "hidden lg:block")}>
+    <div className="grid grid-cols-1 gap-4 split:grid-cols-[340px_minmax(0,1fr)]">
+      <div className={cn("min-w-0", (selected || creating) && "hidden split:block")}>
         <SupplierList {...props} stats={stats} activeCount={(id) => activePrices(id).length} onNew={props.canEdit ? () => setCreating(true) : undefined} />
       </div>
-      <div className={cn("min-w-0", !selected && !creating && "hidden lg:block")}>
+      <div className={cn("min-w-0", !selected && !creating && "hidden split:block")}>
         {creating ? (
           <NewSupplier
             onCancel={() => setCreating(false)}
@@ -98,7 +98,7 @@ function SupplierList({
     .filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()))
     .sort((a, b) => (stats.get(b.id)?.spend ?? 0) - (stats.get(a.id)?.spend ?? 0) || a.name.localeCompare(b.name));
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card split:sticky split:top-20 split:max-h-[calc(100dvh-7rem)]">
       <div className="flex flex-col gap-3 border-b border-border p-4">
         {onNew && (
           <Button variant="brand" className="h-11 w-full" onClick={onNew}>
@@ -129,13 +129,13 @@ function SupplierList({
                 className={cn("flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left hover:bg-secondary/60", selectedId === s.id && "bg-secondary shadow-[inset_3px_0_0_hsl(var(--brand))]")}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-medium">{s.name}</div>
+                  <div className="break-words text-[15px] font-medium">{s.name}</div>
                   <div className="truncate text-sm text-muted-foreground">
                     {activeCount(s.id)} ราคา{st ? ` · ล่าสุด ${shortDate(st.last)}` : ""}
                   </div>
                 </div>
                 {st && <div className="shrink-0 font-mono text-sm tabular-nums">{baht(st.spend, 0)}</div>}
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground lg:hidden" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground split:hidden" aria-hidden="true" />
               </button>
             </li>
           );
@@ -191,7 +191,7 @@ function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdi
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl bg-primary p-5 text-primary-foreground shadow-raised md:p-6">
-        <button type="button" onClick={() => onSelect(null)} className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
+        <button type="button" onClick={() => onSelect(null)} className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground split:hidden">
           <ArrowLeft className="h-4 w-4" /> ซัพพลายเออร์ทั้งหมด
         </button>
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
@@ -295,7 +295,7 @@ function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdi
                   <li key={id}>
                     <button type="button" onClick={() => onOpenProduct(id)} className="flex min-h-[46px] w-full items-center gap-3 px-4 text-left hover:bg-secondary/60">
                       {byId.get(id) && <KindBadge kind={byId.get(id)!.type} />}
-                      <span className="min-w-0 flex-1 truncate">{byId.get(id)?.name ?? "—"}</span>
+                      <span className="min-w-0 flex-1 break-words">{byId.get(id)?.name ?? "—"}</span>
                       <span className="font-mono text-sm tabular-nums">{baht(spend, 0)}</span>
                     </button>
                   </li>
@@ -312,7 +312,7 @@ function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdi
                   <li key={p.id}>
                     <button type="button" onClick={() => onOpenProduct(p.skuId)} className="flex min-h-[46px] w-full items-center gap-3 px-4 text-left hover:bg-secondary/60">
                       {s && <KindBadge kind={s.type} />}
-                      <span className="min-w-0 flex-1 truncate">{s?.name ?? "—"}</span>
+                      <span className="min-w-0 flex-1 break-words">{s?.name ?? "—"}</span>
                       <span className="font-mono text-sm tabular-nums">
                         {baht(p.pricePerPurchaseUom)}/{s?.packUnit || s?.purchaseUom}
                       </span>

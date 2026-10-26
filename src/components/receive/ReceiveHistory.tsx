@@ -89,7 +89,7 @@ export function ReceiveHistory({ history, loading, skuMap, branches, showBranch,
                     <li key={r.id} className="flex items-center gap-2 px-4 py-2.5">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate text-[15px]">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</span>
+                          <span className="break-words text-[15px]">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</span>
                           {r.notes && <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={r.notes} />}
                         </div>
                         <div className="truncate text-sm text-muted-foreground">

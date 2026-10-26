@@ -234,8 +234,8 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
       </div>
-      <div className={cn("grid grid-cols-1 gap-6", mode === "record" && "lg:grid-cols-[320px_minmax(0,1fr)]")}>
-        <div className={cn("min-w-0", mode === "plan" && "lg:hidden")}>
+      <div className={cn("grid grid-cols-1 gap-6", mode === "record" && "split:grid-cols-[320px_minmax(0,1fr)]")}>
+        <div className={cn("min-w-0", mode === "plan" && "split:hidden")}>
           <ProdSide
             mode={mode}
             onMode={setMode}
@@ -254,7 +254,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
         <div className="min-w-0">
           {mode === "plan" ? (
             <>
-              <button type="button" onClick={() => setMode("record")} className="-ml-2 mb-2 hidden min-h-[44px] items-center rounded-full px-2 text-sm text-muted-foreground hover:text-foreground lg:inline-flex">
+              <button type="button" onClick={() => setMode("record")} className="-ml-2 mb-2 hidden min-h-[44px] items-center rounded-full px-2 text-sm text-muted-foreground hover:text-foreground split:inline-flex">
                 ‹ บันทึกผลผลิต
               </button>
               <PlanView

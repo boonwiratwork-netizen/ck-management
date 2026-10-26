@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 import { ArrowLeft, Check, Search, X } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -73,6 +74,8 @@ const parse = (raw: string) => Math.max(0, Number(raw.replace(/,/g, "")) || 0);
  * is kept on this device until saved, so a refresh loses nothing.
  */
 export function BillEntry({ date, supplierId, supplierName, skus, prices, suppliers, receipts, busy, onBack, onSave }: Props) {
+  // Table only when this sheet really has the room for it (not "is the screen wide")
+  const [fitRef, fits] = useFitsWidth(880);
   const skuOf = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const activeFor = useMemo(() => {
     const m = new Map<string, Price>();
@@ -229,7 +232,7 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
         <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card text-sm shadow-card">
           {filled.map((r) => (
             <li key={r.key} className="flex justify-between gap-3 px-3 py-2">
-              <span className="min-w-0 truncate">{skuOf.get(r.skuId)?.name}</span>
+              <span className="min-w-0 break-words">{skuOf.get(r.skuId)?.name}</span>
               <span className="shrink-0 font-mono">
                 {qtyText(r.qty, uomOf(r.skuId))} · {baht(other && place === FREE_PLACE ? 0 : lineTotal(r.total, stdFor(r.skuId), r.qty))}
               </span>
@@ -285,9 +288,11 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
         </button>
       )}
 
-      {/* Computer */}
+      {/* One box around table + cards: it is what gets measured (no extra gap) */}
+      <div ref={fitRef} className="flex flex-col gap-3">
+{/* Computer */}
       {rows.length > 0 && (
-        <div data-tour="gr-lines" className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:block" onKeyDown={onEnterNext}>
+        <div data-tour="gr-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col />
@@ -317,11 +322,12 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
       )}
 
       {/* Phone */}
-      <ul className="flex flex-col gap-2 lg:hidden" onKeyDown={onEnterNext} data-tour="gr-lines">
+      <ul className={fits ? "hidden" : "flex flex-col gap-2"} onKeyDown={onEnterNext} data-tour="gr-lines">
         {shown.map((r) => (
           <MobileCard key={r.key} r={r} sku={skuOf.get(r.skuId)} std={stdFor(r.skuId)} last={lastBuy.get(r.skuId)} free={other && place === FREE_PLACE} canRemove={other || !lastBuy.has(r.skuId)} set={set} onRemove={() => setRows((p) => p.filter((x) => x.key !== r.key))} />
         ))}
       </ul>
+      </div>
 
       {hidden > 0 && (
         <button type="button" onClick={() => setShowAll(true)} className="self-start text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">

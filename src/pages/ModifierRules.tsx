@@ -185,7 +185,7 @@ function MultiMenuSelector({
                 )}
               >
                 <Checkbox checked={selectedMenuIds.includes(m.id)} className="mr-2 h-3.5 w-3.5" tabIndex={-1} />
-                <span className="truncate">
+                <span className="min-w-0 flex-1 break-words text-left">
                   {m.menuCode} {m.menuName}
                 </span>
               </button>
@@ -254,7 +254,7 @@ function SubmenuSelector({
         }}
         className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent/50 transition-colors"
       >
-        <span className={cn("truncate", !selected && "text-muted-foreground")}>
+        <span className={cn("min-w-0 flex-1 break-words text-left", !selected && "text-muted-foreground")}>
           {selected ? `${selected.menuCode} ${selected.menuName}` : "Select a menu..."}
         </span>
         <svg
@@ -305,7 +305,7 @@ function SubmenuSelector({
                   value === m.id && "bg-accent",
                 )}
               >
-                <span className="truncate">
+                <span className="min-w-0 flex-1 break-words text-left">
                   {m.menuCode} {m.menuName}
                 </span>
               </button>

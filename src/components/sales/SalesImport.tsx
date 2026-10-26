@@ -127,8 +127,8 @@ export function CheckView({
             </div>
             {sample.map((r, k) => (
               <div key={k} className="grid grid-cols-[1fr_1fr_80px] gap-2 border-t border-border px-3 py-2">
-                <span className="truncate">{r.menuCode}</span>
-                <span className="truncate">{r.menuName}</span>
+                <span className="break-words">{r.menuCode}</span>
+                <span className="break-words">{r.menuName}</span>
                 <span className="text-right font-mono">{r.netAmount.toLocaleString()}</span>
               </div>
             ))}
@@ -235,7 +235,7 @@ export function CheckView({
                 <li key={k} className="flex gap-3 px-3 py-2">
                   <span className="shrink-0 text-muted-foreground">{r.saleDate}</span>
                   <span className="shrink-0 font-mono">{r.receiptNo}</span>
-                  <span className="min-w-0 truncate">{r.menuName}</span>
+                  <span className="min-w-0 break-words">{r.menuName}</span>
                 </li>
               ))}
             </ul>

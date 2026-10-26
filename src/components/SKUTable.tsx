@@ -210,7 +210,7 @@ export function SKUTable({
                       <td className="px-4 py-3 font-medium max-w-[200px]">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="truncate block">{sku.name}</span>
+                            <span className="break-words block">{sku.name}</span>
                           </TooltipTrigger>
                           <TooltipContent>{sku.name}</TooltipContent>
                         </Tooltip>
