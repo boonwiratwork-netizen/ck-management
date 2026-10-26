@@ -269,7 +269,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
   const isForm = view === "new" || !!supplierId;
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden split:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden lg:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">ขอเบิก</h1>
           <p className="text-sm text-muted-foreground">{branch ? `${branch.branchName} · ${branch.brandName}` : "เลือกสาขา"}</p>
@@ -319,7 +319,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
             <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />
           )}
         </div>
-        <div className={cn("min-w-0", isHome && "hidden split:block")}>
+        <div className={cn("min-w-0", isHome && "hidden lg:block")}>
           {!isHome && (
             <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground split:hidden">
               <ArrowLeft className="h-4 w-4" /> ขอเบิก

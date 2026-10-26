@@ -48,8 +48,8 @@ export default function RequestDemo() {
   const [sent, setSent] = useState<{ number: string; count: number; date: string; message: string } | null>(null);
   return (
     <div className="min-h-screen bg-background">
-      <div className="page-shell grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <div className={view ? "hidden lg:block" : ""}>
+      <div className="page-shell grid grid-cols-1 gap-6 split:grid-cols-[360px_minmax(0,1fr)]">
+        <div className={view ? "hidden split:block" : ""}>
           <RequestHome
             needCount={ITEMS.filter((i) => suggestedPacks(i, PENDING.get(i.skuId)?.qty ?? 0) > 0).length}
             loading={false}
@@ -61,7 +61,7 @@ export default function RequestDemo() {
             onSupplier={() => undefined}
           />
         </div>
-        <div className={view ? "" : "hidden lg:block"}>
+        <div className={view ? "" : "hidden split:block"}>
           {view === "new" && (
             <RequestForm
               title="ขอเบิกจากครัวกลาง"

@@ -160,7 +160,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
   const wide = !!billFor;
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden", !isHome && !wide && "split:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden", !isHome && !wide && "lg:flex")}>
         <h1 className="mr-auto text-2xl font-bold">รับของเข้าครัวกลาง</h1>
         <Button
           variant="outline"
@@ -196,7 +196,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
             }}
           />
         </div>
-        <div className={cn("min-w-0", isHome && "hidden split:block")}>
+        <div className={cn("min-w-0", isHome && "hidden lg:block")}>
           {work ?? (
             <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center split:flex">
               <p className="font-medium">เลือกเจ้าที่ส่งของมาทางซ้าย</p>

@@ -168,11 +168,11 @@ export default function TransferDemo() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className={`page-shell grid grid-cols-1 gap-6 ${view === "pack" || view === "review" ? "" : "lg:grid-cols-[340px_minmax(0,1fr)]"}`}>
-        <div className={work ? (view === "pack" || view === "review" ? "hidden" : "hidden lg:block") : ""}>
+      <div className={`page-shell grid grid-cols-1 gap-6 ${view === "pack" || view === "review" ? "" : "split:grid-cols-[340px_minmax(0,1fr)]"}`}>
+        <div className={work ? (view === "pack" || view === "review" ? "hidden" : "hidden split:block") : ""}>
           <TransferHome pending={PENDING} loading={false} drafts={[]} recent={HISTORY} canEdit onStart={() => go("pack")} onOpenDraft={() => go("pack")} onOpenRecent={() => go("history")} onHistory={() => go("history")} onStandalone={() => undefined} />
         </div>
-        <div className={work ? "" : "hidden lg:block"}>{work}</div>
+        <div className={work ? "" : "hidden split:block"}>{work}</div>
       </div>
       {declining && (
         <DeclineDialog

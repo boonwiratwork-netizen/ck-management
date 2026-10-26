@@ -60,7 +60,9 @@ export function ProdSide({
   onDelete: (r: ProductionRecord) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    // Laptops (one column under 1440px): chips + week on the left, today's records on
+    // the right, so the table below isn't pushed far down; wide screens: a side column
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 split:flex">
       <div className="flex gap-1.5" data-tour="prod-mode">
         <button type="button" className={cn(chip(mode === "record"), "flex-1")} onClick={() => onMode("record")}>
           บันทึกผลผลิต
@@ -79,7 +81,7 @@ export function ProdSide({
           <div className="h-full bg-success" style={{ width: `${planned ? Math.min(100, (done / planned) * 100) : 0}%` }} />
         </div>
       </div>
-      <section className="flex flex-col gap-1.5">
+      <section className="flex flex-col gap-1.5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <h2 className="text-[13px] font-bold">บันทึก{day === iso(new Date()) ? "วันนี้" : thaiDay(day)}</h2>
         {dayRecords.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-4 text-sm text-muted-foreground">ยังไม่มี</div>

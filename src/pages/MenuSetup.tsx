@@ -227,9 +227,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     { key: "pos", label: "ตัวเลือก POS" },
   ];
   const header = outerHeader ? (
-    <div className={cn((selected || isNew) && "hidden split:block")}>{outerHeader}</div>
+    <div className={cn((selected || isNew) && "hidden lg:block")}>{outerHeader}</div>
   ) : (
-    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden split:flex")}>
+    <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
         <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎพิเศษ · เช็คว่าตั้งครบ — ครบในที่เดียว</p>

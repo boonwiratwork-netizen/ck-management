@@ -266,7 +266,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
   const todaySum = data.days.get(today);
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden split:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", workOpen && "hidden lg:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">ยอดขาย</h1>
           <p className="text-sm text-muted-foreground">{branch ? `${branch.branchName} · ${branch.brandName}` : "เลือกสาขา"}</p>
@@ -313,7 +313,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
         <div className={cn("flex min-w-0 flex-col gap-4", workOpen && "hidden", workOpen && view !== "history" && "split:flex")}>
           {branchId ? (
             <>
-              <div className="split:hidden">
+              <div className="lg:hidden">
                 <DayStrip today={today} days={data.days} loading={data.daysLoading} selected={day} onPick={(d) => go(`day/${d}`)} />
               </div>
               <ImportCard key={importKey} busy={checking} onCheck={check} onProfiles={() => setProfilesOpen(true)} />
@@ -322,10 +322,10 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
                   วันนี้บันทึกแล้ว {todaySum.lines} รายการ · <span className="font-mono">{baht(todaySum.total)}</span>
                 </p>
               )}
-              <div className="hidden split:block">
+              <div className="hidden lg:block">
                 <MonthCalendar month={month} onMonth={setMonth} today={today} days={data.days} loading={data.daysLoading} selected={day} onPick={(d) => go(`day/${d}`)} />
               </div>
-              <div className="split:hidden">
+              <div className="lg:hidden">
                 <RecentDays days={data.days} onPick={(d) => go(`day/${d}`)} />
               </div>
             </>
@@ -333,7 +333,7 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
             <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />
           )}
         </div>
-        <div className={cn("min-w-0", !workOpen && "hidden split:block")}>
+        <div className={cn("min-w-0", !workOpen && "hidden lg:block")}>
           {workOpen && (
             <button type="button" onClick={() => go("")} className={cn("-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground", view !== "history" && "split:hidden")}>
               <ArrowLeft className="h-4 w-4" /> ยอดขาย

@@ -296,7 +296,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden split:flex")}>
+      <div className={cn("flex flex-wrap items-end gap-3", !isHome && "hidden lg:flex")}>
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">นับสต๊อก</h1>
           <p className="text-sm text-muted-foreground">
@@ -380,7 +380,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
             />
           )}
         </div>
-        <div className={cn("min-w-0", isHome && "hidden split:block")}>
+        <div className={cn("min-w-0", isHome && "hidden lg:block")}>
           {/* Under 1440px the left panel folds into this bar so the table keeps every column */}
           {!isHome && (
             <>

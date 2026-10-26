@@ -299,7 +299,7 @@ export default function CostCenterPage(props: Props) {
   if (supplierSide)
     return (
       <div className="flex flex-col gap-4">
-        <div className={cn(hash.startsWith("s/") && "hidden split:block")}>{header}</div>
+        <div className={cn(hash.startsWith("s/") && "hidden lg:block")}>{header}</div>
         <SupplierView
           suppliers={props.suppliers}
           skus={skus}
@@ -323,7 +323,7 @@ export default function CostCenterPage(props: Props) {
   const initialFilter = ((location.state as { filter?: ProductFilter } | null)?.filter ?? "all") as ProductFilter;
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn((selected || isNew) && "hidden split:block")}>{header}</div>
+      <div className={cn((selected || isNew) && "hidden lg:block")}>{header}</div>
       <div className="grid grid-cols-1 gap-4 split:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cn("min-w-0", (selected || isNew) && "hidden split:block")}>
           <ProductList summaries={summaries} selectedId={selected?.sku.id ?? null} onSelect={(s) => openProduct(s.id)} onNew={canEditProducts ? () => go("new-product") : undefined} initialFilter={initialFilter} />
