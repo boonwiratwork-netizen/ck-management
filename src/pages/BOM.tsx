@@ -372,6 +372,8 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
   };
 
   const handleDeleteHeader = (id: string) => {
+    // One tap used to remove a whole recipe; production would then deduct nothing
+    if (!window.confirm("ลบสูตรนี้ทั้งสูตร? ผลิตแล้วจะไม่ตัดวัตถุดิบจนกว่าจะทำสูตรใหม่")) return;
     deleteHeader(id);
     if (selectedHeaderId === id) setSelectedHeaderId(null);
     toast.success("BOM deleted");

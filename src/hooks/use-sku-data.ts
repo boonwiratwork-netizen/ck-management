@@ -74,11 +74,13 @@ export function useSkuData() {
     return `${type}-${String(max + 1).padStart(4, '0')}`;
   };
 
-  const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>, customSkuId?: string) => {
+  const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>, customSkuId?: string): Promise<SKU | null> => {
     const skuId = customSkuId && customSkuId.trim() ? customSkuId.trim() : generateSkuId(data.type, skus);
     const { data: row, error } = await supabase.from('skus').insert(toDb(data, skuId)).select().single();
-    if (error) { toast.error('Failed to add SKU: ' + error.message); return; }
-    setSkus(prev => [toLocal(row), ...prev]);
+    if (error) { toast.error('Failed to add SKU: ' + error.message); return null; }
+    const added = toLocal(row);
+    setSkus(prev => [added, ...prev]);
+    return added;
   }, [skus]);
 
   const bulkAddSkus = useCallback(async (rows: Omit<SKU, 'id' | 'skuId'>[]) => {
@@ -106,7 +108,7 @@ export function useSkuData() {
     return inserted?.length ?? 0;
   }, []);
 
-  const updateSku = useCallback(async (id: string, data: Partial<Omit<SKU, 'id' | 'skuId'>>, newSkuCode?: string) => {
+  const updateSku = useCallback(async (id: string, data: Partial<Omit<SKU, 'id' | 'skuId'>>, newSkuCode?: string): Promise<boolean> => {
     const dbData: any = {};
     if (data.name !== undefined) dbData.name = data.name;
     if (data.type !== undefined) dbData.type = data.type;
@@ -128,8 +130,9 @@ export function useSkuData() {
     if (newSkuCode) dbData.sku_id = newSkuCode;
 
     const { error } = await supabase.from('skus').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update SKU: ' + error.message); return; }
+    if (error) { toast.error('Failed to update SKU: ' + error.message); return false; }
     setSkus(prev => prev.map(s => s.id === id ? { ...s, ...data, ...(newSkuCode ? { skuId: newSkuCode } : {}) } : s));
+    return true;
   }, []);
 
   const deleteSku = useCallback(async (id: string) => {

@@ -69,28 +69,41 @@ const withYield = (qty: number, yieldPercent?: number | null) => {
   return y > 0 ? qty / y : qty;
 };
 
-/** Cost of one SM recipe */
-export function smCost(header: CostBomHeader, lines: CostBomLine[], steps: CostBomStep[], byproducts: CostByproduct[], priceOf: PriceOf): SmCost {
-  let batchCost = 0;
-  let output = 0;
-  if (header.bomMode === "multistep") {
-    // Each step's output feeds the next. Step 1's input is its fixed lines; a
-    // "percent" line is that share of the step's input. Line yields don't apply here.
-    const ordered = [...steps].sort((a, b) => a.stepNumber - b.stepNumber);
-    let prevOutput = 0;
-    ordered.forEach((step, idx) => {
+/** One recipe line as it is actually used in a batch */
+export interface ResolvedLine {
+  line: CostBomLine;
+  /** Quantity bought for one batch (line yield counted; percent lines resolved) */
+  qty: number;
+}
+
+/**
+ * Every line of an SM recipe with the quantity a batch really takes, plus what the
+ * batch gives. Multi-step: each step's output feeds the next; step 1's input is its
+ * fixed lines and a "percent" line is that share of the step's input (line yields
+ * don't apply). Simple: quantity ÷ line yield.
+ */
+export function resolveSm(header: CostBomHeader, lines: CostBomLine[], steps: CostBomStep[]): { lines: ResolvedLine[]; output: number } {
+  if (header.bomMode !== "multistep") return { lines: lines.map((l) => ({ line: l, qty: withYield(l.qtyPerBatch, l.yieldPercent) })), output: header.batchSize * header.yieldPercent };
+  const out: ResolvedLine[] = [];
+  let prevOutput = 0;
+  [...steps]
+    .sort((a, b) => a.stepNumber - b.stepNumber)
+    .forEach((step, idx) => {
       const own = lines.filter((l) => l.stepId === step.id);
       const base = idx === 0 ? own.filter((l) => l.qtyType !== "percent").reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
-      const resolved = own.map((l) => ({ l, qty: l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * base : l.qtyPerBatch }));
+      const resolved = own.map((l) => ({ line: l, qty: l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * base : l.qtyPerBatch }));
       const added = resolved.reduce((s, r) => s + r.qty, 0);
-      batchCost += resolved.reduce((s, r) => s + r.qty * priceOf(r.l.rmSkuId), 0);
+      out.push(...resolved);
       prevOutput = (idx === 0 ? added : prevOutput + added) * step.yieldPercent;
     });
-    output = prevOutput;
-  } else {
-    batchCost = lines.reduce((s, l) => s + withYield(l.qtyPerBatch, l.yieldPercent) * priceOf(l.rmSkuId), 0);
-    output = header.batchSize * header.yieldPercent;
-  }
+  return { lines: out, output: prevOutput };
+}
+
+/** Cost of one SM recipe */
+export function smCost(header: CostBomHeader, lines: CostBomLine[], steps: CostBomStep[], byproducts: CostByproduct[], priceOf: PriceOf): SmCost {
+  const r = resolveSm(header, lines, steps);
+  const batchCost = r.lines.reduce((s, x) => s + x.qty * priceOf(x.line.rmSkuId), 0);
+  const output = r.output;
   const byPct = byproducts.reduce((s, b) => s + (b.costAllocationPct || 0), 0);
   const mainShare = Math.max(0, 100 - byPct) / 100;
   return {

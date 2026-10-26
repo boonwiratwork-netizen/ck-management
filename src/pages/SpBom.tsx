@@ -44,9 +44,10 @@ const CSV_COLUMNS: CSVColumnDef[] = [
 ];
 
 export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
-  const { isManagement } = useAuth();
+  const { isManagement, isCkManager } = useAuth();
   const { t } = useLanguage();
-  const canEdit = isManagement && !readOnly;
+  // CK managers edit recipes too (Cost Center, 26 Oct 2026)
+  const canEdit = (isManagement || isCkManager) && !readOnly;
 
   const [selectedSpId, setSelectedSpId] = useState<string | null>(null);
   const [spSearch, setSpSearch] = useState("");

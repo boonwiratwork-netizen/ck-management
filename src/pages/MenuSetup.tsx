@@ -48,6 +48,12 @@ interface MenuSetupProps {
   /** SP recipes, so the bill check expands SP items exactly like stock does */
   spBomLines: SpBomLine[];
   updateRule: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<void>;
+  /** Inside Cost Center: its header (with the shared tabs) replaces this page's own */
+  header?: React.ReactNode;
+  /** Inside Cost Center: shown above the menu overview (the product side of it) */
+  overviewExtra?: React.ReactNode;
+  /** The hash of the menu list ("" on its own page, "menus" inside Cost Center) */
+  listHash?: string;
   /** Dev harness only: use these instead of what the hooks load */
   demoExtras?: {
     overrides: Record<string, Record<string, boolean>>;
@@ -131,7 +137,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras, header: outerHeader, overviewExtra, listHash = "" }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -147,9 +153,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   const go = (hash: string, opts?: { replace?: boolean; from?: string }) =>
     navigate({ pathname: location.pathname, hash: hash ? `#${hash}` : "" }, { replace: opts?.replace, state: opts?.from !== undefined ? { from: opts.from } : undefined });
   // Where "back" goes from a menu: the view it was opened from (overview, branches, POS…) or the list
-  const backTo = (location.state as { from?: string } | null)?.from ?? "";
+  const backTo = (location.state as { from?: string } | null)?.from ?? listHash;
   const open = (m: Menu | null) => {
-    if (m) go(encodeURIComponent(m.menuCode), { from: code && !menus.some((x) => x.menuCode === code) ? location.hash.slice(1) : "" });
+    if (m) go(encodeURIComponent(m.menuCode), { from: code && !menus.some((x) => x.menuCode === code) ? location.hash.slice(1) : listHash });
     else go(backTo);
   };
 
@@ -206,7 +212,9 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     { key: "branches", label: "สาขา" },
     { key: "pos", label: "ตัวเลือก POS" },
   ];
-  const header = (
+  const header = outerHeader ? (
+    <div className={cn((selected || isNew) && "hidden lg:block")}>{outerHeader}</div>
+  ) : (
     <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
@@ -221,7 +229,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
         tabs={viewTabs}
         value={posView ? "pos" : branchView ? "branches" : overviewView ? "overview" : "menus"}
         onChange={(v) => {
-          go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : "");
+          go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : listHash);
         }}
       />
       </div>
@@ -234,6 +242,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     return (
       <div className="flex flex-col gap-4">
         {header}
+        {overviewExtra}
         <SetupOverview
           menus={menus}
           lines={menuBom.lines}
@@ -334,7 +343,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
                 // Replace "#new" so the back button doesn't reopen the empty form
                 go(encodeURIComponent(m.menuCode), { replace: true });
               }}
-              onCancel={() => go("")}
+              onCancel={() => go(listHash)}
             />
           ) : selected ? (
             <MenuWorkspace

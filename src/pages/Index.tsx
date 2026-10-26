@@ -42,6 +42,7 @@ const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
 const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
 const MenuBOMPage = lazy(() => import("@/pages/MenuBOM"));
 const MenuSetupPage = lazy(() => import("@/pages/MenuSetup"));
+const CostCenterPage = lazy(() => import("@/pages/CostCenter"));
 // SKU page pieces and dialogs: only the SKU page and open dialogs need them
 const SummaryCards = lazy(() => import("@/components/SummaryCards").then((m) => ({ default: m.SummaryCards })));
 const SKUTable = lazy(() => import("@/components/SKUTable").then((m) => ({ default: m.SKUTable })));
@@ -86,6 +87,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   users: { title: "User Management", subtitle: "Team access and permissions" },
   store: { title: "Store Overview", subtitle: "Branch operations at a glance" },
   "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎพิเศษ ในที่เดียว" },
+  "cost-center": { title: "Cost Center", subtitle: "เมนู สินค้า สูตร ราคา ซัพพลายเออร์" },
   "menu-master": { title: "Menu Master", subtitle: "Your menu catalog" },
   "menu-bom": { title: "Menu BOM", subtitle: "Ingredients behind every menu item" },
   "sp-bom": { title: "SP BOM", subtitle: "Special product recipes" },
@@ -103,12 +105,15 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
 
 // Define which tabs each role can access
 function canAccessTab(role: string | null, tab: TabKey): boolean {
+  // Everyone opens Cost Center; what each role may change is decided inside it
+  if (tab === "cost-center") return !!role;
   const ctx = tabContextMap[tab];
   switch (role) {
     case "management":
       return true;
     case "ck_manager":
-      if (tab === "sku" || tab === "supplier" || tab === "price") return true;
+      // Product setup pages Cost Center still links to (recipes, categories)
+      if (tab === "sku" || tab === "supplier" || tab === "price" || tab === "sp-bom" || tab === "sku-categories") return true;
       return ctx === "ck" || ctx === "overview";
     case "store_manager":
       return ctx === "store";
@@ -137,6 +142,10 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "sku",
       "supplier",
       "price",
+      "bom",
+      "sp-bom",
+      "sku-categories",
+      "cost-center",
     ];
     return !editableCk.includes(tab);
   }
@@ -190,6 +199,11 @@ const Index = () => {
   }, [pathTab]);
   const activeTab: TabKey =
     requestedTab && (!role || canAccessTab(role, requestedTab)) ? requestedTab : getDefaultTab(role);
+
+  // Menu Setup moved into Cost Center: old links land on the same view there
+  useEffect(() => {
+    if (pathTab === "menu-setup") navigate(`/cost-center${window.location.hash || "#menus"}`, { replace: true });
+  }, [pathTab, navigate]);
 
   // Kitchen stock/production data (≈20 requests, the slowest ones) is only used on
   // kitchen pages. Load it the first time one is opened, then keep it; branch pages
@@ -616,6 +630,48 @@ const Index = () => {
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
                     onNavigate={handleTabChange}
                   />
+                ) : activeTab === "cost-center" ? (
+                  <CostCenterPage
+                    menuSetup={{
+                      menus: menuData.menus,
+                      updateMenu: menuData.updateMenu,
+                      menuBom: menuBomData,
+                      rules: modifierRuleData.rules,
+                      skus,
+                      prices: priceData.prices,
+                      branches: branchData.branches,
+                      readOnly: !isManagement,
+                      onNavigate: handleTabChange,
+                      addRule: modifierRuleData.addRule,
+                      addMenu: menuData.addMenu,
+                      getNextCode: menuData.getNextCode,
+                      spBomLines: spBomData.lines,
+                      updateRule: modifierRuleData.updateRule,
+                    }}
+                    skus={skus}
+                    prices={priceData.prices}
+                    suppliers={supplierData.suppliers}
+                    menus={menuData.menus}
+                    categories={skuCategoryData.categories}
+                    bomHeaders={bomData.headers}
+                    bomLines={bomData.lines}
+                    bomSteps={bomData.steps}
+                    byproducts={byproductData.byproducts}
+                    spLines={spBomData.lines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: l.qtyPerBatch, batchYieldQty: l.batchYieldQty }))}
+                    menuLines={menuBomData.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
+                    canEditProducts={isManagement || role === "ck_manager"}
+                    addSku={addSku}
+                    productActions={{
+                      updateSku,
+                      addPrice: priceData.addPrice,
+                      updatePrice: priceData.updatePrice,
+                      repriceUnits: priceData.repriceUnits,
+                      recost: priceData.recostPrices,
+                    }}
+                    addSupplier={supplierData.addSupplier}
+                    updateSupplier={supplierData.updateSupplier}
+                    onNavigate={handleTabChange}
+                  />
                 ) : activeTab === "menu-setup" ? (
                   <MenuSetupPage
                     menus={menuData.menus}
@@ -649,7 +705,7 @@ const Index = () => {
                     spBomData={spBomData}
                     skus={skus}
                     prices={priceData.prices}
-                    readOnly={!isManagement}
+                    readOnly={readOnly}
                     onPricesRefresh={priceData.refreshPrices}
                   />
                 ) : activeTab === "modifier-rules" ? (
@@ -718,7 +774,7 @@ const Index = () => {
                     suppliers={supplierData.suppliers}
                   />
                 ) : activeTab === "sku-categories" ? (
-                  <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={!isManagement} />
+                  <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={readOnly} />
                 ) : (
                   <DeliveryToBranchesPage
                     deliveryData={deliveryData}

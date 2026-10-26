@@ -67,13 +67,15 @@ export function useSupplierData() {
     return () => { cancelled = true; };
   }, [isManagement, isCkManager, sessionLoading, profileLoading, suppliers.length]);
 
-  const addSupplier = useCallback(async (data: Omit<Supplier, 'id'>) => {
+  const addSupplier = useCallback(async (data: Omit<Supplier, 'id'>): Promise<Supplier | null> => {
     const { data: row, error } = await supabase.from('suppliers').insert(toDb(data)).select().single();
-    if (error) { toast.error('Failed to add supplier: ' + error.message); return; }
-    setSuppliers(prev => [toLocal(row), ...prev]);
+    if (error) { toast.error('Failed to add supplier: ' + error.message); return null; }
+    const added = toLocal(row);
+    setSuppliers(prev => [added, ...prev]);
+    return added;
   }, []);
 
-  const updateSupplier = useCallback(async (id: string, data: Partial<Omit<Supplier, 'id'>>) => {
+  const updateSupplier = useCallback(async (id: string, data: Partial<Omit<Supplier, 'id'>>): Promise<boolean> => {
     const dbData: any = {};
     if (data.name !== undefined) dbData.name = data.name;
     if (data.leadTime !== undefined) dbData.lead_time = data.leadTime;
@@ -85,8 +87,9 @@ export function useSupplierData() {
     if (data.status !== undefined) dbData.status = data.status;
 
     const { error } = await supabase.from('suppliers').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update supplier: ' + error.message); return; }
+    if (error) { toast.error('Failed to update supplier: ' + error.message); return false; }
     setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    return true;
   }, []);
 
   const deleteSupplier = useCallback(async (id: string) => {

@@ -1,5 +1,6 @@
 export type SKUType = 'RM' | 'SM' | 'SP' | 'PK';
-export type SKUStatus = 'Active' | 'Inactive';
+/** Draft = being set up in Cost Center: hidden from daily pages (they show Active only) */
+export type SKUStatus = 'Active' | 'Inactive' | 'Draft';
 export type StorageCondition = 'Frozen' | 'Chilled' | 'Ambient';
 
 // Category is now a dynamic string code from sku_categories table

@@ -6,6 +6,7 @@ import { SKU } from '@/types/sku';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { recostAndSave } from '@/lib/recost-db';
+import { BOM_SUPPLIER_ID } from '@/lib/bom-price-sync';
 
 const toLocal = (row: any): Price => ({
   id: row.id,
@@ -106,5 +107,21 @@ export function usePriceData() {
     return true;
   }, [prices, afterPriceChange]);
 
-  return { prices, addPrice, updatePrice, deletePrice, refreshPrices: fetchAll, recostPrices: afterPriceChange };
+  /**
+   * The item's pack size or converter changed: every supplier price of it gets its
+   * price per usage unit worked out again (it was left stale before), then the
+   * recipes built on it are recosted.
+   */
+  const repriceUnits = useCallback(async (sku: SKU): Promise<boolean> => {
+    const own = prices.filter(p => p.skuId === sku.id && p.supplierId !== BOM_SUPPLIER_ID);
+    const results = await Promise.all(
+      own.map(p => supabase.from('prices').update({ price_per_usage_uom: calcUsagePrice(p.pricePerPurchaseUom, sku) }).eq('id', p.id)),
+    );
+    const failed = results.find(r => r.error);
+    if (failed?.error) toast.error('คิดราคาต่อหน่วยใหม่ไม่ครบ: ' + failed.error.message);
+    await afterPriceChange(sku.id);
+    return !failed;
+  }, [prices, afterPriceChange]);
+
+  return { prices, addPrice, updatePrice, deletePrice, refreshPrices: fetchAll, recostPrices: afterPriceChange, repriceUnits };
 }

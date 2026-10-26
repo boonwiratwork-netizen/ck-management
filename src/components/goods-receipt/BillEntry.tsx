@@ -129,7 +129,8 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
 
   const pickable = useMemo(() => {
     const on = new Set(rows.map((r) => r.skuId));
-    const rm = skus.filter((s) => (s.type === "RM" || s.type === "PK") && !on.has(s.id) && (other ? anyActive.has(s.id) : true));
+    // In use only: drafts (still being set up in Cost Center) and switched-off items stay out
+    const rm = skus.filter((s) => (s.type === "RM" || s.type === "PK") && s.status === "Active" && !on.has(s.id) && (other ? anyActive.has(s.id) : true));
     // This supplier's own products first
     return supplierId ? [...rm.filter((s) => activeFor.has(`${s.id}|${supplierId}`)), ...rm.filter((s) => !activeFor.has(`${s.id}|${supplierId}`))] : rm;
   }, [skus, rows, other, anyActive, activeFor, supplierId]);
