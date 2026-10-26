@@ -62,6 +62,35 @@ describe("summarizeProduct", () => {
     expect(ids(summarizeProduct(soup, base({ prices: [price("RM-0027", 0.2), price("SM-0051", 0.01, { supplierId: BOM_SUPPLIER_ID })] })))).toEqual(["stale-cost:warn"]);
   });
 
+  it("a tracked by-product isn't 'no recipe': it comes from its parent (น้ำสต๊อกโทริ ไพตัน ← SM-0010)", () => {
+    const stock = sku("SM-0016", "SM");
+    const ctx = base({
+      skus: [onion, soup, stock],
+      book: { ...base().book, byproducts: [{ bomHeaderId: "h", skuId: "SM-0016", outputQty: 100, costAllocationPct: 50, tracksInventory: true }] },
+      prices: [price("RM-0027", 0.1), price("SM-0051", 0.005, { supplierId: BOM_SUPPLIER_ID }), price("SM-0016", 0.05, { supplierId: BOM_SUPPLIER_ID })],
+    });
+    const s = summarizeProduct(stock, ctx);
+    expect(s.madeFrom).toEqual(["SM-0051"]);
+    expect(s.recipeCost).toBeCloseTo(0.05); // 100 g × 0.1 × 50% / 100 g
+    expect(ids(s)).toEqual([]);
+  });
+
+  it("a recipe never costed: itself 'not costed yet', and recipes using it don't call it 'no price'", () => {
+    // SM-0051 has a recipe but no saved price; SM-0099 uses SM-0051
+    const top = sku("SM-0099", "SM");
+    const ctx = base({
+      skus: [onion, soup, top],
+      prices: [price("RM-0027", 0.1)],
+      book: {
+        ...base().book,
+        headers: [...base().book.headers, { id: "h2", smSkuId: "SM-0099", bomMode: "simple", batchSize: 100, yieldPercent: 1 }],
+        lines: [...base().book.lines, { bomHeaderId: "h2", rmSkuId: "SM-0051", qtyPerBatch: 100 }],
+      },
+    });
+    expect(summarizeProduct(soup, ctx).checks.map((c) => c.title)).toEqual(["ยังไม่ได้คิดต้นทุนจากสูตร"]);
+    expect(ids(summarizeProduct(top, ctx))).toEqual(["stale-cost:warn"]);
+  });
+
   it("switched off but still in a recipe", () => {
     expect(ids(summarizeProduct({ ...onion, status: "Inactive" }, base()))).toEqual(["inactive-used:error"]);
   });

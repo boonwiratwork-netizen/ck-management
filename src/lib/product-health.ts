@@ -1,7 +1,7 @@
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import { BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
-import { smCost, spCost, type RecipeBook } from "@/lib/cost-engine";
+import { recost, type RecipeBook } from "@/lib/cost-engine";
 
 /**
  * Everything Cost Center says about one product, worked out in one place: its
@@ -42,6 +42,29 @@ export interface ProductContext {
   activeMenuIds: Set<string>;
   /** Kitchen bills of the last 90 days */
   bills: Bill[];
+  /** What every recipe-made item really costs today (allRecipeCosts); worked out once per screen */
+  recipeCosts?: Map<string, number>;
+}
+
+/** Items whose cost comes from a recipe: SM/SP with one, and tracked by-products */
+export function recipeItemIds(book: RecipeBook): string[] {
+  return [
+    ...new Set([
+      ...book.headers.map((h) => h.smSkuId),
+      ...book.spLines.map((l) => l.spSkuId),
+      ...book.byproducts.filter((b) => b.tracksInventory && b.skuId).map((b) => b.skuId!),
+    ]),
+  ];
+}
+
+/**
+ * Today's true cost of every recipe-made item, recipes inside recipes included
+ * (a recipe whose ingredient never had its cost saved still gets a real number).
+ */
+export function allRecipeCosts(book: RecipeBook, prices: Price[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const p of prices) if (p.isActive && !map.has(p.skuId)) map.set(p.skuId, p.pricePerUsageUom);
+  return recost(recipeItemIds(book), book, map);
 }
 
 export interface ProductUsage {
@@ -97,21 +120,19 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   const bills = ctx.bills.filter((b) => b.skuId === sku.id).sort((a, b) => b.date.localeCompare(a.date));
   const checks: ProductCheck[] = [];
 
-  // What it's made of, and its recipe cost
+  // What it's made of, and its recipe cost. A tracked by-product comes out of its
+  // parent's recipe (e.g. stock from boiling bones): that recipe is its "recipe".
   const header = ctx.book.headers.find((h) => h.smSkuId === sku.id);
   const spLines = ctx.book.spLines.filter((l) => l.spSkuId === sku.id);
-  const recipeLines = header ? ctx.book.lines.filter((l) => l.bomHeaderId === header.id).map((l) => l.rmSkuId) : spLines.map((l) => l.ingredientSkuId);
+  const parent = ctx.book.byproducts.find((b) => b.tracksInventory && b.skuId === sku.id);
+  const parentSm = parent ? ctx.book.headers.find((h) => h.id === parent.bomHeaderId)?.smSkuId : undefined;
+  const recipeLines = header ? ctx.book.lines.filter((l) => l.bomHeaderId === header.id).map((l) => l.rmSkuId) : spLines.length ? spLines.map((l) => l.ingredientSkuId) : parentSm ? [parentSm] : [];
   const madeFrom = [...new Set(recipeLines)];
-  let recipeCost: number | null = null;
-  if (header)
-    recipeCost = smCost(
-      header,
-      ctx.book.lines.filter((l) => l.bomHeaderId === header.id),
-      ctx.book.steps.filter((s) => s.bomHeaderId === header.id),
-      ctx.book.byproducts.filter((b) => b.bomHeaderId === header.id),
-      priceOf,
-    ).costPerUnit;
-  else if (spLines.length) recipeCost = spCost(spLines, priceOf).costPerUnit;
+  const costs = ctx.recipeCosts ?? allRecipeCosts(ctx.book, ctx.prices);
+  const recipeCost = costs.get(sku.id) ?? null;
+  // An ingredient "has a price" if it has one, or its own recipe gives it one
+  const priced = (id: string) => hasPrice(id) || (costs.get(id) ?? 0) > 0;
+  void priceOf;
 
   if ((sku.status as string) === "Draft") checks.push({ id: "draft", level: "warn", area: "info", title: "ยังเป็นร่าง", detail: "ยังไม่ขึ้นในรับของ ใบโอน ใบนับ จนกว่าจะตั้งครบ" });
 
@@ -121,16 +142,20 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
     return { sku, level: worst(checks), checks, standard, active, madeFrom, usage, bills, billRatio: null, recipeCost };
   }
 
-  if (isMadeItem(sku)) {
-    if (!madeFrom.length) checks.push({ id: "no-recipe", level: "error", area: "recipe", title: sku.type === "SM" ? "ครัวผลิตแต่ยังไม่มีสูตร" : "ยังไม่มีสูตร", detail: "ผลิตแล้วไม่ตัดวัตถุดิบ · ต้นทุนไม่มี" });
+  if (isMadeItem(sku) || parentSm) {
+    if (!madeFrom.length && isMadeItem(sku)) checks.push({ id: "no-recipe", level: "error", area: "recipe", title: sku.type === "SM" ? "ครัวผลิตแต่ยังไม่มีสูตร" : "ยังไม่มีสูตร", detail: "ผลิตแล้วไม่ตัดวัตถุดิบ · ต้นทุนไม่มี" });
     const off = madeFrom.filter((id) => byId.get(id)?.status === "Inactive");
     if (off.length) checks.push({ id: "recipe-inactive", level: "error", area: "recipe", title: "สูตรใช้ของที่ปิดใช้แล้ว", detail: off.map((id) => byId.get(id)?.name).join(" · ") });
-    const noPrice = madeFrom.filter((id) => !hasPrice(id));
+    const noPrice = madeFrom.filter((id) => !priced(id));
     if (noPrice.length) checks.push({ id: "recipe-no-price", level: "error", area: "recipe", title: "สูตรมีวัตถุดิบที่ไม่มีราคา", detail: noPrice.map((id) => byId.get(id)?.name).join(" · ") });
-    // The saved cost is a step behind the recipe (an ingredient price moved since)
-    const saved = active.find((p) => p.supplierId === BOM_SUPPLIER_ID)?.pricePerUsageUom;
-    if (recipeCost && saved !== undefined && Math.abs(recipeCost - saved) > 0.01 * Math.max(recipeCost, saved))
-      checks.push({ id: "stale-cost", level: "warn", area: "recipe", title: "ต้นทุนในระบบไม่ตรงกับสูตร", detail: "ราคาวัตถุดิบเปลี่ยนหลังจากคิดครั้งล่าสุด · กดคิดใหม่" });
+    // The saved cost is behind the recipe (never worked out, or an ingredient moved since)
+    const saved = (active.find((p) => p.supplierId === BOM_SUPPLIER_ID) ?? active[0])?.pricePerUsageUom;
+    if (recipeCost && (!saved || Math.abs(recipeCost - saved) > 0.01 * Math.max(recipeCost, saved)))
+      checks.push(
+        saved
+          ? { id: "stale-cost", level: "warn", area: "recipe", title: "ต้นทุนในระบบไม่ตรงกับสูตร", detail: "ราคาวัตถุดิบเปลี่ยนหลังจากคิดครั้งล่าสุด · กดคิดใหม่" }
+          : { id: "stale-cost", level: "warn", area: "recipe", title: "ยังไม่ได้คิดต้นทุนจากสูตร", detail: "ที่อื่นเห็นตัวนี้เป็น ฿0 · กดคิดใหม่" },
+      );
   } else {
     if (!active.length) checks.push(used ? { id: "no-price", level: "error", area: "price", title: "ใช้ในสูตรแต่ไม่มีราคา", detail: "ต้นทุนเป็น ฿0 ทุกที่ที่ใช้" } : { id: "no-price", level: "warn", area: "price", title: "ยังไม่มีราคา" });
     if (active.length > 1) checks.push({ id: "multi-price", level: "error", area: "price", title: `มีราคาใช้งาน ${active.length} เจ้า`, detail: "เลือกเจ้าหลักเป็นราคามาตรฐาน" });

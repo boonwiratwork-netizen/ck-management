@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, Layers } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -11,7 +11,7 @@ import type { SkuCategory } from "@/hooks/use-sku-categories";
 import type { TabKey } from "@/components/AppSidebar";
 import MenuSetupPage from "@/pages/MenuSetup";
 import { useKitchenBills } from "@/hooks/use-kitchen-bills";
-import { summarizeProduct, type Bill, type ProductSummary } from "@/lib/product-health";
+import { allRecipeCosts, recipeItemIds, summarizeProduct, type Bill, type ProductSummary } from "@/lib/product-health";
 import type { RecipeBook } from "@/lib/cost-engine";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
@@ -113,20 +113,30 @@ export default function CostCenterPage(props: Props) {
     }),
     [props.bomHeaders, props.bomLines, props.bomSteps, props.byproducts, props.spLines],
   );
+  const recipeCosts = useMemo(() => allRecipeCosts(book, prices), [book, prices]);
   const summaries: ProductSummary[] = useMemo(() => {
     const ctx = {
       skus,
       prices,
       book,
+      recipeCosts,
       menuLines: props.menuLines,
       activeMenuIds: new Set(props.menus.filter((m) => m.status === "Active").map((m) => m.id)),
       bills: bills ?? [],
     };
     return skus.map((s) => summarizeProduct(s, ctx));
-  }, [skus, prices, book, props.menuLines, props.menus, bills]);
+  }, [skus, prices, book, recipeCosts, props.menuLines, props.menus, bills]);
+  const stale = summaries.filter((s) => s.checks.some((c) => c.id === "stale-cost")).length;
+  const [recosting, setRecosting] = useState(false);
+  const recostAll = async () => {
+    setRecosting(true);
+    await props.productActions.recost(...recipeItemIds(book));
+    setRecosting(false);
+  };
   const counts = useMemo(() => {
     const live = summaries.filter((s) => s.sku.status !== "Inactive");
-    return { live: live.length, error: live.filter((s) => s.level === "error").length, warn: live.filter((s) => s.level === "warn").length, idle: live.filter((s) => s.level === "idle").length };
+    // "Not used" counts the same items as its group below (some also have another problem)
+    return { live: live.length, error: live.filter((s) => s.level === "error").length, warn: live.filter((s) => s.level === "warn").length, idle: live.filter((s) => s.checks.some((c) => c.id === "unused")).length };
   }, [summaries]);
 
   const openProduct = (skuId: string) => {
@@ -174,7 +184,14 @@ export default function CostCenterPage(props: Props) {
               <AreaCard kind="RM" title={`${counts.live} สินค้าที่ใช้อยู่`} sub={`ต้องแก้ ${counts.error} · ควรดู ${counts.warn} · ไม่ได้ใช้ ${counts.idle}`} onOpen={() => go("products")} />
               <AreaCard kind="supplier" title={`${props.suppliers.filter((s) => s.status === "Active").length} ซัพพลายเออร์`} sub="ยอดซื้อ 90 วัน · ราคาที่ใช้อยู่" onOpen={() => go("suppliers")} />
             </div>
-            <h3 className="mt-1 text-base font-semibold">สินค้า · เรื่องที่ต้องตั้งให้ครบ</h3>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-base font-semibold">สินค้า · เรื่องที่ต้องตั้งให้ครบ</h3>
+              {canEditProducts && stale > 0 && (
+                <Button variant="brand" className="h-10" loading={recosting} onClick={recostAll}>
+                  คิดต้นทุนสูตรใหม่ทั้งหมด · {stale} ตัวไม่ตรง
+                </Button>
+              )}
+            </div>
             <ProductOverview summaries={summaries} onOpenProduct={openProduct} />
             <h3 className="mt-1 text-base font-semibold">เมนู</h3>
           </section>
@@ -237,6 +254,7 @@ export default function CostCenterPage(props: Props) {
               menus={props.menus}
               categories={props.categories}
               book={book}
+              recipeCosts={recipeCosts}
               canEdit={canEditProducts}
               actions={props.productActions}
               onBack={() => backTo("products")}

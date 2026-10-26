@@ -52,6 +52,8 @@ interface Props {
   menus: Menu[];
   categories: SkuCategory[];
   book: RecipeBook;
+  /** True cost of every recipe-made item today (allRecipeCosts) */
+  recipeCosts: Map<string, number>;
   canEdit: boolean;
   actions: ProductActions;
   onBack: () => void;
@@ -631,9 +633,10 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
 
 // ───────────────────────── Recipe (SM / SP) ─────────────────────────
 
-function RecipePanel({ summary, skus, prices, book, canEdit, actions, onOpenProduct, onNavigate }: Props) {
+function RecipePanel({ summary, skus, prices, book, recipeCosts, canEdit, actions, onOpenProduct, onNavigate }: Props) {
   const { sku } = summary;
-  const priceOf = (id: string) => prices.find((p) => p.skuId === id && p.isActive)?.pricePerUsageUom ?? 0;
+  // A recipe-made ingredient counts at its true cost (even if never saved); others at their standard price
+  const priceOf = (id: string) => recipeCosts.get(id) ?? prices.find((p) => p.skuId === id && p.isActive)?.pricePerUsageUom ?? 0;
   const byId = new Map(skus.map((s) => [s.id, s]));
   const header = book.headers.find((h) => h.smSkuId === sku.id);
   const spLines = book.spLines.filter((l) => l.spSkuId === sku.id);
@@ -654,6 +657,28 @@ function RecipePanel({ summary, skus, prices, book, canEdit, actions, onOpenProd
     : spLines.map((l) => ({ id: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, cost: l.qtyPerBatch * priceOf(l.ingredientSkuId) }));
   const stale = summary.checks.some((c) => c.id === "stale-cost");
   const editPage: TabKey = sku.type === "SM" ? "bom" : "sp-bom";
+
+  // A by-product: made by its parent's recipe
+  const parentId = !header && !spLines.length ? summary.madeFrom[0] : undefined;
+  if (parentId)
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-card">
+        <p className="font-medium">ผลพลอยได้ · ได้จากการผลิต {byId.get(parentId)?.name}</p>
+        <p className="text-sm text-muted-foreground">
+          ต้นทุน {summary.recipeCost ? perUnit(summary.recipeCost, sku.usageUom) : "—"} · แบ่งจากต้นทุนสูตรต้นทางตามที่ตั้งไว้
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-10" onClick={() => onOpenProduct(parentId)}>
+            เปิดสูตรต้นทาง
+          </Button>
+          {stale && canEdit && (
+            <Button variant="outline" className="h-10" onClick={() => actions.recost(parentId)}>
+              คิดต้นทุนใหม่
+            </Button>
+          )}
+        </div>
+      </div>
+    );
 
   if (!result)
     return (
