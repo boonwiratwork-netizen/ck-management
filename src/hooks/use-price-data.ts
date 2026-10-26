@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { Price } from '@/types/price';
@@ -37,11 +37,18 @@ export function usePriceData() {
 
   // A price moved: recipes built on it (and recipes built on those) get their cost
   // worked out again, then everything is reloaded
-  const afterPriceChange = useCallback(async (...skuIds: string[]) => {
-    const r = await recostAndSave(skuIds);
-    if (!r.ok) toast.error('คิดต้นทุนสูตรใหม่ไม่ครบ ลองบันทึกอีกครั้ง');
-    else if (r.changed.length) toast.success(`คิดต้นทุนใหม่ ${r.changed.length} สูตร`);
-    await fetchAll();
+  // One at a time: two recosts running together could each add a recipe price and
+  // switch the other off (leaving none), or let the older numbers land last
+  const recostQueue = useRef<Promise<void>>(Promise.resolve());
+  const afterPriceChange = useCallback((...skuIds: string[]) => {
+    const run = async () => {
+      const r = await recostAndSave(skuIds);
+      if (!r.ok) toast.error('คิดต้นทุนสูตรใหม่ไม่ครบ ลองบันทึกอีกครั้ง');
+      else if (r.changed.length) toast.success(`คิดต้นทุนใหม่ ${r.changed.length} สูตร`);
+      await fetchAll();
+    };
+    recostQueue.current = recostQueue.current.then(run, run);
+    return recostQueue.current;
   }, [fetchAll]);
 
   const calcUsagePrice = (purchasePrice: number, sku: SKU | undefined): number => {

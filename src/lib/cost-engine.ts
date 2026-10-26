@@ -131,6 +131,17 @@ export interface RecipeBook {
   spLines: CostSpLine[];
 }
 
+/** Items whose cost comes from a recipe: SM/SP with one, and tracked by-products */
+export function recipeItemIds(book: RecipeBook): string[] {
+  return [
+    ...new Set([
+      ...book.headers.map((h) => h.smSkuId),
+      ...book.spLines.map((l) => l.spSkuId),
+      ...book.byproducts.filter((b) => b.tracksInventory && b.skuId).map((b) => b.skuId!),
+    ]),
+  ];
+}
+
 /**
  * Every recipe-made item whose cost depends on the given items, directly or through
  * other recipes, in the order to recompute them (an SM used inside another SM or an

@@ -657,7 +657,18 @@ const Index = () => {
                     bomLines={bomData.lines}
                     bomSteps={bomData.steps}
                     byproducts={byproductData.byproducts}
-                    spLines={spBomData.lines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: l.qtyPerBatch, batchYieldQty: l.batchYieldQty }))}
+                    spLines={spBomData.lines}
+                    recipeActions={{
+                      addHeader: bomData.addHeader,
+                      updateHeader: bomData.updateHeader,
+                      addLine: bomData.addLine,
+                      updateLine: bomData.updateLine,
+                      deleteLine: bomData.deleteLine,
+                      spAddLine: spBomData.addLine,
+                      spUpdateLine: spBomData.updateLine,
+                      spUpdateBatchYield: spBomData.updateBatchYield,
+                      spDeleteLine: spBomData.deleteLine,
+                    }}
                     menuLines={menuBomData.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
                     canEditProducts={isManagement || role === "ck_manager"}
                     addSku={addSku}

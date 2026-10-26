@@ -42,7 +42,7 @@ export function useBomData() {
     return row.id;
   }, []);
 
-  const updateHeader = useCallback(async (id: string, data: Partial<Omit<BOMHeader, 'id'>>) => {
+  const updateHeader = useCallback(async (id: string, data: Partial<Omit<BOMHeader, 'id'>>): Promise<boolean> => {
     const d: any = {};
     if (data.smSkuId !== undefined) d.sm_sku_id = data.smSkuId;
     if (data.productionType !== undefined) d.production_type = data.productionType;
@@ -50,8 +50,9 @@ export function useBomData() {
     if (data.batchSize !== undefined) d.batch_size = data.batchSize;
     if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     const { error } = await supabase.from('bom_headers').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update BOM: ' + error.message); return; }
+    if (error) { toast.error('Failed to update BOM: ' + error.message); return false; }
     setHeaders(prev => prev.map(h => h.id === id ? { ...h, ...data } : h));
+    return true;
   }, []);
 
   const deleteHeader = useCallback(async (id: string) => {
@@ -65,18 +66,19 @@ export function useBomData() {
     setSteps(prev => prev.filter(s => s.bomHeaderId !== id));
   }, []);
 
-  const addLine = useCallback(async (data: Omit<BOMLine, 'id'>) => {
+  const addLine = useCallback(async (data: Omit<BOMLine, 'id'>): Promise<boolean> => {
     const { data: row, error } = await supabase.from('bom_lines').insert({
       bom_header_id: data.bomHeaderId, rm_sku_id: data.rmSkuId,
       qty_per_batch: data.qtyPerBatch, yield_percent: data.yieldPercent ?? 1.0,
       step_id: data.stepId ?? null,
       qty_type: data.qtyType ?? null, percent_of_input: data.percentOfInput ?? null,
     }).select().single();
-    if (error) { toast.error('Failed to add BOM line: ' + error.message); return; }
+    if (error) { toast.error('Failed to add BOM line: ' + error.message); return false; }
     setLines(prev => [...prev, toLine(row)]);
+    return true;
   }, []);
 
-  const updateLine = useCallback(async (id: string, data: Partial<Omit<BOMLine, 'id' | 'bomHeaderId'>>) => {
+  const updateLine = useCallback(async (id: string, data: Partial<Omit<BOMLine, 'id' | 'bomHeaderId'>>): Promise<boolean> => {
     const d: any = {};
     if (data.rmSkuId !== undefined) d.rm_sku_id = data.rmSkuId;
     if (data.qtyPerBatch !== undefined) d.qty_per_batch = data.qtyPerBatch;
@@ -85,14 +87,16 @@ export function useBomData() {
     if (data.qtyType !== undefined) d.qty_type = data.qtyType;
     if (data.percentOfInput !== undefined) d.percent_of_input = data.percentOfInput;
     const { error } = await supabase.from('bom_lines').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update BOM line: ' + error.message); return; }
+    if (error) { toast.error('Failed to update BOM line: ' + error.message); return false; }
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+    return true;
   }, []);
 
-  const deleteLine = useCallback(async (id: string) => {
+  const deleteLine = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('bom_lines').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete BOM line: ' + error.message); return; }
+    if (error) { toast.error('Failed to delete BOM line: ' + error.message); return false; }
     setLines(prev => prev.filter(l => l.id !== id));
+    return true;
   }, []);
 
   const getLinesForHeader = useCallback((headerId: string) => {

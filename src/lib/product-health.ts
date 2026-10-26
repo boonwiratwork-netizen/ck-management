@@ -1,7 +1,7 @@
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import { BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
-import { recost, type RecipeBook } from "@/lib/cost-engine";
+import { recipeItemIds, recost, type RecipeBook } from "@/lib/cost-engine";
 
 /**
  * Everything Cost Center says about one product, worked out in one place: its
@@ -46,16 +46,7 @@ export interface ProductContext {
   recipeCosts?: Map<string, number>;
 }
 
-/** Items whose cost comes from a recipe: SM/SP with one, and tracked by-products */
-export function recipeItemIds(book: RecipeBook): string[] {
-  return [
-    ...new Set([
-      ...book.headers.map((h) => h.smSkuId),
-      ...book.spLines.map((l) => l.spSkuId),
-      ...book.byproducts.filter((b) => b.tracksInventory && b.skuId).map((b) => b.skuId!),
-    ]),
-  ];
-}
+export { recipeItemIds } from "@/lib/cost-engine";
 
 /**
  * Today's true cost of every recipe-made item, recipes inside recipes included

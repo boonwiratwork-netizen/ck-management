@@ -23,6 +23,8 @@ import { NewProductForm } from "@/components/cost-center/NewProductForm";
 import { SupplierView } from "@/components/cost-center/SupplierView";
 import { ProductOverview } from "@/components/cost-center/ProductOverview";
 import { KindBadge } from "@/components/cost-center/parts";
+import type { RecipeEditActions } from "@/components/cost-center/RecipeEditor";
+import type { SpBomLine } from "@/types/sp-bom";
 
 type MenuSetupProps = React.ComponentProps<typeof MenuSetupPage>;
 
@@ -38,7 +40,8 @@ interface Props {
   bomLines: BOMLine[];
   bomSteps: BOMStep[];
   byproducts: BomByproduct[];
-  spLines: { spSkuId: string; ingredientSkuId: string; qtyPerBatch: number; batchYieldQty: number }[];
+  spLines: SpBomLine[];
+  recipeActions: RecipeEditActions;
   menuLines: { menuId: string; skuId: string }[];
   /** Management or CK manager: products, prices and suppliers */
   canEditProducts: boolean;
@@ -109,7 +112,7 @@ export default function CostCenterPage(props: Props) {
       lines: props.bomLines.map((l) => ({ bomHeaderId: l.bomHeaderId, rmSkuId: l.rmSkuId, qtyPerBatch: l.qtyPerBatch, yieldPercent: l.yieldPercent, stepId: l.stepId ?? null, qtyType: l.qtyType ?? null, percentOfInput: l.percentOfInput ?? null })),
       steps: props.bomSteps.map((s) => ({ id: s.id, bomHeaderId: s.bomHeaderId, stepNumber: s.stepNumber, yieldPercent: s.yieldPercent })),
       byproducts: props.byproducts.map((b) => ({ bomHeaderId: b.bomHeaderId, skuId: b.skuId, outputQty: b.outputQty, costAllocationPct: b.costAllocationPct, tracksInventory: b.tracksInventory })),
-      spLines: props.spLines,
+      spLines: props.spLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: l.qtyPerBatch, batchYieldQty: l.batchYieldQty })),
     }),
     [props.bomHeaders, props.bomLines, props.bomSteps, props.byproducts, props.spLines],
   );
@@ -255,6 +258,8 @@ export default function CostCenterPage(props: Props) {
               categories={props.categories}
               book={book}
               recipeCosts={recipeCosts}
+              recipeRows={{ headers: props.bomHeaders, lines: props.bomLines, spLines: props.spLines }}
+              recipeActions={props.recipeActions}
               canEdit={canEditProducts}
               actions={props.productActions}
               onBack={() => backTo("products")}

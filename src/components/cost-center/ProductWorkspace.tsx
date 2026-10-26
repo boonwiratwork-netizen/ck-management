@@ -19,6 +19,9 @@ import { Switch } from "@/components/ui/switch";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import { Chain, KindBadge, KIND_NAME, baht, perUnit, type ChainNode } from "./parts";
 import { packPriceLabel } from "./ProductList";
+import { RecipeEditor, type RecipeEditActions } from "./RecipeEditor";
+import type { BOMHeader, BOMLine } from "@/types/bom";
+import type { SpBomLine } from "@/types/sp-bom";
 
 type WorkTab = "health" | "info" | "price" | "recipe" | "use";
 
@@ -54,6 +57,9 @@ interface Props {
   book: RecipeBook;
   /** True cost of every recipe-made item today (allRecipeCosts) */
   recipeCosts: Map<string, number>;
+  /** The recipe rows themselves (with ids), for editing */
+  recipeRows: { headers: BOMHeader[]; lines: BOMLine[]; spLines: SpBomLine[] };
+  recipeActions: RecipeEditActions;
   canEdit: boolean;
   actions: ProductActions;
   onBack: () => void;
@@ -633,7 +639,8 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
 
 // ───────────────────────── Recipe (SM / SP) ─────────────────────────
 
-function RecipePanel({ summary, skus, prices, book, recipeCosts, canEdit, actions, onOpenProduct, onNavigate }: Props) {
+function RecipePanel(props: Props) {
+  const { summary, skus, prices, book, recipeCosts, canEdit, actions, onOpenProduct, onNavigate } = props;
   const { sku } = summary;
   // A recipe-made ingredient counts at its true cost (even if never saved); others at their standard price
   const priceOf = (id: string) => recipeCosts.get(id) ?? prices.find((p) => p.skuId === id && p.isActive)?.pricePerUsageUom ?? 0;
@@ -657,6 +664,36 @@ function RecipePanel({ summary, skus, prices, book, recipeCosts, canEdit, action
     : spLines.map((l) => ({ id: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, cost: l.qtyPerBatch * priceOf(l.ingredientSkuId) }));
   const stale = summary.checks.some((c) => c.id === "stale-cost");
   const editPage: TabKey = sku.type === "SM" ? "bom" : "sp-bom";
+  const hasByproducts = !!header && book.byproducts.some((b) => b.bomHeaderId === header.id);
+
+  // Simple SM recipes and SP recipes are edited right here. Multi-step recipes and
+  // ones with by-products still open the BOM page (few of them, more to set).
+  const editableHere = (sku.type === "SP" || !header || (header.bomMode !== "multistep" && !hasByproducts)) && !(summary.madeFrom.length && !header && !spLines.length);
+  if (editableHere && (canEdit || header || spLines.length))
+    return (
+      <div className="flex flex-col gap-3">
+        {stale && canEdit && (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
+            <span className="min-w-0 flex-1">{summary.checks.find((c) => c.id === "stale-cost")?.title}</span>
+            <Button variant="outline" className="h-10" onClick={() => actions.recost(sku.id)}>
+              คิดต้นทุนใหม่
+            </Button>
+          </div>
+        )}
+        <RecipeEditor
+          sku={sku}
+          skus={skus}
+          header={props.recipeRows.headers.find((h) => h.smSkuId === sku.id) ?? null}
+          lines={props.recipeRows.lines.filter((l) => l.bomHeaderId === header?.id)}
+          spLines={props.recipeRows.spLines.filter((l) => l.spSkuId === sku.id)}
+          priceOf={priceOf}
+          canEdit={canEdit}
+          actions={props.recipeActions}
+          onChanged={() => actions.recost(sku.id)}
+          onOpenProduct={onOpenProduct}
+        />
+      </div>
+    );
 
   // A by-product: made by its parent's recipe
   const parentId = !header && !spLines.length ? summary.madeFrom[0] : undefined;
@@ -709,7 +746,7 @@ function RecipePanel({ summary, skus, prices, book, recipeCosts, canEdit, action
             )}
             {canEdit && (
               <Button variant="outline" className="h-10" onClick={() => onNavigate(editPage)}>
-                แก้สูตร
+                {header?.bomMode === "multistep" ? "แก้สูตรหลายขั้นตอน" : hasByproducts ? "แก้สูตร + ผลพลอยได้" : "แก้สูตร"}
               </Button>
             )}
           </div>

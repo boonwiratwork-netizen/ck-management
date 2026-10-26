@@ -38,7 +38,7 @@ export function useSpBomData() {
     return lines.filter(l => l.spSkuId === spSkuId);
   }, [lines]);
 
-  const addLine = useCallback(async (data: Omit<SpBomLine, 'id'>) => {
+  const addLine = useCallback(async (data: Omit<SpBomLine, 'id'>): Promise<boolean> => {
     const { data: row, error } = await supabase.from('sp_bom').insert({
       sp_sku_id: data.spSkuId,
       ingredient_sku_id: data.ingredientSkuId,
@@ -48,11 +48,12 @@ export function useSpBomData() {
       batch_yield_uom: data.batchYieldUom,
       cost_per_unit: data.costPerUnit,
     }).select().single();
-    if (error) { toast.error('Failed to add ingredient: ' + error.message); return; }
+    if (error) { toast.error('Failed to add ingredient: ' + error.message); return false; }
     setLines(prev => [...prev, toLocal(row)]);
+    return true;
   }, []);
 
-  const updateLine = useCallback(async (id: string, data: Partial<Omit<SpBomLine, 'id'>>) => {
+  const updateLine = useCallback(async (id: string, data: Partial<Omit<SpBomLine, 'id'>>): Promise<boolean> => {
     const dbData: any = {};
     if (data.ingredientSkuId !== undefined) dbData.ingredient_sku_id = data.ingredientSkuId;
     if (data.qtyPerBatch !== undefined) dbData.qty_per_batch = data.qtyPerBatch;
@@ -62,28 +63,31 @@ export function useSpBomData() {
     if (data.costPerUnit !== undefined) dbData.cost_per_unit = data.costPerUnit;
 
     const { error } = await supabase.from('sp_bom').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update ingredient: ' + error.message); return; }
+    if (error) { toast.error('Failed to update ingredient: ' + error.message); return false; }
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+    return true;
   }, []);
 
-  const updateBatchYield = useCallback(async (spSkuId: string, batchYieldQty: number, batchYieldUom: string) => {
+  const updateBatchYield = useCallback(async (spSkuId: string, batchYieldQty: number, batchYieldUom: string): Promise<boolean> => {
     const spLines = lines.filter(l => l.spSkuId === spSkuId);
-    if (spLines.length === 0) return;
+    if (spLines.length === 0) return false;
     
     const { error } = await supabase.from('sp_bom')
       .update({ batch_yield_qty: batchYieldQty, batch_yield_uom: batchYieldUom })
       .eq('sp_sku_id', spSkuId);
-    if (error) { toast.error('Failed to update batch yield: ' + error.message); return; }
+    if (error) { toast.error('Failed to update batch yield: ' + error.message); return false; }
     
     setLines(prev => prev.map(l => 
       l.spSkuId === spSkuId ? { ...l, batchYieldQty, batchYieldUom } : l
     ));
+    return true;
   }, [lines]);
 
-  const deleteLine = useCallback(async (id: string) => {
+  const deleteLine = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('sp_bom').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete ingredient: ' + error.message); return; }
+    if (error) { toast.error('Failed to delete ingredient: ' + error.message); return false; }
     setLines(prev => prev.filter(l => l.id !== id));
+    return true;
   }, []);
 
   return { lines, loading, getLinesForSp, addLine, updateLine, updateBatchYield, deleteLine };

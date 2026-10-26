@@ -15,7 +15,7 @@ type TypeFilter = "all" | SKUType;
 export function packPriceLabel(s: ProductSummary): string {
   const { sku } = s;
   const pack = sku.packUnit || sku.purchaseUom;
-  if ((sku.type === "SM" || sku.type === "SP") && s.recipeCost) return `${baht(s.recipeCost * (sku.packSize || 1))}/${pack || sku.usageUom}`;
+  if (sku.type === "SM" || sku.type === "SP") return s.recipeCost ? `${baht(s.recipeCost * (sku.packSize || 1))}/${pack || sku.usageUom}` : "";
   if (s.standard) return `${baht(s.standard.pricePerPurchaseUom)}/${pack}`;
   return "";
 }

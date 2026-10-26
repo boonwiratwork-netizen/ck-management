@@ -43,11 +43,11 @@ interface BOMPageProps {
     lines: BOMLine[];
     steps: BOMStep[];
     addHeader: (data: Omit<BOMHeader, "id">) => string | Promise<string>;
-    updateHeader: (id: string, data: Partial<Omit<BOMHeader, "id">>) => void | Promise<void>;
-    deleteHeader: (id: string) => void | Promise<void>;
-    addLine: (data: Omit<BOMLine, "id">) => void | Promise<void>;
-    updateLine: (id: string, data: Partial<Omit<BOMLine, "id" | "bomHeaderId">>) => void | Promise<void>;
-    deleteLine: (id: string) => void | Promise<void>;
+    updateHeader: (id: string, data: Partial<Omit<BOMHeader, "id">>) => unknown;
+    deleteHeader: (id: string) => unknown;
+    addLine: (data: Omit<BOMLine, "id">) => unknown;
+    updateLine: (id: string, data: Partial<Omit<BOMLine, "id" | "bomHeaderId">>) => unknown;
+    deleteLine: (id: string) => unknown;
     getLinesForHeader: (headerId: string) => BOMLine[];
     addStep: (data: Omit<BOMStep, "id">) => string | Promise<string>;
     updateStep: (id: string, data: Partial<Omit<BOMStep, "id" | "bomHeaderId">>) => void | Promise<void>;

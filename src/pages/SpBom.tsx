@@ -24,10 +24,10 @@ interface SpBomPageProps {
     lines: SpBomLine[];
     loading: boolean;
     getLinesForSp: (spSkuId: string) => SpBomLine[];
-    addLine: (data: Omit<SpBomLine, "id">) => Promise<void>;
-    updateLine: (id: string, data: Partial<Omit<SpBomLine, "id">>) => Promise<void>;
-    updateBatchYield: (spSkuId: string, qty: number, uom: string) => Promise<void>;
-    deleteLine: (id: string) => Promise<void>;
+    addLine: (data: Omit<SpBomLine, "id">) => Promise<unknown>;
+    updateLine: (id: string, data: Partial<Omit<SpBomLine, "id">>) => Promise<unknown>;
+    updateBatchYield: (spSkuId: string, qty: number, uom: string) => Promise<unknown>;
+    deleteLine: (id: string) => Promise<unknown>;
   };
   skus: SKU[];
   prices: Price[];

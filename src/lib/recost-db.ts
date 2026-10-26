@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { BOM_PRICE_NOTE, BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
 import { toLocalDateStr } from "@/lib/utils";
-import { affectedRecipes, recost, type RecipeBook } from "@/lib/cost-engine";
+import { affectedRecipes, recipeItemIds, recost, type RecipeBook } from "@/lib/cost-engine";
 
 /** Every recipe in the system, read fresh (paged) */
 export async function loadRecipeBook(): Promise<RecipeBook | null> {
@@ -50,14 +50,17 @@ export interface RecostResult {
 }
 
 /**
- * After a price or recipe changes, work out every recipe that depends on it and save
- * the ones whose cost moved (as their "BOM Calculation" price). Menus and food cost
- * read those prices, so they follow on their own.
+ * After a price or recipe changes, work every recipe cost out again from today's
+ * prices and save the ones that moved (as their "BOM Calculation" price). All of them,
+ * not only those built on the change: a recipe whose ingredient was never costed (or
+ * fell behind) would otherwise be worked out from a stale number. Menus and food cost
+ * read those prices, so they follow on their own. (`changedSkuIds` is what triggered it.)
  */
 export async function recostAndSave(changedSkuIds: string[]): Promise<RecostResult> {
+  void changedSkuIds;
   const [book, prices] = await Promise.all([loadRecipeBook(), loadActivePrices()]);
   if (!book || !prices) return { changed: [], ok: false };
-  const next = recost(changedSkuIds, book, prices);
+  const next = recost(recipeItemIds(book), book, prices);
   const changed = [...next]
     .map(([skuId, to]) => ({ skuId, from: prices.get(skuId) ?? 0, to }))
     .filter((c) => Math.abs(c.to - c.from) > 1e-9 * Math.max(1, Math.abs(c.from)));

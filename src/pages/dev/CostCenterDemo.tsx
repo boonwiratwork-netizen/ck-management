@@ -173,6 +173,21 @@ export default function CostCenterDemo() {
         updateSupplier={async (id, patch) => (setSuppliers((p) => p.map((s) => (s.id === id ? { ...s, ...patch } : s))), true)}
         onNavigate={() => {}}
         demoBills={bills}
+        recipeActions={{
+          addHeader: async (data) => {
+            const id = crypto.randomUUID();
+            setHeaders((p) => [...p, { ...data, id }]);
+            return id;
+          },
+          updateHeader: async (id, patch) => (await wait(), setHeaders((p) => p.map((h) => (h.id === id ? { ...h, ...patch } : h))), true),
+          addLine: async (data) => (await wait(), setBomLines((p) => [...p, { ...data, id: crypto.randomUUID() } as BOMLine]), true),
+          updateLine: async (id, patch) => (await wait(), setBomLines((p) => p.map((l) => (l.id === id ? { ...l, ...patch } : l))), true),
+          deleteLine: async (id) => (await wait(), setBomLines((p) => p.filter((l) => l.id !== id)), true),
+          spAddLine: async () => true,
+          spUpdateLine: async () => true,
+          spUpdateBatchYield: async () => true,
+          spDeleteLine: async () => true,
+        }}
       />
     </div>
   );
