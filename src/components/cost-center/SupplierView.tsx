@@ -24,6 +24,7 @@ interface Props {
   onSelect: (id: string | null) => void;
   onOpenProduct: (skuId: string) => void;
   addSupplier: (data: Omit<Supplier, "id">) => Promise<Supplier | null>;
+  onOpenBill: (supplierId: string, date: string) => void;
   updateSupplier: (id: string, data: Partial<Omit<Supplier, "id">>) => Promise<boolean>;
 }
 
@@ -176,7 +177,7 @@ function NewSupplier({ onCancel, onCreate, existing }: { onCancel: () => void; o
   );
 }
 
-function SupplierWorkspace({ supplier, stat, active, skus, canEdit, updateSupplier, onSelect, onOpenProduct }: Props & { supplier: Supplier; stat?: { spend: number; days: Set<string>; items: Map<string, number> }; active: Price[] }) {
+function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdit, updateSupplier, onSelect, onOpenProduct, onOpenBill }: Props & { supplier: Supplier; stat?: { spend: number; days: Set<string>; items: Map<string, number> }; active: Price[] }) {
   const [form, setForm] = useState(supplier);
   const [saving, setSaving] = useState(false);
   useEffect(() => setForm(supplier), [supplier]);
@@ -255,6 +256,35 @@ function SupplierWorkspace({ supplier, stat, active, skus, canEdit, updateSuppli
         </section>
 
         <div className="flex flex-col gap-3">
+          <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+            <h4 className="px-4 py-3 font-semibold">บิลล่าสุด · กดเพื่ออัปเดตราคาทั้งบิล</h4>
+            {(() => {
+              const days = new Map<string, { n: number; off: number }>();
+              for (const b of bills ?? []) {
+                if (b.supplierId !== supplier.id || !(b.unitPrice > 0)) continue;
+                const d = days.get(b.date) ?? { n: 0, off: 0 };
+                d.n++;
+                const sku = skus.find((s) => s.id === b.skuId);
+                const ref = (prices.find((p) => p.skuId === b.skuId && p.supplierId === supplier.id && p.isActive) ?? prices.find((p) => p.skuId === b.skuId && p.isActive))?.pricePerPurchaseUom ?? 0;
+                if (ref > 0 && Math.abs((b.unitPrice * (sku?.packSize || 1)) / ref - 1) > 0.1) d.off++;
+                days.set(b.date, d);
+              }
+              const list = [...days].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+              if (!list.length) return <p className="border-t border-border px-4 py-6 text-center text-sm text-muted-foreground">ไม่มีบิลใน 90 วัน</p>;
+              return (
+                <ul className="divide-y divide-border border-t border-border">
+                  {list.map(([date, d]) => (
+                    <li key={date}>
+                      <button type="button" onClick={() => onOpenBill(supplier.id, date)} className="flex min-h-[46px] w-full items-center gap-3 px-4 text-left hover:bg-secondary/60">
+                        <span className="min-w-0 flex-1">{shortDate(date)} · {d.n} รายการ</span>
+                        {d.off > 0 ? <span className="text-sm font-semibold text-warning">ราคาต่าง {d.off}</span> : <span className="text-sm text-muted-foreground">ตรงราคา</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+          </section>
           <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
             <h4 className="px-4 py-3 font-semibold">ซื้อมากสุด 90 วัน</h4>
             {top.length === 0 ? (

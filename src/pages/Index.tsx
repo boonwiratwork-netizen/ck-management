@@ -681,6 +681,9 @@ const Index = () => {
                       updatePrice: priceData.updatePrice,
                       repriceUnits: priceData.repriceUnits,
                       recost: priceData.recostPrices,
+                      reloadData: async () => {
+                        await Promise.all([skuData.reload(), bomData.reload(), spBomData.reload(), priceData.refreshPrices()]);
+                      },
                     }}
                     addSupplier={supplierData.addSupplier}
                     updateSupplier={supplierData.updateSupplier}

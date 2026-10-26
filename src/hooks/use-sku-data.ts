@@ -54,14 +54,16 @@ const toDb = (data: Omit<SKU, 'id' | 'skuId'>, skuId?: string) => {
 export function useSkuData() {
   const [skus, setSkus] = useState<SKU[]>([]);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     // Device copy first, fresh in the background (see base-cache); paged past 1,000 rows
-    loadWithDeviceCopy(
+    const { error } = await loadWithDeviceCopy(
       'skus',
       () => fetchAllRows((a, b) => supabase.from('skus').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
       (rows) => setSkus(rows.map(toLocal)),
-    ).then(({ error }) => { if (error) toast.error('Failed to load SKUs'); });
+    );
+    if (error) toast.error('Failed to load SKUs');
   }, []);
+  useEffect(() => { reload(); }, [reload]);
 
   const generateSkuId = (type: SKUType, existing: SKU[]): string => {
     const nums = existing
@@ -141,5 +143,5 @@ export function useSkuData() {
     setSkus(prev => prev.filter(s => s.id !== id));
   }, []);
 
-  return { skus, addSku, bulkAddSkus, updateSku, deleteSku };
+  return { skus, addSku, bulkAddSkus, updateSku, deleteSku, reload };
 }

@@ -24,6 +24,7 @@ import { NewProductForm } from "@/components/cost-center/NewProductForm";
 import { SupplierView } from "@/components/cost-center/SupplierView";
 import { ProductOverview } from "@/components/cost-center/ProductOverview";
 import { KindBadge } from "@/components/cost-center/parts";
+import { BillPriceUpdate } from "@/components/cost-center/BillPriceUpdate";
 import type { RecipeEditActions } from "@/components/cost-center/RecipeEditor";
 import type { SpBomLine } from "@/types/sp-bom";
 
@@ -104,7 +105,8 @@ export default function CostCenterPage(props: Props) {
   }, [hash]);
 
   const productSide = hash === "products" || hash.startsWith("p/") || hash === "new-product";
-  const supplierSide = hash === "suppliers" || hash.startsWith("s/");
+  const supplierSide = hash === "suppliers" || hash.startsWith("s/") || hash.startsWith("bill/");
+  const openBill = (supplierId: string, date: string) => go(`bill/${supplierId}/${date}`, { state: { from: hash } });
   const view: View = productSide ? "products" : supplierSide ? "suppliers" : hash === "overview" ? "overview" : hash === "pos" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
 
   const loaded = useKitchenBills(!props.demoBills);
@@ -249,6 +251,34 @@ export default function CostCenterPage(props: Props) {
     );
   }
 
+  if (hash.startsWith("bill/")) {
+    const [, supplierId, date] = hash.split("/");
+    const supplier = props.suppliers.find((s) => s.id === supplierId);
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="hidden lg:block">{header}</div>
+        {supplier && bills && prices.length > 0 ? (
+          <BillPriceUpdate
+            key={hash}
+            supplier={supplier}
+            date={date}
+            bills={bills}
+            skus={skus}
+            prices={prices}
+            summaries={summaries}
+            canEdit={canEditProducts}
+            addPrice={props.productActions.addPrice}
+            recost={props.productActions.recost}
+            onBack={() => backTo(`s/${supplierId}`)}
+            onOpenProduct={openProduct}
+          />
+        ) : (
+          <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">{bills ? "ไม่พบบิลนี้" : "กำลังโหลดบิล…"}</p>
+        )}
+      </div>
+    );
+  }
+
   if (supplierSide)
     return (
       <div className="flex flex-col gap-4">
@@ -264,6 +294,7 @@ export default function CostCenterPage(props: Props) {
           onOpenProduct={openProduct}
           addSupplier={props.addSupplier}
           updateSupplier={props.updateSupplier}
+          onOpenBill={openBill}
         />
       </div>
     );
@@ -313,6 +344,7 @@ export default function CostCenterPage(props: Props) {
               onOpenProduct={openProduct}
               onOpenMenu={openMenu}
               onOpenSupplier={(id) => go(`s/${id}`, { state: { from: hash } })}
+              onOpenBill={openBill}
               onNavigate={props.onNavigate}
             />
           ) : (

@@ -164,6 +164,7 @@ export default function CostCenterDemo() {
           },
           repriceUnits: async () => true,
           recost: async (...ids) => setPrices((p) => recostIn(p, ids)),
+          reloadData: async () => {},
         }}
         addSupplier={async (data) => {
           const s = { ...data, id: crypto.randomUUID() };

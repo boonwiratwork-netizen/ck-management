@@ -19,11 +19,14 @@ import { Switch } from "@/components/ui/switch";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import { Chain, KindBadge, KIND_NAME, baht, perUnit, type ChainNode } from "./parts";
 import { packPriceLabel } from "./ProductList";
+import { changedFields, describeChange, priceToRestore, type ChangeRow } from "@/lib/change-history";
+import { loadProductHistory, undoChange } from "@/lib/change-history-db";
+import { toast } from "sonner";
 import { RecipeEditor, type RecipeEditActions } from "./RecipeEditor";
 import type { BOMHeader, BOMLine } from "@/types/bom";
 import type { SpBomLine } from "@/types/sp-bom";
 
-type WorkTab = "health" | "info" | "price" | "recipe" | "use";
+type WorkTab = "health" | "info" | "price" | "recipe" | "use" | "history";
 
 const STORAGE: { value: StorageCondition; label: string }[] = [
   { value: "Frozen", label: "ช่องแช่แข็ง" },
@@ -41,10 +44,12 @@ const levelStyle: Record<ProductLevel, { icon: React.ElementType; text: string; 
 
 export interface ProductActions {
   updateSku: (id: string, data: Partial<Omit<SKU, "id" | "skuId">>) => Promise<boolean>;
-  addPrice: (data: Omit<Price, "id" | "pricePerUsageUom">, sku: SKU | undefined) => Promise<boolean>;
+  addPrice: (data: Omit<Price, "id" | "pricePerUsageUom">, sku: SKU | undefined, opts?: { batch?: boolean }) => Promise<boolean>;
   updatePrice: (id: string, data: Omit<Price, "id" | "pricePerUsageUom">, sku: SKU | undefined) => Promise<boolean>;
   repriceUnits: (sku: SKU) => Promise<boolean>;
   recost: (...skuIds: string[]) => Promise<void>;
+  /** Read products, prices and recipes again (after an undo) */
+  reloadData: () => Promise<void>;
 }
 
 interface Props {
@@ -66,6 +71,8 @@ interface Props {
   onOpenProduct: (skuId: string) => void;
   onOpenMenu: (menu: Menu) => void;
   onOpenSupplier: (supplierId: string) => void;
+  /** Open one supplier's bill of one day, to update its prices together */
+  onOpenBill: (supplierId: string, date: string) => void;
   onNavigate: (tab: TabKey) => void;
 }
 
@@ -86,6 +93,7 @@ export function ProductWorkspace(props: Props) {
     { key: "info", label: "ข้อมูล" },
     made ? { key: "recipe", label: `สูตร · ${summary.madeFrom.length}` } : { key: "price", label: "ราคา" },
     { key: "use", label: `ใช้ที่ไหน · ${usedCount}` },
+    ...(props.canEdit ? [{ key: "history" as WorkTab, label: "ประวัติ" }] : []),
   ];
 
   const name = (id: string) => props.skus.find((s) => s.id === id)?.name ?? "—";
@@ -168,6 +176,7 @@ export function ProductWorkspace(props: Props) {
       {tab === "price" && <PricePanel key={sku.id} {...props} supplierName={supplierName} />}
       {tab === "recipe" && <RecipePanel {...props} />}
       {tab === "use" && <UsePanel {...props} />}
+      {tab === "history" && <HistoryPanel {...props} />}
     </div>
   );
 }
@@ -397,7 +406,7 @@ function InfoPanel({ summary, skus, prices, categories, canEdit, actions }: Prop
 
 // ───────────────────────── Price (RM / PK) ─────────────────────────
 
-function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, supplierName, onOpenSupplier }: Props & { supplierName: (id: string) => string }) {
+function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, supplierName, onOpenSupplier, onOpenBill }: Props & { supplierName: (id: string) => string }) {
   const { sku } = summary;
   const pack = sku.packUnit || sku.purchaseUom;
   const usagePerPack = (sku.packSize || 1) * (sku.converter || 1);
@@ -479,6 +488,9 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
                 เฉลี่ย {recent.length} บิล {baht(billPerPack(avg3))}
               </Button>
             )}
+            <Button variant="outline" className="h-11" disabled={busy} onClick={() => onOpenBill(lastBill.supplierId, lastBill.date)}>
+              ดูทั้งบิลนี้
+            </Button>
             <Button variant="brand" className="h-11" loading={busy} onClick={() => setStandardFromBill(lastBill.unitPrice, lastBill.supplierId)}>
               ใช้ {baht(billPerPack(lastBill.unitPrice))} เป็นมาตรฐาน
             </Button>
@@ -853,6 +865,114 @@ function UsePanel({ summary, skus, menus, onOpenProduct, onOpenMenu }: Props) {
         </section>
       ))}
       <p className="text-sm text-muted-foreground xl:col-span-2">ปิดใช้ได้เมื่อไม่อยู่ในสูตรหรือเมนูไหนแล้ว · ลบไม่ได้ เพราะบิลและการนับสต๊อกเดิมยังอ้างถึง</p>
+    </div>
+  );
+}
+
+// ───────────────────────── History ─────────────────────────
+
+/** Every change to this product, its prices and its recipe — who, when, before → after — with undo */
+function HistoryPanel({ summary, skus, suppliers, prices, book, canEdit, actions }: Props) {
+  const { sku } = summary;
+  const headerId = book.headers.find((h) => h.smSkuId === sku.id)?.id ?? null;
+  const [data, setData] = useState<{ rows: ChangeRow[]; who: Map<string, string> } | null | undefined>(undefined);
+  const [busy, setBusy] = useState<number | null>(null);
+  const load = async () => setData(await loadProductHistory(sku.id, headerId));
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sku.id, headerId]);
+  const names = {
+    sku: (id: string) => {
+      const s = skus.find((x) => x.id === id);
+      return s ? { name: s.name, packUnit: s.packUnit || s.purchaseUom, usageUom: s.usageUom } : undefined;
+    },
+    supplier: (id: string) => (id === BOM_SUPPLIER_ID ? "คิดจากสูตร" : suppliers.find((x) => x.id === id)?.name),
+  };
+  const undo = async (row: ChangeRow) => {
+    if (!data) return;
+    // Back to "on" only when it could go live today: a bought item needs a price, a
+    // made one a recipe (same bar as a draft going live)
+    if (row.table_name === "skus" && row.old_row?.status === "Active" && changedFields(row).includes("status")) {
+      const made = sku.type === "SM" || sku.type === "SP";
+      if (made ? !summary.madeFrom.length : !summary.active.length) {
+        toast.error(made ? "ย้อนเป็นเปิดใช้ไม่ได้ · ยังไม่มีสูตร" : "ย้อนเป็นเปิดใช้ไม่ได้ · ยังไม่มีราคา");
+        return;
+      }
+    }
+    setBusy(row.id);
+    try {
+      if (row.table_name === "prices") {
+        const target = priceToRestore(row, data.rows);
+        // Only while nothing newer took its place: the price is still the supplier's
+        // current one, or (a deleted price) the supplier has none now
+        const supplierLive = prices.some((p) => p.skuId === target.skuId && p.supplierId === target.supplierId && p.isActive);
+        const now = prices.find((p) => p.id === row.row_id);
+        // ...and still the amount this change left (not edited in place since)
+        const editedSince = row.op !== "DELETE" && !!now && (now.pricePerPurchaseUom !== Number(row.new_row?.price_per_purchase_uom) || now.vat !== !!row.new_row?.vat);
+        if (row.op === "DELETE" ? supplierLive : !now?.isActive) return toast.error("ย้อนไม่ได้ · มีราคาใหม่กว่าแล้ว");
+        if (editedSince) return toast.error("ย้อนไม่ได้ · มีการแก้ทับไปแล้ว");
+        if (target.amount !== null) {
+          // Same as setting the price again: one active per supplier, per-gram from today's pack size
+          const ok = await actions.addPrice({ skuId: target.skuId, supplierId: target.supplierId, pricePerPurchaseUom: target.amount, vat: target.vat, isActive: true, effectiveDate: toLocalDateStr(new Date()), note: "ย้อนกลับจากประวัติ" }, sku);
+          if (!ok) return;
+        } else {
+          const r = await undoChange(row);
+          if (!r.ok) return toast.error(`ย้อนไม่ได้ · ${r.why}`);
+          await actions.reloadData();
+          await actions.recost(sku.id);
+        }
+      } else {
+        const r = await undoChange(row);
+        if (!r.ok) return toast.error(`ย้อนไม่ได้ · ${r.why}`);
+        await actions.reloadData();
+        const changed = changedFields(row);
+        // Units put back: prices per usage unit follow; otherwise just the costs
+        if (row.table_name === "skus" && (changed.includes("pack_size") || changed.includes("converter")))
+          await actions.repriceUnits({ ...sku, packSize: Number(row.old_row!.pack_size), converter: Number(row.old_row!.converter) });
+        else await actions.recost(sku.id);
+      }
+      toast.success("ย้อนแล้ว");
+      load();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (data === undefined) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">กำลังโหลด…</p>;
+  if (data === null) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-destructive">โหลดประวัติไม่สำเร็จ</p>;
+  const rows = data.rows.filter((r) => describeChange(r, names).text);
+  if (!rows.length) return <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">ยังไม่มีการแก้ตั้งแต่เริ่มเก็บประวัติ (26 ต.ค. 2026)</p>;
+  return (
+    <div className="flex flex-col gap-2">
+      <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+        {rows.map((r) => {
+          const d = describeChange(r, names);
+          const when = new Date(r.changed_at);
+          return (
+            <li key={r.id} className="flex flex-col gap-2 border-t border-border px-4 py-3 first:border-t-0 sm:flex-row sm:items-start">
+              <div className="w-32 shrink-0 text-sm text-muted-foreground">
+                {when.toLocaleDateString("th-TH", { day: "numeric", month: "short" })} {when.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-medium">{d.text}</div>
+                {d.details.map((x, i) => (
+                  <div key={i} className="text-sm">
+                    {x.label} <span className="text-muted-foreground line-through">{x.from}</span> → <b>{x.to}</b>
+                  </div>
+                ))}
+                <div className="text-sm text-muted-foreground">{(r.changed_by && data.who.get(r.changed_by)) || "ระบบ"}</div>
+              </div>
+              {canEdit && d.undoable && (
+                <Button variant="outline" size="sm" className="h-9 shrink-0 self-start" loading={busy === r.id} disabled={busy !== null} onClick={() => undo(r)}>
+                  ย้อนกลับ
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-sm text-muted-foreground">ย้อนกลับ = ใส่ค่าก่อนหน้ากลับไป แล้วคิดต้นทุนสูตรและเมนูที่ใช้ใหม่ · ย้อนไม่ได้ถ้ามีคนแก้ทับไปแล้ว</p>
     </div>
   );
 }

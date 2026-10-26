@@ -25,12 +25,13 @@ export function useBomData() {
   const [lines, setLines] = useState<BOMLine[]>([]);
   const [steps, setSteps] = useState<BOMStep[]>([]);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     // Device copies first, fresh in the background (see base-cache)
-    loadWithDeviceCopy('bom_headers', () => fetchAllRows((a, b) => supabase.from('bom_headers').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setHeaders(rows.map(toHeader)));
-    loadWithDeviceCopy('bom_lines', () => fetchAllRows((a, b) => supabase.from('bom_lines').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setLines(rows.map(toLine)));
-    loadWithDeviceCopy('bom_steps', () => fetchAllRows((a, b) => supabase.from('bom_steps').select('*').order('step_number', { ascending: true }).order('id').range(a, b)), (rows) => setSteps(rows.map(toStep)));
+    await Promise.all([loadWithDeviceCopy('bom_headers', () => fetchAllRows((a, b) => supabase.from('bom_headers').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setHeaders(rows.map(toHeader))),
+    loadWithDeviceCopy('bom_lines', () => fetchAllRows((a, b) => supabase.from('bom_lines').select('*').order('created_at', { ascending: false }).order('id').range(a, b)), (rows) => setLines(rows.map(toLine))),
+    loadWithDeviceCopy('bom_steps', () => fetchAllRows((a, b) => supabase.from('bom_steps').select('*').order('step_number', { ascending: true }).order('id').range(a, b)), (rows) => setSteps(rows.map(toStep)))]);
   }, []);
+  useEffect(() => { reload(); }, [reload]);
 
   const addHeader = useCallback(async (data: Omit<BOMHeader, 'id'>): Promise<string> => {
     const { data: row, error } = await supabase.from('bom_headers').insert({
@@ -140,7 +141,7 @@ export function useBomData() {
   }, [lines]);
 
   return {
-    headers, lines, steps,
+    headers, lines, steps, reload,
     addHeader, updateHeader, deleteHeader,
     addLine, updateLine, deleteLine, getLinesForHeader,
     addStep, updateStep, deleteStep, getStepsForHeader, getLinesForStep,

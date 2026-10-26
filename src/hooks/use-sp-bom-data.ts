@@ -20,8 +20,8 @@ export function useSpBomData() {
   const [lines, setLines] = useState<SpBomLine[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadWithDeviceCopy(
+  const reload = useCallback(async () => {
+    await loadWithDeviceCopy(
       'sp_bom',
       () => fetchAllRows((a, b) => supabase.from('sp_bom').select('*').order('created_at').order('id').range(a, b)),
       (rows, fromDevice) => {
@@ -33,6 +33,7 @@ export function useSpBomData() {
       setLoading(false);
     });
   }, []);
+  useEffect(() => { reload(); }, [reload]);
 
   const getLinesForSp = useCallback((spSkuId: string) => {
     return lines.filter(l => l.spSkuId === spSkuId);
@@ -90,5 +91,5 @@ export function useSpBomData() {
     return true;
   }, []);
 
-  return { lines, loading, getLinesForSp, addLine, updateLine, updateBatchYield, deleteLine };
+  return { lines, loading, getLinesForSp, addLine, updateLine, updateBatchYield, deleteLine, reload };
 }
