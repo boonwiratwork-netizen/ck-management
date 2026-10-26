@@ -32,7 +32,7 @@ type MenuSetupProps = React.ComponentProps<typeof MenuSetupPage>;
 
 interface Props {
   /** Everything the menu side needs (the old Menu Setup page, unchanged inside) */
-  menuSetup: Omit<MenuSetupProps, "header" | "overviewExtra" | "listHash">;
+  menuSetup: Omit<MenuSetupProps, "header" | "overviewExtra" | "listHash" | "prevScreen">;
   skus: SKU[];
   prices: Price[];
   suppliers: Supplier[];
@@ -164,6 +164,22 @@ export default function CostCenterPage(props: Props) {
   // Back = the browser's back when we came from inside Cost Center (so the phone's back
   // button agrees), else the list
   const backTo = (fallback: string) => ((location.state as { from?: string } | null)?.from !== undefined ? navigate(-1) : go(fallback));
+  // The screen we came from, by name, when it isn't just the list (that has its own button)
+  const prevScreen = (() => {
+    const from = (location.state as { from?: string } | null)?.from;
+    // The lists have their own button ("สินค้าทั้งหมด", "เมนูทั้งหมด")
+    if (!from || from === "products" || from === "menus" || from === hash) return null;
+    let label: string | undefined;
+    if (from.startsWith("p/")) label = skus.find((s) => s.skuId === from.slice(2))?.name;
+    else if (from.startsWith("s/")) label = props.suppliers.find((s) => s.id === from.slice(2))?.name;
+    else if (from.startsWith("bill/")) label = `บิล ${props.suppliers.find((s) => s.id === from.split("/")[1])?.name ?? ""}`.trim();
+    else if (from === "overview") label = "ภาพรวม";
+    else if (from === "suppliers") label = "ซัพพลายเออร์ทั้งหมด";
+    else if (from === "branches" || from.startsWith("branches/")) label = "สาขา";
+    else if (from === "pos") label = "ตัวเลือก POS";
+    else label = props.menus.find((m) => m.menuCode === from)?.menuName;
+    return label ? { label, go: () => navigate(-1) } : null;
+  })();
 
   const header = (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -216,6 +232,7 @@ export default function CostCenterPage(props: Props) {
         onNavigate={menuNavigate}
         header={header}
         listHash="menus"
+        prevScreen={prevScreen}
         overviewExtra={
           <section className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -340,7 +357,8 @@ export default function CostCenterPage(props: Props) {
               recipeActions={props.recipeActions}
               canEdit={canEditProducts}
               actions={props.productActions}
-              onBack={() => backTo("products")}
+              onBack={() => go("products")}
+              prev={prevScreen}
               onOpenProduct={openProduct}
               onOpenMenu={openMenu}
               onOpenSupplier={(id) => go(`s/${id}`, { state: { from: hash } })}

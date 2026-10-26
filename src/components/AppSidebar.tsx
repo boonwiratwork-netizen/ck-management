@@ -235,7 +235,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
       return [
         { key: "dashboard", label: "ภาพรวม", icon: LayoutDashboard },
         { key: "food-cost", label: "ต้นทุน", icon: PieChart },
-        { key: "cost-center", label: "ตั้งค่า", icon: Layers },
+        { key: "cost-center", label: "Cost Center", icon: Layers },
         { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
       ];
   }
@@ -309,7 +309,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const allGroups: NavGroup[] = [];
 
   if (isManagement) {
-    allGroups.push(ckGroup, storeGroup, managementGroup);
+    // Cost Center first (it covers both kitchen and stores), not tucked under Store
+    // (drops the store group's "Setup" heading too, which only held Cost Center)
+    const storeOnly = { ...storeGroup, items: storeGroup.items.filter((i) => (isSubLabel(i) ? i.subLabel !== "Setup" : i.key !== "cost-center")) };
+    allGroups.push(masterDataGroup, ckGroup, storeOnly, managementGroup);
   } else if (role === "ck_manager") {
     // CK Manager: ONLY CK sections (no Store, no Management)
     allGroups.push(ckGroup, masterDataGroup);

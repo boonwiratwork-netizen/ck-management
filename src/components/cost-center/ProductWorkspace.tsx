@@ -67,7 +67,10 @@ interface Props {
   recipeActions: RecipeEditActions;
   canEdit: boolean;
   actions: ProductActions;
+  /** Up to the product list (phone; on a wide screen the list is beside it) */
   onBack: () => void;
+  /** Came here from another screen inside Cost Center (a recipe, a menu, a supplier…): back to it */
+  prev?: { label: string; go: () => void } | null;
   onOpenProduct: (skuId: string) => void;
   onOpenMenu: (menu: Menu) => void;
   onOpenSupplier: (supplierId: string) => void;
@@ -120,9 +123,17 @@ export function ProductWorkspace(props: Props) {
       <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-raised md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
-            <button type="button" onClick={onBack} className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
-              <ArrowLeft className="h-4 w-4" /> กลับ
-            </button>
+            {/* Back says where it goes: the list, and (when we came from one) the screen before */}
+            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "lg:hidden")}>
+              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
+                <ArrowLeft className="h-4 w-4" /> สินค้าทั้งหมด
+              </button>
+              {props.prev && (
+                <button type="button" onClick={props.prev.go} className="inline-flex min-h-[40px] max-w-full items-center gap-1 rounded-full bg-white/10 px-3 text-sm text-primary-foreground/80 hover:text-primary-foreground">
+                  <ArrowLeft className="h-4 w-4 shrink-0" /> <span className="truncate">{props.prev.label}</span>
+                </button>
+              )}
+            </div>
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
               {sku.skuId} · {KIND_NAME[sku.type]} · {props.categories.find((c) => c.code === sku.category)?.nameTh || sku.category} · {storageLabel(sku.storageCondition)}
             </div>

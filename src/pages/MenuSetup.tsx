@@ -54,6 +54,8 @@ interface MenuSetupProps {
   overviewExtra?: React.ReactNode;
   /** The hash of the menu list ("" on its own page, "menus" inside Cost Center) */
   listHash?: string;
+  /** Inside Cost Center: the screen a menu was opened from, by name (a product, a supplier…) */
+  prevScreen?: { label: string; go: () => void } | null;
   /** Dev harness only: use these instead of what the hooks load */
   demoExtras?: {
     overrides: Record<string, Record<string, boolean>>;
@@ -137,7 +139,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras, header: outerHeader, overviewExtra, listHash = "" }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -158,6 +160,18 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     if (m) go(encodeURIComponent(m.menuCode), { from: code && !menus.some((x) => x.menuCode === code) ? location.hash.slice(1) : listHash });
     else go(backTo);
   };
+  // A menu's back buttons: "all menus" always goes to the list; the screen it was opened
+  // from (overview, branches, POS, another menu) gets its own button with its name
+  const prev =
+    prevScreen !== undefined
+      ? prevScreen
+      : backTo !== listHash
+        ? (() => {
+            const label =
+              backTo === OVERVIEW_HASH ? "ภาพรวม" : backTo.startsWith(BRANCHES_HASH) ? "สาขา" : backTo === POS_HASH ? "ตัวเลือก POS" : menus.find((m) => m.menuCode === readHash(`#${backTo}`))?.menuName;
+            return label ? { label, go: () => go(backTo) } : null;
+          })()
+        : null;
 
   // Real bills through the stock maths (same function the stock screens use)
   const billChecks = useMemo(() => {
@@ -360,7 +374,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               updateMenu={updateMenu}
               setBranchOpen={extras.setBranchOpen}
               recipeActions={menuBom}
-              onBack={() => open(null)}
+              onBack={() => go(listHash)}
+              prev={prev}
               onOpenMenu={(m) => open(m)}
               onNavigate={onNavigate}
               bills={extras.bills}
@@ -544,6 +559,7 @@ interface WorkspaceProps {
   setBranchOpen: (menuId: string, branchId: string, open: boolean) => Promise<boolean>;
   recipeActions: RecipeActions;
   onBack: () => void;
+  prev?: { label: string; go: () => void } | null;
   onOpenMenu: (m: Menu) => void;
   onNavigate: (tab: TabKey) => void;
   bills: Bill[] | null;
@@ -578,9 +594,16 @@ function MenuWorkspace(props: WorkspaceProps) {
       <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-raised md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
-            <button type="button" onClick={onBack} className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
-              <ArrowLeft className="h-4 w-4" /> เมนูทั้งหมด
-            </button>
+            <div className={cn("-ml-2 mb-2 flex flex-wrap items-center gap-1", !props.prev && "lg:hidden")}>
+              <button type="button" onClick={onBack} className="inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
+                <ArrowLeft className="h-4 w-4" /> เมนูทั้งหมด
+              </button>
+              {props.prev && (
+                <button type="button" onClick={props.prev.go} className="inline-flex min-h-[40px] max-w-full items-center gap-1 rounded-full bg-white/10 px-3 text-sm text-primary-foreground/80 hover:text-primary-foreground">
+                  <ArrowLeft className="h-4 w-4 shrink-0" /> <span className="truncate">{props.prev.label}</span>
+                </button>
+              )}
+            </div>
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
               {menu.menuCode} · {menu.brandName || "ไม่ระบุแบรนด์"} · {menu.category || "ไม่มีหมวด"}
             </div>
