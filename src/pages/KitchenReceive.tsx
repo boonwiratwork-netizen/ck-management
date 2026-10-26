@@ -94,7 +94,13 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
     );
     setBusy(false);
     if (ok) {
-      toast.success(`บันทึกบิลแล้ว ${bill.rows.length} รายการ`);
+      // Prices more than 10% off the price set: offer to update them from this bill
+      const off = bill.rows.filter((r) => r.stdUnit > 0 && r.qty > 0 && Math.abs(lineTotal(r.total, r.stdUnit, r.qty) / (r.stdUnit * r.qty) - 1) > 0.1).length;
+      const supplierId = bill.rows[0]?.supplierId;
+      toast.success(
+        `บันทึกบิลแล้ว ${bill.rows.length} รายการ${off ? ` · ราคาต่าง ${off} รายการ` : ""}`,
+        off && supplierId && !bill.place ? { action: { label: "อัปเดตราคา", onClick: () => navigate(`/cost-center#bill/${supplierId}/${date}`) }, duration: 10000 } : undefined,
+      );
       // A line added to an old bill doesn't leave the page on that old day
       if (backDated) {
         setDate(format(new Date(), "yyyy-MM-dd"));
@@ -141,6 +147,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
           for (const id of ids) if (await deleteReceipt(id)) n++;
           if (n) toast.success(`ลบแล้ว ${n} รายการ`);
         }}
+        onUpdatePrices={(b) => navigate(`/cost-center#bill/${b.supplierId}/${b.date}`)}
         onAddToBill={(b: Bill) => {
           setDate(b.date);
           setBackDated(true);

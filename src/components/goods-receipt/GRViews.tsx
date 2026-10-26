@@ -157,6 +157,7 @@ export function GRHistory({
   onEdit,
   onDeleteLines,
   onAddToBill,
+  onUpdatePrices,
 }: {
   receipts: GoodsReceipt[];
   skus: SKU[];
@@ -171,6 +172,8 @@ export function GRHistory({
   onEdit: (r: GoodsReceipt) => void;
   onDeleteLines: (ids: string[]) => Promise<void>;
   onAddToBill: (b: Bill) => void;
+  /** Open this bill in Cost Center to update its prices together */
+  onUpdatePrices?: (b: Bill) => void;
 }) {
   const skuOf = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const [who, setWho] = useState<string>("all");
@@ -336,6 +339,11 @@ export function GRHistory({
                         </div>
                         {canEdit && (
                           <div className="mt-2 flex flex-wrap justify-end gap-2">
+                            {!b.place && onUpdatePrices && b.lines.some((r) => r.standardPrice > 0 && Math.abs(r.actualTotal / r.standardPrice - 1) > 0.1) && (
+                              <Button variant="outline" className="h-10" onClick={() => onUpdatePrices(b)}>
+                                อัปเดตราคาจากบิลนี้ ›
+                              </Button>
+                            )}
                             {!b.place && (
                               <Button variant="outline" className="h-10" onClick={() => onAddToBill(b)}>
                                 <Plus className="h-4 w-4" /> เพิ่มรายการในบิลนี้
