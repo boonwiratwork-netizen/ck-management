@@ -14,7 +14,7 @@ import { useCountStatus } from "@/hooks/use-count-status";
 import { supabase } from "@/integrations/supabase/client";
 import { ZONES, businessDate, isBigDifference, isDormant, monthEndWindow, orderLines, zoneOf } from "@/lib/stock-count";
 import { CountSheet, type SheetLine } from "@/components/count/CountSheet";
-import { CountHome, CountReview } from "@/components/count/CountScreens";
+import { CountHome, CountReview, CountStrip } from "@/components/count/CountScreens";
 import { CountArrange, CountPrint } from "@/components/count/CountExtras";
 import { StockCard } from "@/components/StockCard";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
@@ -355,7 +355,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
       {/* Side by side only on wide screens (split = 1440px): below that the panel and the
           count are one at a time, so the table gets the room (a 1280px laptop has ~960px) */}
       <div className={"grid grid-cols-1 gap-6 split:grid-cols-[320px_minmax(0,1fr)]"}>
-        <div className={cn("min-w-0", !isHome && "hidden split:block")}>
+        <div className={cn("min-w-0 max-w-2xl split:max-w-none", !isHome && "hidden split:block")}>
           {branchId && (
             <CountHome
               date={date}
@@ -381,10 +381,27 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
           )}
         </div>
         <div className={cn("min-w-0", isHome && "hidden split:block")}>
+          {/* Under 1440px the left panel folds into this bar so the table keeps every column */}
           {!isHome && (
-            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground split:hidden">
-              <ArrowLeft className="h-4 w-4" /> นับสต๊อก · {thaiDay(date)}
-            </button>
+            <>
+              <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground lg:hidden">
+                <ArrowLeft className="h-4 w-4" /> นับสต๊อก · {thaiDay(date)}
+              </button>
+              {branchId && (
+                <div className="hidden lg:block split:hidden">
+                  <CountStrip
+                    date={date}
+                    status={status}
+                    statusLoading={statusLoading}
+                    zoneProgress={zoneProgress}
+                    hasSheet={hasSheet}
+                    onGoSales={() => onNavigate("sales-entry")}
+                    onGoReceive={() => onNavigate("branch-receipt")}
+                    onOpenPanel={() => go("")}
+                  />
+                </div>
+              )}
+            </>
           )}
           {work ?? (
             <div className="hidden min-h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center split:flex">

@@ -170,6 +170,65 @@ export function CountHome({
   );
 }
 
+/**
+ * The left panel folded into one bar above the count (screens under 1440px), so the
+ * table keeps every column: the checks as chips, progress, and a way back to the
+ * full panel.
+ */
+export function CountStrip({
+  date,
+  status,
+  statusLoading,
+  zoneProgress,
+  hasSheet,
+  onGoSales,
+  onGoReceive,
+  onOpenPanel,
+}: {
+  date: string;
+  status: CountStatus;
+  statusLoading: boolean;
+  zoneProgress: { zone: Zone; counted: number; total: number }[];
+  hasSheet: boolean;
+  onGoSales: () => void;
+  onGoReceive: () => void;
+  onOpenPanel: () => void;
+}) {
+  const counted = zoneProgress.reduce((s, z) => s + z.counted, 0);
+  const total = zoneProgress.reduce((s, z) => s + z.total, 0);
+  const chip = "inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-sm";
+  const salesOk = status.salesLines > 0;
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2">
+      <button type="button" onClick={onOpenPanel} className="mr-1 inline-flex min-h-[36px] items-center gap-1 rounded-full px-2 text-sm font-semibold hover:bg-secondary">
+        <ChevronRight className="h-4 w-4 rotate-180" /> นับสต๊อก · {thaiDay(date)}
+      </button>
+      {!statusLoading && (
+        <>
+          {salesOk ? (
+            <span className={cn(chip, "border-border text-muted-foreground")}>
+              <Check className="h-4 w-4 text-success" /> ยอดขาย {status.salesLines} รายการ
+            </span>
+          ) : (
+            <button type="button" onClick={onGoSales} className={cn(chip, "border-warning bg-warning-soft font-semibold text-warning")}>
+              <AlertTriangle className="h-4 w-4" /> ยังไม่นำเข้ายอดขาย · ไปนำเข้า
+            </button>
+          )}
+          <button type="button" onClick={onGoReceive} className={cn(chip, "border-border text-muted-foreground hover:text-foreground")}>
+            <Check className="h-4 w-4 text-success" /> รับของ {status.receipts} รายการ
+          </button>
+          {status.waitingTransfers > 0 && (
+            <button type="button" onClick={onGoReceive} className={cn(chip, "border-warning bg-warning-soft font-semibold text-warning")}>
+              <AlertTriangle className="h-4 w-4" /> ใบโอนยังไม่รับ {status.waitingTransfers} ใบ
+            </button>
+          )}
+        </>
+      )}
+      {hasSheet && <span className="ml-auto font-mono text-sm font-semibold">นับแล้ว {counted}/{total}</span>}
+    </div>
+  );
+}
+
 function CheckRow({ ok, loading, title, sub, action }: { ok: boolean; loading: boolean; title: string; sub: string; action?: { label: string; onClick: () => void; quiet?: boolean } }) {
   return (
     <div className={cn("flex min-h-[60px] items-center gap-3 border-t border-border px-4 py-2 first-of-type:border-t-0", !ok && !loading && "bg-warning-soft/50")}>

@@ -9,13 +9,15 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const n0 = (n: number) => Math.round(n).toLocaleString();
-// The name column never goes below 220px: names are what people count by
-const GRID = "grid grid-cols-[minmax(220px,1fr)_80px_80px_100px_110px_100px_150px_120px] items-center gap-3";
+// Every movement column (opening / received / used / waste / balance / count / result)
+// fits from ~920px — a 1280px laptop with the side menu open. The name column never
+// goes below 180px and wraps instead of being cut: names are what people count by
+const GRID = "grid grid-cols-[minmax(180px,1fr)_72px_72px_88px_96px_88px_128px_100px] items-center gap-2";
 // Less room (a laptop with the side menu open, Windows zoom 125–150%): opening /
 // received / used move under the name, the boxes and the result keep their columns
 const GRID_COMPACT = "grid grid-cols-[minmax(200px,1fr)_104px_96px_150px_96px] items-center gap-3";
 /** Room the sheet itself has (not the screen): full table, compact table, or cards */
-const FULL_AT = 1100;
+const FULL_AT = 920;
 const COMPACT_AT = 740;
 type Layout = "full" | "compact" | "cards";
 const PACK_MODE_KEY = "ck-count-pack-mode";
@@ -480,7 +482,7 @@ function DesktopRow({
         </>
       )}
       <span className="flex justify-end">
-        <span className="flex h-10 w-[96px] items-center overflow-hidden rounded-lg border border-input bg-background">
+        <span className="flex h-10 w-[88px] items-center overflow-hidden rounded-lg border border-input bg-background">
           <input
             data-noflow=""
             aria-label={`ของเสีย ${sku.name}`}
@@ -498,7 +500,7 @@ function DesktopRow({
       </span>
       <span className={cn(num, "font-semibold", row.calculatedBalance < 0 && "text-destructive")}>{salesIn ? n0(row.calculatedBalance) : "—"}</span>
       <span className="flex justify-end">
-        <span data-tour={first ? "count-box" : undefined} className={cn("flex h-10 w-[140px] items-center overflow-hidden rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring", row.physicalCount !== null ? "border-[1.5px] border-foreground" : "border-input bg-secondary/40")}>
+        <span data-tour={first ? "count-box" : undefined} className={cn("flex h-10 w-[120px] items-center overflow-hidden rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring", row.physicalCount !== null ? "border-[1.5px] border-foreground" : "border-input bg-secondary/40")}>
           <input
             aria-label={`นับได้ ${sku.name}`}
             inputMode="decimal"
