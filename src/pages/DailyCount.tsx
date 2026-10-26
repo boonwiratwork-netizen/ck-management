@@ -352,8 +352,10 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
         </Button>
       </div>
 
-      <div className={cn("grid grid-cols-1 gap-6", "lg:grid-cols-[320px_minmax(0,1fr)]")}>
-        <div className={cn("min-w-0", !isHome && "hidden lg:block")}>
+      {/* While counting, the left panel steps aside unless the screen is very wide, so the
+          count table gets the room (a 1280px laptop with the side menu open has ~900px) */}
+      <div className={cn("grid grid-cols-1 gap-6", isHome ? "lg:grid-cols-[320px_minmax(0,1fr)]" : "2xl:grid-cols-[320px_minmax(0,1fr)]")}>
+        <div className={cn("min-w-0", !isHome && "hidden 2xl:block")}>
           {branchId && (
             <CountHome
               date={date}
@@ -380,7 +382,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
         </div>
         <div className={cn("min-w-0", isHome && "hidden lg:block")}>
           {!isHome && (
-            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground lg:hidden">
+            <button type="button" onClick={() => go("")} className="-ml-2 mb-2 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground 2xl:hidden">
               <ArrowLeft className="h-4 w-4" /> นับสต๊อก · {thaiDay(date)}
             </button>
           )}

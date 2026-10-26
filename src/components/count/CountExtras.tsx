@@ -58,7 +58,7 @@ function ArrangeRow({ sku }: { sku: SKU }) {
       <button type="button" aria-label={`ลาก ${sku.name}`} className="flex h-11 w-11 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-5 w-5" />
       </button>
-      <span className="min-w-0 flex-1 truncate text-[15px]">{sku.name}</span>
+      <span className="min-w-0 flex-1 break-words py-2 text-[15px] leading-snug">{sku.name}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{zoneLabel(zoneOf(sku))}</span>
     </li>
   );

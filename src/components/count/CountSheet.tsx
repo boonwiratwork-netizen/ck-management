@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const n0 = (n: number) => Math.round(n).toLocaleString();
-const GRID = "grid grid-cols-[minmax(0,1fr)_80px_80px_100px_110px_100px_150px_120px] items-center gap-3";
+// The name column never goes below 220px: names are what people count by
+const GRID = "grid grid-cols-[minmax(220px,1fr)_80px_80px_100px_110px_100px_150px_120px] items-center gap-3";
+// Less room (a laptop with the side menu open, Windows zoom 125–150%): opening /
+// received / used move under the name, the boxes and the result keep their columns
+const GRID_COMPACT = "grid grid-cols-[minmax(200px,1fr)_104px_96px_150px_96px] items-center gap-3";
+/** Room the sheet itself has (not the screen): full table, compact table, or cards */
+const FULL_AT = 1100;
+const COMPACT_AT = 740;
+type Layout = "full" | "compact" | "cards";
 const PACK_MODE_KEY = "ck-count-pack-mode";
 const readPackMode = (): Record<string, boolean> => {
   try {
@@ -64,14 +72,23 @@ export function CountSheet({
   const [packMode, setPackMode] = useState<Record<string, boolean>>(readPackMode);
   const listRef = useRef<HTMLUListElement>(null);
   const focusFirstOnZone = useRef(false);
-  // Computers get the old table's columns (one line per product); phones get cards
-  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
+  // The layout follows the room this sheet has, not the screen: with the side menu
+  // and the panel on the left, a 1280px laptop leaves the table ~600px and a fixed
+  // 8-column table squeezed the names to nothing
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<Layout>(() => (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "compact" : "cards"));
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const on = () => setWide(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      setLayout(w >= FULL_AT ? "full" : w >= COMPACT_AT ? "compact" : "cards");
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
+  const wide = layout !== "cards";
+  const grid = layout === "full" ? GRID : GRID_COMPACT;
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = words.length
@@ -128,7 +145,7 @@ export function CountSheet({
     });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         {zoned ? (
           <div role="tablist" data-tour="count-zones" className="grid flex-1 grid-cols-3 gap-1.5">
@@ -181,11 +198,15 @@ export function CountSheet({
       {!salesIn && <div className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">ยังไม่ได้นำเข้ายอดขายวันนี้ นับได้ตามปกติ แต่คงเหลือกับขาด/เกินจะยังไม่ถูก ตัวเลขจะอัปเดตเองหลังนำเข้า</div>}
 
       {wide && (
-        <div className={cn(GRID, "rounded-t-2xl border border-b-0 border-border bg-secondary px-4 py-2.5 text-xs font-semibold text-muted-foreground")}>
+        <div className={cn(grid, "rounded-t-2xl border border-b-0 border-border bg-secondary px-4 py-2.5 text-xs font-semibold text-muted-foreground")}>
           <span>สินค้า</span>
-          <span className="text-right">ยกมา</span>
-          <span className="text-right">รับเข้า</span>
-          <span className="text-right">ใช้ (ตัด BOM)</span>
+          {layout === "full" && (
+            <>
+              <span className="text-right">ยกมา</span>
+              <span className="text-right">รับเข้า</span>
+              <span className="text-right">ใช้ (ตัด BOM)</span>
+            </>
+          )}
           <span className="text-right">ของเสีย</span>
           <span className="text-right">คงเหลือ</span>
           <span className="text-right text-foreground">นับได้</span>
@@ -197,6 +218,7 @@ export function CountSheet({
           <DesktopRow
             key={l.row.id}
             line={l}
+            compact={layout === "compact"}
             first={idx === 0}
             locked={locked}
             salesIn={salesIn}
@@ -409,6 +431,7 @@ function CountRow({
 /** One product as a table line (computers): the old columns, two boxes, Enter flows down */
 function DesktopRow({
   line,
+  compact,
   first,
   locked,
   salesIn,
@@ -418,6 +441,8 @@ function DesktopRow({
   onOpenCard,
 }: {
   line: SheetLine;
+  /** Opening / received / used shown under the name instead of in columns */
+  compact: boolean;
   first: boolean;
   locked: boolean;
   salesIn: boolean;
@@ -431,19 +456,29 @@ function DesktopRow({
   const big = isBigDifference(row, sku.packSize || 1);
   const num = "text-right font-mono text-sm tabular-nums";
   return (
-    <li className={cn(GRID, "px-4 py-2", big && "bg-warning-soft/40")}>
+    <li className={cn(compact ? GRID_COMPACT : GRID, "px-4 py-2", big && "bg-warning-soft/40")}>
+      {/* The whole name, on as many lines as it needs: never cut */}
       <span className="min-w-0">
-        <button type="button" onClick={() => onOpenCard(sku.id)} className="block max-w-full truncate text-left text-sm font-semibold hover:underline">
+        <button type="button" onClick={() => onOpenCard(sku.id)} className="block max-w-full break-words text-left text-sm font-semibold leading-snug hover:underline">
           {sku.name}
         </button>
-        <span className="block truncate text-xs text-muted-foreground">
+        <span className="block break-words text-xs text-muted-foreground">
           {sku.skuId} · {sku.usageUom}
           {isPacksMode(sku) && ` · 1 ${sku.packUnit} = ${n0(sku.packSize)}`}
         </span>
+        {compact && (
+          <span className="block font-mono text-xs tabular-nums text-muted-foreground">
+            ยกมา {n0(row.openingBalance)} · รับ {received ? `+${n0(received)}` : "—"} · ใช้ {salesIn ? `−${n0(row.expectedUsage)}` : "รอยอดขาย"}
+          </span>
+        )}
       </span>
-      <span className={num}>{n0(row.openingBalance)}</span>
-      <span className={cn(num, received ? "text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
-      <span className={num}>{salesIn ? `−${n0(row.expectedUsage)}` : <span className="font-sans text-xs text-warning">รอยอดขาย</span>}</span>
+      {!compact && (
+        <>
+          <span className={num}>{n0(row.openingBalance)}</span>
+          <span className={cn(num, received ? "text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
+          <span className={num}>{salesIn ? `−${n0(row.expectedUsage)}` : <span className="font-sans text-xs text-warning">รอยอดขาย</span>}</span>
+        </>
+      )}
       <span className="flex justify-end">
         <span className="flex h-10 w-[96px] items-center overflow-hidden rounded-lg border border-input bg-background">
           <input
