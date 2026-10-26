@@ -77,6 +77,22 @@ describe("summarizeProduct", () => {
     expect(ids(s)).toEqual([]);
   });
 
+  it("a by-product with an empty recipe of its own still comes from its parent (น้ำมันไก่ SM-0002)", () => {
+    const oil = sku("SM-0002", "SM");
+    const ctx = base({
+      skus: [onion, soup, oil],
+      book: {
+        ...base().book,
+        headers: [...base().book.headers, { id: "h2", smSkuId: "SM-0002", bomMode: "simple", batchSize: 0, yieldPercent: 1 }],
+        byproducts: [{ bomHeaderId: "h", skuId: "SM-0002", outputQty: 100, costAllocationPct: 50, tracksInventory: true }],
+      },
+      prices: [price("RM-0027", 0.1), price("SM-0051", 0.005, { supplierId: BOM_SUPPLIER_ID }), price("SM-0002", 0.05, { supplierId: BOM_SUPPLIER_ID })],
+    });
+    const s = summarizeProduct(oil, ctx);
+    expect(s.madeFrom).toEqual(["SM-0051"]);
+    expect(ids(s)).toEqual([]);
+  });
+
   it("a recipe never costed: itself 'not costed yet', and recipes using it don't call it 'no price'", () => {
     // SM-0051 has a recipe but no saved price; SM-0099 uses SM-0051
     const top = sku("SM-0099", "SM");

@@ -123,7 +123,9 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   const spLines = ctx.book.spLines.filter((l) => l.spSkuId === sku.id);
   const parent = ctx.book.byproducts.find((b) => b.tracksInventory && b.skuId === sku.id);
   const parentSm = parent ? ctx.book.headers.find((h) => h.id === parent.bomHeaderId)?.smSkuId : undefined;
-  const recipeLines = header ? ctx.book.lines.filter((l) => l.bomHeaderId === header.id).map((l) => l.rmSkuId) : spLines.length ? spLines.map((l) => l.ingredientSkuId) : parentSm ? [parentSm] : [];
+  const ownLines = header ? ctx.book.lines.filter((l) => l.bomHeaderId === header.id).map((l) => l.rmSkuId) : [];
+  // A by-product with an empty recipe of its own (น้ำมันไก่) still comes from its parent
+  const recipeLines = ownLines.length ? ownLines : spLines.length ? spLines.map((l) => l.ingredientSkuId) : parentSm ? [parentSm] : [];
   const madeFrom = [...new Set(recipeLines)];
   const costs = ctx.recipeCosts ?? allRecipeCosts(ctx.book, ctx.prices);
   const recipeCost = costs.get(sku.id) ?? null;
