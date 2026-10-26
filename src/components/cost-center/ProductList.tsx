@@ -15,8 +15,10 @@ type TypeFilter = "all" | SKUType;
 export function packPriceLabel(s: ProductSummary): string {
   const { sku } = s;
   const pack = sku.packUnit || sku.purchaseUom;
-  if (sku.type === "SM" || sku.type === "SP") return s.recipeCost ? `${baht(s.recipeCost * (sku.packSize || 1))}/${pack || sku.usageUom}` : "";
-  if (s.standard) return `${baht(s.standard.pricePerPurchaseUom)}/${pack}`;
+  // Under ฿1 (a recipe cost per gram) shows 3 decimals, like the cost line under the recipe
+  const amount = (n: number) => baht(n, n < 1 ? 3 : 2);
+  if (sku.type === "SM" || sku.type === "SP") return s.recipeCost ? `${amount(s.recipeCost * (sku.packSize || 1))}/${pack || sku.usageUom}` : "";
+  if (s.standard) return `${amount(s.standard.pricePerPurchaseUom)}/${pack}`;
   return "";
 }
 
