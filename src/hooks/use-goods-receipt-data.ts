@@ -57,7 +57,8 @@ export function useGoodsReceiptData(enabled = true) {
   }, [fetchReceipts]);
 
   const getStdUnitPrice = (skuId: string, supplierId: string, prices: Price[]): number => {
-    const active = prices.find(p => p.skuId === skuId && p.supplierId === supplierId && p.isActive);
+    // This supplier's own price, else the item's standard (newest active)
+    const active = prices.find(p => p.skuId === skuId && p.supplierId === supplierId && p.isActive) ?? prices.find(p => p.skuId === skuId && p.isActive);
     return active?.pricePerUsageUom ?? 0;
   };
 

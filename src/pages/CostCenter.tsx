@@ -17,6 +17,7 @@ import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { ProductList, type ProductFilter } from "@/components/cost-center/ProductList";
 import { ProductWorkspace, type ProductActions } from "@/components/cost-center/ProductWorkspace";
 import { NewProductForm } from "@/components/cost-center/NewProductForm";
@@ -50,6 +51,8 @@ interface Props {
   addSupplier: (data: Omit<Supplier, "id">) => Promise<Supplier | null>;
   updateSupplier: (id: string, data: Partial<Omit<Supplier, "id">>) => Promise<boolean>;
   onNavigate: (tab: TabKey) => void;
+  /** Whether this role can open a page (the old tools are linked only when it can) */
+  canOpen: (tab: TabKey) => boolean;
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
 }
@@ -106,6 +109,13 @@ export default function CostCenterPage(props: Props) {
 
   const loaded = useKitchenBills(!props.demoBills);
   const bills = props.demoBills ?? loaded.bills;
+  const branchBought = props.demoBills ? new Set<string>() : loaded.branchBought;
+  // Items an active modifier rule adds or swaps in count as used
+  const ruleSkuIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of props.menuSetup.rules) if (r.isActive) for (const id of [r.skuId, r.swapSkuId]) if (id) set.add(id);
+    return set;
+  }, [props.menuSetup.rules]);
   const book: RecipeBook = useMemo(
     () => ({
       headers: props.bomHeaders.map((h) => ({ id: h.id, smSkuId: h.smSkuId, bomMode: h.bomMode, batchSize: h.batchSize, yieldPercent: h.yieldPercent })),
@@ -125,10 +135,12 @@ export default function CostCenterPage(props: Props) {
       recipeCosts,
       menuLines: props.menuLines,
       activeMenuIds: new Set(props.menus.filter((m) => m.status === "Active").map((m) => m.id)),
-      bills: bills ?? [],
+      bills: bills ?? null,
+      branchBought,
+      ruleSkuIds,
     };
     return skus.map((s) => summarizeProduct(s, ctx));
-  }, [skus, prices, book, recipeCosts, props.menuLines, props.menus, bills]);
+  }, [skus, prices, book, recipeCosts, props.menuLines, props.menus, bills, branchBought, ruleSkuIds]);
   const stale = summaries.filter((s) => s.checks.some((c) => c.id === "stale-cost")).length;
   const [recosting, setRecosting] = useState(false);
   const recostAll = async () => {
@@ -147,7 +159,9 @@ export default function CostCenterPage(props: Props) {
     if (sku) go(`p/${sku.skuId}`, { state: { from: hash } });
   };
   const openMenu = (m: Menu) => go(m.menuCode, { state: { from: hash } });
-  const backTo = (fallback: string) => go((location.state as { from?: string } | null)?.from ?? fallback);
+  // Back = the browser's back when we came from inside Cost Center (so the phone's back
+  // button agrees), else the list
+  const backTo = (fallback: string) => ((location.state as { from?: string } | null)?.from !== undefined ? navigate(-1) : go(fallback));
 
   const header = (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -174,10 +188,30 @@ export default function CostCenterPage(props: Props) {
     </div>
   );
 
+  // From the menu side: prices live in Products here; pages this role can't open say
+  // so instead of throwing them out of Cost Center
+  const menuNavigate = (tab: TabKey) => {
+    if (tab === "price") return go("products");
+    if (!props.canOpen(tab)) return toast.info("หน้านี้เปิดได้เฉพาะ management");
+    props.onNavigate(tab);
+  };
+  const tools: { tab: TabKey; label: string }[] = [
+    { tab: "sku-categories", label: "หมวดสินค้า" },
+    { tab: "sku", label: "นำเข้า/ส่งออกสินค้า (CSV)" },
+    { tab: "price", label: "ราคาทั้งหมด · ส่งออก Excel" },
+    { tab: "supplier", label: "นำเข้าซัพพลายเออร์ (CSV)" },
+    { tab: "bom", label: "สูตร SM หลายขั้นตอน · ผลพลอยได้" },
+    { tab: "sp-bom", label: "นำเข้าสูตร SP (CSV)" },
+    { tab: "menu-master", label: "นำเข้าเมนู (CSV)" },
+    { tab: "menu-bom", label: "สูตรเมนูแบบตาราง" },
+    { tab: "modifier-rules", label: "กฎพิเศษทั้งหมด" },
+  ].filter((t) => props.canOpen(t.tab as TabKey)) as { tab: TabKey; label: string }[];
+
   if (!productSide && !supplierSide) {
     return (
       <MenuSetupPage
         {...props.menuSetup}
+        onNavigate={menuNavigate}
         header={header}
         listHash="menus"
         overviewExtra={
@@ -196,6 +230,18 @@ export default function CostCenterPage(props: Props) {
               )}
             </div>
             <ProductOverview summaries={summaries} onOpenProduct={openProduct} />
+            {tools.length > 0 && (
+              <details className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือเดิม (นำเข้าไฟล์ · หมวด · สูตรหลายขั้นตอน)</summary>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {tools.map((t) => (
+                    <Button key={t.tab} variant="outline" className="h-10" onClick={() => props.onNavigate(t.tab)}>
+                      {t.label}
+                    </Button>
+                  ))}
+                </div>
+              </details>
+            )}
             <h3 className="mt-1 text-base font-semibold">เมนู</h3>
           </section>
         }
@@ -242,6 +288,7 @@ export default function CostCenterPage(props: Props) {
               suppliers={props.suppliers}
               categories={props.categories}
               addSku={props.addSku}
+              updateSku={props.productActions.updateSku}
               addPrice={props.productActions.addPrice}
               onCreated={(s) => go(`p/${s.skuId}`, { replace: true })}
               onOpenExisting={(s) => go(`p/${s.skuId}`)}

@@ -17,7 +17,7 @@ import { Plus, Trash2, Edit2, Search, Package, DollarSign, Check, X, Maximize2, 
 import { exportSpBom } from "@/lib/bom-export";
 import { StatusDot } from "@/components/ui/status-dot";
 import { toast } from "sonner";
-import { syncBomPrice } from "@/lib/bom-price-sync";
+
 
 interface SpBomPageProps {
   spBomData: {
@@ -33,6 +33,8 @@ interface SpBomPageProps {
   prices: Price[];
   readOnly?: boolean;
   onPricesRefresh?: () => void;
+  /** Work recipe costs out again after a change (Cost Center's engine) */
+  onRecost?: (...skuIds: string[]) => Promise<void>;
 }
 
 const CSV_COLUMNS: CSVColumnDef[] = [
@@ -43,7 +45,7 @@ const CSV_COLUMNS: CSVColumnDef[] = [
   { key: "batch_yield_qty", label: "batch_yield_qty", required: true },
 ];
 
-export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh }: SpBomPageProps) {
+export default function SpBomPage({ spBomData, skus, prices, readOnly = false, onPricesRefresh, onRecost }: SpBomPageProps) {
   const { isManagement, isCkManager } = useAuth();
   const { t } = useLanguage();
   // CK managers edit recipes too (Cost Center, 26 Oct 2026)
@@ -109,13 +111,11 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     [spSkus, spBomData],
   );
 
-  // Sync SP BOM price
+  // After a change: the one cost engine works every recipe out again from the saved
+  // rows (the old code saved the total from before the change, one edit behind)
   const syncSpPrice = async () => {
-    if (!selectedSpId || totalCostPerUnit <= 0) return;
-    const sku = getSkuById(selectedSpId);
-    await syncBomPrice(selectedSpId, totalCostPerUnit);
-    toast.success(`SP BOM saved · ${sku?.skuId} price updated to ฿${totalCostPerUnit.toFixed(4)}/unit`);
-    onPricesRefresh?.();
+    if (!selectedSpId) return;
+    await onRecost?.(selectedSpId);
   };
 
   const formUom = formSkuId ? (getSkuById(formSkuId)?.usageUom ?? "") : "";
@@ -177,7 +177,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
       setFormQty(0);
       setFormYieldPct(100);
     }
-    setTimeout(() => syncSpPrice(), 300);
+    syncSpPrice();
   };
 
   const cancelEdit = () => {
@@ -203,7 +203,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
     await spBomData.updateBatchYield(selectedSpId, yieldQty, currentBatchYieldUom);
     setEditingYield(false);
     toast.success("Batch yield updated");
-    setTimeout(() => syncSpPrice(), 300);
+    syncSpPrice();
   };
 
   // CSV import
@@ -293,6 +293,8 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
       });
 
       let spCount = 0;
+
+      const importedSpIds: string[] = [];
       let rowCount = 0;
       let failCount = 0;
 
@@ -350,19 +352,20 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
           const yieldPct = Number((row["yield_pct"] ?? "100").trim()) || 100;
           return sum + calcEffQty(qty, yieldPct) * getActiveCost(ingredientSku.id);
         }, 0);
-        if (batchYieldQty > 0 && totalCost > 0) {
-          await syncBomPrice(spSku.id, totalCost / batchYieldQty);
-        }
+        void totalCost;
 
         spCount++;
+        importedSpIds.push(spSku.id);
       }
+      // Costs worked out once for everything imported (same engine as everywhere)
+      if (importedSpIds.length) await onRecost?.(...importedSpIds);
 
       toast.success(
         `Imported: ${spCount} SP items, ${rowCount} rows inserted${failCount > 0 ? `, ${failCount} failed` : ""}`,
       );
       onPricesRefresh?.();
     },
-    [skus, spBomData, prices, onPricesRefresh],
+    [skus, spBomData, prices, onPricesRefresh, onRecost],
   );
 
   const previewEffQty = calcEffQty(formQty, formYieldPct);
@@ -814,7 +817,7 @@ export default function SpBomPage({ spBomData, skus, prices, readOnly = false, o
             await spBomData.deleteLine(deleteConfirm.id);
             toast.success("Ingredient removed");
             setDeleteConfirm(null);
-            setTimeout(() => syncSpPrice(), 300);
+            syncSpPrice();
           }
         }}
       />

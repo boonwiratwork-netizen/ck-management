@@ -193,6 +193,9 @@ const Index = () => {
   const { tab: pathTab } = useParams<{ tab?: string }>();
   // Page comes from the URL path (/menu-bom); old links with ?tab= still work
   const requestedTab = useMemo<TabKey | null>(() => {
+    // Menu Setup moved into Cost Center: old links land on the same view there (the
+    // address is then rewritten by the canonical-path effect below)
+    if (pathTab === "menu-setup") return "cost-center";
     if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
     const legacy = new URLSearchParams(window.location.search).get("tab");
     return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
@@ -200,10 +203,6 @@ const Index = () => {
   const activeTab: TabKey =
     requestedTab && (!role || canAccessTab(role, requestedTab)) ? requestedTab : getDefaultTab(role);
 
-  // Menu Setup moved into Cost Center: old links land on the same view there
-  useEffect(() => {
-    if (pathTab === "menu-setup") navigate(`/cost-center${window.location.hash || "#menus"}`, { replace: true });
-  }, [pathTab, navigate]);
 
   // Kitchen stock/production data (≈20 requests, the slowest ones) is only used on
   // kitchen pages. Load it the first time one is opened, then keep it; branch pages
@@ -447,10 +446,13 @@ const Index = () => {
     }
   };
 
-  const handleSubmit = (data: Omit<SKU, "id" | "skuId">, newSkuCode?: string) => {
+  const handleSubmit = async (data: Omit<SKU, "id" | "skuId">, newSkuCode?: string) => {
     if (editingSku) {
-      updateSku(editingSku.id, data, newSkuCode);
+      const before = editingSku;
+      if (!(await updateSku(before.id, data, newSkuCode))) return;
       toast.success(newSkuCode ? `SKU updated — code changed to ${newSkuCode}` : "SKU updated");
+      // Pack size / converter changed: its prices per usage unit and every recipe on it follow
+      if (data.packSize !== before.packSize || data.converter !== before.converter) await priceData.repriceUnits({ ...before, ...data });
     } else {
       addSku(data, newSkuCode);
       toast.success("SKU added");
@@ -549,7 +551,7 @@ const Index = () => {
                     <SKUTable
                       skus={skus}
                       onEdit={isManagement || role === "ck_manager" ? handleEdit : undefined}
-                      onDelete={isManagement || role === "ck_manager" ? handleDeleteRequest : undefined}
+                      onDelete={isManagement ? handleDeleteRequest : undefined}
                       onToggleDistributable={
                         isManagement || role === "ck_manager"
                           ? (id, value) => updateSku(id, { isDistributable: value })
@@ -576,6 +578,7 @@ const Index = () => {
                     prices={priceData.prices}
                     readOnly={readOnly}
                     onPricesRefresh={priceData.refreshPrices}
+                    onRecost={priceData.recostPrices}
                     byproductData={byproductData}
                   />
                 ) : activeTab === "receipt" ? (
@@ -682,6 +685,7 @@ const Index = () => {
                     addSupplier={supplierData.addSupplier}
                     updateSupplier={supplierData.updateSupplier}
                     onNavigate={handleTabChange}
+                    canOpen={(t) => canAccessTab(role, t)}
                   />
                 ) : activeTab === "menu-setup" ? (
                   <MenuSetupPage
@@ -718,6 +722,7 @@ const Index = () => {
                     prices={priceData.prices}
                     readOnly={readOnly}
                     onPricesRefresh={priceData.refreshPrices}
+                    onRecost={priceData.recostPrices}
                   />
                 ) : activeTab === "modifier-rules" ? (
                   <ModifierRulesPage

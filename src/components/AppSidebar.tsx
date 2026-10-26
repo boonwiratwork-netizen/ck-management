@@ -235,7 +235,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
       return [
         { key: "dashboard", label: "ภาพรวม", icon: LayoutDashboard },
         { key: "food-cost", label: "ต้นทุน", icon: PieChart },
-        { key: "cost-center", label: "Cost", icon: Layers },
+        { key: "cost-center", label: "ตั้งค่า", icon: Layers },
         { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
       ];
   }

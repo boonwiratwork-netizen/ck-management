@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { KindBadge } from "./parts";
 
 const GROUPS: { id: ProductCheck["id"]; level: ProductLevel; title: string; why: string }[] = [
-  { id: "multi-price", level: "error", title: "มีราคาใช้งานหลายเจ้า", why: "เลือกเจ้าหลัก · ไม่งั้นแต่ละหน้าอาจคิดต้นทุนจากคนละเจ้า" },
   { id: "inactive-used", level: "error", title: "ปิดใช้แล้ว แต่ยังอยู่ในสูตร", why: "สูตรยังตัดของที่ไม่ได้ใช้แล้ว" },
   { id: "no-price", level: "error", title: "ใช้ในสูตรแต่ไม่มีราคา", why: "ต้นทุนเป็น ฿0 ทุกที่ที่ใช้" },
   { id: "no-recipe", level: "error", title: "ของที่ทำเองยังไม่มีสูตร", why: "ผลิตแล้วไม่ตัดวัตถุดิบ" },

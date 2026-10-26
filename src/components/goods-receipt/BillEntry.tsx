@@ -92,7 +92,8 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
   // whose name was typed, else the product's usual supplier (as the old page did)
   const placeSupplier = suppliers.find((s) => s.name.trim().toLowerCase() === place.trim().toLowerCase());
   const supplierFor = (skuId: string) => supplierId ?? placeSupplier?.id ?? anyActive.get(skuId)?.supplierId ?? "";
-  const stdFor = (skuId: string) => activeFor.get(`${skuId}|${supplierFor(skuId)}`)?.pricePerUsageUom ?? 0;
+  // This supplier's own price; if it has none, the item's standard (newest active)
+  const stdFor = (skuId: string) => (activeFor.get(`${skuId}|${supplierFor(skuId)}`) ?? prices.find((p) => p.skuId === skuId && p.isActive))?.pricePerUsageUom ?? 0;
 
   const frequent = useMemo(() => (supplierId ? frequentFor(receipts, supplierId).filter((f) => ["RM", "PK"].includes(skuOf.get(f.skuId)?.type ?? "")) : []), [receipts, supplierId, skuOf]);
   const lastBuy = useMemo(() => new Map(frequent.map((f) => [f.skuId, f.last])), [frequent]);

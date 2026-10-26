@@ -186,13 +186,16 @@ export function affectedRecipes(changed: Iterable<string>, book: RecipeBook): st
   for (const id of reach) madeFrom.set(id, []);
   for (const [ing, made] of usedIn) for (const m of made) if (reach.has(m) && reach.has(ing)) madeFrom.get(m)!.push(ing);
   const order: string[] = [];
-  const state = new Map<string, "doing" | "done">();
+  // "failed" = in a loop or built on one: left out, and so is everything built on it
+  const state = new Map<string, "doing" | "done" | "failed">();
   const visit = (id: string): boolean => {
-    if (state.get(id) === "done") return true;
-    if (state.get(id) === "doing") return false; // a loop
+    const st = state.get(id);
+    if (st === "done") return true;
+    if (st === "failed" || st === "doing") return false;
     state.set(id, "doing");
-    const ok = madeFrom.get(id)!.every(visit);
-    state.set(id, "done");
+    let ok = true;
+    for (const ing of madeFrom.get(id)!) if (!visit(ing)) ok = false;
+    state.set(id, ok ? "done" : "failed");
     if (ok) order.push(id);
     return ok;
   };
@@ -209,25 +212,27 @@ export function recost(changed: Iterable<string>, book: RecipeBook, prices: Map<
   const current = new Map(prices);
   const out = new Map<string, number>();
   const priceOf = (id: string) => current.get(id) ?? 0;
+  // Has a price at all (฿0 counts: water, a free item, a by-product given 0%)
+  const priced = (id: string) => current.has(id);
   for (const id of affectedRecipes(changed, book)) {
     const header = book.headers.find((h) => h.smSkuId === id);
     const spLines = book.spLines.filter((l) => l.spSkuId === id);
     // A by-product only: its parent (earlier in the order) already set its cost
     if (!header && !spLines.length) continue;
+    const lines = header ? book.lines.filter((l) => l.bomHeaderId === header.id) : [];
+    // An ingredient with no price at all would make the cost look lower than it is: keep
+    // the last cost (Cost Center shows the missing price) rather than save a wrong one
+    if ((header ? lines.map((l) => l.rmSkuId) : spLines.map((l) => l.ingredientSkuId)).some((ing) => !priced(ing))) continue;
     let cost: number;
     if (header) {
-      const r = smCost(
-        header,
-        book.lines.filter((l) => l.bomHeaderId === header.id),
-        book.steps.filter((s) => s.bomHeaderId === header.id),
-        book.byproducts.filter((b) => b.bomHeaderId === header.id),
-        priceOf,
-      );
+      const r = smCost(header, lines, book.steps.filter((s) => s.bomHeaderId === header.id), book.byproducts.filter((b) => b.bomHeaderId === header.id), priceOf);
       cost = r.costPerUnit;
-      for (const b of r.byproducts) {
-        current.set(b.skuId, b.costPerUnit);
-        out.set(b.skuId, b.costPerUnit);
-      }
+      // By-products share a real batch cost only
+      if (r.batchCost > 0 && r.output > 0)
+        for (const b of r.byproducts) {
+          current.set(b.skuId, b.costPerUnit);
+          out.set(b.skuId, b.costPerUnit);
+        }
     } else {
       cost = spCost(spLines, priceOf).costPerUnit;
     }

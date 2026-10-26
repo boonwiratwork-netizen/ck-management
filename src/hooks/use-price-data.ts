@@ -56,11 +56,15 @@ export function usePriceData() {
     return (purchasePrice / sku.packSize) / sku.converter;
   };
 
-  // One standard price per item: once a price is saved as active, the item's other
-  // prices are switched off, whichever supplier they're from. Done after the save
-  // succeeds, so a failed save never leaves the item with no price.
-  const keepOnlyActive = async (skuId: string, keepId: string) => {
-    const { error } = await supabase.from('prices').update({ is_active: false }).eq('sku_id', skuId).eq('is_active', true).neq('id', keepId);
+  // One active price per item AND supplier: receiving a bill checks against that
+  // supplier's own price. The item's standard price (for cost) is the one set most
+  // recently — what every page already reads (newest first). Done after the save
+  // succeeds, so a failed save never leaves the item with no price; in the database
+  // under a lock when keep_only_active_price exists (two people at once).
+  const keepOnlyActive = async (skuId: string, supplierId: string, keepId: string) => {
+    const { error: rpcError } = await supabase.rpc('keep_only_active_price' as never, { p_sku: skuId, p_supplier: supplierId, p_keep: keepId } as never);
+    if (!rpcError) return;
+    const { error } = await supabase.from('prices').update({ is_active: false }).eq('sku_id', skuId).eq('supplier_id', supplierId).eq('is_active', true).neq('id', keepId);
     if (error) toast.error('ปิดราคาเก่าไม่สำเร็จ: ' + error.message);
   };
 
@@ -78,7 +82,7 @@ export function usePriceData() {
     }).select().single();
 
     if (error || !row) { toast.error('Failed to add price: ' + (error?.message ?? '')); return false; }
-    if (data.isActive) await keepOnlyActive(data.skuId, row.id);
+    if (data.isActive) await keepOnlyActive(data.skuId, data.supplierId, row.id);
     // Imports add many prices, then work costs out once (recostPrices)
     if (!opts?.batch) await afterPriceChange(data.skuId);
     return true;
@@ -99,7 +103,7 @@ export function usePriceData() {
     }).eq('id', id);
 
     if (error) { toast.error('Failed to update price: ' + error.message); return false; }
-    if (data.isActive) await keepOnlyActive(data.skuId, id);
+    if (data.isActive) await keepOnlyActive(data.skuId, data.supplierId, id);
     // Moved to another item: the old one's recipes need costing again too
     await afterPriceChange(...new Set([data.skuId, before].filter((x): x is string => !!x)));
     return true;

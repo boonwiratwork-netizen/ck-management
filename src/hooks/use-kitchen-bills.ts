@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { toLocalDateStr } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Bill } from "@/lib/product-health";
 
 export const BILL_WINDOW_DAYS = 90;
@@ -9,6 +10,8 @@ export const BILL_WINDOW_DAYS = 90;
 /** Kitchen goods receipts of the last 90 days, for Cost Center's price checks (read-only) */
 export function useKitchenBills(enabled: boolean) {
   const [bills, setBills] = useState<Bill[] | null>(null);
+  /** Items any branch received in the last 90 days (so they are not "not used") */
+  const [branchBought, setBranchBought] = useState<Set<string> | null>(null);
   const load = useCallback(async () => {
     const since = toLocalDateStr(new Date(Date.now() - BILL_WINDOW_DAYS * 86400000));
     const { data, error } = await fetchAllRows<any>((f, t) =>
@@ -21,7 +24,14 @@ export function useKitchenBills(enabled: boolean) {
         .order("id")
         .range(f, t),
     );
-    if (error) return;
+    const branch = await fetchAllRows<any>((f, t) => supabase.from("branch_receipts").select("id, sku_id").gte("receipt_date", since).order("id").range(f, t));
+    // Unknown (read failed) stays null: nothing is called "not used" on a guess
+    setBranchBought(branch.error ? null : new Set(branch.data.map((r) => r.sku_id)));
+    if (error) {
+      // Stays unknown (null): no bill checks and nothing called "not used" on a guess
+      toast.error("โหลดบิลรับของไม่สำเร็จ · ราคาในบิลยังไม่ขึ้น");
+      return;
+    }
     setBills(
       data.map((r) => ({
         skuId: r.sku_id,
@@ -36,5 +46,5 @@ export function useKitchenBills(enabled: boolean) {
   useEffect(() => {
     if (enabled && bills === null) load();
   }, [enabled, bills, load]);
-  return { bills, reload: load };
+  return { bills, branchBought, reload: load };
 }

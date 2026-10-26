@@ -120,6 +120,12 @@ describe("affectedRecipes / recost", () => {
     expect(out.get("b")).toBe(2.5); // (50 × 3 + 50 × 2) / 100, with a's last cost
   });
 
+  it("an ingredient with no price: the recipe keeps its last cost instead of saving a lower one", () => {
+    const out = recost(["r"], book, new Map([["a", 1], ["b", 1], ["p", 1]])); // r has no price
+    expect(out.has("a")).toBe(false);
+    expect(out.has("b")).toBe(false);
+  });
+
   it("recipes that loop are left out instead of hanging", () => {
     const loop: RecipeBook = { ...book, lines: [...book.lines, { bomHeaderId: "ha", rmSkuId: "b", qtyPerBatch: 1 }] };
     const order = affectedRecipes(["r"], loop);

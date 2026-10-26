@@ -72,10 +72,13 @@ export async function computeCkStockValueByType(
     .from("prices")
     .select("sku_id, price_per_usage_uom")
     .eq("is_active", true)
-    .in("sku_id", skuIds);
+    .in("sku_id", skuIds)
+    .order("created_at", { ascending: false })
+    .order("id");
+  // The standard: newest active price (one per supplier can be active)
   const priceBySkuId: Record<string, number> = {};
   // deno-lint-ignore no-explicit-any
-  for (const p of (priceRows || []) as any[]) priceBySkuId[p.sku_id] = Number(p.price_per_usage_uom) || 0;
+  for (const p of (priceRows || []) as any[]) if (!(p.sku_id in priceBySkuId)) priceBySkuId[p.sku_id] = Number(p.price_per_usage_uom) || 0;
 
   const { data: adjustments } = await supabase
     .from("stock_adjustments")

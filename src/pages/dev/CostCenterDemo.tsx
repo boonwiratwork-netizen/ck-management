@@ -172,6 +172,7 @@ export default function CostCenterDemo() {
         }}
         updateSupplier={async (id, patch) => (setSuppliers((p) => p.map((s) => (s.id === id ? { ...s, ...patch } : s))), true)}
         onNavigate={() => {}}
+        canOpen={() => true}
         demoBills={bills}
         recipeActions={{
           addHeader: async (data) => {

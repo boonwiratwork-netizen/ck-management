@@ -7,7 +7,7 @@ import type { Menu } from "@/types/menu";
 import type { SkuCategory } from "@/hooks/use-sku-categories";
 import type { TabKey } from "@/components/AppSidebar";
 import { unitLooksOff, type ProductArea, type ProductCheck, type ProductLevel, type ProductSummary } from "@/lib/product-health";
-import { resolveSm, smCost, spCost, type RecipeBook } from "@/lib/cost-engine";
+import { affectedRecipes, resolveSm, smCost, spCost, type RecipeBook } from "@/lib/cost-engine";
 import { BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -76,7 +76,7 @@ export function ProductWorkspace(props: Props) {
   const made = sku.type === "SM" || sku.type === "SP";
   const problems = summary.checks.filter((c) => c.level === "error" || c.level === "warn").length;
   const [tab, setTab] = useState<WorkTab>(problems ? "health" : made ? "recipe" : "price");
-  const usedCount = summary.usage.inSm.length + summary.usage.inSp.length + summary.usage.inMenus.length;
+  const usedCount = summary.usage.inSm.length + summary.usage.inSp.length + summary.usage.inMenus.length + summary.usage.inRules;
   const supplierName = (id: string) => (id === BOM_SUPPLIER_ID ? "คิดจากสูตร" : props.suppliers.find((s) => s.id === id)?.name ?? "—");
   const pack = sku.packUnit || sku.purchaseUom;
   const lastBill = summary.bills.find((b) => b.unitPrice > 0);
@@ -113,7 +113,7 @@ export function ProductWorkspace(props: Props) {
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
             <button type="button" onClick={onBack} className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-1 rounded-full px-2 text-sm text-primary-foreground/70 hover:text-primary-foreground lg:hidden">
-              <ArrowLeft className="h-4 w-4" /> สินค้าทั้งหมด
+              <ArrowLeft className="h-4 w-4" /> กลับ
             </button>
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
               {sku.skuId} · {KIND_NAME[sku.type]} · {props.categories.find((c) => c.code === sku.category)?.nameTh || sku.category} · {storageLabel(sku.storageCondition)}
@@ -255,7 +255,7 @@ function InfoPanel({ summary, skus, prices, categories, canEdit, actions }: Prop
   const set = <K extends keyof SKU>(k: K, v: SKU[K]) => setForm((f) => ({ ...f, [k]: v }));
   const keys: (keyof SKU)[] = ["name", "category", "storageCondition", "shelfLife", "leadTime", "isDistributable", "status", "purchaseUom", "packUnit", "packSize", "usageUom", "converter", "vat", "specNote"];
   const changed = keys.filter((k) => form[k] !== sku[k]);
-  const used = summary.usage.inSm.length + summary.usage.inSp.length + summary.usage.inMenus.length;
+  const used = summary.usage.inSm.length + summary.usage.inSp.length + summary.usage.inMenus.length + summary.usage.inRules;
   const unitChanged = form.packSize !== sku.packSize || form.converter !== sku.converter;
   const usagePerPack = (form.packSize || 0) * (form.converter || 1);
   const offStill = form.status === "Inactive" && sku.status !== "Inactive" && used > 0;
@@ -263,12 +263,20 @@ function InfoPanel({ summary, skus, prices, categories, canEdit, actions }: Prop
 
   const save = async () => {
     if (invalid) return;
-    // Units changed: does the standard price per usage unit still look like this kind of item?
-    if (unitChanged && summary.standard && !confirmUnit) {
-      const next = summary.standard.pricePerPurchaseUom / form.packSize / form.converter;
-      const off = unitLooksOff(next, form.category, skus, prices, form.usageUom);
-      if (off) {
-        setConfirmUnit(`ราคาจะเป็น ${perUnit(next, form.usageUom)} · ต่างจากของส่วนใหญ่ ${off.ratio > 1 ? Math.round(off.ratio) : `1/${Math.round(1 / off.ratio)}`} เท่า (ส่วนใหญ่ราวๆ ${perUnit(off.median, form.usageUom)}) · 1 ${form.packUnit || form.purchaseUom} = ${usagePerPack.toLocaleString()} ${form.usageUom} จริงไหม?`);
+    // Units changed on an item already in recipes: its recipe quantities stay, its price
+    // per usage unit moves, so every recipe and menu on it changes cost — ask first
+    // ...and does the price per usage unit still look like this kind of item? Both
+    // warnings go in one question.
+    if (unitChanged && !confirmUnit) {
+      const notes: string[] = [];
+      if (used > 0) notes.push(`ตัวนี้อยู่ใน ${used} สูตร/เมนู · ปริมาณในสูตรไม่เปลี่ยน แต่ราคาต่อ ${form.usageUom} จะเปลี่ยน ต้นทุนสูตรและเมนูที่ใช้จะเปลี่ยนตาม`);
+      if (summary.standard) {
+        const next = summary.standard.pricePerPurchaseUom / form.packSize / form.converter;
+        const off = unitLooksOff(next, form.category, skus, prices, form.usageUom);
+        if (off) notes.push(`ราคาจะเป็น ${perUnit(next, form.usageUom)} · ต่างจากของส่วนใหญ่ ${off.ratio > 1 ? Math.round(off.ratio) : `1/${Math.round(1 / off.ratio)}`} เท่า (ส่วนใหญ่ราวๆ ${perUnit(off.median, form.usageUom)})`);
+      }
+      if (notes.length) {
+        setConfirmUnit(`${notes.join("\n\n")}\n\n1 ${form.packUnit || form.purchaseUom} = ${usagePerPack.toLocaleString()} ${form.usageUom} ถูกแล้วใช่ไหม?`);
         return;
       }
     }
@@ -376,7 +384,7 @@ function InfoPanel({ summary, skus, prices, categories, canEdit, actions }: Prop
       <ConfirmDialog
         open={!!confirmUnit}
         onOpenChange={(o) => !o && setConfirmUnit(null)}
-        title="หน่วยดูแปลกๆ"
+        title="เช็คหน่วยก่อนบันทึก"
         description={confirmUnit ?? ""}
         confirmLabel="ถูกแล้ว บันทึก"
         cancelLabel="กลับไปแก้"
@@ -409,7 +417,6 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
   const [adding, setAdding] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [amount, setAmount] = useState("");
-  const [makeStandard, setMakeStandard] = useState(true);
   const [confirmed, setConfirmed] = useState(false);
 
   const recent = summary.bills.filter((b) => b.unitPrice > 0).slice(0, 3);
@@ -427,9 +434,11 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
     );
     setBusy(false);
   };
-  const makeActive = async (p: Price) => {
+  // The standard is the price set most recently: setting this supplier's price again
+  // (same amount, today) makes it the standard; its old row becomes history
+  const setAsStandard = async (p: Price) => {
     setBusy(true);
-    await actions.updatePrice(p.id, { skuId: p.skuId, supplierId: p.supplierId, pricePerPurchaseUom: p.pricePerPurchaseUom, vat: p.vat, isActive: true, effectiveDate: p.effectiveDate, note: p.note }, sku);
+    await actions.addPrice({ skuId: p.skuId, supplierId: p.supplierId, pricePerPurchaseUom: p.pricePerPurchaseUom, vat: p.vat, isActive: true, effectiveDate: toLocalDateStr(new Date()), note: p.note }, sku);
     setBusy(false);
   };
 
@@ -440,7 +449,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
     if (!supplierId || !(typed > 0) || (odd && !confirmed)) return;
     setBusy(true);
     const ok = await actions.addPrice(
-      { skuId: sku.id, supplierId, pricePerPurchaseUom: typed, vat: sku.vat, isActive: makeStandard || !summary.standard, effectiveDate: toLocalDateStr(new Date()), note: "" },
+      { skuId: sku.id, supplierId, pricePerPurchaseUom: typed, vat: sku.vat, isActive: true, effectiveDate: toLocalDateStr(new Date()), note: "" },
       sku,
     );
     setBusy(false);
@@ -460,7 +469,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
           <AlertTriangle className="h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <div className="font-semibold">
-              บิลล่าสุด {baht(billPerPack(lastBill.unitPrice))}/{pack} · มาตรฐาน {baht(summary.standard!.pricePerPurchaseUom)}
+              บิลล่าสุด {supplierName(lastBill.supplierId)} {baht(billPerPack(lastBill.unitPrice))}/{pack} · ราคาที่ตั้งไว้ {baht((summary.active.find((p) => p.supplierId === lastBill.supplierId) ?? summary.standard)?.pricePerPurchaseUom ?? 0)}
             </div>
             <div className="text-sm text-muted-foreground">ใช้ราคาใหม่แล้ว ระบบคิดต้นทุนสูตรและเมนูที่ใช้ใหม่ให้ทันที</div>
           </div>
@@ -479,7 +488,10 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <h4 className="font-semibold">ราคาจากซัพพลายเออร์</h4>
+          <div>
+            <h4 className="font-semibold">ราคาจากซัพพลายเออร์</h4>
+            <p className="text-sm text-muted-foreground">ต้นทุนคิดจากราคามาตรฐาน · บิลของแต่ละเจ้าเทียบกับราคาของเจ้านั้นเอง</p>
+          </div>
           {canEdit && !adding && (
             <Button variant="outline" className="h-10" onClick={() => setAdding(true)}>
               + ราคาใหม่
@@ -508,14 +520,14 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
               {bySupplier.map((p) => (
                 <tr key={p.id} className="border-t border-border">
                   <td className="px-4 py-2.5">
-                    {p.isActive ? (
-                      <span className="font-semibold text-success">● ใช้ตัวนี้</span>
-                    ) : canEdit ? (
-                      <Button variant="ghost" size="sm" className="h-9 px-2 text-brand" disabled={busy} onClick={() => makeActive(p)}>
-                        ใช้ตัวนี้
+                    {p.id === summary.standard?.id ? (
+                      <span className="font-semibold text-success">● มาตรฐาน</span>
+                    ) : canEdit && p.isActive ? (
+                      <Button variant="ghost" size="sm" className="h-9 px-2 text-brand" disabled={busy} onClick={() => setAsStandard(p)}>
+                        ตั้งเป็นมาตรฐาน
                       </Button>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">{p.isActive ? "ใช้กับบิลเจ้านี้" : "ราคาเก่า"}</span>
                     )}
                   </td>
                   <td className="truncate px-2 py-2.5">
@@ -572,11 +584,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
               </p>
             )}
             <div className="flex flex-wrap items-center gap-3">
-              {summary.standard && (
-                <label className="flex min-h-[44px] items-center gap-2 text-sm">
-                  <Switch checked={makeStandard} onCheckedChange={setMakeStandard} /> ตั้งเป็นราคามาตรฐาน
-                </label>
-              )}
+              <span className="text-sm text-muted-foreground">ราคาที่ตั้งล่าสุดเป็นราคามาตรฐาน</span>
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" className="h-11" onClick={() => setAdding(false)}>
                   ยกเลิก
@@ -610,12 +618,13 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
                   <th className="px-2 py-2 text-left font-medium">เจ้า</th>
                   <th className="px-2 py-2 text-right font-medium">จำนวน</th>
                   <th className="px-2 py-2 text-right font-medium">ในบิล/{pack}</th>
-                  <th className="px-4 py-2 text-right font-medium">เทียบมาตรฐาน</th>
+                  <th className="px-4 py-2 text-right font-medium">เทียบราคาเจ้านั้น</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.bills.slice(0, 8).map((b, i) => {
-                  const ratio = summary.standard && summary.standard.pricePerPurchaseUom > 0 && b.unitPrice > 0 ? billPerPack(b.unitPrice) / summary.standard.pricePerPurchaseUom : null;
+                  const ref = (summary.active.find((p) => p.supplierId === b.supplierId) ?? summary.standard)?.pricePerPurchaseUom ?? 0;
+                  const ratio = ref > 0 && b.unitPrice > 0 ? billPerPack(b.unitPrice) / ref : null;
                   return (
                     <tr key={i} className="border-t border-border">
                       <td className="px-4 py-2.5">{new Date(b.date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</td>
@@ -691,6 +700,7 @@ function RecipePanel(props: Props) {
           actions={props.recipeActions}
           onChanged={() => actions.recost(sku.id)}
           onOpenProduct={onOpenProduct}
+          dependents={new Set(affectedRecipes([sku.id], book))}
         />
       </div>
     );

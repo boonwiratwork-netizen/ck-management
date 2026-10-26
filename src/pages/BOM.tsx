@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
 import { toast } from "sonner";
-import { syncBomPrice, cascadeBomCost, computeBomCostFromDb, syncByproductPrices } from "@/lib/bom-price-sync";
+
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { exportSmBom } from "@/lib/bom-export";
@@ -67,6 +67,8 @@ interface BOMPageProps {
   prices: Price[];
   readOnly?: boolean;
   onPricesRefresh?: () => void;
+  /** Work recipe costs out again after a change (Cost Center's engine) */
+  onRecost?: (...skuIds: string[]) => Promise<void>;
 }
 
 // Uncontrolled input that only fires onChange on blur
@@ -116,7 +118,7 @@ function BlurInput({
   );
 }
 
-const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPricesRefresh }: BOMPageProps) => {
+const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPricesRefresh, onRecost }: BOMPageProps) => {
   const { t } = useLanguage();
   const { isManagement } = useAuth();
   const {
@@ -302,26 +304,17 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     }
   };
 
+  // After a recipe change: the one cost engine works every recipe out again (this
+  // one, its by-products and everything built on it) and saves what moved. Opening a
+  // recipe no longer writes anything.
   const syncCurrentBomPrice = useCallback(
     async (headerId?: string) => {
       const hId = headerId || selectedHeaderId;
-      if (!hId) return;
-      const { costPerGram, smSkuId } = await computeBomCostFromDb(hId);
-      if (costPerGram > 0 && smSkuId) {
-        const skuName = getSkuCode(smSkuId) || getSkuName(smSkuId);
-        await syncBomPrice(smSkuId, costPerGram);
-        // Also sync by-product prices
-        await syncByproductPrices(hId, totalBatchCost);
-        const { menuBomCount, spBomCount } = await cascadeBomCost(smSkuId, costPerGram);
-        let msg = `BOM saved · ${skuName} price updated to ฿${costPerGram.toFixed(4)}/g`;
-        if (menuBomCount > 0 || spBomCount > 0) {
-          msg += ` — ${menuBomCount} menu BOM${menuBomCount !== 1 ? "s" : ""} and ${spBomCount} SP BOM${spBomCount !== 1 ? "s" : ""} refreshed`;
-        }
-        toast.success(msg);
-        onPricesRefresh?.();
-      }
+      const smSkuId = headers.find((h) => h.id === hId)?.smSkuId;
+      if (!smSkuId) return;
+      await onRecost?.(smSkuId);
     },
-    [selectedHeaderId, onPricesRefresh, totalBatchCost],
+    [selectedHeaderId, headers, onRecost],
   );
 
   // Header actions
@@ -464,11 +457,13 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     toast.success("Step added");
   };
 
-  const handleDeleteStep = (stepId: string) => {
-    deleteStep(stepId);
+  const handleDeleteStep = async (stepId: string) => {
+    await deleteStep(stepId);
     const remaining = selectedSteps.filter((s) => s.id !== stepId);
-    remaining.forEach((s, i) => updateStep(s.id, { stepNumber: i + 1 }));
+    await Promise.all(remaining.map((s, i) => updateStep(s.id, { stepNumber: i + 1 })));
     toast.success("Step removed");
+    // Steps feed each other: the cost changes
+    await syncCurrentBomPrice();
   };
 
   // Drag reorder steps
@@ -488,8 +483,9 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
     }
     const [moved] = ordered.splice(fromIdx, 1);
     ordered.splice(toIdx, 0, moved);
-    ordered.forEach((s, i) => updateStep(s.id, { stepNumber: i + 1 }));
     setDraggedStepId(null);
+    // New order changes what each step's output feeds: save it, then the cost
+    Promise.all(ordered.map((s, i) => updateStep(s.id, { stepNumber: i + 1 }))).then(() => syncCurrentBomPrice());
   };
 
   // By-product actions — mark dirty on any change
@@ -569,7 +565,6 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
       setEditingLineId(null);
       setByproductsDirty(false);
       setByproductsSavedMsg(false);
-      syncCurrentBomPrice(id);
     }
   };
 
@@ -1104,7 +1099,7 @@ const BOMPage = ({ bomData, byproductData, skus, prices, readOnly = false, onPri
                       onBlurValue={(val) => {
                         const num = parseFloat(val);
                         if (!isNaN(num) && num >= 0 && num <= 1) {
-                          updateStep(sd.step.id, { yieldPercent: num });
+                          Promise.resolve(updateStep(sd.step.id, { yieldPercent: num })).then(() => syncCurrentBomPrice());
                         }
                       }}
                       type="number"

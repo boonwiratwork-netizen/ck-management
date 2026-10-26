@@ -111,41 +111,10 @@ export async function syncByproductPrices(headerId: string, totalBatchCost: numb
  * based on BOM cost calculation.
  */
 export async function syncBomPrice(skuId: string, costPerGram: number): Promise<number> {
-  const { data: existing } = await supabase
-    .from("prices")
-    .select("id")
-    .eq("sku_id", skuId)
-    .eq("supplier_id", BOM_SUPPLIER_ID)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  const today = toLocalDateStr(new Date());
-
-  if (existing) {
-    await supabase
-      .from("prices")
-      .update({
-        price_per_purchase_uom: 0,
-        price_per_usage_uom: costPerGram,
-        effective_date: today,
-        note: BOM_PRICE_NOTE,
-      })
-      .eq("id", existing.id);
-  } else {
-    await supabase.from("prices").update({ is_active: false }).eq("sku_id", skuId).eq("supplier_id", BOM_SUPPLIER_ID);
-
-    await supabase.from("prices").insert({
-      sku_id: skuId,
-      supplier_id: BOM_SUPPLIER_ID,
-      price_per_purchase_uom: 0,
-      price_per_usage_uom: costPerGram,
-      vat: false,
-      is_active: true,
-      effective_date: today,
-      note: BOM_PRICE_NOTE,
-    });
-  }
-
+  // One way to store a recipe cost: the BOM price row, and the item's other active
+  // prices switched off (recost-db.ts)
+  const { saveRecipeCost } = await import("@/lib/recost-db");
+  await saveRecipeCost(skuId, costPerGram);
   return costPerGram;
 }
 

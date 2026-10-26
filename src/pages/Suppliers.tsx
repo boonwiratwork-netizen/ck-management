@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Users, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth';
 
 interface Props {
   supplierData: ReturnType<typeof useSupplierData>;
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export default function SuppliersPage({ supplierData, readOnly = false }: Props) {
+  // Only management may delete a supplier (database rule); others switch it off instead
+  const { isManagement } = useAuth();
   const { suppliers, addSupplier, updateSupplier, deleteSupplier } = supplierData;
   const { t } = useLanguage();
   const [modalOpen, setModalOpen] = useState(false);
@@ -129,7 +132,7 @@ export default function SuppliersPage({ supplierData, readOnly = false }: Props)
         </div>
       </div>
 
-      <SupplierTable suppliers={suppliers} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+      <SupplierTable suppliers={suppliers} onEdit={handleEdit} onDelete={isManagement ? handleDeleteRequest : undefined} />
 
       <SupplierFormModal
         open={modalOpen}

@@ -44,6 +44,7 @@ interface Props {
   suppliers: Supplier[];
   categories: SkuCategory[];
   addSku: (data: Omit<SKU, "id" | "skuId">) => Promise<SKU | null>;
+  updateSku: (id: string, data: Partial<Omit<SKU, "id" | "skuId">>) => Promise<boolean>;
   addPrice: (data: Omit<Price, "id" | "pricePerUsageUom">, sku: SKU | undefined) => Promise<boolean>;
   onCreated: (sku: SKU) => void;
   onOpenExisting: (sku: SKU) => void;
@@ -55,7 +56,7 @@ interface Props {
  * ready; SM/SP need a recipe, made right after. Not ready = saved as a draft that
  * daily pages don't show yet.
  */
-export function NewProductForm({ skus, prices, suppliers, categories, addSku, addPrice, onCreated, onOpenExisting, onCancel }: Props) {
+export function NewProductForm({ skus, prices, suppliers, categories, addSku, updateSku, addPrice, onCreated, onOpenExisting, onCancel }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<SKUType>("RM");
   const [packUnit, setPackUnit] = useState("แพ็ค");
@@ -95,7 +96,8 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, ad
       name: name.trim(),
       type,
       category,
-      status: ready ? "Active" : "Draft",
+      // Saved as a draft first; it goes live only once its price is saved too
+      status: "Draft",
       specNote: "",
       packSize: size,
       packUnit,
@@ -110,11 +112,13 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, ad
       leadTime: 0,
       isDistributable: !made && distributable,
     });
+    let live = false;
     if (sku && !made && supplierId && price > 0) {
-      await addPrice({ skuId: sku.id, supplierId, pricePerPurchaseUom: price, vat: false, isActive: true, effectiveDate: toLocalDateStr(new Date()), note: "" }, sku);
+      const priced = await addPrice({ skuId: sku.id, supplierId, pricePerPurchaseUom: price, vat: false, isActive: true, effectiveDate: toLocalDateStr(new Date()), note: "" }, sku);
+      if (priced && ready) live = await updateSku(sku.id, { status: "Active" });
     }
     setBusy(false);
-    if (sku) onCreated(sku);
+    if (sku) onCreated(live ? { ...sku, status: "Active" } : sku);
   };
 
   const box = "rounded-2xl border border-border bg-card px-4 py-3 shadow-card";
@@ -285,7 +289,7 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, ad
             {ready ? "สร้างสินค้า" : "บันทึกเป็นร่าง"}
           </Button>
           <p className="text-sm text-muted-foreground">
-            {ready ? "ขึ้นในรับของ ใบนับ (และใบขอเบิกถ้าส่งให้สาขาได้) ให้เอง" : "ร่าง = ยังไม่ขึ้นในรับของ ใบโอน ใบนับ จนกว่าจะตั้งครบ"}
+            {ready ? "เลือกได้ในรับของเข้าครัวและในสูตรทันที" : "ร่าง = ยังไม่ขึ้นในรับของ ใบโอน ใบนับ และยังใส่ในสูตรไม่ได้ จนกว่าจะตั้งครบ"}
             {made && " · สร้างแล้วไปทำสูตรต่อ"}
           </p>
         </aside>

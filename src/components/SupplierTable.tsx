@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 interface Props {
   suppliers: Supplier[];
   onEdit: (s: Supplier) => void;
-  onDelete: (id: string) => void;
+  /** Left out = no delete button (only management may delete suppliers) */
+  onDelete?: (id: string) => void;
   loading?: boolean;
 }
 
@@ -143,14 +144,16 @@ export function SupplierTable({ suppliers, onEdit, onDelete, loading }: Props) {
                             </TooltipTrigger>
                             <TooltipContent>Edit</TooltipContent>
                           </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="icon-btn-delete" onClick={() => onDelete(s.id)}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Delete</TooltipContent>
-                          </Tooltip>
+                          {onDelete && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="icon-btn-delete" onClick={() => onDelete(s.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       </td>
                     </tr>

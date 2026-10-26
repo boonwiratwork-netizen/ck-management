@@ -26,7 +26,7 @@ describe("summarizeProduct", () => {
   it("a well set up item is ok and knows where it is used", () => {
     const s = summarizeProduct(onion, base());
     expect(s.level).toBe("ok");
-    expect(s.usage).toEqual({ inSm: ["SM-0051"], inSp: [], inMenus: ["m1"] });
+    expect(s.usage).toEqual({ inSm: ["SM-0051"], inSp: [], inMenus: ["m1"], inRules: 0 });
     expect(s.standard?.pricePerUsageUom).toBe(0.1);
   });
 
@@ -35,7 +35,7 @@ describe("summarizeProduct", () => {
     const s = summarizeProduct(onion, base({ bills }));
     expect(s.billRatio).toBeCloseTo(2.233, 2);
     expect(ids(s)).toEqual(["bill-drift:warn"]);
-    expect(s.checks[0].title).toBe("บิลล่าสุดแพงกว่าราคามาตรฐาน 123%");
+    expect(s.checks[0].title).toBe("บิลล่าสุดแพงกว่าราคาที่ตั้งไว้ 123%");
   });
 
   it("bills are per purchase unit: an item bought by the kg and used in grams", () => {
@@ -50,8 +50,10 @@ describe("summarizeProduct", () => {
     expect(ids(summarizeProduct(onion, base({ prices: [], menuLines: [], book: { headers: [], lines: [], steps: [], byproducts: [], spLines: [] }, bills: [{ skuId: "RM-0027", supplierId: "fk", date: "2026-10-01", unitPrice: 0, stdUnitPrice: 0, qty: 1 }] })))).toEqual(["no-price:warn"]);
   });
 
-  it("two active prices need choosing", () => {
-    expect(ids(summarizeProduct(onion, base({ prices: [price("RM-0027", 0.1), price("RM-0027", 0.12, { supplierId: "makro" })] })))).toContain("multi-price:error");
+  it("two suppliers' active prices are normal: the newest is the standard", () => {
+    const s = summarizeProduct(onion, base({ prices: [price("RM-0027", 0.12, { supplierId: "makro" }), price("RM-0027", 0.1)] }));
+    expect(ids(s)).toEqual([]);
+    expect(s.standard?.supplierId).toBe("makro");
   });
 
   it("SM: no recipe, recipe with a switched-off item, and a saved cost behind the recipe", () => {
@@ -93,6 +95,13 @@ describe("summarizeProduct", () => {
 
   it("switched off but still in a recipe", () => {
     expect(ids(summarizeProduct({ ...onion, status: "Inactive" }, base()))).toEqual(["inactive-used:error"]);
+  });
+
+  it("used by a modifier rule or bought by a branch = not idle; unknown while bills load", () => {
+    const loose = { menuLines: [], book: { headers: [], lines: [], steps: [], byproducts: [], spLines: [] } };
+    expect(summarizeProduct(onion, base({ ...loose, ruleSkuIds: new Set(["RM-0027"]) })).level).toBe("ok");
+    expect(summarizeProduct(onion, base({ ...loose, branchBought: new Set(["RM-0027"]) })).level).toBe("ok");
+    expect(summarizeProduct(onion, base({ ...loose, bills: null })).level).toBe("ok");
   });
 
   it("not used and not bought = idle", () => {

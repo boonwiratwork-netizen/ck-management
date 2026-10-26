@@ -40,8 +40,12 @@ export interface ProductContext {
   menuLines: { menuId: string; skuId: string }[];
   /** Menus that are on sale */
   activeMenuIds: Set<string>;
-  /** Kitchen bills of the last 90 days */
-  bills: Bill[];
+  /** Kitchen bills of the last 90 days; null while loading (bill checks wait) */
+  bills: Bill[] | null;
+  /** Items used by an active modifier rule (add or swap) */
+  ruleSkuIds?: Set<string>;
+  /** Items any branch received in the last 90 days */
+  branchBought?: Set<string> | null;
   /** What every recipe-made item really costs today (allRecipeCosts); worked out once per screen */
   recipeCosts?: Map<string, number>;
 }
@@ -65,15 +69,17 @@ export interface ProductUsage {
   inSp: string[];
   /** Menus (on sale) that use it */
   inMenus: string[];
+  /** Active modifier rules that add or swap it in */
+  inRules: number;
 }
 
 export interface ProductSummary {
   sku: SKU;
   level: ProductLevel;
   checks: ProductCheck[];
-  /** The one standard price (null when none) */
+  /** The standard price: the active one set most recently (prices come newest first) */
   standard: Price | null;
-  /** Active prices (more than one = needs choosing) */
+  /** Active prices, one per supplier (each supplier's bills are checked against its own) */
   active: Price[];
   /** What it is made of (SM/SP), as item ids */
   madeFrom: string[];
@@ -92,12 +98,12 @@ const worst = (checks: ProductCheck[]): ProductLevel =>
 /** Bills more than this far from the standard price are flagged (Bucci: 10%) */
 export const BILL_DRIFT = 0.1;
 
-export function usageOf(skuId: string, ctx: Pick<ProductContext, "book" | "menuLines" | "activeMenuIds">): ProductUsage {
+export function usageOf(skuId: string, ctx: Pick<ProductContext, "book" | "menuLines" | "activeMenuIds" | "ruleSkuIds">): ProductUsage {
   const smOf = new Map(ctx.book.headers.map((h) => [h.id, h.smSkuId]));
   const inSm = [...new Set(ctx.book.lines.filter((l) => l.rmSkuId === skuId).map((l) => smOf.get(l.bomHeaderId)).filter((x): x is string => !!x))];
   const inSp = [...new Set(ctx.book.spLines.filter((l) => l.ingredientSkuId === skuId).map((l) => l.spSkuId))];
   const inMenus = [...new Set(ctx.menuLines.filter((l) => l.skuId === skuId && ctx.activeMenuIds.has(l.menuId)).map((l) => l.menuId))];
-  return { inSm, inSp, inMenus };
+  return { inSm, inSp, inMenus, inRules: ctx.ruleSkuIds?.has(skuId) ? 1 : 0 };
 }
 
 export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary {
@@ -107,8 +113,8 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   const active = ctx.prices.filter((p) => p.skuId === sku.id && p.isActive);
   const standard = active[0] ?? null;
   const usage = usageOf(sku.id, ctx);
-  const used = usage.inSm.length + usage.inSp.length + usage.inMenus.length > 0;
-  const bills = ctx.bills.filter((b) => b.skuId === sku.id).sort((a, b) => b.date.localeCompare(a.date));
+  const used = usage.inSm.length + usage.inSp.length + usage.inMenus.length + usage.inRules > 0;
+  const bills = (ctx.bills ?? []).filter((b) => b.skuId === sku.id).sort((a, b) => b.date.localeCompare(a.date));
   const checks: ProductCheck[] = [];
 
   // What it's made of, and its recipe cost. A tracked by-product comes out of its
@@ -122,13 +128,13 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   const costs = ctx.recipeCosts ?? allRecipeCosts(ctx.book, ctx.prices);
   const recipeCost = costs.get(sku.id) ?? null;
   // An ingredient "has a price" if it has one, or its own recipe gives it one
-  const priced = (id: string) => hasPrice(id) || (costs.get(id) ?? 0) > 0;
+  const priced = (id: string) => hasPrice(id) || costs.has(id);
   void priceOf;
 
-  if ((sku.status as string) === "Draft") checks.push({ id: "draft", level: "warn", area: "info", title: "ยังเป็นร่าง", detail: "ยังไม่ขึ้นในรับของ ใบโอน ใบนับ จนกว่าจะตั้งครบ" });
+  if ((sku.status as string) === "Draft") checks.push({ id: "draft", level: "warn", area: "info", title: "ยังเป็นร่าง", detail: "ยังไม่ขึ้นในรับของ ใบโอน ใบนับ และยังใส่ในสูตรไม่ได้ จนกว่าจะตั้งครบ" });
 
   if (sku.status === "Inactive") {
-    const where = usage.inSm.length + usage.inSp.length + usage.inMenus.length;
+    const where = usage.inSm.length + usage.inSp.length + usage.inMenus.length + usage.inRules;
     if (where) checks.push({ id: "inactive-used", level: "error", area: "use", title: "ปิดใช้แล้ว แต่ยังอยู่ในสูตร", detail: `อยู่ใน ${where} ที่ · เปลี่ยนเป็นตัวอื่นในสูตร` });
     return { sku, level: worst(checks), checks, standard, active, madeFrom, usage, bills, billRatio: null, recipeCost };
   }
@@ -149,22 +155,31 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
       );
   } else {
     if (!active.length) checks.push(used ? { id: "no-price", level: "error", area: "price", title: "ใช้ในสูตรแต่ไม่มีราคา", detail: "ต้นทุนเป็น ฿0 ทุกที่ที่ใช้" } : { id: "no-price", level: "warn", area: "price", title: "ยังไม่มีราคา" });
-    if (active.length > 1) checks.push({ id: "multi-price", level: "error", area: "price", title: `มีราคาใช้งาน ${active.length} เจ้า`, detail: "เลือกเจ้าหลักเป็นราคามาตรฐาน" });
   }
 
-  // Recent bills vs the standard price. Bills are priced per purchase unit (the bill's
-  // qty is packs × pack size, no converter), so compare per pack.
+  // Recent bills vs the price they should have had: each supplier's bill against that
+  // supplier's own price (else the standard). Bills are priced per purchase unit (the
+  // bill's qty is packs × pack size, no converter), so compare per pack.
   let billRatio: number | null = null;
-  const recent = bills.filter((b) => b.unitPrice > 0).slice(0, 3);
-  if (recent.length && standard && standard.pricePerPurchaseUom > 0) {
-    billRatio = (recent.reduce((s, b) => s + b.unitPrice, 0) / recent.length) * (sku.packSize || 1) / standard.pricePerPurchaseUom;
+  const ratios = bills
+    .filter((b) => b.unitPrice > 0)
+    .slice(0, 3)
+    .map((b) => {
+      const ref = (active.find((p) => p.supplierId === b.supplierId) ?? standard)?.pricePerPurchaseUom ?? 0;
+      return ref > 0 ? (b.unitPrice * (sku.packSize || 1)) / ref : null;
+    })
+    .filter((r): r is number => r !== null);
+  if (ratios.length) {
+    billRatio = ratios.reduce((s, r) => s + r, 0) / ratios.length;
     if (Math.abs(billRatio - 1) > BILL_DRIFT) {
       const pct = Math.round((billRatio - 1) * 100);
-      checks.push({ id: "bill-drift", level: "warn", area: "price", title: `บิลล่าสุด${pct > 0 ? "แพงกว่า" : "ถูกกว่า"}ราคามาตรฐาน ${Math.abs(pct)}%`, detail: "ต้นทุนเมนูที่ใช้ตัวนี้คลาดจากจริง" });
+      checks.push({ id: "bill-drift", level: "warn", area: "price", title: `บิลล่าสุด${pct > 0 ? "แพงกว่า" : "ถูกกว่า"}ราคาที่ตั้งไว้ ${Math.abs(pct)}%`, detail: "ต้นทุนเมนูที่ใช้ตัวนี้คลาดจากจริง" });
     }
   }
 
-  if (!isMadeItem(sku) && !used && !bills.length) checks.push({ id: "unused", level: "idle", area: "use", title: "ไม่ได้ใช้ในสูตรไหน และไม่ได้ซื้อ 90 วัน" });
+  // Only once bills and branch receipts have loaded (else everything looks unused)
+  if (!isMadeItem(sku) && !used && ctx.bills && ctx.branchBought !== null && !bills.length && !ctx.branchBought?.has(sku.id))
+    checks.push({ id: "unused", level: "idle", area: "use", title: "ไม่ได้ใช้ในสูตรไหน และไม่ได้ซื้อ 90 วัน" });
 
   return { sku, level: worst(checks), checks, standard, active, madeFrom, usage, bills, billRatio, recipeCost };
 }

@@ -221,7 +221,7 @@ export function useCkDashboardData({
         supabase.from('bom_headers').select('*'),
         supabase.from('bom_lines').select('*'),
         supabase.from('bom_steps').select('*'),
-        supabase.from('prices').select('*'),
+        supabase.from('prices').select('*').eq('is_active', true).order('created_at', { ascending: false }).order('id'),
         supabase.from('production_records').select('*').gte('production_date', rangeStart).lte('production_date', rangeEnd),
         supabase.from('goods_receipts').select('*').gte('receipt_date', rangeStart).lte('receipt_date', rangeEnd),
         supabase.from('suppliers').select('id, name'),
@@ -240,8 +240,9 @@ export function useCkDashboardData({
 
       // Active prices map: skuId → price_per_usage_uom
       const activePrices = new Map<string, number>();
+      // The standard: newest active price (one per supplier can be active)
       for (const p of allPrices) {
-        if (p.is_active) activePrices.set(p.sku_id, p.price_per_usage_uom);
+        if (p.is_active && !activePrices.has(p.sku_id)) activePrices.set(p.sku_id, p.price_per_usage_uom);
       }
 
       const supplierMap = new Map(suppliers.map((s: any) => [s.id, s.name]));

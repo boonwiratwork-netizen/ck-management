@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { BOMHeader, BOMLine } from "@/types/bom";
@@ -37,6 +37,8 @@ interface Props {
   /** After a saved change: recost this item and everything built on it */
   onChanged: () => void;
   onOpenProduct: (skuId: string) => void;
+  /** Items built on this one (directly or deeper): can't go into its recipe (a loop) */
+  dependents: Set<string>;
 }
 
 const num = (v: string) => {
@@ -58,7 +60,27 @@ const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
  * leave the box (Enter goes to the next one), then the cost of this item and every
  * recipe and menu built on it is worked out again.
  */
-export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged, onOpenProduct }: Props) {
+export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents }: Props) {
+  // Several boxes in a row → one recost once typing stops
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const pending = useRef<(() => void) | null>(null);
+  pending.current = pending.current && changedNow;
+  const onChanged = () => {
+    clearTimeout(timer.current);
+    pending.current = changedNow;
+    timer.current = setTimeout(() => {
+      pending.current = null;
+      changedNow();
+    }, 800);
+  };
+  // Leaving the recipe before the wait is up still recosts (never dropped)
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      pending.current?.();
+    },
+    [],
+  );
   const isSp = sku.type === "SP";
   const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const [adding, setAdding] = useState("");
@@ -136,7 +158,10 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
       ok = await actions.spAddLine({ spSkuId: sku.id, ingredientSkuId: adding, qtyPerBatch: q, uom: byId.get(adding)?.usageUom ?? "", batchYieldQty: batch, batchYieldUom: sku.usageUom, costPerUnit: 0 });
     } else {
       let headerId = header?.id;
-      if (headerId && firstLine) await actions.updateHeader(headerId, { batchSize: batch });
+      if (headerId && firstLine && !(await actions.updateHeader(headerId, { batchSize: batch }))) {
+        setBusy(false);
+        return;
+      }
       if (!headerId) headerId = await actions.addHeader({ smSkuId: sku.id, productionType: "CK", bomMode: "simple", batchSize: batch, yieldPercent: 1 });
       if (headerId) ok = await actions.addLine({ bomHeaderId: headerId, rmSkuId: adding, qtyPerBatch: q, yieldPercent: 1 });
     }
@@ -151,7 +176,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
 
   const inRecipe = new Set(rows.map((r) => r.skuId));
   const options = skus
-    .filter((s) => s.status === "Active" && s.id !== sku.id && !inRecipe.has(s.id) && (isSp ? s.type === "RM" : s.type === "RM" || s.type === "SM"))
+    .filter((s) => s.status === "Active" && s.id !== sku.id && !inRecipe.has(s.id) && !dependents.has(s.id) && (isSp ? s.type === "RM" : s.type === "RM" || s.type === "SM"))
     .map((s) => ({ value: s.id, label: s.name, sublabel: `${s.skuId} · ${s.usageUom}` }));
   const field = "h-10 w-full text-right font-mono text-[16px]";
 

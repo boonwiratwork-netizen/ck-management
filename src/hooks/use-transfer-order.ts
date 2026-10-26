@@ -415,8 +415,9 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           const rmSkuIds = params.trLines.filter((l) => l.skuType === "RM" || l.skuType === "PK").map((l) => l.skuId);
           const rmPriceMap: Record<string, number> = {};
           if (rmSkuIds.length > 0) {
-            const { data: prices } = await supabase.from("prices").select("sku_id, price_per_usage_uom").in("sku_id", rmSkuIds).eq("is_active", true);
-            for (const p of prices || []) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
+            // The standard: newest active price (one per supplier can be active)
+            const { data: prices } = await supabase.from("prices").select("sku_id, price_per_usage_uom").in("sku_id", rmSkuIds).eq("is_active", true).order("created_at", { ascending: false }).order("id");
+            for (const p of prices || []) if (!(p.sku_id in rmPriceMap)) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
           }
           // Pack size seeds the pack count on each line
           const packSizeMap: Record<string, number> = {};
@@ -679,7 +680,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           .select("price_per_usage_uom")
           .eq("sku_id", skuId)
           .eq("is_active", true)
-          .order("effective_date", { ascending: false })
+          .order("created_at", { ascending: false })
           .order("id")
           .limit(1)
           .maybeSingle();
@@ -737,7 +738,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           .select("price_per_usage_uom")
           .eq("sku_id", trLine.skuId)
           .eq("is_active", true)
-          .order("effective_date", { ascending: false })
+          .order("created_at", { ascending: false })
           .order("id")
           .limit(1)
           .maybeSingle();

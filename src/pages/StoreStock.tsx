@@ -251,10 +251,13 @@ export default function StoreStockPage({
     const { data: pricesData } = await supabase
       .from("prices")
       .select("sku_id, price_per_usage_uom")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .order("id");
+    // The standard: newest active price (one per supplier can be active)
     const pm: Record<string, number> = {};
     (pricesData || []).forEach((p: any) => {
-      pm[p.sku_id] = Number(p.price_per_usage_uom);
+      if (!(p.sku_id in pm)) pm[p.sku_id] = Number(p.price_per_usage_uom);
     });
     setPriceMap(pm);
 

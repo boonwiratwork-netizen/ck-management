@@ -74,7 +74,7 @@ export async function recostAndSave(changedSkuIds: string[]): Promise<RecostResu
  * updated (or added), then any other active price of the item is switched off, so a
  * recipe-made item always has exactly one. False if a save failed.
  */
-async function saveRecipeCost(skuId: string, costPerUnit: number): Promise<boolean> {
+export async function saveRecipeCost(skuId: string, costPerUnit: number): Promise<boolean> {
   const today = toLocalDateStr(new Date());
   const { data: existing, error } = await supabase
     .from("prices")
@@ -102,6 +102,9 @@ async function saveRecipeCost(skuId: string, costPerUnit: number): Promise<boole
     if (e || !row) return false;
     keepId = row.id;
   }
+  // Under a lock in the database when the function exists (two people at once)
+  const { error: rpcError } = await supabase.rpc("keep_only_active_price" as never, { p_sku: skuId, p_supplier: null, p_keep: keepId } as never);
+  if (!rpcError) return true;
   const { error: off } = await supabase.from("prices").update({ is_active: false }).eq("sku_id", skuId).eq("is_active", true).neq("id", keepId);
   return !off;
 }
