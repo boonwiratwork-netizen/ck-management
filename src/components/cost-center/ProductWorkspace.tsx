@@ -575,8 +575,17 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
         </div>
         {adding && (
           <div className="flex flex-col gap-3 border-t border-border bg-secondary/40 px-4 py-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_160px]">
-              <SearchableSelect value={supplierId} onValueChange={setSupplierId} options={supplierOptions} placeholder="เลือกซัพพลายเออร์…" triggerClassName="h-11" />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_200px] sm:items-end">
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                ซื้อจากเจ้าไหน
+                <SearchableSelect value={supplierId} onValueChange={setSupplierId} options={supplierOptions} placeholder="เลือกซัพพลายเออร์…" triggerClassName="h-11" />
+              </label>
+              {/* Says what one unit is, so nobody types the price per gram or per kg by mistake */}
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                ราคาต่อ 1 {pack}
+                <span className="font-normal text-muted-foreground">
+                  (1 {pack} = {usagePerPack.toLocaleString()} {sku.usageUom})
+                </span>
               <Input
                 type="number"
                 inputMode="decimal"
@@ -591,16 +600,18 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
                 className="h-11 text-right font-mono text-[16px]"
                 aria-label={`ราคาต่อ${pack}`}
               />
+              </label>
             </div>
             {typedPerUnit > 0 && (
               <p className={cn("rounded-xl px-3 py-2 text-[15px]", odd ? "border border-destructive/40 bg-destructive-soft" : "bg-card")}>
-                = <b className="font-mono">{perUnit(typedPerUnit, sku.usageUom)}</b> ในสูตร
+                {baht(typed)}/{pack} = <b className="font-mono">{perUnit(typedPerUnit, sku.usageUom)}</b> ในสูตร
+                {(sku.usageUom === "ก." || sku.usageUom === "g") && <> · กิโลละ <b className="font-mono">{baht(typedPerUnit * 1000)}</b></>}
                 {odd && (
                   <>
                     <br />
                     <b className="text-destructive">ต่างจากของส่วนใหญ่ {odd.ratio > 1 ? Math.round(odd.ratio) : `1/${Math.round(1 / odd.ratio)}`} เท่า</b> (ส่วนใหญ่ราวๆ {perUnit(odd.median, sku.usageUom)}) · 1 {pack} = {usagePerPack.toLocaleString()} {sku.usageUom} จริงไหม?
                     <label className="mt-2 flex min-h-[40px] items-center gap-2">
-                      <input type="checkbox" className="h-5 w-5" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> ถูกแล้ว
+                      <input type="checkbox" className="h-5 w-5" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> ใช่ ราคา {baht(typed)} ต่อ 1 {pack} จริง
                     </label>
                   </>
                 )}
