@@ -350,13 +350,15 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           ask={bpAsk}
           busy={busy === bpAsk.skuId}
           onCancel={() => {
+            if (busy) return;
             setBpAsk(null);
             settle(false);
           }}
           onSave={async (qty) => {
             const ok = await save(bpAsk.skuId, bpAsk.grams, bpAsk.notes, qty);
+            if (!ok) return;
             setBpAsk(null);
-            settle(ok);
+            settle(true);
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ArrowDown, ArrowUp, Download, HelpCircle, History, Search, SlidersHorizontal } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -68,6 +68,14 @@ export default function KitchenStockPage(p: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "name", dir: 1 });
   const [adjustFor, setAdjustFor] = useState<StockRow | null>(null);
   const [cardFor, setCardFor] = useState<StockRow | null>(null);
+  // A new tab (also by Back or the sidebar) starts clean: no filter left on, and no
+  // sheet still open for an item of the other tab
+  useEffect(() => {
+    setFilter("all");
+    setCategory("all");
+    setAdjustFor(null);
+    setCardFor(null);
+  }, [type]);
   // Every column from ~940px (a 1280px laptop with the side menu open); cards below
   const [fitRef, fits] = useFitsWidth(940);
 
@@ -119,8 +127,8 @@ export default function KitchenStockPage(p: Props) {
     }),
     [base],
   );
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = useMemo(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const list = base.filter(
       (r) =>
         matchesFilter(r, filter) &&
@@ -129,8 +137,8 @@ export default function KitchenStockPage(p: Props) {
         words.every((w) => `${r.sku.name} ${r.sku.skuId}`.toLowerCase().includes(w)),
     );
     const val = (r: StockRow) => (sort.key === "name" ? 0 : sort.key === "stock" ? r.stock : sort.key === "value" ? r.value : (r.daysLeft ?? Number.POSITIVE_INFINITY));
-    return [...list].sort((a, b) => (sort.key === "name" ? a.sku.skuId.localeCompare(b.sku.skuId) * sort.dir : (val(a) - val(b)) * sort.dir));
-  }, [base, filter, storage, category, words, sort]);
+    return [...list].sort((a, b) => (sort.key === "name" ? a.sku.name.localeCompare(b.sku.name, "th") * sort.dir : (val(a) - val(b)) * sort.dir));
+  }, [base, filter, storage, category, query, sort]);
 
   const totalValue = base.reduce((s, r) => s + r.value, 0);
   const cover = coverByStorage(base);
@@ -205,7 +213,7 @@ export default function KitchenStockPage(p: Props) {
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
         <div data-tour="ks-tabs" className="min-w-0">
-          <SegmentedTabs<StockType> tabs={TABS} value={type} onChange={(t) => { setFilter("all"); setCategory("all"); p.onType(t); }} />
+          <SegmentedTabs<StockType> tabs={TABS} value={type} onChange={p.onType} />
         </div>
       </div>
 

@@ -11,24 +11,36 @@ export function computeToLineQty(actualQty: number, plannedQty: number, status: 
   return actualQty > 0 ? actualQty : status === "Sent" ? plannedQty : 0;
 }
 
+interface Anchor {
+  physical_qty: number;
+  count_date: string;
+  /** Answered "before work": that day's movements come after the count */
+  before: boolean;
+  /** Unanswered (older) counts: production entered after this time came after it */
+  timing: string | null;
+  completed_at: string | null;
+}
+
 async function getAnchorMap(
   // deno-lint-ignore no-explicit-any
   supabase: any,
   type: "RM" | "PK" | "SM",
-): Promise<Record<string, { physical_qty: number; count_date: string }>> {
+): Promise<Record<string, Anchor>> {
   const { data: sessions } = await supabase
     .from("stock_count_sessions")
-    .select("id, count_date, count_timing")
+    .select("id, count_date, count_timing, completed_at")
     .eq("status", "Completed")
     .is("deleted_at", null);
   if (!sessions || sessions.length === 0) return {};
 
   const sessionDateById: Record<string, string> = {};
   const sessionTimingById: Record<string, string | null> = {};
+  const sessionCompletedById: Record<string, string | null> = {};
   // deno-lint-ignore no-explicit-any
   for (const s of sessions as any[]) {
     sessionDateById[s.id] = s.count_date;
     sessionTimingById[s.id] = s.count_timing ?? null;
+    sessionCompletedById[s.id] = s.completed_at ?? null;
   }
 
   const { data: lines } = await supabase
@@ -39,14 +51,15 @@ async function getAnchorMap(
     // deno-lint-ignore no-explicit-any
     .in("session_id", (sessions as any[]).map((s) => s.id));
 
-  const map: Record<string, { physical_qty: number; count_date: string; before: boolean }> = {};
+  const map: Record<string, Anchor> = {};
   // deno-lint-ignore no-explicit-any
   for (const l of (lines || []) as any[]) {
     const date = sessionDateById[l.session_id];
     if (!date) continue;
     const existing = map[l.sku_id];
     if (!existing || date > existing.count_date) {
-      map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date, before: sessionTimingById[l.session_id] === "before" };
+      const timing = sessionTimingById[l.session_id];
+      map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date, before: timing === "before", timing, completed_at: sessionCompletedById[l.session_id] };
     }
   }
   return map;
@@ -54,8 +67,10 @@ async function getAnchorMap(
 
 // Same rule as the app (src/lib/count-anchor.ts): a count answered "before work"
 // still counts that day's movements; "after work" or unanswered ones don't
-const afterCount = (date: string | undefined, anchor: { count_date: string; before: boolean }) =>
-  !!date && (date > anchor.count_date || (anchor.before && date === anchor.count_date));
+const afterCount = (date: string | undefined, anchor: Anchor) => !!date && (date > anchor.count_date || (anchor.before && date === anchor.count_date));
+// Production on an unanswered (older) count: entered after the count was saved (as the app)
+const producedAfterCount = (p: { production_date: string; created_at?: string | null }, anchor: Anchor) =>
+  anchor.timing ? afterCount(p.production_date, anchor) : (p.created_at ?? p.production_date) > (anchor.completed_at ?? anchor.count_date);
 
 // Total CK-level stock value for one SKU type (active SKUs only), clamped at 0 per
 // SKU (CLAUDE.md: monetary/value cells never go negative). SKUs with no completed
@@ -102,9 +117,9 @@ export async function computeCkStockValueByType(
   if (type === "SM") {
     const { data: production } = await supabase
       .from("production_records")
-      .select("sm_sku_id, actual_output_g, production_date")
+      .select("sm_sku_id, actual_output_g, production_date, created_at")
       .in("sm_sku_id", skuIds);
-    const prodList = (production || []) as Array<{ sm_sku_id: string; actual_output_g: number; production_date: string }>;
+    const prodList = (production || []) as Array<{ sm_sku_id: string; actual_output_g: number; production_date: string; created_at: string | null }>;
 
     const { data: toRows } = await supabase
       .from("transfer_orders")
@@ -134,7 +149,7 @@ export async function computeCkStockValueByType(
       const skuAdjustments = adjList.filter((a) => a.sku_id === sku.id);
 
       const producedAfter = prodList
-        .filter((p) => p.sm_sku_id === sku.id && afterCount(p.production_date, anchor))
+        .filter((p) => p.sm_sku_id === sku.id && producedAfterCount(p, anchor))
         .reduce((sum, p) => sum + Number(p.actual_output_g), 0);
       const deliveredAfter = toLines
         .filter((l) => l.sku_id === sku.id && afterCount(toDateMap[l.to_id], anchor))

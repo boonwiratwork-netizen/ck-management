@@ -191,10 +191,11 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
       const from = new Date(today + "T00:00:00");
       from.setDate(from.getDate() - USAGE_WINDOW_DAYS);
       const fromIso = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
-      const out = (adjBySku.get(skuId) ?? [])
-        .filter((a) => a.date > fromIso && a.date <= today && a.quantity < 0 && /^(Production|Distribution):/.test(a.reason ?? ""))
-        .reduce((s, a) => s - a.quantity, 0);
-      return out / USAGE_WINDOW_DAYS;
+      // Net of production rows (its corrections give back what an edit or delete undid)
+      // and deliveries; by-product rows aren't use
+      const isUse = (r: string) => (r.startsWith("Production") && !r.startsWith("Production by-product")) || r.startsWith("Distribution:");
+      const net = (adjBySku.get(skuId) ?? []).filter((a) => a.date > fromIso && a.date <= today && isUse(a.reason ?? "")).reduce((s, a) => s + a.quantity, 0);
+      return Math.max(0, -net) / USAGE_WINDOW_DAYS;
     },
     [adjBySku],
   );

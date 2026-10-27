@@ -6,7 +6,15 @@
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 
 /** Ingredients one batch uses — same resolution as before (multi-step percent lines against the step input) */
-export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: BOMStep[]): { skuId: string; qty: number }[] {
+/**
+ * What one batch takes out of stock. Simple recipes take the amount BOUGHT: the
+ * recipe line is what goes in after trimming, so 100 g of garlic at 55% usable is
+ * 182 g of whole garlic out of stock (the same as the recipe's cost). Until Oct 2026
+ * production took the trimmed 100 g (`gross: false`), so stock stayed too high until
+ * the monthly count; records saved then are still read that way.
+ */
+export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: BOMStep[], opts: { gross?: boolean } = {}): { skuId: string; qty: number }[] {
+  const gross = opts.gross ?? true;
   const bLines = lines.filter((l) => l.bomHeaderId === header.id);
   const out: { skuId: string; qty: number }[] = [];
   if (header.bomMode === "multistep") {
@@ -23,7 +31,10 @@ export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: 
       prevStepOutput = (idx === 0 ? stepInput : stepInput + addedQty) * step.yieldPercent;
     });
   } else {
-    for (const line of bLines) out.push({ skuId: line.rmSkuId, qty: line.qtyPerBatch });
+    for (const line of bLines) {
+      const y = line.yieldPercent ?? 1;
+      out.push({ skuId: line.rmSkuId, qty: gross && y > 0 ? line.qtyPerBatch / y : line.qtyPerBatch });
+    }
   }
   return out;
 }

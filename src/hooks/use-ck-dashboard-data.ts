@@ -118,7 +118,9 @@ function calcBomCostPerGram(
     totalCost = bLines.reduce((s: number, l: any) => {
       // Skip SM-to-SM ingredients
       if (smSkuIds.has(l.rm_sku_id)) return s;
-      return s + l.qty_per_batch * (activePrices.get(l.rm_sku_id) ?? 0);
+      // Bought amount (line yield counted), as production now takes it out of stock
+      const y = Number(l.yield_percent) || 1;
+      return s + (l.qty_per_batch / y) * (activePrices.get(l.rm_sku_id) ?? 0);
     }, 0);
     mainOutput = bh.batch_size * bh.yield_percent;
   }
@@ -387,7 +389,9 @@ export function useCkDashboardData({
 
             const actualPrice = rmWeightedPrice.get(rmId) ?? activePrices.get(rmId) ?? 0;
             const stdPrice = activePrices.get(rmId) ?? 0;
-            const stdQty = bl.qty_per_batch * totalBatches;
+            // Standard use = bought amount (line yield counted, simple recipes), what production deducts
+            const lineYield = bh?.bom_mode !== "multistep" ? Number(bl.yield_percent) || 1 : 1;
+            const stdQty = (bl.qty_per_batch / lineYield) * totalBatches;
 
             smActualCost += bomShareQty * actualPrice;
             smPriceVar += (actualPrice - stdPrice) * bomShareQty;

@@ -185,6 +185,8 @@ export function useProductionData(
       const header = bomHeaders.find((h) => h.smSkuId === smSkuId);
       if (!header) return null;
       const ingredients = ingredientsPerBatch(header, bomLines, bomSteps);
+      // What untagged old records took (trimmed amounts, no line yield)
+      const ingredientsNet = ingredientsPerBatch(header, bomLines, bomSteps, { gross: false });
       const { data: bp } = await supabase
         .from("bom_byproducts")
         .select("sku_id, output_qty")
@@ -194,7 +196,7 @@ export function useProductionData(
       const byproducts = (bp || []).map((b) => ({ skuId: b.sku_id as string, qty: Number(b.output_qty) || 0 }));
       const { data: skuRows } = await supabase.from("skus").select("id, type").in("id", [...new Set(ingredients.map((l) => l.skuId))]);
       const typeOf = new Map((skuRows || []).map((r) => [r.id, r.type as string]));
-      return { ingredients, byproducts, typeOf, byproductIds: new Set(byproducts.map((b) => b.skuId)) };
+      return { ingredients, ingredientsNet, byproducts, typeOf, byproductIds: new Set(byproducts.map((b) => b.skuId)) };
     },
     [bomHeaders, bomLines, bomSteps],
   );
@@ -213,7 +215,7 @@ export function useProductionData(
     const rows = data || [];
     const marked = rows.map((r) => /legacy=([\d.]+)/.exec(r.reason)?.[1]).find(Boolean);
     const legacy = marked != null ? Number(marked) : rows.length === 0 ? record.batchesProduced : null;
-    const m = legacy != null ? movementFor(per.ingredients, [], legacy) : new Map<string, number>();
+    const m = legacy != null ? movementFor(per.ingredientsNet, [], legacy) : new Map<string, number>();
     for (const r of rows) m.set(r.sku_id, (m.get(r.sku_id) || 0) + Number(r.quantity));
     return { current: m, legacy };
   }, []);
@@ -304,7 +306,7 @@ export function useProductionData(
         // By-products were weighed when recorded: keep that amount, scaled by the new output
         const oldShare = batchShare(old.actualOutputG, perOut);
         if (legacy == null && oldShare > 0)
-          for (const b of per.byproducts) if (now.has(b.skuId)) want.set(b.skuId, (now.get(b.skuId) || 0) * (share / oldShare));
+          for (const b of per.byproducts) want.set(b.skuId, (now.get(b.skuId) ?? 0) * (share / oldShare));
         const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
         const bpReason = (what: string) => `Production by-product ${what} ${tag}`;
         if (old.productionDate !== data.productionDate) {

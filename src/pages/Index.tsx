@@ -235,16 +235,25 @@ const Index = () => {
   const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
   const branchData = useBranchData();
 
-  // Kitchen stock reads every receipt itself: fresh each time its page opens (after a
-  // delivery was received on another page) and when the tab comes back into view
+  // Kitchen RM/PK stock reads every receipt itself. Keep it fresh wherever its balance
+  // is used: after any receipt is added/edited/deleted (the shared receipts list
+  // changes), and on the pages that read it (stock, count, dashboard)
   const onItemStockPage = activeTab === "stock" || activeTab === "pkstock";
+  const readsItemStock = onItemStockPage || activeTab === "stockcount" || activeTab === "dashboard";
   useEffect(() => {
-    if (!kitchenData || !onItemStockPage) return;
-    (activeTab === "stock" ? stockData : pkStockData).reload();
+    if (!kitchenData) return;
+    stockData.reload();
+    pkStockData.reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptData.receipts]);
+  useEffect(() => {
+    if (!kitchenData || !readsItemStock) return;
+    stockData.reload();
+    if (activeTab !== "stock") pkStockData.reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, kitchenData]);
   useVisibilityRefresh([
-    () => (kitchenData && onItemStockPage ? (activeTab === "stock" ? stockData : pkStockData).reload() : undefined),
+    () => (kitchenData && readsItemStock ? Promise.all([stockData.reload(), pkStockData.reload()]).then(() => undefined) : undefined),
     () => (kitchenData ? smStockData.refreshProductionRecords() : undefined),
     () => (kitchenData ? smStockData.refreshToDelivered() : undefined),
     () => (kitchenData ? receiptData.fetchReceipts(receiptData.isFullHistory) : undefined),

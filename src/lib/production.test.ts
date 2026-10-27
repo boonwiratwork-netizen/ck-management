@@ -12,6 +12,11 @@ describe("ingredients per batch", () => {
       { skuId: "salt", qty: 10 },
     ]);
   });
+  it("simple BOM: takes the bought amount (100 g of garlic at 55% usable = 182 g out); old records read net", () => {
+    const garlic = [line({ rmSkuId: "garlic", qtyPerBatch: 100, yieldPercent: 0.55 })];
+    expect(ingredientsPerBatch(header({}), garlic, [])[0].qty).toBeCloseTo(181.82, 2);
+    expect(ingredientsPerBatch(header({}), garlic, [], { gross: false })[0].qty).toBe(100);
+  });
   it("multi-step: percent lines against the step input", () => {
     const steps: BOMStep[] = [
       { id: "s1", bomHeaderId: "h", stepNumber: 1, stepName: "a", yieldPercent: 0.5 } as BOMStep,
