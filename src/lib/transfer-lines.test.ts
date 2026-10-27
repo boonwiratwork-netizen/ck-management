@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchShortCount, checkBeforeSend, isShort, kitchenShortCount, packsOf, reconcileLots, transferBadges, visibleRecords, type LotLine, type ProdRecord } from "./transfer-lines";
+import { branchShortCount, checkBeforeSend, isShort, kitchenShortCount, packsOf, packsAfterWeight, reconcileLots, transferBadges, visibleRecords, type LotLine, type ProdRecord } from "./transfer-lines";
 
 const rec = (id: string, date: string, out: number): ProdRecord => ({ id, productionDate: date, actualOutputG: out, batchesProduced: 1 });
 const RECORDS = [rec("a", "2026-09-01", 2000), rec("b", "2026-10-16", 800), rec("c", "2026-10-22", 1200)];
@@ -62,7 +62,9 @@ describe("check before sending", () => {
     expect(res.overStock.map((x) => x.lineId)).toEqual(["pork", "duck", "soup"]);
     expect(res.lotMismatch).toEqual([{ lineId: "pork", skuName: "pork", packs: 4, assigned: 3 }]); // the PK cup never needs a lot
     expect(res.short.map((x) => x.lineId)).toEqual(["soup"]);
-    expect(res.changed.map((x) => x.lineId)).toEqual(["duck"]);
+    // 5 packs asked, 5 packs sent heavier (1,880 g): matches the request (since 27 Oct 2026);
+    // the weight shows next to the packs instead
+    expect(res.changed.map((x) => x.lineId)).toEqual([]);
   });
 });
 
@@ -94,5 +96,22 @@ describe("the two shortfall labels", () => {
     expect(transferBadges({ status: "Sent", kitchenShort: 1, branchShort: 0 }).map((b) => b.text)).toEqual(["ครัวกลางส่งไม่ครบ 1", "รอสาขารับ"]);
     expect(transferBadges({ status: "Partially Received", kitchenShort: 0, branchShort: 0 }).map((b) => b.text)).toEqual(["สาขารับครบ"]);
     expect(transferBadges({ status: "Received", kitchenShort: 0, branchShort: 2 }).map((b) => b.text)).toEqual(["สาขารับไม่ครบ 2"]);
+  });
+});
+
+describe("packs are their own fact (27 Oct 2026: 5 packs of 350 g weighed 2,005 g)", () => {
+  it("the saved pack count wins over weight ÷ pack size", () => {
+    expect(packsOf({ packsCount: 5, actualQty: 2005 }, 350)).toBe(5);
+  });
+  it("typing the weight keeps the packs: pins them when never typed, leaves a typed count alone", () => {
+    expect(packsAfterWeight({ packsCount: null, actualQty: 1750 }, 350)).toBe(5);
+    expect(packsAfterWeight({ packsCount: 5, actualQty: 1750 }, 350)).toBeUndefined();
+    expect(packsAfterWeight({ packsCount: null, actualQty: 90 }, 1)).toBeUndefined();
+  });
+  it("asked 5 packs, sent 5 packs at their real weight: matches the request (not 'changed')", () => {
+    const line = { id: "x", skuId: "neck", skuName: "สันคอหมู", trLineId: "t", plannedQty: 1750, actualQty: 2005, packsCount: 5 };
+    const c = checkBeforeSend([line] as never, () => ({ type: "SM", packSize: 350 }) as never, {}, { x: [{ packs: 5 }] as never });
+    expect(c.changed).toEqual([]);
+    expect(c.short).toEqual([]);
   });
 });

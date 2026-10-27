@@ -48,9 +48,10 @@ const initialTOs: PendingTO[] = [
     deliveryDate: "2026-10-25",
     trId: "tr9",
     lines: [
-      { id: "l1", skuId: "soup", plannedQty: 8000, actualQty: 8000, uom: "ก.", unitCost: 0.069, notes: "" },
-      { id: "l2", skuId: "chashu", plannedQty: 1500, actualQty: 1500, uom: "ก.", unitCost: 0.318, notes: "" },
-      { id: "l3", skuId: "tare", plannedQty: 2000, actualQty: 0, uom: "มล.", unitCost: 0.25, notes: "" },
+      { id: "l1", skuId: "soup", plannedQty: 8000, actualQty: 8000, uom: "ก.", unitCost: 0.069, notes: "", sentPacks: null },
+      // 3 packs that weigh more than 3 × 500 g: still 3 packs (the 27 Oct case: 5 packs at 2,005 g)
+      { id: "l2", skuId: "chashu", plannedQty: 1500, actualQty: 1800, uom: "ก.", unitCost: 0.318, notes: "", sentPacks: 3 },
+      { id: "l3", skuId: "tare", plannedQty: 2000, actualQty: 0, uom: "มล.", unitCost: 0.25, notes: "", sentPacks: null },
     ],
   },
 ];

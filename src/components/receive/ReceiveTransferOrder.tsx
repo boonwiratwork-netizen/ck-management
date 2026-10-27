@@ -21,7 +21,8 @@ interface Props {
   findDoubles: (lines: { skuId: string; qty: number }[]) => Promise<string[]>;
 }
 
-type LineState = { qty: number; checked: boolean; note: string; editing: boolean };
+/** qty = weight received; packs = packs received (pack-mode items), kept apart */
+type LineState = { qty: number; packs: number | null; checked: boolean; note: string; editing: boolean };
 
 /**
  * Receiving a central-kitchen transfer order. Every line starts at what was sent
@@ -30,8 +31,19 @@ type LineState = { qty: number; checked: boolean; note: string; editing: boolean
  */
 export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onReceive, onDecline, findDoubles }: Props) {
   const sentQty = (l: PendingTO["lines"][number]) => (l.actualQty > 0 ? l.actualQty : l.plannedQty);
+  // Packs sent: the kitchen's own count; old lines (no count) from the weight
+  const sentPacksOf = (l: PendingTO["lines"][number]) => {
+    const sku = skuMap.get(l.skuId);
+    if (!isPacksMode(sku)) return null;
+    return l.sentPacks ?? packsFromQty(sku, sentQty(l));
+  };
+  // A pack's real weight on this line (2,005 g ÷ 5), so fewer packs take off real grams
+  const perPack = (l: PendingTO["lines"][number]) => {
+    const p = sentPacksOf(l);
+    return p && p > 0 ? sentQty(l) / p : skuMap.get(l.skuId)?.packSize || 1;
+  };
   const [lines, setLines] = useState<Record<string, LineState>>(() =>
-    Object.fromEntries(to.lines.map((l) => [l.id, { qty: sentQty(l), checked: false, note: l.notes, editing: false }])),
+    Object.fromEntries(to.lines.map((l) => [l.id, { qty: sentQty(l), packs: sentPacksOf(l), checked: false, note: l.notes, editing: false }])),
   );
   const [saving, setSaving] = useState(false);
   const [confirmUnchecked, setConfirmUnchecked] = useState(false);
@@ -106,15 +118,16 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
           const sku = skuMap.get(l.skuId);
           const s = lines[l.id];
           const sent = sentQty(l);
-          const lessThanSent = s.checked && s.qty < sent;
+          const sentPacks = sentPacksOf(l);
+          const lessThanSent = s.checked && (s.qty < sent - 0.5 || (sentPacks != null && s.packs != null && s.packs < sentPacks));
           const showStepper = s.editing || lessThanSent;
           return (
             <li key={l.id} className={cn("flex items-start gap-3 rounded-2xl border bg-card p-3 shadow-card", lessThanSent ? "border-warning/50" : "border-border")}>
               <div className="flex min-w-0 flex-1 flex-col gap-1 self-stretch">
                 <div className="text-[15px] font-semibold leading-snug">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</div>
                 <div className={cn("text-sm", lessThanSent ? "text-warning" : "text-muted-foreground")}>
-                  ส่งมา {packLabel(sku, sent)}
-                  {lessThanSent && ` · ได้จริง ${packLabel(sku, s.qty)}`}
+                  ส่งมา {packLabel(sku, sent, sentPacks)}
+                  {lessThanSent && ` · ได้จริง ${packLabel(sku, s.qty, s.packs)}`}
                   {!lessThanSent && packHint(sku) && ` · ${packHint(sku)}`}
                 </div>
                 {showStepper && (
@@ -132,7 +145,7 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
                         <Check className="h-4 w-4" /> ครบ
                       </span>
                     ) : (
-                      <Button variant="outline" className="h-11 border-foreground px-4 font-semibold" onClick={() => set(l.id, { checked: true, qty: sent })}>
+                      <Button variant="outline" className="h-11 border-foreground px-4 font-semibold" onClick={() => set(l.id, { checked: true, qty: sent, packs: sentPacks })}>
                         ครบ
                       </Button>
                     )}
@@ -144,9 +157,10 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
                 {showStepper && (
                   <PackStepper
                     label={`จำนวนที่ได้ ${sku?.name ?? ""}`}
-                    value={packsFromQty(sku, s.qty)}
-                    step={isPacksMode(sku) ? 1 : 1}
-                    onChange={(v) => set(l.id, { qty: qtyFromPacks(sku, v), checked: true })}
+                    value={isPacksMode(sku) ? (s.packs ?? packsFromQty(sku, s.qty)) : s.qty}
+                    step={1}
+                    // Packs change the weight by this line's real pack weight; the weight box below changes weight only
+                    onChange={(v) => set(l.id, isPacksMode(sku) ? { packs: Math.round(v), qty: Math.round(v) * perPack(l), checked: true } : { qty: qtyFromPacks(sku, v), checked: true })}
                   />
                 )}
                 {showStepper && <WeightField sku={sku} qty={s.qty} onChange={(qty) => set(l.id, { qty, checked: true })} />}

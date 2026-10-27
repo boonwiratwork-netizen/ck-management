@@ -9,10 +9,19 @@ import { cn } from "@/lib/utils";
 export const baht = (n: number, digits = 0) =>
   `฿${n.toLocaleString("th-TH", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 
-/** "4 ถุง" in pack mode, else "250 ก." — what staff count */
-export function packLabel(sku: SKU | undefined, qty: number): string {
+/**
+ * "4 ถุง" in pack mode, else "250 ก." — what staff count. With `packs` (the count
+ * that was packed) it shows that, plus the weight when it isn't packs × pack size:
+ * "5 แพ็ค (2,005 ก.)" — never 2,005 ÷ 350 = 6.
+ */
+export function packLabel(sku: SKU | undefined, qty: number, packs?: number | null): string {
   if (!sku) return qty.toLocaleString();
-  if (isPacksMode(sku)) return `${Math.round(qty / (sku.packSize || 1)).toLocaleString()} ${sku.packUnit}`;
+  if (isPacksMode(sku)) {
+    const ps = sku.packSize || 1;
+    const n = packs ?? Math.round(qty / ps);
+    const unit = sku.usageUom || sku.purchaseUom || "";
+    return Math.abs(n * ps - qty) > 0.5 ? `${n.toLocaleString()} ${sku.packUnit} (${qty.toLocaleString()} ${unit})` : `${n.toLocaleString()} ${sku.packUnit}`;
+  }
   return `${qty.toLocaleString()} ${sku.usageUom || sku.purchaseUom || ""}`.trim();
 }
 

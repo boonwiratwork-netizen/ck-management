@@ -7,7 +7,7 @@ import { useBranchData } from "@/hooks/use-branch-data";
 import { useSkuData } from "@/hooks/use-sku-data";
 import { useTransferOrder, type PendingTR, type TOHistoryRow, type TOLine } from "@/hooks/use-transfer-order";
 import { useTransferLots } from "@/hooks/use-transfer-lots";
-import { packsOf } from "@/lib/transfer-lines";
+import { packsAfterWeight, packsOf } from "@/lib/transfer-lines";
 import { DeclineDialog, PackSheet, isPackLine, useSendCheck, type PackForm } from "@/components/transfer/PackSheet";
 import { ReviewSend, SentDone, TransferHistory, TransferHome, printSlip, sentMessage, type Kind, type OrderDetail, type SlipLine } from "@/components/transfer/TransferViews";
 import { SkuPicker } from "@/components/receive/parts";
@@ -158,7 +158,8 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
     // An SM counted in units still keeps its lots in step
     if (ps > 0) lots.followPacks({ ...line, actualQty: qty, packsCount: packs ?? line.packsCount }, packsOf({ actualQty: qty, packsCount: packs ?? null }, ps));
   };
-  const onWeight = (line: TOLine, grams: number) => save(line, grams, undefined);
+  // The real weight never changes the pack count (5 packs weighing 2,005 g stay 5)
+  const onWeight = (line: TOLine, grams: number) => save(line, grams, packsAfterWeight(line, skuOf(line.skuId)?.packSize ?? 0));
   const onNote = (line: TOLine, note: string) => {
     setLine(line.id, { note });
     if (form && !form.isEditingSent) to.updateTOLineNote(form.toId, line.id, note);

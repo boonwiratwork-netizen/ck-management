@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Check, ChevronDown, ChevronRight, Copy, Pencil, Plus, Printer, Undo2 } from "lucide-react";
 import type { PendingTR, TOHistoryRow, TOLine } from "@/hooks/use-transfer-order";
-import { isShort, kitchenSentShort, sentQtyOf, transferBadges, type Badge, type SendCheck } from "@/lib/transfer-lines";
+import { isShort, kitchenSentShort, packsOf, sentQtyOf, transferBadges, type Badge, type SendCheck } from "@/lib/transfer-lines";
 import { ActionFooter, baht } from "@/components/receive/parts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -217,10 +217,11 @@ export function ReviewSend({
   const same = form.lines.filter((l) => l.trLineId && !changedIds.has(l.id)).length;
   const [showSame, setShowSame] = useState(false);
   // Pack items read in packs (with the weight when it isn't whole packs), others in their unit
-  const qtyText = (l: TOLine, q: number, floor = false) => {
+  // `packs` = the line's own pack count (what was packed); else worked out from q
+  const qtyText = (l: TOLine, q: number, floor = false, packsGiven?: number) => {
     const ps = packSizeOf(l.skuId);
     if (ps <= 1) return `${num(q)} ${l.uom}`;
-    const packs = floor ? Math.floor(q / ps) : Math.round(q / ps);
+    const packs = packsGiven ?? (floor ? Math.floor(q / ps) : Math.round(q / ps));
     return Math.abs(packs * ps - q) > 0.5 && !floor ? `${num(packs)} แพ็ค (${num(q)} ${l.uom})` : `${num(packs)} แพ็ค`;
   };
   return (
@@ -258,7 +259,7 @@ export function ReviewSend({
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold">{m.skuName}</div>
                   <div className="text-[13px] text-warning">
-                    ส่ง {qtyText(l, m.needed)} แต่ในครัวเหลือ {qtyText(l, Math.max(0, m.available), true)} · ส่งได้ถ้าตั้งใจ
+                    ส่ง {qtyText(l, m.needed, false, packsOf(l, packSizeOf(l.skuId)))} แต่ในครัวเหลือ {qtyText(l, Math.max(0, m.available), true)} · ส่งได้ถ้าตั้งใจ
                   </div>
                 </div>
                 <Button variant="outline" className="h-10" onClick={() => onFix(m.lineId)}>
@@ -285,7 +286,7 @@ export function ReviewSend({
               <div key={c.lineId} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
                 <span className="min-w-0 break-words">{c.skuName}</span>
                 <span className={cn("shrink-0 font-mono", short && "font-semibold text-brand")}>
-                  {qtyText(l, c.sent)} <span className="text-muted-foreground">(ขอ {qtyText(l, c.requested)})</span>
+                  {qtyText(l, c.sent, false, packsOf(l, packSizeOf(l.skuId)))} <span className="text-muted-foreground">(ขอ {qtyText(l, c.requested)})</span>
                   {short && " · ส่งไม่ครบ"}
                 </span>
               </div>
@@ -324,7 +325,7 @@ export function ReviewSend({
                 .map((l) => (
                   <li key={l.id} className="flex justify-between gap-3">
                     <span className="break-words">{l.skuName}</span>
-                    <span className="shrink-0 font-mono">{qtyText(l, l.actualQty)}</span>
+                    <span className="shrink-0 font-mono">{qtyText(l, l.actualQty, false, packsOf(l, packSizeOf(l.skuId)))}</span>
                   </li>
                 ))}
             </ul>
@@ -339,7 +340,7 @@ export function ReviewSend({
             .map((l) => (
               <div key={l.id} className="flex justify-between gap-3 py-1">
                 <span className="break-words">{l.skuName}</span>
-                <span className="shrink-0 font-mono">{qtyText(l, l.actualQty)}</span>
+                <span className="shrink-0 font-mono">{qtyText(l, l.actualQty, false, packsOf(l, packSizeOf(l.skuId)))}</span>
               </div>
             ))}
         </section>

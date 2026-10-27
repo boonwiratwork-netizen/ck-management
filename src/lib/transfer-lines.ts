@@ -33,10 +33,20 @@ export function kitchenSentShort(l: { plannedQty: number; actualQty: number; pac
   return isShort(l.actualQty, l.plannedQty);
 }
 
-/** Packs on a line: the count the kitchen typed, else derived from the weight */
+/**
+ * Packs on a line: the count the kitchen typed, else derived from the weight.
+ * The pack count is its own fact — weighing 5 packs of 350 g at 2,005 g is still 5
+ * packs — so every screen shows packs from here, never from weight ÷ pack size.
+ */
 export function packsOf(l: { packsCount: number | null; actualQty: number }, packSize: number): number {
   if (l.packsCount != null) return l.packsCount;
   return packSize > 0 ? Math.round(l.actualQty / packSize) : 0;
+}
+
+/** Typing the real weight keeps the packs as they were (pins them if never typed) */
+export function packsAfterWeight(l: { packsCount: number | null; actualQty: number }, packSize: number): number | undefined {
+  if (l.packsCount != null) return undefined; // already saved: unchanged
+  return packSize > 1 ? packsOf(l, packSize) : undefined;
 }
 
 // ─── Production lots (SM only, traceability only) ───
@@ -141,6 +151,18 @@ export interface SendCheck {
   changed: { lineId: string; skuName: string; requested: number; sent: number }[];
 }
 
+/**
+ * Sent something other than asked. Items asked in whole packs compare packs: the
+ * packs asked for, sent at their real weight (5 packs at 2,005 g), match the request.
+ */
+function differsFromRequest(l: { plannedQty: number; actualQty: number; packsCount: number | null }, packSize: number): boolean {
+  if (packSize > 1) {
+    const asked = l.plannedQty / packSize;
+    if (Math.abs(asked - Math.round(asked)) <= 0.01) return packsOf(l, packSize) !== Math.round(asked);
+  }
+  return Math.abs(l.actualQty - l.plannedQty) > 0.5;
+}
+
 export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => SkuInfo | undefined, stock: Record<string, number>, lots: Record<string, LotLine[]>): SendCheck {
   const out: SendCheck = { overStock: [], lotMismatch: [], short: [], changed: [] };
   for (const l of lines) {
@@ -156,7 +178,7 @@ export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => Sku
     }
     if (l.trLineId && l.plannedQty > 0) {
       if (kitchenSentShort(l, sku?.packSize ?? 0)) out.short.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
-      else if (Math.abs(l.actualQty - l.plannedQty) > 0.5) out.changed.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
+      else if (differsFromRequest(l, sku?.packSize ?? 0)) out.changed.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });
     }
   }
   return out;

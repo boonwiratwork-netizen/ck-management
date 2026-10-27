@@ -21,6 +21,8 @@ export interface PendingTOLine {
   uom: string;
   unitCost: number;
   notes: string;
+  /** Packs the kitchen packed (its own fact: 5 packs may weigh 2,005 g); null = old line */
+  sentPacks: number | null;
 }
 export interface PendingTO {
   id: string;
@@ -101,7 +103,7 @@ export function useReceiveData(opts: {
       branchId
         ? supabase
             .from("transfer_orders")
-            .select("id, to_number, delivery_date, tr_id, transfer_order_lines!to_id(id, sku_id, planned_qty, actual_qty, uom, unit_cost, notes)")
+            .select("id, to_number, delivery_date, tr_id, transfer_order_lines!to_id(id, sku_id, planned_qty, actual_qty, uom, unit_cost, notes, packs_count)")
             .eq("branch_id", branchId)
             .eq("status", "Sent")
             .order("delivery_date")
@@ -147,6 +149,7 @@ export function useReceiveData(opts: {
           uom: l.uom,
           unitCost: Number(l.unit_cost),
           notes: l.notes || "",
+          sentPacks: l.packs_count ?? null,
         })),
       })),
     );
