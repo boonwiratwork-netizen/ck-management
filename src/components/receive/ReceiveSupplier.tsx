@@ -6,11 +6,11 @@ import type { Supplier } from "@/types/supplier";
 import type { PRGroup } from "@/hooks/use-receive-data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { isPacksMode, packsFromQty, qtyFromPacks, stdUnitPriceFor, supplierRow, type ReceiptRow } from "@/lib/receive-rows";
+import { isPacksMode, qtyFromPacks, stdUnitPriceFor, supplierRow, type ReceiptRow } from "@/lib/receive-rows";
 import { fileToBase64, matchSkuFromRawName, type MatchConfidence, type ScanItem } from "@/lib/receive-scan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ActionFooter, NoteField, PackStepper, PriceField, RemoveButton, SkuPicker, WeightField, baht, onEnterNext, packHint } from "./parts";
+import { ActionFooter, NoteField, PackQtyInput, PriceField, RemoveButton, SkuPicker, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
 
 interface Line {
@@ -238,8 +238,7 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
               </div>
               {/* Everything staff type sits in one column on the right, top to bottom */}
               <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <PackStepper label={`จำนวน ${sku?.name ?? ""}`} value={packsFromQty(sku, l.qty)} onChange={(v) => patch(l.key, { qty: qtyFromPacks(sku, v) })} />
-                {filled && <WeightField sku={sku} qty={l.qty} onChange={(qty) => patch(l.key, { qty })} />}
+                <PackQtyInput label={`จำนวน ${sku?.name ?? ""}`} sku={sku} qty={l.qty} showWeight={filled} onChange={(qty) => patch(l.key, { qty })} />
                 {filled && (
                   <PriceField
                     value={l.invoicePrice}

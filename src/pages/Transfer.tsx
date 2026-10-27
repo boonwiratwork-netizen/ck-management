@@ -148,8 +148,13 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   };
   const onPacks = (line: TOLine, packs: number) => {
     const ps = skuOf(line.skuId)?.packSize ?? 0;
-    save(line, packs * ps, packs);
-    lots.followPacks({ ...line, packsCount: packs, actualQty: packs * ps }, packs);
+    // A weighed line keeps its real pack weight (5 packs at 2,005 g → 6 packs ≈ 2,406 g);
+    // an unweighed one goes by the pack size
+    const was = packsOf(line, ps);
+    const weighed = was > 0 && Math.abs(line.actualQty - was * ps) > 0.5;
+    const qty = weighed ? Math.round((line.actualQty / was) * packs) : packs * ps;
+    save(line, qty, packs);
+    lots.followPacks({ ...line, packsCount: packs, actualQty: qty }, packs);
   };
   const onQty = (line: TOLine, qty: number) => {
     const ps = skuOf(line.skuId)?.packSize ?? 0;

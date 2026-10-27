@@ -3,7 +3,7 @@ import { Minus, Plus, Search, X, Trash2, PencilLine } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { isPacksMode } from "@/lib/receive-rows";
+import { isPacksMode, packsFromQty } from "@/lib/receive-rows";
 import { cn } from "@/lib/utils";
 
 export const baht = (n: number, digits = 0) =>
@@ -18,8 +18,11 @@ export function packLabel(sku: SKU | undefined, qty: number, packs?: number | nu
   if (!sku) return qty.toLocaleString();
   if (isPacksMode(sku)) {
     const ps = sku.packSize || 1;
-    const n = packs ?? Math.round(qty / ps);
     const unit = sku.usageUom || sku.purchaseUom || "";
+    // Without the packed count, a weight that isn't whole packs shows as weight only
+    // (2,005 g of 350 g packs is not "6 packs")
+    if (packs == null && Math.abs(Math.round(qty / ps) * ps - qty) > 0.5) return `${qty.toLocaleString()} ${unit}`.trim();
+    const n = packs ?? Math.round(qty / ps);
     return Math.abs(n * ps - qty) > 0.5 ? `${n.toLocaleString()} ${sku.packUnit} (${qty.toLocaleString()} ${unit})` : `${n.toLocaleString()} ${sku.packUnit}`;
   }
   return `${qty.toLocaleString()} ${sku.usageUom || sku.purchaseUom || ""}`.trim();
@@ -219,6 +222,38 @@ const boxInput = "h-full w-full min-w-0 bg-transparent px-3 text-right font-mono
  * 3 bags that weigh 2,600 g are stored as 2,600, not 3 × 1,000. Always shown
  * under the stepper so staff never have to look for it.
  */
+/**
+ * Packs and the real weight, kept apart (pack-mode items): the stepper counts packs,
+ * the weight box is what the scale says. Weighing never changes the pack count, and
+ * a pack added or taken off moves the weight by this line's real pack weight
+ * (4 packs at 4,600 g + 1 = 5,750 g), not the standard pack size. Other items: one
+ * stepper on the quantity, as before.
+ */
+export function PackQtyInput({ sku, qty, onChange, label, showWeight = true }: { sku: SKU | undefined; qty: number; onChange: (qty: number) => void; label: string; showWeight?: boolean }) {
+  const packMode = isPacksMode(sku);
+  const [packs, setPacks] = useState(() => (packMode ? packsFromQty(sku, qty) : 0));
+  // Cleared from outside (line reset): no packs either
+  useEffect(() => {
+    if (qty === 0) setPacks(0);
+  }, [qty]);
+  if (!packMode) return <PackStepper label={label} value={qty} onChange={onChange} />;
+  const per = packs > 0 && qty > 0 ? qty / packs : sku!.packSize || 1;
+  return (
+    <>
+      <PackStepper
+        label={label}
+        value={packs}
+        onChange={(v) => {
+          const n = Math.max(0, Math.round(v));
+          setPacks(n);
+          onChange(Math.round(n * per * 100) / 100);
+        }}
+      />
+      {showWeight && <WeightField sku={sku} qty={qty} onChange={onChange} />}
+    </>
+  );
+}
+
 export function WeightField({ sku, qty, onChange }: { sku: SKU | undefined; qty: number; onChange: (qty: number) => void }) {
   if (!sku || !isPacksMode(sku)) return null;
   const unit = sku.purchaseUom || sku.usageUom || "";

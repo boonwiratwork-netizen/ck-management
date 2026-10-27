@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
-import { branchTransferRow, kitchenAdHocRow, packsFromQty, qtyFromPacks, type ReceiptRow } from "@/lib/receive-rows";
+import { branchTransferRow, kitchenAdHocRow, qtyFromPacks, type ReceiptRow } from "@/lib/receive-rows";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ActionFooter, NoteField, PackStepper, RemoveButton, SkuPicker, WeightField, baht, onEnterNext, packHint } from "./parts";
+import { ActionFooter, NoteField, PackQtyInput, RemoveButton, SkuPicker, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
 
 export interface PricedSku {
@@ -92,8 +92,7 @@ export function ReceiveKitchenAdHoc({
                 )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <PackStepper label={`จำนวน ${sku.name}`} value={packsFromQty(sku, q)} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: qtyFromPacks(sku, v) }))} />
-                {q > 0 && <WeightField sku={sku} qty={q} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: v }))} />}
+                <PackQtyInput label={`จำนวน ${sku.name}`} sku={sku} qty={q} showWeight={q > 0} onChange={(v) => setQty((p) => ({ ...p, [sku.id]: v }))} />
                 {q > 0 && (
                   <div className="pt-0.5 text-right text-sm text-muted-foreground">
                     รวม <span className="font-mono text-base font-semibold tabular-nums text-foreground">{baht(q * stdUnitPrice)}</span>
@@ -188,8 +187,7 @@ export function ReceiveFromBranch({
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <PackStepper label={`จำนวน ${l.sku.name}`} value={packsFromQty(l.sku, l.qty)} onChange={(v) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty: qtyFromPacks(x.sku, v) } : x)))} />
-                  <WeightField sku={l.sku} qty={l.qty} onChange={(qty) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty } : x)))} />
+                  <PackQtyInput label={`จำนวน ${l.sku.name}`} sku={l.sku} qty={l.qty} onChange={(qty) => setLines((p) => p.map((x, j) => (j === i ? { ...x, qty } : x)))} />
                   <div className="pt-0.5 text-right text-sm text-muted-foreground">
                     รวม <span className="font-mono text-base font-semibold tabular-nums text-foreground">{baht(l.qty * l.std)}</span>
                   </div>
