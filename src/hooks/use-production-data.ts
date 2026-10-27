@@ -244,7 +244,7 @@ export function useProductionData(
   );
 
   const addRecord = useCallback(
-    async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string }): Promise<string | undefined> => {
+    async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number> }): Promise<string | undefined> => {
       const planId = await planFor(data.smSkuId, data.productionDate);
       if (!planId) return;
       const perOut = getOutputPerBatch(data.smSkuId);
@@ -266,6 +266,8 @@ export function useProductionData(
       if (per) {
         const share = batchShare(data.actualOutputG, perOut);
         const want = movementFor(per.ingredients, per.byproducts, share);
+        // By-products as weighed (น้ำมันไก่ 3–6 kg a pot), not the recipe's fixed amount
+        for (const b of per.byproducts) if (data.byproductQty && data.byproductQty[b.skuId] !== undefined) want.set(b.skuId, Math.max(0, data.byproductQty[b.skuId]));
         const tag = recordTag(saved.id);
         await writeMoves(deltas(want, new Map()), data.productionDate, `Production: ${shareText(share)} batches of ${data.smSkuId} ${tag}`, `Production by-product: ${shareText(share)} batches of ${data.smSkuId} ${tag}`, per);
       }
@@ -299,6 +301,10 @@ export function useProductionData(
         const share = batchShare(data.actualOutputG, perOut);
         // Legacy records: ingredients only (their by-products stay as they were)
         const want = movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share);
+        // By-products were weighed when recorded: keep that amount, scaled by the new output
+        const oldShare = batchShare(old.actualOutputG, perOut);
+        if (legacy == null && oldShare > 0)
+          for (const b of per.byproducts) if (now.has(b.skuId)) want.set(b.skuId, (now.get(b.skuId) || 0) * (share / oldShare));
         const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
         const bpReason = (what: string) => `Production by-product ${what} ${tag}`;
         if (old.productionDate !== data.productionDate) {

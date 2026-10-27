@@ -10,8 +10,13 @@ import ProducePage from "@/pages/Produce";
  * on made-up kitchen figures. Saving stays in memory; the weekly plan isn't loaded.
  */
 const sm = (id: string, name: string): SKU => ({ id, skuId: id, name, type: "SM", status: "Active", usageUom: "ก.", purchaseUom: "ก.", packSize: 1000, packUnit: "แพ็ค" }) as unknown as SKU;
-const SKUS = [sm("soup", "ซุปทงคตสึ"), sm("tori", "ซุปโทริ ไพตัน"), sm("duck", "อกเป็ดชาชู ซูวีด์ รมควัน"), sm("neck", "สันคอหมูชาชู ซูวีด์ รมควัน"), sm("oil", "น้ำมันชิโอะ"), sm("x", "ซอสใหม่ (ยังไม่มีสูตร)")];
-const PER: Record<string, number> = { soup: 33000, tori: 33000, duck: 3300, neck: 1200, oil: 3000 };
+const SKUS = [sm("soup", "ซุปทงคตสึ"), sm("tori", "ซุปโทริ ไพตัน"), sm("duck", "อกเป็ดชาชู ซูวีด์ รมควัน"), sm("neck", "สันคอหมูชาชู ซูวีด์ รมควัน"), sm("oil", "น้ำมันชิโอะ"), sm("x", "ซอสใหม่ (ยังไม่มีสูตร)"), sm("stock", "น้ำสต๊อก"), sm("chickenoil", "น้ำมันไก่"), sm("toristock", "น้ำสต๊อกโทริ ไพตัน")];
+const PER: Record<string, number> = { soup: 33000, tori: 33000, duck: 3300, neck: 1200, oil: 3000, stock: 33000, chickenoil: 3000 };
+// น้ำสต๊อก makes two by-products (as in the live recipe)
+const BYPRODUCTS = [
+  { id: "b1", bomHeaderId: "h-stock", skuId: "chickenoil", name: "น้ำมันไก่", outputQty: 8000, costAllocationPct: 11.27, tracksInventory: true },
+  { id: "b2", bomHeaderId: "h-stock", skuId: "toristock", name: "น้ำสต๊อกโทริ ไพตัน", outputQty: 30000, costAllocationPct: 42.25, tracksInventory: true },
+];
 const HEADERS = Object.keys(PER).map((id) => ({ id: `h-${id}`, smSkuId: id, productionType: "CK", bomMode: "simple", batchSize: PER[id], yieldPercent: 1 }) as BOMHeader);
 const today = new Date().toISOString().slice(0, 10);
 
@@ -25,8 +30,10 @@ export default function ProduceDemo() {
     addPlan: async () => "p",
     updatePlan: async () => undefined,
     deletePlan: async () => undefined,
-    addRecord: async (d: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string }) => {
+    addRecord: async (d: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number> }) => {
       const id = `r${Date.now()}`;
+      // What a save would send (checked in the browser)
+      (window as unknown as { __lastRecord?: unknown }).__lastRecord = d;
       setRecords((p) => [{ id, planId: "p", productionDate: d.productionDate, smSkuId: d.smSkuId, batchesProduced: 1, actualOutputG: d.actualOutputG, createdAt: new Date().toISOString(), notes: d.notes }, ...p]);
       return id;
     },
@@ -59,6 +66,7 @@ export default function ProduceDemo() {
             { skuId: "oil", currentStock: 3000 },
           ] as never}
           smDailyUsage={{ soup: 4000, tori: 2400, duck: 470, neck: 1270, oil: 230 }}
+          byproducts={BYPRODUCTS}
           demoCanEdit
         />
       </div>

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { addDays, format } from "date-fns";
 import { HelpCircle } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
+import type { BomByproduct } from "@/types/byproduct";
 import type { ProductionRecord } from "@/types/production";
 import { getWeekStart } from "@/types/production";
 import type { SMStockBalance } from "@/hooks/use-sm-stock-data";
@@ -13,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { indirectNeed } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
 import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
+import { ByproductDialog, type ByproductAsk } from "@/components/production/ByproductDialog";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,8 @@ interface Props {
   /** Daily SM need from sales, the same figure as the SM Stock page */
   smDailyUsage: Record<string, number>;
   refreshProductionRecords?: () => void;
+  /** Recipe by-products (น้ำสต๊อก → น้ำมันไก่ + น้ำสต๊อกโทริ ไพตัน) */
+  byproducts?: BomByproduct[];
   /** Dev harness only: act as a kitchen manager without signing in */
   demoCanEdit?: boolean;
 }
@@ -92,7 +96,7 @@ function useWeekPlan(weekStart: string) {
  * Central-kitchen production (replaces Production): record what was made each day,
  * and plan the week. Hash: "" recording, "plan" planning.
  */
-export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, refreshProductionRecords, demoCanEdit }: Props) {
+export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, refreshProductionRecords, byproducts = [], demoCanEdit }: Props) {
   const { records, addRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch } = productionData;
   const { isManagement, role } = useAuth();
   const canEdit = demoCanEdit || isManagement || role === "ck_manager";
@@ -181,14 +185,54 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
 
   // ── Recording ──
   const [busy, setBusy] = useState<string | null>(null);
-  const onRecord = async (skuId: string, grams: number, notes: string) => {
+  // Tracked by-products per recipe, and which recipe each by-product comes from
+  const tracked = useMemo(() => byproducts.filter((b) => b.tracksInventory && b.skuId), [byproducts]);
+  const parentOfBp = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of tracked) {
+      const h = bomHeaders.find((x) => x.id === b.bomHeaderId);
+      if (h) m.set(b.skuId!, h.smSkuId);
+    }
+    return m;
+  }, [tracked, bomHeaders]);
+  // A pending save waits for a dialog (by-products as weighed, or "already came in?")
+  const waiting = useRef<((ok: boolean) => void) | null>(null);
+  const [bpAsk, setBpAsk] = useState<(ByproductAsk & { skuId: string; notes: string }) | null>(null);
+  const [dupAsk, setDupAsk] = useState<{ skuId: string; grams: number; notes: string; parent: string } | null>(null);
+  const wait = () => new Promise<boolean>((resolve) => (waiting.current = resolve));
+  // The confirm button also closes the dialog: don't treat that close as "cancel"
+  const dupConfirmed = useRef(false);
+  const settle = (ok: boolean) => {
+    waiting.current?.(ok);
+    waiting.current = null;
+  };
+
+  const save = async (skuId: string, grams: number, notes: string, byproductQty?: Record<string, number>) => {
     setBusy(skuId);
-    const id = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes });
+    const id = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes, byproductQty });
     setBusy(null);
     if (!id) return false;
     refreshProductionRecords?.();
     toast.success(`บันทึก ${nameOf(skuId)} แล้ว`);
     return true;
+  };
+  const askByproducts = (skuId: string, grams: number, notes: string) => {
+    const header = bomHeaders.find((h) => h.smSkuId === skuId);
+    const items = header ? tracked.filter((b) => b.bomHeaderId === header.id) : [];
+    if (!items.length) return save(skuId, grams, notes);
+    const perOut = getOutputPerBatch(skuId);
+    const share = perOut > 0 ? grams / perOut : 0;
+    setBpAsk({ skuId, notes, name: nameOf(skuId), grams, items: items.map((b) => ({ skuId: b.skuId!, name: nameOf(b.skuId!), expected: b.outputQty * share, uom: skus.find((s) => s.id === b.skuId)?.usageUom || "ก." })) });
+    return wait();
+  };
+  const onRecord = async (skuId: string, grams: number, notes: string) => {
+    // A by-product already went into stock with its parent pot today: ask before adding it twice
+    const parent = parentOfBp.get(skuId);
+    if (parent && records.some((r) => r.smSkuId === parent && r.productionDate === day)) {
+      setDupAsk({ skuId, grams, notes, parent });
+      return wait();
+    }
+    return askByproducts(skuId, grams, notes);
   };
   const [editing, setEditing] = useState<ProductionRecord | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -301,6 +345,51 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           }}
         />
       )}
+      {bpAsk && (
+        <ByproductDialog
+          ask={bpAsk}
+          busy={busy === bpAsk.skuId}
+          onCancel={() => {
+            setBpAsk(null);
+            settle(false);
+          }}
+          onSave={async (qty) => {
+            const ok = await save(bpAsk.skuId, bpAsk.grams, bpAsk.notes, qty);
+            setBpAsk(null);
+            settle(ok);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={!!dupAsk}
+        onOpenChange={(o) => {
+          if (o) return;
+          if (dupConfirmed.current) {
+            dupConfirmed.current = false;
+            return;
+          }
+          if (dupAsk) {
+            setDupAsk(null);
+            settle(false);
+          }
+        }}
+        title={`${dupAsk ? nameOf(dupAsk.skuId) : ""} เข้าสต๊อกแล้ววันนี้`}
+        description={dupAsk ? `ผลิต${nameOf(dupAsk.parent)}วันนี้ ${nameOf(dupAsk.skuId)}เข้าสต๊อกพร้อมหม้อนั้นแล้ว\nลงแยกอีกจะนับซ้ำ · บันทึกต่อเฉพาะถ้าเป็นอีกหม้อจริงๆ` : ""}
+        confirmLabel="เป็นอีกหม้อ บันทึกต่อ"
+        cancelLabel="ไม่บันทึก"
+        variant="default"
+        onConfirm={async () => {
+          const d = dupAsk;
+          dupConfirmed.current = true;
+          setDupAsk(null);
+          if (!d) return;
+          // Resolve the waiting save once the next step (by-products, if any) is done
+          const resolve = waiting.current;
+          waiting.current = null;
+          const ok = await askByproducts(d.skuId, d.grams, d.notes);
+          resolve?.(ok);
+        }}
+      />
       <ConfirmDialog
         open={!!pendingWeek}
         onOpenChange={(o) => !o && setPendingWeek(null)}
