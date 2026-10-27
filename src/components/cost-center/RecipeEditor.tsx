@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 import { KindBadge, baht, perUnit } from "./parts";
+import { RecipeLineSheet, type SheetLine } from "./RecipeLineSheet";
 
 export interface RecipeEditActions {
   addHeader: (data: Omit<BOMHeader, "id">) => Promise<string>;
@@ -52,7 +54,8 @@ const num = (v: string) => {
 const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
-  const all = [...document.querySelectorAll<HTMLInputElement>("[data-rcp-field]")];
+  // Only boxes on screen: the phone cards and the computer table both carry them
+  const all = [...document.querySelectorAll<HTMLInputElement>("[data-rcp-field]")].filter((el) => el.offsetParent !== null);
   const next = all[all.indexOf(e.currentTarget) + 1];
   // blur first so the save fires before the cursor moves (table input pattern)
   e.currentTarget.blur();
@@ -97,6 +100,12 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
   const [confirm, setConfirm] = useState<{ text: string; run: () => void } | null>(null);
   // Bumped when a change is cancelled, so the boxes show the saved numbers again
   const [gen, setGen] = useState(0);
+  // One line on its own sheet: tap a card (phone) or "เปลี่ยน" (computer), or add
+  // Holds the line's id only: the sheet always reads the live line (an inline save
+  // landing after it opened must not leave it comparing against an old number)
+  const [sheet, setSheet] = useState<{ rowId: string | null } | null>(null);
+  // The table needs ~620px; a phone (or a squeezed laptop) gets cards instead
+  const [measure, wide] = useFitsWidth(620);
 
   const rows = isSp
     ? spLines.map((l) => ({ id: l.id, skuId: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, used: l.qtyPerBatch }))
@@ -151,33 +160,78 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
     saved(actions.updateHeader(header.id, { yieldPercent: n / 100 }));
   };
   const remove = (r: (typeof rows)[number]) =>
-    setConfirm({ text: `เอา ${byId.get(r.skuId)?.name ?? ""} ออกจากสูตร?`, run: () => saved(isSp ? actions.spDeleteLine(r.id) : actions.deleteLine(r.id)) });
+    setConfirm({
+      text: `เอา ${byId.get(r.skuId)?.name ?? ""} ออกจากสูตร?`,
+      run: async () => {
+        setBusy(true);
+        const ok = await (isSp ? actions.spDeleteLine(r.id) : actions.deleteLine(r.id));
+        setBusy(false);
+        if (ok) {
+          setSheet(null);
+          onChanged();
+        }
+      },
+    });
   // No recipe yet, or a recipe without a batch size (some old ones): ask for it here
   const firstLine = isSp ? !spLines.length : !header || !(header.batchSize > 0);
-  const add = async () => {
-    const q = num(addQty);
-    const batch = firstLine ? num(addBatch) : output;
-    if (!adding || !(q > 0) || !(batch > 0) || busy) return;
+  const addItem = async (skuId: string, q: number, batch: number, yieldPct = 100): Promise<boolean> => {
+    if (!skuId || !(q > 0) || !(batch > 0) || busy) return false;
     setBusy(true);
     let ok = false;
     if (isSp) {
-      ok = await actions.spAddLine({ spSkuId: sku.id, ingredientSkuId: adding, qtyPerBatch: q, uom: byId.get(adding)?.usageUom ?? "", batchYieldQty: batch, batchYieldUom: sku.usageUom, costPerUnit: 0 });
+      ok = await actions.spAddLine({ spSkuId: sku.id, ingredientSkuId: skuId, qtyPerBatch: q, uom: byId.get(skuId)?.usageUom ?? "", batchYieldQty: batch, batchYieldUom: sku.usageUom, costPerUnit: 0 });
     } else {
       let headerId = header?.id;
       if (headerId && firstLine && !(await actions.updateHeader(headerId, { batchSize: batch }))) {
         setBusy(false);
-        return;
+        return false;
       }
       if (!headerId) headerId = await actions.addHeader({ smSkuId: sku.id, productionType: "CK", bomMode: "simple", batchSize: batch, yieldPercent: 1 });
-      if (headerId) ok = await actions.addLine({ bomHeaderId: headerId, rmSkuId: adding, qtyPerBatch: q, yieldPercent: 1 });
+      if (headerId) ok = await actions.addLine({ bomHeaderId: headerId, rmSkuId: skuId, qtyPerBatch: q, yieldPercent: yieldPct / 100 });
     }
     setBusy(false);
-    if (ok) {
-      setAdding("");
-      setAddQty("");
-      setAddBatch("");
-      onChanged();
+    if (ok) onChanged();
+    return ok;
+  };
+  const add = async () => {
+    if (!(await addItem(adding, num(addQty), firstLine ? num(addBatch) : output))) return;
+    setAdding("");
+    setAddQty("");
+    setAddBatch("");
+  };
+  // Save a sheet: only what changed, in one write (item, amount and % together)
+  const saveSheet = async (next: SheetLine, batch: number | null) => {
+    const r = rows.find((x) => x.id === sheet?.rowId);
+    if (!r) {
+      if (await addItem(next.skuId, next.qty, batch ?? output, next.yieldPct ?? 100)) setSheet(null);
+      return;
     }
+    const swapped = next.skuId !== r.skuId;
+    const write = async () => {
+      setBusy(true);
+      const ok = isSp
+        ? await actions.spUpdateLine(r.id, {
+            ...(swapped && { ingredientSkuId: next.skuId, uom: byId.get(next.skuId)?.usageUom ?? "" }),
+            ...(next.qty !== r.qty && { qtyPerBatch: next.qty }),
+          })
+        : await actions.updateLine(r.id, {
+            ...(swapped && { rmSkuId: next.skuId }),
+            ...(next.qty !== r.qty && { qtyPerBatch: next.qty }),
+            ...(next.yieldPct !== r.yieldPct && { yieldPercent: (next.yieldPct ?? 100) / 100 }),
+          });
+      setBusy(false);
+      if (ok) {
+        setSheet(null);
+        onChanged();
+      }
+    };
+    if (!swapped && next.qty === r.qty && next.yieldPct === r.yieldPct) return setSheet(null);
+    // Another unit (ก. → กก./ชิ้น): the same number means something else, so always ask
+    const from = byId.get(r.skuId)?.usageUom;
+    const to = byId.get(next.skuId)?.usageUom;
+    if (swapped && from !== to)
+      return setConfirm({ text: `หน่วยเปลี่ยนจาก ${from} เป็น ${to} · ใช้ ${byId.get(next.skuId)?.name ?? ""} ${next.qty.toLocaleString()} ${to} ต่อรอบ ใช่ไหม?`, run: write });
+    guarded(r.qty, next.qty, `${byId.get(next.skuId)?.name ?? ""} ต่อรอบ`, write);
   };
 
   const inRecipe = new Set(rows.map((r) => r.skuId));
@@ -185,10 +239,72 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
     .filter((s) => s.status === "Active" && s.id !== sku.id && !inRecipe.has(s.id) && !dependents.has(s.id) && (isSp ? s.type === "RM" : s.type === "RM" || s.type === "SM"))
     .map((s) => ({ value: s.id, label: s.name, sublabel: `${s.skuId} · ${s.usageUom}` }));
   const field = "h-10 w-full text-right font-mono text-[16px]";
+  const total = isSp ? spTotal!.batchCost : batchCost;
+  // undefined = no sheet · null = adding · a line = editing it (gone once deleted)
+  const sheetRow = !sheet ? undefined : sheet.rowId === null ? null : rows.find((r) => r.id === sheet.rowId);
 
   return (
-    <div className="flex flex-col gap-3">
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+    <div ref={measure} className="flex flex-col gap-3">
+      {!wide && (
+        <>
+          {!firstLine && (
+            <div className={cn("grid gap-2", !isSp && header && "grid-cols-2")}>
+              <label className="rounded-2xl border border-border bg-card px-3 py-2">
+                <span className="block text-xs text-muted-foreground">
+                  {isSp ? "ทำรอบละ" : "ผลิตรอบละ"} ({sku.usageUom})
+                </span>
+                <Input data-rcp-field key={`b${gen}${isSp ? output : header?.batchSize}`} disabled={!canEdit} defaultValue={isSp ? output || "" : header?.batchSize || ""} inputMode="decimal" onBlur={(e) => setBatch(e.target.value)} onKeyDown={enterNext} className="h-10 border-0 px-0 text-left font-mono text-[18px] font-semibold shadow-none" aria-label={isSp ? "ทำรอบละ" : "ผลิตรอบละ"} />
+              </label>
+              {!isSp && header && (
+                <label className="rounded-2xl border border-border bg-card px-3 py-2">
+                  <span className="block text-xs text-muted-foreground">ได้จริง (%)</span>
+                  <Input data-rcp-field key={`y${gen}${header.yieldPercent}`} disabled={!canEdit} defaultValue={Math.round(header.yieldPercent * 1000) / 10} inputMode="decimal" onBlur={(e) => setHeaderYield(e.target.value)} onKeyDown={enterNext} className="h-10 border-0 px-0 text-left font-mono text-[18px] font-semibold shadow-none" aria-label="ได้จริง %" />
+                </label>
+              )}
+            </div>
+          )}
+          {canEdit && rows.length > 0 && <p className="-mb-1 px-1 text-sm text-muted-foreground">แตะวัตถุดิบเพื่อแก้จำนวน หรือเปลี่ยนเป็นตัวอื่น</p>}
+          <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+            {rows.map((r, i) => {
+              const ing = byId.get(r.skuId);
+              const p = priceOf(r.skuId);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => (canEdit ? setSheet({ rowId: r.id }) : onOpenProduct(r.skuId))}
+                  className={cn("flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-secondary/40", i > 0 && "border-t border-border")}
+                >
+                  {ing && <KindBadge kind={ing.type} className="mt-0.5 shrink-0" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-semibold">
+                      {ing?.name ?? "—"}
+                      {ing?.status === "Inactive" && <span className="font-normal text-destructive"> · ปิดใช้แล้ว</span>}
+                    </span>
+                    <span className="block text-[13px] text-muted-foreground">
+                      ใช้ <span className="font-mono">{r.qty.toLocaleString()} {ing?.usageUom}</span>
+                      {r.yieldPct != null && <> · ใช้ได้ {r.yieldPct}%</>}
+                    </span>
+                  </span>
+                  <span className={cn("shrink-0 font-mono font-semibold tabular-nums", !p && "text-destructive")}>{p ? baht(r.used * p) : "ไม่มีราคา"}</span>
+                </button>
+              );
+            })}
+            {canEdit && (
+              <div className={cn("px-4 py-3", rows.length > 0 && "border-t border-border")}>
+                <Button variant="outline" className="h-12 w-full border-dashed text-[15px]" onClick={() => setSheet({ rowId: null })}>
+                  + เพิ่มวัตถุดิบ
+                </Button>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-secondary/40 px-4 py-3 font-semibold">
+              <span>รวมต่อรอบ</span>
+              <span className="font-mono tabular-nums">{baht(total)}</span>
+            </div>
+          </section>
+        </>
+      )}
+      <section className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", !wide && "hidden")}>
         <div className={cn("flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 text-[15px]", firstLine && "hidden")}>
           <label className="flex items-center gap-2">
             {isSp ? "ทำรอบละ" : "ผลิตรอบละ"}
@@ -210,7 +326,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
               {!isSp && <col style={{ width: "96px" }} />}
               <col style={{ width: "90px" }} />
               <col style={{ width: "110px" }} />
-              <col style={{ width: "52px" }} />
+              <col style={{ width: canEdit ? "128px" : "12px" }} />
             </colgroup>
             <thead className="text-muted-foreground">
               <tr className="border-t border-border">
@@ -248,11 +364,16 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
                     )}
                     <td className={cn("px-2 py-2 text-right font-mono tabular-nums", !p && "font-semibold text-destructive")}>{p ? p.toLocaleString("th-TH", { maximumFractionDigits: 3 }) : "ไม่มีราคา"}</td>
                     <td className="px-2 py-2 text-right font-mono tabular-nums">{baht(r.used * p)}</td>
-                    <td className="px-1 py-2 text-center">
+                    <td className="px-1 py-2">
                       {canEdit && (
-                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => remove(r)} aria-label={`เอา ${ing?.name} ออก`}>
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setSheet({ rowId: r.id })} aria-label={`เปลี่ยน ${ing?.name}`}>
+                            เปลี่ยน
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => remove(r)} aria-label={`เอา ${ing?.name} ออก`}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -288,7 +409,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
               <tr className="border-t border-border bg-secondary/40 font-semibold">
                 <td className="px-4 py-2.5">รวมต่อรอบ</td>
                 <td colSpan={isSp ? 2 : 3} />
-                <td className="px-2 py-2.5 text-right font-mono tabular-nums">{baht(isSp ? spTotal!.batchCost : batchCost)}</td>
+                <td className="px-2 py-2.5 text-right font-mono tabular-nums">{baht(total)}</td>
                 <td />
               </tr>
             </tbody>
@@ -339,6 +460,23 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
           "ใส่ว่าทำรอบละเท่าไร ถึงจะคิดต้นทุนต่อหน่วยได้"
         )}
       </p>
+      {sheetRow !== undefined && (
+        <RecipeLineSheet
+          // A new line, or the line changed underneath: start the sheet afresh
+          key={sheetRow ? `${sheetRow.id}${sheetRow.skuId}${sheetRow.qty}${sheetRow.yieldPct}` : "new"}
+          line={sheetRow ? { skuId: sheetRow.skuId, qty: sheetRow.qty, yieldPct: sheetRow.yieldPct } : null}
+          recipeName={sku.name}
+          isSp={isSp}
+          byId={byId}
+          options={options}
+          priceOf={priceOf}
+          askBatch={!sheetRow && firstLine ? { label: isSp ? "ทำรอบละ" : "ผลิตรอบละ", uom: sku.usageUom } : null}
+          busy={busy}
+          onSave={saveSheet}
+          onRemove={sheetRow ? () => remove(sheetRow) : undefined}
+          onClose={() => setSheet(null)}
+        />
+      )}
       <ConfirmDialog
         open={!!confirm}
         onOpenChange={(o) => {
