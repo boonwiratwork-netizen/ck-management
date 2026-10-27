@@ -39,6 +39,10 @@ interface Props {
   onOpenProduct: (skuId: string) => void;
   /** Items built on this one (directly or deeper): can't go into its recipe (a loop) */
   dependents: Set<string>;
+  /** What the same pot also gives (น้ำสต๊อก → น้ำมันไก่ …): shown, and their share comes off this item's cost */
+  byproducts?: { skuId: string | null; name: string; outputQty: number; costAllocationPct: number }[];
+  /** Where by-products are set (the BOM page) */
+  onEditByproducts?: () => void;
 }
 
 const num = (v: string) => {
@@ -60,7 +64,7 @@ const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
  * leave the box (Enter goes to the next one), then the cost of this item and every
  * recipe and menu built on it is worked out again.
  */
-export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents }: Props) {
+export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents, byproducts = [], onEditByproducts }: Props) {
   // Several boxes in a row → one recost once typing stops
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const pending = useRef<(() => void) | null>(null);
@@ -101,7 +105,9 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
       : [];
   const batchCost = rows.reduce((s, r) => s + r.used * priceOf(r.skuId), 0);
   const output = isSp ? spLines[0]?.batchYieldQty ?? 0 : header ? header.batchSize * header.yieldPercent : 0;
-  const perUse = output > 0 ? batchCost / output : 0;
+  // By-products take their set share of the pot's cost (same as the cost engine)
+  const bpPct = byproducts.reduce((s, b) => s + (b.costAllocationPct || 0), 0);
+  const perUse = output > 0 ? (batchCost * Math.max(0, 100 - bpPct)) / 100 / output : 0;
   const spTotal = isSp ? spCost(spLines.map((l) => ({ ...l })), priceOf) : null;
 
   const saved = async (ok: boolean | Promise<boolean>) => {
@@ -289,6 +295,34 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
           </table>
         </div>
       </section>
+      {byproducts.length > 0 && (
+        <section className="rounded-2xl border border-border bg-card px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">ได้จากหม้อเดียวกัน (ผลพลอยได้)</h3>
+            {canEdit && onEditByproducts && (
+              <Button variant="ghost" className="hidden h-9 text-sm lg:inline-flex" onClick={onEditByproducts}>
+                แก้ผลพลอยได้ (หน้า BOM)
+              </Button>
+            )}
+          </div>
+          <ul className="mt-1 divide-y divide-border text-sm">
+            {byproducts.map((b) => (
+              <li key={b.skuId ?? b.name} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-2">
+                <button type="button" disabled={!b.skuId} onClick={() => b.skuId && onOpenProduct(b.skuId)} className="min-w-0 break-words text-left font-medium hover:underline disabled:no-underline">
+                  {b.name}
+                </button>
+                <span className="font-mono text-muted-foreground">
+                  {b.outputQty.toLocaleString()} {sku.usageUom} · ต้นทุน {Math.round(b.costAllocationPct * 10) / 10}%
+                  {b.outputQty > 0 && <> · {perUnit((batchCost * b.costAllocationPct) / 100 / b.outputQty, sku.usageUom)}</>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-muted-foreground">
+            ตัวนี้รับต้นทุน {Math.round(Math.max(0, 100 - bpPct) * 10) / 10}% ของหม้อ · จำนวนที่ได้จริงใส่ตอนบันทึกผลิตแต่ละหม้อ
+          </p>
+        </section>
+      )}
       <p className="text-sm text-muted-foreground">
         {output > 0 ? (
           <>

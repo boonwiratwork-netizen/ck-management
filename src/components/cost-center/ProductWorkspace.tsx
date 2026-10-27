@@ -709,9 +709,9 @@ function RecipePanel(props: Props) {
   const editPage: TabKey = sku.type === "SM" ? "bom" : "sp-bom";
   const hasByproducts = !!header && book.byproducts.some((b) => b.bomHeaderId === header.id);
 
-  // Simple SM recipes and SP recipes are edited right here. Multi-step recipes and
-  // ones with by-products still open the BOM page (few of them, more to set).
-  const editableHere = (sku.type === "SP" || !header || (header.bomMode !== "multistep" && !hasByproducts)) && !(summary.madeFrom.length && !header && !spLines.length);
+  // Simple SM recipes (by-products shown, their share taken off) and SP recipes are
+  // edited right here, phone included. Multi-step recipes still open the BOM page.
+  const editableHere = (sku.type === "SP" || !header || header.bomMode !== "multistep") && !(summary.madeFrom.length && !header && !spLines.length);
   if (editableHere && (canEdit || header || spLines.length))
     return (
       <div className="flex flex-col gap-3">
@@ -735,6 +735,8 @@ function RecipePanel(props: Props) {
           onChanged={() => actions.recost(sku.id)}
           onOpenProduct={onOpenProduct}
           dependents={new Set(affectedRecipes([sku.id], book))}
+          byproducts={hasByproducts && header ? book.byproducts.filter((b) => b.bomHeaderId === header.id).map((b) => ({ skuId: b.skuId ?? null, name: b.skuId ? byId.get(b.skuId)?.name ?? "ผลพลอยได้" : "ผลพลอยได้", outputQty: b.outputQty, costAllocationPct: b.costAllocationPct })) : []}
+          onEditByproducts={() => onNavigate(editPage)}
         />
       </div>
     );

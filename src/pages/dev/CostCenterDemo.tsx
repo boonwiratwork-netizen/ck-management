@@ -9,6 +9,7 @@ import type { Branch } from "@/types/branch";
 import type { Supplier } from "@/types/supplier";
 import type { SpBomLine } from "@/types/sp-bom";
 import type { BOMHeader, BOMLine } from "@/types/bom";
+import type { BomByproduct } from "@/types/byproduct";
 import { EMPTY_SUPPLIER } from "@/types/supplier";
 import { recost } from "@/lib/cost-engine";
 import { BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
@@ -56,6 +57,7 @@ export default function CostCenterDemo() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(SUP);
   const [headers, setHeaders] = useState<BOMHeader[]>([]);
   const [bomLines, setBomLines] = useState<BOMLine[]>([]);
+  const [byproducts, setByproducts] = useState<BomByproduct[]>([]);
 
   useEffect(() => {
     fetch("/fixtures.local/menu-setup.json")
@@ -78,7 +80,13 @@ export default function CostCenterDemo() {
         pr.push({ id: "p-mk-oil", skuId: id("RM-0030"), supplierId: "s-mk", pricePerPurchaseUom: 271, pricePerUsageUom: 0.271, vat: false, isActive: true, effectiveDate: "2026-09-01", note: "" });
         setPrices(pr);
         const h: BOMHeader = { id: "h-0051", smSkuId: id("SM-0051"), productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1 };
-        setHeaders([h]);
+        // น้ำสต๊อก with its two by-products (as live): edited on a phone in Cost Center
+        const stock: BOMHeader = { id: "h-0010", smSkuId: id("SM-0010"), productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1 };
+        setHeaders([h, stock]);
+        setByproducts([
+          { id: "bp1", bomHeaderId: stock.id, skuId: id("SM-0002"), name: "น้ำมันไก่", outputQty: 8000, costAllocationPct: 11.27, tracksInventory: true },
+          { id: "bp2", bomHeaderId: stock.id, skuId: id("SM-0016"), name: "น้ำสต๊อกโทริ ไพตัน", outputQty: 30000, costAllocationPct: 42.25, tracksInventory: true },
+        ]);
         setBomLines(
           [["RM-0047", 80, 1], ["RM-0165", 1000, 0.9], ["RM-0195", 30000, 1], ["RM-0048", 250, 1], ["RM-0198", 2000, 0.9], ["RM-0196", 6000, 1], ["RM-0199", 2000, 1], ["RM-0197", 4000, 1]].map(([c, q, y], i) => ({
             id: `bl${i}`,
@@ -86,7 +94,7 @@ export default function CostCenterDemo() {
             rmSkuId: id(c as string),
             qtyPerBatch: q as number,
             yieldPercent: y as number,
-          })),
+          })).concat([["RM-0195", 30000, 1], ["RM-0048", 500, 1]].map(([c, q, y], i) => ({ id: `sb${i}`, bomHeaderId: stock.id, rmSkuId: id(c as string), qtyPerBatch: q as number, yieldPercent: y as number }))),
         );
       });
   }, []);
@@ -98,7 +106,7 @@ export default function CostCenterDemo() {
     ["2026-10-16", 0.22], ["2026-10-12", 0.22], ["2026-10-05", 0.23], ["2026-09-05", 0.115],
   ].map(([date, u]) => ({ skuId: idOf("RM-0027"), supplierId: "s-fk", date: date as string, unitPrice: u as number, stdUnitPrice: 0.1, qty: 1000 }));
   const recostIn = (ps: Price[], ids: string[]) => {
-    const book = { headers, lines: bomLines, steps: [], byproducts: [], spLines: fx.spLines };
+    const book = { headers, lines: bomLines, steps: [], byproducts, spLines: fx.spLines };
     const map = new Map<string, number>();
     for (const p of ps) if (p.isActive && !map.has(p.skuId)) map.set(p.skuId, p.pricePerUsageUom);
     const out = recost(ids, book, map);
@@ -134,7 +142,7 @@ export default function CostCenterDemo() {
         bomHeaders={headers}
         bomLines={bomLines}
         bomSteps={[]}
-        byproducts={[]}
+        byproducts={byproducts}
         spLines={fx.spLines}
         menuLines={fx.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
         canEditProducts
