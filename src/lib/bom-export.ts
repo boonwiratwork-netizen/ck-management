@@ -179,7 +179,9 @@ function buildSmBomSheet(
         "Batch Size": round(h.batchSize),
         "Output (g)": round(output),
         "Cost/Batch (฿)": round(totalCost, 2),
-        "Cost/g (฿)": round(costPerG),
+        // The standard recipe cost (Cost Center's, by-products' share taken out); this
+        // sheet's own sum only when nothing is saved yet
+        "Cost/g (฿)": round(activeCost(prices, h.smSkuId) || costPerG),
         "Step #": h.bomMode === "simple" ? "–" : step?.stepNumber ?? "–",
         "Step Name": h.bomMode === "simple" ? "–" : step?.stepName ?? "–",
         "Ingredient Code": ing?.skuId ?? "",
@@ -354,7 +356,8 @@ function smSummaryRows(
       mode: h.bomMode,
       output,
       total,
-      costPerG: output > 0 ? total / output : 0,
+      // Same standard as Cost Center (by-products' share taken out), the sum otherwise
+      costPerG: activeCost(prices, h.smSkuId) || (output > 0 ? total / output : 0),
     });
   });
   items.sort((a, b) => a.code.localeCompare(b.code));

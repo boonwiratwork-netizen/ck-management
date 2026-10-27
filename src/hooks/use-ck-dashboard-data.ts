@@ -455,16 +455,19 @@ export function useCkDashboardData({
       let rmDistVal = 0;
       for (const bal of rmStockBalances) {
         const sku = skuMap.get(bal.skuId);
-        if (sku?.is_distributable) {
+        // An RM that is both in a recipe and sent to branches is counted once (above)
+        if (sku?.is_distributable && !bomRmIds.has(bal.skuId)) {
           const price = activePrices.get(bal.skuId) ?? 0;
           rmDistVal += Math.max(0, bal.currentStock) * price;
         }
       }
 
       let smVal = 0;
+      // SM value = stock × the standard recipe cost (the saved "BOM Calculation" price that
+      // Cost Center keeps: line yields, SM inside SM and by-products' share all counted),
+      // the same number the SM stock page and food cost use
       for (const bal of smStockBalances) {
-        const cpg = calcBomCostPerGram(bal.skuId, bomHeaders, bomLines, bomSteps, activePrices, smSkuIds);
-        smVal += Math.max(0, bal.currentStock) * cpg;
+        smVal += Math.max(0, bal.currentStock) * (activePrices.get(bal.skuId) ?? 0);
       }
 
       setInventory({

@@ -18,14 +18,18 @@ async function getAnchorMap(
 ): Promise<Record<string, { physical_qty: number; count_date: string }>> {
   const { data: sessions } = await supabase
     .from("stock_count_sessions")
-    .select("id, count_date")
+    .select("id, count_date, count_timing")
     .eq("status", "Completed")
     .is("deleted_at", null);
   if (!sessions || sessions.length === 0) return {};
 
   const sessionDateById: Record<string, string> = {};
+  const sessionTimingById: Record<string, string | null> = {};
   // deno-lint-ignore no-explicit-any
-  for (const s of sessions as any[]) sessionDateById[s.id] = s.count_date;
+  for (const s of sessions as any[]) {
+    sessionDateById[s.id] = s.count_date;
+    sessionTimingById[s.id] = s.count_timing ?? null;
+  }
 
   const { data: lines } = await supabase
     .from("stock_count_lines")
@@ -35,18 +39,23 @@ async function getAnchorMap(
     // deno-lint-ignore no-explicit-any
     .in("session_id", (sessions as any[]).map((s) => s.id));
 
-  const map: Record<string, { physical_qty: number; count_date: string }> = {};
+  const map: Record<string, { physical_qty: number; count_date: string; before: boolean }> = {};
   // deno-lint-ignore no-explicit-any
   for (const l of (lines || []) as any[]) {
     const date = sessionDateById[l.session_id];
     if (!date) continue;
     const existing = map[l.sku_id];
     if (!existing || date > existing.count_date) {
-      map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date };
+      map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: date, before: sessionTimingById[l.session_id] === "before" };
     }
   }
   return map;
 }
+
+// Same rule as the app (src/lib/count-anchor.ts): a count answered "before work"
+// still counts that day's movements; "after work" or unanswered ones don't
+const afterCount = (date: string | undefined, anchor: { count_date: string; before: boolean }) =>
+  !!date && (date > anchor.count_date || (anchor.before && date === anchor.count_date));
 
 // Total CK-level stock value for one SKU type (active SKUs only), clamped at 0 per
 // SKU (CLAUDE.md: monetary/value cells never go negative). SKUs with no completed
@@ -125,13 +134,13 @@ export async function computeCkStockValueByType(
       const skuAdjustments = adjList.filter((a) => a.sku_id === sku.id);
 
       const producedAfter = prodList
-        .filter((p) => p.sm_sku_id === sku.id && p.production_date > anchor.count_date)
+        .filter((p) => p.sm_sku_id === sku.id && afterCount(p.production_date, anchor))
         .reduce((sum, p) => sum + Number(p.actual_output_g), 0);
       const deliveredAfter = toLines
-        .filter((l) => l.sku_id === sku.id && toDateMap[l.to_id] > anchor.count_date)
+        .filter((l) => l.sku_id === sku.id && afterCount(toDateMap[l.to_id], anchor))
         .reduce((sum, l) => sum + computeToLineQty(Number(l.actual_qty), Number(l.planned_qty), toStatusMap[l.to_id]), 0);
       const netAdjustment = skuAdjustments
-        .filter((a) => a.adjustment_date > anchor.count_date && !String(a.reason ?? "").startsWith("Stock Count"))
+        .filter((a) => afterCount(a.adjustment_date, anchor) && !String(a.reason ?? "").includes("Stock Count"))
         .reduce((sum, a) => sum + Number(a.quantity), 0);
       const currentStock = anchor.physical_qty + producedAfter - deliveredAfter + netAdjustment;
 
@@ -151,10 +160,10 @@ export async function computeCkStockValueByType(
       const converter = Number(sku.converter) || 1;
 
       const receivedAfter = receiptList
-        .filter((r) => r.sku_id === sku.id && r.receipt_date > anchor.count_date)
+        .filter((r) => r.sku_id === sku.id && afterCount(r.receipt_date, anchor))
         .reduce((sum, r) => sum + Number(r.quantity_received) * converter, 0);
       const netAdjustment = skuAdjustments
-        .filter((a) => a.adjustment_date > anchor.count_date && !String(a.reason ?? "").startsWith("Stock Count"))
+        .filter((a) => afterCount(a.adjustment_date, anchor) && !String(a.reason ?? "").includes("Stock Count"))
         .reduce((sum, a) => sum + Number(a.quantity), 0);
       const currentStock = anchor.physical_qty + receivedAfter + netAdjustment;
 
