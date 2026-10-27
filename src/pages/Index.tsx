@@ -30,10 +30,8 @@ const SuppliersPage = lazy(() => import("@/pages/Suppliers"));
 const PricesPage = lazy(() => import("@/pages/Prices"));
 const BOMPage = lazy(() => import("@/pages/BOM"));
 const GoodsReceiptPage = lazy(() => import("@/pages/KitchenReceive"));
-const RMStockPage = lazy(() => import("@/pages/RMStock"));
+const KitchenStockPage = lazy(() => import("@/pages/KitchenStock"));
 const ProductionPage = lazy(() => import("@/pages/Produce"));
-const SMStockPage = lazy(() => import("@/pages/SMStock"));
-const PKStockPage = lazy(() => import("@/pages/PKStock"));
 const StockCountPage = lazy(() => import("@/pages/KitchenCount"));
 const DeliveryToBranchesPage = lazy(() => import("@/pages/DeliveryToBranches"));
 const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
@@ -237,7 +235,16 @@ const Index = () => {
   const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
   const branchData = useBranchData();
 
+  // Kitchen stock reads every receipt itself: fresh each time its page opens (after a
+  // delivery was received on another page) and when the tab comes back into view
+  const onItemStockPage = activeTab === "stock" || activeTab === "pkstock";
+  useEffect(() => {
+    if (!kitchenData || !onItemStockPage) return;
+    (activeTab === "stock" ? stockData : pkStockData).reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, kitchenData]);
   useVisibilityRefresh([
+    () => (kitchenData && onItemStockPage ? (activeTab === "stock" ? stockData : pkStockData).reload() : undefined),
     () => (kitchenData ? smStockData.refreshProductionRecords() : undefined),
     () => (kitchenData ? smStockData.refreshToDelivered() : undefined),
     () => (kitchenData ? receiptData.fetchReceipts(receiptData.isFullHistory) : undefined),
@@ -583,12 +590,21 @@ const Index = () => {
                   />
                 ) : activeTab === "receipt" ? (
                   <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
-                ) : activeTab === "stock" ? (
-                  <RMStockPage
+                ) : activeTab === "stock" || activeTab === "smstock" || activeTab === "pkstock" ? (
+                  // RM / SM / PK on one page; each tab keeps its old address
+                  <KitchenStockPage
+                    type={activeTab === "stock" ? "RM" : activeTab === "smstock" ? "SM" : "PK"}
+                    onType={(t) => handleTabChange(t === "RM" ? "stock" : t === "SM" ? "smstock" : "pkstock")}
                     skus={skus}
-                    stockData={stockData}
+                    suppliers={supplierData.suppliers}
+                    categories={skuCategoryData.categories}
                     bomHeaders={bomData.headers}
                     bomLines={bomData.lines}
+                    rm={stockData}
+                    pk={pkStockData}
+                    sm={smStockData}
+                    smDailyUsage={smDailyUsage}
+                    canEdit={!readOnly}
                   />
                 ) : activeTab === "production" ? (
                   <ProductionPage
@@ -601,15 +617,6 @@ const Index = () => {
                     isStockDataReady={smStockData.isStockDataReady}
                     smDailyUsage={smDailyUsage}
                     refreshProductionRecords={smStockData.refreshProductionRecords}
-                  />
-                ) : activeTab === "smstock" ? (
-                  <SMStockPage skus={skus} smStockData={smStockData} smDailyUsage={smDailyUsage} />
-                ) : activeTab === "pkstock" ? (
-                  <PKStockPage
-                    skus={skus}
-                    stockData={pkStockData}
-                    bomHeaders={bomData.headers}
-                    bomLines={bomData.lines}
                   />
                 ) : activeTab === "stockcount" ? (
                   <StockCountPage

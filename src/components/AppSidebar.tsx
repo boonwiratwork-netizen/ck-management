@@ -14,7 +14,6 @@ import {
 import {
   ChefHat,
   LayoutDashboard,
-  Package,
   Users,
   DollarSign,
   FlaskConical,
@@ -163,9 +162,8 @@ const ckGroup: NavGroup = {
     { key: "stockcount", labelKey: "nav.stockCount", icon: ClipboardCheck },
     { subLabel: "Monitor" },
     { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-    { key: "stock", labelKey: "nav.rmStock", icon: Warehouse },
-    { key: "smstock", labelKey: "nav.smStock", icon: BoxesIcon },
-    { key: "pkstock", labelKey: "nav.pkStock", icon: Package },
+    // RM / SM / PK are tabs of one page now (their addresses still work)
+    { key: "stock", labelKey: "nav.kitchenStock", icon: Warehouse },
   ],
 };
 
@@ -386,7 +384,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                           </li>
                         );
                       }
-                      const isActive = activeTab === item.key;
+                      const isActive = activeTab === item.key || (item.key === "stock" && (activeTab === "smstock" || activeTab === "pkstock"));
                       const label = t(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.key}>

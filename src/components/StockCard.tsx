@@ -21,7 +21,7 @@ const countSortKey = (c: LedgerCount) => (c.timing === "before" ? `${c.count_dat
 
 interface StockCardProps {
   skuId: string;
-  skuType: "RM" | "SM";
+  skuType: "RM" | "SM" | "PK";
   sku: SKU;
   skus: SKU[];
   currentStock: number;
@@ -465,7 +465,8 @@ export function StockCard({
           }
 
           setBranchRows(ledger);
-        } else if (skuType === "RM") {
+        } else if (skuType === "RM" || skuType === "PK") {
+          // PK runs the same ledger as RM (receipts + adjustments), on its own stock type
           const [obRes, receiptsRes, adjRes, suppRes, allSessionsRes] = await Promise.all([
             supabase.from("stock_opening_balances").select("quantity").eq("sku_id", skuId).maybeSingle(),
             supabase
@@ -479,7 +480,7 @@ export function StockCard({
               .from("stock_adjustments")
               .select("adjustment_date, quantity, reason, created_at")
               .eq("sku_id", skuId)
-              .eq("stock_type", "RM")
+              .eq("stock_type", skuType)
               .is("branch_id", null)
               .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
@@ -516,7 +517,7 @@ export function StockCard({
               .from("stock_count_lines")
               .select("physical_qty, session_id")
               .eq("sku_id", skuId)
-              .eq("type", "RM")
+              .eq("type", skuType)
               .in("session_id", sessionIds)
               .not("physical_qty", "is", null);
             if (cancelled) return;
@@ -558,7 +559,7 @@ export function StockCard({
                 .from("stock_adjustments")
                 .select("quantity, reason, adjustment_date, created_at")
                 .eq("sku_id", skuId)
-                .eq("stock_type", "RM")
+                .eq("stock_type", skuType)
                 .is("branch_id", null)
                 .gte("adjustment_date", preWindowCount.count_date)
                 .lt("adjustment_date", fromDate),
@@ -596,7 +597,7 @@ export function StockCard({
                 .from("stock_adjustments")
                 .select("quantity")
                 .eq("sku_id", skuId)
-                .eq("stock_type", "RM")
+                .eq("stock_type", skuType)
                 .is("branch_id", null)
                 .lt("adjustment_date", fromDate),
             ]);
@@ -986,7 +987,7 @@ export function StockCard({
   return (
     <>
       <div className="fixed top-0 bottom-0 left-0 right-0 z-[999] bg-black/25" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[1000] flex flex-col bg-background border-l shadow-xl w-[660px]">
+      <div className="fixed inset-y-0 right-0 z-[1000] flex w-full max-w-[660px] flex-col border-l bg-background shadow-xl">
         <div className="px-5 pt-5 pb-0 flex items-start justify-between">
           <div>
             {/* Line 1 */}
@@ -1055,7 +1056,7 @@ export function StockCard({
                   <span>No submitted count sheets found for this SKU at this branch.</span>
                 </div>
               ) : (
-                <table className="w-full table-fixed text-xs">
+                <table className="w-full min-w-[560px] table-fixed text-xs">
                   <colgroup>
                     <col style={{ width: "72px" }} />
                     <col style={{ width: "68px" }} />
@@ -1192,7 +1193,7 @@ export function StockCard({
           ) : (
             /* ─── CK context table (existing) ─── */
             <>
-              <table className="w-full table-fixed text-xs">
+              <table className="w-full min-w-[560px] table-fixed text-xs">
                 <colgroup>
                   <col style={{ width: "120px" }} />
                   <col style={{ width: "88px" }} />

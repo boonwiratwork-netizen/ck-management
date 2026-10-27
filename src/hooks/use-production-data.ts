@@ -43,7 +43,7 @@ interface StockDeduction {
 export function useProductionData(
   bomHeaders: BOMHeader[],
   bomLines: BOMLine[],
-  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void | Promise<void>,
+  addStockAdjustment: (adj: { skuId: string; date: string; quantity: number; reason: string }) => void | Promise<unknown>,
   bomSteps: BOMStep[] = [],
   enabled = true,
 ) {

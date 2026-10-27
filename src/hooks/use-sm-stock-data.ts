@@ -235,7 +235,7 @@ export function useSmStockData(
     setOpeningStocksState((prev) => ({ ...prev, [skuId]: qty }));
   }, []);
 
-  const addAdjustment = useCallback(async (adj: Omit<StockAdjustment, "id">) => {
+  const addAdjustment = useCallback(async (adj: Omit<StockAdjustment, "id">): Promise<boolean> => {
     const { data: row, error } = await supabase
       .from("stock_adjustments")
       .insert({
@@ -247,70 +247,38 @@ export function useSmStockData(
       })
       .select()
       .single();
-    if (error) {
-      toast.error("Failed to add adjustment: " + error.message);
-      return;
+    if (error || !row) {
+      toast.error("บันทึกปรับยอดไม่ได้: " + (error?.message ?? ""));
+      return false;
     }
     setAdjustments((prev) => [
       { id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason, createdAt: row.created_at },
       ...prev,
     ]);
+    return true;
   }, []);
 
+  // Cost per gram = the standard recipe cost Cost Center keeps (the saved "BOM
+  // Calculation" price: line yields, SM inside SM and by-products' share counted). This
+  // page used to sum the recipe itself without yields and gave by-products ฿0.
   const getBomCostPerGram = useCallback(
+    (skuId: string): number => prices.find((p) => p.skuId === skuId && p.isActive)?.pricePerUsageUom ?? 0,
+    [prices],
+  );
+
+  /** Last count of an SM, or null */
+  const getAnchor = useCallback((skuId: string) => anchorMap[skuId] ?? null, [anchorMap]);
+
+  /** Production, deliveries and adjustments since the last count */
+  const movesAfterCount = useCallback(
     (skuId: string): number => {
-      const bomHeader = bomHeaders.find((h) => h.smSkuId === skuId);
-      if (!bomHeader) return 0;
-
-      let totalCost = 0;
-      let mainOutput = 0;
-
-      if (bomHeader.bomMode === "multistep") {
-        const steps = bomSteps
-          .filter((s) => s.bomHeaderId === bomHeader.id)
-          .sort((a, b) => a.stepNumber - b.stepNumber);
-        const allLines = bomLines.filter((l) => l.bomHeaderId === bomHeader.id);
-        if (steps.length === 0) return 0;
-
-        let prevOutput = 0;
-        steps.forEach((step, idx) => {
-          const sLines = allLines.filter((l) => l.stepId === step.id);
-          const inputQty = idx === 0 ? sLines.reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
-          const addedQty =
-            idx === 0
-              ? 0
-              : sLines.reduce((s, l) => {
-                  if (l.qtyType === "percent" && l.percentOfInput) return s + l.percentOfInput * inputQty;
-                  return s + l.qtyPerBatch;
-                }, 0);
-          const effectiveInput = idx === 0 ? inputQty : inputQty + addedQty;
-          prevOutput = effectiveInput * step.yieldPercent;
-
-          totalCost += sLines.reduce((s, l) => {
-            let qty = l.qtyPerBatch;
-            if (l.qtyType === "percent" && l.percentOfInput) qty = l.percentOfInput * inputQty;
-            const ap = prices.find((p) => p.skuId === l.rmSkuId && p.isActive);
-            return s + qty * (ap?.pricePerUsageUom ?? 0);
-          }, 0);
-        });
-        mainOutput = prevOutput;
-      } else {
-        const bLines = bomLines.filter((l) => l.bomHeaderId === bomHeader.id);
-        totalCost = bLines.reduce((s, line) => {
-          const ap = prices.find((p) => p.skuId === line.rmSkuId && p.isActive);
-          return s + line.qtyPerBatch * (ap?.pricePerUsageUom ?? 0);
-        }, 0);
-        mainOutput = bomHeader.batchSize * bomHeader.yieldPercent;
-      }
-
-      const headerByproducts = bomByproducts.filter((bp) => bp.bomHeaderId === bomHeader.id);
-      const totalByproductPct = headerByproducts.reduce((s, bp) => s + bp.costAllocationPct, 0);
-      const mainPct = Math.max(0, 100 - totalByproductPct);
-      const allocatedCost = totalCost * (mainPct / 100);
-
-      return mainOutput > 0 ? allocatedCost / mainOutput : 0;
+      const anchor = anchorMap[skuId];
+      const prod = localProductionRecords.filter((r) => r.smSkuId === skuId && (!anchor || producedAfterCount(anchor, r.productionDate, r.createdAt))).length;
+      const out = toLineDetails.filter((l) => l.sku_id === skuId && (!anchor || afterCount(anchor, l.delivery_date))).length;
+      const adj = adjustments.filter((a) => a.skuId === skuId && !a.reason.includes("Stock Count") && (!anchor || afterCount(anchor, a.date))).length;
+      return prod + out + adj;
     },
-    [bomHeaders, bomLines, bomSteps, prices, bomByproducts],
+    [anchorMap, localProductionRecords, toLineDetails, adjustments],
   );
 
   const getLastProductionDate = useCallback(
@@ -390,6 +358,8 @@ export function useSmStockData(
     setOpeningStock,
     addAdjustment,
     getBomCostPerGram,
+    getAnchor,
+    movesAfterCount,
     getLastProductionDate,
     openingStocks,
     isStockDataReady,
