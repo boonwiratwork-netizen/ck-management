@@ -9,6 +9,48 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const n0 = (n: number) => Math.round(n).toLocaleString();
+
+/**
+ * Where the balance comes from, as boxes of equal width: every row puts ยกมา,
+ * รับ, ใช้ in the same place, so the eye runs down them like table columns
+ * (the team found the old one-line grey text too small to work from).
+ * Received is green when something came in today.
+ */
+function Movement({ opening, received, used, salesIn, balance, waste = 0, adj = 0, withBalance }: { opening: number; received: number; used: number; salesIn: boolean; balance?: number; waste?: number; adj?: number; withBalance: boolean }) {
+  const cell = "min-w-0 rounded-lg bg-secondary px-2 py-1";
+  const label = "block text-[12px] leading-tight text-muted-foreground";
+  const value = "block font-mono text-[15px] font-semibold leading-snug tabular-nums";
+  return (
+    <div className={cn("grid gap-1.5", withBalance ? "grid-cols-4" : "max-w-[360px] grid-cols-3")}>
+      <span className={cell}>
+        <span className={label}>ยกมา</span>
+        <span className={value}>{n0(opening)}</span>
+      </span>
+      <span className={cn(cell, received && "bg-success-soft")}>
+        <span className={cn(label, received && "text-success")}>รับ</span>
+        <span className={cn(value, received ? "text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
+      </span>
+      <span className={cn(cell, !salesIn && "bg-warning-soft")}>
+        {/* Short so every box keeps its number on the same line (the full table says "ตัด BOM") */}
+        <span className={cn(label, !salesIn && "text-warning")}>ใช้</span>
+        {salesIn ? <span className={value}>{Math.round(used) ? `−${n0(used)}` : "0"}</span> : <span className="block text-[13px] font-semibold leading-snug text-warning">รอยอดขาย</span>}
+      </span>
+      {withBalance && (
+        <span className="min-w-0 rounded-lg border-[1.5px] border-foreground bg-card px-2 py-1">
+          <span className={label}>เหลือ</span>
+          <span className={cn(value, balance !== undefined && balance < 0 && "text-destructive")}>{salesIn && balance !== undefined ? n0(balance) : "—"}</span>
+        </span>
+      )}
+      {/* Only when there is one: an empty "เสีย 0" on every row was noise */}
+      {(waste > 0 || adj !== 0) && (
+        <span className={cn("flex flex-wrap gap-x-3 text-[13px] text-muted-foreground", withBalance ? "col-span-4" : "col-span-3")}>
+          {waste > 0 && <span>ของเสีย −{n0(waste)}</span>}
+          {adj !== 0 && <span>ปรับยอด {adj > 0 ? "+" : "−"}{n0(Math.abs(adj))}</span>}
+        </span>
+      )}
+    </div>
+  );
+}
 // Every movement column (opening / received / used / waste / balance / count / result)
 // fits from ~920px — a 1280px laptop with the side menu open. The name column never
 // goes below 180px and wraps instead of being cut: names are what people count by
@@ -200,7 +242,7 @@ export function CountSheet({
       {!salesIn && <div className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">ยังไม่ได้นำเข้ายอดขายวันนี้ นับได้ตามปกติ แต่คงเหลือกับขาด/เกินจะยังไม่ถูก ตัวเลขจะอัปเดตเองหลังนำเข้า</div>}
 
       {wide && (
-        <div className={cn(grid, "rounded-t-2xl border border-b-0 border-border bg-secondary px-4 py-2.5 text-xs font-semibold text-muted-foreground")}>
+        <div className={cn(grid, "rounded-t-2xl border border-b-0 border-border bg-secondary px-4 py-2.5 text-[13px] font-semibold text-muted-foreground")}>
           <span>สินค้า</span>
           {layout === "full" && (
             <>
@@ -384,14 +426,7 @@ function CountRow({
       </div>
 
       {/* Reconcile: where the balance comes from */}
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-lg bg-secondary/60 px-2.5 py-1.5 font-mono text-xs text-muted-foreground">
-        <span>ยกมา {n0(row.openingBalance)}</span>
-        <span className={received ? "text-success" : ""}>รับ +{n0(received)}</span>
-        {salesIn ? <span>ใช้ (ตัด BOM) −{n0(row.expectedUsage)}</span> : <span className="text-warning">ใช้ (ตัด BOM) รอยอดขาย</span>}
-        <span>เสีย −{n0(row.waste)}</span>
-        {row.adjNet !== 0 && <span>ปรับ {row.adjNet > 0 ? "+" : "−"}{n0(Math.abs(row.adjNet))}</span>}
-        {salesIn && <span className={cn("font-semibold text-foreground", row.calculatedBalance < 0 && "text-destructive")}>= {n0(row.calculatedBalance)}</span>}
-      </div>
+      <Movement opening={row.openingBalance} received={received} used={row.expectedUsage} salesIn={salesIn} balance={row.calculatedBalance} waste={row.waste} adj={row.adjNet} withBalance />
 
       {!locked && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
@@ -456,7 +491,7 @@ function DesktopRow({
   const { row, sku, received } = line;
   const diff = differenceOf(row);
   const big = isBigDifference(row, sku.packSize || 1);
-  const num = "text-right font-mono text-sm tabular-nums";
+  const num = "text-right font-mono text-[15px] tabular-nums";
   return (
     <li className={cn(compact ? GRID_COMPACT : GRID, "px-4 py-2", big && "bg-warning-soft/40")}>
       {/* The whole name, on as many lines as it needs: never cut */}
@@ -469,15 +504,16 @@ function DesktopRow({
           {isPacksMode(sku) && ` · 1 ${sku.packUnit} = ${n0(sku.packSize)}`}
         </span>
         {compact && (
-          <span className="block font-mono text-xs tabular-nums text-muted-foreground">
-            ยกมา {n0(row.openingBalance)} · รับ {received ? `+${n0(received)}` : "—"} · ใช้ {salesIn ? `−${n0(row.expectedUsage)}` : "รอยอดขาย"}
+          <span className="mt-1.5 block">
+            {/* คงเหลือ has its own column here, so three boxes */}
+            <Movement opening={row.openingBalance} received={received} used={row.expectedUsage} salesIn={salesIn} withBalance={false} />
           </span>
         )}
       </span>
       {!compact && (
         <>
           <span className={num}>{n0(row.openingBalance)}</span>
-          <span className={cn(num, received ? "text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
+          <span className={cn(num, received ? "font-semibold text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
           <span className={num}>{salesIn ? `−${n0(row.expectedUsage)}` : <span className="font-sans text-xs text-warning">รอยอดขาย</span>}</span>
         </>
       )}

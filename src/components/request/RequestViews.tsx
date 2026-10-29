@@ -199,8 +199,8 @@ export function RequestDetail({
           <li key={l.id} className={cn("flex items-center gap-3 px-4 py-2.5", "declineReason" in l && l.declineReason && "bg-destructive/5")}>
             <div className="min-w-0 flex-1">
               <div className="text-[15px]">{l.skuName}</div>
-              <div className="text-xs text-muted-foreground">
-                <span className="font-mono">{l.skuCode}</span> · ตอนขอเหลือ {Math.round(l.stockOnHand).toLocaleString()} {l.uom}
+              <div className="text-sm text-muted-foreground">
+                <span className="font-mono text-xs">{l.skuCode}</span> · ตอนขอเหลือ <b className="font-mono text-[15px] text-foreground">{Math.round(l.stockOnHand).toLocaleString()}</b> {l.uom}
               </div>
               {"declineReason" in l && l.declineReason && <div className="text-sm font-medium text-destructive">ครัวกลางไม่ได้ส่ง: {l.declineReason}</div>}
             </div>

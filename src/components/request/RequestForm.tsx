@@ -168,9 +168,13 @@ export function RequestForm({
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className={cn("text-[15px] leading-snug", v > 0 || suggest > 0 ? "font-semibold" : "text-foreground/80")}>{item.name}</div>
                   <div className={cn("text-sm font-medium", tone)}>{word}</div>
-                  <div className="text-xs text-muted-foreground">
-                    เหลือ {n0(Math.max(0, item.stockOnHand))} {item.uom}
-                    {item.avgDailyUsage > 0 && ` · ใช้วันละ ~${n0(item.avgDailyUsage)} ${item.uom}`}
+                  <div className="text-sm text-muted-foreground">
+                    เหลือ <b className="font-mono text-[15px] text-foreground">{n0(Math.max(0, item.stockOnHand))}</b> {item.uom}
+                    {item.avgDailyUsage > 0 && (
+                      <>
+                        {" "}· ใช้วันละ ~<b className="font-mono text-[15px] text-foreground">{n0(item.avgDailyUsage)}</b> {item.uom}
+                      </>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     1 {item.packUnit} = {n0(item.packSize)} {item.uom}
