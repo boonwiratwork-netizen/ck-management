@@ -530,20 +530,7 @@ const Index = () => {
             ) : (
               <div className="page-shell">
                 {activeTab === "dashboard" ? (
-                  <Dashboard
-                    skus={skus}
-                    smStockBalances={smStockData.stockBalances}
-                    rmStockBalances={stockData.stockBalances}
-                    productionPlans={productionData.plans}
-                    productionRecords={productionData.records}
-                    receipts={receiptData.receipts}
-                    bomHeaders={bomData.headers}
-                    bomLines={bomData.lines}
-                    prices={priceData.prices}
-                    smDailyUsage={smDailyUsage}
-                    getTotalProducedForPlan={productionData.getTotalProducedForPlan}
-                    getStdUnitPrice={stockData.getStdUnitPrice}
-                  />
+                  <Dashboard skus={skus} prices={priceData.prices} bomLines={bomData.lines} rmStockBalances={stockData.stockBalances} smStockBalances={smStockData.stockBalances} stockReady={stockData.loaded} />
                 ) : activeTab === "sku" ? (
                   <div className="section-gap">
                     <div className="flex items-center justify-between">

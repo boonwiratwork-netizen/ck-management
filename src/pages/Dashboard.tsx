@@ -1,594 +1,364 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useLanguage } from '@/hooks/use-language';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatusDot } from '@/components/ui/status-dot';
-import { DatePicker } from '@/components/ui/date-picker';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn, toLocalDateStr } from '@/lib/utils';
-import { formatNumber } from '@/lib/design-tokens';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
-import { SKU } from '@/types/sku';
-import { ProductionPlan, ProductionRecord } from '@/types/production';
-import { GoodsReceipt } from '@/types/goods-receipt';
-import { BOMHeader, BOMLine } from '@/types/bom';
-import { Price } from '@/types/price';
-import { StockBalance } from '@/types/stock';
-import { SMStockBalance } from '@/hooks/use-sm-stock-data';
-import { useCkDashboardData } from '@/hooks/use-ck-dashboard-data';
-import {
-  Calculator, BarChart3, Package, Truck, UtensilsCrossed, ShoppingCart,
-  AlertTriangle,
-} from 'lucide-react';
-import {
-  PieChart, Pie, Cell as PieCell, Tooltip as PieTooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCkPeriod } from "@/hooks/use-ck-production";
+import { useFitsWidth } from "@/hooks/use-fits-width";
+import { Button } from "@/components/ui/button";
+import type { SKU } from "@/types/sku";
+import type { Price } from "@/types/price";
+import type { BOMLine } from "@/types/bom";
+import type { SmProductionCost } from "@/lib/ck-production-cost";
+import { cn, toLocalDateStr } from "@/lib/utils";
 
-interface DashboardProps {
+interface Props {
   skus: SKU[];
-  smStockBalances: SMStockBalance[];
-  rmStockBalances: StockBalance[];
-  productionPlans: ProductionPlan[];
-  productionRecords: ProductionRecord[];
-  receipts: GoodsReceipt[];
-  bomHeaders: BOMHeader[];
-  bomLines: BOMLine[];
   prices: Price[];
-  smDailyUsage: Record<string, number>;
-  getTotalProducedForPlan: (planId: string) => number;
-  getStdUnitPrice: (skuId: string) => number;
+  bomLines: BOMLine[];
+  rmStockBalances: { skuId: string; currentStock: number }[];
+  smStockBalances: { skuId: string; currentStock: number }[];
+  /** Today's kitchen balances have loaded (they stand in for a missing closing count) */
+  stockReady: boolean;
 }
 
-type PeriodMode = 'week' | 'month' | 'custom';
+const n0 = (n: number) => Math.round(n).toLocaleString("th-TH");
+const baht = (n: number) => `${n < 0 ? "−" : ""}฿${n0(Math.abs(n))}`;
+const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}฿${n0(Math.abs(n))}`;
+const pct = (v: number, base: number) => (base > 0 ? (v / base) * 100 : 0);
+const thai = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+const grams = (g: number, uom: string) => (uom === "ก." && Math.abs(g) >= 1000 ? `${(g / 1000).toLocaleString("th-TH", { maximumFractionDigits: 1 })} กก.` : `${n0(g)} ${uom}`);
+/** Over the recipe is red, under is green (cheaper) */
+const tone = (v: number) => (Math.abs(v) < 0.5 ? "text-muted-foreground" : v > 0 ? "text-destructive" : "text-success");
 
-const fmt = (n: number) => formatNumber(n, 0);
-const fmtBaht = (n: number) => `฿${formatNumber(n, 0)}`;
-
-const DONUT_COLORS = [
-  'hsl(24, 95%, 53%)',   // primary orange
-  'hsl(200, 60%, 50%)',  // muted blue
-  'hsl(142, 50%, 45%)',  // muted green
-  'hsl(280, 40%, 55%)',  // muted purple
-  'hsl(38, 70%, 55%)',   // muted amber
-  'hsl(0, 0%, 65%)',     // gray for others
-];
-
-const Dashboard = ({
-  skus,
-  smStockBalances,
-  rmStockBalances,
-  smDailyUsage,
-}: DashboardProps) => {
-  const { t } = useLanguage();
+/**
+ * The kitchen at a glance: what production cost against its recipes for the month
+ * (opens on it, works it out at once), whether the raw-material counts are there to
+ * trust it, what's worth a look, and what was bought and sent. "Now" numbers sit in
+ * their own section so they aren't read as the month's.
+ */
+export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smStockBalances, stockReady }: Props) {
+  const navigate = useNavigate();
   const now = new Date();
-
-  // Period state
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('month');
-  const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
-  const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
-  const [hasCalculated, setHasCalculated] = useState(false);
-
-  const { rangeStart, rangeEnd } = useMemo(() => {
-    if (periodMode === 'week') {
-      const ws = startOfWeek(now, { weekStartsOn: 1 });
-      const we = endOfWeek(now, { weekStartsOn: 1 });
-      return { rangeStart: toLocalDateStr(ws), rangeEnd: toLocalDateStr(we) };
-    }
-    if (periodMode === 'month') {
-      return { rangeStart: toLocalDateStr(startOfMonth(now)), rangeEnd: toLocalDateStr(endOfMonth(now)) };
-    }
-    return {
-      rangeStart: customFrom ? toLocalDateStr(customFrom) : toLocalDateStr(startOfMonth(now)),
-      rangeEnd: customTo ? toLocalDateStr(customTo) : toLocalDateStr(endOfMonth(now)),
-    };
-  }, [periodMode, customFrom, customTo]);
-
-  // Map stock balances to the shape the hook expects
-  const rmBalancesForHook = useMemo(() =>
-    rmStockBalances.map(b => ({ skuId: b.skuId, currentStock: b.currentStock })),
-    [rmStockBalances]
+  const today = toLocalDateStr(now);
+  const months = useMemo(
+    () => [0, 1, 2].map((k) => ({ from: toLocalDateStr(new Date(now.getFullYear(), now.getMonth() - k, 1)), to: toLocalDateStr(new Date(now.getFullYear(), now.getMonth() - k + 1, 0)) })),
+    [today], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const smBalancesForHook = useMemo(() =>
-    smStockBalances.map(b => ({ skuId: b.skuId, currentStock: b.currentStock })),
-    [smStockBalances]
-  );
+  const [period, setPeriod] = useState(() => (now.getDate() <= 7 ? months[1] : months[0]));
+  const [custom, setCustom] = useState(false);
+  const { data: loaded, loading, error } = useCkPeriod(period.from, period.to, rmStockBalances, stockReady);
+  // Another period's numbers are never shown under this period's dates
+  const data = loaded && loaded.from === period.from && loaded.to === period.to ? loaded : null;
+  const [open, setOpen] = useState<SmProductionCost | null>(null);
+  const [measure, wide] = useFitsWidth(820);
 
-  const hook = useCkDashboardData({ rangeStart, rangeEnd, rmStockBalances: rmBalancesForHook, smStockBalances: smBalancesForHook });
+  const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
+  const name = (id: string) => byId.get(id)?.name ?? id;
+  const code = (id: string) => byId.get(id)?.skuId ?? "";
+  const monthLabel = (from: string) => new Date(`${from}T00:00:00`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
+  const openProduct = (id: string) => code(id) && navigate(`/cost-center#p/${encodeURIComponent(code(id))}`);
 
-  const handleCalculate = useCallback(() => {
-    setHasCalculated(true);
-    hook.refresh();
-  }, [hook.refresh]);
+  // Stock right now (not the period): raw materials for recipes / for branches, kitchen-made
+  const stockNow = useMemo(() => {
+    const price = new Map<string, number>();
+    for (const p of prices) if (p.isActive && !price.has(p.skuId)) price.set(p.skuId, p.pricePerUsageUom);
+    const inRecipe = new Set(bomLines.map((l) => l.rmSkuId));
+    let rmProd = 0;
+    let rmDist = 0;
+    for (const b of rmStockBalances) {
+      const v = Math.max(0, b.currentStock) * (price.get(b.skuId) ?? 0);
+      if (inRecipe.has(b.skuId)) rmProd += v;
+      else if (byId.get(b.skuId)?.isDistributable) rmDist += v;
+    }
+    const sm = smStockBalances.reduce((t, b) => t + Math.max(0, b.currentStock) * (price.get(b.skuId) ?? 0), 0);
+    return { rmProd, rmDist, sm };
+  }, [prices, bomLines, rmStockBalances, smStockBalances, byId]);
 
-  const skuMap = useMemo(() => {
-    const m = new Map<string, SKU>();
-    skus.forEach(s => m.set(s.id, s));
-    return m;
-  }, [skus]);
-
-  // SM stock cover days for pills
-  const smPills = useMemo(() => {
-    return smStockBalances.map(bal => {
-      const sku = skuMap.get(bal.skuId);
-      const daily = smDailyUsage[bal.skuId] || 0;
-      const cover = daily > 0 && bal.currentStock > 0 ? bal.currentStock / daily : null;
-      return { skuId: bal.skuId, name: sku?.name ?? '—', coverDays: cover !== null ? Math.round(cover * 10) / 10 : null };
+  const cost = data?.cost ?? null;
+  // Things worth a look
+  const attention: { key: string; tone: "red" | "amber"; title: string; detail: string; go?: () => void; label?: string }[] = [];
+  if (data && data.produced && (data.blocked || data.estimated)) {
+    attention.push({
+      key: "count",
+      tone: data.blocked ? "red" : "amber",
+      title: data.blocked ? "ยังคิดต้นทุนจริงไม่ได้" : "ยังไม่ได้นับวัตถุดิบปลายช่วง · ยังเทียบกับของจริงไม่ได้",
+      detail: data.blocked ?? "ตอนนี้ใช้ยอดคงเหลือในระบบแทนยอดนับ ซึ่งหักตามสูตรอยู่แล้ว ส่วนต่างจึงใกล้ 0 เสมอ · นับวัตถุดิบแล้วถึงเห็นของจริง",
+      go: () => navigate("/stockcount"),
+      label: "ไปนับสต๊อกครัว",
     });
-  }, [smStockBalances, skuMap, smDailyUsage]);
+  }
+  if (data && data.uncounted.length)
+    attention.push({ key: "uncounted", tone: "amber", title: `วัตถุดิบ ${data.uncounted.length} ตัวไม่มีในใบนับ · คิดตามสูตรไปก่อน`, detail: `${data.uncounted.slice(0, 4).map(name).join(" · ")}${data.uncounted.length > 4 ? " · …" : ""} · นับให้ครบรอบหน้า ตัวเลขจะแม่นขึ้น` });
+  if (cost) {
+    for (const r of cost.rows.filter((r) => r.stdCost <= 0 && r.outputG > 0).slice(0, 2))
+      attention.push({ key: `zero-${r.smSkuId}`, tone: "red", title: `${name(r.smSkuId)}: ผลิต ${grams(r.outputG, "ก.")} แต่ไม่มีสูตรหรือราคา`, detail: "ต้นทุนตามสูตรเป็น ฿0 · ตั้งสูตรใน Cost Center", go: () => openProduct(r.smSkuId), label: "ไปตั้งสูตร" });
+    for (const r of cost.rows.filter((r) => r.stdCost > 0 && Math.abs(r.actCost - r.stdCost) >= 300 && Math.abs(pct(r.actCost - r.stdCost, r.stdCost)) >= 10).slice(0, 3)) {
+      const d = r.actCost - r.stdCost;
+      attention.push({ key: `var-${r.smSkuId}`, tone: "amber", title: `${name(r.smSkuId)}: ${d > 0 ? "แพงกว่า" : "ถูกกว่า"}สูตร ${signed(d)} (${pct(d, r.stdCost) > 0 ? "+" : ""}${pct(d, r.stdCost).toFixed(1)}%)`, detail: data?.estimated ? `เพราะราคา ${signed(r.priceVar)} · ส่วนใช้ รอนับปลายช่วง` : `เพราะราคา ${signed(r.priceVar)} · เพราะใช้ ${signed(r.usageVar)}`, go: () => setOpen(r), label: "ดูวัตถุดิบ" });
+    }
+    const neg = [...cost.rmUsed].filter(([, q]) => q < -0.5);
+    if (neg.length)
+      attention.push({ key: "neg", tone: "amber", title: `วัตถุดิบใช้ติดลบ ${neg.length} ตัว`, detail: `${neg.slice(0, 3).map(([id]) => name(id)).join(" · ")} · ยอดปลายช่วงมากกว่าต้นช่วง + ซื้อ = ของเข้าไม่ได้บันทึก หรือนับผิด` });
+  }
 
-  // Purchase donut data
-  const donutData = useMemo(() => {
-    const suppliers = hook.purchase.bySupplier;
-    if (suppliers.length <= 6) return suppliers.map(s => ({ name: s.supplierName, value: s.totalActual }));
-    const top5 = suppliers.slice(0, 5);
-    const othersVal = suppliers.slice(5).reduce((s, x) => s + x.totalActual, 0);
-    return [...top5.map(s => ({ name: s.supplierName, value: s.totalActual })), { name: 'Others', value: othersVal }];
-  }, [hook.purchase]);
-
-  const periodLabel = periodMode === 'week'
-    ? `${format(startOfWeek(now, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(now, { weekStartsOn: 1 }), 'd MMM yyyy')}`
-    : periodMode === 'month'
-    ? format(now, 'MMMM yyyy')
-    : customFrom && customTo
-    ? `${format(customFrom, 'd MMM')} – ${format(customTo, 'd MMM yyyy')}`
-    : t('ckd.periodCustomRange');
-
-  const countStatus = hook.countStatus;
-  const blockReason = hook.blockReason;
-  const beginCountDate = hook.beginCountDate;
-  const endCountDate = hook.endCountDate;
-
-  // Inventory count warning
-  const invCountWarning = hook.inventory.countDaysOld > 7;
+  const chip = (on: boolean) => cn("inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border bg-card");
+  const card = "min-w-0 rounded-2xl border border-border bg-card px-4 py-3";
 
   return (
-    <div className="space-y-6">
-      {/* ── HEADER ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('ckd.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
+    <div ref={measure} className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
+          <h1 className="text-2xl font-bold">ภาพรวมครัวกลาง</h1>
+          <p className="text-sm text-muted-foreground">ต้นทุนผลิตจริงเทียบสูตร (สูตรเดียวกับ Cost Center) · ซื้อเข้า · ส่งสาขา</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex rounded-lg border overflow-hidden">
-            {(['week', 'month', 'custom'] as PeriodMode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => setPeriodMode(m)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium transition-colors',
-                  periodMode === m
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {m === 'week' ? t('ckd.periodThisWeek') : m === 'month' ? t('ckd.periodThisMonth') : t('ckd.periodCustom')}
-              </button>
-            ))}
-          </div>
-          {periodMode === 'custom' && (
-            <div className="flex items-center gap-2">
-              <DateRangePicker
-                from={customFrom}
-                to={customTo}
-                onChange={(r) => {
-                  setCustomFrom(r.from);
-                  setCustomTo(r.to);
-                }}
-                placeholder="From – To"
-              />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">เดือน</span>
+        {months.map((m, i) => (
+          <button key={m.from} type="button" className={chip(!custom && period.from === m.from)} onClick={() => (setCustom(false), setPeriod(m))}>
+            {monthLabel(m.from)}
+            {i === 0 && <span className="text-xs opacity-80">· ยังไม่จบ</span>}
+          </button>
+        ))}
+        <button type="button" className={chip(custom)} onClick={() => setCustom(true)}>
+          เลือกช่วงเอง
+        </button>
+        {custom && (
+          <span className="flex flex-wrap items-center gap-2">
+            <input type="date" aria-label="ตั้งแต่" value={period.from} max={period.to} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, from: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
+            <span className="text-sm text-muted-foreground">ถึง</span>
+            <input type="date" aria-label="ถึง" value={period.to} min={period.from} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, to: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
+          </span>
+        )}
+      </div>
+      {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+
+      {!data ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[96px] animate-pulse rounded-2xl bg-secondary" />
+          ))}
+        </div>
+      ) : (
+        <div className={cn("flex flex-col gap-4 transition-opacity", loading && "opacity-50")}>
+          <p className="text-xs font-semibold text-muted-foreground">
+            ต้นทุนผลิต · {data.opening ? `ผลิตระหว่างนับ ${thai(data.opening.date)} – ${data.closing ? thai(data.closing.date) : "วันนี้"}` : `${thai(period.from)} – ${thai(period.to)}`}
+            {data.estimated && !data.blocked ? " · ประมาณการ" : ""} · วัตถุดิบดิบเท่านั้น (ของครัวผลิตที่ใส่ในสูตรอื่น นับในแถวของตัวเองแล้ว)
+          </p>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className={card}>
+              <div className="text-sm text-muted-foreground">ต้นทุนตามสูตร</div>
+              <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{cost ? baht(cost.stdCost) : "—"}</div>
+              <div className="text-xs text-muted-foreground">ถ้าใช้ตามสูตรพอดี</div>
             </div>
+            <div className={cn(card, cost && "border-[1.5px] border-foreground")}>
+              <div className="text-sm text-muted-foreground">ต้นทุนจริง</div>
+              <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{cost ? baht(cost.actCost) : "—"}</div>
+              <div className="text-xs text-muted-foreground">วัตถุดิบที่ใช้ไปจริง ราคาที่จ่าย</div>
+            </div>
+            <div className={card}>
+              <div className="text-sm text-muted-foreground">จริงต่างจากสูตร</div>
+              {cost ? (
+                <>
+                  <div className={cn("break-all font-mono text-xl font-semibold sm:text-2xl", tone(cost.actCost - cost.stdCost))}>
+                    {signed(cost.actCost - cost.stdCost)} <span className="text-sm">({pct(cost.actCost - cost.stdCost, cost.stdCost).toFixed(1)}%)</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{data.estimated ? `ราคา ${signed(cost.priceVar)} · ส่วนใช้ รอนับปลายช่วง` : `ราคา ${signed(cost.priceVar)} · ใช้ ${signed(cost.usageVar)}`}</div>
+                </>
+              ) : (
+                <div className="text-xl font-semibold text-muted-foreground">—</div>
+              )}
+            </div>
+            <div className={card}>
+              <div className="text-sm text-muted-foreground">นับวัตถุดิบ</div>
+              <div className={cn("text-[15px] font-semibold", !data.opening && "text-destructive")}>ต้นช่วง {data.opening ? `✓ ${thai(data.opening.date)}` : "· ไม่มี"}</div>
+              <div className={cn("text-[15px] font-semibold", !data.closing && (period.to < today ? "text-destructive" : "text-warning"))}>ปลายช่วง {data.closing ? `✓ ${thai(data.closing.date)}` : period.to < today ? "· ไม่มี" : "· ยังไม่นับ"}</div>
+            </div>
+          </div>
+
+          {attention.length > 0 && (
+            <section className="overflow-hidden rounded-2xl border border-border bg-card">
+              <h2 className="px-4 pt-3 text-base font-bold">เรื่องที่ควรดู</h2>
+              {attention.map((a, i) => (
+                <div key={a.key} className={cn("flex items-start gap-3 px-4 py-3", i > 0 && "border-t border-border")}>
+                  <span className={cn("mt-2 h-2 w-2 shrink-0 rounded-full", a.tone === "red" ? "bg-destructive" : "bg-warning")} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-semibold">{a.title}</span>
+                    <span className="block break-words text-sm text-muted-foreground">{a.detail}</span>
+                  </span>
+                  {a.go && (
+                    <Button variant="outline" className="h-10 shrink-0" onClick={a.go}>
+                      {a.label}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </section>
           )}
-          <Button onClick={handleCalculate} className="gap-2">
-            <Calculator className="w-4 h-4" />
-            {t('btn.calculate')}
-          </Button>
+
+          {cost && cost.rows.length > 0 ? (
+            wide ? (
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col />
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "130px" }} />
+                    <col style={{ width: "130px" }} />
+                    <col style={{ width: "130px" }} />
+                    <col style={{ width: "90px" }} />
+                  </colgroup>
+                  <thead className="bg-secondary/60 text-left text-[13px] text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2.5 font-medium">ของที่ผลิต (ต่างจากสูตรมากสุดก่อน)</th>
+                      <th className="px-3 py-2.5 text-right font-medium">ผลิตได้</th>
+                      <th className="px-3 py-2.5 text-right font-medium">ตามสูตร</th>
+                      <th className="px-3 py-2.5 text-right font-medium">จริง</th>
+                      <th className="px-3 py-2.5 text-right font-medium">ต่าง</th>
+                      <th className="px-3 py-2.5 text-right font-medium">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cost.rows.map((r) => {
+                      const d = r.actCost - r.stdCost;
+                      return (
+                        <tr key={r.smSkuId} onClick={() => setOpen(r)} className="cursor-pointer border-t border-border hover:bg-secondary/40">
+                          <td className="break-words px-3 py-2.5">
+                            <span className="font-semibold">{name(r.smSkuId)}</span> <span className="font-mono text-xs text-muted-foreground">{code(r.smSkuId)}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono tabular-nums">{grams(r.outputG, byId.get(r.smSkuId)?.usageUom ?? "ก.")}</td>
+                          <td className="px-3 py-2.5 text-right font-mono tabular-nums">{baht(r.stdCost)}</td>
+                          <td className="px-3 py-2.5 text-right font-mono tabular-nums">{baht(r.actCost)}</td>
+                          <td className={cn("px-3 py-2.5 text-right font-mono tabular-nums", tone(d))}>{signed(d)}</td>
+                          <td className={cn("px-3 py-2.5 text-right font-mono tabular-nums", tone(d))}>{r.stdCost > 0 ? `${pct(d, r.stdCost) > 0 ? "+" : ""}${pct(d, r.stdCost).toFixed(1)}%` : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">แตะแถว = วัตถุดิบของตัวนั้น ตามสูตร vs ใช้จริง · ต้นทุนทั้งหม้อ (รวมผลพลอยได้)</p>
+              </div>
+            ) : (
+              <ul className="overflow-hidden rounded-2xl border border-border bg-card">
+                {cost.rows.map((r, i) => {
+                  const d = r.actCost - r.stdCost;
+                  return (
+                    <li key={r.smSkuId}>
+                      <button type="button" onClick={() => setOpen(r)} className={cn("flex w-full items-start gap-3 px-4 py-3 text-left", i > 0 && "border-t border-border")}>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-semibold">{name(r.smSkuId)}</span>
+                          <span className="block text-[13px] text-muted-foreground">
+                            {grams(r.outputG, byId.get(r.smSkuId)?.usageUom ?? "ก.")} · สูตร {baht(r.stdCost)} · จริง {baht(r.actCost)}
+                          </span>
+                        </span>
+                        <b className={cn("shrink-0 font-mono tabular-nums", tone(d))}>{r.stdCost > 0 ? `${pct(d, r.stdCost) > 0 ? "+" : ""}${pct(d, r.stdCost).toFixed(1)}%` : "—"}</b>
+                      </button>
+                    </li>
+                  );
+                })}
+                <li className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">แตะ = วัตถุดิบของตัวนั้น · ต้นทุนทั้งหม้อ (รวมผลพลอยได้)</li>
+              </ul>
+            )
+          ) : (
+            !data.blocked && <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีการผลิตในช่วงนี้</p>
+          )}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <section className={card}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">ซื้อเข้า</h3>
+                <b className="font-mono">{baht(data.purchases.total)}</b>
+              </div>
+              <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+                {data.purchases.top.map((s) => (
+                  <li key={s.name} className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 break-words">{s.name}</span>
+                    <span className="w-24 overflow-hidden rounded-full bg-secondary">
+                      <span className="block h-1.5 rounded-full bg-muted-foreground/60" style={{ width: `${pct(s.value, data.purchases.total)}%` }} />
+                    </span>
+                    <span className="w-24 shrink-0 text-right font-mono tabular-nums">{baht(s.value)}</span>
+                  </li>
+                ))}
+                {!data.purchases.top.length && <li className="text-muted-foreground">ไม่มีการซื้อในช่วงนี้</li>}
+              </ul>
+            </section>
+            <section className={card}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">ส่งสาขา</h3>
+                <b className="font-mono">{baht(data.distribution.sm + data.distribution.rm)}</b>
+              </div>
+              <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+                {data.distribution.byBranch.map((b) => (
+                  <li key={b.name} className="flex items-baseline gap-3">
+                    <span className="min-w-0 flex-1 break-words">{b.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ครัวผลิต {baht(b.sm)} · วัตถุดิบ {baht(b.rm)}
+                    </span>
+                    <span className="w-24 shrink-0 text-right font-mono tabular-nums">{baht(b.sm + b.rm)}</span>
+                  </li>
+                ))}
+                {!data.distribution.byBranch.length && <li className="text-muted-foreground">ไม่มีการส่งในช่วงนี้</li>}
+              </ul>
+            </section>
+          </div>
+        </div>
+      )}
+
+      <p className="mt-2 text-xs font-semibold text-muted-foreground">ตอนนี้ (ไม่ขึ้นกับเดือนที่เลือก)</p>
+      <div className={card}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-sm text-muted-foreground">สต๊อกครัวตอนนี้</span>
+          <b className="font-mono text-xl">{baht(stockNow.rmProd + stockNow.rmDist + stockNow.sm)}</b>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          วัตถุดิบสำหรับผลิต {baht(stockNow.rmProd)} · วัตถุดิบส่งสาขา {baht(stockNow.rmDist)} · ครัวผลิต (SM) {baht(stockNow.sm)} ·{" "}
+          <button type="button" className="font-semibold text-brand" onClick={() => navigate("/stock")}>
+            ดูสต๊อกครัว ›
+          </button>
         </div>
       </div>
 
-      {/* ── PRE-CALCULATE EMPTY STATE ── */}
-      {!hasCalculated && !hook.loading && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Calculator className="w-8 h-8 text-muted-foreground" />
+      {open && (
+        <div className="fixed inset-0 z-[45] flex items-end justify-center bg-black/30 md:items-center" onClick={() => setOpen(null)}>
+          <div role="dialog" aria-label={name(open.smSkuId)} className="flex max-h-[90dvh] w-full flex-col gap-3 overflow-y-auto rounded-t-2xl bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-raised md:max-w-lg md:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  {thai(period.from)} – {thai(period.to)} · ผลิต {grams(open.outputG, "ก.")} ({open.runs.toLocaleString("th-TH", { maximumFractionDigits: 1 })} รอบ)
+                </p>
+                <h3 className="break-words text-lg font-bold">{name(open.smSkuId)}</h3>
+                <p className="text-sm">
+                  สูตร {baht(open.stdCost)} · จริง {baht(open.actCost)} · <span className={tone(open.actCost - open.stdCost)}>{signed(open.actCost - open.stdCost)}</span>
+                </p>
+              </div>
+              <Button variant="ghost" className="h-10 shrink-0 px-3" onClick={() => setOpen(null)}>
+                ปิด
+              </Button>
             </div>
-             <p className="text-lg font-semibold">{t('ckd.emptyTitle')}</p>
-             <p className="text-sm text-muted-foreground mt-1">{t('ckd.emptySubtitle')}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── LOADING SKELETON ── */}
-      {hook.loading && (
-        <div className="space-y-6">
-          <Card><CardContent className="p-6 space-y-4">
-            <Skeleton className="h-6 w-60" />
-            <div className="grid grid-cols-3 gap-4">
-              <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />
-            </div>
-            <Skeleton className="h-48" />
-          </CardContent></Card>
-          <div className="grid grid-cols-3 gap-4">
-            <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <Skeleton className="h-64" /><Skeleton className="h-64" />
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {open.lines.map((l) => {
+                const uom = byId.get(l.skuId)?.usageUom ?? "";
+                const d = l.actual !== null ? (l.actual - l.expected) * l.stdPrice + (l.actPrice - l.stdPrice) * l.actual : 0;
+                return (
+                  <li key={l.skuId} className="flex items-start gap-3 px-3 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words font-semibold">{name(l.skuId)}</span>
+                      <span className="block text-[13px] text-muted-foreground">
+                        สูตร {grams(l.expected, uom)}
+                        {l.actual !== null ? ` · ใช้จริง ${grams(l.actual, uom)}` : " · ของครัวผลิต (ต้นทุนอยู่ในแถวของตัวเอง ไม่นับซ้ำ)"}
+                        {l.actual !== null && Math.abs(l.actPrice - l.stdPrice) > l.stdPrice * 0.02 ? ` · ราคาจ่าย ${l.actPrice.toLocaleString("th-TH", { maximumFractionDigits: 3 })}/${uom} (สูตร ${l.stdPrice.toLocaleString("th-TH", { maximumFractionDigits: 3 })})` : ""}
+                      </span>
+                    </span>
+                    <b className={cn("shrink-0 font-mono tabular-nums", tone(d))}>{l.actual !== null ? signed(d) : "—"}</b>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-xs text-muted-foreground">วัตถุดิบที่หลายสูตรใช้ แบ่งยอดใช้จริงตามที่แต่ละสูตรควรใช้</p>
+            <Button variant="brand" className="h-12 text-[15px]" onClick={() => openProduct(open.smSkuId)}>
+              เปิดสูตรใน Cost Center
+            </Button>
           </div>
         </div>
       )}
-
-      {/* ── MAIN CONTENT ── */}
-      {hasCalculated && !hook.loading && (
-        <>
-          {/* ═══ SECTION 1 — NORTH STAR ═══ */}
-          <Card className="rounded-xl shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                ต้นทุนการผลิต — BOM vs จริง
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* ── BLOCKED ── */}
-              {countStatus === 'blocked' && (
-                <div className="flex flex-col items-center py-12 gap-3 text-center">
-                  <StatusDot status="red" size="md" />
-                  <p className="text-base font-semibold text-destructive">ไม่สามารถคำนวณต้นทุนได้</p>
-                  <p className="text-sm text-muted-foreground max-w-sm">{blockReason}</p>
-                  <p className="text-xs text-muted-foreground">กรุณานับสต็อก RM แล้วกลับมาคำนวณใหม่</p>
-                </div>
-              )}
-
-              {/* ── CONFIRMED or ESTIMATED ── */}
-              {(countStatus === 'confirmed' || countStatus === 'estimated') && (
-                <div className="space-y-5">
-                  {/* KPI tiles */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Tile 1: ต้นทุน BOM */}
-                    <div className="relative rounded-lg bg-[#F1EFE8] p-4">
-                      {countStatus === 'estimated' && (
-                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
-                      )}
-                      <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">ต้นทุน BOM</p>
-                      <p className="text-3xl font-bold font-mono mt-1 text-[#2C2C2A]">{fmtBaht(hook.totalStandardCost)}</p>
-                      <p className="text-xs text-[#5F5E5A]/70 mt-0.5">ถ้าใช้ตามสูตรพอดี</p>
-                    </div>
-
-                    {/* Tile 2: ต้นทุนจริง */}
-                    <div className={cn('relative rounded-lg p-4', hook.totalVariance > 0 ? 'bg-destructive/10' : 'bg-success/10')}>
-                      {countStatus === 'estimated' && (
-                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
-                      )}
-                      <p className="text-xs uppercase tracking-wide text-[#185FA5]">ต้นทุนจริง</p>
-                      <p className="text-3xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.totalActualCost)}</p>
-                      <p className="text-xs text-[#185FA5]/70 mt-0.5">จาก RM ที่ใช้ไปจริง</p>
-                    </div>
-
-                    {/* Tile 3: ต่างจาก BOM */}
-                    <div className="relative rounded-lg bg-[#F1EFE8] p-4 flex flex-col justify-center">
-                      {countStatus === 'estimated' && (
-                        <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning">ประมาณการ</span>
-                      )}
-                      <p className="text-xs uppercase tracking-wide text-[#5F5E5A]">ต่างจาก BOM</p>
-                      <p className="text-xs text-[#5F5E5A]/70 mt-0.5 mb-1">บวก = แพงกว่าสูตร</p>
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'inline-flex items-center px-3 py-1 rounded-full text-lg font-bold font-mono',
-                          hook.totalVariance > 0
-                            ? 'bg-destructive/15 text-destructive'
-                            : hook.totalVariance < 0
-                            ? 'bg-success/15 text-success'
-                            : 'bg-muted text-muted-foreground'
-                        )}>
-                          {hook.totalVariance > 0 ? '+' : ''}{fmtBaht(hook.totalVariance)}
-                          <span className="text-sm ml-1.5">
-                            ({hook.totalVariancePct > 0 ? '+' : ''}{formatNumber(hook.totalVariancePct, 1)}%)
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estimated warning banner */}
-                  {countStatus === 'estimated' && (
-                    <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-center gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      ประมาณการสะสมถึงวันนี้ — ยังไม่มีผลนับ RM ปลายเดือน ตัวเลขอ้างอิงจาก stock balance ปัจจุบัน
-                    </div>
-                  )}
-
-                  {/* Production cost breakdown table */}
-                  {hook.productionCost.length === 0 ? (
-                    <div className="flex flex-col items-center py-10 text-muted-foreground">
-                      <BarChart3 className="w-10 h-10 mb-2 opacity-40" />
-                      <p className="text-sm">ไม่มีการผลิตในช่วงนี้</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-lg border">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-muted/80 backdrop-blur">
-                          <tr className="border-b">
-                            <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SM SKU</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ผลิตได้ (ก.)</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต้นทุน BOM (฿)</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต้นทุนจริง (฿)</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">ต่างจาก BOM (฿)</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">เบี่ยง %</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {hook.productionCost.map(row => {
-                            const pct = row.totalVariancePct;
-                            const varColor = row.totalVariance > 0
-                              ? 'text-destructive'
-                              : row.totalVariance < 0
-                              ? 'text-success'
-                              : 'text-muted-foreground';
-                            const pctBg = pct > 5
-                              ? 'bg-destructive/10 text-destructive'
-                              : pct > 0
-                              ? 'bg-warning/10 text-warning'
-                              : pct < 0
-                              ? 'bg-success/10 text-success'
-                              : 'text-muted-foreground';
-                            return (
-                              <tr key={row.skuId} className="border-b border-muted/30 hover:bg-muted/30">
-                                <td className="px-3 py-2 font-medium break-words max-w-[180px]" title={row.skuName}>{row.skuName}</td>
-                                <td className="px-3 py-2 text-right font-mono">{formatNumber(row.actualOutputG, 0)}</td>
-                                <td className="px-3 py-2 text-right font-mono">{fmt(row.standardCost)}</td>
-                                <td className="px-3 py-2 text-right font-mono">{fmt(row.actualCost)}</td>
-                                <td className={cn('px-3 py-2 text-right font-mono', varColor)}>{fmt(row.totalVariance)}</td>
-                                <td className={cn('px-3 py-2 text-right font-mono rounded', pctBg)}>{formatNumber(pct, 1)}%</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Data quality strip */}
-                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <StatusDot status="green" size="sm" />
-                      ต้นงวด: {beginCountDate} · ผลนับจริง
-                    </span>
-                    {countStatus === 'confirmed' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <StatusDot status="green" size="sm" />
-                        ปลายงวด: {endCountDate} · ผลนับจริง
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5">
-                        <StatusDot status="amber" size="sm" />
-                        ปลายงวด: stock balance ปัจจุบัน (ประมาณการ)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ═══ SECTION 2 — INVENTORY SNAPSHOT ═══ */}
-          <div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-               {[
-                 { label: t('ckd.rmProduction'), value: Math.max(0, hook.inventory.rmProduction), subtitle: t('ckd.atStdPrice'), icon: <Package className="w-5 h-5 text-warning" /> },
-                 { label: t('ckd.rmDistribution'), value: Math.max(0, hook.inventory.rmDistribution), subtitle: t('ckd.atStdPrice'), icon: <Truck className="w-5 h-5 text-primary" /> },
-                 { label: t('ckd.smStock'), value: Math.max(0, hook.inventory.sm), subtitle: t('ckd.atBomCost'), icon: <UtensilsCrossed className="w-5 h-5 text-success" /> },
-              ].map(tile => (
-                <Card key={tile.label} className="rounded-xl shadow-sm bg-[#E6F1FB]">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-[#185FA5]">{tile.label}</p>
-                        <p className="text-2xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(tile.value)}</p>
-                        <p className="text-xs text-[#185FA5]/70 mt-0.5">{tile.subtitle}</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-white/50 flex items-center justify-center shrink-0">
-                        {tile.icon}
-                      </div>
-                    </div>
-                    {invCountWarning && hook.inventory.lastCountDate && (
-                      <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-                        <AlertTriangle className="w-3 h-3" />
-                        {t('ckd.lastCount')} {hook.inventory.lastCountDate} · {hook.inventory.countDaysOld} {t('ckd.daysOld')}
-                      </span>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="mt-2 text-right text-sm text-muted-foreground font-mono">
-              {t('ckd.totalInventory')} {fmtBaht(Math.max(0, hook.inventory.total))}
-            </div>
-          </div>
-
-          {/* ═══ SECTION 3 — PURCHASES + DISTRIBUTION ═══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Purchase Summary */}
-            <Card className="rounded-xl shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <ShoppingCart className="w-5 h-5 text-warning" />
-                  {t('dash.purchaseSummary')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-3xl font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</p>
-                  <p className="text-xs text-muted-foreground">{t('ckd.totalSpendInPeriod')}</p>
-                </div>
-
-                {donutData.length > 0 ? (
-                  <div className="relative" style={{ height: 220 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={donutData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          dataKey="value"
-                          paddingAngle={2}
-                        >
-                          {donutData.map((_, i) => (
-                            <PieCell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <PieTooltip
-                          content={({ active, payload }) => {
-                            if (!active || !payload?.[0]) return null;
-                            const d = payload[0].payload;
-                            const pct = hook.purchase.totalActualSpend > 0
-                              ? (d.value / hook.purchase.totalActualSpend * 100)
-                              : 0;
-                            return (
-                              <div className="bg-popover border rounded-lg shadow-lg p-2 text-sm">
-                                <p className="font-medium">{d.name}</p>
-                                <p>{fmtBaht(d.value)} ({formatNumber(pct, 1)}%)</p>
-                              </div>
-                            );
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="text-sm font-bold font-mono">{fmtBaht(hook.purchase.totalActualSpend)}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center py-6 text-muted-foreground">
-                    <ShoppingCart className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">{t('ckd.noPurchasesInPeriod')}</p>
-                  </div>
-                )}
-
-                {hook.purchase.bySupplier.length > 0 && (
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-muted/50">
-                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.supplier')}</th>
-                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colAmountBaht')}</th>
-                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colPct')}</th>
-                      </tr></thead>
-                      <tbody>
-                        {hook.purchase.bySupplier.slice(0, 6).map(s => (
-                          <tr key={s.supplierName} className="border-b border-muted/30 last:border-0">
-                            <td className="px-3 py-2 truncate max-w-[140px]" title={s.supplierName}>{s.supplierName}</td>
-                            <td className="px-3 py-2 text-right font-mono">{fmt(s.totalActual)}</td>
-                            <td className="px-3 py-2 text-right font-mono">{formatNumber(s.pct, 1)}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Distribution Summary */}
-            <Card className="rounded-xl shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <Truck className="w-5 h-5 text-primary" />
-                  {t('ckd.distributionTitle')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-[#E6F1FB] p-3">
-                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.smDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalSmValue)}</p>
-                  </div>
-                  <div className="rounded-lg bg-[#E6F1FB] p-3">
-                    <p className="text-xs uppercase tracking-wide text-[#185FA5]">{t('ckd.rmDistributed')}</p>
-                    <p className="text-xl font-bold font-mono mt-1 text-[#042C53]">{fmtBaht(hook.distribution.totalRmValue)}</p>
-                  </div>
-                </div>
-
-                {hook.distribution.byBranch.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-muted/50">
-                         <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">{t('col.branch')}</th>
-                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colSmBaht')}</th>
-                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colRmBaht')}</th>
-                         <th className="px-3 py-2 text-right text-xs font-medium uppercase text-muted-foreground">{t('ckd.colTotalBaht')}</th>
-                      </tr></thead>
-                      <tbody>
-                        {hook.distribution.byBranch.map(b => (
-                          <tr key={b.branchName} className="border-b border-muted/30 last:border-0">
-                            <td className="px-3 py-2">{b.branchName}</td>
-                            <td className="px-3 py-2 text-right font-mono">{fmt(b.smValue)}</td>
-                            <td className="px-3 py-2 text-right font-mono">{fmt(b.rmValue)}</td>
-                            <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(b.smValue + b.rmValue)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center py-8 text-muted-foreground">
-                    <Truck className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">{t('ckd.noDistributions')}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* ═══ SECTION 4 — SM STOCK STATUS STRIP ═══ */}
-          {smPills.length > 0 && (
-            <div className="rounded-lg border px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{t('ckd.smStockStatus')}</p>
-              <TooltipProvider>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {smPills.map(pill => {
-                    const cd = pill.coverDays;
-                    const pillClass = cd === null
-                      ? 'bg-muted text-muted-foreground'
-                      : cd < 2
-                      ? 'bg-destructive/15 text-destructive'
-                      : cd <= 5
-                      ? 'bg-warning/15 text-warning'
-                      : 'bg-success/15 text-success';
-                    return (
-                      <Tooltip key={pill.skuId}>
-                        <TooltipTrigger asChild>
-                          <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0', pillClass)}>
-                            {pill.name.length > 12 ? pill.name.slice(0, 12) + '…' : pill.name}
-                            <span className="font-mono font-bold">{cd !== null ? cd : '—'}</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{pill.name}</p>
-                          <p className="font-mono">{cd !== null ? `${cd} ${t('ckd.daysCover')}` : t('ckd.noUsageData')}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              </TooltipProvider>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Error display */}
-      {hook.error && (
-        <Card className="border-destructive">
-          <CardContent className="p-4 text-sm text-destructive">{hook.error}</CardContent>
-        </Card>
-      )}
     </div>
   );
-};
-
-export default Dashboard;
+}

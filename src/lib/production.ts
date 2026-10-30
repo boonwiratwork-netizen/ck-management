@@ -40,6 +40,27 @@ export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: 
 }
 
 /**
+ * What one batch makes — the figure production divides an output by to know how much
+ * raw material it took (so every screen that compares with production uses this one).
+ * Multi-step: step 1's lines add up to its input, later steps add their lines (percent
+ * lines against the step input), each step loses its yield.
+ */
+export function outputPerBatch(header: BOMHeader, lines: BOMLine[], steps: BOMStep[]): number {
+  if (header.bomMode !== "multistep") return header.batchSize * header.yieldPercent;
+  const sorted = steps.filter((s) => s.bomHeaderId === header.id).sort((a, b) => a.stepNumber - b.stepNumber);
+  if (sorted.length === 0) return header.batchSize * header.yieldPercent;
+  const own = lines.filter((l) => l.bomHeaderId === header.id);
+  let prevOutput = 0;
+  sorted.forEach((step, idx) => {
+    const sLines = own.filter((l) => l.stepId === step.id);
+    const inputQty = idx === 0 ? sLines.reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
+    const addedQty = idx === 0 ? 0 : sLines.reduce((s, l) => s + (l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * inputQty : l.qtyPerBatch), 0);
+    prevOutput = (idx === 0 ? inputQty : inputQty + addedQty) * step.yieldPercent;
+  });
+  return prevOutput;
+}
+
+/**
  * How many batches an output is. Raw material comes out by this exact share (a
  * 3.5 kg pot from a 33 kg batch takes 0.11 of a batch) — it used to be rounded
  * to whole batches, so a small pot took nothing and 24 kg took a full 33 kg batch.
