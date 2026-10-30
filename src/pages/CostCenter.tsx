@@ -54,6 +54,8 @@ interface Props {
   onNavigate: (tab: TabKey) => void;
   /** Whether this role can open a page (the old tools are linked only when it can) */
   canOpen: (tab: TabKey) => boolean;
+  /** Every recipe in one Excel file (management only; it used to sit on every page's header) */
+  onExportAll?: () => void;
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
 }
@@ -248,10 +250,15 @@ export default function CostCenterPage(props: Props) {
               )}
             </div>
             <ProductOverview summaries={summaries} onOpenProduct={openProduct} />
-            {tools.length > 0 && (
+            {(tools.length > 0 || props.onExportAll) && (
               <details className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือเดิม (นำเข้าไฟล์ · หมวด)</summary>
+                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือ (นำเข้า/ส่งออกไฟล์ · หมวด)</summary>
                 <div className="mt-2 flex flex-wrap gap-2">
+                  {props.onExportAll && (
+                    <Button variant="outline" className="h-10" onClick={props.onExportAll}>
+                      ส่งออกสูตรทั้งหมด (Excel)
+                    </Button>
+                  )}
                   {tools.map((t) => (
                     <Button key={t.tab} variant="outline" className="h-10" onClick={() => props.onNavigate(t.tab)}>
                       {t.label}

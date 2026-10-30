@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useDailyStockCount } from "@/hooks/use-daily-stock-count";
 import { useCountStatus } from "@/hooks/use-count-status";
 import { supabase } from "@/integrations/supabase/client";
-import { ZONES, businessDate, isBigDifference, isDormant, monthEndWindow, orderLines, zoneOf } from "@/lib/stock-count";
+import { ZONES, businessDate, isBigDifference, isDormant, lowItems, monthEndWindow, orderLines, zoneOf } from "@/lib/stock-count";
 import { CountSheet, type SheetLine } from "@/components/count/CountSheet";
 import { CountHome, CountReview, CountStrip } from "@/components/count/CountScreens";
 import { CountArrange, CountPrint } from "@/components/count/CountExtras";
@@ -371,6 +371,8 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
               onStart={start}
               onGoSales={() => onNavigate("sales-entry")}
               onGoReceive={() => onNavigate("branch-receipt")}
+              onGoRequest={() => onNavigate("transfer-request")}
+              lowCount={lowItems(dsc.rows).length}
               onFinishOpenDays={finishOpenDays}
               onOpenDay={(d) => {
                 setDate(d);

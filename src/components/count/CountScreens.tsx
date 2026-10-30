@@ -26,6 +26,8 @@ export function CountHome({
   onStart,
   onGoSales,
   onGoReceive,
+  onGoRequest,
+  lowCount = 0,
   onFinishOpenDays,
   onOpenDay,
   onShowDormant,
@@ -35,6 +37,9 @@ export function CountHome({
   statusLoading: boolean;
   hasSheet: boolean;
   finished: boolean;
+  /** After the count is finished: the next job, requesting what's running out */
+  onGoRequest?: () => void;
+  lowCount?: number;
   zoneProgress: { zone: Zone; counted: number; total: number }[];
   dormantCount: number;
   monthEnd: string[] | null;
@@ -148,6 +153,11 @@ export function CountHome({
         {canEdit && !finished && (
           <Button variant="brand" className="h-12 text-base" disabled={blocked} loading={starting} onClick={onStart}>
             {hasSheet && counted > 0 ? "นับต่อ" : "เริ่มนับ"}
+          </Button>
+        )}
+        {finished && canEdit && onGoRequest && (
+          <Button variant="brand" className="h-12 text-base" onClick={onGoRequest}>
+            {lowCount ? `ขอเบิกต่อ · ใกล้หมด ${lowCount} รายการ` : "ขอเบิกต่อ"}
           </Button>
         )}
         {finished && (

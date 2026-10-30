@@ -59,6 +59,8 @@ export default function StoreDemo() {
         <StoreOverview
           branches={fx.branches}
           onNavigate={(t) => alert(`ไปหน้า ${t}`)}
+          // Real kitchen numbers, 30 Oct (month-end count due tomorrow)
+          kitchen={{ load: async () => ({ suppliers: 2, runs: 4, requests: 0, sent: 0, monthEnd: { date: "2026-10-31", done: false } }) }}
           load={async (ids) =>
             Object.fromEntries(
               ids.map((b, i) => [

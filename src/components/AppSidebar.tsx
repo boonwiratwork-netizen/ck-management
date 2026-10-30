@@ -20,7 +20,6 @@ import {
   ClipboardList,
   Warehouse,
   Factory,
-  BoxesIcon,
   Store,
   ClipboardCheck,
   Settings,
@@ -31,7 +30,7 @@ import {
   ListFilter,
   ShoppingCart,
   PieChart,
-  Heart,
+  CalendarCheck,
   ArrowUpFromLine,
   ArrowRightLeft,
   LayoutGrid,
@@ -42,6 +41,7 @@ import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPendingTrCount } from "@/lib/pending-trs";
 import { useState, useEffect } from "react";
 
 export type TabKey =
@@ -136,151 +136,118 @@ interface NavGroup {
   items: NavGroupEntry[];
 }
 
-// Products, prices, suppliers, recipes and menus all live in Cost Center now; the
-// old pages stay reachable from inside it (and by address) until they move in
-const masterDataGroup: NavGroup = {
-  label: "SETUP",
-  labelKey: "nav.setup",
-  section: "ck",
-  items: [{ key: "cost-center", labelKey: "nav.costCenter", icon: Layers }],
+// Everyone starts on the today page (the kitchen card + their branches)
+const todayGroup: NavGroup = {
+  label: "",
+  labelKey: "",
+  section: "overview",
+  items: [{ key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck }],
 };
 
+// Daily jobs first, then the pages for looking back ("ดูภาพรวม")
 const ckGroup: NavGroup = {
-  label: "CENTRAL KITCHEN",
+  label: "ครัวกลาง",
   labelKey: "nav.centralKitchen",
   icon: ChefHat,
   section: "ck",
   items: [
-    { subLabel: "Daily" },
     { key: "receipt", labelKey: "nav.goodsReceipt", icon: ClipboardList },
     { key: "production", labelKey: "nav.production", icon: Factory },
     { key: "transfer-order", labelKey: "nav.transferOrder", icon: ArrowRightLeft },
     { key: "stockcount", labelKey: "nav.stockCount", icon: ClipboardCheck },
-    { subLabel: "Monitor" },
-    { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+    { subLabel: "ดูภาพรวม" },
     // RM / SM / PK are tabs of one page now (their addresses still work)
     { key: "stock", labelKey: "nav.kitchenStock", icon: Warehouse },
+    { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   ],
 };
 
 const storeGroup: NavGroup = {
-  label: "STORE",
+  label: "สาขา",
   labelKey: "nav.store",
   icon: Store,
   section: "store",
   items: [
-    { subLabel: "Daily" },
     { key: "sales-entry", labelKey: "nav.salesEntry", icon: ShoppingCart },
     { key: "branch-receipt", labelKey: "nav.branchReceipt", icon: ClipboardList },
     { key: "transfer-request", labelKey: "nav.transferRequest", icon: ArrowUpFromLine },
     { key: "daily-stock-count", labelKey: "nav.dailyStockCount", icon: ClipboardCheck },
-    { subLabel: "Monitor" },
-    { key: "store", labelKey: "nav.storeOverview", icon: Store },
+    { subLabel: "ดูภาพรวม" },
     { key: "store-stock", labelKey: "nav.storeStock", icon: LayoutGrid },
     { key: "food-cost", labelKey: "nav.foodCost", icon: PieChart },
-    { subLabel: "Setup" },
-    { key: "cost-center", labelKey: "nav.costCenter", icon: Layers },
   ],
 };
 
-const managementGroup: NavGroup = {
-  label: "SETUP",
-  labelKey: "nav.management",
+// Products, prices, suppliers, recipes and menus all live in Cost Center
+const setupGroup = (withAdmin: boolean): NavGroup => ({
+  label: "ตั้งค่า",
+  labelKey: "nav.setup",
   section: "management",
   items: [
-    { key: "branches", labelKey: "nav.branches", icon: Store },
-    { key: "users", labelKey: "nav.userManagement", icon: Settings },
+    { key: "cost-center", labelKey: "nav.costCenter", icon: Layers },
+    ...(withAdmin
+      ? [
+          { key: "branches" as TabKey, labelKey: "nav.branches", icon: Store },
+          { key: "users" as TabKey, labelKey: "nav.userManagement", icon: Settings },
+        ]
+      : []),
   ],
-};
+});
 
 const roleLabels: Record<string, string> = {
-  management: "Management",
-  ck_manager: "CK Manager",
-  store_manager: "Store Manager",
-  area_manager: "Area Manager",
+  management: "ผู้บริหาร",
+  ck_manager: "ครัวกลาง",
+  store_manager: "หัวหน้าสาขา",
+  area_manager: "Area",
 };
 
 /** The 4 daily jobs per role shown in the phone bottom bar (everything else: "เมนู") */
 export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string; icon: React.ElementType }[] {
+  const today = { key: "store" as TabKey, label: "วันนี้", icon: CalendarCheck };
   switch (role) {
     case "store_manager":
       return [
-        { key: "store", label: "วันนี้", icon: Store },
+        today,
         { key: "branch-receipt", label: "รับของ", icon: ScanLine },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
         { key: "transfer-request", label: "ขอเบิก", icon: ArrowUpFromLine },
       ];
-    case "ck_manager":
-      return [
-        { key: "receipt", label: "รับของ", icon: ClipboardList },
-        { key: "production", label: "ผลิต", icon: Factory },
-        { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
-        { key: "smstock", label: "สต๊อก SM", icon: BoxesIcon },
-      ];
     case "area_manager":
       return [
+        today,
         { key: "food-cost", label: "ต้นทุน", icon: PieChart },
-        { key: "store", label: "ภาพรวม", icon: Store },
         { key: "store-stock", label: "สต๊อก", icon: LayoutGrid },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
       ];
+    // The kitchen is run from management accounts (there are no CK manager users)
+    case "ck_manager":
     case "management":
     default:
       return [
-        { key: "dashboard", label: "ภาพรวม", icon: LayoutDashboard },
-        { key: "food-cost", label: "ต้นทุน", icon: PieChart },
-        { key: "cost-center", label: "Cost Center", icon: Layers },
+        today,
+        { key: "receipt", label: "รับของ", icon: ClipboardList },
+        { key: "production", label: "ผลิต", icon: Factory },
         { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
       ];
   }
 }
 
 export function getDefaultTab(role: AppRole | null): TabKey {
-  switch (role) {
-    case "store_manager":
-      // The day at a glance: what's done, what's left, one tap to each job
-      return "store";
-    case "ck_manager":
-      return "receipt";
-    case "area_manager":
-      return "food-cost";
-    case "management":
-    default:
-      return "dashboard";
-  }
+  // The today page for everyone: each role sees its own part
+  return role ? "store" : "dashboard";
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { profile, role, isManagement, signOut, isCkManager } = useAuth();
-  const { lang, toggleLang, t } = useLanguage();
+  const { t } = useLanguage();
   const [pendingTRCount, setPendingTRCount] = useState(0);
 
-  // Fetch pending TR count for badge. Mirrors the pending-TR box's TO-linkage rule
-  // (use-transfer-order.ts fetchPendingTRs): a TR counts as pending until it has a SENT
-  // (or received) TO — an unsent draft still counts — derived from the TO table, not the
-  // fragile TR.status flag, so the badge and the queue never diverge.
+  // Pending-request badge: same count as the today page (lib/pending-trs.ts)
   useEffect(() => {
     if (!isManagement && !isCkManager) return;
-    const fetchCount = async () => {
-      const { data: candidates } = await supabase
-        .from("transfer_requests")
-        .select("id")
-        .in("status", ["Submitted", "Acknowledged"]);
-      const candidateIds = (candidates || []).map((t) => t.id);
-      if (candidateIds.length === 0) {
-        setPendingTRCount(0);
-        return;
-      }
-      const { data: activeTOs } = await supabase
-        .from("transfer_orders")
-        .select("tr_id")
-        .in("tr_id", candidateIds)
-        .not("status", "in", "(Cancelled,Draft)");
-      const covered = new Set((activeTOs || []).map((t) => t.tr_id).filter(Boolean));
-      setPendingTRCount(candidateIds.filter((id) => !covered.has(id)).length);
-    };
+    const fetchCount = () => fetchPendingTrCount().then(setPendingTRCount);
     fetchCount();
     const interval = setInterval(fetchCount, 30000); // 30s for faster clearing
     // Refresh immediately on changes to EITHER table — a TR submit/cancel, or a TO
@@ -304,16 +271,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const allGroups: NavGroup[] = [];
 
   if (isManagement) {
-    // Cost Center first (it covers both kitchen and stores), not tucked under Store
-    // (drops the store group's "Setup" heading too, which only held Cost Center)
-    const storeOnly = { ...storeGroup, items: storeGroup.items.filter((i) => (isSubLabel(i) ? i.subLabel !== "Setup" : i.key !== "cost-center")) };
-    allGroups.push(masterDataGroup, ckGroup, storeOnly, managementGroup);
+    allGroups.push(todayGroup, ckGroup, storeGroup, setupGroup(true));
   } else if (role === "ck_manager") {
-    // CK Manager: ONLY CK sections (no Store, no Management)
-    allGroups.push(ckGroup, masterDataGroup);
+    allGroups.push(todayGroup, ckGroup, setupGroup(false));
   } else if (role === "store_manager" || role === "area_manager") {
-    // Store Manager / Area Manager: ONLY Store section
-    allGroups.push(storeGroup);
+    allGroups.push(todayGroup, storeGroup, setupGroup(false));
   }
 
   const initials = (profile?.full_name || "U")
@@ -332,20 +294,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold leading-tight truncate text-foreground">Live to Eat App</p>
-                  <p className="text-helper leading-tight text-muted-foreground">SCM for Restaurant</p>
-                </div>
-                <button
-                  onClick={toggleLang}
-                  className="flex items-center gap-0.5 rounded-full border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-helper font-medium shrink-0 hover:bg-accent transition-colors"
-                >
-                  <span className={lang === "th" ? "font-bold text-primary" : "text-muted-foreground"}>TH</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span className={lang === "en" ? "font-bold text-primary" : "text-muted-foreground"}>EN</span>
-                </button>
-              </div>
+              <p className="text-sm font-bold leading-tight truncate text-foreground">Live to Eat</p>
+              <p className="text-helper leading-tight text-muted-foreground">ครัวกลางและสาขา</p>
             </div>
           )}
         </div>
@@ -361,23 +311,23 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               (prevGroup.section === "ck" && group.section === "management"));
 
           return (
-            <div key={group.labelKey}>
+            <div key={group.labelKey || "today"}>
               {showDivider && <div className="my-2 mx-3 border-t-2 border-sidebar-border" />}
               <SidebarGroup className="py-1">
-                <SidebarGroupLabel className="text-xs font-bold uppercase tracking-widest text-foreground px-3 mb-1 flex items-center gap-1.5">
-                  {group.icon && !collapsed && <group.icon className="w-3 h-3" />}
-                  {t(group.labelKey)}
-                </SidebarGroupLabel>
+                {group.label && (
+                  <SidebarGroupLabel className="text-xs font-bold tracking-wide text-foreground px-3 mb-1 flex items-center gap-1.5">
+                    {group.icon && !collapsed && <group.icon className="w-3 h-3" />}
+                    {group.label}
+                  </SidebarGroupLabel>
+                )}
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map((item, itemIdx) => {
                       if (isSubLabel(item)) {
                         if (collapsed) return null;
                         return (
-                          <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5">
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-brand-soft-foreground bg-brand-soft">
-                              {item.subLabel}
-                            </span>
+                          <li key={`sub-${item.subLabel}-${itemIdx}`} className="px-3 pt-2 pb-0.5 text-helper text-muted-foreground">
+                            {item.subLabel}
                           </li>
                         );
                       }
@@ -438,23 +388,14 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 size="icon"
                 className="shrink-0 h-8 w-8 text-sidebar-foreground hover:text-destructive"
                 onClick={signOut}
-                title="Sign out"
+                title="ออกจากระบบ"
               >
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-helper text-muted-foreground text-center flex items-center justify-center gap-1">
-              Made with <Heart className="w-3 h-3 text-primary fill-primary" /> for Live to Eat
-            </p>
           </div>
         ) : (
           <div className="space-y-2">
-            <button
-              onClick={toggleLang}
-              className="w-8 h-8 mx-auto rounded-full border border-sidebar-border flex items-center justify-center text-helper font-bold text-primary hover:bg-accent transition-colors"
-            >
-              {lang === "th" ? "TH" : "EN"}
-            </button>
             <div className="w-8 h-8 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
               {initials}
             </div>
@@ -463,7 +404,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
               size="icon"
               className="w-full text-sidebar-foreground hover:text-destructive"
               onClick={signOut}
-              title="Sign out"
+              title="ออกจากระบบ"
             >
               <LogOut className="w-4 h-4" />
             </Button>

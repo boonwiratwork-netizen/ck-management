@@ -12,13 +12,9 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const STORAGE_KEY = 'ck_lang';
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'en' || saved === 'th') return saved;
-    } catch {}
-    return 'th';
-  });
+  // Thai only: the TH/EN switch is gone (it only changed the menu and a few old
+  // pages; every new page is Thai), so a saved "en" no longer applies
+  const [lang, setLang] = useState<Lang>('th');
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, lang); } catch {}

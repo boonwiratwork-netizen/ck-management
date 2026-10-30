@@ -63,7 +63,7 @@ import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, Package, Download } from "lucide-react";
+import { Plus, Upload, Package } from "lucide-react";
 import { toast } from "sonner";
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
@@ -79,7 +79,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
   branches: { title: "สาขา", subtitle: "ข้อมูลสาขาและแบรนด์" },
   users: { title: "ผู้ใช้", subtitle: "บัญชีและสิทธิ์" },
-  store: { title: "ภาพรวมสาขา", subtitle: "งานประจำวันของแต่ละสาขา" },
+  store: { title: "วันนี้", subtitle: "งานประจำวันของครัวกลางและสาขา" },
   "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎพิเศษ ในที่เดียว" },
   "cost-center": { title: "Cost Center", subtitle: "เมนู สินค้า สูตร ราคา ซัพพลายเออร์" },
   "menu-master": { title: "รายการเมนู (หน้าเดิม)", subtitle: "นำเข้าเมนู" },
@@ -108,7 +108,8 @@ function canAccessTab(role: string | null, tab: TabKey): boolean {
     case "ck_manager":
       // Product setup pages Cost Center still links to (recipes, categories)
       if (tab === "sku" || tab === "supplier" || tab === "price" || tab === "sp-bom" || tab === "sku-categories") return true;
-      return ctx === "ck" || ctx === "overview";
+      // The today page shows the kitchen card first
+      return ctx === "ck" || ctx === "overview" || tab === "store";
     case "store_manager":
       return ctx === "store";
     case "area_manager":
@@ -304,7 +305,7 @@ const Index = () => {
   // Access control for tab changes
   const handleTabChange = (tab: TabKey) => {
     if (!canAccessTab(role, tab)) {
-      toast.error("You don't have access to that section");
+      toast.error("ตำแหน่งนี้เปิดหน้านั้นไม่ได้");
       navigate(`/${getDefaultTab(role)}`);
       return;
     }
@@ -471,7 +472,20 @@ const Index = () => {
     }
   };
 
-  const currentTab = tabLabels[activeTab] || { title: "Dashboard", subtitle: "" };
+  const currentTab = tabLabels[activeTab] || { title: "วันนี้", subtitle: "" };
+  // The Excel library is ~900 KB: load it only when someone exports
+  const exportAllBoms = async () =>
+    (await import("@/lib/bom-export")).exportAllBoms({
+      bomHeaders: bomData.headers,
+      bomLines: bomData.lines,
+      bomSteps: bomData.steps,
+      menuBomLines: menuBomData.lines,
+      spBomLines: spBomData.lines,
+      skus: skuData.skus,
+      prices: priceData.prices,
+      menus: menuData.menus,
+      branches: branchData.branches,
+    });
 
   return (
     <SidebarProvider>
@@ -487,31 +501,8 @@ const Index = () => {
             </div>
             {readOnly && (
               <span className="ml-2 text-helper uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
-                View Only
+                ดูอย่างเดียว
               </span>
-            )}
-            {isManagement && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                onClick={async () =>
-                  // The Excel library is ~900 KB: load it only when someone exports
-                  (await import("@/lib/bom-export")).exportAllBoms({
-                    bomHeaders: bomData.headers,
-                    bomLines: bomData.lines,
-                    bomSteps: bomData.steps,
-                    menuBomLines: menuBomData.lines,
-                    spBomLines: spBomData.lines,
-                    skus: skuData.skus,
-                    prices: priceData.prices,
-                    menus: menuData.menus,
-                    branches: branchData.branches,
-                  })
-                }
-              >
-                <Download className="w-4 h-4" /> <span className="hidden md:inline">Export BOM</span>
-              </Button>
             )}
           </header>
 
@@ -619,7 +610,12 @@ const Index = () => {
                     <div className="text-muted-foreground">Access denied</div>
                   )
                 ) : activeTab === "store" ? (
-                  <StoreOverview branches={isAreaManager ? areaManagerBranches : branchData.branches} onNavigate={handleTabChange} readOnly={isAreaManager} />
+                  <StoreOverview
+                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
+                    onNavigate={handleTabChange}
+                    // Area managers look; the kitchen role can't open branch pages
+                    readOnly={isAreaManager || role === "ck_manager"}
+                  />
                 ) : activeTab === "cost-center" ? (
                   <CostCenterPage
                     menuSetup={{
@@ -688,6 +684,7 @@ const Index = () => {
                     updateSupplier={supplierData.updateSupplier}
                     onNavigate={handleTabChange}
                     canOpen={(t) => canAccessTab(role, t)}
+                    onExportAll={isManagement ? exportAllBoms : undefined}
                   />
                 ) : activeTab === "menu-setup" ? (
                   <MenuSetupPage

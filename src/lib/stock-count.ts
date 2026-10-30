@@ -108,3 +108,11 @@ export function orderLines<T>(lines: T[], skuMap: Map<string, SKU>, customOrder:
   const z = (l: T) => ZONES.findIndex((x) => x.key === zoneOf(skuMap.get(idOf(l))));
   return [...lines].sort((a, b) => z(a) - z(b) || code(a).localeCompare(code(b)));
 }
+
+/** "Running out" on the today page and after a count: under this many days left */
+export const LOW_DAYS = 2;
+
+/** Items counted below LOW_DAYS of that day's expected use (nothing counted = not low) */
+export function lowItems<R extends { physicalCount: number | null; expectedUsage: number }>(rows: R[]): R[] {
+  return rows.filter((r) => Number(r.physicalCount) > 0 && r.expectedUsage > 0 && Number(r.physicalCount) / r.expectedUsage < LOW_DAYS);
+}

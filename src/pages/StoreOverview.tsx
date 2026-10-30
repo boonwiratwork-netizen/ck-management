@@ -6,6 +6,9 @@ import { toLocalDateStr, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Branch } from "@/types/branch";
 import type { TabKey } from "@/components/AppSidebar";
+import { fetchPendingTrCount } from "@/lib/pending-trs";
+import { kitchenMonthEnd } from "@/lib/month-end";
+import { LOW_DAYS } from "@/lib/stock-count";
 
 interface Props {
   branches: Branch[];
@@ -14,6 +17,25 @@ interface Props {
   readOnly?: boolean;
   /** Dev demo only */
   load?: (branchIds: string[], today: string, yesterday: string, monthStart: string) => Promise<Record<string, BranchDay>>;
+  /** Dev demo only: show the kitchen card and load it from here */
+  kitchen?: { load: (today: string) => Promise<KitchenDay> };
+}
+
+/** The central kitchen's day: management run the kitchen from their own accounts */
+export interface KitchenDay {
+  /** Suppliers received from today (receipts are stored per item, not per bill) */
+  suppliers: number;
+  /** Production runs recorded today */
+  runs: number;
+  /** Branch requests still waiting for a transfer order */
+  requests: number;
+  /** Transfer orders sent that a branch hasn't received yet */
+  sent: number;
+  /**
+   * Month-end count, only around the end of the month: due on `date` (the last
+   * day), and whether a finished count is already there
+   */
+  monthEnd: { date: string; done: boolean } | null;
 }
 
 /** What one branch has done for its day */
@@ -27,7 +49,6 @@ export interface BranchDay {
   low: { name: string; days: number }[];
 }
 
-const LOW_DAYS = 2;
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`;
 
 async function loadDays(branchIds: string[], today: string, yesterday: string, monthStart: string): Promise<Record<string, BranchDay>> {
@@ -66,14 +87,44 @@ async function loadDays(branchIds: string[], today: string, yesterday: string, m
   return out;
 }
 
+async function loadKitchen(today: string): Promise<KitchenDay> {
+  const end = kitchenMonthEnd(today);
+  const shift = (date: string, days: number) => toLocalDateStr(new Date(Date.parse(`${date}T00:00:00`) + days * 86_400_000));
+  const [bills, runs, requests, sent, counts] = await Promise.all([
+    supabase.from("goods_receipts").select("id, supplier_id").eq("receipt_date", today).order("id"),
+    supabase.from("production_records").select("id", { count: "exact", head: true }).eq("production_date", today),
+    fetchPendingTrCount(),
+    supabase.from("transfer_orders").select("id", { count: "exact", head: true }).eq("status", "Sent"),
+    // A finished kitchen count within 3 days of the month end, as the kitchen dashboard
+    // looks for one (whether it counted enough to work out the month is shown there)
+    end
+      ? supabase.from("stock_count_sessions").select("id").eq("status", "Completed").is("deleted_at", null).gte("count_date", shift(end, -3)).lte("count_date", shift(end, 3))
+      : Promise.resolve({ data: [] as { id: string }[], error: null }),
+  ]);
+  // A failed read must not show as "nothing to do"
+  const failed = [bills, runs, sent, counts].find((r) => r.error);
+  if (failed) throw failed.error;
+  return {
+    suppliers: new Set((bills.data ?? []).map((b) => b.supplier_id)).size,
+    runs: runs.count ?? 0,
+    requests,
+    sent: sent.count ?? 0,
+    monthEnd: end ? { date: end, done: !!counts.data?.length } : null,
+  };
+}
+
+const shortDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+
 /**
  * The branch's day at a glance — the store manager's first screen: has
  * yesterday's sales come in, was yesterday counted, anything to receive,
  * anything running out. Each open job is one tap from the page that does it.
  * Management and area managers see every branch they look after.
  */
-export default function StoreOverview({ branches, onNavigate, readOnly, load = loadDays }: Props) {
-  const { profile, isStoreManager } = useAuth();
+export default function StoreOverview({ branches, onNavigate, readOnly, load = loadDays, kitchen }: Props) {
+  const { profile, isStoreManager, isManagement, isCkManager } = useAuth();
+  const showKitchen = !!kitchen || isManagement || isCkManager;
+  const loadK = kitchen?.load ?? loadKitchen;
   const now = new Date();
   const today = toLocalDateStr(now);
   const yesterday = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
@@ -85,6 +136,20 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
   const key = shown.map((b) => b.id).join(",");
   const [days, setDays] = useState<Record<string, BranchDay> | null>(null);
   const [error, setError] = useState(false);
+  const [kDay, setKDay] = useState<KitchenDay | null>(null);
+  const [kError, setKError] = useState(false);
+
+  useEffect(() => {
+    if (!showKitchen) return;
+    let cancelled = false;
+    setKError(false);
+    loadK(today)
+      .then((d) => !cancelled && setKDay(d))
+      .catch(() => !cancelled && setKError(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [showKitchen, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!key) return;
@@ -99,16 +164,17 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
   }, [key, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const yLabel = new Date(`${yesterday}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
-  if (!shown.length) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">บัญชีนี้ยังไม่ได้ตั้งสาขา ติดต่อผู้ดูแลระบบ</p>;
+  if (!shown.length && !showKitchen) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">บัญชีนี้ยังไม่ได้ตั้งสาขา ติดต่อผู้ดูแลระบบ</p>;
 
-  const Row = ({ ok, warn, text, sub, action, tab }: { ok: boolean; warn?: boolean; text: string; sub?: string; action?: string; tab?: TabKey }) => (
+  // `kitchen`: the kitchen card's own jobs, which readOnly (branch pages) doesn't stop
+  const Row = ({ ok, warn, text, sub, action, tab, kitchen: own }: { ok: boolean; warn?: boolean; text: string; sub?: string; action?: string; tab?: TabKey; kitchen?: boolean }) => (
     <div className="flex items-center gap-3 border-t border-border px-4 py-3">
       <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold", ok ? "bg-success-soft text-success" : warn ? "bg-warning-soft text-warning" : "bg-destructive/10 text-destructive")}>{ok ? "✓" : "!"}</span>
       <span className="min-w-0 flex-1">
         <span className="block break-words">{text}</span>
         {sub && <span className="block break-words text-sm text-muted-foreground">{sub}</span>}
       </span>
-      {!ok && action && tab && !readOnly && (
+      {!ok && action && tab && (!readOnly || own) && (
         <Button variant="outline" className="h-10 shrink-0" onClick={() => onNavigate(tab)}>
           {action}
         </Button>
@@ -119,10 +185,46 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold">{isStoreManager ? `วันนี้ · ${shown[0].branchName}` : "ภาพรวมสาขา"}</h1>
-        <p className="text-sm text-muted-foreground">{now.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })} · งานของแต่ละสาขา แตะเพื่อไปทำต่อ</p>
+        <h1 className="text-2xl font-bold">{isStoreManager ? `วันนี้ · ${shown[0].branchName}` : "วันนี้"}</h1>
+        <p className="text-sm text-muted-foreground">
+          {now.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })} · {showKitchen ? "งานของครัวกลางและทุกสาขา" : "งานของแต่ละสาขา"} แตะเพื่อไปทำต่อ
+        </p>
       </div>
-      {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+      {(error || kError) && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+      {showKitchen && (
+        <section className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <h2 className="text-lg font-bold">ครัวกลาง</h2>
+            <Button variant="ghost" className="h-10 text-brand" onClick={() => onNavigate("dashboard")}>
+              ภาพรวมครัวกลาง
+            </Button>
+          </div>
+          {kError ? null : !kDay ? (
+            <div className="space-y-2 px-4 pb-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-xl bg-secondary" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <Row ok text={`วันนี้รับของจาก ${kDay.suppliers} ซัพพลายเออร์ · ผลิต ${kDay.runs} รอบ`} />
+              <Row ok={kDay.requests === 0} warn text={kDay.requests ? `ใบขอเบิกรอทำใบโอน ${kDay.requests} ใบ` : "ไม่มีใบขอเบิกรอทำใบโอน"} action="ทำใบโอน" tab="transfer-order" kitchen />
+              <Row ok={kDay.sent === 0} warn text={kDay.sent ? `ใบโอนส่งแล้ว สาขายังไม่กดรับ ${kDay.sent} ใบ` : "ไม่มีใบโอนที่สาขายังไม่รับ"} />
+              {kDay.monthEnd && (
+                <Row
+                  ok={kDay.monthEnd.done}
+                  warn
+                  text={kDay.monthEnd.done ? `นับสต๊อกครัวปลายเดือนแล้ว` : `นับสต๊อกครัวปลายเดือน ${kDay.monthEnd.date === today ? "วันนี้" : kDay.monthEnd.date > today ? "พรุ่งนี้" : "ยังไม่ได้นับ"} · ${shortDate(kDay.monthEnd.date)}`}
+                  sub={kDay.monthEnd.done ? "นับครบพอคิดต้นทุนไหม ดูที่ภาพรวมครัวกลาง" : "ต้องนับก่อน ถึงจะเห็นต้นทุนจริงของเดือน"}
+                  action="ไปนับ"
+                  tab="stockcount"
+                  kitchen
+                />
+              )}
+            </>
+          )}
+        </section>
+      )}
       <div className={cn("grid gap-4", shown.length > 1 && "lg:grid-cols-2")}>
         {shown.map((b) => {
           const d = days?.[b.id];
