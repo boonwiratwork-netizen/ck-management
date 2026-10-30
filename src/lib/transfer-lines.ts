@@ -56,6 +56,8 @@ export interface ProdRecord {
   productionDate: string;
   actualOutputG: number;
   batchesProduced: number;
+  /** Output less what other transfer orders already took from this lot (packs × pack weight) */
+  remainingG?: number;
 }
 
 export interface LotLine {
@@ -67,20 +69,25 @@ export interface LotLine {
 }
 
 /**
- * Lots still in the kitchen, oldest first: newest production runs whose output
- * adds up to the current stock; older runs are taken as used up and hidden.
- * A lot already picked on the line stays; if nothing would be left, show all.
- * (Same rule the old page used for its lot dropdown.)
+ * Lots still in the kitchen, oldest first: newest production runs whose amount
+ * still left adds up to the current stock; older runs are taken as used up and
+ * hidden. "Left" = output less what other orders already took from the lot, so
+ * an older lot with 2 packs left isn't hidden behind newer lots counted at their
+ * full output (SM-0015, 30 Oct 2026: the 3 Oct lot disappeared). A lot already
+ * picked on the line stays; if nothing would be left, show all.
  */
 export function visibleRecords(records: ProdRecord[], currentStock: number | undefined, selectedIds: Set<string>): ProdRecord[] {
   const oldestFirst = [...records].sort((a, b) => (a.productionDate || "").localeCompare(b.productionDate || ""));
   if (oldestFirst.length === 0 || currentStock == null) return oldestFirst;
   const within = new Set<string>();
   let cumulative = 0;
+  const left = (r: ProdRecord) => Math.max(0, r.remainingG ?? r.actualOutputG ?? 0);
   for (const r of [...oldestFirst].reverse()) {
     if (cumulative >= currentStock) break;
+    // A lot already sent out in full isn't in the kitchen
+    if (r.remainingG !== undefined && left(r) <= 0) continue;
     within.add(r.id);
-    cumulative += r.actualOutputG || 0;
+    cumulative += left(r);
   }
   const visible = oldestFirst.filter((r) => within.has(r.id) || selectedIds.has(r.id));
   return visible.length > 0 ? visible : oldestFirst;

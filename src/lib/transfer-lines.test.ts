@@ -25,6 +25,12 @@ describe("lots still in the kitchen", () => {
   it("hides runs older than the current stock covers, oldest first", () => {
     expect(visibleRecords(RECORDS, 1500, new Set()).map((r) => r.id)).toEqual(["b", "c"]);
   });
+  it("counts what's left in each lot, not its full output (SM-0015 on 30 Oct 2026)", () => {
+    // 10 packs × 2,800 g each; 3 Oct has 2 packs left, 8 Oct 7, 10 Oct 9; stock 18 packs
+    const left = (id: string, date: string, packs: number): ProdRecord => ({ ...rec(id, date, 28000), remainingG: packs * 2800 });
+    const lots = [left("oct1", "2026-10-01", 0), left("oct3", "2026-10-03", 2), left("oct8", "2026-10-08", 7), left("oct10", "2026-10-10", 9)];
+    expect(visibleRecords(lots, 18 * 2800, new Set()).map((r) => r.id)).toEqual(["oct3", "oct8", "oct10"]);
+  });
   it("keeps a lot already picked, shows all when stock is unknown or none fit", () => {
     expect(visibleRecords(RECORDS, 1500, new Set(["a"])).map((r) => r.id)).toEqual(["a", "b", "c"]);
     expect(visibleRecords(RECORDS, undefined, new Set()).length).toBe(3);

@@ -166,7 +166,13 @@ export function LotDialog({ line, sku, lots, onClose }: { line: TOLine; sku: SKU
               <li key={r.id} className="flex items-center gap-3 rounded-2xl border border-border p-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-semibold">ผลิต {thaiDay(r.productionDate)}</div>
-                  <div className="text-sm text-muted-foreground">{i === 0 ? "เก่าสุดที่ยังเหลือ · หยิบก่อน" : `${r.batchesProduced} ชุด`}</div>
+                  <div className="text-sm text-muted-foreground">{[
+                      i === 0 ? "เก่าสุดที่ยังเหลือ · หยิบก่อน" : `${r.batchesProduced} ชุด`,
+                      // What other orders haven't taken yet (lots picked on orders since)
+                      r.remainingG !== undefined && sku?.packSize ? `เหลือราว ${Math.max(0, Math.round(r.remainingG / sku.packSize))} แพ็ค` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}</div>
                 </div>
                 <PackStepper value={packs} label={`แพ็คจากล็อต ${shortDate(r.productionDate)}`} onChange={(p) => lots.setLotPacks(line.id, line.skuId, r, Math.round(p))} className="w-[128px]" />
               </li>

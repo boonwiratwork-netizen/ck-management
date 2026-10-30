@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { supabase } from "@/integrations/supabase/client";
 import type { SKU } from "@/types/sku";
 import type { TOLine } from "@/hooks/use-transfer-order";
@@ -168,17 +169,31 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
       if (stale) return;
       const skuIds = skuKey.split(",").filter(Boolean);
       const smIds = skuIds.filter(isLotLine);
-      const [prodRes, stockMap, lotRes] = await Promise.all([
+      const [prodRes, stockMap, lotRes, takenRes] = await Promise.all([
+        // Paged: every SM's runs since March add up past the 1,000-row cap
         smIds.length
-          ? supabase.from("production_records").select("id, sm_sku_id, production_date, actual_output_g, batches_produced").in("sm_sku_id", smIds).order("production_date", { ascending: true }).order("id")
-          : Promise.resolve({ data: [] as never[] }),
+          ? fetchAllRows<{ id: string; sm_sku_id: string; production_date: string; actual_output_g: number; batches_produced: number }>((a, b) =>
+              supabase.from("production_records").select("id, sm_sku_id, production_date, actual_output_g, batches_produced").in("sm_sku_id", smIds).order("production_date", { ascending: true }).order("id").range(a, b) as never,
+            )
+          : Promise.resolve({ data: [] as never[], error: null }),
         kitchenStockForSkus(skus, skuIds),
         supabase.from("transfer_order_lot_lines").select("id, to_line_id, production_record_id, production_date, packs, pack_weight_g").in("to_line_id", lineKey.split(",")).order("production_date").order("id"),
+        fetchAllRows<{ to_line_id: string; production_record_id: string | null; packs: number; pack_weight_g: number }>((a, b) =>
+          supabase.from("transfer_order_lot_lines").select("id, to_line_id, production_record_id, packs, pack_weight_g").order("id").range(a, b) as never,
+        ),
       ]);
       if (stale) return;
+      // What other orders already took from each lot (this order's own lines don't count)
+      const thisOrder = new Set(lineKey.split(","));
+      const taken = new Map<string, number>();
+      for (const t of takenRes.data) {
+        if (!t.production_record_id || thisOrder.has(t.to_line_id)) continue;
+        taken.set(t.production_record_id, (taken.get(t.production_record_id) ?? 0) + (Number(t.packs) || 0) * (Number(t.pack_weight_g) || 0));
+      }
       const bySku: Record<string, ProdRecord[]> = {};
       for (const r of prodRes.data || []) {
-        (bySku[r.sm_sku_id] ||= []).push({ id: r.id, productionDate: r.production_date, actualOutputG: Number(r.actual_output_g) || 0, batchesProduced: r.batches_produced });
+        const out = Number(r.actual_output_g) || 0;
+        (bySku[r.sm_sku_id] ||= []).push({ id: r.id, productionDate: r.production_date, actualOutputG: out, batchesProduced: r.batches_produced, remainingG: out - (taken.get(r.id) ?? 0) });
       }
       // Saved lots, one entry per production lot (old duplicates are added up)
       const saved: Record<string, Map<string, SavedRow[]>> = {};
