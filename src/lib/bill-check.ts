@@ -1,4 +1,5 @@
 import { addSaleUsage, type UsageContext } from "@/lib/sale-usage";
+import { ruleMatchesSale } from "@/lib/modifier-rules";
 
 /**
  * Runs real bills through the same usage maths that deducts stock, so a menu's
@@ -23,6 +24,12 @@ export interface BillGroup {
   perPlate: [string, number][];
   /** Nothing at all is deducted for this bill */
   empty: boolean;
+  /**
+   * The bill picks an option that should replace an item ("เลือกเส้น : เส้นหนาหนึบ"),
+   * yet the item it replaces is still deducted: the swap rule's menu list leaves this
+   * menu out, so both get counted.
+   */
+  leftover: { keyword: string; skuId: string }[];
 }
 
 export interface MenuBillCheck {
@@ -58,6 +65,15 @@ export function checkBills(ctx: UsageContext, bills: CheckBill[]): Map<string, M
     if (!known) continue; // codes missing from the menu list are reported by the branch check
     const perPlate = [...usage.entries()].filter(([, q]) => Math.abs(q) > TINY).sort((a, b) => b[1] - a[1]);
     const empty = !perPlate.some(([, q]) => q > TINY);
+    const leftover: BillGroup["leftover"] = [];
+    for (const r of ctx.rules) {
+      if (r.ruleType !== "swap" || !r.swapSkuId) continue;
+      if (r.branchIds.length > 0 && !r.branchIds.includes(g.branchId)) continue;
+      if (!ruleMatchesSale(r, { menu_code: g.code, menu_name: g.name })) continue;
+      // Chosen on the bill, yet the item it replaces is still deducted: the rule's menu
+      // list leaves this menu (and the dishes in it) out, so both get counted
+      if ((usage.get(r.swapSkuId) ?? 0) > TINY && !leftover.some((x) => x.skuId === r.swapSkuId)) leftover.push({ keyword: r.keyword, skuId: r.swapSkuId });
+    }
     let c = out.get(g.code);
     if (!c) {
       c = { plates: 0, emptyPlates: 0, platesByBranch: {}, emptyByBranch: {}, groups: [] };
@@ -69,7 +85,7 @@ export function checkBills(ctx: UsageContext, bills: CheckBill[]): Map<string, M
       c.emptyPlates += g.plates;
       c.emptyByBranch[g.branchId] = (c.emptyByBranch[g.branchId] ?? 0) + g.plates;
     }
-    c.groups.push({ name: g.name, branchId: g.branchId, plates: g.plates, perPlate, empty });
+    c.groups.push({ name: g.name, branchId: g.branchId, plates: g.plates, perPlate, empty, leftover });
   }
   for (const c of out.values()) c.groups.sort((a, b) => Number(b.empty) - Number(a.empty) || b.plates - a.plates);
   return out;

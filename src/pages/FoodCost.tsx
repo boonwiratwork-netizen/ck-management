@@ -1,2107 +1,269 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { ruleMatchesSale } from "@/lib/modifier-rules";
-import { useLanguage } from "@/hooks/use-language";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import {
-  format,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  subMonths,
-  lastDayOfMonth,
-  getDaysInMonth,
-  addDays,
-  subDays,
-} from "date-fns";
-import { Calculator, TrendingDown, TrendingUp, Download, Info, Plus, X, Loader2 } from "lucide-react";
-import {
-  Tooltip as ShadTooltip,
-  TooltipContent as ShadTooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UnitLabel } from "@/components/ui/unit-label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useSortableTable } from "@/hooks/use-sortable-table";
-import { SortableHeader } from "@/components/SortableHeader";
-import {
-  BarChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ComposedChart,
-  Legend,
-} from "recharts";
-import { cn } from "@/lib/utils";
-import { SKU } from "@/types/sku";
-import { Price } from "@/types/price";
-import { Menu } from "@/types/menu";
-import { MenuBomLine } from "@/types/menu-bom";
-import { ModifierRule } from "@/types/modifier-rule";
-import { SpBomLine } from "@/types/sp-bom";
-import { Branch } from "@/types/branch";
-import { Supplier } from "@/types/supplier";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
+import { Download } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { getCatBadgeClass } from "@/lib/design-tokens";
+import { useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
+import { AttentionBox, DayView, IngredientSheet, IngredientView, MenuView, baht, n0, pctTone, signedBaht } from "@/components/food-cost/FoodCostViews";
+import { StockCard } from "@/components/StockCard";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-interface FoodCostPageProps {
-  skus: SKU[];
-  prices: Price[];
-  menus: Menu[];
-  menuBomLines: MenuBomLine[];
-  modifierRules: ModifierRule[];
-  spBomLines: SpBomLine[];
-  branches: Branch[];
-  suppliers: Supplier[];
-}
+type Props = FoodCostMasters & {
+  /** Dev demo only: example rows instead of the database */
+  loader?: FoodCostLoader;
+};
+type View = "menus" | "ingredients" | "days";
 
-type DatePreset = "today" | "this-week" | "this-month" | "custom";
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const monthRange = (y: number, m: number) => ({ from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) });
+const thai = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+const monthLabel = (from: string) => new Date(`${from}T00:00:00`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
 
-interface DailyData {
-  date: string;
-  label: string;
-  revenue: number;
-  stdFoodCost: number;
-  stdFcPct: number;
-  avgTicketSize: number;
-  [key: string]: number | string; // metric values flattened
-}
+/**
+ * Food cost: what the recipes say sales should have cost, and (one branch, a month
+ * that has ended) what was really used from the counts. Opens on the latest month
+ * and works it out at once; problems come first, each one tap from where it's fixed.
+ */
+export default function FoodCostPage(props: Props) {
+  const { isStoreManager, isManagement, profile } = useAuth();
+  const navigate = useNavigate();
+  const now = new Date();
+  const today = iso(now);
 
-interface SkuBreakdown {
-  skuId: string;
-  skuCode: string;
-  skuName: string;
-  type: string;
-  expectedUsage: number;
-  uom: string;
-  stdUnitPrice: number;
-  stdCost: number;
-}
+  // Months to pick: this one and the three before. The first week of a month
+  // opens on the month just closed (month-end review), otherwise this month.
+  const months = useMemo(() => [0, 1, 2, 3].map((k) => monthRange(now.getFullYear(), now.getMonth() - k)), [today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [period, setPeriod] = useState(() => (now.getDate() <= 7 ? months[1] : months[0]));
+  const [custom, setCustom] = useState(false);
 
-interface MenuBreakdown {
-  menuCode: string;
-  menuName: string;
-  qtySold: number;
-  revenue: number;
-  stdFoodCost: number;
-  stdFcPct: number;
-  costPerServing: number;
-  isMaindish: boolean;
-}
+  const branches = useMemo(() => props.branches.filter((b) => b.status === "Active"), [props.branches]);
+  // A store manager sees their own branch only (none set = nothing to show)
+  const own = isStoreManager ? (profile?.branch_id ? [profile.branch_id] : []) : null;
+  const [branch, setBranch] = useState<string>(own?.[0] ?? (branches.length === 1 ? branches[0].id : "all"));
+  // "All" also counts branches closed since (their sales in the period still happened);
+  // for an area manager the list is already their own branches
+  const branchIds = own ?? (branch === "all" ? props.branches.map((b) => b.id) : [branch]);
 
-interface SkuVarianceRow {
-  skuId: string;
-  skuCode: string;
-  skuName: string;
-  type: string;
-  uom: string;
-  stdQty: number;
-  stdCost: number;
-  actQty: number | null;
-  actPrice: number | null;
-  actCost: number | null;
-  qtyVar: number | null;
-  priceVarThb: number | null;
-  totalVarThb: number | null;
-  movementDetail: {
-    opening: number | null;
-    openingDate: string;        // actual date used (may differ from target if ±3d fallback)
-    openingIsApprox: boolean;   // true when fallback date was used
-    received: number;
-    closingActual: number | null;
-    closingCalc: number | null;
-    closingDate: string;        // actual date used
-    closingIsApprox: boolean;   // true when fallback date was used
-  } | null;
-}
+  const [view, setView] = useState<View>("menus");
+  const [sheetFor, setSheetFor] = useState<string | null>(null);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
 
-export default function FoodCostPage({
-  skus,
-  prices,
-  menus,
-  menuBomLines,
-  modifierRules,
-  spBomLines,
-  branches,
-  suppliers,
-}: FoodCostPageProps) {
-  const { isManagement, isStoreManager, profile } = useAuth();
-  const { t } = useLanguage();
-  const today = new Date();
+  const { result, loading, error } = useFoodCost(props, period.from, period.to, branchIds, props.loader);
+  const std = result?.std;
+  const actual = result?.actual ?? null;
+  const closed = isClosedMonth(period.from, period.to, today);
+  const periodText = custom ? `${period.from} – ${period.to}` : monthLabel(period.from);
+  const branchText = branchIds.length === 1 ? branches.find((b) => b.id === branchIds[0])?.branchName ?? "" : "ทุกสาขา";
 
-  const [preset, setPreset] = useState<DatePreset>("today");
-  const [dateFrom, setDateFrom] = useState<Date>(today);
-  const [dateTo, setDateTo] = useState<Date>(today);
-  const [selectedBranch, setSelectedBranch] = useState<string>(
-    isStoreManager && profile?.branch_id ? profile.branch_id : "all",
-  );
-  const [loading, setLoading] = useState(false);
-  const [calculated, setCalculated] = useState(false);
-  const [autoCalcTrigger, setAutoCalcTrigger] = useState(0);
-
-  // Results
-  const [dailyData, setDailyData] = useState<DailyData[]>([]);
-  const [skuBreakdown, setSkuBreakdown] = useState<SkuBreakdown[]>([]);
-  const [menuBreakdown, setMenuBreakdown] = useState<MenuBreakdown[]>([]);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalStdCost, setTotalStdCost] = useState(0);
-  const [totalReceiptCount, setTotalReceiptCount] = useState(0);
-
-  // Ratio analysis metrics — keys: "avg_ticket" | "ratio:<category>"
-  const RATIO_METRICS_KEY = "fc_ratio_metrics_v1";
-  const [ratioMetrics, setRatioMetrics] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(RATIO_METRICS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-    return ["avg_ticket"];
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(RATIO_METRICS_KEY, JSON.stringify(ratioMetrics));
-    } catch {}
-  }, [ratioMetrics]);
-  const [addMetricOpen, setAddMetricOpen] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-
-  // Actual vs Standard Variance state
-  const [actualVarianceData, setActualVarianceData] = useState<SkuVarianceRow[] | null>(null);
-  const [varianceSummary, setVarianceSummary] = useState<{
-    totalVariance: number;
-    priceVariance: number;
-    usageVariance: number;
-    actualCost: number;
-  } | null>(null);
-  const [varianceDataCoverage, setVarianceDataCoverage] = useState<{
-    skusWithActual: number;
-    totalSkus: number;
-    openingDate: string;
-    closingDate: string;
-    hasApproxDates: boolean;
-  } | null>(null);
-
-  // Check if selected period is a full calendar month
-  const isMonthlyPeriod = useMemo(() => {
-    const fromStr = format(dateFrom, "yyyy-MM-dd");
-    const toStr = format(dateTo, "yyyy-MM-dd");
-    const firstOfMonth = format(startOfMonth(dateFrom), "yyyy-MM-dd");
-    const lastOfMonth = format(endOfMonth(dateFrom), "yyyy-MM-dd");
-    return fromStr === firstOfMonth && toStr === lastOfMonth;
-  }, [dateFrom, dateTo]);
-
-  // Check if the selected month is in the past (not the current month)
-  const isPastMonth = useMemo(() => {
-    const todayMonth = format(new Date(), "yyyy-MM");
-    const selectedMonth = format(dateFrom, "yyyy-MM");
-    return selectedMonth < todayMonth;
-  }, [dateFrom]);
-
-  // Single source of truth for variance eligibility
-  const canShowVariance = isMonthlyPeriod && isPastMonth && selectedBranch !== "all";
-
-  // FC% threshold configuration
-  const FC_GREEN_MAX = 30;
-  const FC_AMBER_MAX = 35;
-
-  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
-
-  // Preset buttons now auto-calculate
-  const handlePresetChange = (p: DatePreset) => {
-    setPreset(p);
-    if (p === "today") {
-      setDateFrom(today);
-      setDateTo(today);
-    } else if (p === "this-week") {
-      setDateFrom(startOfWeek(today, { weekStartsOn: 1 }));
-      setDateTo(endOfWeek(today, { weekStartsOn: 1 }));
-    } else if (p === "this-month") {
-      setDateFrom(startOfMonth(today));
-      setDateTo(endOfMonth(today));
-    }
-    if (p !== "custom") {
-      setAutoCalcTrigger((prev) => prev + 1);
-    }
+  const openMenu = (code: string) => navigate(`/cost-center#${encodeURIComponent(code)}`);
+  const openProduct = (skuId: string) => {
+    const code = props.skus.find((s) => s.id === skuId)?.skuId;
+    if (code) navigate(`/cost-center#p/${encodeURIComponent(code)}`);
   };
+  const sheetRow = sheetFor ? std?.skus.find((s) => s.skuId === sheetFor) ?? null : null;
+  const sheetActual = sheetFor ? actual?.rows.find((r) => r.skuId === sheetFor) ?? null : null;
+  const historySku = historyFor ? props.skus.find((s) => s.id === historyFor) : undefined;
 
-  // Build lookup maps
-  const skuMap = useMemo(() => {
-    const m = new Map<string, SKU>();
-    skus.forEach((s) => m.set(s.id, s));
-    return m;
-  }, [skus]);
+  const pct = (cost: number) => (std && std.revenue > 0 ? (cost / std.revenue) * 100 : 0);
+  const chip = (on: boolean) => cn("inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border bg-card");
 
-  const stdPriceMap = useMemo(() => {
-    const m = new Map<string, number>();
-    prices
-      .filter((p) => p.isActive)
-      .forEach((p) => {
-        if (!m.has(p.skuId)) m.set(p.skuId, p.pricePerUsageUom);
-      });
-    return m;
-  }, [prices]);
-
-  const menuByCode = useMemo(() => {
-    const m = new Map<string, Menu>();
-    menus.forEach((menu) => m.set(menu.menuCode, menu));
-    return m;
-  }, [menus]);
-
-  // Recipe lines per branch: shared lines + that branch's own lines.
-  // With "all branches" every sale uses its own branch's recipe (never another branch's).
-  const bomForBranch = useMemo(() => {
-    const cache = new Map<string, Map<string, MenuBomLine[]>>();
-    return (branchId: string | null | undefined) => {
-      const key = branchId ?? "__global__";
-      const hit = cache.get(key);
-      if (hit) return hit;
-      const m = new Map<string, MenuBomLine[]>();
-      menuBomLines
-        .filter((l) => l.branchId === null || (!!branchId && l.branchId === branchId))
-        .forEach((l) => {
-          const arr = m.get(l.menuId) || [];
-          arr.push(l);
-          m.set(l.menuId, arr);
-        });
-      cache.set(key, m);
-      return m;
-    };
-  }, [menuBomLines]);
-
-  const spBomBySpSku = useMemo(() => {
-    const m = new Map<string, SpBomLine[]>();
-    spBomLines.forEach((l) => {
-      const arr = m.get(l.spSkuId) || [];
-      arr.push(l);
-      m.set(l.spSkuId, arr);
-    });
-    return m;
-  }, [spBomLines]);
-
-  // Rules that apply at a branch (empty branch list = every branch)
-  const rulesForBranch = useMemo(() => {
-    const cache = new Map<string, ModifierRule[]>();
-    return (branchId: string | null | undefined) => {
-      const key = branchId ?? "__all__";
-      const hit = cache.get(key);
-      if (hit) return hit;
-      const list = modifierRules.filter((r) => {
-        if (!r.isActive) return false;
-        if (r.branchIds && r.branchIds.length > 0 && (!branchId || !r.branchIds.includes(branchId))) return false;
-        return true;
-      });
-      cache.set(key, list);
-      return list;
-    };
-  }, [modifierRules]);
-
-  // ----- Ratio Analysis computations -----
-  const distinctMenuCategories = useMemo(() => {
-    const set = new Set<string>();
-    menus.forEach((m) => {
-      if (m.category) set.add(m.category);
-    });
-    return Array.from(set).sort();
-  }, [menus]);
-
-  const calcUsage = useCallback(
-    (sales: any[]): Record<string, number> => {
-      const usage: Record<string, number> = {};
-      const add = (skuId: string, qty: number) => {
-        usage[skuId] = (usage[skuId] || 0) + qty;
-      };
-
-      for (const sale of sales) {
-        const qty = Number(sale.qty) || 0;
-        if (qty === 0) continue;
-        const menu = menuByCode.get(sale.menu_code);
-        if (!menu) continue;
-        const saleBranch = selectedBranch === "all" ? sale.branch_id : selectedBranch;
-        const bomByMenuId = bomForBranch(saleBranch);
-        const activeRules = rulesForBranch(saleBranch);
-
-        const bomLines = bomByMenuId.get(menu.id) || [];
-        for (const line of bomLines) {
-          const ingredientQty = line.effectiveQty * qty;
-          const sku = skuMap.get(line.skuId);
-          if (sku && sku.type === "SP") {
-            const spLines = spBomBySpSku.get(line.skuId) || [];
-            for (const sp of spLines) {
-              add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * ingredientQty);
-            }
-          } else {
-            add(line.skuId, ingredientQty);
-          }
-        }
-
-        for (const rule of activeRules) {
-          if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-          const menuName = sale.menu_name || "";
-          // Submenu: POS puts set items inside menu_name ("Set Menu : MN-011 …"), so match code or name
-          const ruleMatches = ruleMatchesSale(rule, sale);
-          if (ruleMatches) {
-            if (rule.ruleType === "swap") {
-              if (rule.swapSkuId) {
-                const bomLines2 = bomByMenuId.get(menu.id) || [];
-                for (const line of bomLines2) {
-                  if (line.skuId === rule.swapSkuId) {
-                    add(rule.swapSkuId, -(line.effectiveQty * qty));
-                  }
-                }
-              }
-              const modQty = rule.qtyPerMatch * qty;
-              const modSku = skuMap.get(rule.skuId);
-              if (modSku && modSku.type === "SP") {
-                const spLines = spBomBySpSku.get(rule.skuId) || [];
-                for (const sp of spLines) {
-                  add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * modQty);
-                }
-              } else {
-                add(rule.skuId, modQty);
-              }
-            } else if (rule.ruleType === "submenu") {
-              if (rule.submenuId) {
-                const subBomLines = bomByMenuId.get(rule.submenuId) || [];
-                for (const line of subBomLines) {
-                  const iq = line.effectiveQty * qty;
-                  const sk = skuMap.get(line.skuId);
-                  if (sk && sk.type === "SP") {
-                    const spLines = spBomBySpSku.get(line.skuId) || [];
-                    for (const sp of spLines) {
-                      add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * iq);
-                    }
-                  } else {
-                    add(line.skuId, iq);
-                  }
-                }
-              }
-            } else {
-              const modQty = rule.qtyPerMatch * qty;
-              const modSku = skuMap.get(rule.skuId);
-              if (modSku && modSku.type === "SP") {
-                const spLines = spBomBySpSku.get(rule.skuId) || [];
-                for (const sp of spLines) {
-                  add(sp.ingredientSkuId, (sp.qtyPerBatch / sp.batchYieldQty) * modQty);
-                }
-              } else {
-                add(rule.skuId, modQty);
-              }
-            }
-          }
-        }
-      }
-      return usage;
-    },
-    [menuByCode, bomForBranch, rulesForBranch, selectedBranch, spBomBySpSku, skuMap],
-  );
-
-  const calcMenuCosts = useCallback(
-    (sales: any[]): MenuBreakdown[] => {
-      const mMap = new Map<string, { qtySold: number; revenue: number; stdCost: number }>();
-
-      for (const sale of sales) {
-        const qty = Number(sale.qty) || 0;
-        if (qty === 0) continue;
-        const menu = menuByCode.get(sale.menu_code);
-        if (!menu) continue;
-        const saleBranch = selectedBranch === "all" ? sale.branch_id : selectedBranch;
-        const bomByMenuId = bomForBranch(saleBranch);
-        const activeRules = rulesForBranch(saleBranch);
-
-        const existing = mMap.get(menu.menuCode) || { qtySold: 0, revenue: 0, stdCost: 0 };
-        existing.qtySold += qty;
-        existing.revenue += Number(sale.net_amount) || 0;
-
-        let saleCost = 0;
-        const bomLines = bomByMenuId.get(menu.id) || [];
-        for (const line of bomLines) {
-          const ingredientQty = line.effectiveQty * qty;
-          const sku = skuMap.get(line.skuId);
-          if (sku && sku.type === "SP") {
-            const spLines = spBomBySpSku.get(line.skuId) || [];
-            for (const sp of spLines) {
-              saleCost +=
-                (sp.qtyPerBatch / sp.batchYieldQty) * ingredientQty * (stdPriceMap.get(sp.ingredientSkuId) || 0);
-            }
-          } else {
-            saleCost += ingredientQty * (stdPriceMap.get(line.skuId) || 0);
-          }
-        }
-
-        for (const rule of activeRules) {
-          if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-          const menuName = sale.menu_name || "";
-          const ruleMatches = ruleMatchesSale(rule, sale);
-          if (ruleMatches) {
-            if (rule.ruleType === "swap") {
-              if (rule.swapSkuId) {
-                const bomLines2 = bomByMenuId.get(menu.id) || [];
-                for (const line of bomLines2) {
-                  if (line.skuId === rule.swapSkuId) {
-                    const removeQty = line.effectiveQty * qty;
-                    const rmSku = skuMap.get(rule.swapSkuId);
-                    if (rmSku && rmSku.type === "SP") {
-                      const spLines = spBomBySpSku.get(rule.swapSkuId) || [];
-                      for (const sp of spLines) {
-                        saleCost -=
-                          (sp.qtyPerBatch / sp.batchYieldQty) * removeQty * (stdPriceMap.get(sp.ingredientSkuId) || 0);
-                      }
-                    } else {
-                      saleCost -= removeQty * (stdPriceMap.get(rule.swapSkuId) || 0);
-                    }
-                  }
-                }
-              }
-              const modQty = rule.qtyPerMatch * qty;
-              const modSku = skuMap.get(rule.skuId);
-              if (modSku && modSku.type === "SP") {
-                const spLines = spBomBySpSku.get(rule.skuId) || [];
-                for (const sp of spLines) {
-                  saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * modQty * (stdPriceMap.get(sp.ingredientSkuId) || 0);
-                }
-              } else {
-                saleCost += modQty * (stdPriceMap.get(rule.skuId) || 0);
-              }
-            } else if (rule.ruleType === "submenu") {
-              if (rule.submenuId) {
-                const subBomLines = bomByMenuId.get(rule.submenuId) || [];
-                for (const line of subBomLines) {
-                  const iq = line.effectiveQty * qty;
-                  const sk = skuMap.get(line.skuId);
-                  if (sk && sk.type === "SP") {
-                    const spLines = spBomBySpSku.get(line.skuId) || [];
-                    for (const sp of spLines) {
-                      saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * iq * (stdPriceMap.get(sp.ingredientSkuId) || 0);
-                    }
-                  } else {
-                    saleCost += iq * (stdPriceMap.get(line.skuId) || 0);
-                  }
-                }
-              }
-            } else {
-              const modQty = rule.qtyPerMatch * qty;
-              const modSku = skuMap.get(rule.skuId);
-              if (modSku && modSku.type === "SP") {
-                const spLines = spBomBySpSku.get(rule.skuId) || [];
-                for (const sp of spLines) {
-                  saleCost += (sp.qtyPerBatch / sp.batchYieldQty) * modQty * (stdPriceMap.get(sp.ingredientSkuId) || 0);
-                }
-              } else {
-                saleCost += modQty * (stdPriceMap.get(rule.skuId) || 0);
-              }
-            }
-          }
-        }
-
-        existing.stdCost += saleCost;
-        mMap.set(menu.menuCode, existing);
-      }
-
-      return Array.from(mMap.entries())
-        .map(([code, data]) => {
-          const menu = menuByCode.get(code);
-          return {
-            menuCode: code,
-            menuName: menu?.menuName || "",
-            qtySold: data.qtySold,
-            revenue: data.revenue,
-            stdFoodCost: data.stdCost,
-            stdFcPct: data.revenue > 0 ? (data.stdCost / data.revenue) * 100 : 0,
-            costPerServing: data.qtySold > 0 ? data.stdCost / data.qtySold : 0,
-            isMaindish: menu?.isMaindish ?? false,
-          };
-        })
-        .sort((a, b) => b.stdFcPct - a.stdFcPct);
-    },
-    [menuByCode, bomForBranch, rulesForBranch, selectedBranch, spBomBySpSku, skuMap, stdPriceMap],
-  );
-
-  const skuConverterMap = useMemo(() => {
-    const m = new Map<string, number>();
-    skus.forEach((s) => m.set(s.id, s.converter));
-    return m;
-  }, [skus]);
-
-  const fetchActualVarianceData = useCallback(
-    async (fromStr: string, toStr: string, branchId: string, skuRows: SkuBreakdown[]) => {
-      // Determine opening/closing dates
-      const fromDate = new Date(fromStr + "T00:00:00");
-      const prevMonth = subMonths(fromDate, 1);
-      const openingDate = format(lastDayOfMonth(prevMonth), "yyyy-MM-dd");
-      const closingDate = toStr;
-
-      // Fetch opening, closing (±3 day window), and receipts in parallel
-      const SNAP_WINDOW = 3; // days either side
-      const openingFrom = format(subDays(new Date(openingDate), SNAP_WINDOW), "yyyy-MM-dd");
-      const openingTo   = format(addDays(new Date(openingDate), SNAP_WINDOW), "yyyy-MM-dd");
-      const closingFrom = format(subDays(new Date(closingDate), SNAP_WINDOW), "yyyy-MM-dd");
-      const closingTo   = format(addDays(new Date(closingDate), SNAP_WINDOW), "yyyy-MM-dd");
-
-      const [openingRes, closingRes, receiptsRes] = await Promise.all([
-        supabase
-          .from("daily_stock_counts")
-          .select("sku_id, physical_count, calculated_balance, count_date")
-          .eq("branch_id", branchId)
-          .gte("count_date", openingFrom)
-          .lte("count_date", openingTo)
-          .order("count_date", { ascending: false }),
-        supabase
-          .from("daily_stock_counts")
-          .select("sku_id, physical_count, calculated_balance, count_date")
-          .eq("branch_id", branchId)
-          .gte("count_date", closingFrom)
-          .lte("count_date", closingTo)
-          .order("count_date", { ascending: false }),
-        supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, actual_unit_price, actual_total, uom")
-          .eq("branch_id", branchId)
-          .gte("receipt_date", fromStr)
-          .lte("receipt_date", toStr),
-      ]);
-
-      // Build opening map — prefer exact date, then nearest within ±3d
-      // For each SKU pick the row closest to openingDate (prefer physical_count)
-      const openingBySku = new Map<string, { val: number; date: string; isApprox: boolean }>();
-      {
-        const bySkuRows = new Map<string, typeof openingRes.data>();
-        for (const row of openingRes.data || []) {
-          const arr = bySkuRows.get(row.sku_id) || [];
-          arr.push(row);
-          bySkuRows.set(row.sku_id, arr);
-        }
-        for (const [skuId, rows] of bySkuRows) {
-          // Prefer row with physical_count; among those pick closest to openingDate
-          const withPhysical = rows.filter((r: any) => r.physical_count !== null);
-          const candidates = withPhysical.length > 0 ? withPhysical : rows;
-          const best = candidates.reduce((a: any, b: any) =>
-            Math.abs(new Date(a.count_date).getTime() - new Date(openingDate).getTime()) <=
-            Math.abs(new Date(b.count_date).getTime() - new Date(openingDate).getTime()) ? a : b
-          );
-          const val = best.physical_count !== null ? Number(best.physical_count) : Number(best.calculated_balance);
-          openingBySku.set(skuId, { val, date: best.count_date, isApprox: best.count_date !== openingDate });
-        }
-      }
-
-      // Build closing map — same logic
-      const closingBySku = new Map<string, { actual: number | null; calc: number | null; date: string; isApprox: boolean }>();
-      {
-        const bySkuRows = new Map<string, typeof closingRes.data>();
-        for (const row of closingRes.data || []) {
-          const arr = bySkuRows.get(row.sku_id) || [];
-          arr.push(row);
-          bySkuRows.set(row.sku_id, arr);
-        }
-        for (const [skuId, rows] of bySkuRows) {
-          const withPhysical = rows.filter((r: any) => r.physical_count !== null);
-          const candidates = withPhysical.length > 0 ? withPhysical : rows;
-          const best = candidates.reduce((a: any, b: any) =>
-            Math.abs(new Date(a.count_date).getTime() - new Date(closingDate).getTime()) <=
-            Math.abs(new Date(b.count_date).getTime() - new Date(closingDate).getTime()) ? a : b
-          );
-          closingBySku.set(skuId, {
-            actual: best.physical_count !== null ? Number(best.physical_count) : null,
-            calc: Number(best.calculated_balance),
-            date: best.count_date,
-            isApprox: best.count_date !== closingDate,
-          });
-        }
-      }
-
-      // Build purchase maps
-      const purchaseQtyBySku = new Map<string, number>();
-      const purchaseValueBySku = new Map<string, number>();
-      for (const row of receiptsRes.data || []) {
-        const converter = skuConverterMap.get(row.sku_id) || 1;
-        const qtyInUsage = row.qty_received * converter;
-        purchaseQtyBySku.set(row.sku_id, (purchaseQtyBySku.get(row.sku_id) || 0) + qtyInUsage);
-        const value = row.actual_unit_price * qtyInUsage;
-        purchaseValueBySku.set(row.sku_id, (purchaseValueBySku.get(row.sku_id) || 0) + value);
-      }
-
-      // For SKUs without current-month purchases, look back up to 6 months
-      const skuIdsNeedingFallback = skuRows.filter((r) => !purchaseValueBySku.has(r.skuId)).map((r) => r.skuId);
-
-      const fallbackPriceMap = new Map<string, number>();
-      if (skuIdsNeedingFallback.length > 0) {
-        const sixMonthsAgo = format(subMonths(fromDate, 6), "yyyy-MM-dd");
-        const { data: fallbackReceipts } = await supabase
-          .from("branch_receipts")
-          .select("sku_id, qty_received, actual_unit_price")
-          .eq("branch_id", branchId)
-          .gte("receipt_date", sixMonthsAgo)
-          .lt("receipt_date", fromStr)
-          .in("sku_id", skuIdsNeedingFallback)
-          .order("receipt_date", { ascending: false });
-
-        const fbQty = new Map<string, number>();
-        const fbVal = new Map<string, number>();
-        for (const row of fallbackReceipts || []) {
-          const converter = skuConverterMap.get(row.sku_id) || 1;
-          const qtyInUsage = row.qty_received * converter;
-          fbQty.set(row.sku_id, (fbQty.get(row.sku_id) || 0) + qtyInUsage);
-          fbVal.set(row.sku_id, (fbVal.get(row.sku_id) || 0) + row.actual_unit_price * qtyInUsage);
-        }
-        for (const [skuId, totalQty] of fbQty.entries()) {
-          if (totalQty > 0) {
-            fallbackPriceMap.set(skuId, (fbVal.get(skuId) || 0) / totalQty);
-          }
-        }
-      }
-
-      // Build variance rows
-      const varianceRows: SkuVarianceRow[] = [];
-      let sumActCost = 0;
-      let sumTotalVar = 0;
-      let sumPriceVar = 0;
-      let skusWithActual = 0;
-
-      for (const sr of skuRows) {
-        const openingEntry = openingBySku.get(sr.skuId);
-        const closingEntry = closingBySku.get(sr.skuId);
-        const purchases = purchaseQtyBySku.get(sr.skuId) || 0;
-
-        const hasStockData = openingEntry !== undefined || closingEntry !== undefined;
-
-        let actQty: number | null = null;
-        if (hasStockData) {
-          const openVal = openingEntry?.val ?? 0;
-          const closeVal = closingEntry
-            ? (closingEntry.actual !== null ? closingEntry.actual : (closingEntry.calc ?? 0))
-            : 0;
-          actQty = openVal + purchases - closeVal;
-        }
-
-        // Determine actual price
-        let actPrice: number | null = null;
-        const pQty = purchaseQtyBySku.get(sr.skuId);
-        const pVal = purchaseValueBySku.get(sr.skuId);
-        if (pQty && pQty > 0 && pVal !== undefined) {
-          actPrice = pVal / pQty;
-        } else if (fallbackPriceMap.has(sr.skuId)) {
-          actPrice = fallbackPriceMap.get(sr.skuId)!;
-        } else {
-          actPrice = sr.stdUnitPrice;
-        }
-
-        const actCost = actQty !== null && actPrice !== null ? actQty * actPrice : null;
-        const stdPrice = sr.stdUnitPrice;
-        const qtyVar = actQty !== null ? actQty - sr.expectedUsage : null;
-        const priceVarThb = actQty !== null && actPrice !== null ? (actPrice - stdPrice) * actQty : null;
-        const totalVarThb = actCost !== null ? actCost - sr.stdCost : null;
-
-        if (totalVarThb !== null) {
-          sumActCost += actCost!;
-          sumTotalVar += totalVarThb;
-          sumPriceVar += priceVarThb ?? 0;
-          skusWithActual++;
-        }
-
-        varianceRows.push({
-          skuId: sr.skuId,
-          skuCode: sr.skuCode,
-          skuName: sr.skuName,
-          type: sr.type,
-          uom: sr.uom,
-          stdQty: sr.expectedUsage,
-          stdCost: sr.stdCost,
-          actQty,
-          actPrice,
-          actCost,
-          qtyVar,
-          priceVarThb,
-          totalVarThb,
-          movementDetail: hasStockData
-            ? {
-                opening: openingEntry?.val ?? null,
-                openingDate: openingEntry?.date ?? openingDate,
-                openingIsApprox: openingEntry?.isApprox ?? false,
-                received: purchases,
-                closingActual: closingEntry?.actual ?? null,
-                closingCalc: closingEntry?.calc ?? null,
-                closingDate: closingEntry?.date ?? closingDate,
-                closingIsApprox: closingEntry?.isApprox ?? false,
-              }
-            : null,
-        });
-      }
-
-      setActualVarianceData(varianceRows);
-      setVarianceSummary({
-        actualCost: sumActCost,
-        totalVariance: sumTotalVar,
-        priceVariance: sumPriceVar,
-        usageVariance: sumTotalVar - sumPriceVar,
-      });
-      const hasApproxDates = varianceRows.some(
-        (v) => v.movementDetail?.openingIsApprox || v.movementDetail?.closingIsApprox
-      );
-      setVarianceDataCoverage({
-        skusWithActual,
-        totalSkus: skuRows.length,
-        openingDate,
-        closingDate,
-        hasApproxDates,
-      });
-    },
-    [skuConverterMap, stdPriceMap],
-  );
-
-  const handleCalculate = useCallback(async () => {
-    setLoading(true);
-    // Reset variance data
-    setActualVarianceData(null);
-    setVarianceSummary(null);
-    setVarianceDataCoverage(null);
-
-    const fromStr = format(dateFrom, "yyyy-MM-dd");
-    const toStr = format(dateTo, "yyyy-MM-dd");
-
-    let q = supabase
-      .from("sales_entries")
-      .select("*")
-      .gte("sale_date", fromStr)
-      .lte("sale_date", toStr)
-      .order("sale_date", { ascending: true })
-      .order("id", { ascending: true });
-    if (selectedBranch !== "all") q = q.eq("branch_id", selectedBranch);
-
-    let sales: any[] = [];
-    let from = 0;
-    const PAGE = 1000;
-    while (true) {
-      const { data, error } = await q.range(from, from + PAGE - 1);
-      if (error) {
-        toast.error("Failed to load sales data");
-        setLoading(false);
-        return;
-      }
-      sales = sales.concat(data || []);
-      if (!data || data.length < PAGE) break;
-      from += PAGE;
-    }
-
-    const rev = sales.reduce((sum, s) => sum + (Number(s.net_amount) || 0), 0);
-    const usage = calcUsage(sales);
-    const skuRows: SkuBreakdown[] = Object.entries(usage)
-      .map(([skuId, expectedUsage]) => {
-        const sku = skuMap.get(skuId);
-        const stdPrice = stdPriceMap.get(skuId) || 0;
-        return {
-          skuId,
-          skuCode: sku?.skuId || "",
-          skuName: sku?.name || "",
-          type: sku?.type || "",
-          expectedUsage,
-          uom: sku?.usageUom || "",
-          stdUnitPrice: stdPrice,
-          stdCost: expectedUsage * stdPrice,
-        };
-      })
-      .filter((r) => r.stdCost > 0 || r.expectedUsage > 0)
-      .sort((a, b) => b.stdCost - a.stdCost);
-
-    const totalCost = skuRows.reduce((sum, r) => sum + r.stdCost, 0);
-
-    const days = eachDayOfInterval({ start: dateFrom, end: dateTo });
-    const dailyRows: DailyData[] = days.map((day) => {
-      const dayStr = format(day, "yyyy-MM-dd");
-      const daySales = sales.filter((s) => s.sale_date === dayStr);
-      const dayRev = daySales.reduce((sum, s) => sum + (Number(s.net_amount) || 0), 0);
-      const dayUsage = calcUsage(daySales);
-      const dayStdCost = Object.entries(dayUsage).reduce(
-        (sum, [skuId, qty]) => sum + qty * (stdPriceMap.get(skuId) || 0),
-        0,
-      );
-      const dayReceiptSet = new Set<string>();
-      for (const s of daySales) {
-        if (s.receipt_no) dayReceiptSet.add(`${s.sale_date}__${s.receipt_no}`);
-      }
-      const dayReceiptCount = dayReceiptSet.size;
-
-      // Compute per-metric daily values
-      const metricValues: Record<string, number> = {};
-      metricValues["avg_ticket"] = dayReceiptCount > 0 ? dayRev / dayReceiptCount : 0;
-      // category ratios
-      const dayMaindishQty = daySales.reduce((sum: number, s: any) => {
-        const m = menuByCode.get(s.menu_code);
-        return sum + (m?.isMaindish ? Number(s.qty) || 0 : 0);
-      }, 0);
-      for (const cat of distinctMenuCategories) {
-        const catQty = daySales.reduce((sum: number, s: any) => {
-          const m = menuByCode.get(s.menu_code);
-          return sum + (m?.category === cat ? Number(s.qty) || 0 : 0);
-        }, 0);
-        metricValues[`ratio:${cat}`] = dayMaindishQty > 0 ? (catQty / dayMaindishQty) * 100 : 0;
-      }
-
+  const exportExcel = () => {
+    if (!std) return;
+    const wb = XLSX.utils.book_new();
+    const menus = std.menus.map((m) => ({ รหัส: m.code, เมนู: m.name, หมวด: m.category, ขายได้: m.qty, ยอดขาย: Math.round(m.revenue * 100) / 100, ต้นทุนตามสูตร: Math.round(m.stdCost * 100) / 100, "% ต้นทุน": Math.round(m.pct * 10) / 10, "ต้นทุน/ที่": Math.round(m.perServing * 100) / 100 }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menus), "เมนู");
+    const rows = (actual?.rows ?? std.skus).map((r) => {
+      const a = actual ? (r as (typeof actual.rows)[number]) : null;
       return {
-        date: dayStr,
-        label: format(day, "dd/MM"),
-        revenue: dayRev,
-        stdFoodCost: dayStdCost,
-        stdFcPct: dayRev > 0 ? (dayStdCost / dayRev) * 100 : 0,
-        avgTicketSize: metricValues["avg_ticket"],
-        ...metricValues,
+        รหัส: r.code,
+        วัตถุดิบ: r.name,
+        ประเภท: r.type,
+        หน่วย: r.uom,
+        ตามสูตร: Math.round(r.stdQty * 100) / 100,
+        "ปรับจากสูตร": r.correction ? Math.round(r.correction.qty * 100) / 100 : "",
+        "฿/หน่วย มาตรฐาน": r.stdPrice,
+        ต้นทุนตามสูตร: Math.round(r.stdCost * 100) / 100,
+        ...(a
+          ? {
+              ยกมา: a.opening?.qty ?? "",
+              รับเข้า: Math.round(a.received * 100) / 100,
+              ปิดช่วง: a.closing?.qty ?? "",
+              ใช้จริง: a.actQty != null ? Math.round(a.actQty * 100) / 100 : "",
+              "฿/หน่วย จริง": Math.round(a.actPrice * 10000) / 10000,
+              ต้นทุนจริง: a.actCost != null ? Math.round(a.actCost * 100) / 100 : "",
+              ต่างเพราะราคา: a.priceVar != null ? Math.round(a.priceVar * 100) / 100 : "",
+              ต่างรวม: a.totalVar != null ? Math.round(a.totalVar * 100) / 100 : "",
+            }
+          : {}),
       };
     });
-
-    const menuRows = calcMenuCosts(sales);
-
-    const receiptSet = new Set<string>();
-    for (const s of sales) {
-      if (s.receipt_no) receiptSet.add(`${s.sale_date}__${s.receipt_no}`);
-    }
-
-    setTotalRevenue(rev);
-    setTotalStdCost(totalCost);
-    setTotalReceiptCount(receiptSet.size);
-    setDailyData(dailyRows);
-    setSkuBreakdown(skuRows);
-    setMenuBreakdown(menuRows);
-    setCalculated(true);
-
-    // Fetch actual variance data for monthly periods with single branch
-    const canFetchVariance = isMonthlyPeriod && isPastMonth && selectedBranch !== "all";
-    if (canFetchVariance) {
-      await fetchActualVarianceData(fromStr, toStr, selectedBranch, skuRows);
-    }
-
-    setLoading(false);
-  }, [
-    dateFrom,
-    dateTo,
-    selectedBranch,
-    calcUsage,
-    calcMenuCosts,
-    skuMap,
-    stdPriceMap,
-    isMonthlyPeriod,
-    isPastMonth,
-    fetchActualVarianceData,
-    distinctMenuCategories,
-    menuByCode,
-  ]);
-
-  // Auto-calculate when preset buttons change
-  useEffect(() => {
-    if (autoCalcTrigger > 0) {
-      handleCalculate();
-    }
-  }, [autoCalcTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const stdFcPct = totalRevenue > 0 ? (totalStdCost / totalRevenue) * 100 : 0;
-  const fmt = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-  // ----- Sortable tables -----
-  const skuStdComparators = useMemo(
-    () => ({
-      skuCode: (a: SkuBreakdown, b: SkuBreakdown) => a.skuCode.localeCompare(b.skuCode),
-      skuName: (a: SkuBreakdown, b: SkuBreakdown) => a.skuName.localeCompare(b.skuName),
-      type: (a: SkuBreakdown, b: SkuBreakdown) => a.type.localeCompare(b.type),
-      expectedUsage: (a: SkuBreakdown, b: SkuBreakdown) => a.expectedUsage - b.expectedUsage,
-      stdUnitPrice: (a: SkuBreakdown, b: SkuBreakdown) => a.stdUnitPrice - b.stdUnitPrice,
-      stdCost: (a: SkuBreakdown, b: SkuBreakdown) => a.stdCost - b.stdCost,
-    }),
-    [],
-  );
-  const {
-    sorted: sortedSkuStd,
-    sortKey: skuStdSortKey,
-    sortDir: skuStdSortDir,
-    handleSort: handleSkuStdSort,
-  } = useSortableTable(skuBreakdown, skuStdComparators, "stdCost", "desc");
-
-  const menuComparators = useMemo(
-    () => ({
-      menuCode: (a: MenuBreakdown, b: MenuBreakdown) => a.menuCode.localeCompare(b.menuCode),
-      menuName: (a: MenuBreakdown, b: MenuBreakdown) => a.menuName.localeCompare(b.menuName),
-      category: (a: MenuBreakdown, b: MenuBreakdown) =>
-        (menuByCode.get(a.menuCode)?.category || "").localeCompare(menuByCode.get(b.menuCode)?.category || ""),
-      qtySold: (a: MenuBreakdown, b: MenuBreakdown) => a.qtySold - b.qtySold,
-      revenue: (a: MenuBreakdown, b: MenuBreakdown) => a.revenue - b.revenue,
-      stdFoodCost: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFoodCost - b.stdFoodCost,
-      stdFcPct: (a: MenuBreakdown, b: MenuBreakdown) => a.stdFcPct - b.stdFcPct,
-      costPerServing: (a: MenuBreakdown, b: MenuBreakdown) => a.costPerServing - b.costPerServing,
-    }),
-    [menuByCode],
-  );
-  const {
-    sorted: sortedMenuFull,
-    sortKey: menuSortKey,
-    sortDir: menuSortDir,
-    handleSort: handleMenuSort,
-  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
-
-  const {
-    sorted: sortedMenuTop,
-    sortKey: menuTopSortKey,
-    sortDir: menuTopSortDir,
-    handleSort: handleMenuTopSort,
-  } = useSortableTable(menuBreakdown, menuComparators, "revenue", "desc");
-
-  // Top 10 highest FC% menus (sorted view)
-  const top10Menus = sortedMenuTop.slice(0, 10);
-
-  const maindishQty = useMemo(
-    () => menuBreakdown.filter((m) => m.isMaindish).reduce((s, m) => s + m.qtySold, 0),
-    [menuBreakdown],
-  );
-  const qtyByCategory = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const row of menuBreakdown) {
-      const cat = menuByCode.get(row.menuCode)?.category || "";
-      if (!cat) continue;
-      m.set(cat, (m.get(cat) || 0) + row.qtySold);
-    }
-    return m;
-  }, [menuBreakdown, menuByCode]);
-  const avgTicketSize = totalReceiptCount > 0 ? totalRevenue / totalReceiptCount : 0;
-
-  const METRIC_COLORS = ["#7C3AED", "#0891B2", "#059669", "#D97706", "#DC2626", "#9333EA", "#0284C7", "#65A30D"];
-
-  const getMetricColor = (key: string) => {
-    const idx = ratioMetrics.indexOf(key);
-    return METRIC_COLORS[idx % METRIC_COLORS.length] ?? "#7C3AED";
-  };
-
-  const getMetricDisplayName = (key: string) => {
-    if (key === "avg_ticket") return "Avg Ticket Size";
-    if (key.startsWith("ratio:")) return `% ${key.slice(6)} / Maindish`;
-    return key;
-  };
-
-  const getMetricLabelValue = (key: string): { label: string; value: string } => {
-    if (key === "avg_ticket") {
-      return {
-        label: "Avg. Ticket Size",
-        value:
-          totalReceiptCount > 0 && totalRevenue > 0
-            ? `฿${(totalRevenue / totalReceiptCount).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-            : "—",
-      };
-    }
-    if (key.startsWith("ratio:")) {
-      const cat = key.slice("ratio:".length);
-      const catQty = qtyByCategory.get(cat) || 0;
-      const value = maindishQty > 0 ? (catQty / maindishQty) * 100 : null;
-      return {
-        label: `% ${cat} / Maindish`,
-        value: value === null ? "—" : `${value.toFixed(1)}%`,
-      };
-    }
-    return { label: key, value: "—" };
-  };
-
-  const availableMetricsToAdd = useMemo(() => {
-    const opts: { key: string; label: string }[] = [];
-    if (!ratioMetrics.includes("avg_ticket")) {
-      opts.push({ key: "avg_ticket", label: "Avg. Ticket Size" });
-    }
-    distinctMenuCategories.forEach((cat) => {
-      const key = `ratio:${cat}`;
-      if (!ratioMetrics.includes(key)) opts.push({ key, label: `% ${cat} / Maindish` });
-    });
-    return opts;
-  }, [ratioMetrics, distinctMenuCategories]);
-
-  // Sort state for SKU variance table (default: |totalVarThb| DESC handled by null sortKey via custom sort)
-  const [varSortKey, setVarSortKey] = useState<string | null>(null);
-  const [varSortDir, setVarSortDir] = useState<"asc" | "desc" | null>(null);
-  const handleVarSort = useCallback(
-    (key: string) => {
-      setVarSortKey((prev) => {
-        if (prev !== key) {
-          setVarSortDir("asc");
-          return key;
-        }
-        setVarSortDir((d) => (d === "asc" ? "desc" : null));
-        return varSortDir === "desc" ? null : key;
-      });
-    },
-    [varSortDir],
-  );
-
-  // Export CSV
-  const handleExportCSV = () => {
-    const lines: string[] = [];
-    lines.push("Type,Code,Name,Expected Usage,UOM,Std Unit Price,Std Cost");
-    skuBreakdown.forEach((r) => {
-      lines.push(
-        `SKU,${r.skuCode},"${r.skuName}",${Math.round(r.expectedUsage).toLocaleString("en-US")},${r.uom},${r.stdUnitPrice.toFixed(4)},${r.stdCost.toFixed(2)}`,
-      );
-    });
-    lines.push("");
-    lines.push("Type,Menu Code,Menu Name,Qty Sold,Revenue,Std Food Cost,FC%,Cost/Serving");
-    menuBreakdown.forEach((r) => {
-      lines.push(
-        `Menu,${r.menuCode},"${r.menuName}",${r.qtySold},${r.revenue.toFixed(2)},${r.stdFoodCost.toFixed(2)},${r.stdFcPct.toFixed(1)}%,${r.costPerServing.toFixed(2)}`,
-      );
-    });
-
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `food-cost-${format(dateFrom, "yyyy-MM-dd")}-to-${format(dateTo, "yyyy-MM-dd")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("CSV exported");
-  };
-
-  // FC% color helper
-  const getFcPctClass = (pct: number) => {
-    if (pct <= FC_GREEN_MAX) return "text-success";
-    if (pct <= FC_AMBER_MAX) return "text-warning";
-    return "text-destructive";
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "วัตถุดิบ");
+    XLSX.writeFile(wb, `ต้นทุนอาหาร-${branchText}-${period.from}-${period.to}.xlsx`);
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("title.foodCost")}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Analyze standard food cost against revenue</p>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
+          <h1 className="text-2xl font-bold">ต้นทุนอาหาร</h1>
+          <p className="text-sm text-muted-foreground">ต้นทุนตามสูตรจากยอดขาย · ต้นทุนจริงจากการนับสต๊อก (สาขาเดียว เดือนที่จบแล้ว)</p>
+        </div>
+        <Button variant="outline" className="h-10" onClick={exportExcel} disabled={!std}>
+          <Download className="h-4 w-4" /> ส่งออก Excel
+        </Button>
       </div>
 
-      {/* Top Controls */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Preset buttons — auto-calculate on click */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">{t("title.quickPeriod")}</label>
-              <div className="flex gap-1">
-                {(["today", "this-week", "this-month"] as DatePreset[]).map((p) => (
-                  <Button
-                    key={p}
-                    size="sm"
-                    variant={preset === p ? "default" : "outline"}
-                    onClick={() => handlePresetChange(p)}
-                    className="text-xs h-8"
-                  >
-                    {p === "today" ? t("btn.today") : p === "this-week" ? t("btn.thisWeek") : t("btn.thisMonth")}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <DateRangePicker
-              from={dateFrom}
-              to={dateTo}
-              onChange={(r) => {
-                if (!r.from && !r.to) {
-                  // cleared — reset to today
-                  const t = new Date();
-                  setDateFrom(t);
-                  setDateTo(t);
-                  setPreset("today");
-                  return;
-                }
-                // only commit when range is fully confirmed (both from+to present)
-                if (r.from && r.to) {
-                  setDateFrom(r.from);
-                  setDateTo(r.to);
-                  setPreset("custom");
-                }
+      {/* Period and branch: picking one works it out straight away */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-10 text-sm text-muted-foreground">เดือน</span>
+          {months.map((m, i) => (
+            <button
+              key={m.from}
+              type="button"
+              className={chip(!custom && period.from === m.from && period.to === m.to)}
+              onClick={() => {
+                setCustom(false);
+                setPeriod(m);
               }}
-              placeholder="From – To"
-              align="start"
-            />
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Branch</label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isStoreManager}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {isManagement && <SelectItem value="all">All Branches</SelectItem>}
-                  {activeBranches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.branchName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button onClick={handleCalculate} disabled={loading}>
-              <Calculator className="w-4 h-4 mr-1" />
-              {loading ? `${t("btn.calculate")}...` : t("btn.calculate")}
-            </Button>
-
-            {calculated && (
-              <Button variant="outline" onClick={handleExportCSV}>
-                <Download className="w-4 h-4 mr-1" /> {t("btn.exportCsv")}
-              </Button>
+            >
+              {monthLabel(m.from)}
+              {i === 0 ? <span className="text-xs opacity-80">· ยังไม่จบ</span> : ""}
+            </button>
+          ))}
+          <button type="button" className={chip(custom)} onClick={() => setCustom(true)}>
+            เลือกช่วงเอง
+          </button>
+          {custom && (
+            <span className="flex flex-wrap items-center gap-2">
+              <input type="date" aria-label="ตั้งแต่" value={period.from} max={period.to} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, from: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
+              <span className="text-sm text-muted-foreground">ถึง</span>
+              <input type="date" aria-label="ถึง" value={period.to} min={period.from} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, to: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
+            </span>
+          )}
+        </div>
+        {!own && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 text-sm text-muted-foreground">สาขา</span>
+            {branches.length > 1 && (
+              <button type="button" className={chip(branch === "all")} onClick={() => setBranch("all")}>
+                {isManagement ? "ทุกสาขา" : "ทุกสาขาที่ดูแล"}
+              </button>
             )}
+            {branches.map((b) => (
+              <button key={b.id} type="button" className={chip(branch === b.id)} onClick={() => setBranch(b.id)}>
+                {b.branchName}
+              </button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {calculated && (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("title.totalRevenue")}
-                </p>
-                <p className="text-2xl font-bold font-mono mt-1">฿{fmt(totalRevenue)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("title.stdFoodCost")}
-                </p>
-                <p className="text-2xl font-bold font-mono mt-1">฿{fmt(totalStdCost)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("title.stdFcPct")}
-                </p>
-                <p className={`text-2xl font-bold font-mono mt-1 ${getFcPctClass(stdFcPct)}`}>{stdFcPct.toFixed(1)}%</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  FC% จริง
-                </p>
-                {(() => {
-                  // State 1: has real data
-                  if (canShowVariance && varianceSummary !== null) {
-                    const actualFcPct = totalRevenue > 0 ? (varianceSummary.actualCost / totalRevenue) * 100 : 0;
-                    const diff = actualFcPct - stdFcPct;
-                    return (
-                      <>
-                        <p className={`text-2xl font-bold font-mono mt-1 ${getFcPctClass(actualFcPct)}`}>
-                          {actualFcPct.toFixed(1)}%
-                        </p>
-                        {diff < 0 ? (
-                          <p className="text-xs mt-1 text-success">▼ {Math.abs(diff).toFixed(1)}pp vs มาตรฐาน</p>
-                        ) : diff > 0 ? (
-                          <p className="text-xs mt-1 text-destructive">▲ +{diff.toFixed(1)}pp vs มาตรฐาน</p>
-                        ) : (
-                          <p className="text-xs mt-1 text-muted-foreground">= มาตรฐาน</p>
-                        )}
-                      </>
-                    );
-                  }
-                  // State 2: eligible but loading
-                  if (canShowVariance && varianceSummary === null && loading) {
-                    return (
-                      <>
-                        <div className="mt-1 h-8 flex items-center">
-                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                        </div>
-                        <p className="text-xs mt-1 text-muted-foreground">กำลังโหลด...</p>
-                      </>
-                    );
-                  }
-                  // State 3: current month, single branch
-                  if (isMonthlyPeriod && !isPastMonth && selectedBranch !== "all") {
-                    return (
-                      <>
-                        <p className="text-2xl font-bold font-mono mt-1">—</p>
-                        <p className="text-xs mt-1 text-muted-foreground">รอปิดเดือน</p>
-                      </>
-                    );
-                  }
-                  // State 4: past month but all branches
-                  if (isMonthlyPeriod && isPastMonth && selectedBranch === "all") {
-                    return (
-                      <>
-                        <p className="text-2xl font-bold font-mono mt-1">—</p>
-                        <p className="text-xs mt-1 text-muted-foreground">เลือก branch เดียว</p>
-                      </>
-                    );
-                  }
-                  // State 5: other
-                  return (
-                    <>
-                      <p className="text-2xl font-bold font-mono mt-1">—</p>
-                      <p className="text-xs mt-1 text-muted-foreground">เฉพาะรายเดือน</p>
-                    </>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          </div>
+      {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {branchIds.length === 0 && <p className="rounded-xl bg-secondary px-3 py-2 text-sm text-muted-foreground">บัญชีนี้ยังไม่มีสาขาที่ดูได้ ติดต่อผู้ดูแลระบบให้ตั้งสาขา</p>}
 
-          {/* Ratio Analysis */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ratio Analysis</h3>
-              <Popover open={addMetricOpen} onOpenChange={setAddMetricOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    disabled={availableMetricsToAdd.length === 0}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Metric
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-64 p-1 max-h-[320px] overflow-y-auto">
-                  {availableMetricsToAdd.length === 0 ? (
-                    <p className="text-xs text-muted-foreground p-2">All metrics added</p>
-                  ) : (
-                    availableMetricsToAdd.map((opt) => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => {
-                          setRatioMetrics((prev) => [...prev, opt.key]);
-                          setAddMetricOpen(false);
-                        }}
-                        className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent"
-                      >
-                        {opt.label}
-                      </button>
-                    ))
-                  )}
-                </PopoverContent>
-              </Popover>
+      {branchIds.length === 0 ? null : !std ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[92px] animate-pulse rounded-2xl bg-secondary" />
+          ))}
+        </div>
+      ) : (
+        <div className={cn("flex flex-col gap-4 transition-opacity", loading && "opacity-50")}>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">ยอดขาย</div>
+              <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(std.revenue)}</div>
+              <div className="text-xs text-muted-foreground">{std.bills ? `เฉลี่ยบิลละ ${baht(std.revenue / std.bills)}` : "หักส่วนลด ไม่รวม VAT/SC"}</div>
             </div>
-            {ratioMetrics.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-3">No metrics selected. Click "+ Add Metric" to add.</p>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {ratioMetrics.map((key) => {
-                  const { label, value } = getMetricLabelValue(key);
-                  return (
-                    <Card
-                      key={key}
-                      className={cn(
-                        "relative min-w-[180px] flex-1 max-w-[280px] cursor-pointer transition-all",
-                        selectedMetric === key ? "ring-2 shadow-md" : "hover:shadow-sm opacity-90 hover:opacity-100",
-                      )}
-                      style={selectedMetric === key ? { borderColor: getMetricColor(key), borderWidth: 2 } : {}}
-                      onClick={() => setSelectedMetric((prev) => (prev === key ? null : key))}
-                    >
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-                        style={{ backgroundColor: getMetricColor(key) }}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRatioMetrics((prev) => prev.filter((k) => k !== key));
-                          if (selectedMetric === key) setSelectedMetric(null);
-                        }}
-                        className="absolute top-2 right-2 text-muted-foreground hover:text-foreground rounded p-0.5"
-                        aria-label="Remove metric"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                      <CardContent className="p-4 pl-5 pr-7">
-                        <p
-                          className="text-xs font-medium uppercase tracking-wide truncate"
-                          style={{ color: getMetricColor(key) }}
-                          title={label}
-                        >
-                          {label}
-                        </p>
-                        <p className="text-2xl font-bold font-mono mt-1">{value}</p>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">ต้นทุนตามสูตร</div>
+              <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(std.stdCost)}</div>
+              <div className="text-xs text-muted-foreground">
+                <b className={cn("font-mono", pctTone(pct(std.stdCost)))}>{pct(std.stdCost).toFixed(1)}%</b> ของยอดขาย
               </div>
-            )}
+            </div>
+            <div className={cn("rounded-2xl bg-card px-4 py-3", actual ? "border-[1.5px] border-foreground" : "border border-border")}>
+              <div className="text-sm text-muted-foreground">ต้นทุนจริง (จากนับสต๊อก)</div>
+              {actual ? (
+                <>
+                  <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(actual.actCost)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    <b className={cn("font-mono", pctTone(pct(actual.actCost)))}>{pct(actual.actCost).toFixed(1)}%</b> ของยอดขาย
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xl font-semibold text-muted-foreground">—</div>
+                  <div className="text-xs text-muted-foreground">{branchIds.length > 1 ? "เลือกสาขาเดียว" : closed ? "ไม่มียอดนับ" : custom ? "เลือกทั้งเดือนที่จบแล้ว" : "รอจบเดือน + นับปิดเดือน"}</div>
+                </>
+              )}
+            </div>
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">จริงต่างจากสูตร</div>
+              {actual ? (
+                <>
+                  <div className={cn("break-all font-mono text-xl font-semibold sm:text-2xl", actual.totalVar < 0 ? "text-success" : "text-destructive")}>{signedBaht(actual.totalVar)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    ราคา {signedBaht(actual.priceVar)} · ใช้ {signedBaht(actual.usageVar)}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xl font-semibold text-muted-foreground">—</div>
+                  <div className="text-xs text-muted-foreground">{periodText} · {branchText}</div>
+                </>
+              )}
+            </div>
           </div>
-
-          {/* Variance Summary Cards — canShowVariance gate */}
-          {canShowVariance && varianceSummary !== null && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {t("fc.actualCost")}
-                    </p>
-                    <p className="text-2xl font-bold font-mono mt-1">฿{fmt(varianceSummary.actualCost)}</p>
-                  </CardContent>
-                </Card>
-                {(
-                  [
-                    { label: t("fc.totalVariance"), value: varianceSummary.totalVariance },
-                    { label: t("fc.priceVariance"), value: varianceSummary.priceVariance },
-                    { label: t("fc.usageVariance"), value: varianceSummary.usageVariance },
-                  ] as const
-                ).map((card) => (
-                  <Card key={card.label}>
-                    <CardContent className="p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{card.label}</p>
-                      <p
-                        className={cn(
-                          "text-2xl font-bold font-mono mt-1 flex items-center gap-1",
-                          card.value > 0
-                            ? "text-destructive"
-                            : card.value < 0
-                              ? "text-success"
-                              : "text-muted-foreground",
-                        )}
-                      >
-                        {card.value > 0 ? "+" : ""}
-                        {fmt(card.value)} ฿{card.value > 0 && <TrendingUp className="w-4 h-4" />}
-                        {card.value < 0 && <TrendingDown className="w-4 h-4" />}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
+          {actual && (
+            <p className="-mt-2 text-xs text-muted-foreground">
+              มียอดนับ {actual.withCounts}/{actual.rows.length} วัตถุดิบ · ยกมาจากยอดนับ {thai(result!.openingDate)} · ปิดช่วงจากยอดนับ {thai(result!.closingDate)} (ไม่มีตรงวันใช้วันใกล้สุด ±3 วัน)
+            </p>
           )}
 
-          {/* Banner states — exactly one renders based on priority */}
-          {calculated &&
-            (() => {
-              // Priority 1: has variance data with coverage
-              if (canShowVariance && varianceDataCoverage !== null) {
-                return (
-                  <p className="text-xs text-muted-foreground">
-                    {t("fc.dataCoverage")}: {varianceDataCoverage.skusWithActual}/{varianceDataCoverage.totalSkus} SKUs
-                    · Opening: {varianceDataCoverage.openingDate} · Closing: {varianceDataCoverage.closingDate}
-                    {varianceDataCoverage.hasApproxDates && (
-                      <span className="ml-1 text-warning font-medium">(บางรายการใช้ข้อมูลวันใกล้เคียง ±3 วัน)</span>
-                    )}
-                  </p>
-                );
-              }
-              // Priority 2: past month but all-branch selected
-              if (isMonthlyPeriod && isPastMonth && selectedBranch === "all") {
-                return (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-3">
-                    <Info className="w-4 h-4 shrink-0 text-primary/60" />
-                    <span>เลือก branch เดียวเพื่อดู Actual vs Standard variance</span>
-                  </div>
-                );
-              }
-              // Priority 3: current month single branch
-              if (isMonthlyPeriod && !isPastMonth && selectedBranch !== "all") {
-                return (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-3">
-                    <Info className="w-4 h-4 shrink-0 text-primary/60" />
-                    <span>
-                      Actual variance จะแสดงได้เมื่อสิ้นเดือน ({format(dateTo, "d MMM yyyy")}) และมี stock count
-                      ปิดเดือนแล้ว
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          {/* Daily Trend Chart */}
-          {dailyData.length > 1 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">{t("title.dailyTrend")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={dailyData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="label" className="text-xs" />
-                      <YAxis yAxisId="left" className="text-xs" />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        className="text-xs"
-                        tickFormatter={(v: number) => `฿${Math.round(v)}`}
-                      />
-                      {ratioMetrics.some((k) => k.startsWith("ratio:")) && (
-                        <YAxis
-                          yAxisId="right2"
-                          orientation="right"
-                          className="text-xs"
-                          domain={[0, 100]}
-                          tickFormatter={(v: number) => `${v}%`}
-                        />
-                      )}
-                      <Tooltip
-                        formatter={(value: number, name: string) => {
-                          if (typeof value !== "number") return [value, name];
-                          const key = ratioMetrics.find((k) => getMetricDisplayName(k) === name);
-                          if (key && key.startsWith("ratio:")) return [`${value.toFixed(1)}%`, name];
-                          return [
-                            `฿${value.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-                            name,
-                          ];
-                        }}
-                      />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#378ADD" />
-                      <Bar yAxisId="left" dataKey="stdFoodCost" name="Food Cost" fill="#D85A30" />
-                      {ratioMetrics.includes("avg_ticket") &&
-                        (() => {
-                          const isSelected = selectedMetric === "avg_ticket";
-                          const isFaded = selectedMetric !== null && !isSelected;
-                          return (
-                            <Line
-                              yAxisId="right"
-                              type="monotone"
-                              dataKey="avg_ticket"
-                              name="Avg Ticket Size"
-                              stroke={getMetricColor("avg_ticket")}
-                              strokeWidth={isSelected ? 3 : 2}
-                              strokeOpacity={isFaded ? 0.15 : 1}
-                              dot={false}
-                              label={
-                                isSelected
-                                  ? {
-                                      position: "top",
-                                      fontSize: 10,
-                                      fill: getMetricColor("avg_ticket"),
-                                      formatter: (v: number) => (v > 0 ? `฿${Math.round(v)}` : ""),
-                                    }
-                                  : false
-                              }
-                            />
-                          );
-                        })()}
-                      {ratioMetrics
-                        .filter((k) => k.startsWith("ratio:"))
-                        .map((key) => {
-                          const isSelected = selectedMetric === key;
-                          const isFaded = selectedMetric !== null && !isSelected;
-                          return (
-                            <Line
-                              key={key}
-                              yAxisId="right2"
-                              type="monotone"
-                              dataKey={key}
-                              name={getMetricDisplayName(key)}
-                              stroke={getMetricColor(key)}
-                              strokeWidth={isSelected ? 3 : 2}
-                              strokeOpacity={isFaded ? 0.15 : 1}
-                              dot={false}
-                              label={
-                                isSelected
-                                  ? {
-                                      position: "top",
-                                      fontSize: 10,
-                                      fill: getMetricColor(key),
-                                      formatter: (v: number) => (v > 0 ? `${v.toFixed(1)}%` : ""),
-                                    }
-                                  : false
-                              }
-                            />
-                          );
-                        })}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AttentionBox items={result!.attention} onSku={setSheetFor} onMenu={openMenu} />
 
-          {/* Top 10 Highest FC% Menus */}
-          {top10Menus.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <TrendingUp className="w-4 h-4 text-destructive" />
-                  Top 10 Highest Food Cost Menus
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="overflow-y-auto max-h-[400px]">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-background">
-                      <TableRow className="bg-table-header border-b">
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          #
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("col.menuCode")}
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("col.menuName")}
-                        </TableHead>
-                        <TableHead
-                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                          style={{ width: 110 }}
-                        >
-                          Category
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          <SortableHeader
-                            label={t("col.qtySold")}
-                            sortKey="qtySold"
-                            activeSortKey={menuTopSortKey}
-                            sortDir={menuTopSortDir}
-                            onSort={handleMenuTopSort}
-                            className="justify-end"
-                          />
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          <SortableHeader
-                            label={t("col.revenue")}
-                            sortKey="revenue"
-                            activeSortKey={menuTopSortKey}
-                            sortDir={menuTopSortDir}
-                            onSort={handleMenuTopSort}
-                            className="justify-end"
-                          />
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          <SortableHeader
-                            label={t("col.stdCost")}
-                            sortKey="stdFoodCost"
-                            activeSortKey={menuTopSortKey}
-                            sortDir={menuTopSortDir}
-                            onSort={handleMenuTopSort}
-                            className="justify-end"
-                          />
-                        </TableHead>
-                        <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          <SortableHeader
-                            label={t("col.fcPct")}
-                            sortKey="stdFcPct"
-                            activeSortKey={menuTopSortKey}
-                            sortDir={menuTopSortDir}
-                            onSort={handleMenuTopSort}
-                            className="justify-end"
-                          />
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {top10Menus.map((m, i) => (
-                        <TableRow
-                          key={m.menuCode}
-                          className={`border-b border-table-border hover:bg-table-hover transition-colors ${m.stdFcPct > FC_AMBER_MAX ? "bg-destructive/5" : ""}`}
-                        >
-                          <TableCell className="px-3 py-2 text-sm font-mono text-muted-foreground">{i + 1}</TableCell>
-                          <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm text-muted-foreground">
-                            {menuByCode.get(m.menuCode)?.category || "—"}
-                          </TableCell>
-                          <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
-                          <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                            ฿{fmt(m.stdFoodCost)}
-                          </TableCell>
-                          <TableCell className="px-3 py-2 text-right">
-                            <span
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                                m.stdFcPct > FC_AMBER_MAX
-                                  ? "bg-[#FCEBEB] text-[#791F1F]"
-                                  : m.stdFcPct > FC_GREEN_MAX
-                                    ? "bg-[#FAEEDA] text-[#633806]"
-                                    : "bg-[#EAF3DE] text-[#27500A]"
-                              }`}
-                            >
-                              {m.stdFcPct.toFixed(1)}%
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SKU Breakdown */}
-          {(() => {
-            const showVariance = canShowVariance && actualVarianceData !== null;
-
-            // Build merged rows for variance mode
-            const varianceMap = new Map<string, SkuVarianceRow>();
-            if (showVariance && actualVarianceData) {
-              actualVarianceData.forEach((v) => varianceMap.set(v.skuId, v));
-            }
-
-            const mergedRows = showVariance
-              ? skuBreakdown.map((r) => ({ std: r, var: varianceMap.get(r.skuId) ?? null }))
-              : null;
-
-            if (mergedRows) {
-              const cmpVal = (key: string, row: { std: SkuBreakdown; var: SkuVarianceRow | null }): number => {
-                if (key === "skuCode") return 0; // handled below as string
-                if (key === "stdCost") return row.std.stdCost;
-                if (key === "actCost") return row.var?.actCost ?? -Infinity;
-                if (key === "totalVarThb") return row.var?.totalVarThb ?? -Infinity;
-                return 0;
-              };
-              if (varSortKey && varSortDir) {
-                mergedRows.sort((a, b) => {
-                  if (varSortKey === "skuCode") {
-                    const r = a.std.skuCode.localeCompare(b.std.skuCode);
-                    return varSortDir === "desc" ? -r : r;
-                  }
-                  const r = cmpVal(varSortKey, a) - cmpVal(varSortKey, b);
-                  return varSortDir === "desc" ? -r : r;
-                });
-              } else {
-                // Default sort: |totalVarThb| DESC
-                mergedRows.sort((a, b) => {
-                  const absA = a.var?.totalVarThb != null ? Math.abs(a.var.totalVarThb) : -1;
-                  const absB = b.var?.totalVarThb != null ? Math.abs(b.var.totalVarThb) : -1;
-                  return absB - absA;
-                });
-              }
-            }
-
-            const varColorClass = (v: number | null) =>
-              v === null
-                ? "text-muted-foreground"
-                : v > 0
-                  ? "text-destructive font-semibold"
-                  : v < 0
-                    ? "text-success font-semibold"
-                    : "text-muted-foreground";
-
-            const fmtVar = (v: number | null) => (v === null ? "—" : `${v > 0 ? "+" : ""}${fmt(v)}`);
-
-            const thCls = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
-
-            return (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">SKU Ingredient Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 overflow-hidden">
-                  <div className="overflow-y-auto max-h-[400px]">
-                    {showVariance && mergedRows ? (
-                      <table className="w-full text-sm table-fixed">
-                        <colgroup>
-                          <col style={{ width: 80 }} />
-                          <col style={{ width: 180 }} />
-                          <col style={{ width: 60 }} />
-                          <col style={{ width: 90 }} />
-                          <col style={{ width: 90 }} />
-                          <col style={{ width: 90 }} />
-                          <col style={{ width: 90 }} />
-                          <col style={{ width: 100 }} />
-                          <col style={{ width: 80 }} />
-                          <col style={{ width: 80 }} />
-                        </colgroup>
-                        <thead className="sticky top-0 z-[5] bg-background">
-                          <tr className="bg-table-header border-b">
-                            <th className={`px-3 py-2 text-left ${thCls}`}>
-                              <SortableHeader
-                                label={t("col.skuCode")}
-                                sortKey="skuCode"
-                                activeSortKey={varSortKey}
-                                sortDir={varSortDir}
-                                onSort={handleVarSort}
-                              />
-                            </th>
-                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.skuName")}</th>
-                            <th className={`px-3 py-2 text-left ${thCls}`}>{t("col.type")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>Std Qty</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>
-                              <SortableHeader
-                                label={t("col.stdCost")}
-                                sortKey="stdCost"
-                                activeSortKey={varSortKey}
-                                sortDir={varSortDir}
-                                onSort={handleVarSort}
-                                className="justify-end"
-                              />
-                            </th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.actQty")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>
-                              <SortableHeader
-                                label={t("fc.actCost")}
-                                sortKey="actCost"
-                                activeSortKey={varSortKey}
-                                sortDir={varSortDir}
-                                onSort={handleVarSort}
-                                className="justify-end"
-                              />
-                            </th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.qtyVar")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>{t("fc.priceVarThb")}</th>
-                            <th className={`px-3 py-2 text-right ${thCls}`}>
-                              <SortableHeader
-                                label={t("fc.totalVarThb")}
-                                sortKey="totalVarThb"
-                                activeSortKey={varSortKey}
-                                sortDir={varSortDir}
-                                onSort={handleVarSort}
-                                className="justify-end"
-                              />
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {mergedRows.map(({ std: r, var: v }) => (
-                            <tr
-                              key={r.skuId}
-                              className="border-b border-table-border hover:bg-table-hover transition-colors"
-                            >
-                              <td className="px-3 py-2 font-mono text-xs">{r.skuCode}</td>
-                              <td className="px-3 py-2 text-sm break-words">{r.skuName}</td>
-                              <td className="px-3 py-2">
-                                <span
-                                  className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}
-                                >
-                                  {r.type}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 font-mono text-right">
-                                {Math.round(r.expectedUsage).toLocaleString("en-US")}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-right">฿{fmt(r.stdCost)}</td>
-                              <td className="px-3 py-2 font-mono text-right">
-                                {v && v.actQty !== null ? (
-                                  <TooltipProvider delayDuration={200}>
-                                    <ShadTooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="underline decoration-dotted cursor-help">
-                                          {Math.round(v.actQty).toLocaleString("en-US")}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <ShadTooltipContent side="right" className="p-3 text-xs">
-                                        {v.movementDetail ? (
-                                          <div className="space-y-0.5 min-w-[160px]">
-                                            <div className="flex justify-between gap-4">
-                                              <span className="flex items-center gap-1">
-                                                {t("fc.opening")} ({v.movementDetail.openingDate})
-                                                {v.movementDetail.openingIsApprox && (
-                                                  <span title={`ไม่มีข้อมูลวันที่ ${varianceDataCoverage?.openingDate} — ใช้วันที่ ${v.movementDetail.openingDate} แทน`} className="text-warning cursor-help">⚠</span>
-                                                )}
-                                              </span>
-                                              <span className="font-mono">
-                                                {v.movementDetail.opening !== null
-                                                  ? `${Math.round(v.movementDetail.opening).toLocaleString("en-US")} ${r.uom}`
-                                                  : "—"}
-                                              </span>
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span>+ {t("fc.received")}</span>
-                                              <span className="font-mono">
-                                                {Math.round(v.movementDetail.received).toLocaleString("en-US")} {r.uom}
-                                              </span>
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span className="flex items-center gap-1">
-                                                − {t("fc.closing")} ({v.movementDetail.closingDate})
-                                                {v.movementDetail.closingIsApprox && (
-                                                  <span title={`ไม่มีข้อมูลวันที่ ${varianceDataCoverage?.closingDate} — ใช้วันที่ ${v.movementDetail.closingDate} แทน`} className="text-warning cursor-help">⚠</span>
-                                                )}
-                                              </span>
-                                              <span className="font-mono">
-                                                {v.movementDetail.closingActual !== null ? (
-                                                  `${Math.round(v.movementDetail.closingActual).toLocaleString("en-US")} ${r.uom}`
-                                                ) : v.movementDetail.closingCalc !== null ? (
-                                                  <>
-                                                    {Math.round(v.movementDetail.closingCalc).toLocaleString("en-US")}{" "}
-                                                    {r.uom} <span className="text-muted-foreground">(est.)</span>
-                                                  </>
-                                                ) : (
-                                                  "—"
-                                                )}
-                                              </span>
-                                            </div>
-                                            <div className="border-t my-1" />
-                                            <div className="flex justify-between gap-4 font-semibold">
-                                              <span>= {t("fc.actUsed")}</span>
-                                              <span className="font-mono">
-                                                {Math.round(v.actQty!).toLocaleString("en-US")} {r.uom}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground">ไม่มีข้อมูล stock</span>
-                                        )}
-                                      </ShadTooltipContent>
-                                    </ShadTooltip>
-                                  </TooltipProvider>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-right">
-                                {v?.actCost != null ? (
-                                  `฿${fmt(v.actCost)}`
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                              <td className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.qtyVar ?? null))}>
-                                {fmtVar(v?.qtyVar ?? null)}
-                              </td>
-                              <td
-                                className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.priceVarThb ?? null))}
-                              >
-                                {fmtVar(v?.priceVarThb ?? null)}
-                              </td>
-                              <td
-                                className={cn("px-3 py-2 font-mono text-right", varColorClass(v?.totalVarThb ?? null))}
-                              >
-                                {fmtVar(v?.totalVarThb ?? null)}
-                              </td>
-                            </tr>
-                          ))}
-                          {mergedRows.length === 0 && (
-                            <tr>
-                              <td colSpan={10} className="text-center py-6 text-muted-foreground">
-                                No data
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <Table>
-                        <TableHeader className="sticky top-0 z-10 bg-background">
-                          <TableRow className="bg-table-header border-b">
-                            <TableHead className={thCls}>
-                              <SortableHeader
-                                label={t("col.skuCode")}
-                                sortKey="skuCode"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                              />
-                            </TableHead>
-                            <TableHead className={thCls}>
-                              <SortableHeader
-                                label={t("col.skuName")}
-                                sortKey="skuName"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                              />
-                            </TableHead>
-                            <TableHead className={thCls}>
-                              <SortableHeader
-                                label={t("col.type")}
-                                sortKey="type"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                              />
-                            </TableHead>
-                            <TableHead className={`${thCls} text-right`}>
-                              <SortableHeader
-                                label={t("col.expectedUsage")}
-                                sortKey="expectedUsage"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                                className="justify-end"
-                              />
-                            </TableHead>
-                            <TableHead className={thCls}>{t("col.uom")}</TableHead>
-                            <TableHead className={`${thCls} text-right`}>
-                              <SortableHeader
-                                label={t("col.stdUnitPrice")}
-                                sortKey="stdUnitPrice"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                                className="justify-end"
-                              />
-                            </TableHead>
-                            <TableHead className={`${thCls} text-right`}>
-                              <SortableHeader
-                                label={t("col.stdCost")}
-                                sortKey="stdCost"
-                                activeSortKey={skuStdSortKey}
-                                sortDir={skuStdSortDir}
-                                onSort={handleSkuStdSort}
-                                className="justify-end"
-                              />
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortedSkuStd.map((r) => (
-                            <TableRow
-                              key={r.skuId}
-                              className="border-b border-table-border hover:bg-table-hover transition-colors"
-                            >
-                              <TableCell className="px-3 py-2 font-mono text-xs">{r.skuCode}</TableCell>
-                              <TableCell className="px-3 py-2 text-sm">{r.skuName}</TableCell>
-                              <TableCell className="px-3 py-2">
-                                <span
-                                  className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getCatBadgeClass(r.type)}`}
-                                >
-                                  {r.type}
-                                </span>
-                              </TableCell>
-                              <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                                {Math.round(r.expectedUsage).toLocaleString("en-US")}
-                              </TableCell>
-                              <TableCell className="px-3 py-2">
-                                <UnitLabel unit={r.uom} />
-                              </TableCell>
-                              <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                                ฿{r.stdUnitPrice.toFixed(4)}
-                              </TableCell>
-                              <TableCell className="px-3 py-2 text-sm font-mono text-right font-medium">
-                                ฿{fmt(r.stdCost)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {skuBreakdown.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                                No data
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
-
-          {/* Full Menu Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Menu Breakdown (all)</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 overflow-hidden">
-              <div className="overflow-y-auto max-h-[400px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-background">
-                    <TableRow className="bg-table-header border-b">
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.menuCode")}
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("col.menuName")}
-                      </TableHead>
-                      <TableHead
-                        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                        style={{ width: 110 }}
-                      >
-                        Category
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        <SortableHeader
-                          label={t("col.qtySold")}
-                          sortKey="qtySold"
-                          activeSortKey={menuSortKey}
-                          sortDir={menuSortDir}
-                          onSort={handleMenuSort}
-                          className="justify-end"
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        <SortableHeader
-                          label={t("col.revenue")}
-                          sortKey="revenue"
-                          activeSortKey={menuSortKey}
-                          sortDir={menuSortDir}
-                          onSort={handleMenuSort}
-                          className="justify-end"
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        <SortableHeader
-                          label={t("col.stdCost")}
-                          sortKey="stdFoodCost"
-                          activeSortKey={menuSortKey}
-                          sortDir={menuSortDir}
-                          onSort={handleMenuSort}
-                          className="justify-end"
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        <SortableHeader
-                          label={t("col.fcPct")}
-                          sortKey="stdFcPct"
-                          activeSortKey={menuSortKey}
-                          sortDir={menuSortDir}
-                          onSort={handleMenuSort}
-                          className="justify-end"
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
-                        <SortableHeader
-                          label={t("col.costPerServing")}
-                          sortKey="costPerServing"
-                          activeSortKey={menuSortKey}
-                          sortDir={menuSortDir}
-                          onSort={handleMenuSort}
-                          className="justify-end"
-                        />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedMenuFull.map((m) => (
-                      <TableRow
-                        key={m.menuCode}
-                        className="border-b border-table-border hover:bg-table-hover transition-colors"
-                      >
-                        <TableCell className="px-3 py-2 font-mono text-xs">{m.menuCode}</TableCell>
-                        <TableCell className="px-3 py-2 text-sm">{m.menuName}</TableCell>
-                        <TableCell className="px-3 py-2 text-sm text-muted-foreground">
-                          {menuByCode.get(m.menuCode)?.category || "—"}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">{m.qtySold}</TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.revenue)}</TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">฿{fmt(m.stdFoodCost)}</TableCell>
-                        <TableCell className="px-3 py-2 text-right">
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                              m.stdFcPct > FC_AMBER_MAX
-                                ? "bg-[#FCEBEB] text-[#791F1F]"
-                                : m.stdFcPct > FC_GREEN_MAX
-                                  ? "bg-[#FAEEDA] text-[#633806]"
-                                  : "bg-[#EAF3DE] text-[#27500A]"
-                            }`}
-                          >
-                            {m.stdFcPct.toFixed(1)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-sm font-mono text-right">
-                          ฿{m.costPerServing.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {menuBreakdown.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                          No data
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </>
+          <SegmentedTabs<View>
+            tabs={[
+              { key: "menus", label: `เมนู ${std.menus.length}` },
+              { key: "ingredients", label: `วัตถุดิบ ${std.skus.length}` },
+              { key: "days", label: "รายวัน" },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+          {view === "menus" ? <MenuView rows={std.menus} onOpen={openMenu} /> : view === "ingredients" ? <IngredientView rows={std.skus} actual={actual?.rows ?? null} onOpen={setSheetFor} /> : <DayView days={std.days} />}
+        </div>
       )}
+
+      {sheetRow && (
+        <IngredientSheet
+          row={sheetRow}
+          actual={sheetActual}
+          period={`${branchText} · ${periodText}`}
+          onClose={() => setSheetFor(null)}
+          onOpenProduct={() => openProduct(sheetRow.skuId)}
+          onHistory={branchIds.length === 1 ? () => setHistoryFor(sheetRow.skuId) : undefined}
+        />
+      )}
+      {historySku && branchIds.length === 1 && (
+        <StockCard
+          skuId={historySku.id}
+          skuType={historySku.type as "RM" | "SM"}
+          sku={historySku}
+          skus={props.skus}
+          currentStock={sheetActual?.closing?.qty ?? 0}
+          stockValue={0}
+          onClose={() => setHistoryFor(null)}
+          context="branch"
+          branchId={branchIds[0]}
+          disableMismatchCheck
+        />
+      )}
+      {std && !std.revenue && !loading && <p className="text-center text-sm text-muted-foreground">ไม่มียอดขายในช่วงนี้ · ยอดขาย {n0(0)} บาท</p>}
     </div>
   );
 }

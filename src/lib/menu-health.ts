@@ -179,6 +179,20 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
 
   // ── Recipe ──
   const billed = input.bills && input.bills.plates > 0 ? input.bills : null;
+  // A choice on the bill that should swap an item out, but the item is still deducted
+  // (both counted): Delivery Sets, or a menu missing from the swap rule's list
+  const leftover = billed?.groups.filter((g) => g.leftover.length > 0) ?? [];
+  if (leftover.length) {
+    const g = leftover[0];
+    const plates = leftover.reduce((t, x) => t + x.plates, 0);
+    add({
+      id: "swap-leftover",
+      level: "error",
+      area: "recipe",
+      title: `${plates.toLocaleString()} จาน เลือก "${g.leftover[0].keyword}" แต่ยังตัด${skuName(g.leftover[0].skuId)}`,
+      detail: `เช่นบิล "${g.name}" · เพิ่มเมนูนี้ในกฎสลับ "${g.leftover[0].keyword}" ไม่งั้นนับทั้งของเดิมและของใหม่`,
+    });
+  }
   if (billed) {
     // Real bills decide: whatever the recipe/rule setup, did every plate deduct something?
     const empty = billed.groups.find((g) => g.empty);

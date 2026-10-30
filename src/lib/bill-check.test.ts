@@ -43,4 +43,23 @@ describe("checkBills", () => {
     expect(r.get("MN-001")!.plates).toBe(3);
     expect(r.has("OP122")).toBe(false);
   });
+
+  it("flags a choice whose swap rule doesn't reach this menu (old item still deducted)", () => {
+    const c2 = buildUsageContext({
+      menus: [{ id: "ramen", menuCode: "MN-001" }, { id: "other", menuCode: "MN-056" }],
+      bomLines: [
+        { menuId: "ramen", skuId: "noodle", effectiveQty: 1, branchId: null },
+        { menuId: "other", skuId: "noodle", effectiveQty: 1, branchId: null },
+      ],
+      rules: [{ id: "s", ruleType: "swap", keyword: "เส้นหนาหนึบ", skuId: "thick", swapSkuId: "noodle", submenuId: null, qtyPerMatch: 1, isActive: true, branchIds: [], menuIds: ["ramen"] }],
+      spLines: [],
+      skus: [],
+    });
+    const r = checkBills(c2, [
+      { menu_code: "MN-001", menu_name: "Shio เลือกเส้น : เส้นหนาหนึบ x 1", qty: 1, branch_id: "t" },
+      { menu_code: "MN-056", menu_name: "Black Garlic เลือกเส้น : เส้นหนาหนึบ x 1", qty: 2, branch_id: "t" },
+    ]);
+    expect(r.get("MN-001")!.groups[0].leftover).toEqual([]);
+    expect(r.get("MN-056")!.groups[0].leftover).toEqual([{ keyword: "เส้นหนาหนึบ", skuId: "noodle" }]);
+  });
 });

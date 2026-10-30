@@ -69,4 +69,39 @@ describe("addSaleUsage", () => {
   it("reports menus missing from the menu list", () => {
     expect(usage({ menu_code: "MN-067", qty: 1 }).known).toBe(false);
   });
+
+  // Delivery Set A: the bill names the set and the noodle; the ramen comes in by a submenu rule
+  const setCase = (menuIds: string[]) => {
+    const c = buildUsageContext({
+      menus: [
+        { id: "set", menuCode: "MN-075" },
+        { id: "ramen", menuCode: "MN-004" },
+      ],
+      bomLines: [{ menuId: "ramen", skuId: "noodle-wholewheat", effectiveQty: 1, branchId: null }],
+      rules: [
+        rule({ id: "dish", ruleType: "submenu", keyword: "Signature Shio", submenuId: "ramen" }),
+        rule({ id: "thick", ruleType: "swap", keyword: "เส้นหนาหนึบ", skuId: "noodle-thick", swapSkuId: "noodle-wholewheat", menuIds }),
+      ],
+      spLines: [],
+      skus: [],
+    });
+    const out: Record<string, number> = {};
+    addSaleUsage(c, { menu_code: "MN-075", menu_name: "Delivery Set A Signature Shio เลือกเส้น : เส้นหนาหนึบ x 1", qty: 2 }, (s, q) => (out[s] = (out[s] || 0) + q));
+    return out;
+  };
+  it.each([
+    ["the dish", ["ramen"]],
+    ["every menu", []],
+    ["the set", ["set"]],
+    ["both", ["ramen", "set"]],
+  ])("a noodle choice in a set swaps the set's ramen once, whether the swap lists %s", (_, ids) => {
+    const out = setCase(ids);
+    expect(out["noodle-wholewheat"]).toBe(0);
+    expect(out["noodle-thick"]).toBe(2);
+  });
+  it("a swap for another menu leaves the set's ramen alone", () => {
+    const out = setCase(["other"]);
+    expect(out["noodle-wholewheat"]).toBe(2);
+    expect(out["noodle-thick"]).toBeUndefined();
+  });
 });

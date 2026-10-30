@@ -192,7 +192,7 @@ describe("real bills decide", () => {
     emptyPlates,
     platesByBranch: { shiro: plates },
     emptyByBranch: emptyPlates ? { shiro: emptyPlates } : {},
-    groups: [{ name: "Mystery set", branchId: "shiro", plates, perPlate: [], empty: emptyPlates > 0 }],
+    groups: [{ name: "Mystery set", branchId: "shiro", plates, perPlate: [], empty: emptyPlates > 0, leftover: [] as { keyword: string; skuId: string }[] }],
   });
   it("a menu with no recipe whose bills all deduct is fine", () => {
     const s = summarizeMenu(base({ lines: [], bills: bills(5, 0) }));
@@ -201,5 +201,11 @@ describe("real bills decide", () => {
   it("a menu with a recipe whose bills deduct nothing is an error", () => {
     const s = summarizeMenu(base({ bills: bills(5, 2) }));
     expect(s.checks.find((c) => c.id === "no-recipe")).toMatchObject({ level: "error" });
+  });
+  it("a bill that picks an option the swap rule doesn't reach is an error (both counted)", () => {
+    const b = bills(4, 0);
+    b.groups[0].leftover = [{ keyword: "เส้นหนาหนึบ", skuId: "x" }];
+    const s = summarizeMenu(base({ bills: b }));
+    expect(s.checks.find((c) => c.id === "swap-leftover")).toMatchObject({ level: "error", title: expect.stringContaining('4 จาน เลือก "เส้นหนาหนึบ"') });
   });
 });

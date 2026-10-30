@@ -91,16 +91,40 @@ export function addSaleUsage(ctx: UsageContext, sale: UsageSale, add: (skuId: st
   const recipe = linesFor(menuId);
   for (const line of recipe) expand(line.skuId, line.effectiveQty * qty);
 
+  const atBranch = (r: UsageRule) => r.branchIds.length === 0 || (!!branch && r.branchIds.includes(branch));
+  // A swap's replacement goes in once per sale, however many places it reaches
+  // (the set itself and the dish inside it)
+  const replaced = new Set<string>();
+  const addReplacement = (r: UsageRule) => {
+    if (replaced.has(r.id)) return;
+    replaced.add(r.id);
+    if (r.skuId) expand(r.skuId, r.qtyPerMatch * qty);
+  };
+
   for (const rule of ctx.rules) {
-    if (rule.branchIds.length > 0 && (!branch || !rule.branchIds.includes(branch))) continue;
+    if (!atBranch(rule)) continue;
     if (rule.menuIds.length > 0 && !rule.menuIds.includes(menuId)) continue;
     if (!ruleMatchesSale(rule, sale)) continue;
     if (rule.ruleType === "submenu") {
-      if (rule.submenuId) for (const line of linesFor(rule.submenuId)) expand(line.skuId, line.effectiveQty * qty);
+      if (!rule.submenuId) continue;
+      const dish = linesFor(rule.submenuId);
+      for (const line of dish) expand(line.skuId, line.effectiveQty * qty);
+      // A choice made for the dish inside a set ("Delivery Set A … เลือกเส้น : เส้นหนาหนึบ")
+      // swaps that dish's own line too, whether the swap lists the dish, the set, or
+      // every menu: the item comes out of the dish, the replacement goes in once.
+      for (const sw of ctx.rules) {
+        if (sw.ruleType !== "swap" || !sw.swapSkuId || !atBranch(sw)) continue;
+        if (sw.menuIds.length > 0 && !sw.menuIds.includes(rule.submenuId) && !sw.menuIds.includes(menuId)) continue;
+        if (!ruleMatchesSale(sw, sale)) continue;
+        for (const line of dish) if (line.skuId === sw.swapSkuId) expand(line.skuId, -line.effectiveQty * qty);
+        addReplacement(sw);
+      }
       continue;
     }
     if (rule.ruleType === "swap" && rule.swapSkuId) {
       for (const line of recipe) if (line.skuId === rule.swapSkuId) expand(line.skuId, -line.effectiveQty * qty);
+      addReplacement(rule);
+      continue;
     }
     if (rule.skuId) expand(rule.skuId, rule.qtyPerMatch * qty);
   }
