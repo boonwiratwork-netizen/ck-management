@@ -6,7 +6,7 @@ export interface ByproductAsk {
   name: string;
   grams: number;
   /** Each by-product and what the recipe expects for this much output */
-  items: { skuId: string; name: string; expected: number; uom: string }[];
+  items: { skuId: string; name: string; expected: number; uom: string; alreadyToday?: number }[];
 }
 
 const n0 = (n: number) => Math.round(n).toLocaleString();
@@ -18,7 +18,7 @@ const n0 = (n: number) => Math.round(n).toLocaleString();
  * fixed 8 kg / 30 kg every pot is what made both pile up.
  */
 export function ByproductDialog({ ask, busy, onSave, onCancel }: { ask: ByproductAsk; busy: boolean; onSave: (qty: Record<string, number>) => void; onCancel: () => void }) {
-  const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(ask.items.map((i) => [i.skuId, String(Math.round(i.expected))])));
+  const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(ask.items.map((i) => [i.skuId, i.alreadyToday ? "0" : String(Math.round(i.expected))])));
   const parsed = Object.fromEntries(Object.entries(qty).map(([k, v]) => [k, Math.max(0, Number(v.replace(/,/g, "")) || 0)]));
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 sm:items-center" onClick={onCancel}>
@@ -35,6 +35,12 @@ export function ByproductDialog({ ask, busy, onSave, onCancel }: { ask: Byproduc
               <span className="min-w-0 flex-1">
                 <span className="block break-words font-semibold">{i.name}</span>
                 <span className="block text-xs text-muted-foreground">ตามสูตร {n0(i.expected)} {i.uom}</span>
+                {/* Recorded on its own today already (29 Oct: น้ำมันไก่ 5,000 went in twice): start at 0 */}
+                {!!i.alreadyToday && (
+                  <span className="mt-1 block text-sm font-semibold text-warning">
+                    วันนี้ลงผลิต{i.name}แยกไว้แล้ว {n0(i.alreadyToday)} {i.uom} · ถ้าเป็นหม้อเดียวกันใส่ 0 กันนับซ้ำ
+                  </span>
+                )}
               </span>
               <input
                 inputMode="decimal"

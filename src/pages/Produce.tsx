@@ -222,7 +222,14 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
     if (!items.length) return save(skuId, grams, notes);
     const perOut = getOutputPerBatch(skuId);
     const share = perOut > 0 ? grams / perOut : 0;
-    setBpAsk({ skuId, notes, name: nameOf(skuId), grams, items: items.map((b) => ({ skuId: b.skuId!, name: nameOf(b.skuId!), expected: b.outputQty * share, uom: skus.find((s) => s.id === b.skuId)?.usageUom || "ก." })) });
+    setBpAsk({ skuId, notes, name: nameOf(skuId), grams, items: items.map((b) => ({
+        skuId: b.skuId!,
+        name: nameOf(b.skuId!),
+        expected: b.outputQty * share,
+        uom: skus.find((s) => s.id === b.skuId)?.usageUom || "ก.",
+        // Also recorded on its own today: the other half of the twice-counted check (onRecord covers the other order)
+        alreadyToday: records.filter((r) => r.smSkuId === b.skuId && r.productionDate === day).reduce((t, r) => t + r.actualOutputG, 0),
+      })) });
     return wait();
   };
   const onRecord = async (skuId: string, grams: number, notes: string) => {
