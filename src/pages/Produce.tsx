@@ -316,7 +316,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
                 canEdit={canEdit}
                 onSave={savePlan}
                 onAgent={() => setAgentOpen(true)}
-                onSetupBom={() => navigate("/bom")}
+                onSetupBom={(s) => navigate(`/cost-center#p/${encodeURIComponent(s.skuId)}`)}
                 stockReady={isStockDataReady}
               />
             </>

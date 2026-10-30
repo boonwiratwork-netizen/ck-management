@@ -10,15 +10,15 @@ import { POSMappingProfile } from "@/hooks/use-sales-entry-data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const MAPPING_FIELDS: { key: string; label: string; required: boolean }[] = [
-  { key: "date", label: "Date", required: true },
-  { key: "menu_code", label: "Menu Code", required: true },
-  { key: "menu_name", label: "Menu Name", required: true },
-  { key: "qty", label: "Quantity", required: true },
-  { key: "receipt_no", label: "Receipt No", required: false },
-  { key: "unit_price", label: "Unit Price", required: false },
-  { key: "net_amount", label: "Net Amount", required: false },
-  { key: "channel", label: "Channel", required: false },
-  { key: "order_type", label: "Order Type", required: false },
+  { key: "date", label: "วันที่", required: true },
+  { key: "menu_code", label: "รหัสเมนู", required: true },
+  { key: "menu_name", label: "ชื่อเมนู", required: true },
+  { key: "qty", label: "จำนวน", required: true },
+  { key: "receipt_no", label: "เลขที่บิล", required: false },
+  { key: "unit_price", label: "ราคาต่อหน่วย", required: false },
+  { key: "net_amount", label: "ยอดสุทธิ", required: false },
+  { key: "channel", label: "ช่องทาง", required: false },
+  { key: "order_type", label: "ประเภทออเดอร์", required: false },
 ];
 
 const SEED_PROFILE_NAME = "FoodStory POS";
@@ -125,25 +125,25 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{profile ? "Edit POS Profile" : "New POS Profile"}</DialogTitle>
+          <DialogTitle>{profile ? "แก้รูปแบบไฟล์ POS" : "รูปแบบไฟล์ POS ใหม่"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto pr-2">
           <div className="space-y-4 pb-2">
             {/* Profile Name */}
             <div>
-              <Label className="text-sm font-medium">Profile Name *</Label>
+              <Label className="text-sm font-medium">ชื่อรูปแบบ *</Label>
               <Input
                 className="h-10 mt-1"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. My POS System"
+                placeholder="เช่น FoodStory สาขา Shiro"
               />
             </div>
 
             {/* Separator */}
             <div>
-              <Label className="text-sm font-medium">Separator</Label>
+              <Label className="text-sm font-medium">ตัวคั่นคอลัมน์</Label>
               <div className="flex gap-2 mt-1">
                 {(["tab", "comma", "semicolon"] as const).map((sep) => (
                   <Button
@@ -153,7 +153,7 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
                     size="sm"
                     onClick={() => setSeparator(sep)}
                   >
-                    {sep === "tab" ? "Tab" : sep === "comma" ? "Comma" : "Semicolon"}
+                    {sep === "tab" ? "แท็บ" : sep === "comma" ? "จุลภาค ( , )" : "อัฒภาค ( ; )"}
                   </Button>
                 ))}
               </div>
@@ -162,12 +162,12 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
             {/* Has header row */}
             <div className="flex items-center gap-3">
               <Switch checked={hasHeaderRow} onCheckedChange={setHasHeaderRow} />
-              <Label className="text-sm">First row is header (skip it)</Label>
+              <Label className="text-sm">แถวแรกเป็นหัวคอลัมน์ (ข้าม)</Label>
             </div>
 
             {/* Date format */}
             <div>
-              <Label className="text-sm font-medium">Date Format</Label>
+              <Label className="text-sm font-medium">รูปแบบวันที่</Label>
               <Select value={dateFormat} onValueChange={setDateFormat}>
                 <SelectTrigger className="h-10 mt-1">
                   <SelectValue />
@@ -182,11 +182,11 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
 
             {/* Sample Data */}
             <div>
-              <Label className="text-sm font-medium">Paste a sample row from your POS to auto-detect columns:</Label>
+              <Label className="text-sm font-medium">วางตัวอย่าง 1 แถวจาก POS ระบบจะหาคอลัมน์ให้</Label>
               <Textarea
                 className="mt-1 font-mono text-xs"
                 rows={2}
-                placeholder="Paste one row here..."
+                placeholder="วาง 1 แถวที่นี่…"
                 value={sampleText}
                 onChange={(e) => setSampleText(e.target.value)}
               />
@@ -202,7 +202,7 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
                       className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-xs font-mono whitespace-nowrap"
                     >
                       <span className="text-muted-foreground">{i}:</span>
-                      <span className="max-w-[120px] truncate">{col || "(empty)"}</span>
+                      <span className="max-w-[120px] truncate">{col || "(ว่าง)"}</span>
                     </span>
                   ))}
                 </div>
@@ -211,11 +211,11 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
 
             {/* Column Mapping */}
             <div>
-              <Label className="text-sm font-medium mb-2 block">Column Mapping</Label>
+              <Label className="text-sm font-medium mb-2 block">คอลัมน์ไหนคืออะไร</Label>
               <div className="space-y-2">
                 {MAPPING_FIELDS.map((field) => (
                   <div key={field.key} className="flex items-center gap-2">
-                    <span className="text-sm w-28 shrink-0">
+                    <span className="w-28 shrink-0 break-words text-sm">
                       {field.label}
                       {field.required && " *"}
                     </span>
@@ -224,14 +224,14 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
                       onValueChange={(v) => handleMappingChange(field.key, v)}
                     >
                       <SelectTrigger className="h-10 flex-1">
-                        <SelectValue placeholder="— Not mapped —" />
+                        <SelectValue placeholder="— ไม่ใช้ —" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">— Not mapped —</SelectItem>
+                        <SelectItem value="__none__">— ไม่ใช้ —</SelectItem>
                         {(sampleColumns.length > 0 ? sampleColumns : Array.from({ length: 30 }, (_, i) => "")).map(
                           (val, i) => (
                             <SelectItem key={i} value={String(i)}>
-                              Column {i}
+                              คอลัมน์ {i}
                               {val ? `: ${val.substring(0, 30)}` : ""}
                             </SelectItem>
                           ),
@@ -249,16 +249,16 @@ export function POSProfileModal({ open, onOpenChange, profile, onSave, onDelete 
           <div>
             {profile && !isSeed && (
               <Button variant="destructive" onClick={handleDelete} disabled={saving}>
-                Delete Profile
+                ลบรูปแบบนี้
               </Button>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              ยกเลิก
             </Button>
             <Button onClick={handleSave} disabled={saving || !name.trim() || requiredMissing}>
-              {saving ? "Saving..." : "Save Profile"}
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
           </div>
         </DialogFooter>

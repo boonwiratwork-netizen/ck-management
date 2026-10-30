@@ -2,11 +2,10 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import { useEffect, useState } from "react";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { table } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 import type { SKU } from "@/types/sku";
 import { afterCount, producedAfterCount, type CountAnchor } from "@/lib/count-anchor";
@@ -44,7 +43,30 @@ interface Movement {
   lotText?: string;
   timestamp?: string;
   isReset?: boolean;
+  /** Shown tag: what kind of movement this is, in words the kitchen uses */
+  tag?: Tag;
 }
+
+type Tag = "ยกมา" | "รับเข้า" | "ผลิต" | "ผลพลอยได้" | "ใช้ผลิต" | "ส่งสาขา" | "ปรับยอด" | "นับ";
+const TAG_STYLE: Record<Tag, string> = {
+  ยกมา: "bg-secondary text-muted-foreground",
+  รับเข้า: "bg-success-soft text-success",
+  ผลิต: "bg-success-soft text-success",
+  ผลพลอยได้: "bg-brand-soft text-brand-soft-foreground",
+  ใช้ผลิต: "bg-warning-soft text-warning",
+  ส่งสาขา: "bg-secondary text-foreground",
+  ปรับยอด: "bg-secondary text-foreground",
+  นับ: "bg-foreground text-background",
+};
+const tagOf = (m: Movement): Tag =>
+  m.tag ?? (m.type === "Opening" ? "ยกมา" : m.type === "Receipt" ? "รับเข้า" : m.type === "Production" ? "ผลิต" : m.type === "Delivery" ? "ส่งสาขา" : m.type === "StockCount" ? "นับ" : "ปรับยอด");
+const STORAGE_TH: Record<string, string> = { Frozen: "แช่แข็ง", Chilled: "แช่เย็น", Ambient: "ของแห้ง" };
+const thaiDate = (iso: string) => {
+  if (!iso || iso === "—") return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+};
+const thaiTime = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "");
 
 interface BranchCountRow {
   count_date: string;
@@ -58,26 +80,6 @@ interface BranchCountRow {
   variance: number;
 }
 
-const STORAGE_BADGES: Record<string, string> = {
-  Frozen: "bg-[#E6F1FB] text-blue-700",
-  Chilled: "bg-[#E6F1FB] text-cyan-700",
-  Ambient: "bg-muted text-muted-foreground",
-};
-
-function formatDateCompact(iso: string, timeIso?: string): string {
-  if (!iso || iso === "—") return "—";
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const base = `${dd}/${mm}/${yy}`;
-  if (!timeIso) return base;
-  const t = new Date(timeIso);
-  const hh = String(t.getHours()).padStart(2, "0");
-  const min = String(t.getMinutes()).padStart(2, "0");
-  return `${base} ${hh}:${min}`;
-}
-
 const fmt0 = (v: number) => Math.round(v).toLocaleString();
 
 function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Movement {
@@ -86,12 +88,12 @@ function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Move
   if (reason.startsWith("Production:")) {
     // "Production: 0.73 batches of <sku id> [rec <record id>]" (share of a batch, tagged since Oct 2026)
     const match = reason.match(/Production:\s*([\d.]+)\s*batches?\s*of\s+([^\s[]+)/i);
-    let ref = reason;
+    let ref = "ใช้ในการผลิต";
     if (match) {
       const batches = match[1];
       const uuidOrCode = match[2].trim();
-      const found = skus.find((s) => s.id === uuidOrCode);
-      ref = `${batches} batch${Number(batches) !== 1 ? "es" : ""} · ${found ? found.skuId : uuidOrCode}`;
+      const found = skus.find((s) => s.id === uuidOrCode || s.skuId === uuidOrCode);
+      ref = `ผลิต ${found ? found.name : uuidOrCode} ${Number(batches).toLocaleString("th-TH", { maximumFractionDigits: 2 })} รอบ`;
     }
     return {
       ...base,
@@ -100,6 +102,22 @@ function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Move
       qtyIn: null,
       qtyOut: Math.abs(quantity),
       isProductionUse: true,
+      tag: "ใช้ผลิต",
+    };
+  }
+
+  // Made in the same pot as another item (น้ำมันไก่ from น้ำสต๊อก), or a production record changed
+  if (reason.startsWith("Production by-product") || reason.startsWith("Production correction")) {
+    const bp = reason.startsWith("Production by-product");
+    const code = reason.match(/of\s+([^\s[]+)/i)?.[1];
+    const parent = code ? skus.find((s) => s.id === code || s.skuId === code) : undefined;
+    return {
+      ...base,
+      type: "Adjustment",
+      tag: bp ? "ผลพลอยได้" : "ปรับยอด",
+      reference: bp ? (reason.includes("correction") ? "แก้บันทึกผลิต (ผลพลอยได้)" : `ได้จากการผลิต${parent ? ` ${parent.name}` : ""}`) : "แก้บันทึกผลิต",
+      qtyIn: quantity > 0 ? quantity : null,
+      qtyOut: quantity < 0 ? Math.abs(quantity) : null,
     };
   }
 
@@ -107,7 +125,7 @@ function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Move
     return {
       ...base,
       type: "StockCount",
-      reference: "Physical count",
+      reference: "นับสต๊อก",
       qtyIn: quantity > 0 ? quantity : null,
       qtyOut: quantity < 0 ? Math.abs(quantity) : null,
     };
@@ -116,22 +134,11 @@ function classifyAdjustment(quantity: number, reason: string, skus: SKU[]): Move
   return {
     ...base,
     type: "Adjustment",
-    reference: reason || "Manual adjustment",
+    reference: reason || "ปรับยอดเอง",
     qtyIn: quantity > 0 ? quantity : null,
     qtyOut: quantity < 0 ? Math.abs(quantity) : null,
   };
 }
-
-type TypeBadgeKey = Movement["type"];
-
-const TYPE_BADGE_STYLES: Record<TypeBadgeKey, string> = {
-  Opening: "bg-muted text-muted-foreground",
-  Receipt: "bg-success/15 text-success",
-  Production: "bg-success/15 text-success",
-  Delivery: "bg-warning/15 text-warning",
-  Adjustment: "bg-primary/15 text-primary",
-  StockCount: "bg-violet-500/15 text-violet-600",
-};
 
 export function StockCard({
   skuId,
@@ -579,7 +586,7 @@ export function StockCard({
               date: preWindowCount.count_date,
               sortKey: `0000-00-00`,
               type: "Opening",
-              reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
+              reference: `ยอดจากการนับ ${thaiDate(preWindowCount.count_date)} รวมของเข้า-ออกถึงก่อนช่วงนี้`,
               qtyIn: preWindowCount.physical_qty + gapGr + gapAdj,
               qtyOut: null,
               isReset: true,
@@ -612,7 +619,7 @@ export function StockCard({
               date: "—",
               sortKey: "0000-00-00",
               type: "Opening",
-              reference: "—",
+              reference: "ยอดยกมาก่อนช่วงนี้",
               qtyIn: openingQty > 0 ? openingQty : null,
               qtyOut: null,
               isReset: true,
@@ -650,7 +657,7 @@ export function StockCard({
               date: c.count_date,
               sortKey: countSortKey(c),
               type: "StockCount",
-              reference: "Physical count",
+              reference: "นับสต๊อก",
               qtyIn: c.physical_qty,
               qtyOut: null,
               timestamp: c.completed_at,
@@ -806,7 +813,7 @@ export function StockCard({
               date: preWindowCount.count_date,
               sortKey: `0000-00-00`,
               type: "Opening",
-              reference: `Opening (last count ${formatDateCompact(preWindowCount.count_date)})`,
+              reference: `ยอดจากการนับ ${thaiDate(preWindowCount.count_date)} รวมของเข้า-ออกถึงก่อนช่วงนี้`,
               qtyIn: preWindowCount.physical_qty + gapProd - gapDel + gapAdj,
               qtyOut: null,
               isReset: true,
@@ -847,7 +854,7 @@ export function StockCard({
               date: "—",
               sortKey: "0000-00-00",
               type: "Opening",
-              reference: "—",
+              reference: "ยอดยกมาก่อนช่วงนี้",
               qtyIn: openingQty > 0 ? openingQty : null,
               qtyOut: null,
               isReset: true,
@@ -860,7 +867,7 @@ export function StockCard({
               date: p.production_date,
               sortKey: `${p.production_date}|1|${p.created_at}`,
               type: "Production",
-              reference: `${p.batches_produced} batch${p.batches_produced > 1 ? "es" : ""}`,
+              reference: `ผลิต ${Number(p.batches_produced).toLocaleString("th-TH", { maximumFractionDigits: 2 })} รอบ`,
               qtyIn: p.actual_output_g,
               qtyOut: null,
               timestamp: p.created_at,
@@ -905,7 +912,7 @@ export function StockCard({
               // sent_at = when the kitchen sent it (updated_at moves when the branch receives)
               sortKey: `${to.delivery_date}|1|${to.sent_at ?? to.updated_at ?? to.delivery_date}`,
               type: "Delivery",
-              reference: `${to.to_number} · ${branchName}`,
+              reference: `${branchName} · ${to.to_number}`,
               qtyIn: null,
               qtyOut: qty,
               lotText: lotText || undefined,
@@ -931,7 +938,7 @@ export function StockCard({
               date: c.count_date,
               sortKey: countSortKey(c),
               type: "StockCount",
-              reference: "Physical count",
+              reference: "นับสต๊อก",
               qtyIn: c.physical_qty,
               qtyOut: null,
               timestamp: c.completed_at,
@@ -984,322 +991,180 @@ export function StockCard({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // Newest first (the kitchen looks at what just happened); balances were worked out oldest first
+  const shown = [...movements].reverse();
+  const ranges: { days: number; label: string }[] = [
+    { days: 14, label: "14 วัน" },
+    { days: 30, label: "30 วัน" },
+    { days: 3650, label: "ทั้งหมด" },
+  ];
+  const stockNow = context === "branch" ? Number(branchCurrentStock) : currentStock;
+  const uom = sku.usageUom;
+
   return (
     <>
-      <div className="fixed top-0 bottom-0 left-0 right-0 z-[999] bg-black/25" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[1000] flex w-full max-w-[660px] flex-col border-l bg-background shadow-xl">
-        <div className="px-5 pt-5 pb-0 flex items-start justify-between">
-          <div>
-            {/* Line 1 */}
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-sm text-muted-foreground">{sku.skuId}</span>
-              <span className="font-semibold text-foreground">{sku.name}</span>
+      <div className="fixed inset-0 z-[999] bg-black/30" onClick={onClose} />
+      <div role="dialog" aria-label={`ประวัติเข้า-ออก ${sku.name}`} className="fixed inset-y-0 right-0 z-[1000] flex w-full max-w-[560px] flex-col bg-background shadow-raised">
+        {/* Header: what it is and how much there is now */}
+        <div className="flex flex-col gap-3 border-b border-border px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-muted-foreground">ประวัติเข้า-ออก</span>
+            <button type="button" onClick={onClose} aria-label="ปิด" className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary hover:bg-secondary/70">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-mono text-xs text-muted-foreground">
+                {sku.skuId} · {STORAGE_TH[sku.storageCondition] ?? sku.storageCondition}
+              </div>
+              <div className="break-words text-lg font-bold leading-snug">{sku.name}</div>
             </div>
-            {/* Line 2 */}
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`${table.badge.base} ${STORAGE_BADGES[sku.storageCondition] ?? STORAGE_BADGES.Ambient}`}>
-                {sku.storageCondition}
-              </span>
-              <span className="text-xs text-muted-foreground">{sku.usageUom}</span>
+            <div className="shrink-0 text-right">
+              <div className={cn("font-mono text-lg font-bold tabular-nums", stockNow < 0 && "text-destructive")}>
+                {fmt0(stockNow)} <span className="font-sans text-sm font-normal text-muted-foreground">{uom}</span>
+              </div>
+              {context === "ck" && <div className="font-mono text-sm text-muted-foreground">฿{fmt0(stockValue)}</div>}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity mt-1">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="border-b mx-5 mt-3" />
-
-        {/* Stat pills */}
-        <div className="flex gap-3 px-5 py-3">
-          <div className="flex-1 rounded-md border px-3 py-2">
-            <div className="text-xs text-muted-foreground">Current Stock</div>
-            <div className="text-lg font-bold font-mono">
-              {fmt0(context === "branch" ? Number(branchCurrentStock) : currentStock)}{" "}
-              <span className="text-xs font-normal text-muted-foreground">{sku.usageUom}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">{context === "branch" ? "รายวัน (ล่าสุดก่อน)" : "รายการ (ล่าสุดก่อน)"}</span>
+            <div className="flex rounded-xl bg-secondary p-1">
+              {ranges.map((r) => (
+                <button
+                  key={r.days}
+                  type="button"
+                  onClick={() => setDaysBack(r.days)}
+                  className={cn("min-h-[32px] rounded-lg px-3 text-sm", daysBack === r.days ? "bg-card font-semibold shadow-card" : "text-muted-foreground")}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
           </div>
-          {context === "ck" && (
-            <div className="flex-1 rounded-md border px-3 py-2">
-              <div className="text-xs text-muted-foreground">Stock Value</div>
-              <div className="text-lg font-bold font-mono">฿{fmt0(stockValue)}</div>
+          {context === "ck" && hasMismatch && hasMovements && !disableMismatchCheck && (
+            <div className="flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>ยอดจากรายการด้านล่าง ({fmt0(finalBalance)}) ไม่ตรงกับคงเหลือ ({fmt0(currentStock)}) · อาจมีรายการที่ไม่ได้แสดงในช่วงนี้</span>
             </div>
           )}
         </div>
 
-        <div className="border-b mx-5" />
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-auto px-5 py-3">
+        <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3 p-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex gap-2">
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 flex-1" />
-                  <Skeleton className="h-4 w-12" />
-                  <Skeleton className="h-4 w-12" />
-                  <Skeleton className="h-4 w-14" />
-                </div>
+                <Skeleton key={i} className="h-12 w-full rounded-xl" />
               ))}
             </div>
           ) : context === "branch" ? (
-            /* ─── Branch context table ─── */
-            <>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                Branch Stock History
-              </p>
-              {branchRows.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
-                  <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
-                  <span>No submitted count sheets found for this SKU at this branch.</span>
-                </div>
-              ) : (
-                <table className="w-full min-w-[560px] table-fixed text-xs">
-                  <colgroup>
-                    <col style={{ width: "72px" }} />
-                    <col style={{ width: "68px" }} />
-                    <col style={{ width: "72px" }} />
-                    <col style={{ width: "72px" }} />
-                    <col style={{ width: "55px" }} />
-                    <col style={{ width: "72px" }} />
-                    <col style={{ width: "72px" }} />
-                    <col style={{ width: "72px" }} />
-                  </colgroup>
-                  <thead>
-                    <tr className={table.headerRow}>
-                      <th className={table.headerCell}>Date</th>
-                      <th className={table.headerCellNumeric}>Opening</th>
-                      <th className={table.headerCellNumeric}>Received</th>
-                      <th className={table.headerCellNumeric}>Exp.Usage</th>
-                      <th className={table.headerCellNumeric}>Waste</th>
-                      <th className={table.headerCellNumeric}>Calc.Bal</th>
-                      <th className={table.headerCellNumeric}>Physical</th>
-                      <th className={table.headerCellNumeric}>Variance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {branchRows.map((r, i) => {
-                      const received = Math.round(Number(r.received_from_ck) + Number(r.received_external));
-                      const hasPhysical = r.physical_count !== null;
-                      const variance = Number(r.variance);
-
-                      const isAdjOnly =
-                        received === 0 &&
-                        Number(r.expected_usage) === 0 &&
-                        !hasPhysical &&
-                        (adjByDate.get(r.count_date) ?? []).length > 0;
-                      return (
-                        <>
-                          <tr key={i} className={`${table.dataRow} ${isAdjOnly ? "opacity-60" : ""}`}>
-                            <td className={table.dataCellCompact}>{formatDateCompact(r.count_date)}</td>
-                            <td className={table.dataCellCompactMono}>{fmt0(Number(r.opening_balance))}</td>
-                            <td className={table.dataCellCompactMono}>
-                              {received > 0 ? (
-                                received.toLocaleString()
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className={table.dataCellCompactMono}>
-                              {Number(r.expected_usage) > 0 ? (
-                                fmt0(Number(r.expected_usage))
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className={table.dataCellCompactMono}>
-                              {Number(r.waste) > 0 ? (
-                                fmt0(Number(r.waste))
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className={`${table.dataCellCompactMono} font-semibold`}>
-                              {fmt0(Number(r.calculated_balance))}
-                            </td>
-                            <td className={table.dataCellCompactMono}>
-                              {hasPhysical ? (
-                                <span className="font-semibold">{fmt0(Number(r.physical_count))}</span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className={table.dataCellCompactMono}>
-                              {hasPhysical ? (
-                                <span
-                                  className={
-                                    variance > 0
-                                      ? "text-success"
-                                      : variance < 0
-                                        ? "text-destructive"
-                                        : "text-muted-foreground"
-                                  }
-                                >
-                                  {fmt0(variance)}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          </tr>
-                          {(adjByDate.get(r.count_date) ?? []).map((adj, ai) => (
-                            <tr
-                              key={`adj-${i}-${ai}`}
-                              className={adj.quantity < 0 ? "bg-destructive/5" : "bg-success/5"}
-                            >
-                              <td className="px-2 py-0.5" />
-                              <td colSpan={4} className="px-3 py-0.5 text-xs text-muted-foreground italic">
-                                <span className="truncate block" title={adj.reason}>
-                                  ↳ {adj.reason || "Manual adjustment"}
-                                </span>
-                              </td>
-                              <td
-                                className={`px-2 py-0.5 text-xs font-mono text-right ${adj.quantity < 0 ? "text-destructive" : "text-success"}`}
-                              >
-                                {adj.quantity < 0 ? adj.quantity.toLocaleString() : "+" + adj.quantity.toLocaleString()}
-                              </td>
-                              <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
-                              <td className="px-2 py-0.5 text-xs text-muted-foreground text-right">—</td>
-                            </tr>
-                          ))}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-              <div className="mt-3 text-xs text-muted-foreground">
-                {daysBack === 14 ? (
-                  <>
-                    Showing last 14 days ·{" "}
-                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
-                      Load 30 days
-                    </button>
-                  </>
-                ) : daysBack === 30 ? (
-                  <>
-                    Showing last 30 days ·{" "}
-                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>
-                      Load all history
-                    </button>
-                  </>
-                ) : (
-                  <>Showing all history</>
-                )}
+            branchRows.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground">
+                <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
+                ยังไม่มีของเข้า-ออกของตัวนี้ในช่วงนี้
               </div>
-            </>
-          ) : (
-            /* ─── CK context table (existing) ─── */
-            <>
-              <table className="w-full min-w-[560px] table-fixed text-xs">
-                <colgroup>
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "88px" }} />
-                  <col />
-                  <col style={{ width: "65px" }} />
-                  <col style={{ width: "65px" }} />
-                  <col style={{ width: "90px" }} />
-                </colgroup>
-                <thead>
-                  <tr className={table.headerRow}>
-                    <th className={table.headerCell}>Date</th>
-                    <th className={table.headerCell}>Type</th>
-                    <th className={table.headerCell}>Reference / Note</th>
-                    <th className={table.headerCellNumeric}>In</th>
-                    <th className={table.headerCellNumeric}>Out</th>
-                    <th className={table.headerCellNumeric}>Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movements.map((m, i) => (
-                    <tr key={i} className={table.dataRow}>
-                      <td className={table.dataCellCompact}>{formatDateCompact(m.date, m.timestamp)}</td>
-                      <td className={table.dataCellCompact}>
-                        <span
-                          className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                            m.isProductionUse ? "bg-warning/15 text-warning" : TYPE_BADGE_STYLES[m.type]
-                          }`}
-                        >
-                          {m.type}
-                        </span>
-                      </td>
-                      <td className={table.truncatedCellCompact} title={m.reference}>
-                        <span className="block truncate">{m.reference}</span>
-                        {m.lotText && (
-                          <span className="block truncate text-[10px] text-muted-foreground mt-0.5" title={m.lotText}>
-                            {m.lotText}
+            ) : (
+              <ul className="divide-y divide-border">
+                {[...branchRows].reverse().map((r) => {
+                  const received = Math.round(Number(r.received_from_ck) + Number(r.received_external));
+                  const used = Number(r.expected_usage);
+                  const waste = Number(r.waste);
+                  const hasPhysical = r.physical_count !== null;
+                  const variance = Number(r.variance);
+                  const adjs = adjByDate.get(r.count_date) ?? [];
+                  const cell = "min-w-0 rounded-lg bg-secondary px-2 py-1";
+                  const label = "block text-[12px] leading-tight text-muted-foreground";
+                  const value = "block font-mono text-[15px] font-semibold tabular-nums";
+                  return (
+                    <li key={r.count_date} className="flex flex-col gap-2 px-4 py-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="font-semibold">{thaiDate(r.count_date)}</span>
+                        {hasPhysical ? (
+                          <span className="text-sm">
+                            นับได้ <b className="font-mono text-[15px]">{fmt0(Number(r.physical_count))}</b>{" "}
+                            <span className={cn("font-semibold", Math.round(variance) === 0 ? "text-success" : "text-warning")}>
+                              {Math.round(variance) === 0 ? "ตรง" : variance > 0 ? `เกิน ${fmt0(variance)}` : `ขาด ${fmt0(-variance)}`}
+                            </span>
                           </span>
-                        )}
-                      </td>
-                      <td className={table.dataCellCompactMono}>
-                        {m.qtyIn != null && m.qtyIn > 0 ? (
-                          <span className="text-success">{fmt0(m.qtyIn)}</span>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-sm text-muted-foreground">ไม่ได้นับ</span>
                         )}
-                      </td>
-                      <td className={table.dataCellCompactMono}>
-                        {m.qtyOut != null && m.qtyOut > 0 ? (
-                          <span className="text-warning">{fmt0(m.qtyOut)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td
-                        className={`${table.dataCellCompactMono} font-semibold ${
-                          (m.runningBalance ?? 0) < 0
-                            ? "text-destructive"
-                            : (m.runningBalance ?? 0) === 0
-                              ? "text-muted-foreground"
-                              : "text-foreground"
-                        }`}
-                      >
-                        {fmt0(m.runningBalance ?? 0)}
-                      </td>
-                    </tr>
-                  ))}
-                  {!hasMovements && (
-                    <tr>
-                      <td colSpan={6} className={table.emptyState}>
-                        <div className="flex flex-col items-center gap-2">
-                          <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
-                          <span>No movements recorded yet for this SKU.</span>
+                      </div>
+                      {/* Same boxes as the count page: same place every day */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <span className={cell}>
+                          <span className={label}>ยกมา</span>
+                          <span className={value}>{fmt0(Number(r.opening_balance))}</span>
+                        </span>
+                        <span className={cn(cell, received > 0 && "bg-success-soft")}>
+                          <span className={cn(label, received > 0 && "text-success")}>รับ</span>
+                          <span className={cn(value, received > 0 ? "text-success" : "text-muted-foreground")}>{received > 0 ? `+${fmt0(received)}` : "—"}</span>
+                        </span>
+                        <span className={cell}>
+                          <span className={label}>ใช้</span>
+                          <span className={value}>{used > 0 ? `−${fmt0(used)}` : "0"}</span>
+                        </span>
+                        <span className="min-w-0 rounded-lg border-[1.5px] border-foreground bg-card px-2 py-1">
+                          <span className={label}>เหลือ</span>
+                          <span className={cn(value, Number(r.calculated_balance) < 0 && "text-destructive")}>{fmt0(Number(r.calculated_balance))}</span>
+                        </span>
+                      </div>
+                      {(waste > 0 || adjs.length > 0) && (
+                        <div className="flex flex-col gap-0.5 text-sm text-muted-foreground">
+                          {waste > 0 && <span>ของเสีย −{fmt0(waste)}</span>}
+                          {adjs.map((a, ai) => (
+                            <span key={ai} className="break-words">
+                              ปรับยอด <b className={cn("font-mono", a.quantity < 0 ? "text-destructive" : "text-success")}>{a.quantity < 0 ? `−${fmt0(-a.quantity)}` : `+${fmt0(a.quantity)}`}</b> · {a.reason || "ไม่ระบุเหตุผล"}
+                            </span>
+                          ))}
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              {hasMismatch && hasMovements && !disableMismatchCheck && (
-                <div className="flex items-center gap-2 mt-3 text-xs text-warning">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>Balance mismatch — some movements may be missing</span>
-                </div>
-              )}
-
-              <div className="mt-3 text-xs text-muted-foreground">
-                {daysBack === 14 ? (
-                  <>
-                    Showing last 14 days ·{" "}
-                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(30)}>
-                      Load 30 days
-                    </button>
-                  </>
-                ) : daysBack === 30 ? (
-                  <>
-                    Showing last 30 days ·{" "}
-                    <button className="underline hover:text-foreground" onClick={() => setDaysBack(3650)}>
-                      Load all history
-                    </button>
-                  </>
-                ) : (
-                  <>Showing all history</>
-                )}
-              </div>
-            </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : !hasMovements ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground">
+              <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
+              ยังไม่มีของเข้า-ออกของตัวนี้ในช่วงนี้
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {shown.map((m, i) => {
+                const tag = tagOf(m);
+                const isIn = m.qtyIn != null && m.qtyIn > 0;
+                const isOut = m.qtyOut != null && m.qtyOut > 0;
+                const when = m.date === "—" ? "" : `${thaiDate(m.date)}${m.timestamp && tag !== "ยกมา" ? ` ${thaiTime(m.timestamp)}` : ""}`;
+                return (
+                  <li key={i} className="flex items-start gap-3 px-4 py-3">
+                    <span className={cn("mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-bold", TAG_STYLE[tag])}>{tag}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words text-[15px] leading-snug">{tag === "นับ" ? `นับได้ ${fmt0(m.qtyIn ?? 0)} ${uom}` : m.reference}</div>
+                      {(when || m.lotText) && (
+                        <div className="text-[13px] text-muted-foreground">
+                          {when}
+                          {m.lotText && ` · ล็อต ${m.lotText}`}
+                        </div>
+                      )}
+                    </div>
+                    <span className={cn("w-[84px] shrink-0 text-right font-mono text-[15px] font-semibold tabular-nums", isIn && !m.isReset ? "text-success" : "")}>
+                      {m.isReset ? "" : isIn ? `+${fmt0(m.qtyIn!)}` : isOut ? `−${fmt0(m.qtyOut!)}` : ""}
+                    </span>
+                    <span className={cn("w-[72px] shrink-0 text-right font-mono text-[15px] tabular-nums", (m.runningBalance ?? 0) < 0 ? "text-destructive" : "text-muted-foreground", m.isReset && "font-semibold text-foreground")}>
+                      {fmt0(m.runningBalance ?? 0)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {!loading && (
+            <p className="px-4 py-3 text-center text-xs text-muted-foreground">
+              {context === "branch"
+                ? "เหลือ = ยกมา + รับ − ใช้ − ของเสีย ± ปรับยอด · วันที่นับ ยอดที่นับได้คือยอดยกมาของวันถัดไป"
+                : 'ตัวเลขขวาสุด = คงเหลือหลังรายการนั้น · แถว "นับ" คือยอดที่นับได้จริง ระบบเริ่มคิดต่อจากตรงนั้น'}
+            </p>
           )}
         </div>
       </div>

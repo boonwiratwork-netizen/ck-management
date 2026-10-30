@@ -449,7 +449,7 @@ export function PlanView({
   canEdit: boolean;
   onSave: () => void;
   onAgent: () => void;
-  onSetupBom: () => void;
+  onSetupBom: (sku: SKU) => void;
 }) {
   const [only, setOnly] = useState(true);
   const nextWeek = iso(addDays(new Date(thisWeek + "T00:00:00"), 7));
@@ -581,12 +581,15 @@ export function PlanView({
         </table>
       </div>
       {noBom.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {noBom.length} รายการยังไม่มีสูตร (BOM) ·{" "}
-          <button type="button" onClick={onSetupBom} className="text-primary hover:underline">
-            ไปตั้งสูตร
-          </button>
-        </p>
+        // Each one opens its own recipe in Cost Center (the old BOM page was a different look)
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <span>{noBom.length} รายการยังไม่มีสูตร · แตะเพื่อทำสูตร:</span>
+          {noBom.map((s) => (
+            <button key={s.id} type="button" onClick={() => onSetupBom(s)} className="min-h-[32px] rounded-full border border-border bg-card px-3 text-foreground hover:bg-secondary">
+              {s.name}
+            </button>
+          ))}
+        </div>
       )}
 
       <div data-tour="prod-save" className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-2 md:bottom-4">

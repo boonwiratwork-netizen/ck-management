@@ -69,36 +69,36 @@ import { Plus, Upload, Package, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
-  dashboard: { title: "Dashboard", subtitle: "" },
-  sku: { title: "SKU Master", subtitle: "Manage your inventory items across all categories" },
-  supplier: { title: "Suppliers", subtitle: "Your trusted ingredient partners" },
-  price: { title: "Price Master", subtitle: "Track costs across all suppliers" },
-  bom: { title: "BOM Master", subtitle: "Track what goes into every dish" },
+  dashboard: { title: "ภาพรวมครัวกลาง", subtitle: "ต้นทุนจริงเทียบสูตร" },
+  sku: { title: "รายการสินค้า (หน้าเดิม)", subtitle: "นำเข้า/ส่งออกสินค้า" },
+  supplier: { title: "ซัพพลายเออร์ (หน้าเดิม)", subtitle: "นำเข้าซัพพลายเออร์" },
+  price: { title: "ราคาทั้งหมด (หน้าเดิม)", subtitle: "ราคาทุกซัพพลายเออร์" },
+  bom: { title: "สูตร SM (หน้าเดิม)", subtitle: "สูตรหลายขั้นตอน · ผลพลอยได้" },
   receipt: { title: "รับของเข้าครัว", subtitle: "ใส่ตามบิลซัพพลายเออร์" },
-  stock: { title: "RM Stock", subtitle: "Raw material inventory levels" },
+  stock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
   production: { title: "การผลิต", subtitle: "บันทึกผลผลิตและวางแผน" },
-  smstock: { title: "SM Stock", subtitle: "Semi-finished goods inventory" },
+  smstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
   stockcount: { title: "นับสต๊อกครัว", subtitle: "นับเดือนละครั้ง" },
-  delivery: { title: "Delivery to Branches", subtitle: "Track what leaves the kitchen" },
+  delivery: { title: "ส่งของให้สาขา", subtitle: "" },
   "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
-  branches: { title: "Branches", subtitle: "Manage your restaurant locations" },
-  users: { title: "User Management", subtitle: "Team access and permissions" },
-  store: { title: "Store Overview", subtitle: "Branch operations at a glance" },
+  branches: { title: "สาขา", subtitle: "ข้อมูลสาขาและแบรนด์" },
+  users: { title: "ผู้ใช้", subtitle: "บัญชีและสิทธิ์" },
+  store: { title: "ภาพรวมสาขา", subtitle: "งานประจำวันของแต่ละสาขา" },
   "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎพิเศษ ในที่เดียว" },
   "cost-center": { title: "Cost Center", subtitle: "เมนู สินค้า สูตร ราคา ซัพพลายเออร์" },
-  "menu-master": { title: "Menu Master", subtitle: "Your menu catalog" },
-  "menu-bom": { title: "Menu BOM", subtitle: "Ingredients behind every menu item" },
-  "sp-bom": { title: "SP BOM", subtitle: "Special product recipes" },
-  "modifier-rules": { title: "Modifier Rules", subtitle: "Auto-adjust ingredients for menu options" },
+  "menu-master": { title: "รายการเมนู (หน้าเดิม)", subtitle: "นำเข้าเมนู" },
+  "menu-bom": { title: "สูตรเมนู (หน้าเดิม)", subtitle: "สูตรเมนูแบบตาราง" },
+  "sp-bom": { title: "สูตร SP (หน้าเดิม)", subtitle: "นำเข้าสูตร SP" },
+  "modifier-rules": { title: "กฎพิเศษ", subtitle: "ปรับวัตถุดิบตามตัวเลือกเมนู" },
   "sales-entry": { title: "ยอดขาย", subtitle: "นำยอดขายจาก POS เข้า" },
   "branch-receipt": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
   "branch-receipt-mobile": { title: "รับของ", subtitle: "รับของเข้าสาขา" },
   "transfer-request": { title: "ขอเบิก", subtitle: "ขอของจากครัวกลาง" },
   "daily-stock-count": { title: "นับสต๊อก", subtitle: "นับของหน้าร้านทุกวัน" },
-  "store-stock": { title: "Store Stock", subtitle: "Branch-level stock balances" },
-  "food-cost": { title: "Food Cost", subtitle: "Analyze your cost vs revenue" },
-  "sku-categories": { title: "SKU Categories", subtitle: "Manage ingredient categories" },
-  pkstock: { title: "PK Stock", subtitle: "Packaging material stock balances" },
+  "store-stock": { title: "สต๊อกสาขา", subtitle: "คงเหลือของแต่ละสาขา" },
+  "food-cost": { title: "ต้นทุนอาหาร", subtitle: "ต้นทุนเทียบยอดขาย" },
+  "sku-categories": { title: "หมวดสินค้า", subtitle: "" },
+  pkstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
 };
 
 // Define which tabs each role can access
@@ -163,10 +163,10 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
 function ContextBreadcrumb({ tab, branchName }: { tab: TabKey; branchName?: string }) {
   const ctx = tabContextMap[tab];
   if (ctx === "ck" || tab === "dashboard") {
-    return <span className="text-helper text-muted-foreground">Central Kitchen</span>;
+    return <span className="text-helper text-muted-foreground">ครัวกลาง</span>;
   }
   if (ctx === "store") {
-    return <span className="text-helper text-muted-foreground">Store{branchName ? ` — ${branchName}` : ""}</span>;
+    return <span className="text-helper text-muted-foreground">สาขา{branchName ? ` ${branchName}` : ""}</span>;
   }
   return null;
 }
