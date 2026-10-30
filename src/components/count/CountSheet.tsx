@@ -11,6 +11,21 @@ import { cn } from "@/lib/utils";
 const n0 = (n: number) => Math.round(n).toLocaleString();
 
 /**
+ * The difference as staff read it: whole units (133.6 counted as 134 is a match,
+ * not "ขาด 0"). A match shows nothing; a shortage is red (asked by the branches).
+ */
+function DiffText({ diff, big, uom }: { diff: number; big: boolean; uom?: string }) {
+  const d = Math.round(diff);
+  if (d === 0) return null;
+  const unit = uom ? ` ${uom}` : "";
+  return (
+    <span className={cn("font-semibold", d < 0 ? "text-destructive" : big ? "text-warning" : "text-success")}>
+      {d < 0 ? `ขาด ${n0(-d)}${unit}` : `เกิน ${n0(d)}${unit}`}
+    </span>
+  );
+}
+
+/**
  * Where the balance comes from, as boxes of equal width: every row puts ยกมา,
  * รับ, ใช้ in the same place, so the eye runs down them like table columns
  * (the team found the old one-line grey text too small to work from).
@@ -412,10 +427,11 @@ function CountRow({
               <WifiOff className="h-3 w-3" /> เน็ตหลุด ยังไม่บันทึก
             </span>
           ) : diff !== null && salesIn ? (
-            <span className={cn("text-xs", big ? "font-semibold text-warning" : "text-success")}>
-              {diff === 0 ? "ตรง" : diff > 0 ? `เกิน ${n0(diff)} ${uom}` : `ขาด ${n0(-diff)} ${uom}`}
-              {big && " นับซ้ำอีกที?"}
-              {save !== "saving" && !big && <Check className="ml-1 inline h-3 w-3" />}
+            <span className="text-xs">
+              <DiffText diff={diff} big={big} uom={uom} />
+              {big && <span className={Math.round(diff) < 0 ? "text-destructive" : "text-warning"}> นับซ้ำอีกที?</span>}
+              {/* Saved tick only: a match has no words */}
+              {save !== "saving" && !big && <Check className="ml-1 inline h-3 w-3 text-success" />}
             </span>
           ) : row.physicalCount === null ? (
             <span className="text-xs text-muted-foreground">ไม่มีของ ใส่ 0</span>
@@ -556,8 +572,8 @@ function DesktopRow({
           />
         </span>
       </span>
-      <span className={cn("text-right text-sm", save === "waiting" ? "font-semibold text-warning" : big ? "font-semibold text-warning" : "text-success")}>
-        {save === "waiting" ? "เน็ตหลุด" : diff === null || !salesIn ? <span className="text-muted-foreground">—</span> : diff === 0 ? "ตรง" : diff > 0 ? `เกิน ${n0(diff)}` : `ขาด ${n0(-diff)}`}
+      <span className={cn("text-right text-sm", save === "waiting" && "font-semibold text-warning")}>
+        {save === "waiting" ? "เน็ตหลุด" : diff === null || !salesIn ? <span className="text-muted-foreground">—</span> : <DiffText diff={diff} big={big} />}
       </span>
     </li>
   );
