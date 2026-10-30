@@ -50,18 +50,18 @@ interface BOMPageProps {
     deleteLine: (id: string) => unknown;
     getLinesForHeader: (headerId: string) => BOMLine[];
     addStep: (data: Omit<BOMStep, "id">) => string | Promise<string>;
-    updateStep: (id: string, data: Partial<Omit<BOMStep, "id" | "bomHeaderId">>) => void | Promise<void>;
-    deleteStep: (id: string) => void | Promise<void>;
+    updateStep: (id: string, data: Partial<Omit<BOMStep, "id" | "bomHeaderId">>) => unknown;
+    deleteStep: (id: string) => unknown;
     getStepsForHeader: (headerId: string) => BOMStep[];
     getLinesForStep: (stepId: string) => BOMLine[];
   };
   byproductData: {
     byproducts: BomByproduct[];
     getByproductsForHeader: (headerId: string) => BomByproduct[];
-    addByproduct: (data: Omit<BomByproduct, "id">) => void | Promise<void>;
-    updateByproduct: (id: string, data: Partial<Omit<BomByproduct, "id" | "bomHeaderId">>) => void | Promise<void>;
-    deleteByproduct: (id: string) => void | Promise<void>;
-    bulkUpdateAllocations: (updates: { id: string; costAllocationPct: number }[]) => void | Promise<void>;
+    addByproduct: (data: Omit<BomByproduct, "id">) => unknown;
+    updateByproduct: (id: string, data: Partial<Omit<BomByproduct, "id" | "bomHeaderId">>) => unknown;
+    deleteByproduct: (id: string) => unknown;
+    bulkUpdateAllocations: (updates: { id: string; costAllocationPct: number }[]) => unknown;
   };
   skus: SKU[];
   prices: Price[];

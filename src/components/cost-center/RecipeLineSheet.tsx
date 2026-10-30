@@ -10,6 +10,8 @@ export interface SheetLine {
   qty: number;
   /** null for SP recipes (no usable % per line) */
   yieldPct: number | null;
+  /** A step line put in as "% of what goes in" (12 = 12%); qty is then what that comes to */
+  pct?: number | null;
 }
 
 interface Props {
@@ -23,6 +25,8 @@ interface Props {
   priceOf: (skuId: string) => number;
   /** A new recipe also asks what one batch makes */
   askBatch: { label: string; uom: string } | null;
+  /** A line in a step of a multi-step recipe: grams, or a % of the step's base (what this is) */
+  step?: { name: string; base: number };
   busy: boolean;
   onSave: (next: SheetLine, batch: number | null) => void;
   onRemove?: () => void;
@@ -42,19 +46,30 @@ const num = (v: string) => {
  * swap the item, type how much a batch uses and how much of it is usable. Swapping
  * keeps the amount and %, so nothing has to be remembered or typed again.
  */
-export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf, askBatch, busy, onSave, onRemove, onClose }: Props) {
+export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf, askBatch, step, busy, onSave, onRemove, onClose }: Props) {
   const [skuId, setSkuId] = useState(line?.skuId ?? "");
-  const [qty, setQty] = useState(line ? String(line.qty) : "");
+  const [pctMode, setPctMode] = useState(line?.pct != null);
+  const [qty, setQty] = useState(line ? String(line.pct ?? line.qty) : "");
   const [yieldPct, setYieldPct] = useState(line?.yieldPct != null ? String(line.yieldPct) : "100");
   const [batch, setBatch] = useState("");
   const ing = byId.get(skuId);
   const was = line ? byId.get(line.skuId) : undefined;
   const q = num(qty);
-  const y = isSp ? 100 : num(yieldPct);
+  // Step lines have no usable % of their own (the step's yield covers the loss)
+  const y = isSp || step ? 100 : num(yieldPct);
   const b = askBatch ? num(batch) : null;
-  const valid = !!skuId && q > 0 && y > 0 && y <= 100 && (b === null || b > 0);
-  // Same as the cost engine: a line at 80% usable buys qty ÷ 0.8
-  const bought = valid ? q / (y / 100) : 0;
+  // A % needs something to be a % of (step 1 with no gram lines yet has nothing)
+  const valid = !!skuId && q > 0 && y > 0 && y <= 100 && (b === null || b > 0) && (!pctMode || (q <= 1000 && !!step && step.base > 0));
+  // Same as the cost engine: a line at 80% usable buys qty ÷ 0.8; a % line is that share of the step's base
+  const bought = !valid ? 0 : pctMode && step ? (q / 100) * step.base : q / (y / 100);
+  // Switching grams ↔ % keeps the amount (the box shows the same thing the other way)
+  const flip = (toPct: boolean) => {
+    if (toPct === pctMode) return;
+    setPctMode(toPct);
+    if (!(q > 0) || !step || !(step.base > 0)) return;
+    const next = toPct ? (q / step.base) * 100 : (q / 100) * step.base;
+    setQty(String(Math.round(next * 100) / 100));
+  };
   const unitChanged = !!line && !!was && !!ing && was.usageUom !== ing.usageUom;
   const list = line && !options.some((o) => o.value === line.skuId) && was ? [{ value: was.id, label: was.name, sublabel: `${was.skuId} · ${was.usageUom}` }, ...options] : options;
   const field = "h-12 w-full text-right font-mono text-[17px]";
@@ -115,12 +130,26 @@ export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf
           )}
         </div>
 
-        <div className={isSp ? "grid grid-cols-1" : "grid grid-cols-[1.3fr_1fr] gap-3"}>
+        {step && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold">ใส่แบบ</span>
+            <div role="radiogroup" aria-label="ใส่แบบ" className="grid grid-cols-2 overflow-hidden rounded-xl border border-border text-[15px]">
+              {[false, true].map((p) => (
+                <button key={String(p)} type="button" role="radio" aria-checked={pctMode === p} onClick={() => flip(p)} className={pctMode === p ? "h-11 bg-brand-soft font-semibold text-brand-soft-foreground" : "h-11 bg-card"}>
+                  {p ? "% ของที่เข้าขั้นนี้" : `${ing?.usageUom ?? "กรัม"} ต่อรอบ`}
+                </button>
+              ))}
+            </div>
+            {pctMode && (step.base > 0 ? <span className="text-xs text-muted-foreground">คิดจาก {Math.round(step.base).toLocaleString()} ก. ที่เข้าขั้น {step.name} · ใส่ 12 = 12% ของตรงนั้น</span> : <span className="text-sm font-semibold text-destructive">ขั้นนี้ยังไม่มีวัตถุดิบที่เป็นกรัม ใส่เป็น % ไม่ได้</span>)}
+          </div>
+        )}
+
+        <div className={isSp || step ? "grid grid-cols-1" : "grid grid-cols-[1.3fr_1fr] gap-3"}>
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold">ใช้ต่อรอบ{ing ? ` (${ing.usageUom})` : ""}</span>
-            <Input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="decimal" className={field} aria-label="ใช้ต่อรอบ" />
+            <span className="text-sm font-semibold">{pctMode ? "% ของที่เข้า" : `ใช้ต่อรอบ${ing ? ` (${ing.usageUom})` : ""}`}</span>
+            <Input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="decimal" className={field} aria-label={pctMode ? "% ของที่เข้า" : "ใช้ต่อรอบ"} />
           </label>
-          {!isSp && (
+          {!isSp && !step && (
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold">ใช้ได้จริง %</span>
               <Input value={yieldPct} onChange={(e) => setYieldPct(e.target.value)} inputMode="decimal" className={field} aria-label="ใช้ได้จริง %" />
@@ -131,7 +160,7 @@ export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf
         {valid && (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2.5 text-sm">
             <span className="text-muted-foreground">
-              {!isSp && y < 100 ? `ซื้อจริงต่อรอบ ${Math.round(bought).toLocaleString()} ${ing?.usageUom ?? ""} · ` : ""}ต้นทุนแถวนี้
+              {pctMode ? `= ${(Math.round(bought * 10) / 10).toLocaleString()} ${ing?.usageUom ?? ""} · ` : !isSp && y < 100 ? `ซื้อจริงต่อรอบ ${Math.round(bought).toLocaleString()} ${ing?.usageUom ?? ""} · ` : ""}ต้นทุนแถวนี้
             </span>
             <span className={priceOf(skuId) ? "font-mono font-semibold" : "font-semibold text-destructive"}>{priceOf(skuId) ? baht(bought * priceOf(skuId)) : "ไม่มีราคา"}</span>
           </div>
@@ -143,7 +172,7 @@ export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf
               ลบออกจากสูตร
             </Button>
           )}
-          <Button className="h-12 flex-1 text-[16px]" loading={busy} disabled={!valid} onClick={() => onSave({ skuId, qty: q, yieldPct: isSp ? null : y }, b)}>
+          <Button className="h-12 flex-1 text-[16px]" loading={busy} disabled={!valid} onClick={() => onSave(step ? { skuId, qty: bought, yieldPct: null, pct: pctMode ? q : null } : { skuId, qty: q, yieldPct: isSp ? null : y }, b)}>
             {line ? "บันทึก" : "เพิ่มเข้าสูตร"}
           </Button>
         </div>

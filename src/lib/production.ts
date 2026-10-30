@@ -4,8 +4,8 @@
  * plan figures (daily need, how long stock lasts, what to make).
  */
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
+import { resolveSm, resolveSteps } from "./cost-engine";
 
-/** Ingredients one batch uses — same resolution as before (multi-step percent lines against the step input) */
 /**
  * What one batch takes out of stock. Simple recipes take the amount BOUGHT: the
  * recipe line is what goes in after trimming, so 100 g of garlic at 55% usable is
@@ -18,18 +18,8 @@ export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: 
   const bLines = lines.filter((l) => l.bomHeaderId === header.id);
   const out: { skuId: string; qty: number }[] = [];
   if (header.bomMode === "multistep") {
-    const sorted = steps.filter((s) => s.bomHeaderId === header.id).sort((a, b) => a.stepNumber - b.stepNumber);
-    let prevStepOutput = 0;
-    sorted.forEach((step, idx) => {
-      const stepLines = bLines.filter((l) => l.stepId === step.id);
-      const stepInput = idx === 0 ? stepLines.filter((l) => !l.qtyType || l.qtyType === "fixed").reduce((s, l) => s + l.qtyPerBatch, 0) : prevStepOutput;
-      for (const line of stepLines) {
-        out.push({ skuId: line.rmSkuId, qty: line.qtyType === "percent" && line.percentOfInput ? line.percentOfInput * stepInput : line.qtyPerBatch });
-      }
-      const addedQty =
-        idx === 0 ? 0 : stepLines.reduce((s, l) => s + (l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * stepInput : l.qtyPerBatch), 0);
-      prevStepOutput = (idx === 0 ? stepInput : stepInput + addedQty) * step.yieldPercent;
-    });
+    // The same steps the cost uses (percent lines against the step's base)
+    for (const st of resolveSteps(bLines, steps.filter((s) => s.bomHeaderId === header.id))) for (const r of st.lines) out.push({ skuId: r.line.rmSkuId, qty: r.qty });
   } else {
     for (const line of bLines) {
       const y = line.yieldPercent ?? 1;
@@ -42,22 +32,12 @@ export function ingredientsPerBatch(header: BOMHeader, lines: BOMLine[], steps: 
 /**
  * What one batch makes — the figure production divides an output by to know how much
  * raw material it took (so every screen that compares with production uses this one).
- * Multi-step: step 1's lines add up to its input, later steps add their lines (percent
- * lines against the step input), each step loses its yield.
+ * Multi-step: the cost engine's steps (resolveSteps).
  */
 export function outputPerBatch(header: BOMHeader, lines: BOMLine[], steps: BOMStep[]): number {
-  if (header.bomMode !== "multistep") return header.batchSize * header.yieldPercent;
-  const sorted = steps.filter((s) => s.bomHeaderId === header.id).sort((a, b) => a.stepNumber - b.stepNumber);
-  if (sorted.length === 0) return header.batchSize * header.yieldPercent;
-  const own = lines.filter((l) => l.bomHeaderId === header.id);
-  let prevOutput = 0;
-  sorted.forEach((step, idx) => {
-    const sLines = own.filter((l) => l.stepId === step.id);
-    const inputQty = idx === 0 ? sLines.reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
-    const addedQty = idx === 0 ? 0 : sLines.reduce((s, l) => s + (l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * inputQty : l.qtyPerBatch), 0);
-    prevOutput = (idx === 0 ? inputQty : inputQty + addedQty) * step.yieldPercent;
-  });
-  return prevOutput;
+  const own = steps.filter((s) => s.bomHeaderId === header.id);
+  if (header.bomMode !== "multistep" || own.length === 0) return header.batchSize * header.yieldPercent;
+  return resolveSm(header, lines.filter((l) => l.bomHeaderId === header.id), own).output;
 }
 
 /**

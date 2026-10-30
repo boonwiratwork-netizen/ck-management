@@ -218,7 +218,6 @@ export default function CostCenterPage(props: Props) {
     { tab: "sku", label: "นำเข้า/ส่งออกสินค้า (CSV)" },
     { tab: "price", label: "ราคาทั้งหมด · ส่งออก Excel" },
     { tab: "supplier", label: "นำเข้าซัพพลายเออร์ (CSV)" },
-    { tab: "bom", label: "สูตร SM หลายขั้นตอน · ผลพลอยได้" },
     { tab: "sp-bom", label: "นำเข้าสูตร SP (CSV)" },
     { tab: "menu-master", label: "นำเข้าเมนู (CSV)" },
     { tab: "menu-bom", label: "สูตรเมนูแบบตาราง" },
@@ -251,7 +250,7 @@ export default function CostCenterPage(props: Props) {
             <ProductOverview summaries={summaries} onOpenProduct={openProduct} />
             {tools.length > 0 && (
               <details className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือเดิม (นำเข้าไฟล์ · หมวด · สูตรหลายขั้นตอน)</summary>
+                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือเดิม (นำเข้าไฟล์ · หมวด)</summary>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {tools.map((t) => (
                     <Button key={t.tab} variant="outline" className="h-10" onClick={() => props.onNavigate(t.tab)}>
@@ -353,7 +352,7 @@ export default function CostCenterPage(props: Props) {
               categories={props.categories}
               book={book}
               recipeCosts={recipeCosts}
-              recipeRows={{ headers: props.bomHeaders, lines: props.bomLines, spLines: props.spLines }}
+              recipeRows={{ headers: props.bomHeaders, lines: props.bomLines, steps: props.bomSteps, byproducts: props.byproducts, spLines: props.spLines }}
               recipeActions={props.recipeActions}
               canEdit={canEditProducts}
               actions={props.productActions}

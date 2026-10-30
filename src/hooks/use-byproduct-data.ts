@@ -25,7 +25,7 @@ export function useByproductData() {
     return byproducts.filter(b => b.bomHeaderId === headerId);
   }, [byproducts]);
 
-  const addByproduct = useCallback(async (data: Omit<BomByproduct, 'id'>) => {
+  const addByproduct = useCallback(async (data: Omit<BomByproduct, 'id'>): Promise<boolean> => {
     const { data: row, error } = await supabase.from('bom_byproducts' as any).insert({
       bom_header_id: data.bomHeaderId,
       sku_id: data.skuId,
@@ -34,11 +34,12 @@ export function useByproductData() {
       cost_allocation_pct: data.costAllocationPct,
       tracks_inventory: data.tracksInventory,
     } as any).select().single();
-    if (error) { toast.error('Failed to add by-product: ' + error.message); return; }
+    if (error) { toast.error('Failed to add by-product: ' + error.message); return false; }
     setByproducts(prev => [...prev, toByproduct(row)]);
+    return true;
   }, []);
 
-  const updateByproduct = useCallback(async (id: string, data: Partial<Omit<BomByproduct, 'id' | 'bomHeaderId'>>) => {
+  const updateByproduct = useCallback(async (id: string, data: Partial<Omit<BomByproduct, 'id' | 'bomHeaderId'>>): Promise<boolean> => {
     const d: any = {};
     if (data.skuId !== undefined) d.sku_id = data.skuId;
     if (data.name !== undefined) d.name = data.name;
@@ -47,14 +48,16 @@ export function useByproductData() {
     if (data.tracksInventory !== undefined) d.tracks_inventory = data.tracksInventory;
     d.updated_at = new Date().toISOString();
     const { error } = await supabase.from('bom_byproducts' as any).update(d).eq('id', id);
-    if (error) { toast.error('Failed to update by-product: ' + error.message); return; }
+    if (error) { toast.error('Failed to update by-product: ' + error.message); return false; }
     setByproducts(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
+    return true;
   }, []);
 
-  const deleteByproduct = useCallback(async (id: string) => {
+  const deleteByproduct = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('bom_byproducts' as any).delete().eq('id', id);
-    if (error) { toast.error('Failed to delete by-product: ' + error.message); return; }
+    if (error) { toast.error('Failed to delete by-product: ' + error.message); return false; }
     setByproducts(prev => prev.filter(b => b.id !== id));
+    return true;
   }, []);
 
   // Bulk update allocation percentages for a header
@@ -68,8 +71,14 @@ export function useByproductData() {
     }));
   }, []);
 
+  // A deleted recipe takes its by-products with it (the database cascades)
+  const forgetHeader = useCallback((headerId: string) => {
+    setByproducts(prev => prev.filter(b => b.bomHeaderId !== headerId));
+  }, []);
+
   return {
     byproducts,
+    forgetHeader,
     getByproductsForHeader,
     addByproduct,
     updateByproduct,

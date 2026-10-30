@@ -2,8 +2,7 @@
  * The one place recipe costs are worked out (Cost Center). Before this there were
  * three copies — the BOM screen, the BOM price sync and the SP BOM page — and they
  * disagreed (step 1 of a multi-step recipe, line yields rounded on screen, SP line
- * yields counted only on import). Price changes and Cost Center use this; the old
- * BOM and SP BOM pages still save through bom-price-sync until they move here.
+ * yields counted only on import). Price changes, Cost Center and production use this.
  *
  * Prices are per usage unit (per gram for most things). A recipe's cost per unit is
  * stored as that SM/SP item's "BOM Calculation" price, so menus, food cost and stock
@@ -84,7 +83,28 @@ export interface ResolvedLine {
  */
 export function resolveSm(header: CostBomHeader, lines: CostBomLine[], steps: CostBomStep[]): { lines: ResolvedLine[]; output: number } {
   if (header.bomMode !== "multistep") return { lines: lines.map((l) => ({ line: l, qty: withYield(l.qtyPerBatch, l.yieldPercent) })), output: header.batchSize * header.yieldPercent };
-  const out: ResolvedLine[] = [];
+  const r = resolveSteps(lines, steps);
+  return { lines: r.flatMap((s) => s.lines), output: r.length ? r[r.length - 1].output : 0 };
+}
+
+/** One step of a multi-step recipe, as a batch goes through it */
+export interface ResolvedStep<S extends CostBomStep = CostBomStep> {
+  step: S;
+  /** What a "percent" line in this step is a share of: step 1's fixed lines, else the last step's output */
+  base: number;
+  /** Everything in the pot at this step: the last step's output plus this step's lines */
+  input: number;
+  output: number;
+  lines: ResolvedLine[];
+}
+
+/**
+ * Multi-step recipes, step by step: each step's output feeds the next; step 1's
+ * input is its own lines, a "percent" line is that share of the step's base (line
+ * yields don't apply). Production, the cost and the editor all read this.
+ */
+export function resolveSteps<S extends CostBomStep>(lines: CostBomLine[], steps: S[]): ResolvedStep<S>[] {
+  const out: ResolvedStep<S>[] = [];
   let prevOutput = 0;
   [...steps]
     .sort((a, b) => a.stepNumber - b.stepNumber)
@@ -92,11 +112,11 @@ export function resolveSm(header: CostBomHeader, lines: CostBomLine[], steps: Co
       const own = lines.filter((l) => l.stepId === step.id);
       const base = idx === 0 ? own.filter((l) => l.qtyType !== "percent").reduce((s, l) => s + l.qtyPerBatch, 0) : prevOutput;
       const resolved = own.map((l) => ({ line: l, qty: l.qtyType === "percent" && l.percentOfInput ? l.percentOfInput * base : l.qtyPerBatch }));
-      const added = resolved.reduce((s, r) => s + r.qty, 0);
-      out.push(...resolved);
-      prevOutput = (idx === 0 ? added : prevOutput + added) * step.yieldPercent;
+      const input = (idx === 0 ? 0 : prevOutput) + resolved.reduce((s, r) => s + r.qty, 0);
+      prevOutput = input * step.yieldPercent;
+      out.push({ step, base, input, output: prevOutput, lines: resolved });
     });
-  return { lines: out, output: prevOutput };
+  return out;
 }
 
 /** Cost of one SM recipe */

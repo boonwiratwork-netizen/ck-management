@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { SKU } from "@/types/sku";
-import type { BOMHeader, BOMLine } from "@/types/bom";
+import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
+import type { BomByproduct } from "@/types/byproduct";
 import type { SpBomLine } from "@/types/sp-bom";
 import { resolveSm, spCost } from "@/lib/cost-engine";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -13,6 +14,7 @@ import { toast } from "sonner";
 import { useFitsWidth } from "@/hooks/use-fits-width";
 import { KindBadge, baht, perUnit } from "./parts";
 import { RecipeLineSheet, type SheetLine } from "./RecipeLineSheet";
+import { useRecostSoon } from "./use-recost-soon";
 
 export interface RecipeEditActions {
   addHeader: (data: Omit<BOMHeader, "id">) => Promise<string>;
@@ -24,6 +26,13 @@ export interface RecipeEditActions {
   spUpdateLine: (id: string, data: Partial<Omit<SpBomLine, "id">>) => Promise<boolean>;
   spUpdateBatchYield: (spSkuId: string, qty: number, uom: string) => Promise<boolean>;
   spDeleteLine: (id: string) => Promise<boolean>;
+  deleteHeader: (id: string) => Promise<boolean>;
+  addStep: (data: Omit<BOMStep, "id">) => Promise<string>;
+  updateStep: (id: string, data: Partial<Omit<BOMStep, "id" | "bomHeaderId">>) => Promise<boolean>;
+  deleteStep: (id: string) => Promise<boolean>;
+  addByproduct: (data: Omit<BomByproduct, "id">) => Promise<boolean>;
+  updateByproduct: (id: string, data: Partial<Omit<BomByproduct, "id" | "bomHeaderId">>) => Promise<boolean>;
+  deleteByproduct: (id: string) => Promise<boolean>;
 }
 
 interface Props {
@@ -41,17 +50,15 @@ interface Props {
   onOpenProduct: (skuId: string) => void;
   /** Items built on this one (directly or deeper): can't go into its recipe (a loop) */
   dependents: Set<string>;
-  /** What the same pot also gives (น้ำสต๊อก → น้ำมันไก่ …): shown, and their share comes off this item's cost */
-  byproducts?: { skuId: string | null; name: string; outputQty: number; costAllocationPct: number }[];
-  /** Where by-products are set (the BOM page) */
-  onEditByproducts?: () => void;
+  /** By-products' total share of the pot's cost (0–100): comes off this item's cost */
+  byproductPct?: number;
 }
 
-const num = (v: string) => {
+export const num = (v: string) => {
   const n = Number(v.replace(/,/g, ""));
   return Number.isFinite(n) ? n : NaN;
 };
-const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
+export const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
   // Only boxes on screen: the phone cards and the computer table both carry them
@@ -67,27 +74,8 @@ const enterNext = (e: React.KeyboardEvent<HTMLInputElement>) => {
  * leave the box (Enter goes to the next one), then the cost of this item and every
  * recipe and menu built on it is worked out again.
  */
-export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents, byproducts = [], onEditByproducts }: Props) {
-  // Several boxes in a row → one recost once typing stops
-  const timer = useRef<ReturnType<typeof setTimeout>>();
-  const pending = useRef<(() => void) | null>(null);
-  pending.current = pending.current && changedNow;
-  const onChanged = () => {
-    clearTimeout(timer.current);
-    pending.current = changedNow;
-    timer.current = setTimeout(() => {
-      pending.current = null;
-      changedNow();
-    }, 800);
-  };
-  // Leaving the recipe before the wait is up still recosts (never dropped)
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current);
-      pending.current?.();
-    },
-    [],
-  );
+export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents, byproductPct: bpPct = 0 }: Props) {
+  const onChanged = useRecostSoon(changedNow);
   const isSp = sku.type === "SP";
   const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const [adding, setAdding] = useState("");
@@ -115,7 +103,6 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
   const batchCost = rows.reduce((s, r) => s + r.used * priceOf(r.skuId), 0);
   const output = isSp ? spLines[0]?.batchYieldQty ?? 0 : header ? header.batchSize * header.yieldPercent : 0;
   // By-products take their set share of the pot's cost (same as the cost engine)
-  const bpPct = byproducts.reduce((s, b) => s + (b.costAllocationPct || 0), 0);
   const perUse = output > 0 ? (batchCost * Math.max(0, 100 - bpPct)) / 100 / output : 0;
   const spTotal = isSp ? spCost(spLines.map((l) => ({ ...l })), priceOf) : null;
 
@@ -416,34 +403,6 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
           </table>
         </div>
       </section>
-      {byproducts.length > 0 && (
-        <section className="rounded-2xl border border-border bg-card px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold">ได้จากหม้อเดียวกัน (ผลพลอยได้)</h3>
-            {canEdit && onEditByproducts && (
-              <Button variant="ghost" className="hidden h-9 text-sm lg:inline-flex" onClick={onEditByproducts}>
-                แก้ผลพลอยได้ (หน้า BOM)
-              </Button>
-            )}
-          </div>
-          <ul className="mt-1 divide-y divide-border text-sm">
-            {byproducts.map((b) => (
-              <li key={b.skuId ?? b.name} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-2">
-                <button type="button" disabled={!b.skuId} onClick={() => b.skuId && onOpenProduct(b.skuId)} className="min-w-0 break-words text-left font-medium hover:underline disabled:no-underline">
-                  {b.name}
-                </button>
-                <span className="font-mono text-muted-foreground">
-                  {b.outputQty.toLocaleString()} {sku.usageUom} · ต้นทุน {Math.round(b.costAllocationPct * 10) / 10}%
-                  {b.outputQty > 0 && <> · {perUnit((batchCost * b.costAllocationPct) / 100 / b.outputQty, sku.usageUom)}</>}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-1 text-xs text-muted-foreground">
-            ตัวนี้รับต้นทุน {Math.round(Math.max(0, 100 - bpPct) * 10) / 10}% ของหม้อ · จำนวนที่ได้จริงใส่ตอนบันทึกผลิตแต่ละหม้อ
-          </p>
-        </section>
-      )}
       <p className="text-sm text-muted-foreground">
         {output > 0 ? (
           <>

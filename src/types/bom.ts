@@ -19,9 +19,9 @@ export interface BOMLine {
   qtyPerBatch: number;     // in usage UOM
   yieldPercent: number;    // 0–1 decimal, e.g. 0.35 = 35%
   // For multi-step: which step this ingredient belongs to
-  stepId?: string;
-  qtyType?: IngredientQtyType;
-  percentOfInput?: number; // e.g. 0.10 = 10%
+  stepId?: string | null;
+  qtyType?: IngredientQtyType | null;
+  percentOfInput?: number | null; // e.g. 0.10 = 10%
 }
 
 export interface BOMStep {

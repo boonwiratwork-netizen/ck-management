@@ -672,6 +672,18 @@ const Index = () => {
                       spUpdateLine: spBomData.updateLine,
                       spUpdateBatchYield: spBomData.updateBatchYield,
                       spDeleteLine: spBomData.deleteLine,
+                      deleteHeader: async (id) => {
+                        const ok = await bomData.deleteHeader(id);
+                        // Its by-products went with it in the database
+                        if (ok) byproductData.forgetHeader(id);
+                        return ok;
+                      },
+                      addStep: bomData.addStep,
+                      updateStep: bomData.updateStep,
+                      deleteStep: bomData.deleteStep,
+                      addByproduct: byproductData.addByproduct,
+                      updateByproduct: byproductData.updateByproduct,
+                      deleteByproduct: byproductData.deleteByproduct,
                     }}
                     menuLines={menuBomData.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
                     canEditProducts={isManagement || role === "ck_manager"}

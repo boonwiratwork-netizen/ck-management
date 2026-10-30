@@ -8,7 +8,7 @@ import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
 import type { Supplier } from "@/types/supplier";
 import type { SpBomLine } from "@/types/sp-bom";
-import type { BOMHeader, BOMLine } from "@/types/bom";
+import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import type { BomByproduct } from "@/types/byproduct";
 import { EMPTY_SUPPLIER } from "@/types/supplier";
 import { recost } from "@/lib/cost-engine";
@@ -58,6 +58,7 @@ export default function CostCenterDemo() {
   const [headers, setHeaders] = useState<BOMHeader[]>([]);
   const [bomLines, setBomLines] = useState<BOMLine[]>([]);
   const [byproducts, setByproducts] = useState<BomByproduct[]>([]);
+  const [steps, setSteps] = useState<BOMStep[]>([]);
 
   useEffect(() => {
     fetch("/fixtures.local/menu-setup.json")
@@ -82,7 +83,14 @@ export default function CostCenterDemo() {
         const h: BOMHeader = { id: "h-0051", smSkuId: id("SM-0051"), productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1 };
         // น้ำสต๊อก with its two by-products (as live): edited on a phone in Cost Center
         const stock: BOMHeader = { id: "h-0010", smSkuId: id("SM-0010"), productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1 };
-        setHeaders([h, stock]);
+        // สันนอกชาชู as live: trim 82% → sous vide 90% (+% seasoning) → smoke (+1% wood)
+        const chashu: BOMHeader = { id: "h-0007", smSkuId: id("SM-0007"), productionType: "CK", bomMode: "multistep", batchSize: 0, yieldPercent: 0.7 };
+        setHeaders([h, stock, chashu]);
+        setSteps([
+          { id: "st1", bomHeaderId: chashu.id, stepNumber: 1, stepName: "trim", yieldPercent: 0.82 },
+          { id: "st2", bomHeaderId: chashu.id, stepNumber: 2, stepName: "sous vide", yieldPercent: 0.9 },
+          { id: "st3", bomHeaderId: chashu.id, stepNumber: 3, stepName: "smoke", yieldPercent: 0.9999 },
+        ]);
         setByproducts([
           { id: "bp1", bomHeaderId: stock.id, skuId: id("SM-0002"), name: "น้ำมันไก่", outputQty: 8000, costAllocationPct: 11.27, tracksInventory: true },
           { id: "bp2", bomHeaderId: stock.id, skuId: id("SM-0016"), name: "น้ำสต๊อกโทริ ไพตัน", outputQty: 30000, costAllocationPct: 42.25, tracksInventory: true },
@@ -94,7 +102,19 @@ export default function CostCenterDemo() {
             rmSkuId: id(c as string),
             qtyPerBatch: q as number,
             yieldPercent: y as number,
-          })).concat([["RM-0195", 30000, 1], ["RM-0048", 500, 1]].map(([c, q, y], i) => ({ id: `sb${i}`, bomHeaderId: stock.id, rmSkuId: id(c as string), qtyPerBatch: q as number, yieldPercent: y as number }))),
+          })).concat([["RM-0195", 30000, 1], ["RM-0048", 500, 1]].map(([c, q, y], i) => ({ id: `sb${i}`, bomHeaderId: stock.id, rmSkuId: id(c as string), qtyPerBatch: q as number, yieldPercent: y as number })))
+            .concat(
+              ([["st1", "RM-0044", 1000, null], ["st2", "RM-0032", 0, 0.12], ["st2", "RM-0028", 0, 0.01], ["st2", "RM-0070", 0, 0.02], ["st2", "RM-0059", 0, 0.005], ["st2", "RM-0068", 0, 0.01], ["st3", "RM-0084", 0, 0.01]] as const).map(([st, c, q, pct], i) => ({
+                id: `cl${i}`,
+                bomHeaderId: chashu.id,
+                rmSkuId: id(c),
+                qtyPerBatch: q,
+                yieldPercent: 1,
+                stepId: st,
+                qtyType: pct ? ("percent" as const) : ("fixed" as const),
+                percentOfInput: pct,
+              })),
+            ),
         );
       });
   }, []);
@@ -106,7 +126,7 @@ export default function CostCenterDemo() {
     ["2026-10-16", 0.22], ["2026-10-12", 0.22], ["2026-10-05", 0.23], ["2026-09-05", 0.115],
   ].map(([date, u]) => ({ skuId: idOf("RM-0027"), supplierId: "s-fk", date: date as string, unitPrice: u as number, stdUnitPrice: 0.1, qty: 1000 }));
   const recostIn = (ps: Price[], ids: string[]) => {
-    const book = { headers, lines: bomLines, steps: [], byproducts, spLines: fx.spLines };
+    const book = { headers, lines: bomLines, steps, byproducts, spLines: fx.spLines };
     const map = new Map<string, number>();
     for (const p of ps) if (p.isActive && !map.has(p.skuId)) map.set(p.skuId, p.pricePerUsageUom);
     const out = recost(ids, book, map);
@@ -141,7 +161,7 @@ export default function CostCenterDemo() {
         categories={CATS}
         bomHeaders={headers}
         bomLines={bomLines}
-        bomSteps={[]}
+        bomSteps={steps}
         byproducts={byproducts}
         spLines={fx.spLines}
         menuLines={fx.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
@@ -197,6 +217,18 @@ export default function CostCenterDemo() {
           spUpdateLine: async () => true,
           spUpdateBatchYield: async () => true,
           spDeleteLine: async () => true,
+          deleteHeader: async (id) => (await wait(), setHeaders((p) => p.filter((h) => h.id !== id)), setBomLines((p) => p.filter((l) => l.bomHeaderId !== id)), setSteps((p) => p.filter((x) => x.bomHeaderId !== id)), setByproducts((p) => p.filter((b) => b.bomHeaderId !== id)), true),
+          addStep: async (data) => {
+            await wait();
+            const id = crypto.randomUUID();
+            setSteps((p) => [...p, { ...data, id }]);
+            return id;
+          },
+          updateStep: async (id, patch) => (await wait(), setSteps((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))), true),
+          deleteStep: async (id) => (await wait(), setSteps((p) => p.filter((x) => x.id !== id)), setBomLines((p) => p.filter((l) => l.stepId !== id)), true),
+          addByproduct: async (data) => (await wait(), setByproducts((p) => [...p, { ...data, id: crypto.randomUUID() }]), true),
+          updateByproduct: async (id, patch) => (await wait(), setByproducts((p) => p.map((b) => (b.id === id ? { ...b, ...patch } : b))), true),
+          deleteByproduct: async (id) => (await wait(), setByproducts((p) => p.filter((b) => b.id !== id)), true),
         }}
       />
     </div>

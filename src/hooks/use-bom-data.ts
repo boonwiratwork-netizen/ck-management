@@ -56,15 +56,16 @@ export function useBomData() {
     return true;
   }, []);
 
-  const deleteHeader = useCallback(async (id: string) => {
+  const deleteHeader = useCallback(async (id: string): Promise<boolean> => {
     // Delete lines and steps first (cascade should handle but be safe)
     await supabase.from('bom_lines').delete().eq('bom_header_id', id);
     await supabase.from('bom_steps').delete().eq('bom_header_id', id);
     const { error } = await supabase.from('bom_headers').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete BOM: ' + error.message); return; }
+    if (error) { toast.error('Failed to delete BOM: ' + error.message); return false; }
     setHeaders(prev => prev.filter(h => h.id !== id));
     setLines(prev => prev.filter(l => l.bomHeaderId !== id));
     setSteps(prev => prev.filter(s => s.bomHeaderId !== id));
+    return true;
   }, []);
 
   const addLine = useCallback(async (data: Omit<BOMLine, 'id'>): Promise<boolean> => {
@@ -84,7 +85,7 @@ export function useBomData() {
     if (data.rmSkuId !== undefined) d.rm_sku_id = data.rmSkuId;
     if (data.qtyPerBatch !== undefined) d.qty_per_batch = data.qtyPerBatch;
     if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
-    if (data.stepId !== undefined) d.step_id = data.stepId;
+    if (data.stepId !== undefined) d.step_id = data.stepId ?? null;
     if (data.qtyType !== undefined) d.qty_type = data.qtyType;
     if (data.percentOfInput !== undefined) d.percent_of_input = data.percentOfInput;
     const { error } = await supabase.from('bom_lines').update(d).eq('id', id);
@@ -114,22 +115,25 @@ export function useBomData() {
     return row.id;
   }, []);
 
-  const updateStep = useCallback(async (id: string, data: Partial<Omit<BOMStep, 'id' | 'bomHeaderId'>>) => {
+  const updateStep = useCallback(async (id: string, data: Partial<Omit<BOMStep, 'id' | 'bomHeaderId'>>): Promise<boolean> => {
     const d: any = {};
     if (data.stepNumber !== undefined) d.step_number = data.stepNumber;
     if (data.stepName !== undefined) d.step_name = data.stepName;
     if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     const { error } = await supabase.from('bom_steps').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update step: ' + error.message); return; }
+    if (error) { toast.error('Failed to update step: ' + error.message); return false; }
     setSteps(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    return true;
   }, []);
 
-  const deleteStep = useCallback(async (id: string) => {
-    await supabase.from('bom_lines').delete().eq('step_id', id);
+  const deleteStep = useCallback(async (id: string): Promise<boolean> => {
+    const { error: lineError } = await supabase.from('bom_lines').delete().eq('step_id', id);
+    if (lineError) { toast.error('Failed to delete step: ' + lineError.message); return false; }
     const { error } = await supabase.from('bom_steps').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete step: ' + error.message); return; }
+    if (error) { toast.error('Failed to delete step: ' + error.message); return false; }
     setSteps(prev => prev.filter(s => s.id !== id));
     setLines(prev => prev.filter(l => l.stepId !== id));
+    return true;
   }, []);
 
   const getStepsForHeader = useCallback((headerId: string) => {

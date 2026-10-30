@@ -23,7 +23,11 @@ import { changedFields, describeChange, priceToRestore, type ChangeRow } from "@
 import { loadProductHistory, undoChange } from "@/lib/change-history-db";
 import { toast } from "sonner";
 import { RecipeEditor, type RecipeEditActions } from "./RecipeEditor";
-import type { BOMHeader, BOMLine } from "@/types/bom";
+import { StepRecipeEditor } from "./StepRecipeEditor";
+import { ByproductEditor } from "./ByproductEditor";
+import { RecipeSettings } from "./RecipeSettings";
+import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
+import type { BomByproduct } from "@/types/byproduct";
 import type { SpBomLine } from "@/types/sp-bom";
 
 type WorkTab = "health" | "info" | "price" | "recipe" | "use" | "history";
@@ -63,7 +67,7 @@ interface Props {
   /** True cost of every recipe-made item today (allRecipeCosts) */
   recipeCosts: Map<string, number>;
   /** The recipe rows themselves (with ids), for editing */
-  recipeRows: { headers: BOMHeader[]; lines: BOMLine[]; spLines: SpBomLine[] };
+  recipeRows: { headers: BOMHeader[]; lines: BOMLine[]; steps: BOMStep[]; byproducts: BomByproduct[]; spLines: SpBomLine[] };
   recipeActions: RecipeEditActions;
   canEdit: boolean;
   actions: ProductActions;
@@ -706,12 +710,18 @@ function RecipePanel(props: Props) {
       }))
     : spLines.map((l) => ({ id: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, cost: l.qtyPerBatch * priceOf(l.ingredientSkuId) }));
   const stale = summary.checks.some((c) => c.id === "stale-cost");
-  const editPage: TabKey = sku.type === "SM" ? "bom" : "sp-bom";
-  const hasByproducts = !!header && book.byproducts.some((b) => b.bomHeaderId === header.id);
+  const rr = props.recipeRows;
+  const ownHeader = rr.headers.find((h) => h.smSkuId === sku.id) ?? null;
+  const ownLines = ownHeader ? rr.lines.filter((l) => l.bomHeaderId === ownHeader.id) : [];
+  const ownSteps = ownHeader ? rr.steps.filter((s) => s.bomHeaderId === ownHeader.id) : [];
+  const ownBps = ownHeader ? rr.byproducts.filter((b) => b.bomHeaderId === ownHeader.id) : [];
+  const bpPct = ownBps.reduce((t, b) => t + (b.costAllocationPct || 0), 0);
+  const dependents = new Set(affectedRecipes([sku.id], book));
 
-  // Simple SM recipes (by-products shown, their share taken off) and SP recipes are
-  // edited right here, phone included. Multi-step recipes still open the BOM page.
-  const editableHere = (sku.type === "SP" || !header || header.bomMode !== "multistep") && !(summary.madeFrom.length && !header && !spLines.length);
+  // Every SM recipe (simple or step by step, with its by-products and settings) and
+  // every SP recipe is edited right here, phone included. A by-product is made by
+  // its parent's recipe, so it points there instead.
+  const editableHere = !(summary.madeFrom.length && !header && !spLines.length);
   if (editableHere && (canEdit || header || spLines.length))
     return (
       <div className="flex flex-col gap-3">
@@ -723,21 +733,73 @@ function RecipePanel(props: Props) {
             </Button>
           </div>
         )}
-        <RecipeEditor
-          sku={sku}
-          skus={skus}
-          header={props.recipeRows.headers.find((h) => h.smSkuId === sku.id) ?? null}
-          lines={props.recipeRows.lines.filter((l) => l.bomHeaderId === header?.id)}
-          spLines={props.recipeRows.spLines.filter((l) => l.spSkuId === sku.id)}
-          priceOf={priceOf}
-          canEdit={canEdit}
-          actions={props.recipeActions}
-          onChanged={() => actions.recost(sku.id)}
-          onOpenProduct={onOpenProduct}
-          dependents={new Set(affectedRecipes([sku.id], book))}
-          byproducts={hasByproducts && header ? book.byproducts.filter((b) => b.bomHeaderId === header.id).map((b) => ({ skuId: b.skuId ?? null, name: b.skuId ? byId.get(b.skuId)?.name ?? "ผลพลอยได้" : "ผลพลอยได้", outputQty: b.outputQty, costAllocationPct: b.costAllocationPct })) : []}
-          onEditByproducts={() => onNavigate(editPage)}
-        />
+        {ownHeader && (
+          <RecipeSettings
+            key={ownHeader.id}
+            sku={sku}
+            header={ownHeader}
+            lines={ownLines}
+            steps={ownSteps}
+            all={{ headers: rr.headers, lines: rr.lines, steps: rr.steps }}
+            skus={skus}
+            prices={prices}
+            canEdit={canEdit}
+            actions={props.recipeActions}
+            onChanged={() => actions.recost(sku.id)}
+            onDeleted={() => actions.recost(sku.id)}
+          />
+        )}
+        {ownHeader?.bomMode === "multistep" ? (
+          <StepRecipeEditor
+            // Another recipe: a fresh editor (its pending recost belongs to the old one)
+            key={ownHeader.id}
+            sku={sku}
+            skus={skus}
+            header={ownHeader}
+            lines={ownLines}
+            steps={ownSteps}
+            priceOf={priceOf}
+            canEdit={canEdit}
+            actions={props.recipeActions}
+            onChanged={() => actions.recost(sku.id)}
+            onOpenProduct={onOpenProduct}
+            dependents={dependents}
+            byproductPct={bpPct}
+          />
+        ) : (
+          <RecipeEditor
+            key={ownHeader?.id ?? sku.id}
+            sku={sku}
+            skus={skus}
+            header={ownHeader}
+            lines={ownLines}
+            spLines={rr.spLines.filter((l) => l.spSkuId === sku.id)}
+            priceOf={priceOf}
+            canEdit={canEdit}
+            actions={props.recipeActions}
+            onChanged={() => actions.recost(sku.id)}
+            onOpenProduct={onOpenProduct}
+            dependents={dependents}
+            byproductPct={bpPct}
+          />
+        )}
+        {ownHeader && result && (
+          <ByproductEditor
+            key={ownHeader.id}
+            sku={sku}
+            skus={skus}
+            headerId={ownHeader.id}
+            byproducts={ownBps}
+            batchCost={result.batchCost}
+            mainOutput={result.output ?? 0}
+            canEdit={canEdit}
+            actions={props.recipeActions}
+            onChanged={() => actions.recost(sku.id)}
+            onOpenProduct={onOpenProduct}
+            hasRecipe={(id) => rr.headers.some((h) => h.smSkuId === id) || rr.spLines.some((l) => l.spSkuId === id)}
+            blocked={new Set([...dependents, ...ownLines.map((l) => l.rmSkuId)])}
+          />
+        )}
       </div>
     );
 
@@ -768,88 +830,11 @@ function RecipePanel(props: Props) {
       <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border bg-card p-6">
         <p className="font-medium">ยังไม่มีสูตร</p>
         <p className="text-sm text-muted-foreground">ผลิตแล้วจะไม่ตัดวัตถุดิบ และไม่มีต้นทุน</p>
-        {canEdit && (
-          <Button variant="brand" className="h-11" onClick={() => onNavigate(editPage)}>
-            ทำสูตร
-          </Button>
-        )}
       </div>
     );
 
-  return (
-    <div className="flex flex-col gap-3">
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="text-sm">
-            ผลิตรอบละ <b className="font-mono">{(result.output ?? 0).toLocaleString()} {sku.usageUom}</b>
-            {header?.bomMode === "multistep" && <span className="text-muted-foreground"> · หลายขั้นตอน</span>}
-          </div>
-          <div className="flex gap-2">
-            {stale && canEdit && (
-              <Button variant="outline" className="h-10" onClick={() => actions.recost(sku.id)}>
-                คิดต้นทุนใหม่
-              </Button>
-            )}
-            {canEdit && (
-              <Button variant="outline" className="h-10" onClick={() => onNavigate(editPage)}>
-                {header?.bomMode === "multistep" ? "แก้สูตรหลายขั้นตอน" : hasByproducts ? "แก้สูตร + ผลพลอยได้" : "แก้สูตร"}
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] table-fixed text-sm">
-            <colgroup>
-              <col />
-              <col style={{ width: "110px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "110px" }} />
-            </colgroup>
-            <thead className="text-muted-foreground">
-              <tr className="border-t border-border">
-                <th className="px-4 py-2 text-left font-medium">วัตถุดิบ</th>
-                <th className="px-2 py-2 text-right font-medium">ใช้/รอบ</th>
-                <th className="px-2 py-2 text-right font-medium">ใช้ได้จริง</th>
-                <th className="px-2 py-2 text-right font-medium">฿/หน่วย</th>
-                <th className="px-4 py-2 text-right font-medium">ต้นทุน</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const ing = byId.get(r.id);
-                return (
-                  <tr key={i} className="border-t border-border">
-                    <td className="truncate px-4 py-2.5">
-                      <button type="button" onClick={() => onOpenProduct(r.id)} className="flex min-w-0 items-center gap-2 text-left hover:underline">
-                        {ing && <KindBadge kind={ing.type} />}
-                        <span className="break-words">{ing?.name ?? "—"}</span>
-                        {ing?.status === "Inactive" && <span className="shrink-0 text-destructive">· ปิดใช้แล้ว</span>}
-                      </button>
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-mono tabular-nums">
-                      {r.qty.toLocaleString()} {ing?.usageUom}
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-mono tabular-nums">{r.yieldPct === null ? "—" : `${r.yieldPct}%`}</td>
-                    <td className={cn("px-2 py-2.5 text-right font-mono tabular-nums", !priceOf(r.id) && "font-semibold text-destructive")}>{priceOf(r.id) ? priceOf(r.id).toLocaleString("th-TH", { maximumFractionDigits: 3 }) : "ไม่มีราคา"}</td>
-                    <td className="px-4 py-2.5 text-right font-mono tabular-nums">{baht(r.cost)}</td>
-                  </tr>
-                );
-              })}
-              <tr className="border-t border-border bg-secondary/40 font-semibold">
-                <td className="px-4 py-2.5">รวมต่อรอบ</td>
-                <td colSpan={3} />
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums">{baht(result.batchCost)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <p className="text-sm text-muted-foreground">
-        ต้นทุน {perUnit(result.costPerUnit, sku.usageUom)} · {packPriceLabel(summary)} · คิดจากราคามาตรฐานของวัตถุดิบ แก้ราคาวัตถุดิบเมื่อไร ตัวนี้คิดใหม่ให้เอง
-      </p>
-    </div>
-  );
+  // Everything with a recipe, or that anyone could edit, returned above
+  return null;
 }
 
 // ───────────────────────── Where used ─────────────────────────
