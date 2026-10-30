@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChefHat } from 'lucide-react';
 import { toast } from 'sonner';
+import { thaiAuthError } from '@/pages/Login';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -34,20 +35,20 @@ export default function ResetPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('รหัสผ่านอย่างน้อย 6 ตัว');
       return;
     }
     if (password !== confirm) {
-      toast.error('Passwords do not match');
+      toast.error('รหัสผ่านสองช่องไม่ตรงกัน');
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(thaiAuthError(error.message));
     } else {
-      toast.success('Password updated successfully');
+      toast.success('ตั้งรหัสผ่านใหม่แล้ว');
       navigate('/');
     }
   };
@@ -57,7 +58,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-sm">
           <CardContent className="pt-6 text-center text-muted-foreground">
-            Invalid or expired reset link. Please request a new one.
+            ลิงก์นี้ใช้ไม่ได้หรือหมดอายุแล้ว · กลับไปหน้าเข้าสู่ระบบ แล้วกด "ลืมรหัสผ่าน" อีกครั้ง
           </CardContent>
         </Card>
       </div>
@@ -72,34 +73,36 @@ export default function ResetPassword() {
             <ChefHat className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-xl">Set New Password</CardTitle>
-            <CardDescription>Enter your new password below</CardDescription>
+            <CardTitle className="text-xl">ตั้งรหัสผ่านใหม่</CardTitle>
+            <CardDescription>ใส่รหัสผ่านใหม่ 2 ครั้ง</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
+              <Label htmlFor="password">รหัสผ่านใหม่</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
+                className="h-12 text-base"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm Password</Label>
+              <Label htmlFor="confirm">พิมพ์อีกครั้ง</Label>
               <Input
                 id="confirm"
                 type="password"
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
                 placeholder="••••••••"
+                className="h-12 text-base"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Updating…' : 'Update Password'}
+            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+              {loading ? 'กำลังบันทึก…' : 'ตั้งรหัสผ่านใหม่'}
             </Button>
           </form>
         </CardContent>

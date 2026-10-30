@@ -28,8 +28,9 @@ export function useBranchData() {
       location: data.location,
       status: data.status,
     }).select().single();
-    if (error) { toast.error('Failed to add branch: ' + error.message); return; }
+    if (error) { toast.error('เพิ่มสาขาไม่สำเร็จ: ' + error.message); return false; }
     setBranches(prev => [toLocal(row), ...prev]);
+    return true;
   }, []);
 
   const updateBranch = useCallback(async (id: string, data: Partial<Omit<Branch, 'id'>>) => {
@@ -40,8 +41,9 @@ export function useBranchData() {
     if (data.status !== undefined) dbData.status = data.status;
 
     const { error } = await supabase.from('branches').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update branch: ' + error.message); return; }
+    if (error) { toast.error('บันทึกสาขาไม่สำเร็จ: ' + error.message); return false; }
     setBranches(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
+    return true;
   }, []);
 
   const deleteBranch = useCallback(async (id: string) => {

@@ -33,6 +33,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.dailyStockCount": { th: "นับสต๊อก", en: "Daily Stock Count" },
   "nav.storeStock": { th: "สต๊อกสาขา", en: "Store Stock" },
   "nav.foodCost": { th: "ต้นทุนอาหาร", en: "Food Cost" },
+  "nav.settings": { th: "ตั้งค่า", en: "Settings" },
   "nav.branches": { th: "สาขา", en: "Branches" },
   "nav.userManagement": { th: "ผู้ใช้", en: "User Management" },
   "nav.skuCategories": { th: "หมวดวัตถุดิบ", en: "SKU Categories" },

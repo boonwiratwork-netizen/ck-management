@@ -33,8 +33,8 @@ const KitchenStockPage = lazy(() => import("@/pages/KitchenStock"));
 const ProductionPage = lazy(() => import("@/pages/Produce"));
 const StockCountPage = lazy(() => import("@/pages/KitchenCount"));
 const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
-const BranchesPage = lazy(() => import("@/pages/Branches"));
-const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
+// Branches, users and categories: one settings page, three tabs
+const SettingsPage = lazy(() => import("@/pages/Settings"));
 const MenuMasterPage = lazy(() => import("@/pages/MenuMaster"));
 const MenuBOMPage = lazy(() => import("@/pages/MenuBOM"));
 const MenuSetupPage = lazy(() => import("@/pages/MenuSetup"));
@@ -57,7 +57,6 @@ const TransferRequestPage = lazy(() => import("@/pages/Request"));
 const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
 const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
 const StoreStockPage = lazy(() => import("@/pages/StoreStock"));
-const SkuCategoriesPage = lazy(() => import("@/pages/SkuCategories"));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -77,8 +76,8 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   smstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
   stockcount: { title: "นับสต๊อกครัว", subtitle: "นับเดือนละครั้ง" },
   "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
-  branches: { title: "สาขา", subtitle: "ข้อมูลสาขาและแบรนด์" },
-  users: { title: "ผู้ใช้", subtitle: "บัญชีและสิทธิ์" },
+  branches: { title: "ตั้งค่า", subtitle: "สาขา" },
+  users: { title: "ตั้งค่า", subtitle: "ผู้ใช้" },
   store: { title: "วันนี้", subtitle: "งานประจำวันของครัวกลางและสาขา" },
   "menu-setup": { title: "ตั้งค่าเมนู", subtitle: "สูตร สาขา กฎพิเศษ ในที่เดียว" },
   "cost-center": { title: "Cost Center", subtitle: "เมนู สินค้า สูตร ราคา ซัพพลายเออร์" },
@@ -93,7 +92,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "daily-stock-count": { title: "นับสต๊อก", subtitle: "นับของหน้าร้านทุกวัน" },
   "store-stock": { title: "สต๊อกสาขา", subtitle: "คงเหลือของแต่ละสาขา" },
   "food-cost": { title: "ต้นทุนอาหาร", subtitle: "ต้นทุนเทียบยอดขาย" },
-  "sku-categories": { title: "หมวดสินค้า", subtitle: "" },
+  "sku-categories": { title: "ตั้งค่า", subtitle: "หมวดสินค้า" },
   pkstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
 };
 
@@ -602,14 +601,16 @@ const Index = () => {
                     bomLines={bomData.lines}
                     canEdit={isManagement || role === 'ck_manager'}
                   />
-                ) : activeTab === "branches" ? (
-                  <BranchesPage branchData={branchData} readOnly={readOnly} />
-                ) : activeTab === "users" ? (
-                  isManagement ? (
-                    <UserManagementPage />
-                  ) : (
-                    <div className="text-muted-foreground">Access denied</div>
-                  )
+                ) : activeTab === "branches" || activeTab === "users" || activeTab === "sku-categories" ? (
+                  <SettingsPage
+                    tab={activeTab}
+                    onNavigate={handleTabChange}
+                    canOpen={(t) => canAccessTab(role, t)}
+                    canEdit={!readOnly}
+                    branchData={branchData}
+                    categoryData={skuCategoryData}
+                    skus={skus}
+                  />
                 ) : activeTab === "store" ? (
                   <StoreOverview
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
@@ -781,8 +782,6 @@ const Index = () => {
                     spBomLines={spBomData.lines}
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
                   />
-                ) : activeTab === "sku-categories" ? (
-                  <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={readOnly} />
                 ) : null}
               </div>
             )}

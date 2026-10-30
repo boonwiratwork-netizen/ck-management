@@ -185,12 +185,8 @@ const setupGroup = (withAdmin: boolean): NavGroup => ({
   section: "management",
   items: [
     { key: "cost-center", labelKey: "nav.costCenter", icon: Layers },
-    ...(withAdmin
-      ? [
-          { key: "branches" as TabKey, labelKey: "nav.branches", icon: Store },
-          { key: "users" as TabKey, labelKey: "nav.userManagement", icon: Settings },
-        ]
-      : []),
+    // Branches · users · categories, as tabs of one page
+    ...(withAdmin ? [{ key: "branches" as TabKey, labelKey: "nav.settings", icon: Settings }] : []),
   ],
 });
 
@@ -331,7 +327,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                           </li>
                         );
                       }
-                      const isActive = activeTab === item.key || (item.key === "stock" && (activeTab === "smstock" || activeTab === "pkstock"));
+                      const isActive =
+                        activeTab === item.key ||
+                        (item.key === "stock" && (activeTab === "smstock" || activeTab === "pkstock")) ||
+                        (item.key === "branches" && (activeTab === "users" || activeTab === "sku-categories"));
                       const label = t(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.key}>

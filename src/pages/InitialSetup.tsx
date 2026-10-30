@@ -32,13 +32,13 @@ export default function InitialSetup({ onComplete }: Props) {
   }, [onComplete]);
 
   if (checking) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Checking setup status…</div>;
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">กำลังเช็คการตั้งค่า…</div>;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Email and password are required');
+      toast.error('ใส่อีเมลและรหัสผ่านก่อน');
       return;
     }
     if (password.length < 6) {
@@ -69,8 +69,8 @@ export default function InitialSetup({ onComplete }: Props) {
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
               <Check className="w-6 h-6 text-primary" />
             </div>
-            <p className="font-medium">Admin account created successfully!</p>
-            <Button onClick={onComplete} className="w-full">Go to Login</Button>
+            <p className="font-medium">สร้างบัญชีผู้บริหารคนแรกแล้ว</p>
+            <Button onClick={onComplete} className="w-full">ไปหน้าเข้าสู่ระบบ</Button>
           </CardContent>
         </Card>
       </div>
@@ -85,22 +85,22 @@ export default function InitialSetup({ onComplete }: Props) {
             <ChefHat className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-xl">Initial Setup</CardTitle>
-            <CardDescription>Create your first admin account</CardDescription>
+            <CardTitle className="text-xl">ตั้งค่าครั้งแรก</CardTitle>
+            <CardDescription>สร้างบัญชีผู้บริหารคนแรก</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label>Full Name</Label>
+              <Label>ชื่อ</Label>
               <Input
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                placeholder="Admin Name"
+                placeholder="ชื่อ"
               />
             </div>
             <div className="space-y-2">
-              <Label>Email *</Label>
+              <Label>อีเมล</Label>
               <Input
                 type="email"
                 value={email}
@@ -109,12 +109,12 @@ export default function InitialSetup({ onComplete }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Password *</Label>
+              <Label>รหัสผ่าน</Label>
               <Input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
+                placeholder="อย่างน้อย 6 ตัว"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

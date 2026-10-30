@@ -32,15 +32,15 @@ export function useSkuCategories() {
     const trimCode = code.trim().toUpperCase();
     const trimEn = nameEn.trim();
     const trimTh = nameTh.trim();
-    if (!trimCode || !trimEn) { toast.error('Code and English name are required'); return null; }
+    if (!trimCode || !trimEn) { toast.error('ใส่รหัสและชื่ออังกฤษก่อน'); return null; }
     if (categories.some(c => c.code === trimCode)) {
-      toast.error('Category code already exists');
+      toast.error('มีรหัสหมวดนี้แล้ว');
       return null;
     }
     const { data, error } = await supabase.from('sku_categories')
       .insert({ code: trimCode, name_en: trimEn, name_th: trimTh || trimEn })
       .select().single();
-    if (error) { toast.error('Failed to add category: ' + error.message); return null; }
+    if (error) { toast.error('เพิ่มหมวดไม่สำเร็จ: ' + error.message); return null; }
     const cat: SkuCategory = { id: data.id, code: data.code, nameEn: data.name_en, nameTh: data.name_th };
     setCategories(prev => [...prev, cat].sort((a, b) => a.code.localeCompare(b.code)));
     return cat;
@@ -49,14 +49,16 @@ export function useSkuCategories() {
   const updateCategory = useCallback(async (id: string, nameEn: string, nameTh: string) => {
     const { error } = await supabase.from('sku_categories')
       .update({ name_en: nameEn.trim(), name_th: nameTh.trim() }).eq('id', id);
-    if (error) { toast.error('Failed to update category'); return; }
+    if (error) { toast.error('บันทึกหมวดไม่สำเร็จ'); return false; }
     setCategories(prev => prev.map(c => c.id === id ? { ...c, nameEn: nameEn.trim(), nameTh: nameTh.trim() } : c));
+    return true;
   }, []);
 
   const deleteCategory = useCallback(async (id: string) => {
     const { error } = await supabase.from('sku_categories').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete category'); return; }
+    if (error) { toast.error('ลบหมวดไม่สำเร็จ'); return false; }
     setCategories(prev => prev.filter(c => c.id !== id));
+    return true;
   }, []);
 
   const bulkEnsureCategories = useCallback(async (codes: string[]): Promise<string[]> => {
