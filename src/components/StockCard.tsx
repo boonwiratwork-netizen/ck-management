@@ -1,6 +1,6 @@
 import { fetchAllRows } from "@/lib/fetch-all";
 import { useEffect, useState } from "react";
-import { ruleMatchesSale } from "@/lib/modifier-rules";
+import { addSaleUsage, buildUsageContext } from "@/lib/sale-usage";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, AlertTriangle, X } from "lucide-react";
@@ -272,114 +272,36 @@ export function StockCard({
           }
           setAdjByDate(adjMap);
 
-          // Build menu code → id map
-          const menuCodeToId = new Map<string, string>();
-          menus.forEach((m: any) => menuCodeToId.set(m.menu_code, m.id));
-
-          // Build rule → menuIds map
-          const ruleMenuMap = new Map<string, string[]>();
-          ruleMenus.forEach((rm: any) => {
-            const arr = ruleMenuMap.get(rm.rule_id) ?? [];
-            arr.push(rm.menu_id);
-            ruleMenuMap.set(rm.rule_id, arr);
+          // Step 3 — Daily usage of this SKU from sales, through the one usage engine
+          // (sale-usage.ts, same as the count sheet and Food Cost). Recipe lines were
+          // already narrowed to this branch by the query.
+          const menusByRule = new Map<string, string[]>();
+          for (const rm of ruleMenus as { rule_id: string; menu_id: string }[]) menusByRule.set(rm.rule_id, [...(menusByRule.get(rm.rule_id) ?? []), rm.menu_id]);
+          const ctx = buildUsageContext({
+            menus: (menus as { id: string; menu_code: string }[]).map((m) => ({ id: m.id, menuCode: m.menu_code })),
+            bomLines: (menuBomLines as { menu_id: string; sku_id: string; effective_qty: number }[]).map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty) || 0, branchId: null })),
+            rules: (modRules as { id: string; rule_type: string; keyword: string; sku_id: string | null; swap_sku_id: string | null; submenu_id: string | null; qty_per_match: number; is_active: boolean; branch_ids: string[] | null }[]).map((r) => ({
+              id: r.id,
+              ruleType: r.rule_type,
+              keyword: r.keyword,
+              skuId: r.sku_id || null,
+              swapSkuId: r.swap_sku_id,
+              submenuId: r.submenu_id,
+              qtyPerMatch: Number(r.qty_per_match) || 0,
+              isActive: r.is_active,
+              branchIds: r.branch_ids ?? [],
+              menuIds: menusByRule.get(r.id) ?? [],
+            })),
+            spLines: (spBomLines as { sp_sku_id: string; ingredient_sku_id: string; qty_per_batch: number; batch_yield_qty: number }[]).map((l) => ({ spSkuId: l.sp_sku_id, ingredientSkuId: l.ingredient_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, batchYieldQty: Number(l.batch_yield_qty) || 1 })),
+            skus: allSkus as { id: string; type: string }[],
           });
-
-          // SKU type map
-          const skuTypeMap = new Map<string, string>();
-          allSkus.forEach((s: any) => skuTypeMap.set(s.id, s.type));
-
-          // Step 3 — Calculate daily usage from sales for this specific SKU
-          const salesByDate = new Map<string, any[]>();
-          sales.forEach((s: any) => {
-            const arr = salesByDate.get(s.sale_date) ?? [];
-            arr.push(s);
-            salesByDate.set(s.sale_date, arr);
-          });
-
           const usageByDate = new Map<string, number>();
-          for (const [date, daySales] of salesByDate) {
-            const usageMap = new Map<string, number>();
-
-            for (const sale of daySales) {
-              const menuId = menuCodeToId.get(sale.menu_code);
-              if (!menuId) continue;
-              const qty = Number(sale.qty) || 0;
-
-              // Base BOM ingredients
-              const bomLines = menuBomLines.filter((b: any) => b.menu_id === menuId);
-              for (const line of bomLines) {
-                const ingredientSkuId = line.sku_id;
-                const ingredientType = skuTypeMap.get(ingredientSkuId);
-                if (ingredientType === "SP") {
-                  // Expand SP via sp_bom
-                  const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === ingredientSkuId);
-                  for (const sp of spLines) {
-                    const spQty =
-                      (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
-                    usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
-                  }
-                } else {
-                  usageMap.set(
-                    ingredientSkuId,
-                    (usageMap.get(ingredientSkuId) ?? 0) + Number(line.effective_qty) * qty,
-                  );
-                }
-              }
-
-              // Modifier Rules
-              const menuName = (sale.menu_name || "").toLowerCase();
-              for (const rule of modRules) {
-                if (!rule.is_active || !ruleMatchesSale(rule, sale)) continue;
-                // Branch scope: an empty list means every branch
-                const ruleBranches: string[] = rule.branch_ids ?? [];
-                if (ruleBranches.length > 0 && branchId && !ruleBranches.includes(branchId)) continue;
-
-                // Check menu scope
-                const scopeMenuIds = ruleMenuMap.get(rule.id) ?? [];
-                if (scopeMenuIds.length > 0 && !scopeMenuIds.includes(menuId)) continue;
-
-                if (rule.rule_type === "swap") {
-                  // Same as Food Cost: take the swapped-out item's whole recipe line back out
-                  if (rule.swap_sku_id) {
-                    for (const line of bomLines) {
-                      if (line.sku_id !== rule.swap_sku_id) continue;
-                      usageMap.set(
-                        rule.swap_sku_id,
-                        (usageMap.get(rule.swap_sku_id) ?? 0) - Number(line.effective_qty) * qty,
-                      );
-                    }
-                  }
-                  if (rule.sku_id) {
-                    usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
-                  }
-                } else if (rule.rule_type === "submenu") {
-                  if (rule.submenu_id) {
-                    const subBom = menuBomLines.filter((b: any) => b.menu_id === rule.submenu_id);
-                    for (const line of subBom) {
-                      const ingType = skuTypeMap.get(line.sku_id);
-                      if (ingType === "SP") {
-                        const spLines = spBomLines.filter((sp: any) => sp.sp_sku_id === line.sku_id);
-                        for (const sp of spLines) {
-                          const spQty =
-                            (Number(line.effective_qty) * qty * Number(sp.qty_per_batch)) / Number(sp.batch_yield_qty);
-                          usageMap.set(sp.ingredient_sku_id, (usageMap.get(sp.ingredient_sku_id) ?? 0) + spQty);
-                        }
-                      } else {
-                        usageMap.set(line.sku_id, (usageMap.get(line.sku_id) ?? 0) + Number(line.effective_qty) * qty);
-                      }
-                    }
-                  }
-                } else if (rule.rule_type === "add") {
-                  if (rule.sku_id) {
-                    usageMap.set(rule.sku_id, (usageMap.get(rule.sku_id) ?? 0) + Number(rule.qty_per_match) * qty);
-                  }
-                }
-              }
-            }
-
-            const skuUsage = usageMap.get(skuId) ?? 0;
-            if (skuUsage > 0) usageByDate.set(date, skuUsage);
+          for (const sale of sales as { sale_date: string; menu_code: string; menu_name: string | null; qty: number }[]) {
+            addSaleUsage(ctx, { ...sale, branch_id: branchId ?? null }, (id, q) => {
+              if (id === skuId) usageByDate.set(sale.sale_date, (usageByDate.get(sale.sale_date) ?? 0) + q);
+            });
           }
+          for (const [date, q] of usageByDate) if (!(q > 0)) usageByDate.delete(date);
 
           // Step 4 — Calculate daily receipts per day
           const converter = sku.converter ?? 1;

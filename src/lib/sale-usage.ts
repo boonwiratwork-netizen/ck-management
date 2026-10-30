@@ -71,6 +71,38 @@ export function buildUsageContext(input: {
   };
 }
 
+/**
+ * The context from the app's own data (menus, menu recipes, rules, SP recipes, SKUs as
+ * the data hooks hold them). Every screen that turns sales into ingredients builds it
+ * here, so they all count the same way.
+ */
+export function usageContextFromApp(input: {
+  menus: { id: string; menuCode: string }[];
+  menuBomLines: { menuId: string; skuId: string; effectiveQty: number; branchId?: string | null }[];
+  modifierRules: { id: string; ruleType: string; keyword: string; skuId: string | null; swapSkuId: string | null; submenuId: string | null; qtyPerMatch: number; isActive: boolean; branchIds?: string[] | null; menuIds?: string[] | null }[];
+  spBomLines: { spSkuId: string; ingredientSkuId: string; qtyPerBatch: number; batchYieldQty: number }[];
+  skus: { id: string; type: string }[];
+}): UsageContext {
+  return buildUsageContext({
+    menus: input.menus.map((m) => ({ id: m.id, menuCode: m.menuCode })),
+    bomLines: input.menuBomLines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: Number(l.effectiveQty) || 0, branchId: l.branchId ?? null })),
+    rules: input.modifierRules.map((r) => ({
+      id: r.id,
+      ruleType: r.ruleType,
+      keyword: r.keyword,
+      skuId: r.skuId || null,
+      swapSkuId: r.swapSkuId,
+      submenuId: r.submenuId,
+      qtyPerMatch: Number(r.qtyPerMatch) || 0,
+      isActive: r.isActive,
+      branchIds: r.branchIds ?? [],
+      menuIds: r.menuIds ?? [],
+    })),
+    spLines: input.spBomLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: Number(l.qtyPerBatch) || 0, batchYieldQty: Number(l.batchYieldQty) || 1 })),
+    skus: input.skus.map((s) => ({ id: s.id, type: s.type })),
+  });
+}
+
 /** Calls add(skuId, qty) for every ingredient the sale uses; returns false if the menu is unknown */
 export function addSaleUsage(ctx: UsageContext, sale: UsageSale, add: (skuId: string, qty: number) => void): boolean {
   const menuId = ctx.menuIdByCode.get(sale.menu_code);

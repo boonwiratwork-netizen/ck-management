@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { buildUsageContext } from "@/lib/sale-usage";
+import { usageContextFromApp } from "@/lib/sale-usage";
 import {
   computeActual,
   computeStandard,
@@ -105,25 +105,7 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
   const [error, setError] = useState<string | null>(null);
 
   const ctx = useMemo(
-    () =>
-      buildUsageContext({
-        menus: m.menus.map((x) => ({ id: x.id, menuCode: x.menuCode })),
-        bomLines: m.menuBomLines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: Number(l.effectiveQty) || 0, branchId: l.branchId ?? null })),
-        rules: m.modifierRules.map((r) => ({
-          id: r.id,
-          ruleType: r.ruleType,
-          keyword: r.keyword,
-          skuId: r.skuId || null,
-          swapSkuId: r.swapSkuId,
-          submenuId: r.submenuId,
-          qtyPerMatch: Number(r.qtyPerMatch) || 0,
-          isActive: r.isActive,
-          branchIds: r.branchIds ?? [],
-          menuIds: r.menuIds ?? [],
-        })),
-        spLines: m.spBomLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: Number(l.qtyPerBatch) || 0, batchYieldQty: Number(l.batchYieldQty) || 1 })),
-        skus: m.skus.map((s) => ({ id: s.id, type: s.type })),
-      }),
+    () => usageContextFromApp({ menus: m.menus, menuBomLines: m.menuBomLines, modifierRules: m.modifierRules, spBomLines: m.spBomLines, skus: m.skus }),
     [m.menus, m.menuBomLines, m.modifierRules, m.spBomLines, m.skus],
   );
   // Standard price = the newest active price row (the cost engine's rule)

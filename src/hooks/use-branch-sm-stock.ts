@@ -1,6 +1,6 @@
 import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect } from "react";
-import { ruleMatchesSale } from "@/lib/modifier-rules";
+import { loadUsageContext, usageOf, type UsageSaleRow } from "@/lib/usage-context-db";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
 
@@ -119,74 +119,10 @@ export function useBranchSmStock(branchId: string | null) {
           .range(a, b),
       );
 
-      // Get menu_id lookup from menu_code
-      const menuCodes = [...new Set((salesRows || []).map((s) => s.menu_code))];
-      let menuCodeToId: Record<string, string> = {};
-      if (menuCodes.length > 0) {
-        const { data: menuRows } = await supabase.from("menus").select("id, menu_code").in("menu_code", menuCodes);
-        for (const m of menuRows || []) {
-          menuCodeToId[m.menu_code] = m.id;
-        }
-      }
-
-      // Sum qty sold per menu_id
-      const qtySoldByMenuId: Record<string, number> = {};
-      for (const s of salesRows || []) {
-        const mid = menuCodeToId[s.menu_code];
-        if (!mid) continue;
-        qtySoldByMenuId[mid] = (qtySoldByMenuId[mid] || 0) + Number(s.qty);
-      }
-
-      const salesMenuIds = Object.keys(qtySoldByMenuId);
-
-      // Get menu_bom for those menus — SM SKUs only, filter by branch
-      let bomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
-      if (salesMenuIds.length > 0) {
-        const { data: bom } = await supabase
-          .from("menu_bom")
-          .select("menu_id, sku_id, effective_qty")
-          .in("menu_id", salesMenuIds)
-          .in("sku_id", skuIds)
-          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
-        bomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
-      }
-
-      // Fetch modifier rules
-      const [modRulesRes, modRuleMenusRes] = await Promise.all([
-        supabase.from("menu_modifier_rules").select("*").eq("is_active", true),
-        supabase.from("modifier_rule_menus").select("rule_id, menu_id"),
-      ]);
-      const ruleMenuMap: Record<string, string[]> = {};
-      for (const rm of modRuleMenusRes.data || []) {
-        if (!ruleMenuMap[rm.rule_id]) ruleMenuMap[rm.rule_id] = [];
-        ruleMenuMap[rm.rule_id].push(rm.menu_id);
-      }
-      const modifierRules = (modRulesRes.data || []).map((r) => ({
-        id: r.id,
-        keyword: r.keyword,
-        skuId: r.sku_id,
-        qtyPerMatch: Number(r.qty_per_match),
-        ruleType: r.rule_type as string,
-        swapSkuId: r.swap_sku_id,
-        submenuId: r.submenu_id,
-        menuIds: ruleMenuMap[r.id] || [],
-        branchIds: (r.branch_ids || []) as string[],
-      }));
-
-      // For submenu rules, fetch BOM lines for submenu menus (SM SKUs only)
-      const submenuIdList = [
-        ...new Set(modifierRules.filter((r) => r.ruleType === "submenu" && r.submenuId).map((r) => r.submenuId!)),
-      ];
-      let submenuBomLines: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
-      if (submenuIdList.length > 0) {
-        const { data: sbom } = await supabase
-          .from("menu_bom")
-          .select("menu_id, sku_id, effective_qty")
-          .in("menu_id", submenuIdList)
-          .in("sku_id", skuIds)
-          .or(`branch_id.is.null,branch_id.eq.${branchId}`);
-        submenuBomLines = (sbom || []) as any[];
-      }
+      // Usage through the one engine (sale-usage.ts): recipe → SP → rules, as Food Cost
+      // and the count sheet count it
+      const ctx = await loadUsageContext();
+      const usage = usageOf(ctx, (salesRows || []) as UsageSaleRow[], branchId, new Set(skuIds));
 
       // Fetch waste per SKU per day for the same 7-day window
       const { data: wasteRows } = await supabase
@@ -207,109 +143,9 @@ export function useBranchSmStock(branchId: string | null) {
         dailyWasteBySkuId[row.sku_id][row.count_date] = Number(row.waste);
       }
 
-      const totalUsageBySkuId: Record<string, number> = {};
-
-      for (const bom of bomRows) {
-        const soldQty = qtySoldByMenuId[bom.menu_id] || 0;
-        if (soldQty === 0) continue;
-        totalUsageBySkuId[bom.sku_id] = (totalUsageBySkuId[bom.sku_id] || 0) + soldQty * bom.effective_qty;
-      }
-
-      // Apply modifier rules to total usage
-      for (const sale of salesRows || []) {
-        const mid = menuCodeToId[sale.menu_code];
-        if (!mid) continue;
-        const menuName = (sale.menu_name || "").toLowerCase();
-        const saleQty = Number(sale.qty);
-        for (const rule of modifierRules) {
-          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
-          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
-          if (rule.ruleType === "submenu") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            for (const sbom of submenuBomLines) {
-              if (sbom.menu_id !== rule.submenuId) continue;
-              totalUsageBySkuId[sbom.sku_id] = (totalUsageBySkuId[sbom.sku_id] || 0) + saleQty * sbom.effective_qty;
-            }
-          } else if (rule.ruleType === "swap") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
-              if (swapBom) {
-                totalUsageBySkuId[rule.swapSkuId] =
-                  (totalUsageBySkuId[rule.swapSkuId] || 0) - saleQty * swapBom.effective_qty;
-              }
-            }
-            if (rule.skuId && skuIds.includes(rule.skuId)) {
-              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
-            }
-          } else if (rule.ruleType === "add") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            if (rule.skuId && skuIds.includes(rule.skuId)) {
-              totalUsageBySkuId[rule.skuId] = (totalUsageBySkuId[rule.skuId] || 0) + saleQty * rule.qtyPerMatch;
-            }
-          }
-        }
-      }
-
-      // Build daily usage map for peak calculation
-      const dailyUsageBySkuId: Record<string, Record<string, number>> = {};
-      for (const sale of salesRows || []) {
-        const mid = menuCodeToId[(sale as any).menu_code];
-        if (!mid) continue;
-        const date = (sale as any).sale_date;
-        if (!date) continue;
-        const relatedBoms = bomRows.filter((b) => b.menu_id === mid);
-        for (const bom of relatedBoms) {
-          if (!dailyUsageBySkuId[bom.sku_id]) dailyUsageBySkuId[bom.sku_id] = {};
-          dailyUsageBySkuId[bom.sku_id][date] =
-            (dailyUsageBySkuId[bom.sku_id][date] || 0) + Number(sale.qty) * bom.effective_qty;
-        }
-      }
-
-      // Apply modifier rules to daily usage
-      for (const sale of salesRows || []) {
-        const mid = menuCodeToId[sale.menu_code];
-        if (!mid) continue;
-        const date = sale.sale_date;
-        if (!date) continue;
-        const menuName = (sale.menu_name || "").toLowerCase();
-        const saleQty = Number(sale.qty);
-        for (const rule of modifierRules) {
-          if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
-          if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
-          if (rule.ruleType === "submenu") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            for (const sbom of submenuBomLines) {
-              if (sbom.menu_id !== rule.submenuId) continue;
-              if (!dailyUsageBySkuId[sbom.sku_id]) dailyUsageBySkuId[sbom.sku_id] = {};
-              dailyUsageBySkuId[sbom.sku_id][date] =
-                (dailyUsageBySkuId[sbom.sku_id][date] || 0) + saleQty * sbom.effective_qty;
-            }
-          } else if (rule.ruleType === "swap") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-              const swapBom = bomRows.find((b) => b.menu_id === mid && b.sku_id === rule.swapSkuId);
-              if (swapBom) {
-                if (!dailyUsageBySkuId[rule.swapSkuId]) dailyUsageBySkuId[rule.swapSkuId] = {};
-                dailyUsageBySkuId[rule.swapSkuId][date] =
-                  (dailyUsageBySkuId[rule.swapSkuId][date] || 0) - saleQty * swapBom.effective_qty;
-              }
-            }
-            if (rule.skuId && skuIds.includes(rule.skuId)) {
-              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] =
-                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
-            }
-          } else if (rule.ruleType === "add") {
-            if (!ruleMatchesSale(rule, sale)) continue;
-            if (rule.skuId && skuIds.includes(rule.skuId)) {
-              if (!dailyUsageBySkuId[rule.skuId]) dailyUsageBySkuId[rule.skuId] = {};
-              dailyUsageBySkuId[rule.skuId][date] =
-                (dailyUsageBySkuId[rule.skuId][date] || 0) + saleQty * rule.qtyPerMatch;
-            }
-          }
-        }
-      }
+      const totalUsageBySkuId: Record<string, number> = { ...usage.total };
+      // Per-day usage per SKU (for the peak day)
+      const dailyUsageBySkuId: Record<string, Record<string, number>> = Object.fromEntries(Object.entries(usage.byDay).map(([k, v]) => [k, { ...v }]));
 
       // 6. Snap + ledger balance: find most recent physical_count per SKU
       const { data: countData } = await supabase
@@ -416,91 +252,13 @@ export function useBranchSmStock(branchId: string | null) {
         adjNetBySku[a.sku_id] = (adjNetBySku[a.sku_id] || 0) + Number(a.quantity);
       }
 
-      // Build usage per SKU after snap from post-snap sales
+      // Usage per SKU after its own count, from the sales since (same engine)
       const postSnapUsageBySku: Record<string, number> = {};
       {
-        // Group sales by date
-        const salesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
-        for (const s of postSnapSalesRes.data || []) {
-          const arr = salesByDate.get(s.sale_date) || [];
-          arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
-          salesByDate.set(s.sale_date, arr);
-        }
-
-        // Get all menu_bom for SM skuIds
-        let allBomRows: { menu_id: string; sku_id: string; effective_qty: number }[] = [];
-        const allSalesMenuCodes = [...new Set((postSnapSalesRes.data || []).map((s: any) => s.menu_code))];
-        if (allSalesMenuCodes.length > 0) {
-          const { data: menuLookup } = await supabase
-            .from("menus")
-            .select("id, menu_code")
-            .in("menu_code", allSalesMenuCodes);
-          const codeToId: Record<string, string> = {};
-          for (const m of menuLookup || []) codeToId[m.menu_code] = m.id;
-
-          const allMenuIds = [...new Set(Object.values(codeToId))];
-          if (allMenuIds.length > 0) {
-            const { data: bom } = await supabase
-              .from("menu_bom")
-              .select("menu_id, sku_id, effective_qty")
-              .in("menu_id", allMenuIds)
-              .in("sku_id", skuIds)
-              .or(`branch_id.is.null,branch_id.eq.${branchId}`);
-            allBomRows = (bom || []) as { menu_id: string; sku_id: string; effective_qty: number }[];
-          }
-
-          // Calculate usage per SKU per date — with branch-aware BOM + modifier rules
-          // Reuse bomRows (already branch-filtered) and modifierRules from the avgDailyUsage section above
-          const bomByMenuId = new Map<string, { sku_id: string; effective_qty: number }[]>();
-          for (const b of allBomRows) {
-            const arr = bomByMenuId.get(b.menu_id) || [];
-            arr.push({ sku_id: b.sku_id, effective_qty: b.effective_qty });
-            bomByMenuId.set(b.menu_id, arr);
-          }
-
-          for (const [date, dateSales] of salesByDate) {
-            for (const sale of dateSales) {
-              const mid = codeToId[sale.menu_code];
-              if (!mid) continue;
-              const addUsage = (skuId: string, qty: number) => {
-                const snap = snapBySku[skuId];
-                if (snap && date <= snap.date) return;
-                postSnapUsageBySku[skuId] = (postSnapUsageBySku[skuId] || 0) + qty;
-              };
-              // Base BOM
-              const lines = bomByMenuId.get(mid) || [];
-              for (const line of lines) {
-                addUsage(line.sku_id, line.effective_qty * sale.qty);
-              }
-              // Modifier rules
-              const menuName = (sale.menu_name || "").toLowerCase();
-              for (const rule of modifierRules) {
-                if (rule.branchIds.length > 0 && !rule.branchIds.includes(branchId!)) continue;
-                if (rule.menuIds.length > 0 && !rule.menuIds.includes(mid)) continue;
-                if (rule.ruleType === "submenu") {
-                  if (!ruleMatchesSale(rule, sale)) continue;
-                  for (const sbom of submenuBomLines) {
-                    if (sbom.menu_id !== rule.submenuId) continue;
-                    addUsage(sbom.sku_id, sbom.effective_qty * sale.qty);
-                  }
-                } else if (rule.ruleType === "swap") {
-                  if (!ruleMatchesSale(rule, sale)) continue;
-                  if (rule.swapSkuId && skuIds.includes(rule.swapSkuId)) {
-                    const swapBom = lines.find((b) => b.sku_id === rule.swapSkuId);
-                    if (swapBom) addUsage(rule.swapSkuId, -swapBom.effective_qty * sale.qty);
-                  }
-                  if (rule.skuId && skuIds.includes(rule.skuId)) {
-                    addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
-                  }
-                } else if (rule.ruleType === "add") {
-                  if (!ruleMatchesSale(rule, sale)) continue;
-                  if (rule.skuId && skuIds.includes(rule.skuId)) {
-                    addUsage(rule.skuId, rule.qtyPerMatch * sale.qty);
-                  }
-                }
-              }
-            }
-          }
+        const after = usageOf(ctx, (postSnapSalesRes.data || []) as UsageSaleRow[], branchId, new Set(skuIds));
+        for (const [skuId, days] of Object.entries(after.byDay)) {
+          const snap = snapBySku[skuId];
+          for (const [date, q] of Object.entries(days)) if (!snap || date > snap.date) postSnapUsageBySku[skuId] = (postSnapUsageBySku[skuId] || 0) + q;
         }
       }
 

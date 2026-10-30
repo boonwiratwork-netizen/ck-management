@@ -1,6 +1,6 @@
 import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ruleMatchesSale } from "@/lib/modifier-rules";
+import { addSaleUsage, usageContextFromApp } from "@/lib/sale-usage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
@@ -219,122 +219,16 @@ export function useDailyStockCount({
       const sales = salesRes.data || [];
       if (sales.length === 0) return {};
 
-      const menuByCode = new Map<string, Menu>();
-      menus.forEach((m) => menuByCode.set(m.menuCode, m));
-
-      const filteredLines = menuBomLines.filter((l) => l.branchId === null || l.branchId === branchId);
-      const bomByMenuId = new Map<string, MenuBomLine[]>();
-      filteredLines.forEach((l) => {
-        const arr = bomByMenuId.get(l.menuId) || [];
-        arr.push(l);
-        bomByMenuId.set(l.menuId, arr);
-      });
-
-      const activeRules = modifierRules.filter((r) => {
-        if (!r.isActive) return false;
-        if (r.branchIds && r.branchIds.length > 0 && !r.branchIds.includes(branchId)) return false;
-        return true;
-      });
-
-      const spBomBySpSku = new Map<string, SpBomLine[]>();
-      spBomLines.forEach((l) => {
-        const arr = spBomBySpSku.get(l.spSkuId) || [];
-        arr.push(l);
-        spBomBySpSku.set(l.spSkuId, arr);
-      });
-
-      const skuMap = new Map<string, SKU>();
-      skus.forEach((s) => skuMap.set(s.id, s));
-
-      // Per-date usage: date → skuId → qty
+      // The one usage engine (sale-usage.ts): recipe → SP → rules, same as Food Cost.
+      // A menu closed at this branch still uses stock when the POS sold it.
+      const ctx = usageContextFromApp({ menus, menuBomLines, modifierRules, spBomLines, skus });
       const usageByDate: Record<string, Record<string, number>> = {};
-      const addUsage = (date: string, skuId: string, qty: number) => {
-        if (!usageByDate[date]) usageByDate[date] = {};
-        usageByDate[date][skuId] = (usageByDate[date][skuId] || 0) + qty;
-      };
-
       for (const sale of sales) {
-        const qty = Number(sale.qty) || 0;
-        if (qty === 0) continue;
-
-        const saleDate = sale.sale_date;
-        const menuCode = sale.menu_code;
-        const menuName = sale.menu_name || "";
-        const menu = menuByCode.get(menuCode);
-
-        // A menu closed at this branch still uses stock when the POS sold it
-        if (menu) {
-          const bomLines = bomByMenuId.get(menu.id) || [];
-          for (const line of bomLines) {
-            const ingredientQty = line.effectiveQty * qty;
-            const sku = skuMap.get(line.skuId);
-            if (sku && sku.type === "SP") {
-              const spLines = spBomBySpSku.get(line.skuId) || [];
-              for (const spLine of spLines) {
-                addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty);
-              }
-            } else {
-              addUsage(saleDate, line.skuId, ingredientQty);
-            }
-          }
-
-          for (const rule of activeRules) {
-            if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-            if (ruleMatchesSale(rule, sale)) {
-              if (rule.ruleType === "swap") {
-                if (rule.swapSkuId) {
-                  const bomLines2 = bomByMenuId.get(menu.id) || [];
-                  for (const line of bomLines2) {
-                    if (line.skuId === rule.swapSkuId) {
-                      addUsage(saleDate, rule.swapSkuId, -(line.effectiveQty * qty));
-                    }
-                  }
-                }
-                const modQty = rule.qtyPerMatch * qty;
-                const modSku = skuMap.get(rule.skuId);
-                if (modSku && modSku.type === "SP") {
-                  const spLines = spBomBySpSku.get(rule.skuId) || [];
-                  for (const spLine of spLines) {
-                    addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
-                  }
-                } else {
-                  addUsage(saleDate, rule.skuId, modQty);
-                }
-              } else if (rule.ruleType === "submenu") {
-                if (rule.submenuId) {
-                  const subBomLines = bomByMenuId.get(rule.submenuId) || [];
-                  for (const line of subBomLines) {
-                    const ingredientQty2 = line.effectiveQty * qty;
-                    const sku2 = skuMap.get(line.skuId);
-                    if (sku2 && sku2.type === "SP") {
-                      const spLines = spBomBySpSku.get(line.skuId) || [];
-                      for (const spLine of spLines) {
-                        addUsage(
-                          saleDate,
-                          spLine.ingredientSkuId,
-                          (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2,
-                        );
-                      }
-                    } else {
-                      addUsage(saleDate, line.skuId, ingredientQty2);
-                    }
-                  }
-                }
-              } else {
-                const modQty = rule.qtyPerMatch * qty;
-                const modSku = skuMap.get(rule.skuId);
-                if (modSku && modSku.type === "SP") {
-                  const spLines = spBomBySpSku.get(rule.skuId) || [];
-                  for (const spLine of spLines) {
-                    addUsage(saleDate, spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
-                  }
-                } else {
-                  addUsage(saleDate, rule.skuId, modQty);
-                }
-              }
-            }
-          }
-        }
+        const date = sale.sale_date;
+        addSaleUsage(ctx, { ...sale, branch_id: branchId }, (skuId, q) => {
+          const day = (usageByDate[date] ??= {});
+          day[skuId] = (day[skuId] || 0) + q;
+        });
       }
 
       return usageByDate;
@@ -584,123 +478,10 @@ export function useDailyStockCount({
       const sales = salesRes.data || [];
       if (sales.length === 0) return {};
 
-      const menuByCode = new Map<string, Menu>();
-      menus.forEach((m) => menuByCode.set(m.menuCode, m));
-
-      const filteredLines = menuBomLines.filter((l) => l.branchId === null || l.branchId === branchId);
-      const bomByMenuId = new Map<string, MenuBomLine[]>();
-      filteredLines.forEach((l) => {
-        const arr = bomByMenuId.get(l.menuId) || [];
-        arr.push(l);
-        bomByMenuId.set(l.menuId, arr);
-      });
-
-      const activeRules = modifierRules.filter((r) => {
-        if (!r.isActive) return false;
-        if (r.branchIds && r.branchIds.length > 0 && !r.branchIds.includes(branchId)) return false;
-        return true;
-      });
-
-      const spBomBySpSku = new Map<string, SpBomLine[]>();
-      spBomLines.forEach((l) => {
-        const arr = spBomBySpSku.get(l.spSkuId) || [];
-        arr.push(l);
-        spBomBySpSku.set(l.spSkuId, arr);
-      });
-
-      const skuMap = new Map<string, SKU>();
-      skus.forEach((s) => skuMap.set(s.id, s));
-
+      // The one usage engine (sale-usage.ts), same as Food Cost
+      const ctx = usageContextFromApp({ menus, menuBomLines, modifierRules, spBomLines, skus });
       const usage: Record<string, number> = {};
-      const addUsage = (skuId: string, qty: number) => {
-        usage[skuId] = (usage[skuId] || 0) + qty;
-      };
-
-      for (const sale of sales) {
-        const qty = Number(sale.qty) || 0;
-        if (qty === 0) continue;
-
-        const menuCode = sale.menu_code;
-        const menuName = sale.menu_name || "";
-        const menu = menuByCode.get(menuCode);
-
-        // A menu closed at this branch still uses stock when the POS sold it
-        if (menu) {
-          const bomLines = bomByMenuId.get(menu.id) || [];
-          for (const line of bomLines) {
-            const ingredientQty = line.effectiveQty * qty;
-            const sku = skuMap.get(line.skuId);
-
-            if (sku && sku.type === "SP") {
-              const spLines = spBomBySpSku.get(line.skuId) || [];
-              for (const spLine of spLines) {
-                const rmQty = (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty;
-                addUsage(spLine.ingredientSkuId, rmQty);
-              }
-            } else {
-              addUsage(line.skuId, ingredientQty);
-            }
-          }
-
-          for (const rule of activeRules) {
-            if (rule.menuIds.length > 0 && !rule.menuIds.includes(menu.id)) continue;
-            if (ruleMatchesSale(rule, sale)) {
-              if (rule.ruleType === "swap") {
-                // Remove the swap SKU's BOM qty for this menu
-                if (rule.swapSkuId) {
-                  const bomLines2 = bomByMenuId.get(menu.id) || [];
-                  for (const line of bomLines2) {
-                    if (line.skuId === rule.swapSkuId) {
-                      const removeQty = line.effectiveQty * qty;
-                      addUsage(rule.swapSkuId, -removeQty);
-                    }
-                  }
-                }
-                // Add replacement SKU
-                const modQty = rule.qtyPerMatch * qty;
-                const modSku = skuMap.get(rule.skuId);
-                if (modSku && modSku.type === "SP") {
-                  const spLines = spBomBySpSku.get(rule.skuId) || [];
-                  for (const spLine of spLines) {
-                    addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
-                  }
-                } else {
-                  addUsage(rule.skuId, modQty);
-                }
-              } else if (rule.ruleType === "submenu") {
-                // Expand the submenu's BOM
-                if (rule.submenuId) {
-                  const subBomLines = bomByMenuId.get(rule.submenuId) || [];
-                  for (const line of subBomLines) {
-                    const ingredientQty2 = line.effectiveQty * qty;
-                    const sku2 = skuMap.get(line.skuId);
-                    if (sku2 && sku2.type === "SP") {
-                      const spLines = spBomBySpSku.get(line.skuId) || [];
-                      for (const spLine of spLines) {
-                        addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * ingredientQty2);
-                      }
-                    } else {
-                      addUsage(line.skuId, ingredientQty2);
-                    }
-                  }
-                }
-              } else {
-                // ADD type (existing behavior)
-                const modQty = rule.qtyPerMatch * qty;
-                const modSku = skuMap.get(rule.skuId);
-                if (modSku && modSku.type === "SP") {
-                  const spLines = spBomBySpSku.get(rule.skuId) || [];
-                  for (const spLine of spLines) {
-                    addUsage(spLine.ingredientSkuId, (spLine.qtyPerBatch / spLine.batchYieldQty) * modQty);
-                  }
-                } else {
-                  addUsage(rule.skuId, modQty);
-                }
-              }
-            }
-          }
-        }
-      }
+      for (const sale of sales) addSaleUsage(ctx, { ...sale, branch_id: branchId }, (skuId, q) => (usage[skuId] = (usage[skuId] || 0) + q));
 
       return usage;
     },
