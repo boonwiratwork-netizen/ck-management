@@ -14,7 +14,6 @@ import DesignSystem from "./pages/DesignSystem";
 import { lazy, Suspense } from "react";
 
 // Old phone page: separate download, most people never open it
-const MobileApp = lazy(() => import("./pages/MobileApp"));
 // Dev-only screen harness; the import is dropped from production builds
 const MenuSetupDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/MenuSetupDemo")) : null;
 const ReceiveDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ReceiveDemo")) : null;
@@ -73,7 +72,8 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/setup" element={<SetupRoute />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/mobile" element={<ProtectedRoute><Suspense fallback={null}><MobileApp /></Suspense></ProtectedRoute>} />
+              {/* The first phone receiving app; receiving is one page for every screen now */}
+              <Route path="/mobile" element={<Navigate to="/branch-receipt" replace />} />
               <Route path="/:tab" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/design" element={<DesignSystem />} />
               {MenuSetupDemo && <Route path="/dev/menu-setup" element={<Suspense fallback={null}><MenuSetupDemo /></Suspense>} />}

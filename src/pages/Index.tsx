@@ -28,12 +28,10 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 import type { CSVColumnDef, CSVValidationError } from "@/components/CSVImportModal";
 const SuppliersPage = lazy(() => import("@/pages/Suppliers"));
 const PricesPage = lazy(() => import("@/pages/Prices"));
-const BOMPage = lazy(() => import("@/pages/BOM"));
 const GoodsReceiptPage = lazy(() => import("@/pages/KitchenReceive"));
 const KitchenStockPage = lazy(() => import("@/pages/KitchenStock"));
 const ProductionPage = lazy(() => import("@/pages/Produce"));
 const StockCountPage = lazy(() => import("@/pages/KitchenCount"));
-const DeliveryToBranchesPage = lazy(() => import("@/pages/DeliveryToBranches"));
 const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
 const BranchesPage = lazy(() => import("@/pages/Branches"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagement"));
@@ -73,13 +71,11 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   sku: { title: "รายการสินค้า (หน้าเดิม)", subtitle: "นำเข้า/ส่งออกสินค้า" },
   supplier: { title: "ซัพพลายเออร์ (หน้าเดิม)", subtitle: "นำเข้าซัพพลายเออร์" },
   price: { title: "ราคาทั้งหมด (หน้าเดิม)", subtitle: "ราคาทุกซัพพลายเออร์" },
-  bom: { title: "สูตร SM (หน้าเดิม)", subtitle: "สูตรหลายขั้นตอน · ผลพลอยได้" },
   receipt: { title: "รับของเข้าครัว", subtitle: "ใส่ตามบิลซัพพลายเออร์" },
   stock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
   production: { title: "การผลิต", subtitle: "บันทึกผลผลิตและวางแผน" },
   smstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
   stockcount: { title: "นับสต๊อกครัว", subtitle: "นับเดือนละครั้ง" },
-  delivery: { title: "ส่งของให้สาขา", subtitle: "" },
   "transfer-order": { title: "โอนสินค้า", subtitle: "ครัวกลางส่งของให้สาขา" },
   branches: { title: "สาขา", subtitle: "ข้อมูลสาขาและแบรนด์" },
   users: { title: "ผู้ใช้", subtitle: "บัญชีและสิทธิ์" },
@@ -131,7 +127,6 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
     const editableCk: TabKey[] = [
       "receipt",
       "production",
-      "delivery",
       "transfer-order",
       "stock",
       "smstock",
@@ -140,7 +135,6 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "sku",
       "supplier",
       "price",
-      "bom",
       "sp-bom",
       "sku-categories",
       "cost-center",
@@ -194,6 +188,8 @@ const Index = () => {
     // Menu Setup moved into Cost Center: old links land on the same view there (the
     // address is then rewritten by the canonical-path effect below)
     if (pathTab === "menu-setup") return "cost-center";
+    // Multi-step recipes and by-products moved into Cost Center too
+    if (pathTab === "bom") return "cost-center";
     if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
     const legacy = new URLSearchParams(window.location.search).get("tab");
     return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
@@ -574,16 +570,6 @@ const Index = () => {
                     readOnly={readOnly}
                     bomHeaders={bomData.headers}
                   />
-                ) : activeTab === "bom" ? (
-                  <BOMPage
-                    bomData={bomData}
-                    skus={skus}
-                    prices={priceData.prices}
-                    readOnly={readOnly}
-                    onPricesRefresh={priceData.refreshPrices}
-                    onRecost={priceData.recostPrices}
-                    byproductData={byproductData}
-                  />
                 ) : activeTab === "receipt" ? (
                   <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
                 ) : activeTab === "stock" || activeTab === "smstock" || activeTab === "pkstock" ? (
@@ -797,14 +783,7 @@ const Index = () => {
                   />
                 ) : activeTab === "sku-categories" ? (
                   <SkuCategoriesPage categoryData={skuCategoryData} skus={skus} readOnly={readOnly} />
-                ) : (
-                  <DeliveryToBranchesPage
-                    deliveryData={deliveryData}
-                    skus={skus}
-                    activeBranches={activeBranches}
-                    smStockBalances={smStockData.stockBalances}
-                  />
-                )}
+                ) : null}
               </div>
             )}
             </Suspense>

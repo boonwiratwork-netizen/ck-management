@@ -49,13 +49,11 @@ export type TabKey =
   | "sku"
   | "supplier"
   | "price"
-  | "bom"
   | "receipt"
   | "stock"
   | "production"
   | "smstock"
   | "stockcount"
-  | "delivery"
   | "transfer-order"
   | "branches"
   | "users"
@@ -83,13 +81,11 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   sku: "ck",
   supplier: "ck",
   price: "ck",
-  bom: "ck",
   receipt: "ck",
   stock: "ck",
   production: "ck",
   smstock: "ck",
   stockcount: "ck",
-  delivery: "ck",
   "transfer-order": "ck",
   branches: "management",
   users: "management",
