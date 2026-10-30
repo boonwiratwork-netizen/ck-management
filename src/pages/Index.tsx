@@ -562,7 +562,7 @@ const Index = () => {
                     bomHeaders={bomData.headers}
                   />
                 ) : activeTab === "receipt" ? (
-                  <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} />
+                  <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} onNavigate={handleTabChange} />
                 ) : activeTab === "stock" || activeTab === "smstock" || activeTab === "pkstock" ? (
                   // RM / SM / PK on one page; each tab keeps its old address
                   <KitchenStockPage
@@ -591,6 +591,7 @@ const Index = () => {
                     smDailyUsage={smDailyUsage}
                     refreshProductionRecords={smStockData.refreshProductionRecords}
                     byproducts={byproductData.byproducts}
+                    onNavigate={handleTabChange}
                   />
                 ) : activeTab === "stockcount" ? (
                   <StockCountPage
@@ -737,6 +738,7 @@ const Index = () => {
                     branches={isAreaManager ? areaManagerBranches : branchData.branches}
                     menus={menuData.menus}
                     modifierRules={modifierRuleData.rules}
+                    onNavigate={handleTabChange}
                   />
                 ) : activeTab === "branch-receipt" || activeTab === "branch-receipt-mobile" ? (
                   <ReceivePage
@@ -747,6 +749,7 @@ const Index = () => {
                     menus={menuData.menus}
                     menuBomLines={menuBomData.lines}
                     getBomCostPerGram={smStockData.getBomCostPerGram}
+                    onNavigate={handleTabChange}
                   />
                 ) : activeTab === "transfer-request" ? (
                   <TransferRequestPage branches={isAreaManager ? areaManagerBranches : branchData.branches} />

@@ -119,7 +119,7 @@ export default function ReceiveDemo() {
   return (
     <div className="min-h-screen bg-background">
       <div className="page-shell">
-        <ReceivePage skus={SKUS} prices={PRICES} branches={BRANCHES} suppliers={SUPPLIERS} menus={MENUS} menuBomLines={MENU_BOM} getBomCostPerGram={(id) => BOM_COST[id] ?? 0} demoData={demoData} />
+        <ReceivePage skus={SKUS} prices={PRICES} branches={BRANCHES} suppliers={SUPPLIERS} menus={MENUS} menuBomLines={MENU_BOM} getBomCostPerGram={(id) => BOM_COST[id] ?? 0} onNavigate={(t) => alert(`ไปหน้า ${t}`)} demoData={demoData} />
         <section id="write-log" className="mt-10 rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">สิ่งที่จะเขียนลงฐานข้อมูล (ทดสอบ)</h2>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{log.join("\n") || "—"}</pre>

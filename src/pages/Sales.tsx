@@ -18,11 +18,14 @@ import { baht } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { TabKey } from "@/components/AppSidebar";
 
 interface Props {
   branches: Branch[];
   menus: Menu[];
   modifierRules: ModifierRule[];
+  /** The next job after this one (a button on the "saved" message) */
+  onNavigate?: (tab: TabKey) => void;
   /** Dev harness only: an in-memory stand-in for the database layer */
   demoData?: SalesData;
 }
@@ -67,7 +70,7 @@ const GUIDE: GuideStep[] = [
  * at any day's bills. The URL hash holds the screen: "" home, "day/<date>",
  * "check" (after reading a paste), "add" (manual entry).
  */
-export default function SalesPage({ branches, menus, modifierRules, demoData }: Props) {
+export default function SalesPage({ branches, menus, modifierRules, onNavigate, demoData }: Props) {
   const { isManagement, isStoreManager, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -155,7 +158,8 @@ export default function SalesPage({ branches, menus, modifierRules, demoData }: 
     setSaving(false);
     await data.reloadDays();
     if (!res.failedDay) {
-      toast.success(`บันทึกยอดขาย ${res.inserted.toLocaleString()} รายการแล้ว`);
+      // Sales in first, then the count (the balance takes the sales off)
+      toast.success(`บันทึกยอดขาย ${res.inserted.toLocaleString()} รายการแล้ว`, onNavigate ? { action: { label: "ไปนับสต๊อก", onClick: () => onNavigate("daily-stock-count") }, duration: 10000 } : undefined);
       setReads([]);
       setPlans([]);
       setImportKey((k) => k + 1);

@@ -14,6 +14,7 @@ import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { TabKey } from "@/components/AppSidebar";
 
 const GUIDE: GuideStep[] = [
   {
@@ -44,13 +45,15 @@ interface Props {
   skus: SKU[];
   suppliers: Supplier[];
   prices: Price[];
+  /** The next job after this one (a button on the "saved" message) */
+  onNavigate?: (tab: TabKey) => void;
 }
 
 /**
  * The central kitchen receives supplier bills (replaces GoodsReceipt). Screens by
  * hash: "" home, "bill/<supplierId>" or "bill/other", "history".
  */
-export default function KitchenReceivePage({ receiptData, skus, suppliers, prices }: Props) {
+export default function KitchenReceivePage({ receiptData, skus, suppliers, prices, onNavigate }: Props) {
   const { receipts, addReceipts, editReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll } = receiptData;
   const location = useLocation();
   const navigate = useNavigate();
@@ -99,7 +102,12 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
       const supplierId = bill.rows[0]?.supplierId;
       toast.success(
         `บันทึกบิลแล้ว ${bill.rows.length} รายการ${off ? ` · ราคาต่าง ${off} รายการ` : ""}`,
-        off && supplierId && !bill.place ? { action: { label: "อัปเดตราคา", onClick: () => navigate(`/cost-center#bill/${supplierId}/${date}`) }, duration: 10000 } : undefined,
+        off && supplierId && !bill.place
+          ? { action: { label: "อัปเดตราคา", onClick: () => navigate(`/cost-center#bill/${supplierId}/${date}`) }, duration: 10000 }
+          : // Prices fine: the next job is producing with what came in
+            onNavigate
+            ? { action: { label: "ไปผลิต", onClick: () => onNavigate("production") }, duration: 10000 }
+            : undefined,
       );
       // A line added to an old bill doesn't leave the page on that old day
       if (backDated) {

@@ -122,7 +122,7 @@ export default function SalesDemo() {
   return (
     <div className="min-h-screen bg-background">
       <div className="page-shell">
-        <SalesPage branches={BRANCHES} menus={MENUS} modifierRules={RULES} demoData={data} />
+        <SalesPage branches={BRANCHES} menus={MENUS} modifierRules={RULES} onNavigate={(t) => alert(`ไปหน้า ${t}`)} demoData={data} />
         <section id="write-log" className="mt-10 rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">สิ่งที่จะเขียนลงฐานข้อมูล (ทดสอบ)</h2>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{log.join("\n") || "—"}</pre>

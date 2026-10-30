@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { TabKey } from "@/components/AppSidebar";
+import { fetchPendingTrCount } from "@/lib/pending-trs";
 
 const GUIDE: GuideStep[] = [
   {
@@ -56,6 +58,8 @@ interface Props {
   refreshProductionRecords?: () => void;
   /** Recipe by-products (น้ำสต๊อก → น้ำมันไก่ + น้ำสต๊อกโทริ ไพตัน) */
   byproducts?: BomByproduct[];
+  /** The next job after this one (a button on the "saved" message) */
+  onNavigate?: (tab: TabKey) => void;
   /** Dev harness only: act as a kitchen manager without signing in */
   demoCanEdit?: boolean;
 }
@@ -96,7 +100,7 @@ function useWeekPlan(weekStart: string) {
  * Central-kitchen production (replaces Production): record what was made each day,
  * and plan the week. Hash: "" recording, "plan" planning.
  */
-export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, refreshProductionRecords, byproducts = [], demoCanEdit }: Props) {
+export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, refreshProductionRecords, byproducts = [], onNavigate, demoCanEdit }: Props) {
   const { records, addRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch } = productionData;
   const { isManagement, role } = useAuth();
   const canEdit = demoCanEdit || isManagement || role === "ck_manager";
@@ -213,7 +217,12 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
     setBusy(null);
     if (!id) return false;
     refreshProductionRecords?.();
-    toast.success(`บันทึก ${nameOf(skuId)} แล้ว`);
+    // Branches waiting on a request: the transfer order is next
+    const requests = onNavigate ? await fetchPendingTrCount().catch(() => 0) : 0;
+    toast.success(
+      `บันทึก ${nameOf(skuId)} แล้ว`,
+      requests && onNavigate ? { description: `ใบขอเบิกรอทำใบโอน ${requests} ใบ`, action: { label: "ทำใบโอน", onClick: () => onNavigate("transfer-order") }, duration: 10000 } : undefined,
+    );
     return true;
   };
   const askByproducts = (skuId: string, grams: number, notes: string) => {

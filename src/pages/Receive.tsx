@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { TabKey } from "@/components/AppSidebar";
 
 interface MenuLite {
   id: string;
@@ -40,6 +41,8 @@ interface Props {
   menus?: MenuLite[];
   menuBomLines?: MenuBomLite[];
   getBomCostPerGram?: (smSkuId: string) => number;
+  /** The next job after this one (a button on the "saved" message) */
+  onNavigate?: (tab: TabKey) => void;
   /** Dev harness only: an in-memory stand-in for the database layer */
   demoData?: ReturnType<typeof useReceiveData>;
 }
@@ -76,7 +79,7 @@ const NOT_A_SHOP = /^(central kitchen|ck\b|ck \(|ครัวกลาง|store 
  * phone receive page). The URL hash holds the screen: "" queue, "to/<id>",
  * "sup/<id>", "ck", "branch", "history" — so the back button and bottom bar work.
  */
-export default function ReceivePage({ skus, prices, branches, suppliers = [], menus = [], menuBomLines = [], getBomCostPerGram, demoData }: Props) {
+export default function ReceivePage({ skus, prices, branches, suppliers = [], menus = [], menuBomLines = [], getBomCostPerGram, onNavigate, demoData }: Props) {
   const { isStoreManager, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -176,7 +179,8 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   const findDoubles = (against: boolean) => async (lines: { skuId: string; qty: number }[]) =>
     (await data.findKitchenDoubles(new Date(`${date}T00:00:00`), lines, against)).map(describe);
   const done = (count: number) => {
-    toast.success(`บันทึกรับของ ${count} รายการแล้ว`);
+    // Everything in? the count is next (another TO waiting stays on the list here)
+    toast.success(`บันทึกรับของ ${count} รายการแล้ว`, onNavigate ? { action: { label: "ไปนับสต๊อก", onClick: () => onNavigate("daily-stock-count") }, duration: 10000 } : undefined);
     go("", true);
   };
 
