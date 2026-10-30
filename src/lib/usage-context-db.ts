@@ -60,13 +60,14 @@ export function usageOf(
   ctx: UsageContext,
   sales: UsageSaleRow[],
   branchId: string,
-  skuIds: Set<string>,
+  /** Only these SKUs; null = every ingredient */
+  skuIds: Set<string> | null,
 ): { total: Record<string, number>; byDay: Record<string, Record<string, number>> } {
   const total: Record<string, number> = {};
   const byDay: Record<string, Record<string, number>> = {};
   for (const s of sales) {
     addSaleUsage(ctx, { menu_code: s.menu_code, menu_name: s.menu_name, qty: s.qty, branch_id: branchId }, (id, q) => {
-      if (!skuIds.has(id)) return;
+      if (skuIds && !skuIds.has(id)) return;
       total[id] = (total[id] || 0) + q;
       const d = (byDay[id] ??= {});
       d[s.sale_date] = (d[s.sale_date] || 0) + q;

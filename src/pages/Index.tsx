@@ -646,10 +646,7 @@ const Index = () => {
                     <div className="text-muted-foreground">Access denied</div>
                   )
                 ) : activeTab === "store" ? (
-                  <StoreOverview
-                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                    onNavigate={handleTabChange}
-                  />
+                  <StoreOverview branches={isAreaManager ? areaManagerBranches : branchData.branches} onNavigate={handleTabChange} readOnly={isAreaManager} />
                 ) : activeTab === "cost-center" ? (
                   <CostCenterPage
                     menuSetup={{
@@ -788,16 +785,7 @@ const Index = () => {
                     onNavigate={handleTabChange}
                   />
                 ) : activeTab === "store-stock" ? (
-                  <StoreStockPage
-                    skus={skus}
-                    branches={isAreaManager ? areaManagerBranches : branchData.branches}
-                    bomHeaders={bomData.headers}
-                    bomLines={bomData.lines}
-                    menus={menuData.menus}
-                    menuBomLines={menuBomData.lines}
-                    spBomLines={spBomData.lines}
-                    modifierRules={modifierRuleData.rules}
-                  />
+                  <StoreStockPage skus={skus} branches={isAreaManager ? areaManagerBranches : branchData.branches} readOnly={isAreaManager} />
                 ) : activeTab === "food-cost" ? (
                   <FoodCostPage
                     skus={skus}

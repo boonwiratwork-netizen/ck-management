@@ -28,6 +28,7 @@ const ProduceDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/Produce
 const KitchenCountDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/KitchenCountDemo")) : null;
 const KitchenStockDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/KitchenStockDemo")) : null;
 const FoodCostDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/FoodCostDemo")) : null;
+const StoreDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/StoreDemo")) : null;
 const CostCenterDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/CostCenterDemo")) : null;
 
 const queryClient = new QueryClient();
@@ -87,6 +88,7 @@ const App = () => (
               {KitchenCountDemo && <Route path="/dev/kitchen-count" element={<Suspense fallback={null}><KitchenCountDemo /></Suspense>} />}
               {KitchenStockDemo && <Route path="/dev/kitchen-stock" element={<Suspense fallback={null}><KitchenStockDemo /></Suspense>} />}
               {FoodCostDemo && <Route path="/dev/food-cost" element={<Suspense fallback={null}><FoodCostDemo /></Suspense>} />}
+              {StoreDemo && <Route path="/dev/store" element={<Suspense fallback={null}><StoreDemo /></Suspense>} />}
               {CostCenterDemo && <Route path="/dev/cost-center" element={<Suspense fallback={null}><CostCenterDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,996 +1,291 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { addSaleUsage, usageContextFromApp } from "@/lib/sale-usage";
-import { SKU } from "@/types/sku";
-import { Branch } from "@/types/branch";
-import { BOMHeader, BOMLine } from "@/types/bom";
-import { Menu } from "@/types/menu";
-import { MenuBomLine } from "@/types/menu-bom";
-import { SpBomLine } from "@/types/sp-bom";
-import { ModifierRule } from "@/types/modifier-rule";
+import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
+import { Download, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLanguage } from "@/hooks/use-language";
-import { supabase } from "@/integrations/supabase/client";
-import { table } from "@/lib/design-tokens";
-import { StatusDot } from "@/components/ui/status-dot";
+import { useBranchStock, type BranchStockLoader, type BranchStockRow } from "@/hooks/use-branch-stock";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 import { StockCard } from "@/components/StockCard";
-
-import { SearchInput } from "@/components/SearchInput";
-import { SkeletonTable } from "@/components/SkeletonTable";
-import { EmptyState } from "@/components/EmptyState";
-import { Card, CardContent } from "@/components/ui/card";
+import { MoveSheet } from "@/components/store-stock/MoveSheet";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Package, SlidersHorizontal, X } from "lucide-react";
-import { toast } from "sonner";
-import { useRef } from "react";
+import type { SKU } from "@/types/sku";
+import type { Branch } from "@/types/branch";
+import { cn, toLocalDateStr } from "@/lib/utils";
 
 interface Props {
   skus: SKU[];
   branches: Branch[];
-  bomHeaders: BOMHeader[];
-  bomLines: BOMLine[];
-  menus: Menu[];
-  menuBomLines: MenuBomLine[];
-  spBomLines: SpBomLine[];
-  modifierRules: ModifierRule[];
+  /** Area managers look but don't move stock */
+  readOnly?: boolean;
+  /** Dev demo only */
+  loader?: BranchStockLoader;
+  write?: (rows: unknown[]) => Promise<boolean>;
 }
 
-interface CountRow {
-  id: string;
-  branch_id: string;
-  sku_id: string;
-  count_date: string;
-  physical_count: number | null;
-  calculated_balance: number;
-  expected_usage: number;
-  is_submitted: boolean;
-}
+type Filter = "all" | "low" | "negative";
+const LOW_DAYS = 2;
+const STORAGE: Record<string, string> = { Frozen: "แช่แข็ง", Chilled: "แช่เย็น", Ambient: "ของแห้ง" };
+const n0 = (n: number) => Math.round(n).toLocaleString("th-TH");
+const baht = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`;
+const thaiDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 
-/** Shared usage calculation: Menu BOM + SP expansion + Modifier Rules */
-function calculateUsageFromSales(
-  sales: { menu_code: string; menu_name: string; qty: number }[],
-  menus: Menu[],
-  menuBomLines: MenuBomLine[],
-  modifierRules: ModifierRule[],
-  spBomLines: SpBomLine[],
-  skus: SKU[],
-  branchId?: string,
-): Record<string, number> {
-  // The one usage engine (sale-usage.ts): recipe → SP → rules, as Food Cost and the count sheet
-  const ctx = usageContextFromApp({ menus, menuBomLines, modifierRules, spBomLines, skus });
-  const usage: Record<string, number> = {};
-  for (const sale of sales) addSaleUsage(ctx, { ...sale, branch_id: branchId ?? null }, (id, q) => (usage[id] = (usage[id] || 0) + q));
-  return usage;
-}
+/**
+ * A branch's stock: the latest finished count, plus what came in, less what sales
+ * used and waste, ± moves — the count sheet's formula. Moves to another branch or
+ * back to the kitchen write both sides at once.
+ */
+export default function StoreStockPage({ skus, branches, readOnly, loader, write }: Props) {
+  const { isStoreManager, profile } = useAuth();
+  const active = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
+  // A store manager sees their own branch (none set = nothing to show)
+  const own = isStoreManager ? profile?.branch_id ?? null : undefined;
+  const [picked, setPicked] = useState<string | null>(null);
+  const branchId = own !== undefined ? own : picked ?? active[0]?.id ?? null;
+  const branch = branches.find((b) => b.id === branchId) ?? null;
 
-export default function StoreStockPage({
-  skus,
-  branches,
-  bomHeaders,
-  bomLines,
-  menus,
-  menuBomLines,
-  spBomLines,
-  modifierRules,
-}: Props) {
-  const { isManagement, isStoreManager, isAreaManager, profile } = useAuth();
-  const { t } = useLanguage();
-  const [rows, setRows] = useState<CountRow[]>([]);
-  const [priceMap, setPriceMap] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<"All" | "SM" | "RM">("All");
-  const [stockCard, setStockCard] = useState<{
-    skuId: string;
-    skuType: "RM" | "SM";
-    sku: SKU;
-    currentStock: number;
-    branchId: string;
-  } | null>(null);
-  const [liveDailyUsage, setLiveDailyUsage] = useState<Record<string, number>>({});
+  const { rows, loading, error, reload } = useBranchStock(branchId, skus, loader);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
+  const [historyFor, setHistoryFor] = useState<BranchStockRow | null>(null);
+  const [moveFor, setMoveFor] = useState<BranchStockRow | null>(null);
+  const [measure, wide] = useFitsWidth(900);
 
-  // Adjust drawer state
-  const [adjustTarget, setAdjustTarget] = useState<{
-    skuId: string;
-    skuName: string;
-    skuCode: string;
-    uom: string;
-    currentStock: number;
-    branchId: string;
-  } | null>(null);
-  const [adjustDir, setAdjustDir] = useState<"out" | "in">("out");
-  const [adjustReason, setAdjustReason] = useState("");
-  const [adjustTargetBranch, setAdjustTargetBranch] = useState("");
-  const [adjustSaving, setAdjustSaving] = useState(false);
-  const adjQtyRef = useRef<number>(0);
-  const adjNoteRef = useRef<string>("");
+  const list = rows ?? [];
+  const low = list.filter((r) => r.daysLeft !== null && r.balance > 0 && r.daysLeft < LOW_DAYS).sort((a, b) => a.daysLeft! - b.daysLeft!);
+  const negative = list.filter((r) => r.balance < -0.5);
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = list
+    .filter((r) => (filter === "low" ? low.includes(r) : filter === "negative" ? negative.includes(r) : true))
+    .filter((r) => words.every((w) => `${r.sku.skuId} ${r.sku.name}`.toLowerCase().includes(w)))
+    // Fewest days left first; items not used sit at the bottom by name
+    .sort((a, b) => (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) || a.sku.name.localeCompare(b.sku.name, "th"));
+  const totalValue = list.reduce((t, r) => t + r.value, 0);
+  const lastCount = list.reduce<string | null>((m, r) => (r.countDate && (!m || r.countDate > m) ? r.countDate : m), null);
+  // Weighted days left per storage: Σ stock ÷ Σ daily use (CLAUDE.md cover day)
+  const cover = (k: string) => {
+    const g = list.filter((r) => (r.sku.storageCondition || "Ambient") === k && r.balance > 0 && r.dailyUse > 0);
+    const use = g.reduce((t, r) => t + r.dailyUse, 0);
+    return use > 0 ? g.reduce((t, r) => t + r.balance, 0) / use : null;
+  };
 
-  // Reset refs when target changes
-  useEffect(() => {
-    adjQtyRef.current = 0;
-    adjNoteRef.current = "";
-  }, [adjustTarget]);
+  const chip = (on: boolean, tone?: "bad") =>
+    cn("inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : tone === "bad" ? "border-destructive/40 bg-card text-destructive" : "border-border bg-card");
+  const daysCell = (r: BranchStockRow) =>
+    r.daysLeft === null ? <span className="text-muted-foreground">—</span> : r.balance <= 0 ? <span className="font-semibold text-destructive">หมด</span> : <span className={cn(r.daysLeft < LOW_DAYS ? "font-semibold text-destructive" : r.daysLeft < 4 ? "text-warning" : "")}>{r.daysLeft >= 100 ? "100+" : r.daysLeft.toFixed(1)} วัน</span>;
 
-  // Store Manager with no branch
-  const noBranch = isStoreManager && !profile?.branch_id;
+  const exportExcel = () => {
+    const data = shown.map((r) => ({ รหัส: r.sku.skuId, ชื่อ: r.sku.name, ช่องเก็บ: STORAGE[r.sku.storageCondition] ?? r.sku.storageCondition, คงเหลือ: Math.round(r.balance * 100) / 100, หน่วย: r.sku.usageUom, ใช้ต่อวัน: Math.round(r.dailyUse * 10) / 10, พอขาย_วัน: r.daysLeft !== null ? Math.round(r.daysLeft * 10) / 10 : "", มูลค่า: Math.round(r.value * 100) / 100, นับล่าสุด: r.countDate ?? "ไม่เคยนับ" }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "สต๊อกสาขา");
+    XLSX.writeFile(wb, `สต๊อกสาขา-${branch?.branchName ?? ""}-${toLocalDateStr(new Date())}.xlsx`);
+  };
 
-  // Auto-set branch for store manager
-  useEffect(() => {
-    if (isStoreManager && profile?.branch_id) {
-      setSelectedBranch(profile.branch_id);
-    }
-  }, [isStoreManager, profile?.branch_id]);
-
-  // Effective branch ID (null if "all" selected)
-  const effectiveBranchId = useMemo(() => {
-    if (isStoreManager && profile?.branch_id) return profile.branch_id;
-    if (selectedBranch !== "all") return selectedBranch;
-    return null;
-  }, [isStoreManager, profile?.branch_id, selectedBranch]);
-
-  // Fetch data — live balance from transactions
-  const fetchData = useCallback(async () => {
-    if (noBranch || !effectiveBranchId) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    const branchId = effectiveBranchId;
-    const today = new Date().toISOString().split("T")[0];
-
-    // Step 2 — Prices
-    const { data: pricesData } = await supabase
-      .from("prices")
-      .select("sku_id, price_per_usage_uom")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .order("id");
-    // The standard: newest active price (one per supplier can be active)
-    const pm: Record<string, number> = {};
-    (pricesData || []).forEach((p: any) => {
-      if (!(p.sku_id in pm)) pm[p.sku_id] = Number(p.price_per_usage_uom);
-    });
-    setPriceMap(pm);
-
-    // Step 3 — Most recent physical_count per SKU (no age cutoff — always anchor to the
-    // branch's actual latest count, however old, matching every other stock formula in
-    // the app; a 90-day cutoff here previously discarded stale-but-real counts and reset
-    // the balance to a 2020 baseline, which was a regression, not intentional behavior).
-    // Paginated (like the sales_entries fetch below) since without a date bound this can
-    // exceed the default row cap for a branch with a long count history.
-    let countData: any[] = [];
-    {
-      const PAGE = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("daily_stock_counts")
-          .select("sku_id, physical_count, count_date")
-          .eq("branch_id", branchId)
-          .lte("count_date", today)
-          .order("count_date", { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        countData = countData.concat(data);
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
-    }
-
-    const lastSnapBySku = new Map<string, { balance: number; date: string }>();
-    (countData || []).forEach((r: any) => {
-      if (lastSnapBySku.has(r.sku_id)) return; // already have more recent
-      if (r.physical_count !== null) {
-        lastSnapBySku.set(r.sku_id, { balance: Number(r.physical_count), date: r.count_date });
-      }
-    });
-
-    // Step 4 — Earliest snap date
-    let earliestSnap = "2020-01-01";
-    if (lastSnapBySku.size > 0) {
-      earliestSnap = [...lastSnapBySku.values()].reduce(
-        (min, s) => (s.date < min ? s.date : min),
-        [...lastSnapBySku.values()][0].date,
-      );
-    }
-
-    // Steps 5-7 — Fetch CK receipts, external receipts, sales all in parallel
-    const skuConverterMap = new Map<string, { converter: number; purchaseUom: string; usageUom: string }>();
-    skus.forEach((s) =>
-      skuConverterMap.set(s.id, { converter: s.converter, purchaseUom: s.purchaseUom, usageUom: s.usageUom }),
-    );
-
-    const [ckRes, extRes, adjRes, salesRes] = await Promise.all([
-      // Step 5 — CK receipts (branch_receipts where transfer_order_id IS NOT NULL)
-      supabase
-        .from("branch_receipts")
-        .select("sku_id, qty_received, receipt_date")
-        .eq("branch_id", branchId)
-        .not("transfer_order_id", "is", null)
-        .gt("receipt_date", earliestSnap)
-        .lte("receipt_date", today),
-      // Step 6 — External receipts (branch_receipts)
-      supabase
-        .from("branch_receipts")
-        .select("sku_id, qty_received, receipt_date")
-        .eq("branch_id", branchId)
-        .is("transfer_order_id", null)
-        .gt("receipt_date", earliestSnap)
-        .lte("receipt_date", today),
-      // Stock 6b adjustments
-      supabase
-        .from("stock_adjustments")
-        .select("sku_id, quantity, adjustment_date")
-        .eq("branch_id", branchId)
-        .gte("adjustment_date", earliestSnap)
-        .lte("adjustment_date", today),
-      // Step 7 — Sales (paginated)
-      (async () => {
-        let allSales: any[] = [];
-        const PAGE = 1000;
-        let from = 0;
-        while (true) {
-          const { data, error } = await supabase
-            .from("sales_entries")
-            .select("menu_code, menu_name, qty, sale_date")
-            .eq("branch_id", branchId)
-            .gt("sale_date", earliestSnap)
-            .lte("sale_date", today)
-            .range(from, from + PAGE - 1);
-          if (error || !data || data.length === 0) break;
-          allSales = allSales.concat(data);
-          if (data.length < PAGE) break;
-          from += PAGE;
-        }
-        return { data: allSales, error: null };
-      })(),
-    ]);
-
-    // Build adjustment totals per SKU per date
-    const adjBySkuDate = new Map<string, Map<string, number>>();
-    (adjRes.data || []).forEach((r: any) => {
-      const qty = Number(r.quantity);
-      if (!adjBySkuDate.has(r.sku_id)) adjBySkuDate.set(r.sku_id, new Map());
-      const m = adjBySkuDate.get(r.sku_id)!;
-      m.set(r.adjustment_date, (m.get(r.adjustment_date) || 0) + qty);
-    });
-
-    // Build CK receipt totals per SKU per date
-    const ckBySkuDate = new Map<string, Map<string, number>>();
-    (ckRes.data || []).forEach((line: any) => {
-      const qty = Number(line.qty_received);
-      if (!ckBySkuDate.has(line.sku_id)) ckBySkuDate.set(line.sku_id, new Map());
-      const m = ckBySkuDate.get(line.sku_id)!;
-      m.set(line.receipt_date, (m.get(line.receipt_date) || 0) + qty);
-    });
-
-    // Build external receipt totals per SKU per date (with converter)
-    const extBySkuDate = new Map<string, Map<string, number>>();
-    (extRes.data || []).forEach((r: any) => {
-      const skuInfo = skuConverterMap.get(r.sku_id);
-      const conv = skuInfo && skuInfo.purchaseUom !== skuInfo.usageUom ? skuInfo.converter : 1;
-      const qty = Number(r.qty_received) * conv;
-      if (!extBySkuDate.has(r.sku_id)) extBySkuDate.set(r.sku_id, new Map());
-      const m = extBySkuDate.get(r.sku_id)!;
-      m.set(r.receipt_date, (m.get(r.receipt_date) || 0) + qty);
-    });
-
-    // Build usage per SKU per date from sales
-    const salesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
-    (salesRes.data || []).forEach((s: any) => {
-      const arr = salesByDate.get(s.sale_date) || [];
-      arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
-      salesByDate.set(s.sale_date, arr);
-    });
-
-    const usageBySkuDate = new Map<string, Map<string, number>>();
-    for (const [date, dateSales] of salesByDate) {
-      const dayUsage = calculateUsageFromSales(
-        dateSales,
-        menus,
-        menuBomLines,
-        modifierRules,
-        spBomLines,
-        skus,
-        effectiveBranchId ?? undefined,
-      );
-      for (const [skuId, qty] of Object.entries(dayUsage)) {
-        if (!usageBySkuDate.has(skuId)) usageBySkuDate.set(skuId, new Map());
-        const m = usageBySkuDate.get(skuId)!;
-        m.set(date, (m.get(date) || 0) + qty);
-      }
-    }
-
-    // Step 8 — Compute final balance per SKU
-    const activeSkus = skus.filter((s) => s.status === "Active" && (s.type === "RM" || s.type === "SM"));
-    const resultRows: CountRow[] = [];
-
-    for (const sku of activeSkus) {
-      const snap = lastSnapBySku.get(sku.id);
-      const base = snap?.balance ?? 0;
-      const snapDate = snap?.date ?? earliestSnap;
-
-      // Sum CK receipts after snap date
-      let ckIn = 0;
-      const ckDates = ckBySkuDate.get(sku.id);
-      if (ckDates) {
-        for (const [d, q] of ckDates) {
-          if (d > snapDate) ckIn += q;
-        }
-      }
-
-      // Sum external receipts after snap date
-      let extIn = 0;
-      const extDates = extBySkuDate.get(sku.id);
-      if (extDates) {
-        for (const [d, q] of extDates) {
-          if (d > snapDate) extIn += q;
-        }
-      }
-
-      // Sum usage after snap date
-      let usageOut = 0;
-      const usageDates = usageBySkuDate.get(sku.id);
-      if (usageDates) {
-        for (const [d, q] of usageDates) {
-          if (d > snapDate) usageOut += q;
-        }
-      }
-
-      // Sum adjustments after snap date
-      let adjNet = 0;
-      const adjRows = adjBySkuDate.get(sku.id);
-      if (adjRows) {
-        for (const [d, q] of adjRows) {
-          if (d > snapDate) adjNet += q;
-        }
-      }
-
-      const balance = Math.max(0, base + ckIn + extIn + adjNet - usageOut);
-
-      // Only include if there's any activity or a snap
-      if (balance > 0 || snap || ckIn > 0 || extIn > 0 || usageOut > 0 || adjNet !== 0) {
-        resultRows.push({
-          id: sku.id,
-          branch_id: branchId,
-          sku_id: sku.id,
-          count_date: snap?.date ?? "—",
-          physical_count: snap?.balance ?? null,
-          calculated_balance: balance,
-          expected_usage: 0,
-          is_submitted: true,
-        });
-      }
-    }
-
-    setRows(resultRows);
-    // Compute live daily usage — fetch last 7 days independently (salesByDate only covers since earliestSnap)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    const since = sevenDaysAgo.toISOString().split("T")[0];
-    const today2 = new Date().toISOString().split("T")[0];
-
-    const { data: recentSalesRaw } = await supabase
-      .from("sales_entries")
-      .select("menu_code, menu_name, qty, sale_date")
-      .eq("branch_id", branchId)
-      .gte("sale_date", since)
-      .lte("sale_date", today2);
-
-    const recentSalesByDate = new Map<string, { menu_code: string; menu_name: string; qty: number }[]>();
-    for (const s of recentSalesRaw || []) {
-      const arr = recentSalesByDate.get(s.sale_date) || [];
-      arr.push({ menu_code: s.menu_code, menu_name: s.menu_name || "", qty: Number(s.qty) });
-      recentSalesByDate.set(s.sale_date, arr);
-    }
-
-    const recentSales: { menu_code: string; menu_name: string; qty: number }[] = [];
-    for (const dateSales of recentSalesByDate.values()) {
-      recentSales.push(...dateSales);
-    }
-    const activeDays = recentSalesByDate.size;
-    const divisor = activeDays > 0 ? activeDays : 7;
-    const totalUsage = calculateUsageFromSales(
-      recentSales,
-      menus,
-      menuBomLines,
-      modifierRules,
-      spBomLines,
-      skus,
-      effectiveBranchId ?? undefined,
-    );
-    // Add waste from daily_stock_counts to totalUsage
-    const { data: wasteRows } = await supabase
-      .from("daily_stock_counts")
-      .select("sku_id, waste")
-      .eq("branch_id", branchId)
-      .gte("count_date", since)
-      .lte("count_date", today2)
-      .gt("waste", 0)
-      .not("waste", "is", null);
-
-    if (wasteRows) {
-      for (const w of wasteRows) {
-        totalUsage[w.sku_id] = (totalUsage[w.sku_id] || 0) + Number(w.waste);
-      }
-    }
-
-    const daily: Record<string, number> = {};
-    for (const [skuId, total] of Object.entries(totalUsage)) {
-      daily[skuId] = total / divisor;
-    }
-    setLiveDailyUsage(daily);
-    setLoading(false);
-  }, [noBranch, effectiveBranchId, skus, menus, menuBomLines, modifierRules, spBomLines]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Relevant SKU filter based on branch brand menus
-  const { relevantSmIds, relevantRmIds } = useMemo(() => {
-    const viewBranches =
-      selectedBranch === "all"
-        ? branches.filter((b) => b.status === "Active")
-        : branches.filter((b) => b.id === selectedBranch);
-    const brandNames = new Set(viewBranches.map((b) => b.brandName));
-
-    // Active menu IDs for these brands
-    const brandMenuIds = new Set(
-      menus.filter((m) => brandNames.has(m.brandName) && m.status === "Active").map((m) => m.id),
-    );
-
-    // Menu BOM lines for these menus
-    const relevantMBL = menuBomLines.filter((l) => brandMenuIds.has(l.menuId));
-
-    // SM SKUs directly in menu_bom
-    const smIds = new Set<string>();
-    const spIds = new Set<string>();
-    const directRmIds = new Set<string>();
-
-    for (const l of relevantMBL) {
-      const sku = skus.find((s) => s.id === l.skuId);
-      if (!sku) continue;
-      if (sku.type === "SM") smIds.add(l.skuId);
-      else if (sku.type === "SP") spIds.add(l.skuId);
-      else if (sku.type === "RM") directRmIds.add(l.skuId);
-    }
-
-    // RM via SP BOM ingredients
-    const spRmIds = new Set(spBomLines.filter((l) => spIds.has(l.spSkuId)).map((l) => l.ingredientSkuId));
-
-    const rmIds = new Set([...directRmIds, ...spRmIds]);
-
-    return { relevantSmIds: smIds, relevantRmIds: rmIds };
-  }, [selectedBranch, branches, menus, menuBomLines, spBomLines, skus]);
-
-  // SKU lookup
-  const skuMap = useMemo(() => {
-    const m = new Map<string, SKU>();
-    skus.forEach((s) => m.set(s.id, s));
-    return m;
-  }, [skus]);
-
-  // Branch lookup
-  const branchMap = useMemo(() => {
-    const m = new Map<string, Branch>();
-    branches.forEach((b) => m.set(b.id, b));
-    return m;
-  }, [branches]);
-
-  const activeBranches = useMemo(() => branches.filter((b) => b.status === "Active"), [branches]);
-
-  // Filter & sort rows
-  const filteredRows = useMemo(() => {
-    const q = search.toLowerCase();
-    return rows
-      .filter((row) => {
-        const sku = skuMap.get(row.sku_id);
-        if (!sku) return false;
-        // Only SM/RM
-        if (sku.type !== "SM" && sku.type !== "RM") return false;
-        // Relevant filter
-        if (sku.type === "SM" && !relevantSmIds.has(sku.id)) return false;
-        if (sku.type === "RM" && !relevantRmIds.has(sku.id)) return false;
-        // Type filter
-        if (typeFilter !== "All" && sku.type !== typeFilter) return false;
-        // Search
-        if (q && !sku.skuId.toLowerCase().includes(q) && !sku.name.toLowerCase().includes(q)) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        const sa = skuMap.get(a.sku_id)!;
-        const sb = skuMap.get(b.sku_id)!;
-        // SM first
-        if (sa.type !== sb.type) return sa.type === "SM" ? -1 : 1;
-        return sa.skuId.localeCompare(sb.skuId);
-      });
-  }, [rows, skuMap, relevantSmIds, relevantRmIds, search, typeFilter]);
-
-  // Display count helper
-  const getDisplayCount = (row: CountRow) => row.calculated_balance;
-
-  // Summary cards
-  const totalSkus = filteredRows.length;
-  const totalStockValue = filteredRows.reduce((sum, row) => {
-    const price = priceMap[row.sku_id] ?? 0;
-    const count = getDisplayCount(row);
-    return sum + price * count;
-  }, 0);
-
-  // Cover Day By Storage
-  const coverByStorage = useMemo(() => {
-    const groups: Record<string, { totalStock: number; totalUsage: number }> = {
-      Chilled: { totalStock: 0, totalUsage: 0 },
-      Frozen: { totalStock: 0, totalUsage: 0 },
-      Ambient: { totalStock: 0, totalUsage: 0 },
-    };
-    for (const row of filteredRows) {
-      const sku = skuMap.get(row.sku_id);
-      if (!sku) continue;
-      const dc = getDisplayCount(row);
-      const eu = liveDailyUsage[row.sku_id] ?? 0;
-      if (dc > 0 && eu > 0) {
-        const sc = sku.storageCondition || "Ambient";
-        if (groups[sc]) {
-          groups[sc].totalStock += dc;
-          groups[sc].totalUsage += eu;
-        }
-      }
-    }
-    const weighted = (g: { totalStock: number; totalUsage: number }) =>
-      g.totalUsage > 0 ? g.totalStock / g.totalUsage : null;
-    return {
-      Chilled: weighted(groups.Chilled),
-      Frozen: weighted(groups.Frozen),
-      Ambient: weighted(groups.Ambient),
-    };
-  }, [filteredRows, skuMap, liveDailyUsage]);
-
-  // No branch assigned
-  if (noBranch) {
-    return <EmptyState icon={Package} title={t("ss.noBranchAssigned")} />;
-  }
+  if (own === null) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">บัญชีนี้ยังไม่ได้ตั้งสาขา ติดต่อผู้ดูแลระบบ</p>;
 
   return (
-    <div className="space-y-4">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">{t("ss.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("ss.subtitle")}</p>
+    <div ref={measure} className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
+          <h1 className="text-2xl font-bold">สต๊อกสาขา{branch && own !== undefined ? ` · ${branch.branchName}` : ""}</h1>
+          <p className="text-sm text-muted-foreground">คงเหลือ = นับล่าสุด + รับ − ใช้ตามยอดขาย − ของเสีย ± ย้าย/ปรับยอด (สูตรเดียวกับหน้านับสต๊อก)</p>
+        </div>
+        <Button variant="outline" className="h-10" onClick={exportExcel} disabled={!rows}>
+          <Download className="h-4 w-4" /> ส่งออก Excel
+        </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("ss.totalSkus")}</p>
-            <p className="text-2xl font-bold font-mono">{totalSkus.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("ss.totalStockValue")}</p>
-            <p className="text-2xl font-bold font-mono">฿{Math.round(totalStockValue).toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("ss.coverByStorage")}</p>
-            <div className="mt-1 space-y-0.5 text-sm font-mono">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-xs">Chilled</span>
-                <span>{coverByStorage.Chilled !== null ? coverByStorage.Chilled.toFixed(1) + " วัน" : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-xs">Frozen</span>
-                <span>{coverByStorage.Frozen !== null ? coverByStorage.Frozen.toFixed(1) + " วัน" : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-xs">Ambient</span>
-                <span>{coverByStorage.Ambient !== null ? coverByStorage.Ambient.toFixed(1) + " วัน" : "—"}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-10 bg-background py-2">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search SKU ID or name…" className="w-64" />
-        {(isManagement || isAreaManager) && (
-          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-48 h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("common.allBranches")}</SelectItem>
-              {activeBranches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-          <SelectTrigger className="w-28 h-10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All</SelectItem>
-            <SelectItem value="SM">SM</SelectItem>
-            <SelectItem value="RM">RM</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table */}
-      {loading ? (
-        <SkeletonTable columns={10} rows={8} />
-      ) : !effectiveBranchId ? (
-        <EmptyState icon={Package} title={t("ss.selectBranchPrompt")} />
-      ) : filteredRows.length === 0 ? (
-        rows.length === 0 ? (
-          <EmptyState icon={Package} title={t("ss.noStockData")} />
-        ) : (
-          <EmptyState icon={Package} title={t("ss.noSkusMatch")} />
-        )
-      ) : (
-        <div className="rounded-lg border overflow-x-auto overflow-y-auto max-h-[70vh]">
-          <table className="w-full table-fixed text-sm">
-            <colgroup>
-              <col style={{ width: "28px" }} />
-              <col style={{ width: "72px" }} />
-              <col style={{ width: "200px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "48px" }} />
-              <col style={{ width: "95px" }} />
-              <col style={{ width: "95px" }} />
-              <col style={{ width: "75px" }} />
-              <col style={{ width: "95px" }} />
-              <col style={{ width: "88px" }} />
-              <col style={{ width: "40px" }} />
-            </colgroup>
-            <thead className="sticky top-0 z-[5]">
-              <tr className={table.headerRow}>
-                <th className={table.headerCell} />
-                <th className={table.headerCell}>{t("ss.colSkuId")}</th>
-                <th className={table.headerCell}>{t("ss.colName")}</th>
-                <th className={table.headerCellNumeric}>{t("ss.colCurrentStock")}</th>
-                <th className={table.headerCellCenter}>UOM</th>
-                <th className={table.headerCellNumeric}>{t("ss.colStockValue")}</th>
-                <th className={table.headerCell}>{t("ss.colLastCount")}</th>
-                <th className={table.headerCellNumeric}>{t("ss.colCoverDay")}</th>
-                <th className={table.headerCellNumeric}>{t("ss.colAvgWeek")}</th>
-                <th className={table.headerCell} />
-                <th className={table.headerCell} />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row) => {
-                const sku = skuMap.get(row.sku_id);
-                if (!sku) return null;
-                const dc = getDisplayCount(row);
-                const isPhysical = row.physical_count !== null;
-                const showDash = dc === 0 && !isPhysical;
-                const dailyUsage = liveDailyUsage[row.sku_id] ?? 0;
-                const coverDay = dc > 0 && dailyUsage > 0 ? dc / dailyUsage : null;
-                const avgU = liveDailyUsage[row.sku_id] ?? 0;
-                const avgWeek = avgU > 0 ? Math.round(avgU * 7).toLocaleString() : "—";
-
-                return (
-                  <tr key={row.id} className={table.dataRow}>
-                    <td className={table.dataCell}>
-                      <StatusDot status={dc > 0 ? "green" : "red"} />
-                    </td>
-                    <td className={`${table.dataCell} font-mono text-xs`}>{sku.skuId}</td>
-                    <td className={table.truncatedCell} title={sku.name}>
-                      {sku.name}
-                    </td>
-                    <td className={table.dataCellMono}>
-                      {showDash ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className={isPhysical ? "font-semibold" : ""}>{Math.round(dc).toLocaleString()}</span>
-                      )}
-                    </td>
-                    <td className={`${table.dataCellCenter} text-xs font-medium text-primary`}>{sku.usageUom}</td>
-                    <td className={table.dataCellMono}>
-                      {(() => {
-                        const price = priceMap[row.sku_id] ?? 0;
-                        const stockValue = price * dc;
-                        return stockValue > 0 ? (
-                          "฿" + Math.round(stockValue).toLocaleString()
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        );
-                      })()}
-                    </td>
-                    <td className={table.dataCell}>{row.count_date}</td>
-                    <td className={`${table.dataCellMono} text-muted-foreground`}>
-                      {coverDay !== null ? coverDay.toFixed(1) : "—"}
-                    </td>
-                    <td className={`${table.dataCellMono} text-muted-foreground`}>{avgWeek}</td>
-                    <td className={table.dataCell}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1 text-xs"
-                        onClick={() =>
-                          setAdjustTarget({
-                            skuId: sku.id,
-                            skuName: sku.name,
-                            skuCode: sku.skuId,
-                            uom: sku.usageUom,
-                            currentStock: dc,
-                            branchId: row.branch_id,
-                          })
-                        }
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                      </Button>
-                    </td>
-                    <td className={table.dataCell}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Stock card"
-                        onClick={() =>
-                          setStockCard({
-                            skuId: sku.id,
-                            skuType: sku.type as "RM" | "SM",
-                            sku,
-                            currentStock: dc,
-                            branchId: row.branch_id,
-                          })
-                        }
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {own === undefined && active.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">สาขา</span>
+          {active.map((b) => (
+            <button key={b.id} type="button" className={chip(b.id === branchId)} onClick={() => setPicked(b.id)}>
+              {b.branchName}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Stock Card Drawer */}
-      {stockCard && (
-        <StockCard
-          skuId={stockCard.skuId}
-          skuType={stockCard.skuType}
-          sku={stockCard.sku}
-          skus={skus}
-          currentStock={stockCard.currentStock}
-          stockValue={0}
-          disableMismatchCheck
-          context="branch"
-          branchId={stockCard.branchId}
-          onClose={() => setStockCard(null)}
-        />
-      )}
+      {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
-      {/* Adjust Drawer */}
-      {adjustTarget && (
-        <>
-          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setAdjustTarget(null)} />
-          <div className="fixed inset-y-0 right-0 z-[70] w-[360px] bg-background border-l flex flex-col">
-            {/* Header */}
-            <div className="px-5 py-4 border-b flex justify-between items-center">
-              <span className="font-medium">Adjust stock</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAdjustTarget(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+      {!rows ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-[88px] animate-pulse rounded-2xl bg-secondary" />
+          ))}
+        </div>
+      ) : (
+        <div className={cn("flex flex-col gap-4 transition-opacity", loading && "opacity-50")}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 [&>*]:min-w-0">
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">มูลค่าสต๊อก {branch?.branchName}</div>
+              <div className="break-all font-mono text-2xl font-semibold">{baht(totalValue)}</div>
+              <div className="text-xs text-muted-foreground">{list.length} รายการ · ไม่นับยอดติดลบ</div>
             </div>
-            {/* Info strip */}
-            <div className="px-5 py-3 bg-muted/40 border-b">
-              <p className="font-medium">{adjustTarget.skuName}</p>
-              <p className="text-sm text-muted-foreground">
-                Stock ปัจจุบัน: {adjustTarget.currentStock.toLocaleString()} {adjustTarget.uom}
-              </p>
-            </div>
-            {/* Form body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {/* Direction */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">ทิศทาง</label>
-                <div className="flex gap-2 mt-1">
-                  <Button
-                    variant={adjustDir === "out" ? "default" : "outline"}
-                    size="sm"
-                    className={
-                      adjustDir === "out"
-                        ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20"
-                        : ""
-                    }
-                    onClick={() => setAdjustDir("out")}
-                  >
-                    ตัดออก
-                  </Button>
-                  <Button
-                    variant={adjustDir === "in" ? "default" : "outline"}
-                    size="sm"
-                    className={
-                      adjustDir === "in" ? "bg-success/10 border-success/40 text-success hover:bg-success/20" : ""
-                    }
-                    onClick={() => {
-                      setAdjustDir("in");
-                      if (adjustReason === "transfer_out") setAdjustReason("");
-                    }}
-                  >
-                    เพิ่มเข้า
-                  </Button>
-                </div>
-              </div>
-              {/* Reason */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">เหตุผล</label>
-                <select
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  className="mt-1 w-full h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
-                >
-                  <option value="">เลือกเหตุผล</option>
-                  {adjustDir === "out" ? (
-                    <>
-                      <option value="transfer_out">โอนให้สาขาอื่น</option>
-                      <option value="damage">ของเสีย / แตกหัก</option>
-                      <option value="expire">หมดอายุ</option>
-                      <option value="correction">แก้ไขความผิดพลาด</option>
-                      <option value="other">อื่นๆ</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="damage">รับคืนจากการแตกหัก</option>
-                      <option value="correction">แก้ไขความผิดพลาด</option>
-                      <option value="other">อื่นๆ</option>
-                    </>
-                  )}
-                </select>
-              </div>
-              {/* Target branch — only for transfer_out */}
-              {adjustReason === "transfer_out" && (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">สาขาปลายทาง</label>
-                  <select
-                    value={adjustTargetBranch}
-                    onChange={(e) => setAdjustTargetBranch(e.target.value)}
-                    className="mt-1 w-full h-9 px-3 border rounded-md text-sm bg-background focus:border-primary outline-none"
-                  >
-                    <option value="">เลือกสาขา</option>
-                    {activeBranches
-                      .filter((b) => b.id !== adjustTarget.branchId)
-                      .map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.branchName}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
-              {/* Qty */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">จำนวน</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    defaultValue=""
-                    key={adjustTarget.skuId + adjustDir}
-                    onBlur={(e) => {
-                      adjQtyRef.current = Number(e.target.value) || 0;
-                    }}
-                    className="flex-1 h-9 px-3 border rounded-md font-mono text-right text-sm bg-background focus:border-primary outline-none"
-                  />
-                  <span className="text-sm text-muted-foreground">{adjustTarget.uom}</span>
-                </div>
-              </div>
-              {/* Note */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Note <span className="text-muted-foreground font-normal">(ไม่บังคับ)</span>
-                </label>
-                <textarea
-                  defaultValue=""
-                  key={adjustTarget.skuId}
-                  onBlur={(e) => {
-                    adjNoteRef.current = e.target.value;
-                  }}
-                  rows={2}
-                  placeholder="รายละเอียดเพิ่มเติม..."
-                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-none focus:border-primary outline-none"
-                />
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">พอขาย (เฉลี่ยตามช่องเก็บ)</div>
+              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
+                {(["Frozen", "Chilled", "Ambient"] as const).map((k) => (
+                  <div key={k}>
+                    <div className="text-xs text-muted-foreground">{STORAGE[k]}</div>
+                    <div className="font-mono text-lg font-semibold">{cover(k) != null ? `${cover(k)!.toFixed(1)} วัน` : "—"}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            {/* Footer */}
-            <div className="px-5 py-4 border-t flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setAdjustTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                className={`flex-[2] ${adjustDir === "out" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90"}`}
-                disabled={
-                  adjustReason === "" || (adjustReason === "transfer_out" && !adjustTargetBranch) || adjustSaving
-                }
-                onClick={async () => {
-                  const qty = adjQtyRef.current;
-                  if (qty <= 0) {
-                    toast.error("กรุณาระบุจำนวน");
-                    return;
-                  }
-                  setAdjustSaving(true);
-
-                  const targetBranchName = activeBranches.find((b) => b.id === adjustTargetBranch)?.branchName ?? "";
-                  const noteText = adjNoteRef.current.trim();
-                  let reasonStr = "";
-                  if (adjustReason === "transfer_out") reasonStr = "โอนให้สาขาอื่น → " + targetBranchName;
-                  else if (adjustReason === "damage")
-                    reasonStr = adjustDir === "out" ? "ของเสีย / แตกหัก" : "รับคืนจากการแตกหัก";
-                  else if (adjustReason === "expire") reasonStr = "หมดอายุ";
-                  else if (adjustReason === "correction") reasonStr = "แก้ไขความผิดพลาด";
-                  else if (adjustReason === "other") reasonStr = noteText || "อื่นๆ";
-                  if (noteText && adjustReason !== "other") reasonStr += ": " + noteText;
-
-                  const signedQty = adjustDir === "out" ? -qty : qty;
-                  const skuType = skuMap.get(adjustTarget.skuId)?.type ?? "RM";
-                  const today = new Date().toISOString().split("T")[0];
-
-                  const { error } = await supabase.from("stock_adjustments").insert({
-                    branch_id: adjustTarget.branchId,
-                    sku_id: adjustTarget.skuId,
-                    adjustment_date: today,
-                    quantity: signedQty,
-                    reason: reasonStr,
-                    stock_type: skuType,
-                  });
-
-                  setAdjustSaving(false);
-                  if (error) {
-                    toast.error(error.message);
-                    return;
-                  }
-
-                  // B1 fix: โอนระหว่างสาขา = 2 ขา — เพิ่มขารับให้สาขาปลายทางพร้อมกัน
-                  if (adjustReason === "transfer_out" && adjustTargetBranch) {
-                    const sourceBranchName = activeBranches.find((b) => b.id === adjustTarget.branchId)?.branchName ?? "";
-                    const { error: receiveErr } = await supabase.from("stock_adjustments").insert({
-                      branch_id: adjustTargetBranch,
-                      sku_id: adjustTarget.skuId,
-                      adjustment_date: today,
-                      quantity: qty,
-                      reason: "รับโอนจากสาขาอื่น → " + sourceBranchName,
-                      stock_type: skuType,
-                    });
-                    if (receiveErr) {
-                      toast.error("ตัดสต็อกต้นทางแล้ว แต่เพิ่มปลายทางไม่สำเร็จ: " + receiveErr.message);
-                      return;
-                    }
-                  }
-
-                  toast.success("บันทึก adjustment สำเร็จ");
-                  setAdjustTarget(null);
-                  setAdjustReason("");
-                  setAdjustTargetBranch("");
-                  setAdjustDir("out");
-                  adjQtyRef.current = 0;
-                  adjNoteRef.current = "";
-                  await fetchData();
-                }}
-              >
-                {adjustDir === "out" ? "ยืนยันตัดออก" : "ยืนยันเพิ่มเข้า"}
-              </Button>
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+              <div className="text-sm text-muted-foreground">นับล่าสุด (กดนับเสร็จแล้ว)</div>
+              <div className="text-xl font-semibold">{lastCount ? new Date(`${lastCount}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" }) : "ยังไม่เคยนับ"}</div>
+              <div className="text-xs text-muted-foreground">ใช้ต่อวัน = เฉลี่ยวันที่มียอดขาย 7 วันล่าสุด รวมของเสีย</div>
             </div>
           </div>
-        </>
+
+          {(low.length > 0 || negative.length > 0) && (
+            <section className="overflow-hidden rounded-2xl border border-border bg-card">
+              <h2 className="px-4 pt-3 text-base font-bold">เรื่องที่ควรดู</h2>
+              {low.length > 0 && (
+                <button type="button" onClick={() => setFilter("low")} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-secondary/50">
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-destructive" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">
+                      ใกล้หมด · พอขายไม่ถึง {LOW_DAYS} วัน ({low.length})
+                    </span>
+                    <span className="block break-words text-sm text-muted-foreground">
+                      {low
+                        .slice(0, 4)
+                        .map((r) => `${r.sku.name} ${r.daysLeft!.toFixed(1)} วัน`)
+                        .join(" · ")}
+                      {low.length > 4 ? " · …" : ""} · ขอเบิกที่หน้าขอเบิก
+                    </span>
+                  </span>
+                </button>
+              )}
+              {negative.length > 0 && (
+                <button type="button" onClick={() => setFilter("negative")} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50">
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-warning" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">ติดลบ ({negative.length}) · ใช้มากกว่าที่ระบบเห็นว่ามี</span>
+                    <span className="block break-words text-sm text-muted-foreground">ของเข้าไม่ได้บันทึก หรือสูตรใช้มากเกิน · นับจริงแล้วยอดจะถูกเอง</span>
+                  </span>
+                </button>
+              )}
+            </section>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative">
+              <span className="sr-only">ค้นหา</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นรหัส หรือชื่อ…" className="h-10 w-[220px] max-w-full rounded-xl border border-border bg-card pl-9 pr-3 text-base sm:text-sm" />
+            </label>
+            <button type="button" className={chip(filter === "all")} onClick={() => setFilter("all")}>
+              ทั้งหมด {list.length}
+            </button>
+            <button type="button" className={chip(filter === "low", "bad")} onClick={() => setFilter("low")}>
+              ใกล้หมด {low.length}
+            </button>
+            <button type="button" className={chip(filter === "negative", "bad")} onClick={() => setFilter("negative")}>
+              ติดลบ {negative.length}
+            </button>
+          </div>
+
+          {!shown.length ? (
+            <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีรายการ</p>
+          ) : wide ? (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col />
+                  <col style={{ width: "140px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: readOnly ? "100px" : "210px" }} />
+                </colgroup>
+                <thead className="bg-secondary/60 text-left text-[13px] text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2.5 font-medium">สินค้า</th>
+                    <th className="px-3 py-2.5 text-right font-medium">คงเหลือ</th>
+                    <th className="px-3 py-2.5 text-right font-medium">ใช้ต่อวัน</th>
+                    <th className="px-3 py-2.5 text-right font-medium">พอขาย</th>
+                    <th className="px-3 py-2.5 font-medium">ช่องเก็บ</th>
+                    <th className="px-3 py-2.5 font-medium">นับล่าสุด</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((r) => (
+                    <tr key={r.sku.id} className="border-t border-border">
+                      <td className="break-words px-3 py-2.5">
+                        <span className="font-semibold">{r.sku.name}</span> <span className="font-mono text-xs text-muted-foreground">{r.sku.skuId}</span>
+                      </td>
+                      <td className={cn("px-3 py-2.5 text-right font-mono tabular-nums", r.balance < -0.5 && "text-destructive")}>
+                        {n0(r.balance)} <span className="font-sans text-xs text-muted-foreground">{r.sku.usageUom}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono tabular-nums">{r.dailyUse > 0 ? n0(r.dailyUse) : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-3 py-2.5 text-right font-mono tabular-nums">{daysCell(r)}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{STORAGE[r.sku.storageCondition] ?? r.sku.storageCondition ?? "—"}</td>
+                      <td className="px-3 py-2.5">{r.countDate ? thaiDate(r.countDate) : <span className="text-warning">ไม่เคยนับ</span>}</td>
+                      <td className="px-2 py-2">
+                        <div className="flex justify-end gap-1.5">
+                          <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setHistoryFor(r)}>
+                            ประวัติ
+                          </Button>
+                          {!readOnly && (
+                            <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setMoveFor(r)}>
+                              ย้าย/ปรับยอด
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <ul className="overflow-hidden rounded-2xl border border-border bg-card">
+              {shown.map((r, i) => (
+                <li key={r.sku.id} className={cn("flex items-start gap-3 px-4 py-3", i > 0 && "border-t border-border")}>
+                  <button type="button" onClick={() => setHistoryFor(r)} className="min-w-0 flex-1 text-left">
+                    <span className="block break-words font-semibold">{r.sku.name}</span>
+                    <span className="block text-[13px] text-muted-foreground">
+                      <span className={cn("font-mono", r.balance < -0.5 && "text-destructive")}>
+                        {n0(r.balance)} {r.sku.usageUom}
+                      </span>
+                      {r.dailyUse > 0 && ` · ใช้วันละ ${n0(r.dailyUse)}`} · {r.countDate ? `นับ ${thaiDate(r.countDate)}` : "ไม่เคยนับ"}
+                    </span>
+                  </button>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <b className="font-mono tabular-nums">{daysCell(r)}</b>
+                    {!readOnly && (
+                      <button type="button" onClick={() => setMoveFor(r)} className="min-h-[32px] text-sm font-semibold text-brand">
+                        ย้าย/ปรับ
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-muted-foreground">ติดลบโชว์ตามจริง (ไม่ปัดเป็น 0) · {wide ? "กดประวัติ" : "แตะชื่อ"} = ดูของเข้า-ออกรายวัน</p>
+        </div>
       )}
+
+      {historyFor && branchId && (
+        <StockCard
+          skuId={historyFor.sku.id}
+          skuType={historyFor.sku.type as "RM" | "SM"}
+          sku={historyFor.sku}
+          skus={skus}
+          currentStock={historyFor.balance}
+          stockValue={historyFor.value}
+          onClose={() => setHistoryFor(null)}
+          context="branch"
+          branchId={branchId}
+          disableMismatchCheck
+        />
+      )}
+      {moveFor && branch && <MoveSheet sku={moveFor.sku} balance={moveFor.balance} branch={branch} branches={branches} onClose={() => setMoveFor(null)} onSaved={reload} write={write} />}
     </div>
   );
 }

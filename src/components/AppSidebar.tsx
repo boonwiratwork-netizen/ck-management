@@ -209,10 +209,10 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
   switch (role) {
     case "store_manager":
       return [
+        { key: "store", label: "วันนี้", icon: Store },
         { key: "branch-receipt", label: "รับของ", icon: ScanLine },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
         { key: "transfer-request", label: "ขอเบิก", icon: ArrowUpFromLine },
-        { key: "sales-entry", label: "ยอดขาย", icon: ShoppingCart },
       ];
     case "ck_manager":
       return [
@@ -242,7 +242,8 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
 export function getDefaultTab(role: AppRole | null): TabKey {
   switch (role) {
     case "store_manager":
-      return "branch-receipt";
+      // The day at a glance: what's done, what's left, one tap to each job
+      return "store";
     case "ck_manager":
       return "receipt";
     case "area_manager":
