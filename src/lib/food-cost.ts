@@ -360,7 +360,10 @@ export function findAttention(input: {
   }
   if (input.actual) {
     // More used by the recipes than there ever was: the recipes count something twice
-    const impossible = input.actual.rows.filter((r) => r.actQty !== null && r.opening && r.stdQty > 0 && r.stdQty > (r.opening.qty + r.received) * 1.1 + 1);
+    // Only when it's worth money (฿300+): a few grams of pepper never stocked is noise
+    const impossible = input.actual.rows
+      .filter((r) => r.actQty !== null && r.opening && r.stdQty > 0 && r.stdQty > (r.opening.qty + r.received) * 1.1 + 1 && Math.abs(r.stdCost - (r.actCost ?? 0)) >= 300)
+      .sort((a, b) => Math.abs(b.stdCost - (b.actCost ?? 0)) - Math.abs(a.stdCost - (a.actCost ?? 0)));
     for (const r of impossible.slice(0, 3)) {
       out.push({
         key: `imp-${r.skuId}`,
@@ -402,12 +405,14 @@ export function findAttention(input: {
       detail: r.correction!.reasons.join(" · "),
     });
   }
-  if (input.std.unknownMenus.length) {
-    const u = input.std.unknownMenus;
+  // Sold with money but not set up (free option lines like "เค็มปกติ" don't matter)
+  const unknownPaid = input.std.unknownMenus.filter((x) => x.revenue > 0);
+  if (unknownPaid.length) {
+    const u = unknownPaid;
     out.push({
       key: "unknown",
       tone: "amber",
-      title: `ขายแล้วไม่มีในรายการเมนู ${u.length} รหัส (ไม่นับต้นทุน)`,
+      title: `ขายแล้วไม่มีในรายการเมนู ${u.length} รหัส · ยอด ฿${n0(u.reduce((t, x) => t + x.revenue, 0))} ไม่มีต้นทุน`,
       detail: u
         .slice(0, 3)
         .map((x) => `${x.code} ${x.name}`.trim())
