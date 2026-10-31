@@ -89,7 +89,7 @@ export function useModifierRuleData() {
         .select()
         .single();
       if (error) {
-        toast.error("Failed to add rule: " + error.message);
+        toast.error("เพิ่มกฎไม่สำเร็จ: " + error.message);
         return null;
       }
       if (data.menuIds.length > 0) {
@@ -125,8 +125,8 @@ export function useModifierRuleData() {
 
       const { error } = await supabase.from("menu_modifier_rules").update(dbData).eq("id", id);
       if (error) {
-        toast.error("Failed to update rule: " + error.message);
-        return;
+        toast.error("บันทึกกฎไม่สำเร็จ: " + error.message);
+        return false;
       }
 
       if (data.menuIds !== undefined) {
@@ -136,11 +136,12 @@ export function useModifierRuleData() {
           // Put the old links back so the rule doesn't turn into "every menu"
           await syncMenuIds(id, previous);
           toast.error("บันทึกเมนูของกฎไม่สำเร็จ: " + linkError);
-          return;
+          return false;
         }
       }
 
       setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+      return true;
     },
     [syncMenuIds, rules],
   );
@@ -148,10 +149,11 @@ export function useModifierRuleData() {
   const deleteRule = useCallback(async (id: string) => {
     const { error } = await supabase.from("menu_modifier_rules").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete rule: " + error.message);
-      return;
+      toast.error("ลบกฎไม่สำเร็จ: " + error.message);
+      return false;
     }
     setRules((prev) => prev.filter((r) => r.id !== id));
+    return true;
   }, []);
 
   return { rules, loading, addRule, updateRule, deleteRule };

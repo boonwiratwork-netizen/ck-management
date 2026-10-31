@@ -109,7 +109,7 @@ export default function CostCenterPage(props: Props) {
   const productSide = hash === "products" || hash.startsWith("p/") || hash === "new-product";
   const supplierSide = hash === "suppliers" || hash.startsWith("s/") || hash.startsWith("bill/");
   const openBill = (supplierId: string, date: string) => go(`bill/${supplierId}/${date}`, { state: { from: hash } });
-  const view: View = productSide ? "products" : supplierSide ? "suppliers" : hash === "overview" ? "overview" : hash === "pos" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
+  const view: View = productSide ? "products" : supplierSide ? "suppliers" : hash === "overview" ? "overview" : hash === "pos" || hash === "pos/rules" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
 
   const loaded = useKitchenBills(!props.demoBills);
   const bills = props.demoBills ?? loaded.bills;
@@ -212,6 +212,8 @@ export default function CostCenterPage(props: Props) {
   // so instead of throwing them out of Cost Center
   const menuNavigate = (tab: TabKey) => {
     if (tab === "price") return go("products");
+    // Every rule is a tab of the POS options now (the old rules page is gone)
+    if (tab === "modifier-rules") return go("pos/rules");
     if (!props.canOpen(tab)) return toast.info("หน้านี้เปิดได้เฉพาะ management");
     props.onNavigate(tab);
   };
@@ -223,7 +225,6 @@ export default function CostCenterPage(props: Props) {
     { tab: "sp-bom", label: "นำเข้าสูตร SP (CSV)" },
     { tab: "menu-master", label: "นำเข้าเมนู (CSV)" },
     { tab: "menu-bom", label: "สูตรเมนูแบบตาราง" },
-    { tab: "modifier-rules", label: "กฎพิเศษทั้งหมด" },
   ].filter((t) => props.canOpen(t.tab as TabKey)) as { tab: TabKey; label: string }[];
 
   if (!productSide && !supplierSide) {

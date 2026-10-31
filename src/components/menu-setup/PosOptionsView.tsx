@@ -11,6 +11,7 @@ import { describeRule } from "@/lib/menu-health";
 import { SALES_WINDOW_DAYS } from "@/hooks/use-menu-setup-extras";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FieldError } from "@/components/form/FieldError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -296,11 +297,15 @@ function OptionDetail(
 /**
  * Builds a rule and tests it on real bills before saving. From the POS catalog it
  * starts from an option (entry); from a menu's rules tab it starts empty, limited
- * to that menu (presetMenus).
+ * to that menu (presetMenus); from the list of every rule it opens one (rule) to
+ * change, turn off or delete.
  */
 export function RuleDraftForm({
   entry,
   presetMenus,
+  rule,
+  updateRule,
+  deleteRule,
   bills,
   menus,
   lines,
@@ -313,25 +318,39 @@ export function RuleDraftForm({
 }: Pick<PosOptionsViewProps, "bills" | "menus" | "lines" | "skus" | "prices" | "branches" | "addRule"> & {
   entry?: OptionEntry;
   presetMenus?: Menu[];
+  rule?: ModifierRule;
+  updateRule?: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<boolean>;
+  deleteRule?: (id: string) => Promise<boolean>;
   onDone: () => void;
   branchName: (id: string) => string;
 }) {
   const menuByCode = useMemo(() => new Map(menus.map((m) => [m.menuCode, m])), [menus]);
-  const seenMenus = useMemo(
-    () => (entry ? [...entry.menuCodes.keys()].map((c) => menuByCode.get(c)).filter((m): m is Menu => !!m) : presetMenus ?? []),
-    [entry, presetMenus, menuByCode],
+  // Menus picked from the full list, beyond the ones the option or rule came with
+  const [added, setAdded] = useState<string[]>([]);
+  const seenMenus = useMemo(() => {
+    const base = rule
+      ? rule.menuIds.map((id) => menus.find((m) => m.id === id)).filter((m): m is Menu => !!m)
+      : entry
+        ? [...entry.menuCodes.keys()].map((c) => menuByCode.get(c)).filter((m): m is Menu => !!m)
+        : presetMenus ?? [];
+    return [...base, ...added.map((id) => menus.find((m) => m.id === id)).filter((m): m is Menu => !!m && !base.some((b) => b.id === m.id))];
+  }, [rule, entry, presetMenus, menuByCode, menus, added]);
+  const [draft, setDraft] = useState<RuleDraft>(
+    rule
+      ? { ruleType: rule.ruleType, keyword: rule.keyword, skuId: rule.skuId || null, swapSkuId: rule.swapSkuId, submenuId: rule.submenuId, qtyPerMatch: rule.qtyPerMatch, menuIds: rule.menuIds, branchIds: rule.branchIds ?? [] }
+      : {
+          ruleType: entry?.group.toLowerCase().includes("topping") ? "submenu" : "add",
+          keyword: entry?.value ?? "",
+          skuId: null,
+          swapSkuId: null,
+          submenuId: null,
+          qtyPerMatch: 0,
+          menuIds: seenMenus.map((m) => m.id),
+          branchIds: [],
+        },
   );
-  const [draft, setDraft] = useState<RuleDraft>({
-    ruleType: entry?.group.toLowerCase().includes("topping") ? "submenu" : "add",
-    keyword: entry?.value ?? "",
-    skuId: null,
-    swapSkuId: null,
-    submenuId: null,
-    qtyPerMatch: 0,
-    menuIds: seenMenus.map((m) => m.id),
-    branchIds: [],
-  });
-  const [qty, setQty] = useState("");
+  const [qty, setQty] = useState(rule && rule.ruleType !== "submenu" ? String(rule.qtyPerMatch) : "");
+  const [askDelete, setAskDelete] = useState(false);
   const [allMenus, setAllMenus] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tried, setTried] = useState(false);
@@ -369,6 +388,22 @@ export function RuleDraftForm({
     setTried(true);
     if (!valid) return;
     setSaving(true);
+    if (rule && updateRule) {
+      const ok = await updateRule(rule.id, {
+        keyword: draft.keyword.trim(),
+        skuId: draft.ruleType === "submenu" ? "" : draft.skuId ?? "",
+        qtyPerMatch: draft.ruleType === "submenu" ? 1 : Number(qty),
+        uom: draft.ruleType === "submenu" ? "" : sku?.usageUom ?? "",
+        ruleType: draft.ruleType,
+        swapSkuId: draft.ruleType === "swap" ? draft.swapSkuId : null,
+        submenuId: draft.ruleType === "submenu" ? draft.submenuId : null,
+        menuIds: draft.menuIds,
+        branchIds: draft.branchIds,
+      });
+      setSaving(false);
+      if (ok) onDone();
+      return;
+    }
     const ok = await addRule({
       keyword: draft.keyword.trim(),
       skuId: draft.ruleType === "submenu" ? "" : draft.skuId ?? "",
@@ -460,6 +495,20 @@ export function RuleDraftForm({
             </button>
           )}
         </div>
+        <div className="mt-2 max-w-sm">
+          <SearchableSelect
+            value=""
+            onValueChange={(id) => {
+              if (!id) return;
+              setAdded((a) => (a.includes(id) ? a : [...a, id]));
+              set("menuIds", draft.menuIds.includes(id) ? draft.menuIds : [...draft.menuIds, id]);
+              setAllMenus(true);
+            }}
+            options={menuOpts}
+            placeholder="+ เพิ่มเมนู…"
+            triggerClassName="h-10 w-full"
+          />
+        </div>
       </fieldset>
       <fieldset>
         <legend className="mb-1.5 text-sm font-medium">ใช้กับสาขา</legend>
@@ -511,7 +560,28 @@ export function RuleDraftForm({
         {test.leftOut > 0 && <p className="text-muted-foreground">อีก {test.leftOut.toLocaleString()} จานมีคำนี้ แต่อยู่นอกเมนู/สาขาที่เลือก</p>}
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        {rule && updateRule && (
+          <Button
+            type="button"
+            variant="ghost"
+            className={cn("mr-auto h-11", rule.isActive ? "text-muted-foreground" : "text-success")}
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              const ok = await updateRule(rule.id, { isActive: !rule.isActive });
+              setSaving(false);
+              if (ok) onDone();
+            }}
+          >
+            {rule.isActive ? "ปิดกฎนี้" : "เปิดกฎนี้อีกครั้ง"}
+          </Button>
+        )}
+        {rule && deleteRule && (
+          <Button type="button" variant="ghost" className="h-11 text-destructive" disabled={saving} onClick={() => setAskDelete(true)}>
+            ลบ
+          </Button>
+        )}
         <Button type="button" variant="outline" className="h-11" onClick={onDone}>
           ยกเลิก
         </Button>
@@ -519,8 +589,26 @@ export function RuleDraftForm({
           บันทึกกฎ
         </Button>
       </div>
+      {rule && deleteRule && (
+        <ConfirmDialog
+          open={askDelete}
+          onOpenChange={setAskDelete}
+          title="ลบกฎนี้?"
+          description={`"${rule.keyword}" จะไม่ตัดวัตถุดิบอีก · ถ้าอาจใช้อีก กด "ปิดกฎนี้" แทน`}
+          confirmLabel="ลบ"
+          cancelLabel="ไม่ลบ"
+          variant="destructive"
+          onConfirm={async () => {
+            setAskDelete(false);
+            setSaving(true);
+            const ok = await deleteRule(rule.id);
+            setSaving(false);
+            if (ok) onDone();
+          }}
+        />
+      )}
       <p className="-mt-2 text-right text-xs text-muted-foreground">
-        {entry ? `สาขาที่ขาย: ${[...entry.branchIds].map(branchName).join(", ")}` : "ใส่คำตามที่ POS เขียนในบิล ดูตัวอย่างได้ที่แท็บบิลจริง"}
+        {entry ? `สาขาที่ขาย: ${[...entry.branchIds].map(branchName).join(", ")}` : rule ? "แก้แล้วมีผลกับยอดขายที่นำเข้าหลังจากนี้" : "ใส่คำตามที่ POS เขียนในบิล ดูตัวอย่างได้ที่แท็บบิลจริง"}
       </p>
     </form>
   );

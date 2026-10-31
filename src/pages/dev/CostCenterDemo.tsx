@@ -151,7 +151,7 @@ export default function CostCenterDemo() {
           addMenu: async () => null,
           getNextCode: () => "MN-999",
           spBomLines: fx.spLines,
-          updateRule: async () => {},
+          updateRule: async () => true,
           demoExtras: { overrides: {}, soldByCode: {}, bills: [], setBranchOpenMany: async () => true },
         }}
         skus={skus}

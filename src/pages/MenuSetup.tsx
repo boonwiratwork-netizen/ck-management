@@ -13,6 +13,7 @@ import { useMenuCategories } from "@/hooks/use-menu-categories";
 import { summarizeMenu, describeRule, brandBranches, type CheckLevel, type CheckArea, type HealthCheck, type MenuSetupSummary } from "@/lib/menu-health";
 import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
 import { PosOptionsView, RuleDraftForm } from "@/components/menu-setup/PosOptionsView";
+import { RulesList } from "@/components/menu-setup/RulesList";
 import { BranchSetupView } from "@/components/menu-setup/BranchSetupView";
 import { NewMenuForm } from "@/components/menu-setup/NewMenuForm";
 import { SetupOverview } from "@/components/menu-setup/SetupOverview";
@@ -47,7 +48,8 @@ interface MenuSetupProps {
   getNextCode: () => string;
   /** SP recipes, so the bill check expands SP items exactly like stock does */
   spBomLines: SpBomLine[];
-  updateRule: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<void>;
+  updateRule: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<boolean>;
+  deleteRule?: (id: string) => Promise<boolean>;
   /** Inside Cost Center: its header (with the shared tabs) replaces this page's own */
   header?: React.ReactNode;
   /** Inside Cost Center: shown above the menu overview (the product side of it) */
@@ -97,6 +99,8 @@ function readHash(hash: string): string {
 }
 
 const POS_HASH = "pos";
+/** Every rule, as a second tab of the POS options */
+export const POS_RULES_HASH = "pos/rules";
 const BRANCHES_HASH = "branches";
 const NEW_HASH = "new";
 const OVERVIEW_HASH = "overview";
@@ -139,7 +143,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, deleteRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -209,7 +213,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   }, [menus, menuBom.lines, rules, skus, prices, branches, extras.overrides, extras.soldByCode, billChecks]);
 
   // "#pos" / "#branches" / "#new" are views; any other hash is a menu code
-  const posView = code === POS_HASH;
+  const posView = code === POS_HASH || code === POS_RULES_HASH;
+  const rulesTab = code === POS_RULES_HASH;
   // "#branches/<id>" opens one branch
   const branchView = code === BRANCHES_HASH || code.startsWith(`${BRANCHES_HASH}/`);
   const branchFromHash = code.startsWith(`${BRANCHES_HASH}/`) ? code.slice(BRANCHES_HASH.length + 1) : undefined;
@@ -298,6 +303,30 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     return (
       <div className="flex flex-col gap-4">
         {header}
+        <SegmentedTabs<"bills" | "rules">
+          tabs={[
+            { key: "bills", label: "ตัวเลือกจากบิล" },
+            { key: "rules", label: `กฎทั้งหมด ${rules.length}` },
+          ]}
+          value={rulesTab ? "rules" : "bills"}
+          onChange={(v) => go(v === "rules" ? POS_RULES_HASH : POS_HASH)}
+          className="self-start"
+        />
+        {rulesTab ? (
+          <RulesList
+            rules={rules}
+            menus={menus}
+            lines={menuBom.lines}
+            skus={skus}
+            prices={prices}
+            branches={branches}
+            bills={extras.bills}
+            canEdit={canEdit}
+            addRule={addRule}
+            updateRule={updateRule}
+            deleteRule={deleteRule}
+          />
+        ) : (
         <PosOptionsView
           bills={extras.bills}
           loadError={!demoExtras && extras.salesError}
@@ -326,6 +355,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           canEdit={canEdit}
           addRule={addRule}
         />
+        )}
       </div>
     );
 

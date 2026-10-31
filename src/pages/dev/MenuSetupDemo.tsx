@@ -89,6 +89,12 @@ export default function MenuSetupDemo() {
         updateRule={async (id, patch) => {
           await wait();
           setRules((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+          return true;
+        }}
+        deleteRule={async (id) => {
+          await wait();
+          setRules((p) => p.filter((r) => r.id !== id));
+          return true;
         }}
         addMenu={async (m) => {
           await wait();

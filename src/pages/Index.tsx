@@ -45,7 +45,6 @@ const SKUTable = lazy(() => import("@/components/SKUTable").then((m) => ({ defau
 const SKUFormModal = lazy(() => import("@/components/SKUFormModal").then((m) => ({ default: m.SKUFormModal })));
 const CSVImportModal = lazy(() => import("@/components/CSVImportModal").then((m) => ({ default: m.CSVImportModal })));
 const SpBomPage = lazy(() => import("@/pages/SpBom"));
-const ModifierRulesPage = lazy(() => import("@/pages/ModifierRules"));
 // One sales page for phones and computers (replaced SalesEntry)
 const SalesEntryPage = lazy(() => import("@/pages/Sales"));
 // The daily branch count, rebuilt (replaced DailyStockCount)
@@ -190,6 +189,8 @@ const Index = () => {
     if (pathTab === "menu-setup") return "cost-center";
     // Multi-step recipes and by-products moved into Cost Center too
     if (pathTab === "bom") return "cost-center";
+    // …and every POS option rule (Cost Center › ตัวเลือก POS › กฎทั้งหมด)
+    if (pathTab === "modifier-rules") return "cost-center";
     if (pathTab && pathTab in tabContextMap) return pathTab as TabKey;
     const legacy = new URLSearchParams(window.location.search).get("tab");
     return legacy && legacy in tabContextMap ? (legacy as TabKey) : null;
@@ -282,7 +283,9 @@ const Index = () => {
   useEffect(() => {
     if (!role) return;
     if (pathTab !== activeTab || window.location.search) {
-      navigate(`/${activeTab}${window.location.hash}`, { replace: true });
+      // The old rules page lands on the rules tab, not Cost Center's first screen
+      const hash = pathTab === "modifier-rules" && !window.location.hash ? "#pos/rules" : window.location.hash;
+      navigate(`/${activeTab}${hash}`, { replace: true });
     }
   }, [role, pathTab, activeTab, navigate]);
 
@@ -635,6 +638,7 @@ const Index = () => {
                       getNextCode: menuData.getNextCode,
                       spBomLines: spBomData.lines,
                       updateRule: modifierRuleData.updateRule,
+                      deleteRule: modifierRuleData.deleteRule,
                     }}
                     skus={skus}
                     prices={priceData.prices}
@@ -704,6 +708,7 @@ const Index = () => {
                     getNextCode={menuData.getNextCode}
                     spBomLines={spBomData.lines}
                     updateRule={modifierRuleData.updateRule}
+                    deleteRule={modifierRuleData.deleteRule}
                   />
                 ) : activeTab === "menu-master" ? (
                   <MenuMasterPage menuData={menuData} branches={branchData.branches} />
@@ -724,15 +729,6 @@ const Index = () => {
                     readOnly={readOnly}
                     onPricesRefresh={priceData.refreshPrices}
                     onRecost={priceData.recostPrices}
-                  />
-                ) : activeTab === "modifier-rules" ? (
-                  <ModifierRulesPage
-                    ruleData={modifierRuleData}
-                    skus={skus}
-                    menus={menuData.menus}
-                    menuBomLines={menuBomData.lines}
-                    readOnly={!isManagement}
-                    branches={branchData.branches}
                   />
                 ) : activeTab === "sales-entry" ? (
                   <SalesEntryPage
