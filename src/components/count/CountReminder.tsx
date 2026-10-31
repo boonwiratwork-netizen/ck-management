@@ -14,15 +14,17 @@ export function CountReminder({ branchId, onGo }: { branchId: string | null; onG
     const today = businessDate(new Date());
     const from = new Date(`${today}T00:00:00`);
     from.setDate(from.getDate() - 7);
+    // Only sheets with something typed in: one opened by mistake and left blank isn't a
+    // day to finish (the count page's own check reads it the same way)
     supabase
       .from("daily_stock_counts")
-      .select("count_date")
+      .select("count_date, physical_count, waste")
       .eq("branch_id", branchId)
       .eq("is_submitted", false)
       .gte("count_date", isoDate(from))
       .lt("count_date", today)
-      .limit(1000)
-      .then(({ data }) => setDays(new Set((data ?? []).map((r) => r.count_date)).size));
+      .limit(10000)
+      .then(({ data }) => setDays(new Set((data ?? []).filter((r) => r.physical_count !== null || Number(r.waste) > 0).map((r) => r.count_date)).size));
   }, [branchId]);
   if (!days) return null;
   return (

@@ -41,9 +41,11 @@ const shift = (date: string, days: number) => {
 export const supabaseBranchStockLoader: BranchStockLoader = {
   async load(branchId, today) {
     const all = <T,>(build: (a: number, b: number) => unknown) => fetchAllRows<T>(build as never).then((r) => r.data);
-    // Finished count sheets only: a sheet still being filled in isn't a count yet
+    // Every count typed in, finished or not: the count sheet, requests to the kitchen and
+    // the other stock hooks read it this way (a "finished only" rule here, 30–31 Oct
+    // 2026, showed Thaniya a different balance from its own count and request pages)
     const counts = await all<AnchorRow>((a, b) =>
-      supabase.from("daily_stock_counts").select("id, sku_id, count_date, physical_count").eq("branch_id", branchId).eq("is_submitted", true).not("physical_count", "is", null).lte("count_date", today).order("id").range(a, b),
+      supabase.from("daily_stock_counts").select("id, sku_id, count_date, physical_count").eq("branch_id", branchId).not("physical_count", "is", null).lte("count_date", today).order("id").range(a, b),
     );
     const anchors = latestCounts(counts);
     // Everything after the oldest latest-count (a SKU never counted reads from the start)

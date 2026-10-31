@@ -188,7 +188,6 @@ export function StockCard({
             .select("count_date, physical_count")
             .eq("branch_id", branchId!)
             .eq("sku_id", skuId)
-            .eq("is_submitted", true)
             .not("physical_count", "is", null)
             .lt("count_date", resolvedStartDate)
             .order("count_date", { ascending: false })
@@ -317,10 +316,11 @@ export function StockCard({
             receiptsByDate.set(date, entry);
           }
 
-          // DSC rows by date for physical counts and waste
+          // DSC rows by date for physical counts and waste: every count typed in, finished
+          // or not, as the count sheet and the branch stock page read it
           const dscByDate = new Map<string, any>();
           for (const row of dscRows) {
-            if (row.is_submitted && row.physical_count !== null) {
+            if (row.physical_count !== null) {
               dscByDate.set(row.count_date, row);
             }
           }
