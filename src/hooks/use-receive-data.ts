@@ -6,7 +6,7 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import type { BranchReceipt } from "@/hooks/use-branch-receipt-data";
 import { CK_SUPPLIER_NAME, transferOrderStatusAfter, type ReceiptRow } from "@/lib/receive-rows";
 import { OVER_RECEIVE, UNFINISHED_DAYS, declineAnswer, overReceived, receiveAnswer, receiveSent, returnSent, statusWord, waitingOrders, wasSent, type DbDeclineAnswer, type DbReceiveAnswer, type ReceiveResult, type ReturnResult } from "@/lib/transfer-stock";
-import { callTransferFunction, moveOrder, orderState, releaseClaim, removeDistribution } from "@/lib/transfer-stock-db";
+import { callDbFunction, moveOrder, orderState, releaseClaim, removeDistribution } from "@/lib/transfer-stock-db";
 import { bangkokDate, shiftDay } from "@/lib/day-follow";
 
 /**
@@ -231,7 +231,7 @@ export function useReceiveData(opts: {
         toast.error(`จำนวนที่รับมากกว่าที่ส่งมาเกิน ${OVER_RECEIVE} เท่า (${over.length} รายการ) ตรวจตัวเลขอีกครั้ง`);
         return 0;
       }
-      const db = await callTransferFunction<DbReceiveAnswer>("receive_transfer_order", { p_to_id: to.id, p_status: status, p_rows: rows.map(toInsert) });
+      const db = await callDbFunction<DbReceiveAnswer>("receive_transfer_order", { p_to_id: to.id, p_status: status, p_rows: rows.map(toInsert) });
       let res: ReceiveResult;
       if (db.kind === "answer") {
         res = receiveAnswer(db.value, rows.length);
@@ -246,8 +246,10 @@ export function useReceiveData(opts: {
           },
           status,
         );
+      } else if (db.kind === "refused") {
+        res = { kind: "error", message: db.message }; // nothing saved: its transaction was rolled back
       } else {
-        // Refused, or the reply got lost: what does the database hold now?
+        // No answer: what does the database hold now?
         const now = await orderState(to.id);
         res = now && now.receipts > 0 ? { kind: "already" } : { kind: "error", message: db.message };
       }
@@ -283,7 +285,7 @@ export function useReceiveData(opts: {
   /** Decline: decline_transfer_order once installed, else the same steps as the kitchen's cancel (returnSent) */
   const declineTransferOrder = useCallback(
     async (to: PendingTO, reason: string): Promise<boolean> => {
-      const db = await callTransferFunction<DbDeclineAnswer>("decline_transfer_order", { p_to_id: to.id, p_reason: reason });
+      const db = await callDbFunction<DbDeclineAnswer>("decline_transfer_order", { p_to_id: to.id, p_reason: reason });
       let res: ReturnResult | { kind: "already" };
       if (db.kind === "answer") res = declineAnswer(db.value);
       else if (db.kind === "unavailable")
@@ -292,6 +294,7 @@ export function useReceiveData(opts: {
           move: (from) => moveOrder(to.id, from, { status: "Declined", decline_reason: reason.trim() || null }),
           returnStock: () => removeDistribution(to),
         });
+      else if (db.kind === "refused") res = { kind: "error", message: db.message };
       else {
         const now = await orderState(to.id);
         res = now?.status === "Declined" ? { kind: "already" } : { kind: "error", message: db.message };
@@ -352,7 +355,7 @@ export function useReceiveData(opts: {
     const actualUnitPrice = edit.qtyReceived > 0 ? edit.actualTotal / edit.qtyReceived : 0;
     const stdTotal = edit.qtyReceived * r.stdUnitPrice;
     const priceVariance = edit.actualTotal - stdTotal;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("branch_receipts")
       .update({
         qty_received: edit.qtyReceived,
@@ -362,9 +365,10 @@ export function useReceiveData(opts: {
         price_variance: priceVariance,
         notes: edit.notes,
       })
-      .eq("id", r.id);
-    if (error) {
-      toast.error("แก้รายการไม่สำเร็จ: " + error.message);
+      .eq("id", r.id)
+      .select("id");
+    if (error || !data?.length) {
+      toast.error("แก้รายการไม่สำเร็จ" + (error ? ": " + error.message : " (บัญชีนี้แก้รายการนี้ไม่ได้)"));
       return false;
     }
     setHistory((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...edit, actualUnitPrice, stdTotal, priceVariance } : x)));
@@ -372,9 +376,9 @@ export function useReceiveData(opts: {
   }, []);
 
   const deleteReceipt = useCallback(async (r: HistoryReceipt) => {
-    const { error } = await supabase.from("branch_receipts").delete().eq("id", r.id);
-    if (error) {
-      toast.error("ลบรายการไม่สำเร็จ: " + error.message);
+    const { data, error } = await supabase.from("branch_receipts").delete().eq("id", r.id).select("id");
+    if (error || !data?.length) {
+      toast.error("ลบรายการไม่สำเร็จ" + (error ? ": " + error.message : " (บัญชีนี้ลบรายการนี้ไม่ได้)"));
       return false;
     }
     setHistory((prev) => prev.filter((x) => x.id !== r.id));

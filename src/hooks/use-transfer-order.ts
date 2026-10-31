@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { branchShortCount, kitchenShortCount } from "@/lib/transfer-lines";
 import { ZERO_AFTER_SEND, isDelivered, planLineEdits, returnSent, statusWord } from "@/lib/transfer-stock";
-import { callTransferFunction, moveOrder, orderState, removeDistribution, syncDistribution } from "@/lib/transfer-stock-db";
+import { callDbFunction, moveOrder, orderState, removeDistribution, syncDistribution } from "@/lib/transfer-stock-db";
 
 export interface PendingTR {
   trId: string;
@@ -623,7 +623,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       return false;
     }
     const refusedMsg = (names: string) => `สาขารับ ${names} จากใบนี้แล้ว ใส่ 0 ไม่ได้ (สต๊อกจะกลับเข้าครัวทั้งที่สาขามีของ) · ใส่จำนวนที่ส่งจริงแทน`;
-    const db = await callTransferFunction<{ result: string; status?: string; product?: string }>("save_sent_transfer_order", {
+    const db = await callDbFunction<{ result: string; status?: string; product?: string }>("save_sent_transfer_order", {
       p_to_id: toId,
       p_lines: lines.map((l) => ({ id: l.id, actual_qty: l.actualQty, notes: l.note, packs_count: l.packsCount })),
     });
@@ -636,9 +636,13 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       toast.error(r === "received_line" ? refusedMsg(db.value.product ?? "รายการนี้") : `ใบ ${to.to_number} ถูก${statusWord(r === "gone" ? null : db.value.status ?? null)}ไปแล้ว แก้ไม่ได้`);
       return false;
     }
+    if (db.kind === "refused") {
+      toast.error("บันทึกไม่สำเร็จ ยังไม่มีอะไรถูกบันทึก: " + db.message);
+      return false;
+    }
     if (db.kind === "unknown") {
       // Saving again is safe: the lines are set to these numbers and only a missing difference is added
-      toast.error("บันทึกไม่สำเร็จ (หรือไม่แน่ใจว่าบันทึกแล้ว) กดบันทึกอีกครั้งได้ ไม่หักสต๊อกซ้ำ: " + db.message);
+      toast.error("ไม่แน่ใจว่าบันทึกแล้วหรือยัง กดบันทึกอีกครั้งได้ ไม่หักสต๊อกซ้ำ: " + db.message);
       return false;
     }
     // Before the migration: the same plan here

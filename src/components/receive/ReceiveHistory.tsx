@@ -23,12 +23,14 @@ interface Props {
   onRange: (from: string, to: string) => void;
   onUpdate: (r: HistoryReceipt, edit: { qtyReceived: number; actualTotal: number; notes: string }) => Promise<boolean>;
   onDelete: (r: HistoryReceipt) => Promise<boolean>;
+  /** Rows this account may fix or remove (kitchen goods on an order: management only); all when not given */
+  canChange?: (r: HistoryReceipt) => boolean;
 }
 
 const thaiDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
 
 /** What was received, day by day, with totals; each row can be fixed or removed */
-export function ReceiveHistory({ history, loading, skuMap, branches, showBranch, from, to, onRange, onUpdate, onDelete }: Props) {
+export function ReceiveHistory({ history, loading, skuMap, branches, showBranch, from, to, onRange, onUpdate, onDelete, canChange = () => true }: Props) {
   const [editing, setEditing] = useState<HistoryReceipt | null>(null);
   const [deleting, setDeleting] = useState<HistoryReceipt | null>(null);
   const page = useProgressiveList(history, 100);
@@ -101,12 +103,19 @@ export function ReceiveHistory({ history, loading, skuMap, branches, showBranch,
                         <div className="font-mono text-sm tabular-nums">{baht(r.actualTotal)}</div>
                         {Math.abs(r.priceVariance) > 0.5 && <div className={cn("font-mono text-xs", r.priceVariance > 0 ? "text-warning" : "text-success")}>{r.priceVariance > 0 ? "+" : ""}{baht(r.priceVariance)}</div>}
                       </div>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" aria-label="แก้รายการ" onClick={() => setEditing(r)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-destructive hover:text-destructive" aria-label="ลบรายการ" onClick={() => setDeleting(r)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canChange(r) ? (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" aria-label="แก้รายการ" onClick={() => setEditing(r)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-destructive hover:text-destructive" aria-label="ลบรายการ" onClick={() => setDeleting(r)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        // Kitchen goods on an order: management fixes them, or the kitchen edits the order
+                        <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">แก้โดยครัวกลาง</span>
+                      )}
                     </li>
                   );
                 })}

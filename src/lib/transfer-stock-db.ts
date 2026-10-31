@@ -15,18 +15,21 @@ type DbError = { code?: string; message?: string } | null;
 /** The function isn't in the database (yet): PostgREST says so with PGRST202 */
 export const isMissingFunction = (e: DbError) => !!e && (e.code === "PGRST202" || e.code === "42883" || /could not find the function/i.test(e.message ?? ""));
 
-export type DbCall<T> = { kind: "answer"; value: T } | { kind: "unavailable" } | { kind: "unknown"; message: string };
+export type DbCall<T> = { kind: "answer"; value: T } | { kind: "unavailable" } | { kind: "refused"; message: string } | { kind: "unknown"; message: string };
 
 /**
  * Call one of the migration's functions. "unavailable" = not installed, take the app's own
- * steps; "unknown" = it refused or the reply got lost: nothing is assumed, the caller reads
- * the order back.
+ * steps; "refused" = the database answered with an error (a rule, a permission: its transaction
+ * was rolled back, nothing saved); "unknown" = no answer (the connection dropped): it may or may
+ * not have saved, so the caller reads the database back before saying anything.
  */
-export async function callTransferFunction<T>(fn: string, args: Record<string, unknown>): Promise<DbCall<T>> {
+export async function callDbFunction<T>(fn: string, args: Record<string, unknown>): Promise<DbCall<T>> {
   const call = supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbError }>;
   const { data, error } = await call(fn, args);
   if (!error) return { kind: "answer", value: data as T };
   if (isMissingFunction(error)) return { kind: "unavailable" };
+  // An answer from the database carries its error code (P0001, 42501, PGRST…); a dropped connection has none
+  if (error.code) return { kind: "refused", message: error.message || error.code };
   return { kind: "unknown", message: error.message || "เชื่อมต่อไม่ได้" };
 }
 
@@ -79,9 +82,9 @@ async function distributionRows(to: { id: string; toNumber: string }): Promise<{
  * else the same rule here. Returns an error text, or null when done.
  */
 export async function syncDistribution(to: { id: string; toNumber: string; sentAt?: string | null; deliveryDate?: string | null }): Promise<string | null> {
-  const db = await callTransferFunction<number>("sync_transfer_distribution", { p_to_id: to.id });
+  const db = await callDbFunction<number>("sync_transfer_distribution", { p_to_id: to.id });
   if (db.kind === "answer") return null;
-  if (db.kind === "unknown") return db.message;
+  if (db.kind === "refused" || db.kind === "unknown") return db.message;
   const [lines, current] = await Promise.all([
     supabase.from("transfer_order_lines").select("sku_id, sku_type, actual_qty").eq("to_id", to.id).in("sku_type", ["RM", "PK"]).order("id"),
     distributionRows(to),

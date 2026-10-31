@@ -236,4 +236,28 @@ describe("moveRows", () => {
   it("can't move to the same branch", () => {
     expect(() => moveRows({ ...common, kind: "branch", toBranch: from })).toThrow();
   });
+
+  // The shapes move_branch_stock and the store-manager policy accept (migration 20261101090000,
+  // section 12): change a reason here and the database refuses the move until the SQL follows
+  it("writes only the reasons and pairs the database accepts", () => {
+    const like = (prefix: string, exact?: string) => (r: string) => r === exact || r.startsWith(prefix);
+    const fix = moveRows({ ...common, kind: "fix", sign: -1, note: "นับผิด" });
+    const waste = [...moveRows({ ...common, kind: "waste" }), ...moveRows({ ...common, kind: "waste", note: "เน่า" })];
+    expect(fix.every((r) => like("แก้ไขความผิดพลาด: ")(r.reason) && r.branch_id === "thaniya")).toBe(true);
+    expect(waste.every((r) => like("ของเสีย / หมดอายุ: ", "ของเสีย / หมดอายุ")(r.reason) && r.quantity < 0 && r.branch_id === "thaniya")).toBe(true);
+    for (const note of ["", "ด่วน"]) {
+      const [out, into] = moveRows({ ...common, kind: "branch", toBranch: { id: "shiro", name: "Shiro" }, note });
+      expect(like("โอนให้สาขาอื่น → ")(out.reason) && like("รับโอนจากสาขาอื่น → ")(into.reason)).toBe(true);
+      const [back, kitchen] = moveRows({ ...common, kind: "kitchen", note });
+      expect(like("ส่งคืนครัวกลาง: ", "ส่งคืนครัวกลาง")(back.reason) && like("รับคืนจากสาขา ")(kitchen.reason) && kitchen.branch_id === null).toBe(true);
+      // Same note on both sides (the database compares what follows the first ": ")
+      const noteOf = (r: string) => (r.includes(": ") ? r.slice(r.indexOf(": ") + 2) : "");
+      for (const [a, b] of [[out, into], [back, kitchen]]) {
+        expect(a.quantity).toBeLessThan(0);
+        expect(b).toMatchObject({ quantity: -a.quantity, sku_id: a.sku_id, adjustment_date: a.adjustment_date, stock_type: a.stock_type });
+        expect(noteOf(b.reason)).toBe(noteOf(a.reason));
+        expect([a.reason, b.reason].some((r) => /stock\s*count/i.test(r))).toBe(false);
+      }
+    }
+  });
 });

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { moveRows, type MoveKind } from "@/lib/branch-stock";
+import { callDbFunction } from "@/lib/transfer-stock-db";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 import { cn, toLocalDateStr } from "@/lib/utils";
@@ -13,6 +14,20 @@ const KINDS: { kind: MoveKind; title: string; hint: string }[] = [
   { kind: "waste", title: "ของเสีย / หมดอายุ", hint: "หักออก" },
   { kind: "fix", title: "แก้ตัวเลขผิด", hint: "ต้องบอกเหตุผล" },
 ];
+
+/**
+ * Both sides of a move in one write: move_branch_stock once the 1 Nov 2026 migration is in (it
+ * checks the two rows match and are this branch's; a store manager may no longer write another
+ * branch's or the kitchen's rows directly), else one insert as before. A text = the database
+ * refused it (nothing saved, here is why); "unknown" = no answer, it may have saved.
+ */
+async function writeMove(rows: unknown[]): Promise<boolean | string | "unknown"> {
+  const db = await callDbFunction<number>("move_branch_stock", { p_rows: rows });
+  if (db.kind === "answer") return true;
+  if (db.kind === "refused") return db.message;
+  if (db.kind === "unavailable") return !(await supabase.from("stock_adjustments").insert(rows as never).select("id")).error;
+  return "unknown";
+}
 
 /**
  * Move stock out of a branch or correct it. Moves between places write both
@@ -26,7 +41,7 @@ export function MoveSheet({
   branches,
   onClose,
   onSaved,
-  write = async (rows) => !(await supabase.from("stock_adjustments").insert(rows as never)).error,
+  write = writeMove,
 }: {
   sku: SKU;
   /** null: on no count sheet in 5 weeks, not known */
@@ -36,7 +51,7 @@ export function MoveSheet({
   onClose: () => void;
   onSaved: () => void;
   /** Dev demo only */
-  write?: (rows: unknown[]) => Promise<boolean>;
+  write?: (rows: unknown[]) => Promise<boolean | string | "unknown">;
 }) {
   const [kind, setKind] = useState<MoveKind>("branch");
   const others = branches.filter((b) => b.id !== branch.id && b.status === "Active");
@@ -72,6 +87,16 @@ export function MoveSheet({
     setBusy(true);
     const ok = await write(rows);
     setBusy(false);
+    if (ok === "unknown") {
+      // No answer: it may have saved, and saving again blindly could move it twice
+      toast.error("ไม่แน่ใจว่าบันทึกแล้วหรือยัง ดูยอดในหน้าสต๊อกก่อนบันทึกซ้ำ");
+      onSaved();
+      return;
+    }
+    if (typeof ok === "string") {
+      toast.error("บันทึกไม่สำเร็จ ยังไม่มีอะไรถูกบันทึก: " + ok);
+      return;
+    }
     if (!ok) {
       toast.error("บันทึกไม่สำเร็จ ยังไม่มีอะไรถูกบันทึก ลองใหม่อีกครั้ง");
       return;

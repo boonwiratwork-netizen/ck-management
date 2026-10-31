@@ -1,18 +1,42 @@
 -- Transfer orders / production, 1 Nov 2026 — PART 1: read only. Nothing here changes data.
 -- The SQL Editor shows only the last result of a run: run one statement at a time (select it,
--- then Run). 0a and 0b can run any time (do them first, before the migration); the rest after
--- supabase/migrations/20261101090000_transfer_order_integrity.sql. S counts the lists in one
--- result (E, E2, F and G are run on their own).
+-- then Run). S counts the lists in one result (E, E2, F and G are run on their own).
+--
+-- Run order:
+--   1. 0a and 0b (any time; done 1 Nov — results below).
+--   2. Deploy the app.
+--   3. supabase/migrations/20261101090000_transfer_order_integrity.sql (read its NOTICE lines:
+--      the policies and triggers it found, and the policies it dropped / replaced).
+--   4. 0a and 0b again: they should now look like the "after" notes below.
+--   5. S, then the lists A … Z of this file.
+--   6. supabase/fixes/20261101_2_repair.sql, then S again (A, A2, B, D, I at 0; E empty).
 -- Kitchen stock is anchored on its last count: a fix changes today's balance only for products
 -- whose last kitchen count is before the row's date.
 
--- 0a. Policies on the tables the fix touches (some live ones are not in the repo's migrations)
+-- 0a. Policies on the tables the fix touches. Live before the migration (1 Nov), not in the
+--     repo: transfer_orders "Store Manager can decline transfer orders" and "Store manager
+--     receive own TO" (UPDATE), stock_adjustments "Store Manager can insert stock_adjustments"
+--     (role only), store managers' own-branch insert/update/delete on branch_receipts and
+--     transfer_request_lines; no CK-manager update on transfer_request_lines.
+--     After: the two transfer_orders store-manager policies are gone (receive / decline go
+--     through functions) and "Store manager own sent TO (guarded)" is there (own branch, Sent:
+--     an old app's direct update gets "update the app" from the guard), stock_adjustments has "Store manager insert own branch waste or fix"
+--     instead of the role-only one, transfer_request_lines has "CK manager decline TRL".
 select tablename, policyname, cmd, roles, qual, with_check
 from pg_policies
 where schemaname = 'public' and tablename in ('transfer_orders', 'transfer_order_lines', 'branch_receipts', 'stock_adjustments', 'transfer_request_lines')
 order by tablename, cmd, policyname;
 
--- 0b. Triggers on the same tables
+-- 0b. Triggers on the same tables. Live before (1 Nov), all from the repo's migrations:
+--     transfer_orders set_sent_at_transfer_orders (20261025200000), set_updated_at_transfer_orders
+--     (20260312003651), trg_notify_to_sent (20260809093321 / 20261031150000), trg_validate_to_status
+--     (20260312003651 / 20260411052141); nothing on the other four tables.
+--     After: on transfer_orders also guard_transfer_order_status, guard_transfer_order_delete,
+--     return_transfer_order_stock (set_sent_at, trg_validate_to_status and notify_to_sent
+--     replaced by the migration's versions); transfer_order_lines guard_transfer_order_line_delete,
+--     guard_transfer_order_line_qty; branch_receipts guard_transfer_receipt; stock_adjustments
+--     guard_distribution_insert, guard_distribution_delete; transfer_request_lines
+--     guard_request_line_kitchen_update.
 select event_object_table as table_name, trigger_name, action_timing, string_agg(event_manipulation, ', ') as events
 from information_schema.triggers
 where event_object_schema = 'public' and event_object_table in ('transfer_orders', 'transfer_order_lines', 'branch_receipts', 'stock_adjustments', 'transfer_request_lines')

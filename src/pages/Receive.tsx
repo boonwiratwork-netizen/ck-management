@@ -81,7 +81,7 @@ const NOT_A_SHOP = /^(central kitchen|ck\b|ck \(|ครัวกลาง|store 
  * "sup/<id>", "ck", "branch", "history" — so the back button and bottom bar work.
  */
 export default function ReceivePage({ skus, prices, branches, suppliers = [], menus = [], menuBomLines = [], getBomCostPerGram, onNavigate, demoData }: Props) {
-  const { isStoreManager, profile } = useAuth();
+  const { isStoreManager, isManagement, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
@@ -292,6 +292,8 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
       to={range.to}
       onRange={(from, to) => setRange({ from, to })}
       onUpdate={data.updateReceipt}
+      // Kitchen goods on an order change only with the order (the database refuses it too, 1 Nov 2026)
+      canChange={(r) => !r.transferOrderId || isManagement || !!demoData}
       onDelete={async (r) => {
         const ok = await data.deleteReceipt(r);
         if (ok) toast.success("ลบแล้ว");

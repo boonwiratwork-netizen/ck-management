@@ -53,7 +53,7 @@ vi.mock("@/integrations/supabase/client", () => {
   return { supabase: { from, rpc: (fn: string, args: unknown) => (fake.calls.push({ table: `rpc:${fn}`, op: "select", payload: args, filters: [] }), Promise.resolve({ data: null, error: null, ...fake.rpc(fn, args) })) } };
 });
 
-import { callTransferFunction, moveOrder, orderState, releaseClaim, removeDistribution, syncDistribution } from "./transfer-stock-db";
+import { callDbFunction, moveOrder, orderState, releaseClaim, removeDistribution, syncDistribution } from "./transfer-stock-db";
 
 const TO = { id: "8b0c1d2e-0000-4000-8000-000000000001", toNumber: "TO-2026-10-031" };
 const filter = (q: Query, col: string) => q.filters.find((f) => f[1] === col)?.[2];
@@ -65,12 +65,14 @@ beforeEach(() => {
 });
 
 describe("calling the migration's functions", () => {
-  it("not installed → the app's own steps; refused or no reply → read the order back; else the answer", async () => {
-    expect(await callTransferFunction("receive_transfer_order", {})).toEqual({ kind: "unavailable" });
+  it("not installed → the app's own steps; the database refused → not saved; no answer → read back; else the answer", async () => {
+    expect(await callDbFunction("receive_transfer_order", {})).toEqual({ kind: "unavailable" });
+    fake.rpc = () => ({ error: { code: "22023", message: "การย้ายของต้องบันทึกสองฝั่งเท่ากัน" } });
+    expect(await callDbFunction("move_branch_stock", {})).toEqual({ kind: "refused", message: "การย้ายของต้องบันทึกสองฝั่งเท่ากัน" });
     fake.rpc = () => ({ error: { message: "TypeError: Failed to fetch" } });
-    expect(await callTransferFunction("receive_transfer_order", {})).toEqual({ kind: "unknown", message: "TypeError: Failed to fetch" });
+    expect(await callDbFunction("receive_transfer_order", {})).toEqual({ kind: "unknown", message: "TypeError: Failed to fetch" });
     fake.rpc = () => ({ data: { result: "saved", rows: [] } });
-    expect(await callTransferFunction("receive_transfer_order", { p_to_id: TO.id })).toEqual({ kind: "answer", value: { result: "saved", rows: [] } });
+    expect(await callDbFunction("receive_transfer_order", { p_to_id: TO.id })).toEqual({ kind: "answer", value: { result: "saved", rows: [] } });
   });
 });
 
@@ -130,7 +132,7 @@ describe("an order's RM/PK rows", () => {
     fake.rpc = () => ({ data: 1 });
     expect(await syncDistribution({ ...TO, sentAt: "2026-10-29T03:00:00Z" })).toBeNull();
     expect(fake.calls.map((q) => q.table)).toEqual(["rpc:sync_transfer_distribution"]);
-    fake.rpc = () => ({ error: { message: "ใบโอนไม่ได้ส่งอยู่" } });
+    fake.rpc = () => ({ error: { code: "P0001", message: "ใบโอนไม่ได้ส่งอยู่" } });
     expect(await syncDistribution(TO)).toBe("ใบโอนไม่ได้ส่งอยู่");
   });
 
