@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildPriceAt, type PriceChange } from "@/lib/price-history";
+import { usageContextOn, type RecipeCopy } from "@/lib/recipe-history";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { usageContextFromApp } from "@/lib/sale-usage";
+import { usageContextFromApp, usageInputFromApp } from "@/lib/sale-usage";
 import {
   computeActual,
   computeStandard,
@@ -67,9 +68,19 @@ export interface FoodCostLoader {
   receipts(branchId: string, from: string, to: string, skuIds?: string[]): Promise<ReceiptRow[]>;
   /** Standard-price changes (price history); none = every day at today's price */
   priceHistory?(): Promise<PriceChange[]>;
+  /** Saved copies of recipes and option rules (recipe history); none = today's recipes */
+  recipeHistory?(): Promise<RecipeCopy[]>;
 }
 
 export const supabaseLoader: FoodCostLoader = {
+  // Missing table (before its migration ran) or a failed read: today's recipes, as before
+  recipeHistory: async () => {
+    const { data, error } = await fetchAllRows<{ id: string; kind: RecipeCopy["kind"]; owner_id: string | null; snapshot: unknown; valid_from: string; created_at: string }>((a, b) =>
+      supabase.from("recipe_history" as never).select("id, kind, owner_id, snapshot, valid_from, created_at").neq("kind", "sm").order("valid_from").order("id").range(a, b) as never,
+    );
+    if (error) return [];
+    return data.map((r) => ({ id: r.id, kind: r.kind, ownerId: r.owner_id, snapshot: r.snapshot, validFrom: r.valid_from, createdAt: r.created_at }));
+  },
   // Missing table (before its migration ran) or a failed read: today's price, as before
   priceHistory: async () => {
     const { data, error } = await fetchAllRows<{ sku_id: string; price_per_usage_uom: number; valid_from: string }>((a, b) =>
@@ -152,9 +163,12 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
       if (cancelled) return;
 
       // Each day's sales at that day's price: a later price change leaves a closed month alone
-      const priceAt = buildPriceAt((await loader.priceHistory?.()) ?? []);
+      const [changes, copies] = await Promise.all([loader.priceHistory?.() ?? [], loader.recipeHistory?.() ?? []]);
       if (cancelled) return;
-      const std = computeStandard({ sales: salesRes.data, ctx, stdPrice, priceAt, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
+      const priceAt = buildPriceAt(changes);
+      // …and with the recipes of that day: a later recipe change leaves it alone too
+      const ctxAt = copies.length ? usageContextOn(usageInputFromApp({ menus: m.menus, menuBomLines: m.menuBomLines, modifierRules: m.modifierRules, spBomLines: m.spBomLines, skus: m.skus }), copies) : undefined;
+      const std = computeStandard({ sales: salesRes.data, ctx, ctxAt, stdPrice, priceAt, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
       const today = iso(new Date());
       const openingDate = shift(from, -1);
       const closingDate = to;

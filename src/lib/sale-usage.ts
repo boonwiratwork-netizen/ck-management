@@ -76,14 +76,15 @@ export function buildUsageContext(input: {
  * the data hooks hold them). Every screen that turns sales into ingredients builds it
  * here, so they all count the same way.
  */
-export function usageContextFromApp(input: {
+/** The usage engine's input from the app's own data (also the base for a past day's recipes) */
+export function usageInputFromApp(input: {
   menus: { id: string; menuCode: string }[];
   menuBomLines: { menuId: string; skuId: string; effectiveQty: number; branchId?: string | null }[];
   modifierRules: { id: string; ruleType: string; keyword: string; skuId: string | null; swapSkuId: string | null; submenuId: string | null; qtyPerMatch: number; isActive: boolean; branchIds?: string[] | null; menuIds?: string[] | null }[];
   spBomLines: { spSkuId: string; ingredientSkuId: string; qtyPerBatch: number; batchYieldQty: number }[];
   skus: { id: string; type: string }[];
-}): UsageContext {
-  return buildUsageContext({
+}) {
+  return {
     menus: input.menus.map((m) => ({ id: m.id, menuCode: m.menuCode })),
     bomLines: input.menuBomLines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: Number(l.effectiveQty) || 0, branchId: l.branchId ?? null })),
     rules: input.modifierRules.map((r) => ({
@@ -100,7 +101,17 @@ export function usageContextFromApp(input: {
     })),
     spLines: input.spBomLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: Number(l.qtyPerBatch) || 0, batchYieldQty: Number(l.batchYieldQty) || 1 })),
     skus: input.skus.map((s) => ({ id: s.id, type: s.type })),
-  });
+  };
+}
+
+export function usageContextFromApp(input: {
+  menus: { id: string; menuCode: string }[];
+  menuBomLines: { menuId: string; skuId: string; effectiveQty: number; branchId?: string | null }[];
+  modifierRules: { id: string; ruleType: string; keyword: string; skuId: string | null; swapSkuId: string | null; submenuId: string | null; qtyPerMatch: number; isActive: boolean; branchIds?: string[] | null; menuIds?: string[] | null }[];
+  spBomLines: { spSkuId: string; ingredientSkuId: string; qtyPerBatch: number; batchYieldQty: number }[];
+  skus: { id: string; type: string }[];
+}): UsageContext {
+  return buildUsageContext(usageInputFromApp(input));
 }
 
 /** Calls add(skuId, qty) for every ingredient the sale uses; returns false if the menu is unknown */

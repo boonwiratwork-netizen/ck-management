@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildPriceAt } from "@/lib/price-history";
+import { smRecipesOn } from "@/lib/recipe-history";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { ingredientsPerBatch, outputPerBatch } from "@/lib/production";
 import { afterCount, producedAfterCount, type CountAnchor, type CountTiming } from "@/lib/count-anchor";
@@ -141,6 +142,23 @@ export function useCkPeriod(from: string, to: string, liveRm: { skuId: string; c
       for (const h of headers) {
         const header: BOMHeader = { id: h.id, smSkuId: h.sm_sku_id, productionType: h.production_type as BOMHeader["productionType"], bomMode: h.bom_mode as BOMHeader["bomMode"], batchSize: Number(h.batch_size) || 0, yieldPercent: Number(h.yield_percent) || 0 };
         recipes.set(h.sm_sku_id, { smSkuId: h.sm_sku_id, outputPerBatch: outputPerBatch(header, appLines, appSteps), lines: ingredientsPerBatch(header, appLines, appSteps) });
+      }
+      // The recipes as on the period's last day (recipe history), so a later change
+      // leaves a closed month alone; no history (table not there yet) → today's
+      const copies = await supabase.from("recipe_history" as never).select("id, kind, owner_id, snapshot, valid_from, created_at").eq("kind", "sm").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
+      if (cancelled) return;
+      if (!copies.error && copies.data) {
+        const then = smRecipesOn(
+          (copies.data as { id: string; kind: "sm"; owner_id: string; snapshot: unknown; valid_from: string; created_at: string }[]).map((r) => ({ id: r.id, kind: r.kind, ownerId: r.owner_id, snapshot: r.snapshot, validFrom: r.valid_from, createdAt: r.created_at })),
+          to,
+        );
+        for (const [headerId, c] of then) {
+          if (!c.header) continue;
+          const header: BOMHeader = { id: headerId, smSkuId: c.header.sm_sku_id, productionType: "CK", bomMode: c.header.bom_mode as BOMHeader["bomMode"], batchSize: Number(c.header.batch_size) || 0, yieldPercent: Number(c.header.yield_percent) || 0 };
+          const ls: BOMLine[] = c.lines.map((l, i) => ({ id: `${headerId}-${i}`, bomHeaderId: headerId, rmSkuId: l.rm_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, yieldPercent: l.yield_percent ?? 1, stepId: l.step_id ?? undefined, qtyType: (l.qty_type ?? undefined) as BOMLine["qtyType"], percentOfInput: l.percent_of_input ?? undefined }));
+          const st: BOMStep[] = c.steps.map((s) => ({ id: s.id, bomHeaderId: headerId, stepNumber: s.step_number, stepName: "", yieldPercent: Number(s.yield_percent) || 0 }));
+          recipes.set(header.smSkuId, { smSkuId: header.smSkuId, outputPerBatch: outputPerBatch(header, ls, st), lines: ingredientsPerBatch(header, ls, st) });
+        }
       }
 
       // Production around the period (counts can sit a few days either side)

@@ -113,6 +113,8 @@ export function computeStandard(input: {
    * as it was then; falls back to stdPrice (today's) where there is no history
    */
   priceAt?: (skuId: string, date: string) => number | undefined;
+  /** The recipes and option rules of a given day (recipe history); none = today's (ctx) */
+  ctxAt?: (date: string) => UsageContext;
   menuByCode: Map<string, MenuInfo>;
   skuById: Map<string, SkuInfo>;
   corrections: UsageCorrection[];
@@ -143,7 +145,7 @@ export function computeStandard(input: {
     days.set(s.sale_date, day);
 
     let cost = 0;
-    const known = addSaleUsage(ctx, s, (skuId, q) => {
+    const known = addSaleUsage(input.ctxAt?.(s.sale_date) ?? ctx, s, (skuId, q) => {
       usage.set(skuId, (usage.get(skuId) ?? 0) + q);
       const c = q * priceOn(skuId, s.sale_date);
       usageCost.set(skuId, (usageCost.get(skuId) ?? 0) + c);
