@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCkPeriod } from "@/hooks/use-ck-production";
+import { useCkPeriod, useCkTrend } from "@/hooks/use-ck-production";
+import { CkTrend } from "@/components/dashboard/CkTrend";
 import { useFitsWidth } from "@/hooks/use-fits-width";
 import { Button } from "@/components/ui/button";
 import type { SKU } from "@/types/sku";
@@ -47,6 +48,8 @@ export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smS
   const { data: loaded, loading, error } = useCkPeriod(period.from, period.to, rmStockBalances, stockReady);
   // Another period's numbers are never shown under this period's dates
   const data = loaded && loaded.from === period.from && loaded.to === period.to ? loaded : null;
+  // The month chips' months, side by side (costs only)
+  const trend = useCkTrend(months, rmStockBalances, stockReady);
   const [open, setOpen] = useState<SmProductionCost | null>(null);
   const [measure, wide] = useFitsWidth(820);
 
@@ -130,6 +133,19 @@ export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smS
         )}
       </div>
       {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+
+      <CkTrend
+        months={months}
+        points={trend}
+        selected={custom ? null : period.from}
+        onPick={(from) => {
+          const m = months.find((x) => x.from === from);
+          if (!m) return;
+          setCustom(false);
+          setPeriod(m);
+        }}
+        open={data && !custom ? { cost: data.cost, estimated: data.estimated, label: monthLabel(period.from) } : null}
+      />
 
       {!data ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

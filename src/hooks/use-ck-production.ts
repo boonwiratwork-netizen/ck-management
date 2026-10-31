@@ -90,6 +90,235 @@ interface Raw {
   distribution: CkPeriod["distribution"];
 }
 
+/** The setup every period reads (recipes, prices, products, suppliers, branches) */
+const loadMasters = () =>
+  Promise.all([
+    all<{ id: string; sm_sku_id: string; bom_mode: string; batch_size: number; yield_percent: number; production_type: string }>((a, b) => supabase.from("bom_headers").select("id, sm_sku_id, bom_mode, batch_size, yield_percent, production_type").order("id").range(a, b)),
+    all<{ id: string; bom_header_id: string; rm_sku_id: string; qty_per_batch: number; yield_percent: number | null; step_id: string | null; qty_type: string | null; percent_of_input: number | null }>((a, b) =>
+      supabase.from("bom_lines").select("id, bom_header_id, rm_sku_id, qty_per_batch, yield_percent, step_id, qty_type, percent_of_input").order("id").range(a, b),
+    ),
+    all<{ id: string; bom_header_id: string; step_number: number; step_name: string; yield_percent: number }>((a, b) => supabase.from("bom_steps").select("id, bom_header_id, step_number, step_name, yield_percent").order("id").range(a, b)),
+    all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b)),
+    all<{ id: string; type: string; converter: number | null }>((a, b) => supabase.from("skus").select("id, type, converter").order("id").range(a, b)),
+    all<{ id: string; name: string }>((a, b) => supabase.from("suppliers").select("id, name").order("id").range(a, b)),
+    all<{ id: string; branch_name: string }>((a, b) => supabase.from("branches").select("id, branch_name").order("id").range(a, b)),
+  ]);
+type Masters = Awaited<ReturnType<typeof loadMasters>>;
+
+/**
+ * Reads one period (null = stopped: `alive` turned false). `costOnly`: skip what went
+ * to branches (the month trend only needs the cost). `masters`: already on the way
+ * (several months share one read).
+ */
+async function readPeriod(from: string, to: string, alive: () => boolean, opts: { costOnly?: boolean } = {}, masters?: Promise<Masters>): Promise<Raw | null> {
+  const today = toLocalDateStr(new Date());
+  const [headers, lines, steps, prices, skus, suppliers, branches] = await (masters ?? loadMasters());
+  if (!alive()) return null;
+  const std = new Map<string, number>();
+  for (const p of prices) if (!std.has(p.sku_id)) std.set(p.sku_id, Number(p.price_per_usage_uom) || 0);
+  // Priced as on the period's last day (price history), so a later change leaves a
+  // closed month alone; no history (table not there yet, or none) → today's price
+  const history = await supabase.from("price_history" as never).select("sku_id, price_per_usage_uom, valid_from").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
+  if (!alive()) return null;
+  if (!history.error && history.data) {
+    const priceAt = buildPriceAt((history.data as { sku_id: string; price_per_usage_uom: number; valid_from: string }[]).map((r) => ({ skuId: r.sku_id, pricePerUsageUom: Number(r.price_per_usage_uom), validFrom: r.valid_from })));
+    for (const id of [...std.keys()]) {
+      const then = priceAt(id, to);
+      if (then !== undefined) std.set(id, then);
+    }
+  }
+  const type = new Map(skus.map((s) => [s.id, s.type]));
+  const conv = new Map(skus.map((s) => [s.id, Number(s.converter) || 1]));
+  const isRm = (id: string) => type.get(id) === "RM";
+
+  // Recipes as production deducts them: per-batch lines (bought amount) and output per batch
+  const appLines: BOMLine[] = lines.map((l) => ({ id: l.id, bomHeaderId: l.bom_header_id, rmSkuId: l.rm_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, yieldPercent: l.yield_percent ?? 1, stepId: l.step_id ?? undefined, qtyType: (l.qty_type ?? undefined) as BOMLine["qtyType"], percentOfInput: l.percent_of_input ?? undefined }));
+  const appSteps: BOMStep[] = steps.map((s) => ({ id: s.id, bomHeaderId: s.bom_header_id, stepNumber: s.step_number, stepName: s.step_name, yieldPercent: Number(s.yield_percent) || 0 }));
+  const recipes = new Map<string, Recipe>();
+  for (const h of headers) {
+    const header: BOMHeader = { id: h.id, smSkuId: h.sm_sku_id, productionType: h.production_type as BOMHeader["productionType"], bomMode: h.bom_mode as BOMHeader["bomMode"], batchSize: Number(h.batch_size) || 0, yieldPercent: Number(h.yield_percent) || 0 };
+    recipes.set(h.sm_sku_id, { smSkuId: h.sm_sku_id, outputPerBatch: outputPerBatch(header, appLines, appSteps), lines: ingredientsPerBatch(header, appLines, appSteps) });
+  }
+  // The recipes as on the period's last day (recipe history), so a later change
+  // leaves a closed month alone; no history (table not there yet) → today's
+  const copies = await supabase.from("recipe_history" as never).select("id, kind, owner_id, snapshot, valid_from, created_at").eq("kind", "sm").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
+  if (!alive()) return null;
+  if (!copies.error && copies.data) {
+    const then = smRecipesOn(
+      (copies.data as { id: string; kind: "sm"; owner_id: string; snapshot: unknown; valid_from: string; created_at: string }[]).map((r) => ({ id: r.id, kind: r.kind, ownerId: r.owner_id, snapshot: r.snapshot, validFrom: r.valid_from, createdAt: r.created_at })),
+      to,
+    );
+    for (const [headerId, c] of then) {
+      if (!c.header) continue;
+      const header: BOMHeader = { id: headerId, smSkuId: c.header.sm_sku_id, productionType: "CK", bomMode: c.header.bom_mode as BOMHeader["bomMode"], batchSize: Number(c.header.batch_size) || 0, yieldPercent: Number(c.header.yield_percent) || 0 };
+      const ls: BOMLine[] = c.lines.map((l, i) => ({ id: `${headerId}-${i}`, bomHeaderId: headerId, rmSkuId: l.rm_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, yieldPercent: l.yield_percent ?? 1, stepId: l.step_id ?? undefined, qtyType: (l.qty_type ?? undefined) as BOMLine["qtyType"], percentOfInput: l.percent_of_input ?? undefined }));
+      const st: BOMStep[] = c.steps.map((s) => ({ id: s.id, bomHeaderId: headerId, stepNumber: s.step_number, stepName: "", yieldPercent: Number(s.yield_percent) || 0 }));
+      recipes.set(header.smSkuId, { smSkuId: header.smSkuId, outputPerBatch: outputPerBatch(header, ls, st), lines: ingredientsPerBatch(header, ls, st) });
+    }
+  }
+
+  // Production around the period (counts can sit a few days either side)
+  const prodRows = await all<{ sm_sku_id: string; actual_output_g: number; production_date: string; created_at: string }>((a, b) =>
+    supabase.from("production_records").select("id, sm_sku_id, actual_output_g, production_date, created_at").gte("production_date", shift(from, -4)).lte("production_date", shift(to, 3)).order("id").range(a, b),
+  );
+  if (!alive()) return null;
+  const inPeriod = prodRows.filter((p) => p.production_date >= from && p.production_date <= to);
+  const rmIds = new Set<string>();
+  for (const p of inPeriod) for (const l of recipes.get(p.sm_sku_id)?.lines ?? []) if (isRm(l.skuId)) rmIds.add(l.skuId);
+
+  // Counts: the end of the day before the period, and the period's last day (once it's over)
+  const closed = to < today;
+  const opening = rmIds.size ? await pickCount(shift(from, -1), rmIds) : null;
+  const closing = rmIds.size && closed && opening ? await pickCount(to, rmIds, opening.session.count_date) : null;
+  if (!alive()) return null;
+  const blocked = !inPeriod.length ? null : !opening ? "ไม่มีผลนับวัตถุดิบต้นช่วง (±3 วัน · นับอย่างน้อยครึ่งหนึ่งของที่ใช้)" : closed && !closing ? "ไม่มีผลนับวัตถุดิบปลายช่วง (±3 วัน · นับอย่างน้อยครึ่งหนึ่งของที่ใช้)" : null;
+
+  // Production compared = what was made between the two counts (the same rule the
+  // stock pages use), so recipe and actual cover the same days
+  const produced = opening
+    ? prodRows.filter((p) => producedAfterCount(opening.session, p.production_date, p.created_at) && (closing ? !producedAfterCount(closing.session, p.production_date, p.created_at) : p.production_date <= today))
+    : inPeriod;
+
+  const windowFrom = opening ? opening.session.count_date : from;
+  const windowTo = closing ? closing.session.count_date : today;
+  const [receipts, dist] = await Promise.all([
+    all<{ sku_id: string; supplier_id: string; receipt_date: string; quantity_received: number; actual_total: number | null; actual_unit_price: number | null }>((a, b) =>
+      supabase.from("goods_receipts").select("id, sku_id, supplier_id, receipt_date, quantity_received, actual_total, actual_unit_price").gte("receipt_date", windowFrom < from ? windowFrom : from).lte("receipt_date", windowTo > to ? windowTo : to).order("id").range(a, b),
+    ),
+    all<{ sku_id: string; adjustment_date: string; quantity: number }>((a, b) =>
+      supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity").is("branch_id", null).eq("stock_type", "RM").like("reason", "Distribution:%").gte("adjustment_date", windowFrom).lte("adjustment_date", windowTo).order("id").range(a, b),
+    ),
+  ]);
+  if (!alive()) return null;
+  const between = (date: string) => (opening ? afterCount(opening.session, date) : date >= from) && (closing ? !afterCount(closing.session, date) : date <= today);
+  const flow = new Map<string, RmFlow>();
+  for (const id of rmIds) flow.set(id, { opening: opening?.qty.get(id) ?? 0, bought: 0, toBranches: 0, closing: closing?.qty.get(id) ?? 0 });
+  const paid = new Map<string, { q: number; v: number }>();
+  for (const r of receipts) {
+    const f = flow.get(r.sku_id);
+    if (!f || !between(r.receipt_date)) continue;
+    // Usage units as the stock pages count a receipt (× converter)
+    const q = (Number(r.quantity_received) || 0) * (conv.get(r.sku_id) ?? 1);
+    f.bought += q;
+    const p = paid.get(r.sku_id) ?? { q: 0, v: 0 };
+    p.q += q;
+    p.v += r.actual_total != null ? Number(r.actual_total) : (Number(r.actual_unit_price) || 0) * (Number(r.quantity_received) || 0);
+    paid.set(r.sku_id, p);
+  }
+  for (const d of dist) {
+    const f = flow.get(d.sku_id);
+    if (f && between(d.adjustment_date)) f.toBranches += -Number(d.quantity) || 0;
+  }
+
+  // Purchases in the period, by supplier (top 5 + the rest)
+  const supName = new Map(suppliers.map((s) => [s.id, s.name]));
+  const bySup = new Map<string, number>();
+  let spend = 0;
+  for (const r of receipts) {
+    if (r.receipt_date < from || r.receipt_date > to) continue;
+    const v = r.actual_total != null ? Number(r.actual_total) : (Number(r.actual_unit_price) || 0) * (Number(r.quantity_received) || 0);
+    spend += v;
+    const n = supName.get(r.supplier_id) ?? "ไม่ระบุ";
+    bySup.set(n, (bySup.get(n) ?? 0) + v);
+  }
+
+  // Sent to branches in the period (delivered transfer orders)
+  const tos = opts.costOnly ? [] : await all<{ id: string; branch_id: string; status: string }>((a, b) =>
+    supabase.from("transfer_orders").select("id, branch_id, status").in("status", [...TO_DELIVERED_STATUSES]).gte("delivery_date", from).lte("delivery_date", to).order("id").range(a, b),
+  );
+  const toLines: { to_id: string; sku_type: string; actual_qty: number; planned_qty: number; unit_cost: number }[] = [];
+  for (let i = 0; i < tos.length; i += 150) {
+    const ids = tos.slice(i, i + 150).map((t) => t.id);
+    toLines.push(...(await all<(typeof toLines)[number]>((a, b) => supabase.from("transfer_order_lines").select("id, to_id, sku_type, actual_qty, planned_qty, unit_cost").in("to_id", ids).order("id").range(a, b))));
+  }
+  if (!alive()) return null;
+  const toById = new Map(tos.map((t) => [t.id, t]));
+  const brName = new Map(branches.map((b) => [b.id, b.branch_name]));
+  const byBr = new Map<string, { sm: number; rm: number }>();
+  let dSm = 0;
+  let dRm = 0;
+  for (const l of toLines) {
+    const t = toById.get(l.to_id);
+    if (!t) continue;
+    const v = computeToLineQty(l.actual_qty, l.planned_qty, t.status) * (Number(l.unit_cost) || 0);
+    const n = brName.get(t.branch_id) ?? "สาขา";
+    const e = byBr.get(n) ?? { sm: 0, rm: 0 };
+    if (l.sku_type === "RM") {
+      e.rm += v;
+      dRm += v;
+    } else {
+      e.sm += v;
+      dSm += v;
+    }
+    byBr.set(n, e);
+  }
+
+  const dates = produced.map((p) => p.production_date).sort();
+  return {
+    from,
+    to,
+    produced: produced.map((p) => ({ smSkuId: p.sm_sku_id, outputG: Number(p.actual_output_g) || 0 })),
+    recipes,
+    type,
+    std,
+    opening,
+    closing,
+    blocked,
+    flow,
+    paid,
+    prodFrom: dates[0] ?? null,
+    prodTo: dates[dates.length - 1] ?? null,
+    purchases: { total: spend, top: topWithOthers([...bySup].map(([name, value]) => ({ name, value }))) },
+    distribution: { sm: dSm, rm: dRm, byBranch: [...byBr].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.sm + b.rm - (a.sm + a.rm)) },
+  };
+}
+
+/** The cost, with today's balances as the closing figure when there's no closing count */
+function costOf(raw: Raw, liveRm: { skuId: string; currentStock: number }[], liveReady: boolean): CkPeriod {
+  const estimated = !raw.closing;
+  const waiting = estimated && !liveReady;
+  let cost: ProductionCost | null = null;
+  const uncounted: string[] = [];
+  if (!raw.blocked && raw.produced.length && !waiting) {
+    const live = new Map(liveRm.map((b) => [b.skuId, b.currentStock]));
+    const flow = new Map<string, RmFlow>();
+    const missing = new Set<string>();
+    for (const [id, f] of raw.flow) {
+      flow.set(id, estimated ? { ...f, closing: live.get(id) ?? 0 } : f);
+      if (!raw.opening?.qty.has(id) || (raw.closing && !raw.closing.qty.has(id))) missing.add(id);
+    }
+    uncounted.push(...missing);
+    const isRm = (id: string) => raw.type.get(id) === "RM";
+    cost = productionCost({
+      produced: raw.produced,
+      recipes: raw.recipes,
+      isRm,
+      stdPrice: (id) => raw.std.get(id) ?? 0,
+      actPrice: (id) => {
+        const p = raw.paid.get(id);
+        return p && p.q > 0 ? p.v / p.q : raw.std.get(id) ?? 0;
+      },
+      rmFlow: flow,
+      uncounted: missing,
+    });
+  }
+  return {
+    from: raw.from,
+    to: raw.to,
+    cost,
+    prodFrom: raw.prodFrom,
+    prodTo: raw.prodTo,
+    opening: raw.opening ? { date: raw.opening.session.count_date, coverage: raw.opening.coverage } : null,
+    closing: raw.closing ? { date: raw.closing.session.count_date, coverage: raw.closing.coverage } : null,
+    estimated,
+    blocked: raw.blocked,
+    produced: raw.produced.length > 0,
+    uncounted,
+    purchases: raw.purchases,
+    distribution: raw.distribution,
+  };
+}
+
 /**
  * One period of the kitchen: production cost (recipe vs actual), purchases and what
  * went to branches. Reads when the period changes; today's balances (estimated case)
@@ -105,176 +334,9 @@ export function useCkPeriod(from: string, to: string, liveRm: { skuId: string; c
     setLoading(true);
     setError(null);
     (async () => {
-      const today = toLocalDateStr(new Date());
-      const [headers, lines, steps, prices, skus, suppliers, branches] = await Promise.all([
-        all<{ id: string; sm_sku_id: string; bom_mode: string; batch_size: number; yield_percent: number; production_type: string }>((a, b) => supabase.from("bom_headers").select("id, sm_sku_id, bom_mode, batch_size, yield_percent, production_type").order("id").range(a, b)),
-        all<{ id: string; bom_header_id: string; rm_sku_id: string; qty_per_batch: number; yield_percent: number | null; step_id: string | null; qty_type: string | null; percent_of_input: number | null }>((a, b) =>
-          supabase.from("bom_lines").select("id, bom_header_id, rm_sku_id, qty_per_batch, yield_percent, step_id, qty_type, percent_of_input").order("id").range(a, b),
-        ),
-        all<{ id: string; bom_header_id: string; step_number: number; step_name: string; yield_percent: number }>((a, b) => supabase.from("bom_steps").select("id, bom_header_id, step_number, step_name, yield_percent").order("id").range(a, b)),
-        all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b)),
-        all<{ id: string; type: string; converter: number | null }>((a, b) => supabase.from("skus").select("id, type, converter").order("id").range(a, b)),
-        all<{ id: string; name: string }>((a, b) => supabase.from("suppliers").select("id, name").order("id").range(a, b)),
-        all<{ id: string; branch_name: string }>((a, b) => supabase.from("branches").select("id, branch_name").order("id").range(a, b)),
-      ]);
-      if (cancelled) return;
-      const std = new Map<string, number>();
-      for (const p of prices) if (!std.has(p.sku_id)) std.set(p.sku_id, Number(p.price_per_usage_uom) || 0);
-      // Priced as on the period's last day (price history), so a later change leaves a
-      // closed month alone; no history (table not there yet, or none) → today's price
-      const history = await supabase.from("price_history" as never).select("sku_id, price_per_usage_uom, valid_from").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
-      if (cancelled) return;
-      if (!history.error && history.data) {
-        const priceAt = buildPriceAt((history.data as { sku_id: string; price_per_usage_uom: number; valid_from: string }[]).map((r) => ({ skuId: r.sku_id, pricePerUsageUom: Number(r.price_per_usage_uom), validFrom: r.valid_from })));
-        for (const id of [...std.keys()]) {
-          const then = priceAt(id, to);
-          if (then !== undefined) std.set(id, then);
-        }
-      }
-      const type = new Map(skus.map((s) => [s.id, s.type]));
-      const conv = new Map(skus.map((s) => [s.id, Number(s.converter) || 1]));
-      const isRm = (id: string) => type.get(id) === "RM";
-
-      // Recipes as production deducts them: per-batch lines (bought amount) and output per batch
-      const appLines: BOMLine[] = lines.map((l) => ({ id: l.id, bomHeaderId: l.bom_header_id, rmSkuId: l.rm_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, yieldPercent: l.yield_percent ?? 1, stepId: l.step_id ?? undefined, qtyType: (l.qty_type ?? undefined) as BOMLine["qtyType"], percentOfInput: l.percent_of_input ?? undefined }));
-      const appSteps: BOMStep[] = steps.map((s) => ({ id: s.id, bomHeaderId: s.bom_header_id, stepNumber: s.step_number, stepName: s.step_name, yieldPercent: Number(s.yield_percent) || 0 }));
-      const recipes = new Map<string, Recipe>();
-      for (const h of headers) {
-        const header: BOMHeader = { id: h.id, smSkuId: h.sm_sku_id, productionType: h.production_type as BOMHeader["productionType"], bomMode: h.bom_mode as BOMHeader["bomMode"], batchSize: Number(h.batch_size) || 0, yieldPercent: Number(h.yield_percent) || 0 };
-        recipes.set(h.sm_sku_id, { smSkuId: h.sm_sku_id, outputPerBatch: outputPerBatch(header, appLines, appSteps), lines: ingredientsPerBatch(header, appLines, appSteps) });
-      }
-      // The recipes as on the period's last day (recipe history), so a later change
-      // leaves a closed month alone; no history (table not there yet) → today's
-      const copies = await supabase.from("recipe_history" as never).select("id, kind, owner_id, snapshot, valid_from, created_at").eq("kind", "sm").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
-      if (cancelled) return;
-      if (!copies.error && copies.data) {
-        const then = smRecipesOn(
-          (copies.data as { id: string; kind: "sm"; owner_id: string; snapshot: unknown; valid_from: string; created_at: string }[]).map((r) => ({ id: r.id, kind: r.kind, ownerId: r.owner_id, snapshot: r.snapshot, validFrom: r.valid_from, createdAt: r.created_at })),
-          to,
-        );
-        for (const [headerId, c] of then) {
-          if (!c.header) continue;
-          const header: BOMHeader = { id: headerId, smSkuId: c.header.sm_sku_id, productionType: "CK", bomMode: c.header.bom_mode as BOMHeader["bomMode"], batchSize: Number(c.header.batch_size) || 0, yieldPercent: Number(c.header.yield_percent) || 0 };
-          const ls: BOMLine[] = c.lines.map((l, i) => ({ id: `${headerId}-${i}`, bomHeaderId: headerId, rmSkuId: l.rm_sku_id, qtyPerBatch: Number(l.qty_per_batch) || 0, yieldPercent: l.yield_percent ?? 1, stepId: l.step_id ?? undefined, qtyType: (l.qty_type ?? undefined) as BOMLine["qtyType"], percentOfInput: l.percent_of_input ?? undefined }));
-          const st: BOMStep[] = c.steps.map((s) => ({ id: s.id, bomHeaderId: headerId, stepNumber: s.step_number, stepName: "", yieldPercent: Number(s.yield_percent) || 0 }));
-          recipes.set(header.smSkuId, { smSkuId: header.smSkuId, outputPerBatch: outputPerBatch(header, ls, st), lines: ingredientsPerBatch(header, ls, st) });
-        }
-      }
-
-      // Production around the period (counts can sit a few days either side)
-      const prodRows = await all<{ sm_sku_id: string; actual_output_g: number; production_date: string; created_at: string }>((a, b) =>
-        supabase.from("production_records").select("id, sm_sku_id, actual_output_g, production_date, created_at").gte("production_date", shift(from, -4)).lte("production_date", shift(to, 3)).order("id").range(a, b),
-      );
-      if (cancelled) return;
-      const inPeriod = prodRows.filter((p) => p.production_date >= from && p.production_date <= to);
-      const rmIds = new Set<string>();
-      for (const p of inPeriod) for (const l of recipes.get(p.sm_sku_id)?.lines ?? []) if (isRm(l.skuId)) rmIds.add(l.skuId);
-
-      // Counts: the end of the day before the period, and the period's last day (once it's over)
-      const closed = to < today;
-      const opening = rmIds.size ? await pickCount(shift(from, -1), rmIds) : null;
-      const closing = rmIds.size && closed && opening ? await pickCount(to, rmIds, opening.session.count_date) : null;
-      if (cancelled) return;
-      const blocked = !inPeriod.length ? null : !opening ? "ไม่มีผลนับวัตถุดิบต้นช่วง (±3 วัน · นับอย่างน้อยครึ่งหนึ่งของที่ใช้)" : closed && !closing ? "ไม่มีผลนับวัตถุดิบปลายช่วง (±3 วัน · นับอย่างน้อยครึ่งหนึ่งของที่ใช้)" : null;
-
-      // Production compared = what was made between the two counts (the same rule the
-      // stock pages use), so recipe and actual cover the same days
-      const produced = opening
-        ? prodRows.filter((p) => producedAfterCount(opening.session, p.production_date, p.created_at) && (closing ? !producedAfterCount(closing.session, p.production_date, p.created_at) : p.production_date <= today))
-        : inPeriod;
-
-      const windowFrom = opening ? opening.session.count_date : from;
-      const windowTo = closing ? closing.session.count_date : today;
-      const [receipts, dist] = await Promise.all([
-        all<{ sku_id: string; supplier_id: string; receipt_date: string; quantity_received: number; actual_total: number | null; actual_unit_price: number | null }>((a, b) =>
-          supabase.from("goods_receipts").select("id, sku_id, supplier_id, receipt_date, quantity_received, actual_total, actual_unit_price").gte("receipt_date", windowFrom < from ? windowFrom : from).lte("receipt_date", windowTo > to ? windowTo : to).order("id").range(a, b),
-        ),
-        all<{ sku_id: string; adjustment_date: string; quantity: number }>((a, b) =>
-          supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity").is("branch_id", null).eq("stock_type", "RM").like("reason", "Distribution:%").gte("adjustment_date", windowFrom).lte("adjustment_date", windowTo).order("id").range(a, b),
-        ),
-      ]);
-      if (cancelled) return;
-      const between = (date: string) => (opening ? afterCount(opening.session, date) : date >= from) && (closing ? !afterCount(closing.session, date) : date <= today);
-      const flow = new Map<string, RmFlow>();
-      for (const id of rmIds) flow.set(id, { opening: opening?.qty.get(id) ?? 0, bought: 0, toBranches: 0, closing: closing?.qty.get(id) ?? 0 });
-      const paid = new Map<string, { q: number; v: number }>();
-      for (const r of receipts) {
-        const f = flow.get(r.sku_id);
-        if (!f || !between(r.receipt_date)) continue;
-        // Usage units as the stock pages count a receipt (× converter)
-        const q = (Number(r.quantity_received) || 0) * (conv.get(r.sku_id) ?? 1);
-        f.bought += q;
-        const p = paid.get(r.sku_id) ?? { q: 0, v: 0 };
-        p.q += q;
-        p.v += r.actual_total != null ? Number(r.actual_total) : (Number(r.actual_unit_price) || 0) * (Number(r.quantity_received) || 0);
-        paid.set(r.sku_id, p);
-      }
-      for (const d of dist) {
-        const f = flow.get(d.sku_id);
-        if (f && between(d.adjustment_date)) f.toBranches += -Number(d.quantity) || 0;
-      }
-
-      // Purchases in the period, by supplier (top 5 + the rest)
-      const supName = new Map(suppliers.map((s) => [s.id, s.name]));
-      const bySup = new Map<string, number>();
-      let spend = 0;
-      for (const r of receipts) {
-        if (r.receipt_date < from || r.receipt_date > to) continue;
-        const v = r.actual_total != null ? Number(r.actual_total) : (Number(r.actual_unit_price) || 0) * (Number(r.quantity_received) || 0);
-        spend += v;
-        const n = supName.get(r.supplier_id) ?? "ไม่ระบุ";
-        bySup.set(n, (bySup.get(n) ?? 0) + v);
-      }
-
-      // Sent to branches in the period (delivered transfer orders)
-      const tos = await all<{ id: string; branch_id: string; status: string }>((a, b) =>
-        supabase.from("transfer_orders").select("id, branch_id, status").in("status", [...TO_DELIVERED_STATUSES]).gte("delivery_date", from).lte("delivery_date", to).order("id").range(a, b),
-      );
-      const toLines: { to_id: string; sku_type: string; actual_qty: number; planned_qty: number; unit_cost: number }[] = [];
-      for (let i = 0; i < tos.length; i += 150) {
-        const ids = tos.slice(i, i + 150).map((t) => t.id);
-        toLines.push(...(await all<(typeof toLines)[number]>((a, b) => supabase.from("transfer_order_lines").select("id, to_id, sku_type, actual_qty, planned_qty, unit_cost").in("to_id", ids).order("id").range(a, b))));
-      }
-      if (cancelled) return;
-      const toById = new Map(tos.map((t) => [t.id, t]));
-      const brName = new Map(branches.map((b) => [b.id, b.branch_name]));
-      const byBr = new Map<string, { sm: number; rm: number }>();
-      let dSm = 0;
-      let dRm = 0;
-      for (const l of toLines) {
-        const t = toById.get(l.to_id);
-        if (!t) continue;
-        const v = computeToLineQty(l.actual_qty, l.planned_qty, t.status) * (Number(l.unit_cost) || 0);
-        const n = brName.get(t.branch_id) ?? "สาขา";
-        const e = byBr.get(n) ?? { sm: 0, rm: 0 };
-        if (l.sku_type === "RM") {
-          e.rm += v;
-          dRm += v;
-        } else {
-          e.sm += v;
-          dSm += v;
-        }
-        byBr.set(n, e);
-      }
-
-      const dates = produced.map((p) => p.production_date).sort();
-      setRaw({
-        from,
-        to,
-        produced: produced.map((p) => ({ smSkuId: p.sm_sku_id, outputG: Number(p.actual_output_g) || 0 })),
-        recipes,
-        type,
-        std,
-        opening,
-        closing,
-        blocked,
-        flow,
-        paid,
-        prodFrom: dates[0] ?? null,
-        prodTo: dates[dates.length - 1] ?? null,
-        purchases: { total: spend, top: topWithOthers([...bySup].map(([name, value]) => ({ name, value }))) },
-        distribution: { sm: dSm, rm: dRm, byBranch: [...byBr].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.sm + b.rm - (a.sm + a.rm)) },
-      });
+      const r = await readPeriod(from, to, () => !cancelled);
+      if (!r || cancelled) return;
+      setRaw(r);
       setLoading(false);
     })().catch(() => {
       if (cancelled) return;
@@ -287,52 +349,57 @@ export function useCkPeriod(from: string, to: string, liveRm: { skuId: string; c
     };
   }, [from, to]);
 
-  // The cost, with today's balances as the closing figure when there's no closing count
-  const data = useMemo<CkPeriod | null>(() => {
-    if (!raw) return null;
-    const estimated = !raw.closing;
-    const waiting = estimated && !liveReady;
-    let cost: ProductionCost | null = null;
-    const uncounted: string[] = [];
-    if (!raw.blocked && raw.produced.length && !waiting) {
-      const live = new Map(liveRm.map((b) => [b.skuId, b.currentStock]));
-      const flow = new Map<string, RmFlow>();
-      const missing = new Set<string>();
-      for (const [id, f] of raw.flow) {
-        flow.set(id, estimated ? { ...f, closing: live.get(id) ?? 0 } : f);
-        if (!raw.opening?.qty.has(id) || (raw.closing && !raw.closing.qty.has(id))) missing.add(id);
-      }
-      uncounted.push(...missing);
-      const isRm = (id: string) => raw.type.get(id) === "RM";
-      cost = productionCost({
-        produced: raw.produced,
-        recipes: raw.recipes,
-        isRm,
-        stdPrice: (id) => raw.std.get(id) ?? 0,
-        actPrice: (id) => {
-          const p = raw.paid.get(id);
-          return p && p.q > 0 ? p.v / p.q : raw.std.get(id) ?? 0;
-        },
-        rmFlow: flow,
-        uncounted: missing,
-      });
-    }
-    return {
-      from: raw.from,
-      to: raw.to,
-      cost,
-      prodFrom: raw.prodFrom,
-      prodTo: raw.prodTo,
-      opening: raw.opening ? { date: raw.opening.session.count_date, coverage: raw.opening.coverage } : null,
-      closing: raw.closing ? { date: raw.closing.session.count_date, coverage: raw.closing.coverage } : null,
-      estimated,
-      blocked: raw.blocked,
-      produced: raw.produced.length > 0,
-      uncounted,
-      purchases: raw.purchases,
-      distribution: raw.distribution,
-    };
-  }, [raw, liveRm, liveReady]);
+  const data = useMemo<CkPeriod | null>(() => (raw ? costOf(raw, liveRm, liveReady) : null), [raw, liveRm, liveReady]);
 
   return { data, loading: loading || (!!raw && !raw.closing && !liveReady), error };
+}
+
+/** One month in the kitchen's month-by-month view */
+export interface CkTrendPoint {
+  from: string;
+  to: string;
+  cost: ProductionCost | null;
+  estimated: boolean;
+  blocked: string | null;
+  produced: boolean;
+}
+
+/**
+ * The cost of several months, read one after another (the costs only, not what went
+ * to branches), each filled in as soon as it's done ("failed" = couldn't be read).
+ */
+export function useCkTrend(months: { from: string; to: string }[], liveRm: { skuId: string; currentStock: number }[], liveReady: boolean) {
+  const [raws, setRaws] = useState<(Raw | "failed" | null)[]>([]);
+  const key = months.map((m) => `${m.from}:${m.to}`).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    setRaws(months.map(() => null));
+    (async () => {
+      const masters = loadMasters();
+      masters.catch(() => undefined); // each month reports its own failure
+      for (let i = 0; i < months.length; i++) {
+        let r: Raw | "failed" | null;
+        try {
+          r = await readPeriod(months[i].from, months[i].to, () => !cancelled, { costOnly: true }, masters);
+        } catch {
+          r = "failed";
+        }
+        if (cancelled || !r) return;
+        setRaws((p) => p.map((x, k) => (k === i ? r : x)));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo<(CkTrendPoint | "failed" | null)[]>(
+    () =>
+      raws.map((r) => {
+        if (r === null) return null;
+        if (r === "failed") return "failed";
+        const c = costOf(r, liveRm, liveReady);
+        return { from: c.from, to: c.to, cost: c.cost, estimated: c.estimated, blocked: c.blocked, produced: c.produced };
+      }),
+    [raws, liveRm, liveReady],
+  );
 }
