@@ -16,7 +16,12 @@ export interface CountStatus {
   receipts: number;
   /** Transfer orders sent by the kitchen and not yet received */
   waitingTransfers: number;
-  /** Earlier sheets not finished (newest first), last 7 days: older ones are history */
+  /**
+   * Earlier sheets not finished (newest first), last 7 days: older ones are history.
+   * A sheet opened with nothing typed in (no count, no waste) isn't one: it doesn't
+   * hold up today and isn't touched (not deleted: a phone counting offline may still
+   * send its figures to it)
+   */
   openDays: OpenDay[];
   /** Whether the count day's own sheet is finished */
   todayFinished: boolean;
@@ -43,7 +48,7 @@ export function useCountStatus(branchId: string | null, date: string) {
       fetchAllRows((a, b) =>
         supabase
           .from("daily_stock_counts")
-          .select("id, count_date, physical_count, is_submitted")
+          .select("id, count_date, physical_count, waste, is_submitted")
           .eq("branch_id", branchId)
           .gte("count_date", fromIso)
           .lte("count_date", date)
@@ -51,11 +56,12 @@ export function useCountStatus(branchId: string | null, date: string) {
           .range(a, b),
       ),
     ]);
-    const byDay = new Map<string, OpenDay & { finished: boolean }>();
-    for (const r of sheets.data as { count_date: string; physical_count: number | null; is_submitted: boolean }[]) {
-      const d = byDay.get(r.count_date) ?? { date: r.count_date, counted: 0, total: 0, finished: true };
+    const byDay = new Map<string, OpenDay & { finished: boolean; typed: boolean }>();
+    for (const r of sheets.data as { count_date: string; physical_count: number | null; waste: number | null; is_submitted: boolean }[]) {
+      const d = byDay.get(r.count_date) ?? { date: r.count_date, counted: 0, total: 0, finished: true, typed: false };
       d.total++;
       if (r.physical_count !== null) d.counted++;
+      if (r.physical_count !== null || Number(r.waste) > 0) d.typed = true;
       if (!r.is_submitted) d.finished = false;
       byDay.set(r.count_date, d);
     }
@@ -64,7 +70,7 @@ export function useCountStatus(branchId: string | null, date: string) {
       receipts: receipts.count ?? 0,
       waitingTransfers: tos.count ?? 0,
       openDays: [...byDay.values()]
-        .filter((d) => !d.finished && d.date < date)
+        .filter((d) => !d.finished && d.typed && d.date < date)
         .sort((a, b) => b.date.localeCompare(a.date))
         .map(({ date: dd, counted, total }) => ({ date: dd, counted, total })),
       todayFinished: byDay.get(date)?.finished ?? false,
