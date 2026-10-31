@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { Download } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
+import { useFoodCostTrend, useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
+import { FoodCostTrend } from "@/components/food-cost/FoodCostTrend";
 import { AttentionBox, DayView, IngredientSheet, IngredientView, MenuView, baht, n0, pctTone, signedBaht } from "@/components/food-cost/FoodCostViews";
 import { StockCard } from "@/components/StockCard";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -51,6 +52,9 @@ export default function FoodCostPage(props: Props) {
   const [historyFor, setHistoryFor] = useState<string | null>(null);
 
   const { result, loading, error } = useFoodCost(props, period.from, period.to, branchIds, props.loader);
+  // The same four months, oldest first, for the trend at the top
+  const trendMonths = useMemo(() => [...months].reverse(), [months]);
+  const trend = useFoodCostTrend(props, trendMonths, branchIds, props.loader);
   const std = result?.std;
   const actual = result?.actual ?? null;
   const closed = isClosedMonth(period.from, period.to, today);
@@ -164,6 +168,22 @@ export default function FoodCostPage(props: Props) {
       {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       {branchIds.length === 0 && <p className="rounded-xl bg-secondary px-3 py-2 text-sm text-muted-foreground">บัญชีนี้ยังไม่มีสาขาที่ดูได้ ติดต่อผู้ดูแลระบบให้ตั้งสาขา</p>}
 
+      {branchIds.length > 0 && (
+        <FoodCostTrend
+          months={trendMonths}
+          points={trend.points}
+          selected={custom ? "" : period.from}
+          onPick={(from) => {
+            const mo = months.find((x) => x.from === from);
+            if (!mo) return;
+            setPeriod(mo);
+            setCustom(false);
+          }}
+          oneBranch={branchIds.length === 1}
+          today={today}
+          error={trend.error}
+        />
+      )}
       {branchIds.length === 0 ? null : !std ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (

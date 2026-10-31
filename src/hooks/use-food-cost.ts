@@ -116,16 +116,84 @@ export const supabaseLoader: FoodCostLoader = {
     ).data,
 };
 
-/**
- * Loads one period for the given branches and works out standard cost (always),
- * actual cost (one branch, closed month) and the things worth a look.
- * Calculates on its own when the period or branches change — no "calculate" button.
- */
-export function useFoodCost(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
-  const [result, setResult] = useState<FoodCostResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+/** What one period's work-out needs from the masters (built once per hook) */
+interface PeriodEnv {
+  m: FoodCostMasters;
+  ctx: ReturnType<typeof usageContextFromApp>;
+  stdPrice: Map<string, number>;
+  menuByCode: Map<string, { code: string; name: string; category: string }>;
+  skuById: Map<string, { id: string; code: string; name: string; type: string; uom: string }>;
+  converter: Map<string, number>;
+  branchName: Map<string, string>;
+}
 
+type History = [PriceChange[], RecipeCopy[]];
+const loadHistory = (loader: FoodCostLoader): Promise<History> => Promise.all([loader.priceHistory?.() ?? [], loader.recipeHistory?.() ?? []]);
+
+/**
+ * One period for the given branches: standard cost (always), actual cost (one
+ * branch, closed month) and the things worth a look. null = stopped (`alive` false);
+ * throws when something can't be read. `history`: price and recipe history already
+ * on the way (several periods share one read).
+ */
+async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds: string[], loader: FoodCostLoader, alive: () => boolean, history?: Promise<History>): Promise<FoodCostResult | null> {
+  const salesRes = await loader.sales(branchIds, from, to);
+  if (!alive()) return null;
+  if (salesRes.error) throw new Error("sales");
+  const corrections = await loader.corrections(branchIds, from, to);
+  if (!alive()) return null;
+
+  // Each day's sales at that day's price: a later price change leaves a closed month alone
+  const [changes, copies] = await (history ?? loadHistory(loader));
+  if (!alive()) return null;
+  const priceAt = buildPriceAt(changes);
+  // …and with the recipes of that day: a later recipe change leaves it alone too
+  const ctxAt = copies.length ? usageContextOn(usageInputFromApp(env.m), copies) : undefined;
+  const std = computeStandard({ sales: salesRes.data, ctx: env.ctx, ctxAt, stdPrice: env.stdPrice, priceAt, menuByCode: env.menuByCode, skuById: env.skuById, corrections, branchIds: new Set(branchIds), from, to });
+  const today = iso(new Date());
+  const openingDate = shift(from, -1);
+  const closingDate = to;
+
+  let actual: Actual | null = null;
+  if (branchIds.length === 1 && isClosedMonth(from, to, today)) {
+    const b = branchIds[0];
+    const [open, close, rec] = await Promise.all([
+      loader.counts(b, shift(openingDate, -3), shift(openingDate, 3)),
+      loader.counts(b, shift(closingDate, -3), shift(closingDate, 3)),
+      loader.receipts(b, from, to),
+    ]);
+    if (!alive()) return null;
+    // Items not bought this month: what was paid over the 6 months before
+    const boughtNow = new Set(rec.map((r) => r.sku_id));
+    const need = std.skus.map((s) => s.skuId).filter((id) => !boughtNow.has(id));
+    const pastPrice = new Map<string, number>();
+    if (need.length) {
+      const past = await loader.receipts(b, shift(from, -183), shift(from, -1), need);
+      if (!alive()) return null;
+      const agg = new Map<string, { q: number; v: number }>();
+      for (const r of past) {
+        const a = agg.get(r.sku_id) ?? { q: 0, v: 0 };
+        const u = receiptUsage(r, env.converter.get(r.sku_id) || 1);
+        a.q += u.qty;
+        a.v += u.paid;
+        agg.set(r.sku_id, a);
+      }
+      for (const [id, a] of agg) if (a.q > 0) pastPrice.set(id, a.v / a.q);
+    }
+    actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter: env.converter, pastPrice, openingDate, closingDate });
+    // Nothing counted around these dates: there is no actual to show (not ฿0)
+    if (actual.withCounts === 0) actual = null;
+  }
+
+  // Up to yesterday: today's sales usually come in at closing time
+  const missingDays = branchIds.map((b) => ({ branch: env.branchName.get(b) ?? "สาขา", dates: datesWithoutSales(salesRes.data, b, from, to, shift(today, -1)) }));
+  const attention = findAttention({ std, actual, missingDays });
+  if (!alive()) return null;
+  return { std, actual, attention, sales: salesRes.data, openingDate, closingDate };
+}
+
+/** The masters, shaped once for working out periods */
+function usePeriodEnv(m: FoodCostMasters): PeriodEnv {
   const ctx = useMemo(
     () => usageContextFromApp({ menus: m.menus, menuBomLines: m.menuBomLines, modifierRules: m.modifierRules, spBomLines: m.spBomLines, skus: m.skus }),
     [m.menus, m.menuBomLines, m.modifierRules, m.spBomLines, m.skus],
@@ -140,6 +208,21 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
   const skuById = useMemo(() => new Map(m.skus.map((s) => [s.id, { id: s.id, code: s.skuId, name: s.name, type: s.type, uom: s.usageUom }])), [m.skus]);
   const converter = useMemo(() => new Map(m.skus.map((s) => [s.id, s.converter || 1])), [m.skus]);
   const branchName = useMemo(() => new Map(m.branches.map((b) => [b.id, b.branchName])), [m.branches]);
+  // `m` itself is a new object every render; what's read from it is the arrays above
+  return useMemo(() => ({ m, ctx, stdPrice, menuByCode, skuById, converter, branchName }), [ctx, stdPrice, menuByCode, skuById, converter, branchName]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/**
+ * Loads one period for the given branches and works out standard cost (always),
+ * actual cost (one branch, closed month) and the things worth a look.
+ * Calculates on its own when the period or branches change — no "calculate" button.
+ */
+export function useFoodCost(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+  const [result, setResult] = useState<FoodCostResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const env = usePeriodEnv(m);
   const key = `${from}|${to}|${[...branchIds].sort().join(",")}`;
   const ready = m.menus.length > 0 && m.skus.length > 0 && branchIds.length > 0;
 
@@ -152,69 +235,86 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
     (async () => {
       setLoading(true);
       setError(null);
-      const salesRes = await loader.sales(branchIds, from, to);
-      if (cancelled) return;
-      if (salesRes.error) {
-        setError("โหลดยอดขายไม่สำเร็จ ลองใหม่อีกครั้ง");
-        setLoading(false);
-        return;
-      }
-      const corrections = await loader.corrections(branchIds, from, to);
-      if (cancelled) return;
-
-      // Each day's sales at that day's price: a later price change leaves a closed month alone
-      const [changes, copies] = await Promise.all([loader.priceHistory?.() ?? [], loader.recipeHistory?.() ?? []]);
-      if (cancelled) return;
-      const priceAt = buildPriceAt(changes);
-      // …and with the recipes of that day: a later recipe change leaves it alone too
-      const ctxAt = copies.length ? usageContextOn(usageInputFromApp({ menus: m.menus, menuBomLines: m.menuBomLines, modifierRules: m.modifierRules, spBomLines: m.spBomLines, skus: m.skus }), copies) : undefined;
-      const std = computeStandard({ sales: salesRes.data, ctx, ctxAt, stdPrice, priceAt, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
-      const today = iso(new Date());
-      const openingDate = shift(from, -1);
-      const closingDate = to;
-
-      let actual: Actual | null = null;
-      if (branchIds.length === 1 && isClosedMonth(from, to, today)) {
-        const b = branchIds[0];
-        const [open, close, rec] = await Promise.all([
-          loader.counts(b, shift(openingDate, -3), shift(openingDate, 3)),
-          loader.counts(b, shift(closingDate, -3), shift(closingDate, 3)),
-          loader.receipts(b, from, to),
-        ]);
+      try {
+        const r = await computePeriod(env, from, to, branchIds, loader, () => !cancelled);
+        if (!r || cancelled) return;
+        setResult(r);
+      } catch {
         if (cancelled) return;
-        // Items not bought this month: what was paid over the 6 months before
-        const boughtNow = new Set(rec.map((r) => r.sku_id));
-        const need = std.skus.map((s) => s.skuId).filter((id) => !boughtNow.has(id));
-        const pastPrice = new Map<string, number>();
-        if (need.length) {
-          const past = await loader.receipts(b, shift(from, -183), shift(from, -1), need);
-          if (cancelled) return;
-          const agg = new Map<string, { q: number; v: number }>();
-          for (const r of past) {
-            const a = agg.get(r.sku_id) ?? { q: 0, v: 0 };
-            const u = receiptUsage(r, converter.get(r.sku_id) || 1);
-            a.q += u.qty;
-            a.v += u.paid;
-            agg.set(r.sku_id, a);
-          }
-          for (const [id, a] of agg) if (a.q > 0) pastPrice.set(id, a.v / a.q);
-        }
-        actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter, pastPrice, openingDate, closingDate });
-        // Nothing counted around these dates: there is no actual to show (not ฿0)
-        if (actual.withCounts === 0) actual = null;
+        setError("โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง");
       }
-
-      // Up to yesterday: today's sales usually come in at closing time
-      const missingDays = branchIds.map((b) => ({ branch: branchName.get(b) ?? "สาขา", dates: datesWithoutSales(salesRes.data, b, from, to, shift(today, -1)) }));
-      const attention = findAttention({ std, actual, missingDays });
-      if (cancelled) return;
-      setResult({ std, actual, attention, sales: salesRes.data, openingDate, closingDate });
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [key, ready, ctx, stdPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, ready, env]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { result, loading, error };
+}
+
+/** One month on the trend chart */
+export interface TrendPoint {
+  from: string;
+  to: string;
+  revenue: number;
+  /** % of sales: from the recipes, and from the counts (one branch, a closed month) */
+  stdPct: number | null;
+  actPct: number | null;
+  /** Actual − standard, baht (null = no actual) */
+  totalVar: number | null;
+  priceVar: number | null;
+  usageVar: number | null;
+}
+
+/**
+ * The same work-out for several months, one after another, for the trend at the
+ * top of Food Cost. Each month is filled in as soon as it's done ("failed" = that
+ * month couldn't be read).
+ */
+export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to: string }[], branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+  const env = usePeriodEnv(m);
+  const [points, setPoints] = useState<(TrendPoint | "failed" | null)[]>([]);
+  const [error, setError] = useState(false);
+  const key = `${months.map((x) => x.from).join(",")}|${[...branchIds].sort().join(",")}`;
+  const ready = m.menus.length > 0 && m.skus.length > 0 && branchIds.length > 0;
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    setPoints(months.map(() => null));
+    setError(false);
+    (async () => {
+      // Price and recipe history once for all the months
+      const history = loadHistory(loader);
+      for (let i = 0; i < months.length; i++) {
+        const { from, to } = months[i];
+        try {
+          const r = await computePeriod(env, from, to, branchIds, loader, () => !cancelled, history);
+          if (!r || cancelled) return;
+          const pct = (v: number) => (r.std.revenue > 0 ? (v / r.std.revenue) * 100 : null);
+          const point: TrendPoint = {
+            from,
+            to,
+            revenue: r.std.revenue,
+            stdPct: pct(r.std.stdCost),
+            actPct: r.actual ? pct(r.actual.actCost) : null,
+            totalVar: r.actual?.totalVar ?? null,
+            priceVar: r.actual?.priceVar ?? null,
+            usageVar: r.actual?.usageVar ?? null,
+          };
+          setPoints((p) => p.map((x, k) => (k === i ? point : x)));
+        } catch {
+          if (cancelled) return;
+          setPoints((p) => p.map((x, k) => (k === i ? "failed" : x)));
+          setError(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, ready, env]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { points, error };
 }
