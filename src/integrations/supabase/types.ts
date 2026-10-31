@@ -397,6 +397,39 @@ export type Database = {
         }
         Relationships: []
       }
+      change_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          op: string
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          op: string
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          op?: string
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       daily_stock_counts: {
         Row: {
           branch_id: string
@@ -895,6 +928,38 @@ export type Database = {
         }
         Relationships: []
       }
+      price_history: {
+        Row: {
+          created_at: string
+          id: string
+          price_per_usage_uom: number
+          sku_id: string
+          valid_from: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price_per_usage_uom: number
+          sku_id: string
+          valid_from?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price_per_usage_uom?: number
+          sku_id?: string
+          valid_from?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_history_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prices: {
         Row: {
           created_at: string
@@ -1012,6 +1077,7 @@ export type Database = {
           batches_produced: number
           created_at: string
           id: string
+          notes: string
           plan_id: string
           production_date: string
           sm_sku_id: string
@@ -1021,6 +1087,7 @@ export type Database = {
           batches_produced?: number
           created_at?: string
           id?: string
+          notes?: string
           plan_id: string
           production_date?: string
           sm_sku_id: string
@@ -1030,6 +1097,7 @@ export type Database = {
           batches_produced?: number
           created_at?: string
           id?: string
+          notes?: string
           plan_id?: string
           production_date?: string
           sm_sku_id?: string
@@ -1216,6 +1284,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recipe_history: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          owner_id: string | null
+          snapshot: Json
+          valid_from: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          owner_id?: string | null
+          snapshot: Json
+          valid_from?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          owner_id?: string | null
+          snapshot?: Json
+          valid_from?: string
+        }
+        Relationships: []
       }
       sales_entries: {
         Row: {
@@ -1950,6 +2045,57 @@ export type Database = {
           },
         ]
       }
+      usage_corrections: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          date_from: string
+          date_to: string
+          id: string
+          qty: number
+          reason: string
+          sku_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          date_from: string
+          date_to: string
+          id?: string
+          qty: number
+          reason: string
+          sku_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          date_from?: string
+          date_to?: string
+          id?: string
+          qty?: number
+          reason?: string
+          sku_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_corrections_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_corrections_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_brand_assignments: {
         Row: {
           brand: string
@@ -2106,10 +2252,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      keep_only_active_price: {
+        Args: { p_keep: string; p_sku: string; p_supplier: string }
+        Returns: undefined
+      }
       next_doc_number: {
         Args: { p_month: number; p_type: string; p_year: number }
         Returns: string
       }
+      recipe_snapshot: {
+        Args: { p_kind: string; p_owner: string }
+        Returns: Json
+      }
+      record_recipe: {
+        Args: { p_kind: string; p_owner: string }
+        Returns: undefined
+      }
+      record_standard_price: { Args: { p_sku: string }; Returns: undefined }
     }
     Enums: {
       app_role:
