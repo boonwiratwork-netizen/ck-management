@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { buildPriceAt, type PriceChange } from "@/lib/price-history";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { usageContextFromApp } from "@/lib/sale-usage";
 import {
@@ -64,9 +65,19 @@ export interface FoodCostLoader {
   corrections(branchIds: string[], from: string, to: string): Promise<UsageCorrection[]>;
   counts(branchId: string, from: string, to: string): Promise<CountRow[]>;
   receipts(branchId: string, from: string, to: string, skuIds?: string[]): Promise<ReceiptRow[]>;
+  /** Standard-price changes (price history); none = every day at today's price */
+  priceHistory?(): Promise<PriceChange[]>;
 }
 
 export const supabaseLoader: FoodCostLoader = {
+  // Missing table (before its migration ran) or a failed read: today's price, as before
+  priceHistory: async () => {
+    const { data, error } = await fetchAllRows<{ sku_id: string; price_per_usage_uom: number; valid_from: string }>((a, b) =>
+      supabase.from("price_history" as never).select("id, sku_id, price_per_usage_uom, valid_from").order("valid_from").order("id").range(a, b) as never,
+    );
+    if (error) return [];
+    return data.map((r) => ({ skuId: r.sku_id, pricePerUsageUom: Number(r.price_per_usage_uom), validFrom: r.valid_from }));
+  },
   sales: (branchIds, from, to) =>
     fetchAllRows<FcSale>((a, b) =>
       supabase.from("sales_entries").select("id, sale_date, branch_id, menu_code, menu_name, qty, net_amount, receipt_no").in("branch_id", branchIds).gte("sale_date", from).lte("sale_date", to).order("id").range(a, b) as never,
@@ -140,7 +151,10 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
       const corrections = await loader.corrections(branchIds, from, to);
       if (cancelled) return;
 
-      const std = computeStandard({ sales: salesRes.data, ctx, stdPrice, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
+      // Each day's sales at that day's price: a later price change leaves a closed month alone
+      const priceAt = buildPriceAt((await loader.priceHistory?.()) ?? []);
+      if (cancelled) return;
+      const std = computeStandard({ sales: salesRes.data, ctx, stdPrice, priceAt, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
       const today = iso(new Date());
       const openingDate = shift(from, -1);
       const closingDate = to;

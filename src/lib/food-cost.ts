@@ -108,6 +108,11 @@ export function computeStandard(input: {
   sales: FcSale[];
   ctx: UsageContext;
   stdPrice: Map<string, number>;
+  /**
+   * The standard price on a given day (price history), so a past month is priced
+   * as it was then; falls back to stdPrice (today's) where there is no history
+   */
+  priceAt?: (skuId: string, date: string) => number | undefined;
   menuByCode: Map<string, MenuInfo>;
   skuById: Map<string, SkuInfo>;
   corrections: UsageCorrection[];
@@ -116,7 +121,10 @@ export function computeStandard(input: {
   to: string;
 }): Standard {
   const { sales, ctx, stdPrice, menuByCode, skuById } = input;
+  const priceOn = (skuId: string, date: string) => input.priceAt?.(skuId, date) ?? stdPrice.get(skuId) ?? 0;
   const usage = new Map<string, number>();
+  // Baht of each item's usage, each sale at its own day's price
+  const usageCost = new Map<string, number>();
   const menus = new Map<string, MenuRow>();
   const days = new Map<string, DayRow & { billSet: Set<string> }>();
   const unknown = new Map<string, { code: string; name: string; qty: number; revenue: number }>();
@@ -137,7 +145,9 @@ export function computeStandard(input: {
     let cost = 0;
     const known = addSaleUsage(ctx, s, (skuId, q) => {
       usage.set(skuId, (usage.get(skuId) ?? 0) + q);
-      cost += q * (stdPrice.get(skuId) ?? 0);
+      const c = q * priceOn(skuId, s.sale_date);
+      usageCost.set(skuId, (usageCost.get(skuId) ?? 0) + c);
+      cost += c;
     });
     day.stdCost += cost;
     if (!known) {
@@ -176,8 +186,12 @@ export function computeStandard(input: {
     const qty = c ? Math.max(0, raw + c.qty) : raw;
     if (Math.abs(qty) < 1e-9 && !c) continue;
     const info = skuById.get(id);
-    const price = stdPrice.get(id) ?? 0;
-    skus.push({ skuId: id, code: info?.code ?? "", name: info?.name ?? id, type: info?.type ?? "", uom: info?.uom ?? "", stdQty: qty, stdPrice: price, stdCost: qty * price, correction: c });
+    // Corrections are priced at the period's last day; the item's price shown is the
+    // average over the period (one price when it didn't change)
+    const endPrice = priceOn(id, input.to);
+    const stdCost = qty <= 0 ? 0 : (usageCost.get(id) ?? 0) + (qty - raw) * endPrice;
+    const price = qty > 0 ? stdCost / qty : endPrice;
+    skus.push({ skuId: id, code: info?.code ?? "", name: info?.name ?? id, type: info?.type ?? "", uom: info?.uom ?? "", stdQty: qty, stdPrice: price, stdCost, correction: c });
   }
   skus.sort((a, b) => b.stdCost - a.stdCost);
 

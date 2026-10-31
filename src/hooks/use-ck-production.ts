@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { buildPriceAt } from "@/lib/price-history";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { ingredientsPerBatch, outputPerBatch } from "@/lib/production";
 import { afterCount, producedAfterCount, type CountAnchor, type CountTiming } from "@/lib/count-anchor";
@@ -118,6 +119,17 @@ export function useCkPeriod(from: string, to: string, liveRm: { skuId: string; c
       if (cancelled) return;
       const std = new Map<string, number>();
       for (const p of prices) if (!std.has(p.sku_id)) std.set(p.sku_id, Number(p.price_per_usage_uom) || 0);
+      // Priced as on the period's last day (price history), so a later change leaves a
+      // closed month alone; no history (table not there yet, or none) → today's price
+      const history = await supabase.from("price_history" as never).select("sku_id, price_per_usage_uom, valid_from").lte("valid_from", `${shift(to, 1)}T00:00:00+07:00`).order("valid_from").limit(10000);
+      if (cancelled) return;
+      if (!history.error && history.data) {
+        const priceAt = buildPriceAt((history.data as { sku_id: string; price_per_usage_uom: number; valid_from: string }[]).map((r) => ({ skuId: r.sku_id, pricePerUsageUom: Number(r.price_per_usage_uom), validFrom: r.valid_from })));
+        for (const id of [...std.keys()]) {
+          const then = priceAt(id, to);
+          if (then !== undefined) std.set(id, then);
+        }
+      }
       const type = new Map(skus.map((s) => [s.id, s.type]));
       const conv = new Map(skus.map((s) => [s.id, Number(s.converter) || 1]));
       const isRm = (id: string) => type.get(id) === "RM";
