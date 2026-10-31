@@ -55,6 +55,8 @@ export interface Dataset {
   unit: string;
   columns: Column[];
   example: FileRow;
+  /** Extra columns in an export only, for reading (an import ignores them) */
+  exportOnly?: string[];
   /** Today's data in the file's columns */
   current: (ctx: ImportContext) => FileRow[];
   check: (rows: FileRow[], ctx: ImportContext) => PreviewRow[];
@@ -201,19 +203,31 @@ const prices: Dataset = {
     { name: "Note", hint: "หมายเหตุ" },
   ],
   example: { "SKU Name": "ตัวอย่าง เส้นราเมน", "Supplier Name": "ตัวอย่าง ซัพผัก", "Price Per Purchase UOM": "120", VAT: "false", Active: "true" },
+  // What the old price list export had besides the import columns
+  exportOnly: ["SKU Code", "Type", "Purchase UOM", "Pack Size", "Usage UOM", "Price Per Usage UOM"],
   current: ({ prices, skus, suppliers }) =>
     prices
       .filter((p) => p.isActive)
-      .map((p) => ({
-        "SKU Name": skus.find((s) => s.id === p.skuId)?.name ?? "",
+      .map((p) => {
+        const sku = skus.find((s) => s.id === p.skuId);
+        return {
+        "SKU Code": sku?.skuId ?? "",
+        Type: sku?.type ?? "",
+        "Purchase UOM": sku?.purchaseUom ?? "",
+        "Pack Size": String(sku?.packSize ?? ""),
+        "Usage UOM": sku?.usageUom ?? "",
+        "Price Per Usage UOM": String(p.pricePerUsageUom ?? ""),
+        "SKU Name": sku?.name ?? "",
         "Supplier Name": suppliers.find((s) => s.id === p.supplierId)?.name ?? "",
         "Price Per Purchase UOM": String(p.pricePerPurchaseUom),
         VAT: p.vat ? "true" : "false",
         Active: "true",
         "Effective Date": p.effectiveDate ?? "",
         Note: p.note ?? "",
-      }))
-      .filter((r) => r["SKU Name"] && r["Supplier Name"]),
+        };
+      })
+      .filter((r) => r["SKU Name"] && r["Supplier Name"])
+      .sort((a, b) => a["SKU Code"].localeCompare(b["SKU Code"])),
   check: (rows, { skus, suppliers, prices }) =>
     rows.map((r, i) => {
       const line = lineOf(r, i);

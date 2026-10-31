@@ -54,7 +54,7 @@ export function FilesView({ ctx, saves, canImport, onExportAll }: Props) {
             <Button variant="ghost" className="h-10" onClick={() => writeRows(`แม่แบบ_${d.label}.xlsx`, d.columns.map((c) => c.name), [d.example])}>
               แม่แบบ
             </Button>
-            <Button variant="ghost" className="h-10" onClick={() => writeRows(`${d.label}_${today}.xlsx`, d.columns.map((c) => c.name), d.current(ctx))}>
+            <Button variant="ghost" className="h-10" onClick={() => writeRows(`${d.label}_${today}.xlsx`, [...d.columns.map((c) => c.name), ...(d.exportOnly ?? [])], d.current(ctx))}>
               <Download className="h-4 w-4" /> ส่งออก
             </Button>
             {canImport(d.key) && (
