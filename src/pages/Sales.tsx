@@ -7,7 +7,7 @@ import type { Menu } from "@/types/menu";
 import type { ModifierRule } from "@/types/modifier-rule";
 import { useAuth } from "@/hooks/use-auth";
 import { useSalesData, type SalesData } from "@/hooks/use-sales-data";
-import { dayWrites, defaultMode, isReadable, planDays, readWithEachFormat, type DayMode, type DayPlan, type ReadResult } from "@/lib/sales-import";
+import { codeResolver, dayWrites, defaultMode, isReadable, planDays, readWithEachFormat, noCodeBases, withTimeout, type DayMode, type DayPlan, type ReadResult } from "@/lib/sales-import";
 import { DayStrip, MonthCalendar, RecentDays } from "@/components/sales/SalesDays";
 import { CheckView, ImportCard, ProfilesDialog } from "@/components/sales/SalesImport";
 import { SalesDay } from "@/components/sales/SalesDay";
@@ -123,6 +123,7 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
   // Bumped after a save so the paste box starts empty again
   const [importKey, setImportKey] = useState(0);
   const menuCodes = useMemo(() => new Set(menus.map((m) => m.menuCode)), [menus]);
+  const brandMenus = useMemo(() => menus.filter((m) => m.status === "Active" && (!branch || m.brandName === branch.brandName)), [menus, branch]);
 
   const planFor = async (r: ReadResult | undefined) => {
     if (!isReadable(r)) {
@@ -143,17 +144,26 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
       return;
     }
     setChecking(true);
-    const r = readWithEachFormat(text, data.profiles, menuCodes, source);
-    setReads(r);
-    setPick(0);
-    const ok = await planFor(r[0]);
-    setChecking(false);
-    if (ok) go("check");
+    try {
+      // Priced lines the POS sent without a code: find it from this branch's past sales of
+      // the same name, else from a menu with a recipe. Formats that read no known code at
+      // all are the wrong page; their names are not asked. A read that hangs past 8 s
+      // teaches nothing (the line shows as not imported) instead of spinning.
+      const bases = noCodeBases(readWithEachFormat(text, data.profiles, menuCodes, source).filter((x) => x.known > 0));
+      const [history, withRecipe] = bases.length ? await Promise.all([withTimeout(data.codeHistory(bases), 8000, []), withTimeout(data.recipeMenuIds(), 8000, null)]) : [[], null];
+      const r = readWithEachFormat(text, data.profiles, menuCodes, source, codeResolver(brandMenus, history, menuCodes, withRecipe));
+      setReads(r);
+      setPick(0);
+      const ok = await planFor(r[0]);
+      if (ok) go("check");
+    } finally {
+      setChecking(false);
+    }
   };
   const save = async () => {
     if (!branchId) return;
     setSaving(true);
-    const writes = plans.map((p) => ({ date: p.date, ...dayWrites(branchId, p, modes[p.date] ?? "add") })).filter((w) => w.insert.length || w.deleteIds.length);
+    const writes = plans.map((p) => ({ date: p.date, ...dayWrites(branchId, p, modes[p.date] ?? "add") })).filter((w) => w.insert.length || w.update.length || w.deleteIds.length || w.kept);
     const res = await data.saveImport(writes);
     setSaving(false);
     await data.reloadDays();
@@ -168,7 +178,6 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
   };
 
   // ── Screens ──
-  const brandMenus = useMemo(() => menus.filter((m) => m.status === "Active" && (!branch || m.brandName === branch.brandName)), [menus, branch]);
   const workOpen = view !== "";
   let work: React.ReactNode;
   if (!branchId) work = <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />;

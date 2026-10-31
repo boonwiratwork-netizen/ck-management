@@ -9,6 +9,12 @@ export interface SkippedRow {
   receiptNo: string;
   menuName: string;
   skipReason: "no_menu_code";
+  // The rest of the line, so the import can still bring it in once it finds the code from the name
+  qty: number;
+  unitPrice: number;
+  netAmount: number;
+  orderType: string;
+  channel: string;
 }
 
 export interface SalesEntry {
@@ -45,6 +51,8 @@ export interface ParsedRow {
   netAmount: number;
   channel: string;
   isDuplicate?: boolean;
+  /** The POS sent no code; the import found it from the name (see codeResolver in lib/sales-import) */
+  codeFromName?: boolean;
 }
 
 const toLocal = (r: any): SalesEntry => ({
@@ -198,6 +206,11 @@ export function parseData(
           receiptNo: m.receipt_no !== undefined ? (cols[m.receipt_no] ?? "").trim() : "",
           menuName: m.menu_name !== undefined ? (cols[m.menu_name] ?? "").trim() : "",
           skipReason: "no_menu_code",
+          qty: Number((cols[m.qty] ?? "").trim()) || 0,
+          unitPrice: m.unit_price !== undefined ? Number((cols[m.unit_price] ?? "").replace(/,/g, "").trim()) || 0 : 0,
+          netAmount: netAmt,
+          orderType: m.order_type !== undefined ? (cols[m.order_type] ?? "").trim() : "",
+          channel: m.channel !== undefined ? (cols[m.channel] ?? "").trim() : "",
         });
       }
       continue;

@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Pencil, Plus, Upload } from "lucide-react";
-import type { POSMappingProfile } from "@/hooks/use-sales-entry-data";
+import { AlertTriangle, CheckCircle2, ClipboardList, Pencil, Plus, Upload } from "lucide-react";
+import type { POSMappingProfile, SkippedRow } from "@/hooks/use-sales-entry-data";
 import type { DayMode, DayPlan, ReadResult } from "@/lib/sales-import";
-import { isReadable } from "@/lib/sales-import";
+import { isReadable, skippedByName } from "@/lib/sales-import";
 import { POSProfileModal } from "@/components/POSProfileModal";
 import { ActionFooter, baht } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,6 @@ export function CheckView({
   onSave: () => void;
   onAgain: () => void;
 }) {
-  const [showSkipped, setShowSkipped] = useState(false);
   const read = reads[pick];
   const others = reads.map((r, i) => ({ r, i })).filter(({ i }) => i !== pick);
 
@@ -173,7 +172,10 @@ export function CheckView({
       )}
       <div className="flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2.5 text-sm text-success">
         <CheckCircle2 className="h-4 w-4 shrink-0" />
-        อ่านได้ {read.rows.length} แถว{read.known === read.rows.length ? " · รู้จักรหัสเมนูทุกแถว" : ` · รู้จักรหัสเมนู ${read.known} แถว`}
+        <span>
+          อ่านได้ {read.rows.length} แถว{read.known === read.rows.length ? " · รู้จักรหัสเมนูทุกแถว" : ` · รู้จักรหัสเมนู ${read.known} แถว`}
+          {read.resolved > 0 && ` · เติมรหัสเมนูจากชื่อ ${read.resolved} แถว`}
+        </span>
       </div>
 
       <h3 className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">วันที่อยู่ในข้อมูลนี้</h3>
@@ -214,6 +216,7 @@ export function CheckView({
                   <Choice name={p.date} checked={mode === "replace"} onChange={() => onMode(p.date, "replace")}>
                     ใช้ข้อมูลนี้แทนทั้งวัน
                     <span className="block text-xs text-muted-foreground">ลบของเดิม {p.existing.length} รายการ ({baht(p.existingTotal)}) แล้วใส่ {p.rows.length} รายการนี้</span>
+                    <span className="block text-xs text-muted-foreground">รหัสเมนูที่แก้เองในหน้าประวัติจะกลับเป็นตามข้อมูลนี้</span>
                   </Choice>
                 </fieldset>
               )}
@@ -222,26 +225,7 @@ export function CheckView({
         })}
       </ul>
 
-      {read.skipped.length > 0 && (
-        <div className="rounded-xl border border-border bg-card">
-          <button type="button" aria-expanded={showSkipped} onClick={() => setShowSkipped(!showSkipped)} className="flex min-h-[48px] w-full items-center gap-2 px-3 text-left text-sm">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
-            <span className="flex-1">{read.skipped.length} แถวไม่มีรหัสเมนู ไม่ถูกนับ ถ้าเป็นของขายจริงให้กด “เพิ่มเอง”</span>
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showSkipped && "rotate-180")} />
-          </button>
-          {showSkipped && (
-            <ul className="divide-y divide-border border-t border-border text-sm">
-              {read.skipped.map((r, k) => (
-                <li key={k} className="flex gap-3 px-3 py-2">
-                  <span className="shrink-0 text-muted-foreground">{r.saleDate}</span>
-                  <span className="shrink-0 font-mono">{r.receiptNo}</span>
-                  <span className="min-w-0 break-words">{r.menuName}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {read.skipped.length > 0 && <NoCodeWarning skipped={read.skipped} />}
 
       <ActionFooter
         tour="sales-save"
@@ -253,6 +237,37 @@ export function CheckView({
         onAction={onSave}
       />
     </div>
+  );
+}
+
+/**
+ * Priced lines that still have no menu code are not saved; say so with the money, so
+ * staff fix the code in FoodStory or Cost Center. The rest of the paste saves as usual.
+ */
+function NoCodeWarning({ skipped }: { skipped: SkippedRow[] }) {
+  const groups = skippedByName(skipped);
+  const total = skipped.reduce((t, r) => t + r.netAmount, 0);
+  return (
+    <section className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-warning bg-card p-4">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-semibold">
+            มีรายการขายที่ไม่มีรหัสเมนู {skipped.length} บรรทัด · {baht(total)} · ไม่ได้นำเข้า
+          </h3>
+          <p className="text-sm text-muted-foreground">ยอดนี้ไม่เข้ายอดขายและไม่ตัดสต๊อก ให้ใส่รหัสเมนูใน FoodStory หรือ Cost Center แล้ววางวันนั้นใหม่ เลือก “ใช้ข้อมูลนี้แทนทั้งวัน” รายการอื่นบันทึกได้ตามปกติ</p>
+        </div>
+      </div>
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border text-sm">
+        {groups.map((g) => (
+          <li key={g.name} className="flex gap-3 px-3 py-2">
+            <span className="min-w-0 flex-1 break-words">{g.name}</span>
+            {g.lines > 1 && <span className="shrink-0 text-muted-foreground">{g.lines} บรรทัด</span>}
+            <span className="shrink-0 text-right font-mono">{baht(g.amount)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

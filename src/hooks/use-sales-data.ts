@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { toLocalDateStr } from "@/lib/utils";
 import type { POSMappingProfile } from "@/hooks/use-sales-entry-data";
-import type { ExistingRow, SalesInsertRow } from "@/lib/sales-import";
+import { writeDay, type DayWrites, type ExistingRow, type SalesInsertRow, type SalesWriter } from "@/lib/sales-import";
 import type { Tables } from "@/integrations/supabase/types";
 
 /** A saved sales_entries row */
@@ -17,10 +18,8 @@ export interface DaySummary {
   total: number;
 }
 
-export interface ImportWrite {
+export interface ImportWrite extends DayWrites {
   date: string;
-  insert: SalesInsertRow[];
-  deleteIds: string[];
 }
 
 const CHUNK = 50;
@@ -48,13 +47,29 @@ const toLine = (r: Tables<"sales_entries">): SaleLine => ({
   channel: r.channel ?? "",
 });
 
+// .select("id") so a delete RLS refuses (no error, 0 rows) is not taken as done
 async function deleteIds(ids: string[]): Promise<string | null> {
   for (let i = 0; i < ids.length; i += 200) {
-    const { error } = await supabase.from("sales_entries").delete().in("id", ids.slice(i, i + 200));
+    const part = ids.slice(i, i + 200);
+    const { data, error } = await supabase.from("sales_entries").delete().in("id", part).select("id");
     if (error) return error.message;
+    if ((data?.length ?? 0) < part.length) return `ลบได้ ${data?.length ?? 0} จาก ${part.length} แถว (ไม่มีสิทธิ์ หรือถูกลบไปแล้ว)`;
   }
   return null;
 }
+
+const writer: SalesWriter = {
+  insert: async (rows) => {
+    const { data, error } = await supabase.from("sales_entries").insert(rows).select("id");
+    return { ids: (data || []).map((r) => r.id), error: error?.message ?? null };
+  },
+  remove: deleteIds,
+  update: async (id, patch) => {
+    const { data, error } = await supabase.from("sales_entries").update(patch).eq("id", id).select("id");
+    if (error) return error.message;
+    return data?.length ? null : "แก้แถวเดิมไม่ได้ (ไม่มีสิทธิ์?)";
+  },
+};
 
 /**
  * Sales of one branch: totals per day for the visible range, the lines of the open
@@ -123,44 +138,72 @@ export function useSalesData({ branchId, from, to, day }: { branchId: string | n
       const out = new Map<string, ExistingRow[]>();
       if (!branchId || !dates.length) return out;
       const { data, error } = await fetchAllRows((a, b) =>
-        supabase.from("sales_entries").select("id,sale_date,receipt_no,menu_code,menu_name,net_amount").eq("branch_id", branchId).in("sale_date", dates).order("id").range(a, b),
+        supabase.from("sales_entries").select("id,sale_date,receipt_no,menu_code,menu_name,net_amount,qty,unit_price,order_type,channel").eq("branch_id", branchId).in("sale_date", dates).order("id").range(a, b),
       );
       if (error) {
         toast.error("ตรวจข้อมูลเดิมไม่สำเร็จ ลองใหม่");
         return null;
       }
-      for (const r of data as ExistingRow[]) out.set(r.sale_date, [...(out.get(r.sale_date) ?? []), { ...r, net_amount: Number(r.net_amount) }]);
+      for (const r of data as ExistingRow[]) out.set(r.sale_date, [...(out.get(r.sale_date) ?? []), { ...r, net_amount: Number(r.net_amount), qty: Number(r.qty), unit_price: Number(r.unit_price), order_type: r.order_type ?? "", channel: r.channel ?? "" }]);
       return out;
     },
     [branchId],
   );
 
   /**
-   * Save the planned days. A replaced day inserts its new rows FIRST and deletes the
-   * old ones only after every insert worked, so a failure never leaves the day empty;
-   * if an insert fails, that day's new rows are taken back out.
+   * This branch's coded lines of the last 90 days whose name contains one of these
+   * bases (FoodStory names differ from CK menu names, so past lines teach the code).
+   * One small read per base, at most 500 lines each; a failed read just teaches nothing.
    */
+  const codeHistory = useCallback(
+    async (bases: string[]): Promise<{ menu_code: string; menu_name: string }[]> => {
+      if (!branchId || !bases.length) return [];
+      const d = new Date();
+      d.setDate(d.getDate() - 90);
+      const since = toLocalDateStr(d);
+      const reads = await Promise.all(
+        bases.slice(0, 20).map(async (base) => {
+          // Words in order, anything between: a prefilter only, the exact compare is in codeResolver
+          const pattern = `%${base.replace(/[%\\]/g, "").split(/\s+/).filter(Boolean).join("%")}%`;
+          const { data, error } = await supabase
+            .from("sales_entries")
+            .select("menu_code,menu_name")
+            .eq("branch_id", branchId)
+            .gte("sale_date", since)
+            .neq("menu_code", "")
+            .ilike("menu_name", pattern)
+            .order("sale_date", { ascending: false })
+            .order("id")
+            .limit(500);
+          return error ? [] : (data || []).map((r) => ({ menu_code: r.menu_code ?? "", menu_name: r.menu_name ?? "" }));
+        }),
+      );
+      return reads.flat();
+    },
+    [branchId],
+  );
+
+  /**
+   * Menus with a recipe at this branch (shared or this branch's menu_bom lines): a
+   * no-code POS line is only matched by name to one of these. null = could not read.
+   */
+  const recipeMenuIds = useCallback(async (): Promise<Set<string> | null> => {
+    if (!branchId) return null;
+    const { data, error } = await fetchAllRows((a, b) => supabase.from("menu_bom").select("menu_id").or(`branch_id.is.null,branch_id.eq.${branchId}`).order("id").range(a, b));
+    if (error) return null;
+    return new Set((data as { menu_id: string }[]).map((r) => r.menu_id));
+  }, [branchId]);
+
+  /** Save the planned days, one day at a time (order and failure rules: writeDay) */
   const saveImport = useCallback(async (writes: ImportWrite[]): Promise<{ inserted: number; failedDay: string | null }> => {
     let inserted = 0;
     for (const w of writes) {
-      const newIds: string[] = [];
-      for (let i = 0; i < w.insert.length; i += CHUNK) {
-        const { data, error } = await supabase.from("sales_entries").insert(w.insert.slice(i, i + CHUNK)).select("id");
-        if (error) {
-          await deleteIds(newIds);
-          toast.error(`บันทึกวันที่ ${w.date} ไม่สำเร็จ: ${error.message}`);
-          return { inserted, failedDay: w.date };
-        }
-        newIds.push(...(data || []).map((r) => r.id));
+      const r = await writeDay(w, writer, CHUNK);
+      inserted += r.saved;
+      if (r.error) {
+        toast.error(r.partial ? `วันที่ ${w.date} บันทึกไม่ครบ กดตรวจแล้วบันทึกใหม่อีกครั้ง เลือก “ใช้ข้อมูลนี้แทนทั้งวัน” (${r.error})` : `บันทึกวันที่ ${w.date} ไม่สำเร็จ: ${r.error}`, { duration: 15000 });
+        return { inserted, failedDay: w.date };
       }
-      if (w.deleteIds.length) {
-        const err = await deleteIds(w.deleteIds);
-        if (err) {
-          toast.error(`ลบข้อมูลเดิมของวันที่ ${w.date} ไม่ครบ: ${err} — ตรวจวันนั้นอีกครั้ง`);
-          return { inserted: inserted + newIds.length, failedDay: w.date };
-        }
-      }
-      inserted += newIds.length;
     }
     return { inserted, failedDay: null };
   }, []);
@@ -243,7 +286,7 @@ export function useSalesData({ branchId, from, to, day }: { branchId: string | n
     [loadProfiles],
   );
 
-  return { days, daysLoading, lines, linesLoading, profiles, reloadDays: loadDays, reloadLines: loadLines, existingOn, saveImport, fetchHistory, addLine, updateLine, deleteLines, saveProfile, deleteProfile };
+  return { days, daysLoading, lines, linesLoading, profiles, reloadDays: loadDays, reloadLines: loadLines, existingOn, codeHistory, recipeMenuIds, saveImport, fetchHistory, addLine, updateLine, deleteLines, saveProfile, deleteProfile };
 }
 
 export type SalesData = ReturnType<typeof useSalesData>;
