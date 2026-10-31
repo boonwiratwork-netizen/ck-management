@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildPriceAt, type PriceChange } from "@/lib/price-history";
 import { usageContextOn, type RecipeCopy } from "@/lib/recipe-history";
 import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { usageContextFromApp, usageInputFromApp } from "@/lib/sale-usage";
 import { receiptConverter } from "@/lib/branch-stock";
+import { planMonthReplace, toMenuMonthRows, type MenuMonthRow } from "@/lib/food-cost-store";
 import {
   actualPct,
   computeActual,
@@ -73,7 +74,21 @@ export interface FoodCostLoader {
   priceHistory?(): Promise<PriceChange[]>;
   /** Saved copies of recipes and option rules (recipe history); none = today's recipes */
   recipeHistory?(): Promise<RecipeCopy[]>;
+  /** Store one branch-month's menu rows for analysts (the database only; the demo has none) */
+  saveMenuMonth?(branchId: string, month: string, rows: MenuMonthRow[]): Promise<StoreStatus>;
 }
+
+/** saved · skipped (not stored: not a whole month, masters not in yet, same as last time) · missing (table not created yet) · failed */
+export type StoreStatus = "saved" | "skipped" | "missing" | "failed";
+
+const STORE_TABLE = "food_cost_menu_monthly";
+// Before its migration ran: PostgREST says the table isn't in its schema cache
+const tableMissing = (e: unknown) => {
+  const x = (e ?? {}) as { code?: string; message?: string };
+  // Table only: a missing column (PGRST204) is a real failure worth a warning
+  return x.code === "42P01" || x.code === "PGRST205" || /could not find the table/i.test(x.message ?? "");
+};
+const chunks = <T>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
 export const supabaseLoader: FoodCostLoader = {
   // Missing table (before its migration ran) or a failed read: today's recipes, as before
@@ -91,6 +106,24 @@ export const supabaseLoader: FoodCostLoader = {
     );
     if (error) return [];
     return data.map((r) => ({ skuId: r.sku_id, pricePerUsageUom: Number(r.price_per_usage_uom), validFrom: r.valid_from }));
+  },
+  // Upsert first, then remove the codes no longer in the month (a re-run replaces it cleanly)
+  async saveMenuMonth(branchId, month, rows) {
+    // Not in the generated types yet (same as usage_corrections)
+    const table = () => supabase.from(STORE_TABLE as "sales_entries");
+    const computedAt = new Date().toISOString();
+    for (const part of chunks(rows, 500)) {
+      const { error } = await (table().upsert(part.map((r) => ({ ...r, computed_at: computedAt })) as never, { onConflict: "branch_id,month,menu_code" }) as unknown as PromiseLike<{ error: unknown }>);
+      if (error) return tableMissing(error) ? "missing" : (console.warn("[food-cost] เก็บข้อมูลวิเคราะห์ไม่สำเร็จ", error), "failed");
+    }
+    const stored = await fetchAllRows<{ menu_code: string }>((a, b) => table().select("id, menu_code").eq("branch_id", branchId).eq("month" as "sale_date", month).order("id").range(a, b) as never);
+    if (stored.error) return tableMissing(stored.error) ? "missing" : (console.warn("[food-cost] อ่านข้อมูลวิเคราะห์เดิมไม่สำเร็จ", stored.error), "failed");
+    const { remove } = planMonthReplace(rows, stored.data.map((r) => r.menu_code));
+    for (const part of chunks(remove, 200)) {
+      const { error } = await (table().delete().eq("branch_id", branchId).eq("month" as "sale_date", month).in("menu_code", part) as unknown as PromiseLike<{ error: unknown }>);
+      if (error) return (console.warn("[food-cost] ลบเมนูเก่าของเดือนไม่สำเร็จ", error), "failed");
+    }
+    return "saved";
   },
   sales: (branchIds, from, to) =>
     fetchAllRows<FcSale>((a, b) =>
@@ -136,7 +169,7 @@ const loadHistory = (loader: FoodCostLoader): Promise<History> => Promise.all([l
  * throws when something can't be read. `history`: price and recipe history already
  * on the way (several periods share one read).
  */
-async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds: string[], loader: FoodCostLoader, alive: () => boolean, history?: Promise<History>): Promise<FoodCostResult | null> {
+async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds: string[], loader: FoodCostLoader, alive: () => boolean, history?: Promise<History>, standardOnly = false): Promise<FoodCostResult | null> {
   const salesRes = await loader.sales(branchIds, from, to);
   if (!alive()) return null;
   if (salesRes.error) throw new Error("sales");
@@ -153,7 +186,8 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
   const today = iso(new Date());
 
   let actual: Actual | null = null;
-  if (branchIds.length === 1 && isClosedMonth(from, to, today)) {
+  // standardOnly: the analytics refresh needs the recipe side only (std doesn't depend on it)
+  if (!standardOnly && branchIds.length === 1 && isClosedMonth(from, to, today)) {
     const b = branchIds[0];
     // Opening = the last count of the month before, closing = the last count of this
     // month (CLAUDE.md), received = what came in between those two count days, so the
@@ -202,6 +236,50 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
   return { std, actual, attention, sales: salesRes.data };
 }
 
+// ─── Storing a branch-month for analysts (food_cost_menu_monthly) ───
+
+// Per page session: what each branch-month was last written with, and the write in
+// flight, so the month picker and the trend working out the same month write it once
+const lastWritten = new Map<string, string>();
+const writing = new Map<string, Promise<StoreStatus>>();
+let noTable = false;
+
+/**
+ * Stores one branch's whole month (never a custom range). Never throws, never toasts:
+ * a failure is a console warning, a missing table (migration not run) is skipped
+ * quietly for the rest of the session. `force` (the refresh button) writes even when
+ * this session already wrote the same rows.
+ */
+function storeMonth(env: PeriodEnv, loader: FoodCostLoader, r: FoodCostResult, from: string, to: string, branchId: string, force = false): Promise<StoreStatus> {
+  const save = loader.saveMenuMonth;
+  if (!save || (noTable && !force)) return Promise.resolve("skipped");
+  // Masters still loading would store ฿0 recipes for a moment
+  if (!env.m.menuBomLines.length || !env.m.prices.length) return Promise.resolve("skipped");
+  const b = env.m.branches.find((x) => x.id === branchId);
+  const rows = toMenuMonthRows({ std: r.std, branch: { id: branchId, name: b?.branchName ?? "", brand: b?.brandName ?? "" }, from, to, today: iso(new Date()) });
+  if (!rows) return Promise.resolve("skipped");
+  const key = `${branchId}|${from}`;
+  const sig = JSON.stringify(rows);
+  if (!force && lastWritten.get(key) === sig) return Promise.resolve("skipped");
+  lastWritten.set(key, sig);
+  // One write per branch-month at a time, in the order asked
+  const run = (writing.get(key) ?? Promise.resolve<StoreStatus>("skipped"))
+    .then(() => save(branchId, from, rows))
+    .catch((e) => (console.warn("[food-cost] เก็บข้อมูลวิเคราะห์ไม่สำเร็จ", e), "failed" as StoreStatus))
+    .then((st) => {
+      if (st === "missing") noTable = true;
+      // Not written: let a later work-out try again
+      if (st !== "saved" && lastWritten.get(key) === sig) lastWritten.delete(key);
+      if (writing.get(key) === run) writing.delete(key);
+      return st;
+    });
+  writing.set(key, run);
+  return run;
+}
+
+/** After the result is on screen, off the page's way */
+const storeLater = (...a: Parameters<typeof storeMonth>) => void setTimeout(() => void storeMonth(...a), 300);
+
 /** The masters, shaped once for working out periods */
 function usePeriodEnv(m: FoodCostMasters): PeriodEnv {
   const ctx = useMemo(
@@ -229,8 +307,11 @@ function usePeriodEnv(m: FoodCostMasters): PeriodEnv {
  * actual cost (one branch, closed month) and the things worth a look.
  * Calculates on its own when the period or branches change — no "calculate" button.
  */
-export function useFoodCost(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+export function useFoodCost(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader, opts?: { store?: boolean }) {
   const [result, setResult] = useState<FoodCostResult | null>(null);
+  // Read when a result lands (management only), not a reason to work it out again
+  const storeRef = useRef(false);
+  storeRef.current = !!opts?.store;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -251,6 +332,7 @@ export function useFoodCost(m: FoodCostMasters, from: string, to: string, branch
         const r = await computePeriod(env, from, to, branchIds, loader, () => !cancelled);
         if (!r || cancelled) return;
         setResult(r);
+        if (storeRef.current && branchIds.length === 1) storeLater(env, loader, r, from, to, branchIds[0]);
       } catch {
         if (cancelled) return;
         setError("โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -284,8 +366,10 @@ export interface TrendPoint {
  * top of Food Cost. Each month is filled in as soon as it's done ("failed" = that
  * month couldn't be read).
  */
-export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to: string }[], branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to: string }[], branchIds: string[], loader: FoodCostLoader = supabaseLoader, opts?: { store?: boolean }) {
   const env = usePeriodEnv(m);
+  const storeRef = useRef(false);
+  storeRef.current = !!opts?.store;
   const [points, setPoints] = useState<(TrendPoint | "failed" | null)[]>([]);
   const [error, setError] = useState(false);
   const key = `${months.map((x) => x.from).join(",")}|${[...branchIds].sort().join(",")}`;
@@ -318,6 +402,7 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
             usageVar: r.actual?.usageVar ?? null,
           };
           setPoints((p) => p.map((x, k) => (k === i ? point : x)));
+          if (storeRef.current && branchIds.length === 1) storeLater(env, loader, r, from, to, branchIds[0]);
         } catch {
           if (cancelled) return;
           setPoints((p) => p.map((x, k) => (k === i ? "failed" : x)));
@@ -331,4 +416,60 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
   }, [key, ready, env]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { points, error };
+}
+
+/** Progress of the analytics refresh (null = not run this visit) */
+export interface RefreshState {
+  running: boolean;
+  done: number;
+  total: number;
+  failed: number;
+  /** The table isn't in the database yet (its SQL hasn't been run) */
+  missing: boolean;
+}
+
+/**
+ * The button "อัปเดตข้อมูลวิเคราะห์ทุกสาขา": works out and stores every branch × month
+ * given, one after another, with the page's own work-out (same numbers). Stops when
+ * the page closes.
+ */
+export function useFoodCostRefresh(m: FoodCostMasters, loader: FoodCostLoader = supabaseLoader) {
+  const env = usePeriodEnv(m);
+  const [state, setState] = useState<RefreshState | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const run = useCallback(async (branchIds: string[], months: { from: string; to: string }[]) => {
+    const jobs = months.flatMap((mo) => branchIds.map((b) => ({ ...mo, b })));
+    const s: RefreshState = { running: true, done: 0, total: jobs.length, failed: 0, missing: false };
+    setState({ ...s });
+    const history = loadHistory(loader);
+    for (const j of jobs) {
+      if (!alive.current) return;
+      let st: StoreStatus = "failed";
+      try {
+        const r = await computePeriod(env, j.from, j.to, [j.b], loader, () => alive.current, history, true);
+        if (!r) return;
+        st = await storeMonth(env, loader, r, j.from, j.to, j.b, true);
+      } catch (e) {
+        console.warn("[food-cost] คำนวณเดือนสำหรับข้อมูลวิเคราะห์ไม่สำเร็จ", j, e);
+      }
+      if (!alive.current) return;
+      if (st === "missing") {
+        setState({ ...s, running: false, missing: true });
+        return;
+      }
+      s.done += 1;
+      if (st !== "saved") s.failed += 1;
+      setState({ ...s });
+    }
+    setState({ ...s, running: false });
+  }, [env, loader]);
+
+  return { run, state };
 }

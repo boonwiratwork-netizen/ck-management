@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
-import { Download } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useFoodCostTrend, useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
+import { useFoodCostRefresh, useFoodCostTrend, useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters, type RefreshState } from "@/hooks/use-food-cost";
 import { FoodCostTrend } from "@/components/food-cost/FoodCostTrend";
 import { actualPct, type Actual } from "@/lib/food-cost";
 import { AttentionBox, DayView, IngredientSheet, IngredientView, MenuView, baht, n0, pctTone, signedBaht } from "@/components/food-cost/FoodCostViews";
@@ -24,6 +24,9 @@ const thai = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH"
 const monthLabel = (from: string) => new Date(`${from}T00:00:00`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
 /** The count days the actual comes from: " (30 ก.ย.)" or " (27 ก.ย. – 30 ก.ย.)" when items differ */
 const days = (d: { first: string; last: string } | null) => (!d ? "" : d.first === d.last ? ` (${thai(d.first)})` : ` (${thai(d.first)} – ${thai(d.last)})`);
+/** The refresh button's line: "กำลังอัปเดต 3/12…", then how it ended */
+const refreshText = (s: RefreshState) =>
+  s.missing ? "ยังไม่มีตารางในฐานข้อมูล (ต้องรัน SQL ก่อน)" : s.running ? `กำลังอัปเดต ${s.done}/${s.total}…` : s.failed ? `อัปเดตแล้ว ${s.done - s.failed}/${s.total} · ไม่สำเร็จ ${s.failed}` : `อัปเดตแล้ว ${s.total}/${s.total}`;
 /** Some item's counts are not on the month ends, so its actual covers other days than the month */
 const offMonthEnd = (a: Actual) => a.rows.some((r) => r.actQty !== null && (!!r.opening?.early || !!r.closing?.early));
 
@@ -56,10 +59,16 @@ export default function FoodCostPage(props: Props) {
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
 
-  const { result, loading, error } = useFoodCost(props, period.from, period.to, branchIds, props.loader);
+  // Management's whole months of one branch are also stored for analysts (not the dev demo)
+  const store = { store: isManagement && !props.loader };
+  const { result, loading, error } = useFoodCost(props, period.from, period.to, branchIds, props.loader, store);
   // The same four months, oldest first, for the trend at the top
   const trendMonths = useMemo(() => [...months].reverse(), [months]);
-  const trend = useFoodCostTrend(props, trendMonths, branchIds, props.loader);
+  const trend = useFoodCostTrend(props, trendMonths, branchIds, props.loader, store);
+  // Every active branch × the last 6 months that ended, into the analytics table
+  const refresh = useFoodCostRefresh(props, props.loader);
+  const canRefresh = store.store && branches.length > 0 && props.menuBomLines.length > 0 && props.prices.length > 0;
+  const runRefresh = () => refresh.run(branches.map((b) => b.id), [1, 2, 3, 4, 5, 6].map((k) => monthRange(now.getFullYear(), now.getMonth() - k)));
   const std = result?.std;
   const actual = result?.actual ?? null;
   const closed = isClosedMonth(period.from, period.to, today);
@@ -126,6 +135,14 @@ export default function FoodCostPage(props: Props) {
           <h1 className="text-2xl font-bold">ต้นทุนอาหาร</h1>
           <p className="text-sm text-muted-foreground">ต้นทุนตามสูตรจากยอดขาย · ต้นทุนจริงจากการนับสต๊อก (สาขาเดียว เดือนที่จบแล้ว)</p>
         </div>
+        {store.store && (
+          <div className="flex flex-col items-end gap-0.5">
+            <Button variant="ghost" size="sm" className="h-10 text-muted-foreground" onClick={runRefresh} disabled={!canRefresh || !!refresh.state?.running}>
+              <RefreshCw className={cn("h-4 w-4", refresh.state?.running && "animate-spin")} /> อัปเดตข้อมูลวิเคราะห์ทุกสาขา
+            </Button>
+            {refresh.state && <span className={cn("text-xs", refresh.state.missing || refresh.state.failed ? "text-destructive" : "text-muted-foreground")}>{refreshText(refresh.state)}</span>}
+          </div>
+        )}
         <Button variant="outline" className="h-10" onClick={exportExcel} disabled={!std}>
           <Download className="h-4 w-4" /> ส่งออก Excel
         </Button>
