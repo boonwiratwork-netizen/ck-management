@@ -200,7 +200,7 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         onBack={() => go(`c/${session.date}`, true)}
         onFix={() => go(`c/${session.date}`, true)}
         onConfirm={async () => {
-          if (busy || events === undefined || (events.length > 0 && !timing)) return;
+          if (busy || events === undefined || !timing) return;
           setBusy(true);
           // Read again right before finishing: something entered meanwhile on the count
           // day needs the question (again); otherwise use the freshest figures
@@ -212,9 +212,8 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
             toast.info("มีรายการของวันนับเพิ่มเข้ามา ดูแล้วตอบอีกครั้ง");
             return;
           }
-          const t = events.length ? timing : "after";
-          // Nothing moved on the count day (or the list couldn't be read): "after" — the
-          // count day is in the count, as before
+          // Always answered now, also when nothing was entered yet (then: will more come?)
+          const t = timing;
           const ok = await confirmSession(session.id, t, systemAtFor(latest ?? loaded?.day, t));
           setBusy(false);
           if (!ok) return;

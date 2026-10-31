@@ -454,7 +454,9 @@ export function CountReview({
   onFix: () => void;
   onConfirm: () => void;
 }) {
-  const mustAsk = !!events?.length;
+  // Always asked: with nothing entered yet, what's entered later that day must still be
+  // placed before or after the count (31 Jul 2026: 6 runs entered after the count)
+  const mustAsk = events !== undefined;
   const counted = lines.filter((l) => l.physicalQty !== null);
   const value = counted.reduce((s, l) => s + l.variance * priceOf(l.skuId), 0);
   const big = lines.filter(isBigDiff).sort((a, b) => Math.abs(b.variance * priceOf(b.skuId)) - Math.abs(a.variance * priceOf(a.skuId)));
@@ -467,7 +469,7 @@ export function CountReview({
         </button>
         <h2 className="text-xl font-bold">ตรวจก่อนนับเสร็จ · {thaiDay(session.date)}</h2>
       </div>
-      {mustAsk && <CountTimingAsk date={session.date} events={events!} timing={timing} onTiming={onTiming} />}
+      {mustAsk && (events!.length ? <CountTimingAsk date={session.date} events={events!} timing={timing} onTiming={onTiming} /> : <CountRestAsk date={session.date} timing={timing} onTiming={onTiming} />)}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-3 shadow-card">
           <div className="text-[13px] text-muted-foreground">นับแล้ว</div>
@@ -557,6 +559,48 @@ const enteredAt = (iso: string, countDate: string) => {
   const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return toLocalDateStr(d) === countDate ? time : `${d.getDate()}/${d.getMonth() + 1} ${time}`;
 };
+
+/** Nothing entered for the count day yet: will anything still come in or go out that day? */
+function CountRestAsk({ date, timing, onTiming }: { date: string; timing: CountTiming | null; onTiming: (t: CountTiming) => void }) {
+  const day = date === toLocalDateStr(new Date()) ? "วันนี้" : "วันนับ";
+  const options: { key: CountTiming; title: string; body: string; result: string }[] = [
+    {
+      key: "before",
+      title: "ยังมี · จะผลิต / รับของ / ส่งของหลังนับ",
+      body: `เช่น นับเสร็จแล้วค่อยผลิตต่อ หรือของซัพพลายเออร์ยังไม่มา`,
+      result: `ผล: ของที่ลงทีหลังใน${day} จะบวก/หักจากยอดที่นับ`,
+    },
+    {
+      key: "after",
+      title: `ไม่มีแล้ว · ${day}ไม่มีของเข้า-ออกอีก`,
+      body: "ของทุกอย่างอยู่ในตู้แล้วตอนนับ",
+      result: "ผล: ยอดที่นับ = สต๊อก · ถ้ามีของมาทีหลัง ให้ลงวันที่วันถัดไป",
+    },
+  ];
+  return (
+    <section data-tour="kc-timing" className="rounded-2xl border border-border border-l-4 border-l-brand bg-card p-3 shadow-card">
+      <h3 className="text-[15px] font-bold">{day}ยังไม่มีรายการผลิต / รับของ / ส่งของ · หลังนับเสร็จจะมีอีกไหม?</h3>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onTiming(o.key)}
+            aria-pressed={timing === o.key}
+            className={cn(
+              "min-h-[44px] rounded-xl border p-3 text-left transition-colors",
+              timing === o.key ? "border-brand bg-brand/5 ring-1 ring-brand" : "border-border bg-card hover:bg-secondary",
+            )}
+          >
+            <div className="text-[15px] font-bold">{o.title}</div>
+            <div className="mt-0.5 text-[13px] text-muted-foreground">{o.body}</div>
+            <div className="mt-1 text-[13px] font-semibold">{o.result}</div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 /** "Were these in the fridge when you counted?" — one row per movement of the count day, then two answers */
 function CountTimingAsk({ date, events, timing, onTiming }: { date: string; events: CountDayEvent[]; timing: CountTiming | null; onTiming: (t: CountTiming) => void }) {
