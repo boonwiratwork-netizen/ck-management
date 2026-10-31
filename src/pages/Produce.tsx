@@ -118,7 +118,12 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
 
   const skuOf = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const nameOf = (id: string) => skuOf.get(id)?.name ?? "—";
-  const hasBom = useMemo(() => new Set(bomHeaders.map((h) => h.smSkuId)), [bomHeaders]);
+  // A recipe needs ingredients: a header alone (ซุปชิโอะผสมสต๊อก, Oct 2026) took nothing
+  // out of stock and costed ฿0, so it goes in the "no recipe yet" list instead
+  const hasBom = useMemo(() => {
+    const withLines = new Set(bomLines.map((l) => l.bomHeaderId));
+    return new Set(bomHeaders.filter((h) => withLines.has(h.id)).map((h) => h.smSkuId));
+  }, [bomHeaders, bomLines]);
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM" && s.status === "Active"), [skus]);
   const stockOf = useMemo(() => new Map(smStockBalances.map((b) => [b.skuId, b.currentStock])), [smStockBalances]);
   // SM inside other SM: planning a parent adds need to the child
