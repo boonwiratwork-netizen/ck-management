@@ -4,6 +4,8 @@ import { endOfMonth, format, subMonths } from "date-fns";
 import { HelpCircle } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { BOMHeader, BOMLine } from "@/types/bom";
+import type { BomByproduct } from "@/types/byproduct";
+import { countsInKitchenSheet } from "@/lib/kitchen-count-items";
 import type { useStockCountData } from "@/hooks/use-stock-count-data";
 import { countSheetHtml, type SheetGroup } from "@/lib/count-sheet";
 import { CountHome, CountReview, CountSheet, TYPES, isBigDiff, type CountType, type SessionSummary } from "@/components/kitchen-count/CountViews";
@@ -37,6 +39,8 @@ interface Props {
   getStdUnitPrice: (skuId: string) => number;
   bomHeaders: BOMHeader[];
   bomLines: BOMLine[];
+  /** Recipe by-products: the ones kept in stock are counted too */
+  byproducts?: BomByproduct[];
   /** Management or CK manager (as before: count, confirm and delete) */
   canEdit: boolean;
   /** Dev demo only: stands in for reading the count day's movements */
@@ -60,7 +64,7 @@ function dueDateFor(done: string[]): string {
  * The central kitchen's stock count (replaces StockCount): monthly, by SM / RM /
  * PK, from a printed A4 sheet. Hash: "" home, "c/<date>" counting, "r/<date>" review.
  */
-export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, canEdit, loadDay = loadCountDay }: Props) {
+export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice, bomHeaders, bomLines, byproducts = [], canEdit, loadDay = loadCountDay }: Props) {
   const { sessions, createSession, updateLine, confirmSession, softDeleteSession, getLinesForSession, refreshSystemQty } = stockCountData;
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,8 +84,9 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
   const candidates = useMemo(() => {
     const smWithBom = new Set(bomHeaders.map((h) => h.smSkuId));
     const rmInBom = new Set(bomLines.map((l) => l.rmSkuId));
-    return skus.filter((s) => s.status === "Active" && ((s.type === "RM" && (rmInBom.has(s.id) || s.isDistributable)) || (s.type === "SM" && smWithBom.has(s.id)) || s.type === "PK"));
-  }, [skus, bomHeaders, bomLines]);
+    const trackedByproducts = new Set(byproducts.filter((b) => b.tracksInventory && b.skuId).map((b) => b.skuId!));
+    return skus.filter((s) => countsInKitchenSheet(s, { smWithBom, rmInBom, trackedByproducts }));
+  }, [skus, bomHeaders, bomLines, byproducts]);
   const totals = useMemo(() => Object.fromEntries(TYPES.map((t) => [t, candidates.filter((s) => s.type === t).length])) as Record<CountType, number>, [candidates]);
 
   const summaries = useMemo<SessionSummary[]>(

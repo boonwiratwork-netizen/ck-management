@@ -408,6 +408,7 @@ const Index = () => {
                     getStdUnitPrice={stockData.getStdUnitPrice}
                     bomHeaders={bomData.headers}
                     bomLines={bomData.lines}
+                    byproducts={byproductData.byproducts}
                     canEdit={isManagement || role === 'ck_manager'}
                   />
                 ) : activeTab === "branches" || activeTab === "users" || activeTab === "sku-categories" ? (

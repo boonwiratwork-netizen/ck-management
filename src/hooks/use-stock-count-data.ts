@@ -3,6 +3,7 @@ import { StockCountSession, StockCountLine } from "@/types/stock-count";
 import { StockBalance, StockAdjustment } from "@/types/stock";
 import { SMStockBalance } from "@/hooks/use-sm-stock-data";
 import { SKU } from "@/types/sku";
+import { countsInKitchenSheet } from "@/lib/kitchen-count-items";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
@@ -105,20 +106,16 @@ export function useStockCountData({
 
       const id = sessionRow.id;
 
-      const [bomHeaderRes, bomLineRes] = await Promise.all([
+      const [bomHeaderRes, bomLineRes, byproductRes] = await Promise.all([
         supabase.from("bom_headers").select("sm_sku_id"),
         supabase.from("bom_lines").select("rm_sku_id"),
+        supabase.from("bom_byproducts").select("sku_id, tracks_inventory"),
       ]);
       const smWithBom = new Set((bomHeaderRes.data || []).map((h: any) => h.sm_sku_id));
       const rmInBom = new Set((bomLineRes.data || []).map((l: any) => l.rm_sku_id));
+      const trackedByproducts = new Set((byproductRes.data || []).filter((b: any) => b.tracks_inventory && b.sku_id).map((b: any) => b.sku_id as string));
 
-      const activeSkus = skus.filter((s) => {
-        if (s.status !== "Active") return false;
-        if (s.type === "RM") return rmInBom.has(s.id) || s.isDistributable === true;
-        if (s.type === "SM") return smWithBom.has(s.id);
-        if (s.type === "PK") return true;
-        return false;
-      });
+      const activeSkus = skus.filter((s) => countsInKitchenSheet(s, { smWithBom, rmInBom, trackedByproducts }));
 
       const newLines = activeSkus.map((sku) => {
         let systemQty = 0;
