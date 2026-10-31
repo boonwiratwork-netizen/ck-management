@@ -25,6 +25,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useBaseStatus } from "@/components/BaseLoading";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { failedMessage } from "@/lib/with-busy";
 
 interface Props {
   skus: SKU[];
@@ -193,20 +194,33 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   const [printOpen, setPrintOpen] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
 
+  /** A thrown error (dropped connection mid-way) clears the spinner and says so */
+  const failed = (e: unknown) => toast.error(failedMessage(e));
   const start = async () => {
     if (!branchId) return;
     if (!hasSheet) {
       setStarting(true);
-      await dsc.generateSheet(branchId, date);
-      setStarting(false);
+      try {
+        await dsc.generateSheet(branchId, date);
+      } catch (e) {
+        return failed(e);
+      } finally {
+        setStarting(false);
+      }
     }
     go("count");
   };
   const finish = async () => {
     if (!branchId) return;
     setFinishing(true);
-    const ok = await dsc.submitSheet(branchId, date);
-    setFinishing(false);
+    let ok = false;
+    try {
+      ok = await dsc.submitSheet(branchId, date);
+    } catch (e) {
+      failed(e);
+    } finally {
+      setFinishing(false);
+    }
     if (ok) {
       toast.success(`นับเสร็จแล้ว ${thaiDay(date)}`);
       reloadStatus();
@@ -230,11 +244,20 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   const saveOrder = async (order: string[]) => {
     if (!user?.id || !branchId) return;
     setSavingOrder(true);
-    const { data: existing } = await supabase.from("user_sort_preferences").select("id").eq("user_id", user.id).eq("branch_id", branchId).maybeSingle();
-    const { error } = existing
-      ? await supabase.from("user_sort_preferences").update({ sku_order: order, updated_at: new Date().toISOString() }).eq("id", existing.id)
-      : await supabase.from("user_sort_preferences").insert({ user_id: user.id, branch_id: branchId, sku_order: order });
-    setSavingOrder(false);
+    let error: unknown = null;
+    try {
+      const { data: existing, error: readErr } = await supabase.from("user_sort_preferences").select("id").eq("user_id", user.id).eq("branch_id", branchId).maybeSingle();
+      // A failed check must not insert a second row for the same person and branch
+      if (readErr) error = readErr;
+      else
+        ({ error } = existing
+          ? await supabase.from("user_sort_preferences").update({ sku_order: order, updated_at: new Date().toISOString() }).eq("id", existing.id)
+          : await supabase.from("user_sort_preferences").insert({ user_id: user.id, branch_id: branchId, sku_order: order }));
+    } catch (e) {
+      error = e;
+    } finally {
+      setSavingOrder(false);
+    }
     if (error) return toast.error("บันทึกลำดับไม่สำเร็จ");
     setCustomOrder(order);
     toast.success("บันทึกลำดับแล้ว");

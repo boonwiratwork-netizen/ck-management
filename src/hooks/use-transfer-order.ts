@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { branchShortCount, kitchenShortCount } from "@/lib/transfer-lines";
 import { ZERO_AFTER_SEND, isDelivered, planLineEdits, returnSent, statusWord } from "@/lib/transfer-stock";
 import { callDbFunction, moveOrder, orderState, removeDistribution, syncDistribution } from "@/lib/transfer-stock-db";
@@ -109,10 +109,11 @@ async function stillDraft(toId: string): Promise<boolean> {
   return false;
 }
 
-/** Request lines start undeclined again (their order was thrown away, cancelled or deleted) */
-async function clearDeclines(trIds: string[]) {
-  if (trIds.length === 0) return;
-  await supabase.from("transfer_request_lines").update({ decline_reason: null, declined_at: null, declined_by: null }).in("tr_id", trIds).not("declined_at", "is", null);
+/** Request lines start undeclined again (their order was thrown away, cancelled or deleted); the error, if any */
+async function clearDeclines(trIds: string[]): Promise<{ message: string } | null> {
+  if (trIds.length === 0) return null;
+  const { error } = await supabase.from("transfer_request_lines").update({ decline_reason: null, declined_at: null, declined_by: null }).in("tr_id", trIds).not("declined_at", "is", null);
+  return error;
 }
 
 export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) {
@@ -149,6 +150,16 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   }, []);
 
   const fetchPendingTRs = useCallback(async () => {
+    try {
+      await readPendingTRs();
+    } catch {
+      // The queue on screen stays as it was (never "nothing waiting" from a failed read)
+      toast.error("โหลดใบขอเบิกที่รอไม่สำเร็จ รายการที่เห็นอาจไม่ล่าสุด ลองรีเฟรช");
+      setPendingLoading(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const readPendingTRs = async () => {
     fetchDrafts();
     const { data: candidates, error } = await supabase
       .from("transfer_requests")
@@ -162,12 +173,13 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       return;
     }
     const candidateIds = candidates.map((t) => t.id);
-    const { data: tos } = await supabase
-      .from("transfer_orders")
-      .select("id, to_number, tr_id, status, created_at")
-      .in("tr_id", candidateIds)
-      .neq("status", "Cancelled")
-      .order("created_at", { ascending: false });
+    // The requests' orders, branches and lines in one round (the lines used to wait for the
+    // orders to say which requests still wait; the few already sent are dropped below)
+    const [{ data: tos }, { data: branches }, { data: allLines }] = await Promise.all([
+      supabase.from("transfer_orders").select("id, to_number, tr_id, status, created_at").in("tr_id", candidateIds).neq("status", "Cancelled").order("created_at", { ascending: false }),
+      supabase.from("branches").select("id, branch_name").in("id", [...new Set(candidates.map((t) => t.branch_id))]),
+      fetchAllRowsOrThrow<any>((a, b) => supabase.from("transfer_request_lines").select("id, tr_id, sku_id, requested_qty, uom, sku_type, skus(sku_id, name)").in("tr_id", candidateIds).order("id").range(a, b)).then((data) => ({ data })),
+    ]);
     const sentFor = new Set((tos || []).filter((t) => t.status !== "Draft").map((t) => t.tr_id));
     const draftFor = new Map<string, { toId: string; toNumber: string; createdAt: string }>();
     for (const t of tos || []) {
@@ -180,15 +192,6 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       return;
     }
 
-    const branchIds = [...new Set(trs.map((t) => t.branch_id))];
-    const [{ data: branches }, { data: allLines }] = await Promise.all([
-      supabase.from("branches").select("id, branch_name").in("id", branchIds),
-      supabase
-        .from("transfer_request_lines")
-        .select("id, tr_id, sku_id, requested_qty, uom, sku_type, skus(sku_id, name)")
-        .in("tr_id", trs.map((t) => t.id))
-        .order("id"),
-    ]);
     const bMap: Record<string, string> = {};
     for (const b of branches || []) bMap[b.id] = b.branch_name;
 
@@ -218,7 +221,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       }),
     );
     setPendingLoading(false);
-  }, [fetchDrafts]);
+  };
 
   useEffect(() => {
     fetchPendingTRs();
@@ -345,7 +348,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       notes?: string;
       profileId?: string;
       trLines?: PendingTRLine[];
-    }): Promise<{ toId: string; toNumber: string; lines: TOLine[] } | { error: string }> => {
+    }): Promise<{ toId: string; toNumber: string; lines: TOLine[]; fresh?: boolean } | { error: string }> => {
       try {
         if (params.trId) {
           const { data: existing } = await supabase
@@ -359,15 +362,26 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           if (existing) return { toId: existing.id, toNumber: existing.to_number, lines: await linesOfTO(existing.id) };
         }
 
-        // A new order for a request starts with every requested line (old reasons off)
-        if (params.trId) await clearDeclines([params.trId]);
-
+        // A new order for a request starts with every requested line (old reasons off). That,
+        // the order number and the lines' prices and pack sizes are read together (one round:
+        // they were four in a row); none of them depends on another
         const now = new Date();
-        const { data: toNumber, error: rpcError } = await supabase.rpc("next_doc_number", {
-          p_type: "TO",
-          p_year: now.getFullYear(),
-          p_month: now.getMonth() + 1,
-        });
+        const trLines = params.trId && params.trLines && params.trLines.length > 0 ? params.trLines : null;
+        const rmSkuIds = (trLines ?? []).filter((l) => l.skuType === "RM" || l.skuType === "PK").map((l) => l.skuId);
+        const [clearErr, { data: toNumber, error: rpcError }, { data: prices }, { data: skuRows }] = await Promise.all([
+          params.trId ? clearDeclines([params.trId]) : Promise.resolve(null),
+          supabase.rpc("next_doc_number", {
+            p_type: "TO",
+            p_year: now.getFullYear(),
+            p_month: now.getMonth() + 1,
+          }),
+          // The standard: newest active price (one per supplier can be active)
+          rmSkuIds.length > 0
+            ? supabase.from("prices").select("sku_id, price_per_usage_uom").in("sku_id", rmSkuIds).eq("is_active", true).order("created_at", { ascending: false }).order("id")
+            : Promise.resolve({ data: [] as { sku_id: string; price_per_usage_uom: number }[] }),
+          // Pack size seeds the pack count on each line
+          trLines ? supabase.from("skus").select("id, pack_size").in("id", [...new Set(trLines.map((l) => l.skuId))]) : Promise.resolve({ data: [] as { id: string; pack_size: number }[] }),
+        ]);
         if (rpcError || !toNumber) return { error: rpcError?.message || "สร้างเลขใบโอนไม่ได้" };
 
         const { data: toRow, error: toError } = await supabase
@@ -393,21 +407,15 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           return { error: toError?.message || "สร้างใบโอนไม่ได้" };
         }
 
-        if (params.trId && params.trLines && params.trLines.length > 0) {
+        let ackErr: { message: string } | null = null;
+        if (params.trId && trLines) {
           // Cost: RM/PK from the active price, SM from its BOM cost (as before)
-          const rmSkuIds = params.trLines.filter((l) => l.skuType === "RM" || l.skuType === "PK").map((l) => l.skuId);
           const rmPriceMap: Record<string, number> = {};
-          if (rmSkuIds.length > 0) {
-            // The standard: newest active price (one per supplier can be active)
-            const { data: prices } = await supabase.from("prices").select("sku_id, price_per_usage_uom").in("sku_id", rmSkuIds).eq("is_active", true).order("created_at", { ascending: false }).order("id");
-            for (const p of prices || []) if (!(p.sku_id in rmPriceMap)) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
-          }
-          // Pack size seeds the pack count on each line
+          for (const p of prices || []) if (!(p.sku_id in rmPriceMap)) rmPriceMap[p.sku_id] = p.price_per_usage_uom;
           const packSizeMap: Record<string, number> = {};
-          const { data: skuRows } = await supabase.from("skus").select("id, pack_size").in("id", [...new Set(params.trLines.map((l) => l.skuId))]);
           for (const s of skuRows || []) packSizeMap[s.id] = Number(s.pack_size) || 0;
 
-          const lineInserts = params.trLines.map((l) => {
+          const lineInserts = trLines.map((l) => {
             const unitCost = l.skuType === "RM" || l.skuType === "PK" ? (rmPriceMap[l.skuId] ?? 0) : (getBomCostPerGram?.(l.skuId) ?? 0);
             const ps = packSizeMap[l.skuId] || 0;
             return {
@@ -430,13 +438,21 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             await supabase.from("transfer_orders").delete().eq("id", toRow.id).eq("status", "Draft");
             return { error: lErr.message };
           }
-          // The status column still feeds the branch's "already asked" figures
-          const { error: ackErr } = await supabase.from("transfer_requests").update({ status: "Acknowledged" }).eq("id", params.trId);
-          if (ackErr) toast.error("เริ่มใบโอนแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + ackErr.message);
         }
 
+        // The status column still feeds the branch's "already asked" figures; written beside
+        // the read of the new lines (one round, not two)
+        const [ack, lines] = await Promise.all([
+          params.trId && trLines ? supabase.from("transfer_requests").update({ status: "Acknowledged" }).eq("id", params.trId) : Promise.resolve({ error: null }),
+          linesOfTO(toRow.id),
+        ]);
+        ackErr = ack.error;
+        if (ackErr) toast.error("เริ่มใบโอนแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + ackErr.message);
+
         fetchPendingTRs();
-        return { toId: toRow.id, toNumber, lines: await linesOfTO(toRow.id) };
+        // fresh: a new order with every requested line and its old "ส่งไม่ได้" cleared — only
+        // when that clearing went through (else the screen reads back what's still declined)
+        return { toId: toRow.id, toNumber, lines, fresh: !clearErr };
       } catch (e: any) {
         return { error: e.message || "เกิดข้อผิดพลาด" };
       }
@@ -508,14 +524,14 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         return { error: "บันทึกบางรายการไม่ได้ ยังไม่ได้ส่ง" + (failed.error ? ": " + failed.error.message : "") };
       }
 
-      // Kitchen RM/PK out for the lines, dated the day it went out (SM is read from the lines)
-      const adjErr = await syncDistribution({ id: toId, toNumber: to.to_number, sentAt: to.sent_at, deliveryDate: to.delivery_date });
+      // Kitchen RM/PK out for the lines, dated the day it went out (SM is read from the lines),
+      // and the request closed: side by side (neither depends on the other)
+      const [adjErr, { error: fulErr }] = await Promise.all([
+        syncDistribution({ id: toId, toNumber: to.to_number, sentAt: to.sent_at, deliveryDate: to.delivery_date }),
+        to.tr_id ? supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.tr_id) : Promise.resolve({ error: null }),
+      ]);
       if (adjErr) toast.error("ส่งแล้ว แต่หักสต๊อกวัตถุดิบ/บรรจุภัณฑ์ของครัวไม่ได้: " + adjErr);
-
-      if (to.tr_id) {
-        const { error: fulErr } = await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.tr_id);
-        if (fulErr) toast.error("ส่งแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + fulErr.message);
-      }
+      if (fulErr) toast.error("ส่งแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + fulErr.message);
       fetchPendingTRs();
       return {};
     },

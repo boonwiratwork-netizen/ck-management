@@ -149,5 +149,16 @@ export function useGoodsReceiptData(enabled = true) {
     return true;
   }, []);
 
-  return { receipts, addReceipt, addReceipts, updateReceipt, editReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };
+  /** Several lines in one request (a whole bill was one delete per line, one after another); returns how many went */
+  const deleteReceipts = useCallback(async (ids: string[]): Promise<number> => {
+    if (ids.length === 0) return 0;
+    const { data, error } = await supabase.from('goods_receipts').delete().in('id', ids).select('id');
+    if (error) { toast.error('ลบรายการรับของไม่สำเร็จ: ' + error.message); return 0; }
+    const gone = new Set((data || []).map((r) => r.id));
+    if (gone.size < ids.length) toast.error(`ลบได้ ${gone.size} จาก ${ids.length} รายการ (บัญชีนี้ลบบางรายการไม่ได้)`);
+    setReceipts(prev => prev.filter(r => !gone.has(r.id)));
+    return gone.size;
+  }, []);
+
+  return { receipts, addReceipt, addReceipts, updateReceipt, editReceipt, deleteReceipt, deleteReceipts, isFullHistory, loadAllHistory, isLoadingAll, fetchReceipts };
 }

@@ -224,7 +224,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         }}
       />
     ) : (
-      <Empty text={data.loading ? "กำลังโหลด…" : "ใบโอนนี้รับหรือปฏิเสธไปแล้ว"} />
+      <Empty text={data.loading ? "กำลังโหลด…" : data.error ? "โหลดใบโอนไม่สำเร็จ ลองรีเฟรช" : "ใบโอนนี้รับหรือปฏิเสธไปแล้ว"} />
     );
   else if (view.startsWith("sup/"))
     work = supplier ? (
@@ -342,6 +342,11 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         </Button>
       </div>
 
+      {data.error && (
+        <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {data.error}
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-6 split:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cn("min-w-0", view !== "" && "hidden split:block")}>
           {branchId ? (

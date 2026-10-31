@@ -114,3 +114,18 @@ export const LOW_DAYS = 2;
 export function lowItems<R extends { physicalCount: number | null; expectedUsage: number }>(rows: R[]): R[] {
   return rows.filter((r) => Number(r.physicalCount) > 0 && r.expectedUsage > 0 && Number(r.physicalCount) / r.expectedUsage < LOW_DAYS);
 }
+
+/**
+ * The day's branch receipts, read once and split: from the kitchen (on a transfer order)
+ * and from outside (no transfer order, kept in the purchase unit — the converter is applied
+ * only when the balance is worked out). Summed per product.
+ */
+export function splitDayReceipts(rows: { sku_id: string; qty_received: number | string | null; transfer_order_id: string | null }[]): { extBySku: Record<string, number>; ckBySku: Record<string, number> } {
+  const extBySku: Record<string, number> = {};
+  const ckBySku: Record<string, number> = {};
+  for (const r of rows) {
+    const into = r.transfer_order_id === null ? extBySku : ckBySku;
+    into[r.sku_id] = (into[r.sku_id] || 0) + Number(r.qty_received);
+  }
+  return { extBySku, ckBySku };
+}

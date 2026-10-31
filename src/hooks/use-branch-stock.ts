@@ -81,6 +81,13 @@ export async function loadBranchStock(branchId: string, today: string, products:
   // A page that fails fails the read: partial rows would show (and order from) a wrong balance
   const all = <T,>(build: (a: number, b: number) => unknown) => fetchAllRowsOrThrow<T>(build as never);
   const window = anchorWindow(today);
+  // Receipts, moves and prices don't depend on the counts: asked for now, alongside them (one
+  // round trip less on every open and after every save)
+  const receiptsP = all<ReceiptMove>((a, b) => supabase.from("branch_receipts").select("id, sku_id, receipt_date, qty_received, transfer_order_id").eq("branch_id", branchId).gte("receipt_date", window.from).lte("receipt_date", today).order("id").range(a, b));
+  const adjustmentsP = all<AdjustmentMove>((a, b) => supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity, reason").eq("branch_id", branchId).gte("adjustment_date", window.from).lte("adjustment_date", today).order("id").range(a, b));
+  const pricesP = opts.prices === false ? Promise.resolve([] as { sku_id: string; price_per_usage_uom: number }[]) : all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b));
+  // Not left unhandled if the counts fail first (the await below rethrows them)
+  for (const p of [receiptsP, adjustmentsP, pricesP]) p.catch(() => undefined);
   // Today's untyped rows aren't anchors: their figure predates today's sales. "Today" is
   // the count day (before 05:00 it's still yesterday's sheet), as the count page has it
   const countDay = businessDate(new Date());
@@ -91,12 +98,12 @@ export async function loadBranchStock(branchId: string, today: string, products:
   const week = dailyUseWindow(today);
   const from = usageReadFrom(anchors, products, week.from);
   const [receipts, adjustments, waste, sales, ctx, priceRows] = await Promise.all([
-    all<ReceiptMove>((a, b) => supabase.from("branch_receipts").select("id, sku_id, receipt_date, qty_received, transfer_order_id").eq("branch_id", branchId).gte("receipt_date", window.from).lte("receipt_date", today).order("id").range(a, b)),
-    all<AdjustmentMove>((a, b) => supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity, reason").eq("branch_id", branchId).gte("adjustment_date", window.from).lte("adjustment_date", today).order("id").range(a, b)),
+    receiptsP,
+    adjustmentsP,
     all<WasteRow>((a, b) => supabase.from("daily_stock_counts").select("id, sku_id, count_date, waste").eq("branch_id", branchId).gt("waste", 0).gte("count_date", from).lte("count_date", today).order("id").range(a, b)),
     all<UsageSaleRow>((a, b) => supabase.from("sales_entries").select("id, sale_date, menu_code, menu_name, qty").eq("branch_id", branchId).gte("sale_date", from).lte("sale_date", today).order("id").range(a, b)),
     shared.ctx,
-    opts.prices === false ? Promise.resolve([] as { sku_id: string; price_per_usage_uom: number }[]) : all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b)),
+    pricesP,
   ]);
   const prices = new Map<string, number>();
   for (const p of priceRows) if (!prices.has(p.sku_id)) prices.set(p.sku_id, Number(p.price_per_usage_uom) || 0);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
-import { batchShare, batchesForRecord, daysTone, deltas, editMovesStock, editTarget, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput } from "./production";
+import { batchShare, batchesForRecord, daysTone, deltas, editMovesStock, editTarget, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput, writeProductionMoves } from "./production";
 
 const header = (o: Partial<BOMHeader>): BOMHeader => ({ id: "h", smSkuId: "sm", productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1, ...o }) as BOMHeader;
 const line = (o: Partial<BOMLine>): BOMLine => ({ id: Math.random().toString(), bomHeaderId: "h", rmSkuId: "bone", qtyPerBatch: 1000, yieldPercent: 1, ...o }) as BOMLine;
@@ -120,5 +120,58 @@ describe("editing a saved record", () => {
     expect([...editTarget(new Map([["bone", -1000], ["fat", 120]]), 33000, 66000, today)]).toEqual([["bone", -2000], ["fat", 240]]);
     expect([...editTarget(new Map(), 33000, 16500, today)]).toEqual([...today()]);
     expect([...editTarget(savedNet, 0, 16500, today)]).toEqual([...today()]);
+  });
+});
+
+describe("writing a record's stock moves", () => {
+  const per = { byproductIds: new Set(["oil"]), typeOf: new Map([["stock", "SM"], ["garlic", "RM"], ["salt", "RM"]]) };
+  const moves = [
+    { skuId: "stock", qty: -500 },
+    { skuId: "garlic", qty: -200 },
+    { skuId: "salt", qty: -10 },
+    { skuId: "oil", qty: 300 },
+  ];
+
+  it("SM and RM each in one insert; by-products as SM with their own reason", async () => {
+    const sm: unknown[] = [];
+    const rm: unknown[] = [];
+    const missing = await writeProductionMoves(moves, "2026-10-31", "Production: 1 batches", "Production by-product: 1 batches", per, {
+      smMany: async (rows) => (sm.push(...rows), "ok"),
+      smOne: async () => true,
+      rmMany: async (rows) => (rm.push(...rows), "ok"),
+      rmOne: async () => true,
+    });
+    expect(missing).toEqual([]);
+    expect(sm).toEqual([
+      { sku_id: "stock", adjustment_date: "2026-10-31", quantity: -500, reason: "Production: 1 batches", stock_type: "SM" },
+      { sku_id: "oil", adjustment_date: "2026-10-31", quantity: 300, reason: "Production by-product: 1 batches", stock_type: "SM" },
+    ]);
+    expect(rm).toEqual([
+      { skuId: "garlic", date: "2026-10-31", quantity: -200, reason: "Production: 1 batches" },
+      { skuId: "salt", date: "2026-10-31", quantity: -10, reason: "Production: 1 batches" },
+    ]);
+  });
+
+  it("a refused insert is written row by row; what still fails is named (the save is partial, not done)", async () => {
+    const one: string[] = [];
+    const missing = await writeProductionMoves(moves, "2026-10-31", "r", "b", per, {
+      smMany: async () => "none",
+      smOne: async (row) => (one.push(row.sku_id), row.sku_id !== "oil"),
+      rmMany: async () => "none",
+      rmOne: async (row) => (one.push(row.skuId), row.skuId !== "salt"),
+    });
+    expect(one.sort()).toEqual(["garlic", "oil", "salt", "stock"]);
+    expect(missing.sort()).toEqual(["oil", "salt"]);
+  });
+
+  it("an insert that answered short is not written again (it could double): all its rows named", async () => {
+    let tried = 0;
+    const missing = await writeProductionMoves(moves, "2026-10-31", "r", "b", per, {
+      smMany: async () => "unknown",
+      smOne: async () => (tried++, true),
+      rmOne: async () => true, // no bulk writer: RM row by row
+    });
+    expect(tried).toBe(0);
+    expect(missing).toEqual(["stock", "oil"]);
   });
 });

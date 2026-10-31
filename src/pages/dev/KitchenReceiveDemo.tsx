@@ -81,6 +81,10 @@ export default function KitchenReceiveDemo() {
       setReceipts((p) => p.filter((r) => r.id !== id));
       return true;
     },
+    deleteReceipts: async (ids: string[]) => {
+      setReceipts((p) => p.filter((r) => !ids.includes(r.id)));
+      return ids.length;
+    },
     isFullHistory: false,
     loadAllHistory: async () => undefined,
     isLoadingAll: false,

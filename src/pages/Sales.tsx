@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { TabKey } from "@/components/AppSidebar";
+import { withBusy } from "@/lib/with-busy";
 
 interface Props {
   branches: Branch[];
@@ -162,12 +163,11 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
   };
   const save = async () => {
     if (!branchId) return;
-    setSaving(true);
     const writes = plans.map((p) => ({ date: p.date, ...dayWrites(branchId, p, modes[p.date] ?? "add") })).filter((w) => w.insert.length || w.update.length || w.deleteIds.length || w.kept);
-    const res = await data.saveImport(writes);
-    setSaving(false);
-    await data.reloadDays();
-    if (!res.failedDay) {
+    const res = await withBusy(setSaving, () => data.saveImport(writes));
+    // The day list catches up behind the message (the button no longer waits for it)
+    void data.reloadDays();
+    if (res && !res.failedDay) {
       // Sales in first, then the count (the balance takes the sales off)
       toast.success(`บันทึกยอดขาย ${res.inserted.toLocaleString()} รายการแล้ว`, onNavigate ? { action: { label: "ไปนับสต๊อก", onClick: () => onNavigate("daily-stock-count") }, duration: 10000 } : undefined);
       setReads([]);

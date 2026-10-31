@@ -1,7 +1,22 @@
 // CK Manager service worker: makes the app installable and quick to reopen.
 // Only same-origin GETs are handled; Supabase/API calls always go to the network,
 // so stock and money numbers are never served from cache.
-const CACHE = "ck-shell-v2";
+// v3: the saved page only. v2 also kept every build file ever opened (892 files, 56 MB on the
+// office laptop) and answered each one from that pile: opening a page waited 1.5-2.7 s for
+// files the browser itself already had. Activating v3 deletes v2.
+const CACHE = "ck-shell-v3";
+
+// Keep the store small: the saved page plus the newest 300 build files (a build is ~60)
+const KEEP = 300;
+const touched = new Set();
+function trim() {
+  return caches.open(CACHE).then((c) =>
+    c.keys().then((keys) => {
+      const files = keys.filter((k) => new URL(k.url).pathname !== "/");
+      return Promise.all(files.slice(0, Math.max(0, files.length - KEEP)).map((k) => c.delete(k)));
+    }),
+  );
+}
 
 self.addEventListener("install", () => {
   // Wait for the page to ask (update prompt) before taking over
@@ -51,20 +66,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed build assets never change: cache first
+  // Build files (/assets/, hashed, never change) and icons. Online: not answered here — the
+  // browser's own cache answers in a few ms, while answering from this worker's store cost
+  // 1.5-2.7 s a file (v2). A copy is still saved in the background (first open of a new build
+  // only) so the app opens offline. Offline: from that copy.
   if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/")) {
-    event.respondWith(
-      caches.match(req).then(
-        (hit) =>
-          hit ||
-          fetch(req).then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy));
-            }
-            return res;
+    if (self.navigator.onLine) {
+      event.waitUntil(
+        caches.open(CACHE).then((c) =>
+          c.match(req).then((hit) => {
+            // Still in use: moved to the newest end once per worker start, so trimming keeps it
+            if (hit) return touched.has(req.url) ? undefined : (touched.add(req.url), c.delete(req).then(() => c.put(req, hit)));
+            return fetch(req).then((res) => (res.ok ? c.put(req, res).then(trim) : undefined));
           }),
-      ),
-    );
+        ).catch(() => undefined),
+      );
+      return;
+    }
+    event.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
   }
 });

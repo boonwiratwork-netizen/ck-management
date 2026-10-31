@@ -5,6 +5,8 @@ import { loadBranchStock, sharedBranchRead, type BranchStockData } from "@/hooks
 import { branchFigures, receiptConverter } from "@/lib/branch-stock";
 import { dailyUseWindow } from "@/lib/daily-use";
 import { requestFigures, type RequestStatus } from "@/lib/request-lines";
+import { brandMenuIds } from "@/lib/branch-menus-db";
+import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 
 export type BranchSmStockStatus = RequestStatus;
 
@@ -49,9 +51,21 @@ export function useBranchSmStock(branchId: string | null) {
     const shared = sharedBranchRead(branchId, today);
 
     try {
-      // 1. Get branch brand_name
-      const { data: branch } = await supabase.from("branches").select("brand_name").eq("id", branchId).single();
-      if (!branch) {
+      // 1. The branch's brand and its active menus, the branch's closed menus, the active SM
+      // products and the kitchen's lead time — all in one round (they were five in a row)
+      const [brand, overridesRes, smRes, ckRes] = await Promise.all([
+        brandMenuIds(branchId),
+        supabase
+          .from("branch_menu_overrides")
+          .select("menu_id, is_active")
+          .eq("branch_id", branchId)
+          .eq("is_active", false),
+        fetchAllRowsOrThrow<{ id: string; sku_id: string; name: string; usage_uom: string; pack_size: number; purchase_uom: string; converter: number }>((a, b) =>
+          supabase.from("skus").select("id, sku_id, name, usage_uom, pack_size, purchase_uom, converter").eq("type", "SM").eq("status", "Active").order("id").range(a, b),
+        ).then((data) => ({ data })),
+        supabase.from("suppliers").select("lead_time").eq("is_central_kitchen", true).limit(1).maybeSingle(),
+      ]);
+      if (!brand) {
         setSmStock({});
         setSmSkuList([]);
         setStockError(false);
@@ -59,17 +73,9 @@ export function useBranchSmStock(branchId: string | null) {
         return;
       }
 
-      // 2. Get active menus for this brand + branch overrides
-      const [menusRes, overridesRes] = await Promise.all([
-        supabase.from("menus").select("id").eq("brand_name", branch.brand_name).eq("status", "Active"),
-        supabase
-          .from("branch_menu_overrides")
-          .select("menu_id, is_active")
-          .eq("branch_id", branchId)
-          .eq("is_active", false),
-      ]);
+      // 2. Active menus for this brand, less the ones closed at this branch
       const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
-      const menuIds = (menusRes.data || []).map((m) => m.id).filter((id) => !suppressedMenuIds.has(id));
+      const menuIds = brand.menuIds.filter((id) => !suppressedMenuIds.has(id));
       if (menuIds.length === 0) {
         setSmStock({});
         setSmSkuList([]);
@@ -80,8 +86,8 @@ export function useBranchSmStock(branchId: string | null) {
 
       // 3. Get distinct SM sku_ids from menu_bom for those menus
       const { data: bomEntries } = await supabase.from("menu_bom").select("sku_id").in("menu_id", menuIds);
-      const bomSkuIds = [...new Set((bomEntries || []).map((b) => b.sku_id))];
-      if (bomSkuIds.length === 0) {
+      const bomSkuIds = new Set((bomEntries || []).map((b) => b.sku_id));
+      if (bomSkuIds.size === 0) {
         setSmStock({});
         setSmSkuList([]);
         setStockError(false);
@@ -89,14 +95,8 @@ export function useBranchSmStock(branchId: string | null) {
         return;
       }
 
-      // 4. Filter to active SM SKUs only
-      const { data: smSkus } = await supabase
-        .from("skus")
-        .select("id, sku_id, name, usage_uom, pack_size, purchase_uom, converter")
-        .eq("type", "SM")
-        .eq("status", "Active")
-        .in("id", bomSkuIds);
-      const skuRecords = smSkus || [];
+      // 4. Active SM SKUs on those recipes only
+      const skuRecords = (smRes.data || []).filter((s) => bomSkuIds.has(s.id));
       const skuIds = skuRecords.map((s) => s.id);
       if (skuIds.length === 0) {
         setSmStock({});
@@ -121,8 +121,8 @@ export function useBranchSmStock(branchId: string | null) {
       // (lib/branch-stock.ts): each product's anchor + receipts + moves − sales usage − waste
       // after it, use over the shared 7-day window. This hook used to keep its own copy,
       // which skipped waste after the count.
-      // CK lead time
-      const { data: ckSupplier } = await supabase.from("suppliers").select("lead_time").eq("is_central_kitchen", true).limit(1).maybeSingle();
+      // CK lead time (read in step 1)
+      const ckSupplier = ckRes.data;
       const leadTime = ckSupplier?.lead_time && ckSupplier.lead_time > 0 ? ckSupplier.lead_time : 1;
       let stock: BranchStockData;
       try {

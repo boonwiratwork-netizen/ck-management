@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { failedMessage } from "@/lib/with-busy";
 
 const GUIDE: GuideStep[] = [
   {
@@ -105,40 +106,50 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
     if (view === "done" && !done) go("", true);
   }, [view, form, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const open = async (base: Omit<PackForm, "declined" | "lines">, lines: TOLine[], trId?: string | null) => {
-    const declined = trId ? await to.fetchDeclined(trId) : [];
-    setForm({ ...base, lines, declined });
+  /** `declined`: the request's "ส่งไม่ได้" lines, or a read of them still on its way */
+  const open = async (base: Omit<PackForm, "declined" | "lines">, lines: TOLine[], declined: PackForm["declined"] | Promise<PackForm["declined"]>) => {
+    setForm({ ...base, lines, declined: await declined });
     go("pack");
   };
+  /** A thrown error (dropped connection mid-way) clears the spinner and says so */
+  const failed = (e: unknown) => toast.error(failedMessage(e));
 
   const start = async (tr: PendingTR) => {
     if (busy) return; // a second tap must not start a second order
     setBusy(true);
-    const res = await to.createTO({ trId: tr.trId, branchId: tr.branchId, deliveryDate: today(), profileId: profileId || undefined, trLines: tr.lines });
-    if ("error" in res) {
+    try {
+      // Continuing a started draft: its "ส่งไม่ได้" lines are read beside finding it
+      const declinedRead = tr.draft ? to.fetchDeclined(tr.trId) : null;
+      const res = await to.createTO({ trId: tr.trId, branchId: tr.branchId, deliveryDate: today(), profileId: profileId || undefined, trLines: tr.lines });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      await open(
+        { toId: res.toId, toNumber: res.toNumber, branchId: tr.branchId, branchName: tr.branchName, deliveryDate: today(), notes: "", trId: tr.trId, trNumber: tr.trNumber, requiredDate: tr.requiredDate },
+        res.lines,
+        // A new order starts with every requested line (nothing "ส่งไม่ได้" to read back)
+        res.fresh ? [] : declinedRead ?? to.fetchDeclined(tr.trId),
+      );
+    } catch (e) {
+      failed(e);
+    } finally {
       setBusy(false);
-      toast.error(res.error);
-      return;
     }
-    await open(
-      { toId: res.toId, toNumber: res.toNumber, branchId: tr.branchId, branchName: tr.branchName, deliveryDate: today(), notes: "", trId: tr.trId, trNumber: tr.trNumber, requiredDate: tr.requiredDate },
-      res.lines,
-      tr.trId,
-    );
-    setBusy(false);
   };
 
+  // The order's lines and the request's declined lines are read together (they were one after the other)
   const openDraft = async (row: { id: string; toNumber: string; branchId: string; branchName: string; trId: string | null }) => {
-    const lines = await to.fetchTODetail(row.id);
-    await open({ toId: row.id, toNumber: row.toNumber, branchId: row.branchId, branchName: row.branchName, deliveryDate: today(), notes: "", trId: row.trId ?? undefined }, lines, row.trId);
+    const [lines, declined] = await Promise.all([to.fetchTODetail(row.id), row.trId ? to.fetchDeclined(row.trId) : []]);
+    await open({ toId: row.id, toNumber: row.toNumber, branchId: row.branchId, branchName: row.branchName, deliveryDate: today(), notes: "", trId: row.trId ?? undefined }, lines, declined);
   };
 
   const editSent = async (row: TOHistoryRow) => {
-    const lines = await to.fetchTODetail(row.id);
+    const [lines, declined] = await Promise.all([to.fetchTODetail(row.id), row.trId ? to.fetchDeclined(row.trId) : []]);
     await open(
       { toId: row.id, toNumber: row.toNumber, branchId: row.branchId, branchName: row.branchName, deliveryDate: row.deliveryDate, notes: row.notes, trId: row.trId ?? undefined, trNumber: row.trRef !== "—" ? row.trRef : undefined, isEditingSent: true },
       lines,
-      row.trId,
+      declined,
     );
   };
 
@@ -231,8 +242,14 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
     if (!form) return;
     if (form.isEditingSent) {
       setBusy(true);
-      const ok = (await to.saveTOEdits(form.toId, form.lines, profileId)) && (await lots.commit());
-      setBusy(false);
+      let ok = false;
+      try {
+        ok = (await to.saveTOEdits(form.toId, form.lines, profileId)) && (await lots.commit());
+      } catch (e) {
+        failed(e);
+      } finally {
+        setBusy(false);
+      }
       if (ok) {
         refreshSmStock?.();
         setForm(null);
@@ -260,32 +277,40 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   const send = async () => {
     if (!form || busy) return;
     setBusy(true);
-    if (!(await lots.settle())) {
-      setBusy(false);
-      toast.error("บันทึกล็อตไม่ได้ ลองเปิดล็อตแล้วกดเติมอีกครั้ง");
-      return;
-    }
-    // A line left at 0 isn't sent: a requested one counts as "ส่งไม่ได้" so the
-    // branch sees it (a 0 on a sent order would read as the full request)
     let f = form;
-    for (const l of form.lines.filter((x) => x.actualQty <= 0)) {
-      const reason = "ครัวใส่ 0 ไม่ได้ส่ง";
-      if (!(await to.deleteTOLine(form.toId, l.id, l.trLineId, reason, profileId))) {
-        setBusy(false);
+    let res: { error?: string };
+    try {
+      if (!(await lots.settle())) {
+        toast.error("บันทึกล็อตไม่ได้ ลองเปิดล็อตแล้วกดเติมอีกครั้ง");
         return;
       }
-      const t = skuOf(l.skuId)?.type;
-      f = {
-        ...f,
-        lines: f.lines.filter((x) => x.id !== l.id),
-        declined: l.trLineId
-          ? [...f.declined, { reason, line: { id: l.trLineId, skuId: l.skuId, skuCode: l.skuCode, skuName: l.skuName, uom: l.uom, requestedQty: l.plannedQty, skuType: t === "RM" ? "RM" : t === "PK" ? "PK" : "SM" } }]
-          : f.declined,
-      };
+      // A line left at 0 isn't sent: a requested one counts as "ส่งไม่ได้" so the
+      // branch sees it (a 0 on a sent order would read as the full request). All of
+      // them at once (they were one after another, 4 requests each)
+      const reason = "ครัวใส่ 0 ไม่ได้ส่ง";
+      const zero = form.lines.filter((x) => x.actualQty <= 0);
+      const removed = await Promise.all(zero.map((l) => to.deleteTOLine(form.toId, l.id, l.trLineId, reason, profileId)));
+      zero.forEach((l, i) => {
+        if (!removed[i]) return;
+        const t = skuOf(l.skuId)?.type;
+        f = {
+          ...f,
+          lines: f.lines.filter((x) => x.id !== l.id),
+          declined: l.trLineId
+            ? [...f.declined, { reason, line: { id: l.trLineId, skuId: l.skuId, skuCode: l.skuCode, skuName: l.skuName, uom: l.uom, requestedQty: l.plannedQty, skuType: t === "RM" ? "RM" : t === "PK" ? "PK" : "SM" } }]
+            : f.declined,
+        };
+      });
+      // The screen shows what was taken off, also when one couldn't be (then nothing is sent)
+      if (f !== form) setForm(f);
+      if (removed.some((ok) => !ok)) return;
+      res = await to.sendTO(f.toId, f.lines, f.notes, today());
+    } catch (e) {
+      failed(e);
+      return;
+    } finally {
+      setBusy(false);
     }
-    if (f !== form) setForm(f);
-    const res = await to.sendTO(f.toId, f.lines, f.notes, today());
-    setBusy(false);
     if (res.error) {
       toast.error(res.error);
       return;
@@ -320,15 +345,22 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   const createStandalone = async () => {
     if (!standalone?.branchId) return;
     setBusy(true);
-    const res = await to.createTO({ branchId: standalone.branchId, deliveryDate: today(), notes: standalone.notes, profileId: profileId || undefined });
-    setBusy(false);
+    let res: Awaited<ReturnType<typeof to.createTO>>;
+    try {
+      res = await to.createTO({ branchId: standalone.branchId, deliveryDate: today(), notes: standalone.notes, profileId: profileId || undefined });
+    } catch (e) {
+      failed(e);
+      return;
+    } finally {
+      setBusy(false);
+    }
     if ("error" in res) {
       toast.error(res.error);
       return;
     }
     const b = branches.find((x) => x.id === standalone.branchId);
     setStandalone(null);
-    await open({ toId: res.toId, toNumber: res.toNumber, branchId: standalone.branchId, branchName: b?.branchName ?? "", deliveryDate: today(), notes: standalone.notes }, [], null);
+    await open({ toId: res.toId, toNumber: res.toNumber, branchId: standalone.branchId, branchName: b?.branchName ?? "", deliveryDate: today(), notes: standalone.notes }, [], []);
     setAdding(true);
   };
 

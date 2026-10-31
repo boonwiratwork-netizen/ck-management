@@ -43,7 +43,10 @@ export default function KitchenCountDemo() {
       setSaved(timing ?? "(ไม่ส่ง)");
       return true;
     },
-    softDeleteSession: async (id: string) => setSessions((p) => p.filter((s) => s.id !== id)),
+    softDeleteSession: async (id: string) => {
+      setSessions((p) => p.filter((s) => s.id !== id));
+      return true as const;
+    },
     getLinesForSession: (id: string) => lines.filter((l) => l.sessionId === id),
     refreshSystemQty: async () => true,
   } as unknown as ReturnType<typeof useStockCountData>;

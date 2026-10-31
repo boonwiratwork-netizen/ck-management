@@ -6,6 +6,7 @@ import { manualRow, type SalesInsertRow } from "@/lib/sales-import";
 import { ActionFooter, PackStepper, baht } from "@/components/receive/parts";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 /**
  * Sales made outside the POS, one menu at a time (the old "บันทึกทีละรายการ").
@@ -148,9 +149,7 @@ export function SalesManual({
         disabled={!menu || unitPrice <= 0}
         onAction={async () => {
           if (!menu) return;
-          setSaving(true);
-          const ok = await onSave(manualRow({ branchId, date, menuCode: menu.menuCode, menuName: menu.menuName, optionKeyword: rule?.keyword, qty, unitPrice }));
-          setSaving(false);
+          const ok = await withBusy(setSaving, () => onSave(manualRow({ branchId, date, menuCode: menu.menuCode, menuName: menu.menuName, optionKeyword: rule?.keyword, qty, unitPrice })));
           if (ok) {
             setAdded((a) => [`${menu.menuName}${rule ? ` + ${rule.keyword}` : ""} × ${qty} (${date})`, ...a]);
             pick(null);

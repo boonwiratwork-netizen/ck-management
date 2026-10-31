@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionFooter, NoteField, PackQtyInput, RemoveButton, SkuPicker, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 export interface PricedSku {
   sku: SKU;
@@ -50,17 +51,16 @@ export function ReceiveKitchenAdHoc({
 
   const doSave = async (skip: boolean) => {
     if (!rows.length) return;
-    setSaving(true);
-    if (!skip) {
-      const dups = await findDoubles(rows.map((r) => ({ skuId: r.skuId, qty: r.qtyReceived })));
-      if (dups.length) {
-        setDupText(`ของเหล่านี้เพิ่งรับผ่านใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ไม่ต้องบันทึกซ้ำ ให้กดยกเลิก`);
-        setSaving(false);
-        return;
+    await withBusy(setSaving, async () => {
+      if (!skip) {
+        const dups = await findDoubles(rows.map((r) => ({ skuId: r.skuId, qty: r.qtyReceived })));
+        if (dups.length) {
+          setDupText(`ของเหล่านี้เพิ่งรับผ่านใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ไม่ต้องบันทึกซ้ำ ให้กดยกเลิก`);
+          return;
+        }
       }
-    }
-    await onSave(rows);
-    setSaving(false);
+      await onSave(rows);
+    });
   };
 
   return (
@@ -217,11 +217,7 @@ export function ReceiveFromBranch({
         action="บันทึก"
         busy={saving}
         disabled={!rows.length}
-        onAction={async () => {
-          setSaving(true);
-          await onSave(rows);
-          setSaving(false);
-        }}
+        onAction={() => withBusy(setSaving, () => onSave(rows))}
       />
     </div>
   );

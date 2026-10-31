@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { baht, packLabel } from "./parts";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 interface Props {
   history: HistoryReceipt[];
@@ -184,9 +185,7 @@ function EditReceipt({ r, sku, onClose, onSave }: { r: HistoryReceipt; sku?: SKU
             loading={saving}
             disabled={!(qty > 0)}
             onClick={async () => {
-              setSaving(true);
-              const ok = await onSave(r, { qtyReceived: qty, actualTotal: Math.max(0, Number(total) || 0), notes });
-              setSaving(false);
+              const ok = await withBusy(setSaving, () => onSave(r, { qtyReceived: qty, actualTotal: Math.max(0, Number(total) || 0), notes }));
               if (ok) onClose();
             }}
           >

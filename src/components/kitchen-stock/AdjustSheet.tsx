@@ -4,6 +4,7 @@ import type { SKU } from "@/types/sku";
 import { afterCount, type CountAnchor } from "@/lib/count-anchor";
 import { Button } from "@/components/ui/button";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 /** The reasons the kitchen really types (60 days of adjustments, Oct 2026) */
 const REASONS = ["Workshop", "ส่งเทสสูตร", "ใช้ในครัว", "เสีย / ทิ้ง", "อื่นๆ"] as const;
@@ -47,9 +48,7 @@ export function AdjustSheet({
 
   const save = async () => {
     if (!ready || busy) return;
-    setBusy(true);
-    const ok = await onSave({ skuId: sku.id, date, quantity: dir === "in" ? amount : -amount, reason: safe });
-    setBusy(false);
+    const ok = await withBusy(setBusy, () => onSave({ skuId: sku.id, date, quantity: dir === "in" ? amount : -amount, reason: safe }));
     if (ok) onClose();
   };
 

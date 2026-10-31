@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { perBranchRows } from "@/lib/per-branch";
 import { toLocalDateStr, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Branch } from "@/types/branch";
@@ -57,16 +57,20 @@ export interface BranchDay {
 const baht = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`;
 
 async function loadDays(branchIds: string[], today: string, yesterday: string, monthStart: string): Promise<Record<string, BranchDay>> {
-  const all = <T,>(build: (a: number, b: number) => unknown) => fetchAllRows<T>(build as never).then((r) => r.data);
+  // Per branch, side by side: a month of every branch's sales is many pages, which one read
+  // fetched one after another. A failed read fails the page (shown as an error, never as
+  // "sales not in yet" or "nothing counted")
+  const countFrom = toLocalDateStr(new Date(Date.parse(`${yesterday}T00:00:00`) - 6 * 86_400_000));
   const [sales, counts, tos, skus] = await Promise.all([
-    all<{ branch_id: string; sale_date: string; net_amount: number }>((a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, net_amount").in("branch_id", branchIds).gte("sale_date", monthStart).lte("sale_date", today).order("id").range(a, b)),
+    perBranchRows<{ branch_id: string; sale_date: string; net_amount: number }>(branchIds, (id, a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, net_amount").eq("branch_id", id).gte("sale_date", monthStart).lte("sale_date", today).order("id").range(a, b) as never),
     // The last few days of count sheets: yesterday's state and the latest finished count
-    all<{ branch_id: string; count_date: string; sku_id: string; physical_count: number | null; expected_usage: number; is_submitted: boolean }>((a, b) =>
-      supabase.from("daily_stock_counts").select("id, branch_id, count_date, sku_id, physical_count, expected_usage, is_submitted").in("branch_id", branchIds).gte("count_date", toLocalDateStr(new Date(Date.parse(`${yesterday}T00:00:00`) - 6 * 86_400_000))).lte("count_date", today).order("id").range(a, b),
+    perBranchRows<{ branch_id: string; count_date: string; sku_id: string; physical_count: number | null; expected_usage: number; is_submitted: boolean }>(branchIds, (id, a, b) =>
+      supabase.from("daily_stock_counts").select("id, branch_id, count_date, sku_id, physical_count, expected_usage, is_submitted").eq("branch_id", id).gte("count_date", countFrom).lte("count_date", today).order("id").range(a, b) as never,
     ),
     supabase.from("transfer_orders").select("id, branch_id").in("branch_id", branchIds).eq("status", "Sent"),
     supabase.from("skus").select("id, name"),
   ]);
+  if (tos.error) throw tos.error;
   const name = new Map((skus.data ?? []).map((s) => [s.id, s.name as string]));
   const out: Record<string, BranchDay> = {};
   for (const b of branchIds) {

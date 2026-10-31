@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionFooter, NoteField, PackQtyInput, PriceField, RemoveButton, SkuPicker, baht, onEnterNext, packHint } from "./parts";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 interface Line {
   key: string;
@@ -167,9 +168,7 @@ export function ReceiveSupplier({ supplier, branchId, receiptDate, supplierSkus,
       return;
     }
     if (!rows.length) return;
-    setSaving(true);
-    await onSave(rows, prGroup?.prIds ?? []);
-    setSaving(false);
+    await withBusy(setSaving, () => onSave(rows, prGroup?.prIds ?? []));
   };
 
   return (

@@ -1,3 +1,4 @@
+import { writeAllOrEach, type BulkResult } from "@/lib/bulk-write";
 /**
  * Rules for the central kitchen's production (การผลิต), apart from the screens:
  * what one batch uses, how much raw material a record takes out, and the weekly
@@ -162,3 +163,46 @@ export function usualOutput(records: { smSkuId: string; productionDate: string; 
 
 /** More than 5 times above or below the usual output: ask before saving */
 export const farFromUsual = (grams: number, usual: number) => usual > 0 && grams > 0 && (grams > usual * 5 || grams < usual / 5);
+
+
+/** A stock row a production record writes (SM as SM; other ingredients go to the kitchen's RM) */
+export interface SmMoveRow {
+  sku_id: string;
+  adjustment_date: string;
+  quantity: number;
+  reason: string;
+  stock_type: "SM";
+}
+export interface RmMove {
+  skuId: string;
+  date: string;
+  quantity: number;
+  reason: string;
+}
+/** Where the rows go: many at once, or one (true = in). Without `rmMany` RM goes one by one */
+export interface MoveWriters {
+  smMany: (rows: SmMoveRow[]) => Promise<BulkResult>;
+  smOne: (row: SmMoveRow) => Promise<boolean>;
+  rmMany?: (rows: RmMove[]) => Promise<BulkResult>;
+  rmOne: (row: RmMove) => Promise<boolean>;
+}
+
+/**
+ * A record's stock moves: by-products and SM ingredients as SM (by-products with their own
+ * reason), the rest as RM. Each kind in one insert, both at once; a refused insert is written
+ * again row by row. Returns the products whose stock did not move (empty = all did).
+ */
+export async function writeProductionMoves(
+  moves: { skuId: string; qty: number }[],
+  date: string,
+  reason: string,
+  byproductReason: string,
+  per: { byproductIds: Set<string>; typeOf: Map<string, string> },
+  w: MoveWriters,
+): Promise<string[]> {
+  const isSm = (m: { skuId: string }) => per.byproductIds.has(m.skuId) || per.typeOf.get(m.skuId) === "SM";
+  const sm: SmMoveRow[] = moves.filter(isSm).map((m) => ({ sku_id: m.skuId, adjustment_date: date, quantity: m.qty, reason: per.byproductIds.has(m.skuId) ? byproductReason : reason, stock_type: "SM" }));
+  const rm: RmMove[] = moves.filter((m) => !isSm(m)).map((m) => ({ skuId: m.skuId, date, quantity: m.qty, reason }));
+  const [smMissing, rmMissing] = await Promise.all([writeAllOrEach(sm, w.smMany, w.smOne), writeAllOrEach(rm, w.rmMany ?? (async () => "none" as const), w.rmOne)]);
+  return [...smMissing.map((r) => r.sku_id), ...rmMissing.map((r) => r.skuId)];
+}

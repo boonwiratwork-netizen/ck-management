@@ -225,18 +225,35 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
 
   const save = async (skuId: string, grams: number, notes: string, byproductQty?: Record<string, number>) => {
     setBusy(skuId);
-    const id = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes, byproductQty });
-    setBusy(null);
-    if (!id) return false;
+    let saved: Awaited<ReturnType<typeof addRecord>>;
+    try {
+      saved = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes, byproductQty });
+    } catch (e) {
+      toast.error("บันทึกผลผลิตไม่สำเร็จ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+    if (!saved) return false;
     refreshProductionRecords?.();
-    // Branches waiting on a request: the transfer order is next
-    const requests = onNavigate ? await fetchPendingTrCount().catch(() => 0) : 0;
-    toast.success(
-      `บันทึก ${nameOf(skuId)} แล้ว`,
-      requests && onNavigate ? { description: `ใบขอเบิกรอทำใบโอน ${requests} ใบ`, action: { label: "ทำใบโอน", onClick: () => onNavigate("transfer-order") }, duration: 10000 } : undefined,
+    // Saved, but some stock didn't move: say which, never "saved" (saving again would add a second pot)
+    if (saved.stockShort.length) {
+      stockShortError(`บันทึก ${nameOf(skuId)} แล้ว แต่ตัดสต๊อกไม่ได้`, saved.stockShort);
+      return true;
+    }
+    // Branches waiting on a request: the transfer order is next. Counted after the dialog
+    // closes (the save is done; the button used to wait for this count too)
+    const name = nameOf(skuId);
+    (onNavigate ? fetchPendingTrCount().catch(() => 0) : Promise.resolve(0)).then((requests) =>
+      toast.success(
+        `บันทึก ${name} แล้ว`,
+        requests && onNavigate ? { description: `ใบขอเบิกรอทำใบโอน ${requests} ใบ`, action: { label: "ทำใบโอน", onClick: () => onNavigate("transfer-order") }, duration: 10000 } : undefined,
+      ),
     );
     return true;
   };
+  /** Products whose stock didn't move with a save, named for a person to fix (not saved again) */
+  const stockShortError = (what: string, ids: string[]) => toast.error(`${what} ${ids.length} รายการ: ${ids.map(nameOf).join(", ")} · แจ้งผู้ดูแลระบบ อย่าบันทึกซ้ำ`, { duration: 20000 });
   const askByproducts = (skuId: string, grams: number, notes: string) => {
     const header = bomHeaders.find((h) => h.smSkuId === skuId);
     const items = header ? tracked.filter((b) => b.bomHeaderId === header.id) : [];
@@ -286,9 +303,15 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
     const rows = Object.entries(planPlan.plan)
       .filter(([, g]) => g > 0)
       .map(([sku_id, g]) => ({ week_start: planWeek, sku_id, planned_qty_uom: g }));
-    const { error: delErr } = await supabase.from("weekly_plan_lines" as never).delete().eq("week_start", planWeek);
-    const { error } = delErr ? { error: delErr } : rows.length ? await supabase.from("weekly_plan_lines" as never).insert(rows as never) : { error: null };
-    setSaving(false);
+    let error: { message: string } | null;
+    try {
+      const { error: delErr } = await supabase.from("weekly_plan_lines" as never).delete().eq("week_start", planWeek);
+      ({ error } = delErr ? { error: delErr } : rows.length ? await supabase.from("weekly_plan_lines" as never).insert(rows as never) : { error: null });
+    } catch (e) {
+      error = { message: e instanceof Error ? e.message : String(e) };
+    } finally {
+      setSaving(false);
+    }
     if (error) {
       toast.error("บันทึกแผนไม่ได้: " + error.message);
       return;
@@ -375,12 +398,19 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           onSave={async (d, grams, notes) => {
             if (editBusy) return;
             setEditBusy(true);
-            const ok = await updateRecordWithDelta(editing.id, { productionDate: d, actualOutputG: grams, notes });
-            setEditBusy(false);
+            let ok: Awaited<ReturnType<typeof updateRecordWithDelta>> = false;
+            try {
+              ok = await updateRecordWithDelta(editing.id, { productionDate: d, actualOutputG: grams, notes });
+            } catch (e) {
+              toast.error("แก้บันทึกไม่สำเร็จ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
+            } finally {
+              setEditBusy(false);
+            }
             if (ok) {
               setEditing(null);
               refreshProductionRecords?.();
-              toast.success("แก้แล้ว");
+              if (ok.stockShort.length) stockShortError("แก้แล้ว แต่ปรับสต๊อกไม่ได้", ok.stockShort);
+              else toast.success("แก้แล้ว");
             }
           }}
         />
@@ -485,9 +515,11 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
         onConfirm={async () => {
           const r = deleting;
           setDeleting(null);
-          if (r && (await deleteRecord(r.id))) {
+          const res = r ? await deleteRecord(r.id) : false;
+          if (res) {
             refreshProductionRecords?.();
-            toast.success("ลบแล้ว");
+            if (res.stockShort.length) stockShortError("ลบแล้ว แต่คืนวัตถุดิบไม่ได้", res.stockShort);
+            else toast.success("ลบแล้ว");
           }
         }}
       />

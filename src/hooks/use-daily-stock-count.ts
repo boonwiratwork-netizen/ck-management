@@ -1,11 +1,13 @@
 import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { addSaleUsage, usageContextFromApp } from "@/lib/sale-usage";
 import { anchorWindow, pickAnchors, sheetOpening, type AdjustmentMove, type ReceiptMove, type SheetCountRow, type WasteRow } from "@/lib/branch-stock";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 import { SaveQueue, type Patch, type SaveState } from "@/lib/save-queue";
+import { splitDayReceipts } from "@/lib/stock-count";
+import { recentRead, startRead, type RecentSlot } from "@/lib/recent-read";
 import { SKU } from "@/types/sku";
 import { MenuBomLine } from "@/types/menu-bom";
 import { ModifierRule } from "@/types/modifier-rule";
@@ -55,6 +57,9 @@ const toLocal = (r: any): DailyStockCountRow => ({
   adjNet: 0,
   adjDetails: [],
 });
+
+/** "เริ่มนับ" uses the opening read while the page opened if it's this fresh (it reads only days before the sheet's) */
+const OPENING_REUSE_MS = 2 * 60_000;
 
 interface UseDailyStockCountProps {
   skus: SKU[];
@@ -197,28 +202,18 @@ export function useDailyStockCount({
   // Returns: Record<saleDate, Record<skuId, usageQty>>
   const calculateExpectedUsageRangeByDate = useCallback(
     async (branchId: string, fromDate: string, toDate: string): Promise<Record<string, Record<string, number>>> => {
-      const [salesRes, overridesRes] = await Promise.all([
-        // A failed page fails the opening (it is saved on the sheet: no partial week of sales)
-        fetchAllRowsOrThrow((a, b) =>
-          supabase
-            .from("sales_entries")
-            .select("*")
-            .eq("branch_id", branchId)
-            .gt("sale_date", fromDate)
-            .lt("sale_date", toDate)
-            .order("id")
-            .range(a, b),
-        ).then((data) => ({ data })),
+      // A failed page fails the opening (it is saved on the sheet: no partial week of sales).
+      // (A read of the branch's closed menus sat beside it, never used: a sold menu uses stock)
+      const sales = await fetchAllRowsOrThrow((a, b) =>
         supabase
-          .from("branch_menu_overrides")
-          .select("menu_id, is_active")
+          .from("sales_entries")
+          .select("*")
           .eq("branch_id", branchId)
-          .eq("is_active", false),
-      ]);
-
-      const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
-
-      const sales = salesRes.data || [];
+          .gt("sale_date", fromDate)
+          .lt("sale_date", toDate)
+          .order("id")
+          .range(a, b),
+      );
       if (sales.length === 0) return {};
 
       // The one usage engine (sale-usage.ts): recipe → SP → rules, same as Food Cost.
@@ -368,54 +363,32 @@ export function useDailyStockCount({
     [getSkuConverter, calculateExpectedUsageRangeByDate, getBranchRelevantSkuIds],
   );
 
+  // The opening read while the page opens, kept a moment for "เริ่มนับ" (a new slot when the
+  // recipes/menus change: an opening worked out with old ones is never reused). It only reads
+  // days before the sheet's day, so a minute-old one is the same figure
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a new slot per opening function is the point
+  const openingSlot = useMemo<RecentSlot<Record<string, number>>>(() => ({ current: null }), [computeOpeningWithGap]);
+
   // Fetch live receipt totals for a branch+date
   const fetchReceiptTotals = useCallback(
     async (branchId: string, date: string) => {
-      const branch = branches.find((b) => b.id === branchId);
-      const branchName = branch?.branchName || "";
-
-      // A failed read fails the sheet's figures (they are written to it): nothing saved from it
-      const brData = await fetchAllRowsOrThrow((a, b) =>
-        supabase.from("branch_receipts").select("id, sku_id, qty_received").eq("branch_id", branchId).eq("receipt_date", date).is("transfer_order_id", null).order("id").range(a, b),
+      // A failed read fails the sheet's figures (they are written to it): nothing saved from it.
+      // The day's receipts in one read, split here (it was two reads one after the other)
+      const rows = await fetchAllRowsOrThrow((a, b) =>
+        supabase.from("branch_receipts").select("id, sku_id, qty_received, transfer_order_id").eq("branch_id", branchId).eq("receipt_date", date).order("id").range(a, b),
       );
-
-      const extBySku: Record<string, number> = {};
-      (brData || []).forEach((r) => {
-        // Store raw qty_received (Purchase UOM) for display; converter applied in calcBalance only
-        extBySku[r.sku_id] = (extBySku[r.sku_id] || 0) + Number(r.qty_received);
-      });
-
-      // FROM CK: read from branch_receipts where transfer_order_id IS NOT NULL
-      const ckData = await fetchAllRowsOrThrow((a, b) =>
-        supabase.from("branch_receipts").select("id, sku_id, qty_received").eq("branch_id", branchId).eq("receipt_date", date).not("transfer_order_id", "is", null).order("id").range(a, b),
-      );
-
-      const ckBySku: Record<string, number> = {};
-      (ckData || []).forEach((r) => {
-        ckBySku[r.sku_id] = (ckBySku[r.sku_id] || 0) + Number(r.qty_received);
-      });
+      const { extBySku, ckBySku } = splitDayReceipts(rows);
 
       return { extBySku, ckBySku };
     },
-    [branches, getSkuConverter],
+    [],
   );
 
   // Calculate expected usage from sales data × current BOM
   const calculateExpectedUsage = useCallback(
     async (branchId: string, date: string): Promise<Record<string, number>> => {
-      const [salesRes, overridesRes] = await Promise.all([
-        // Paged, and a failed read fails (a usage of 0 would be written into the sheet)
-        fetchAllRowsOrThrow((a, b) => supabase.from("sales_entries").select("*").eq("branch_id", branchId).eq("sale_date", date).order("id").range(a, b)).then((data) => ({ data })),
-        supabase
-          .from("branch_menu_overrides")
-          .select("menu_id, is_active")
-          .eq("branch_id", branchId)
-          .eq("is_active", false),
-      ]);
-
-      const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
-
-      const sales = salesRes.data || [];
+      // Paged, and a failed read fails (a usage of 0 would be written into the sheet)
+      const sales = await fetchAllRowsOrThrow((a, b) => supabase.from("sales_entries").select("*").eq("branch_id", branchId).eq("sale_date", date).order("id").range(a, b));
       if (sales.length === 0) return {};
 
       // The one usage engine (sale-usage.ts), same as Food Cost
@@ -453,6 +426,11 @@ export function useDailyStockCount({
       // saved and nothing is written (they used to come back empty and be saved as 0)
       const live = Promise.all([fetchReceiptTotals(branchId, date), calculateExpectedUsage(branchId, date), fetchDayAdjustments(branchId, date)]);
       live.catch(() => undefined); // handled where it's awaited
+      // The opening (3 reads in a row) starts beside the sheet too, instead of after it: on an
+      // open sheet it was the longest wait. Not needed for a finished or missing sheet (then
+      // it's dropped, or kept for "เริ่มนับ")
+      const opening = startRead(openingSlot, `${branchId}|${date}`, () => computeOpeningWithGap(branchId, date));
+      opening.catch(() => undefined); // handled where it's awaited
       const sheetResult = await supabase
         .from("daily_stock_counts")
         .select("*")
@@ -489,7 +467,7 @@ export function useDailyStockCount({
       let adjMap: Map<string, { net: number; details: AdjDetail[] }>;
       let openingBySku: Record<string, number>;
       try {
-        [[receipts, expectedUsage, adjMap], openingBySku] = await Promise.all([live, computeOpeningWithGap(branchId, date)]);
+        [[receipts, expectedUsage, adjMap], openingBySku] = await Promise.all([live, opening]);
       } catch {
         if (stale()) return;
         toast.error("โหลดยอดของวันนี้ไม่สำเร็จ ยอดที่เห็นคือที่บันทึกไว้ ลองเปิดใหม่อีกครั้ง");
@@ -616,7 +594,7 @@ export function useDailyStockCount({
         });
       });
     },
-    [fetchReceiptTotals, calculateExpectedUsage, fetchDayAdjustments, skus, computeOpeningWithGap],
+    [fetchReceiptTotals, calculateExpectedUsage, fetchDayAdjustments, skus, computeOpeningWithGap, openingSlot],
   );
 
   // Generate count sheet
@@ -627,6 +605,15 @@ export function useDailyStockCount({
       setLoading(false);
       setGenerating(true);
 
+      // The day's figures are read beside the "already there?" check (they waited for it), and
+      // the opening read while the page opened is used if it's under 2 minutes old
+      const figures = Promise.all([
+        calculateExpectedUsage(branchId, date),
+        fetchReceiptTotals(branchId, date),
+        fetchDayAdjustments(branchId, date),
+        recentRead(openingSlot, `${branchId}|${date}`, OPENING_REUSE_MS, () => computeOpeningWithGap(branchId, date)),
+      ]);
+      figures.catch(() => undefined); // handled where it's awaited
       const { data: existing } = await supabase
         .from("daily_stock_counts")
         .select("id")
@@ -647,7 +634,7 @@ export function useDailyStockCount({
       let adjMap: Map<string, { net: number; details: AdjDetail[] }>;
       let openingBySku: Record<string, number>;
       try {
-        [expectedUsage, receipts, adjMap, openingBySku] = await Promise.all([calculateExpectedUsage(branchId, date), fetchReceiptTotals(branchId, date), fetchDayAdjustments(branchId, date), computeOpeningWithGap(branchId, date)]);
+        [expectedUsage, receipts, adjMap, openingBySku] = await figures;
       } catch {
         toast.error("สร้างใบนับไม่สำเร็จ โหลดยอดของวันนี้ไม่ได้ ลองอีกครั้ง");
         setGenerating(false);
@@ -714,7 +701,7 @@ export function useDailyStockCount({
       toast.success(`สร้างใบนับแล้ว ${allInserted.length} รายการ`);
       setGenerating(false);
     },
-    [skus, calculateExpectedUsage, fetchReceiptTotals, fetchDayAdjustments, loadSheet, getSkuConverter, computeOpeningWithGap],
+    [skus, calculateExpectedUsage, fetchReceiptTotals, fetchDayAdjustments, loadSheet, getSkuConverter, computeOpeningWithGap, openingSlot],
   );
 
   // Update physical count — staff enters directly in Usage UOM, no conversion needed

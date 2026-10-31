@@ -14,7 +14,12 @@ const fake = vi.hoisted(() => ({
 }));
 
 vi.mock("@/integrations/supabase/client", () => {
-  const from = (table: string) => {
+  // Every method needs its object as "this", like supabase-js (it reads this.rest, this.url…):
+  // a detached call (`const f = supabase.from; f("x")`, `.then(q.eq)`) throws as it would live
+  const own = (self: unknown, name: string) => {
+    if (!self) throw new TypeError(`Cannot read properties of undefined (reading '${name}')`);
+  };
+  const builder = (table: string) => {
     const q: Query = { table, op: "select", filters: [] };
     const run = () => {
       fake.calls.push(q);
@@ -23,35 +28,71 @@ vi.mock("@/integrations/supabase/client", () => {
     };
     const b = {
       select(cols?: string, opts?: { head?: boolean }) {
+        own(this, "select");
         q.cols = cols;
         if (opts?.head) q.head = true;
-        return b;
+        return this;
       },
       update(p: unknown) {
+        own(this, "update");
         q.op = "update";
         q.payload = p;
-        return b;
+        return this;
       },
       insert(p: unknown) {
+        own(this, "insert");
         q.op = "insert";
         q.payload = p;
-        return b;
+        return this;
       },
       delete() {
+        own(this, "delete");
         q.op = "delete";
-        return b;
+        return this;
       },
-      eq: (c: string, v: unknown) => (q.filters.push(["eq", c, v]), b),
-      is: (c: string, v: unknown) => (q.filters.push(["is", c, v]), b),
-      in: (c: string, v: unknown) => (q.filters.push(["in", c, v]), b),
-      order: () => b,
-      maybeSingle: () => run(),
-      then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => run().then(ok, bad),
+      eq(c: string, v: unknown) {
+        own(this, "eq");
+        q.filters.push(["eq", c, v]);
+        return this;
+      },
+      is(c: string, v: unknown) {
+        own(this, "is");
+        q.filters.push(["is", c, v]);
+        return this;
+      },
+      in(c: string, v: unknown) {
+        own(this, "in");
+        q.filters.push(["in", c, v]);
+        return this;
+      },
+      order() {
+        own(this, "order");
+        return this;
+      },
+      maybeSingle() {
+        own(this, "maybeSingle");
+        return run();
+      },
+      then(ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) {
+        own(this, "then");
+        return run().then(ok, bad);
+      },
     };
     return b;
   };
-  // rpc needs its client as "this" like the real one (supabase-js reads this.rest): a detached call throws
-  return { supabase: { from, rpc(this: { from?: unknown } | undefined, fn: string, args: unknown) { if (!this?.from) throw new TypeError("Cannot read properties of undefined (reading 'rest')"); return (fake.calls.push({ table: `rpc:${fn}`, op: "select", payload: args, filters: [] }), Promise.resolve({ data: null, error: null, ...fake.rpc(fn, args) })); } } };
+  return {
+    supabase: {
+      from(this: unknown, table: string) {
+        own(this, "rest");
+        return builder(table);
+      },
+      // rpc needs its client as "this" like the real one (supabase-js reads this.rest): a detached call throws
+      rpc(this: { from?: unknown } | undefined, fn: string, args: unknown) {
+        if (!this?.from) throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+        return (fake.calls.push({ table: `rpc:${fn}`, op: "select", payload: args, filters: [] }), Promise.resolve({ data: null, error: null, ...fake.rpc(fn, args) }));
+      },
+    },
+  };
 });
 
 import { callDbFunction, moveOrder, orderState, releaseClaim, removeDistribution, syncDistribution } from "./transfer-stock-db";
@@ -63,6 +104,17 @@ beforeEach(() => {
   fake.calls.length = 0;
   fake.answer = () => ({});
   fake.rpc = () => ({ error: { code: "PGRST202", message: "Could not find the function public.x" } });
+});
+
+describe("the fake client", () => {
+  it("throws on a detached call, as the real one does (so a lost `this` fails here, not live)", async () => {
+    type Loose = { from(t: string): { select(c: string): { eq(c: string, v: unknown): unknown } } };
+    const supabase = (await import("@/integrations/supabase/client")).supabase as unknown as Loose;
+    const from = supabase.from;
+    expect(() => from("transfer_orders")).toThrow(TypeError);
+    const eq = supabase.from("transfer_orders").select("id").eq;
+    expect(() => eq("id", 1)).toThrow(TypeError);
+  });
 });
 
 describe("calling the migration's functions", () => {

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 const LAST_BRANCH_KEY = "ck-request-branch";
 
@@ -155,12 +156,10 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
   const [sent, setSent] = useState<{ number: string; count: number; date: string; message: string } | null>(null);
   const supplier = req.suppliers.find((s) => s.id === supplierId);
   const send = async (kind: "tr" | "pr", date: string, notes: string, items: { item: RequestItem; packs: number }[]) => {
-    setBusy(true);
-    const res =
-      kind === "tr"
-        ? await req.submitKitchen({ profileId, requiredDate: date, notes, items })
-        : await req.submitSupplier({ profileId, supplierId: supplierId!, requiredDate: date, notes, items });
-    setBusy(false);
+    const res = await withBusy(setBusy, () =>
+      kind === "tr" ? req.submitKitchen({ profileId, requiredDate: date, notes, items }) : req.submitSupplier({ profileId, supplierId: supplierId!, requiredDate: date, notes, items }),
+    );
+    if (!res) return; // threw: already said so
     if ("error" in res) {
       toast.error(res.error);
       return;

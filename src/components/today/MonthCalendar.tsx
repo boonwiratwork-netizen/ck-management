@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, CircleDot, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { perBranchRows } from "@/lib/per-branch";
 import { cn } from "@/lib/utils";
 import { monthDays, type CalDay, type CalSummary } from "@/lib/day-calendar";
 import { Button } from "@/components/ui/button";
@@ -33,29 +33,30 @@ interface Props {
 }
 
 async function loadMonth(branchIds: string[], from: string, to: string) {
-  const all = <T,>(build: (a: number, b: number) => unknown) =>
-    fetchAllRows<T>(build as never).then((r) => r.data);
+  // Per branch, side by side (a month of every branch's sales is many pages one after
+  // another as one read); a failed read shows the calendar's error, not empty days
   const [counts, sales] = await Promise.all([
-    all<{ branch_id: string; count_date: string; is_submitted: boolean; physical_count: number | null }>(
-      (a, b) =>
+    perBranchRows<{ branch_id: string; count_date: string; is_submitted: boolean; physical_count: number | null }>(
+      branchIds,
+      (id, a, b) =>
         supabase
           .from("daily_stock_counts")
           .select("id, branch_id, count_date, is_submitted, physical_count")
-          .in("branch_id", branchIds)
+          .eq("branch_id", id)
           .gte("count_date", from)
           .lte("count_date", to)
           .order("id")
-          .range(a, b),
+          .range(a, b) as never,
     ),
-    all<{ branch_id: string; sale_date: string }>((a, b) =>
+    perBranchRows<{ branch_id: string; sale_date: string }>(branchIds, (id, a, b) =>
       supabase
         .from("sales_entries")
         .select("id, branch_id, sale_date")
-        .in("branch_id", branchIds)
+        .eq("branch_id", id)
         .gte("sale_date", from)
         .lte("sale_date", to)
         .order("id")
-        .range(a, b),
+        .range(a, b) as never,
     ),
   ]);
   return { counts, sales };

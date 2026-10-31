@@ -6,6 +6,7 @@ import { SKU } from "@/types/sku";
 import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { bulkResult, type BulkResult } from "@/lib/bulk-write";
 
 /** Days of real outflow behind "uses per day" (production + sent to branches) */
 export const USAGE_WINDOW_DAYS = 28;
@@ -34,7 +35,8 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
-    const [obRes, adjRes, grRes] = await Promise.all([
+    // The finished counts are read beside the rest (they used to wait for it: one more round)
+    const [obRes, adjRes, grRes, { data: sessions }] = await Promise.all([
       supabase.from("stock_opening_balances").select("*"),
       // Paged: production and transfers write several rows a day (well past 1,000)
       fetchAllRows<any>((f, t) =>
@@ -43,6 +45,7 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
       fetchAllRows<any>((f, t) =>
         supabase.from("goods_receipts").select("sku_id, receipt_date, quantity_received, supplier_id").order("receipt_date", { ascending: false }).order("id").range(f, t),
       ),
+      supabase.from("stock_count_sessions").select("id, count_date, completed_at, count_timing").eq("status", "Completed").is("deleted_at", null),
     ]);
     if (obRes.data) {
       const map: Record<string, number> = {};
@@ -54,7 +57,6 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
     if (!grRes.error) setReceipts(grRes.data.map((r: any) => ({ skuId: r.sku_id, date: r.receipt_date, qty: Number(r.quantity_received) || 0, supplierId: r.supplier_id })));
 
     // Latest physical count per SKU of this type
-    const { data: sessions } = await supabase.from("stock_count_sessions").select("id, count_date, completed_at, count_timing").eq("status", "Completed").is("deleted_at", null);
     if (sessions && sessions.length) {
       const byId: Record<string, any> = {};
       sessions.forEach((s: any) => (byId[s.id] = s));
@@ -158,6 +160,26 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
     [type],
   );
 
+  /**
+   * Several adjustments in one insert (a finished count writes one per counted line: one
+   * request instead of one per line). All or none land (one statement); the caller decides
+   * what to do when it was refused (writeAllOrEach: row by row) and reports what's missing.
+   */
+  const addAdjustments = useCallback(
+    async (adjs: Omit<StockAdjustment, "id">[]): Promise<BulkResult> => {
+      if (adjs.length === 0) return "ok";
+      const res = await supabase
+        .from("stock_adjustments")
+        .insert(adjs.map((adj) => ({ sku_id: adj.skuId, adjustment_date: adj.date, quantity: adj.quantity, reason: adj.reason, stock_type: type })))
+        .select();
+      const data = res.data ?? [];
+      // Rows that came back are in, whatever the answer says
+      if (data.length) setAdjustments((prev) => [...data.map((row) => ({ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason, createdAt: row.created_at })), ...prev]);
+      return bulkResult(adjs.length, res);
+    },
+    [type],
+  );
+
   const getStdUnitPrice = useCallback(
     (skuId: string): number => {
       // The standard: newest active price (prices are newest first)
@@ -204,6 +226,7 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
     stockBalances,
     setOpeningStock,
     addAdjustment,
+    addAdjustments,
     getStdUnitPrice,
     getLastReceipt,
     getLastReceiptDate,

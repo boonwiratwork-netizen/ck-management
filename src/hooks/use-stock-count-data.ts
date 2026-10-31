@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
 import type { CountTiming } from "@/lib/count-anchor";
+import { writeManyOrEach, type BulkResult } from "@/lib/bulk-write";
+
 
 const toSession = (r: any): StockCountSession => ({
   id: r.id,
@@ -36,9 +38,13 @@ interface UseStockCountDataProps {
   rmStockBalances: StockBalance[];
   smStockBalances: SMStockBalance[];
   pkStockBalances: StockBalance[];
-  addRmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
-  addSmAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
-  addPkAdjustment: (adj: Omit<StockAdjustment, "id">) => void;
+  /** One adjustment; false = not saved (anything else counts as saved, as before) */
+  addRmAdjustment: (adj: Omit<StockAdjustment, "id">) => void | Promise<unknown>;
+  addSmAdjustment: (adj: Omit<StockAdjustment, "id">) => void | Promise<unknown>;
+  addPkAdjustment: (adj: Omit<StockAdjustment, "id">) => void | Promise<unknown>;
+  /** Many at once (one request); without them each line is written on its own, one after another */
+  addRmAdjustments?: (adjs: Omit<StockAdjustment, "id">[]) => Promise<BulkResult>;
+  addPkAdjustments?: (adjs: Omit<StockAdjustment, "id">[]) => Promise<BulkResult>;
   getStdUnitPrice: (skuId: string) => number;
   refreshSmStock?: () => Promise<void>;
 }
@@ -51,6 +57,8 @@ export function useStockCountData({
   addRmAdjustment,
   addSmAdjustment,
   addPkAdjustment,
+  addRmAdjustments,
+  addPkAdjustments,
   getStdUnitPrice,
   refreshSmStock,
   enabled = true,
@@ -77,8 +85,35 @@ export function useStockCountData({
     });
   }, [enabled]);
 
+  /**
+   * RM and PK adjustments, each type in one insert when the bulk writers are there; a refused
+   * insert is written again row by row. Returns the ones not known to be in (empty = all in).
+   */
+  const writeAdjustments = useCallback(
+    async (rows: { type: string; adj: Omit<StockAdjustment, "id"> }[]): Promise<Omit<StockAdjustment, "id">[]> => {
+      const rm = rows.filter((r) => r.type === "RM").map((r) => r.adj);
+      const pk = rows.filter((r) => r.type === "PK").map((r) => r.adj);
+      return (await Promise.all([writeManyOrEach(rm, addRmAdjustments, addRmAdjustment), writeManyOrEach(pk, addPkAdjustments, addPkAdjustment)])).flat();
+    },
+    [addRmAdjustments, addPkAdjustments, addRmAdjustment, addPkAdjustment],
+  );
+  const nameOf = useCallback((skuId: string) => skus.find((s) => s.id === skuId)?.name ?? skuId, [skus]);
+
+  /** SM stock again in the background (a new count is its anchor); a failed read says so */
+  const refreshSmInBackground = useCallback(() => {
+    if (!refreshSmStock) return;
+    refreshSmStock().catch(() => toast.error("โหลดสต๊อก SM ใหม่ไม่สำเร็จ ตัวเลข SM ที่เห็นอาจยังไม่รวมการนับนี้ รีเฟรชหน้า"));
+  }, [refreshSmStock]);
+
   const createSession = useCallback(
     async (date: string, note: string): Promise<string> => {
+      // Which products the sheet holds is read beside the "already there?" check (it used
+      // to wait for the new session first: two rounds in a row)
+      const recipes = Promise.all([
+        supabase.from("bom_headers").select("sm_sku_id"),
+        supabase.from("bom_lines").select("rm_sku_id"),
+        supabase.from("bom_byproducts").select("sku_id, tracks_inventory"),
+      ]);
       const { data: existing } = await supabase
         .from("stock_count_sessions")
         .select("id")
@@ -106,11 +141,7 @@ export function useStockCountData({
 
       const id = sessionRow.id;
 
-      const [bomHeaderRes, bomLineRes, byproductRes] = await Promise.all([
-        supabase.from("bom_headers").select("sm_sku_id"),
-        supabase.from("bom_lines").select("rm_sku_id"),
-        supabase.from("bom_byproducts").select("sku_id, tracks_inventory"),
-      ]);
+      const [bomHeaderRes, bomLineRes, byproductRes] = await recipes;
       const smWithBom = new Set((bomHeaderRes.data || []).map((h: any) => h.sm_sku_id));
       const rmInBom = new Set((bomLineRes.data || []).map((l: any) => l.rm_sku_id));
       const trackedByproducts = new Set((byproductRes.data || []).filter((b: any) => b.tracks_inventory && b.sku_id).map((b: any) => b.sku_id as string));
@@ -242,24 +273,18 @@ export function useStockCountData({
       const freshLines = (dbLines || [])
         .filter((l: any) => l.physical_qty !== null && l.variance !== 0);
 
-      for (const line of freshLines) {
-        // SM uses anchor-based balance (physical_qty in stock_count_lines is the anchor).
-        // Writing a Stock Count adjustment for SM would cause double-counting when
-        // anchor path filters it out, and overcounting if anchor is ever deleted.
-        if (line.type === "SM") continue;
-
-        const adj: Omit<StockAdjustment, "id"> = {
-          skuId: line.sku_id,
-          date: session.date,
-          quantity: line.variance,
-          reason: `Stock Count ${session.date}${line.note ? ": " + line.note : ""}`,
-        };
-        if (line.type === "RM") {
-          await addRmAdjustment(adj);
-        } else if (line.type === "PK") {
-          await addPkAdjustment(adj);
-        }
-      }
+      // SM uses anchor-based balance (physical_qty in stock_count_lines is the anchor).
+      // Writing a Stock Count adjustment for SM would cause double-counting when
+      // anchor path filters it out, and overcounting if anchor is ever deleted.
+      // RM/PK: one insert per type (was one request per counted line, ~150 in a row)
+      const missing = await writeAdjustments(
+        freshLines
+          .filter((line: any) => line.type === "RM" || line.type === "PK")
+          .map((line: any) => ({
+            type: line.type as string,
+            adj: { skuId: line.sku_id, date: session.date, quantity: line.variance, reason: `Stock Count ${session.date}${line.note ? ": " + line.note : ""}` },
+          })),
+      );
 
       // Update local state
       setSessions((prev) =>
@@ -268,39 +293,46 @@ export function useStockCountData({
         ),
       );
 
-      // Fix 3: Refresh SM stock so balance recalculates with new anchor
-      if (refreshSmStock) {
-        await refreshSmStock();
+      // Fix 3: Refresh SM stock so balance recalculates with new anchor — in the background:
+      // the count is saved, the button doesn't wait for a re-read of every production record
+      refreshSmInBackground();
+      if (missing.length) {
+        // The count is finished, but these products' stock didn't move to it: never "done"
+        toast.error(`นับเสร็จแล้ว แต่ปรับสต๊อกไม่ได้ ${missing.length} รายการ: ${missing.map((a) => nameOf(a.skuId)).join(", ")} · แจ้งผู้ดูแลระบบ อย่ากดนับซ้ำ`, { duration: 20000 });
+        return "partial" as const;
       }
       return true;
     },
-    [sessions, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
+    [sessions, writeAdjustments, refreshSmInBackground, nameOf],
   );
 
   const softDeleteSession = useCallback(
     async (sessionId: string) => {
       const session = sessions.find((s) => s.id === sessionId);
-      if (!session) return;
+      if (!session) return false;
 
+      let missing: Omit<StockAdjustment, "id">[] = [];
       if (session.status === "Completed") {
-        const sessionLines = lines.filter((l) => l.sessionId === sessionId);
-        for (const line of sessionLines) {
-          if (line.variance === 0 || line.physicalQty === null) continue;
-          // SM uses anchor — no Stock Count adjustment was written, so no reversal needed
-          if (line.type === "SM") continue;
-
-          const reverseAdj: Omit<StockAdjustment, "id"> = {
-            skuId: line.skuId,
-            date: toLocalDateStr(new Date()),
-            quantity: -line.variance,
-            // Starts with "Stock Count" so every balance formula leaves it out, like the count adjustment it undoes
-            reason: `Stock Count reversed: ${session.date}`,
-          };
-          if (line.type === "RM") {
-            await addRmAdjustment(reverseAdj);
-          } else if (line.type === "PK") {
-            await addPkAdjustment(reverseAdj);
-          }
+        // SM uses anchor — no Stock Count adjustment was written, so no reversal needed
+        const reversals = lines.filter((l) => l.sessionId === sessionId && l.variance !== 0 && l.physicalQty !== null && (l.type === "RM" || l.type === "PK"));
+        missing = await writeAdjustments(
+          reversals
+            .map((line) => ({
+              type: line.type,
+              adj: {
+                skuId: line.skuId,
+                date: toLocalDateStr(new Date()),
+                quantity: -line.variance,
+                // Starts with "Stock Count" so every balance formula leaves it out, like the count adjustment it undoes
+                reason: `Stock Count reversed: ${session.date}`,
+              },
+            })),
+        );
+        // Nothing undone: the count stays and trying again is safe. Some undone: it goes ahead
+        // (trying again would undo those twice) and the rest are named for a person to fix
+        if (missing.length && missing.length === reversals.length) {
+          toast.error("ลบใบนับไม่ได้ คืนยอดสต๊อกไม่ได้ ลองอีกครั้ง");
+          return false;
         }
       }
 
@@ -313,17 +345,20 @@ export function useStockCountData({
         .eq("id", sessionId);
       if (error) {
         toast.error("ลบรอบนับไม่สำเร็จ: " + error.message);
-        return;
+        return false;
       }
 
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       setLines((prev) => prev.filter((l) => l.sessionId !== sessionId));
 
-      if (refreshSmStock) {
-        await refreshSmStock();
+      refreshSmInBackground();
+      if (missing.length) {
+        toast.error(`ลบใบนับแล้ว แต่คืนยอดไม่ได้ ${missing.length} รายการ: ${missing.map((a) => nameOf(a.skuId)).join(", ")} · แจ้งผู้ดูแลระบบ`, { duration: 20000 });
+        return "partial" as const;
       }
+      return true;
     },
-    [sessions, lines, addRmAdjustment, addSmAdjustment, addPkAdjustment, refreshSmStock],
+    [sessions, lines, writeAdjustments, refreshSmInBackground, nameOf],
   );
 
   /**

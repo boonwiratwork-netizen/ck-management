@@ -13,6 +13,7 @@ import { EditLineDialog, GRHistory, GRSide } from "@/components/goods-receipt/GR
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { withBusy } from "@/lib/with-busy";
 import { cn } from "@/lib/utils";
 import type { TabKey } from "@/components/AppSidebar";
 
@@ -54,7 +55,7 @@ interface Props {
  * hash: "" home, "bill/<supplierId>" or "bill/other", "history".
  */
 export default function KitchenReceivePage({ receiptData, skus, suppliers, prices, onNavigate }: Props) {
-  const { receipts, addReceipts, editReceipt, deleteReceipt, isFullHistory, loadAllHistory, isLoadingAll } = receiptData;
+  const { receipts, addReceipts, editReceipt, deleteReceipts, isFullHistory, loadAllHistory, isLoadingAll } = receiptData;
   const location = useLocation();
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
@@ -79,10 +80,9 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
 
   const [backDated, setBackDated] = useState(false);
   const saveBill = async (bill: SavedBill) => {
-    setBusy(true);
     // "ซื้อที่อื่น" keeps the place in the note unless it names a supplier (as before)
     const named = bill.named;
-    const ok = await addReceipts(
+    const ok = await withBusy(setBusy, () => addReceipts(
       bill.rows.map((r) => ({
         sku: skuOf.get(r.skuId),
         data: {
@@ -95,8 +95,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
         },
       })),
       prices,
-    );
-    setBusy(false);
+    ));
     if (ok) {
       // Prices more than 10% off the price set: offer to update them from this bill
       const off = bill.rows.filter((r) => r.stdUnit > 0 && r.qty > 0 && Math.abs(lineTotal(r.total, r.stdUnit, r.qty) / (r.stdUnit * r.qty) - 1) > 0.1).length;
@@ -117,7 +116,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
       }
       go("", true);
     }
-    return ok;
+    return !!ok;
   };
 
   let work: React.ReactNode = null;
@@ -152,8 +151,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
         onBack={() => go("")}
         onEdit={setEditing}
         onDeleteLines={async (ids) => {
-          let n = 0;
-          for (const id of ids) if (await deleteReceipt(id)) n++;
+          const n = await deleteReceipts(ids);
           if (n) toast.success(`ลบแล้ว ${n} รายการ`);
         }}
         onUpdatePrices={(b) => navigate(`/cost-center#bill/${b.supplierId}/${b.date}`)}

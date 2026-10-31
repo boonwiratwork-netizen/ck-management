@@ -5,6 +5,8 @@ import { loadBranchStock, sharedBranchRead, type BranchStockData } from "@/hooks
 import { branchFigures, receiptConverter } from "@/lib/branch-stock";
 import { dailyUseWindow } from "@/lib/daily-use";
 import { requestFigures, type RequestStatus } from "@/lib/request-lines";
+import { brandMenuIds } from "@/lib/branch-menus-db";
+import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 
 export type BranchRmStockStatus = RequestStatus;
 
@@ -55,22 +57,27 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
     const shared = sharedBranchRead(branchId, today);
 
     try {
-      // 1. Get branch brand_name
-      const { data: branch } = await supabase.from("branches").select("brand_name").eq("id", branchId).single();
-      if (!branch) {
+      // 1. The branch's brand and its active menus, its closed menus, the SP recipes, this
+      // supplier's active prices and the active RM/PK products — one round (they were six in a row)
+      const [brand, overridesRes, spRes, priceRes, skuRes] = await Promise.all([
+        brandMenuIds(branchId),
+        supabase.from("branch_menu_overrides").select("menu_id").eq("branch_id", branchId).eq("is_active", false),
+        fetchAllRowsOrThrow<{ sp_sku_id: string; ingredient_sku_id: string }>((a, b) => supabase.from("sp_bom").select("id, sp_sku_id, ingredient_sku_id").order("id").range(a, b) as never).then((data) => ({ data })),
+        fetchAllRowsOrThrow<{ sku_id: string }>((a, b) => supabase.from("prices").select("id, sku_id").eq("supplier_id", supplierId).eq("is_active", true).order("id").range(a, b)).then((data) => ({ data })),
+        fetchAllRowsOrThrow<{ id: string; sku_id: string; name: string; purchase_uom: string; usage_uom: string; pack_size: number; lead_time: number; type: string; pack_unit: string | null; converter: number }>((a, b) =>
+          supabase.from("skus").select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type, pack_unit, converter").eq("status", "Active").in("type", ["RM", "PK"]).order("id").range(a, b),
+        ).then((data) => ({ data })),
+      ]);
+      if (!brand) {
         setRmStock({});
         setRmSkuList([]);
         setLoading(false);
         return;
       }
 
-      // 2. Get active menus for this brand + branch overrides
-      const [menusRes, overridesRes] = await Promise.all([
-        supabase.from("menus").select("id").eq("brand_name", branch.brand_name).eq("status", "Active"),
-        supabase.from("branch_menu_overrides").select("menu_id").eq("branch_id", branchId).eq("is_active", false),
-      ]);
+      // 2. Active menus for this brand, less the ones closed at this branch
       const suppressedMenuIds = new Set((overridesRes.data || []).map((o) => o.menu_id));
-      const menuIds = (menusRes.data || []).map((m) => m.id).filter((id) => !suppressedMenuIds.has(id));
+      const menuIds = brand.menuIds.filter((id) => !suppressedMenuIds.has(id));
       if (menuIds.length === 0) {
         setRmStock({});
         setRmSkuList([]);
@@ -80,52 +87,31 @@ export function useBranchRmStock(branchId: string | null, supplierId: string | n
 
       // 3. Get SM sku_ids from menu_bom
       const { data: bomEntries } = await supabase.from("menu_bom").select("sku_id").in("menu_id", menuIds);
-      const smSkuIds = [...new Set((bomEntries || []).map((b) => b.sku_id))];
+      const smSkuIds = new Set((bomEntries || []).map((b) => b.sku_id));
 
-      // 4. Get RM ingredients from sp_bom for those SM SKUs
-      let rmFromSpBom: string[] = [];
-      if (smSkuIds.length > 0) {
-        const { data: spBomLines } = await supabase
-          .from("sp_bom")
-          .select("ingredient_sku_id")
-          .in("sp_sku_id", smSkuIds);
-        rmFromSpBom = (spBomLines || []).map((l) => l.ingredient_sku_id);
-      }
+      // 4. RM ingredients from sp_bom for those SM SKUs
+      const rmFromSpBom = spRes.data.filter((l) => smSkuIds.has(l.sp_sku_id)).map((l) => l.ingredient_sku_id);
 
-      // Also get direct RM ingredients from menu_bom (type=RM)
-      const allBomSkuIds = [...new Set([...smSkuIds, ...rmFromSpBom])];
-      if (allBomSkuIds.length === 0) {
+      // Also direct RM ingredients from menu_bom (type=RM)
+      const allBomSkuIds = new Set([...smSkuIds, ...rmFromSpBom]);
+      if (allBomSkuIds.size === 0) {
         setRmStock({});
         setRmSkuList([]);
         setLoading(false);
         return;
       }
 
-      // 5. Get RM SKU IDs that have active prices for this supplier
-      const { data: priceRows } = await supabase
-        .from("prices")
-        .select("sku_id")
-        .eq("supplier_id", supplierId)
-        .eq("is_active", true)
-        .in("sku_id", allBomSkuIds);
-
-      const supplierSkuIds = [...new Set((priceRows || []).map((p) => p.sku_id))];
-      if (supplierSkuIds.length === 0) {
+      // 5. RM SKU IDs that have active prices for this supplier
+      const supplierSkuIds = new Set((priceRes.data || []).map((p) => p.sku_id).filter((id) => allBomSkuIds.has(id)));
+      if (supplierSkuIds.size === 0) {
         setRmStock({});
         setRmSkuList([]);
         setLoading(false);
         return;
       }
 
-      // Fetch SKU details for those IDs
-      const { data: rmSkus } = await supabase
-        .from("skus")
-        .select("id, sku_id, name, purchase_uom, usage_uom, pack_size, lead_time, type, pack_unit, converter")
-        .eq("status", "Active")
-        .in("type", ["RM", "PK"])
-        .in("id", supplierSkuIds);
-
-      const filtered = rmSkus || [];
+      // SKU details for those IDs
+      const filtered = (skuRes.data || []).filter((s) => supplierSkuIds.has(s.id));
       if (filtered.length === 0) {
         setRmStock({});
         setRmSkuList([]);

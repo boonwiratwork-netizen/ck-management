@@ -29,6 +29,8 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
   const [records, setRecords] = useState<Record<string, ProdRecord[]>>({});
   const [lots, setLots] = useState<Record<string, LotLine[]>>({});
   const [loading, setLoading] = useState(false);
+  /** The stock/lot read failed: the screen says so (nothing below is filled from it) */
+  const [error, setError] = useState<string | null>(null);
   const lotsRef = useRef(lots);
   const recordsRef = useRef(records);
   const stockRef = useRef(stock);
@@ -161,6 +163,7 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
     }
     let stale = false;
     setLoading(true);
+    setError(null);
     // Edits from here on are newer than what this reload will read
     touched.current = new Set();
     (async () => {
@@ -183,6 +186,10 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
         ),
       ]);
       if (stale) return;
+      // A failed read would show lots as all still there, or a line's saved lots as none (and
+      // fill it again on top): say so and fill nothing
+      const failedRead = prodRes.error || lotRes.error || takenRes.error;
+      if (failedRead) throw failedRead;
       // What other orders already took from each lot (this order's own lines don't count)
       const thisOrder = new Set(lineKey.split(","));
       const taken = new Map<string, number>();
@@ -233,7 +240,11 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
         filled.current.add(l.id);
         apply(l.id, reconcileLots([], visible, packs, ps).next);
       }
-    })();
+    })().catch(() => {
+      if (stale) return;
+      setError("โหลดสต๊อกและล็อตในครัวไม่สำเร็จ ล็อตที่เห็นอาจไม่ครบ กลับแล้วเปิดใบนี้ใหม่");
+      setLoading(false);
+    });
     return () => {
       stale = true;
     };
@@ -274,5 +285,5 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
   /** "เติมจากล็อตเก่าสุดให้ครบ": top up (or trim) to the line's packs */
   const fillToPacks = useCallback((line: TOLine, packs: number) => followPacks(line, packs), [followPacks]);
 
-  return { stock, records, lots, loading, isLotLine, visibleFor, followPacks, setLotPacks, fillToPacks, settle, commit };
+  return { stock, records, lots, loading, error, isLotLine, visibleFor, followPacks, setLotPacks, fillToPacks, settle, commit };
 }

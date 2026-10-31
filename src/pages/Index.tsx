@@ -204,7 +204,7 @@ const Index = () => {
   const byproductData = useByproductData();
   const receiptData = useGoodsReceiptData(kitchenData);
   const stockData = useStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
-  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps, kitchenData);
+  const productionData = useProductionData(bomData.headers, bomData.lines, stockData.addAdjustment, bomData.steps, kitchenData, stockData.addAdjustments);
   const deliveryData = useDeliveryData(kitchenData);
   const smStockData = useSmStockData(
     skuData.skus,
@@ -258,6 +258,8 @@ const Index = () => {
     addRmAdjustment: stockData.addAdjustment,
     addSmAdjustment: smStockData.addAdjustment,
     addPkAdjustment: pkStockData.addAdjustment,
+    addRmAdjustments: stockData.addAdjustments,
+    addPkAdjustments: pkStockData.addAdjustments,
     getStdUnitPrice: stockData.getStdUnitPrice,
     refreshSmStock: smStockData.refreshProductionRecords,
     enabled: kitchenData,

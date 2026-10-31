@@ -35,15 +35,15 @@ export default function ProduceDemo() {
       // What a save would send (checked in the browser)
       (window as unknown as { __lastRecord?: unknown }).__lastRecord = d;
       setRecords((p) => [{ id, planId: "p", productionDate: d.productionDate, smSkuId: d.smSkuId, batchesProduced: 1, actualOutputG: d.actualOutputG, createdAt: new Date().toISOString(), notes: d.notes }, ...p]);
-      return id;
+      return { id, stockShort: [] as string[] };
     },
     updateRecordWithDelta: async (id: string, d: { productionDate: string; actualOutputG: number; notes?: string }) => {
       setRecords((p) => p.map((r) => (r.id === id ? { ...r, ...d } : r)));
-      return true;
+      return { stockShort: [] as string[] };
     },
     deleteRecord: async (id: string) => {
       setRecords((p) => p.filter((r) => r.id !== id));
-      return true;
+      return { stockShort: [] as string[] };
     },
     getRecordsForPlan: () => [],
     getTotalProducedForPlan: () => 0,

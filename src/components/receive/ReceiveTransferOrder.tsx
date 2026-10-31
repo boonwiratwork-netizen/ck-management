@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ActionFooter, NoteField, PackStepper, WeightField, baht, onEnterNext, packHint, packLabel } from "./parts";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 interface Props {
   to: PendingTO;
@@ -68,20 +69,19 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
   const doSave = async (skipDupCheck: boolean) => {
     const toSave = to.lines.filter((l) => lines[l.id].qty > 0);
     if (toSave.length === 0) return;
-    setSaving(true);
-    if (!skipDupCheck) {
-      const dups = await findDoubles(toSave.map((l) => ({ skuId: l.skuId, qty: lines[l.id].qty })));
-      if (dups.length) {
-        setDupText(`ของเหล่านี้เพิ่งรับจากครัวกลางแบบไม่มีใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ให้กดยกเลิก แล้วลบรายการเก่าที่ไม่มีใบโอนในประวัติก่อน`);
-        setSaving(false);
-        return;
+    await withBusy(setSaving, async () => {
+      if (!skipDupCheck) {
+        const dups = await findDoubles(toSave.map((l) => ({ skuId: l.skuId, qty: lines[l.id].qty })));
+        if (dups.length) {
+          setDupText(`ของเหล่านี้เพิ่งรับจากครัวกลางแบบไม่มีใบโอนไปแล้ว:\n${dups.join("\n")}\n\nถ้าเป็นของชุดเดียวกัน ให้กดยกเลิก แล้วลบรายการเก่าที่ไม่มีใบโอนในประวัติก่อน`);
+          return;
+        }
       }
-    }
-    const rows = toSave.map((l) =>
-      transferOrderRow({ branchId, receiptDate, sku: skuMap.get(l.skuId), skuId: l.skuId, lineUom: l.uom, qty: lines[l.id].qty, unitCost: l.unitCost, note: lines[l.id].note, transferOrderId: to.id }),
-    );
-    await onReceive(rows, new Map(to.lines.map((l) => [l.id, lines[l.id].qty])));
-    setSaving(false);
+      const rows = toSave.map((l) =>
+        transferOrderRow({ branchId, receiptDate, sku: skuMap.get(l.skuId), skuId: l.skuId, lineUom: l.uom, qty: lines[l.id].qty, unitCost: l.unitCost, note: lines[l.id].note, transferOrderId: to.id }),
+      );
+      await onReceive(rows, new Map(to.lines.map((l) => [l.id, lines[l.id].qty])));
+    });
   };
 
   const save = () => {
@@ -238,10 +238,10 @@ export function DeclineDialog({ open, toNumber, onClose, onDecline }: { open: bo
             className="h-11"
             loading={busy}
             onClick={async () => {
-              setBusy(true);
-              await onDecline(reason);
-              setBusy(false);
-              setReason("");
+              await withBusy(setBusy, async () => {
+                await onDecline(reason);
+                setReason("");
+              });
             }}
           >
             ปฏิเสธ

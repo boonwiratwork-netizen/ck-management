@@ -30,6 +30,8 @@ export interface LotsApi {
   stock: Record<string, number>;
   lots: Record<string, LotLine[]>;
   loading: boolean;
+  /** The stock/lot read failed (shown above the lines) */
+  error?: string | null;
   isLotLine: (skuId: string) => boolean;
   visibleFor: (lineId: string, skuId: string) => ProdRecord[];
   setLotPacks: (lineId: string, skuId: string, record: ProdRecord, packs: number) => void;
@@ -282,6 +284,11 @@ export function PackSheet(p: SheetProps) {
       )}
 
       {lots.loading && <p className="text-sm text-muted-foreground">กำลังดูสต๊อกและล็อตในครัว…</p>}
+      {lots.error && (
+        <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {lots.error}
+        </p>
+      )}
 
       {/* One box around table + cards: it is what gets measured (no extra gap) */}
       <div ref={fitRef} className="flex flex-col gap-3">

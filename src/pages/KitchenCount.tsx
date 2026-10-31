@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { toast } from "sonner";
+import { failedMessage } from "@/lib/with-busy";
 
 const GUIDE: GuideStep[] = [
   {
@@ -137,12 +138,20 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
 
   // ── Actions ──
   const [busy, setBusy] = useState(false);
+  /** A thrown error (dropped connection mid-way) clears the spinner and says so */
+  const failed = (e: unknown) => toast.error(failedMessage(e));
   const open = async (date: string) => {
     if (!sessions.some((s) => s.date === date)) {
       if (!canEdit) return;
       setBusy(true);
-      const id = await createSession(date, "");
-      setBusy(false);
+      let id = "";
+      try {
+        id = await createSession(date, "");
+      } catch (e) {
+        failed(e);
+      } finally {
+        setBusy(false);
+      }
       if (!id) return;
     }
     go(`c/${date}`);
@@ -202,22 +211,28 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         onConfirm={async () => {
           if (busy || events === undefined || !timing) return;
           setBusy(true);
-          // Read again right before finishing: something entered meanwhile on the count
-          // day needs the question (again); otherwise use the freshest figures
-          const latest = await loadDay(session.date, skus, lineSkuIds(lines));
-          if (latest && latest.events.length !== events.length) {
+          let ok: boolean | "partial" | undefined = false;
+          try {
+            // Read again right before finishing: something entered meanwhile on the count
+            // day needs the question (again); otherwise use the freshest figures
+            const latest = await loadDay(session.date, skus, lineSkuIds(lines));
+            if (latest && latest.events.length !== events.length) {
+              setCountDay({ date: session.date, day: latest });
+              setTiming(null);
+              toast.info("มีรายการของวันนับเพิ่มเข้ามา ดูแล้วตอบอีกครั้ง");
+              return;
+            }
+            // Always answered now, also when nothing was entered yet (then: will more come?)
+            const t = timing;
+            ok = await confirmSession(session.id, t, systemAtFor(latest ?? loaded?.day, t));
+          } catch (e) {
+            failed(e);
+          } finally {
             setBusy(false);
-            setCountDay({ date: session.date, day: latest });
-            setTiming(null);
-            toast.info("มีรายการของวันนับเพิ่มเข้ามา ดูแล้วตอบอีกครั้ง");
-            return;
           }
-          // Always answered now, also when nothing was entered yet (then: will more come?)
-          const t = timing;
-          const ok = await confirmSession(session.id, t, systemAtFor(latest ?? loaded?.day, t));
-          setBusy(false);
           if (!ok) return;
-          toast.success("นับเสร็จแล้ว สต๊อกในระบบเปลี่ยนตามที่นับ");
+          // Partial: finished, but some products' stock didn't move (the hook named them)
+          if (ok === true) toast.success("นับเสร็จแล้ว สต๊อกในระบบเปลี่ยนตามที่นับ");
           go("", true);
         }}
       />
@@ -239,8 +254,14 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         onRefresh={async () => {
           if (busy) return;
           setBusy(true);
-          const ok = await refreshSystemQty(session.id);
-          setBusy(false);
+          let ok = false;
+          try {
+            ok = await refreshSystemQty(session.id);
+          } catch (e) {
+            failed(e);
+          } finally {
+            setBusy(false);
+          }
           if (ok) {
             setRefreshed((p) => new Set(p).add(session.id));
             toast.success("อัปเดตยอดระบบแล้ว");
@@ -294,8 +315,9 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
         onConfirm={async () => {
           setConfirmDelete(false);
           if (!session) return;
-          await softDeleteSession(session.id);
-          toast.success("ลบใบนับแล้ว");
+          const res = await softDeleteSession(session.id);
+          if (!res) return;
+          if (res === true) toast.success("ลบใบนับแล้ว");
           go("", true);
         }}
       />

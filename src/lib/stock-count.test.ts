@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SKU } from "@/types/sku";
-import { businessDate, differenceHint, isBigDifference, isDormant, monthEndWindow, orderLines, zoneOf, type CountLine } from "./stock-count";
+import { businessDate, differenceHint, isBigDifference, isDormant, monthEndWindow, orderLines, splitDayReceipts, zoneOf, type CountLine } from "./stock-count";
 
 describe("count day", () => {
   it("before 05:00 belongs to the day that closed", () => {
@@ -63,5 +63,19 @@ describe("order", () => {
   });
   it("keeps the order a person arranged, untouched", () => {
     expect(orderLines(lines, skus, ["a", "c", "b"]).map((l) => l.skuId)).toEqual(["a", "c", "b", "d"]);
+  });
+});
+
+describe("the day's receipts", () => {
+  it("one read split into kitchen (on a transfer order) and outside (none), summed per product", () => {
+    const { ckBySku, extBySku } = splitDayReceipts([
+      { sku_id: "rice", qty_received: 2000, transfer_order_id: "to-1" },
+      { sku_id: "rice", qty_received: "500", transfer_order_id: "to-2" },
+      { sku_id: "rice", qty_received: 3, transfer_order_id: null },
+      { sku_id: "egg", qty_received: 30, transfer_order_id: null },
+    ]);
+    expect(ckBySku).toEqual({ rice: 2500 });
+    expect(extBySku).toEqual({ rice: 3, egg: 30 });
+    expect(splitDayReceipts([])).toEqual({ ckBySku: {}, extBySku: {} });
   });
 });

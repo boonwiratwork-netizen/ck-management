@@ -97,12 +97,45 @@ export function useReceiveData(opts: {
   const [prGroups, setPrGroups] = useState<PRGroup[]>([]);
   const [history, setHistory] = useState<HistoryReceipt[]>([]);
   const [loading, setLoading] = useState(true);
+  /** The last read failed (wholly or in part): what's listed may be missing orders or receipts */
+  const [error, setError] = useState<string | null>(null);
   const historyKey = `${historyBranchIds.join(",")}|${historyFrom}|${historyTo}`;
   const latest = useRef(0);
+  /** Which branch the waiting lists, and which window the history, on screen are for */
+  const shownBranch = useRef<string | null>(null);
+  const shownHistory = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const run = ++latest.current;
     setLoading(true);
+    // Another branch's orders never stay up under this one, also while it loads or when its
+    // read fails (they could be received into the wrong branch); a reload of the same keeps them
+    if (shownBranch.current !== branchId) {
+      setPendingTOs([]);
+      setPrGroups([]);
+      shownBranch.current = null;
+    }
+    if (shownHistory.current !== historyKey) {
+      setHistory([]);
+      shownHistory.current = null;
+    }
+    try {
+      await read(run);
+      if (run === latest.current) {
+        shownBranch.current = branchId;
+        shownHistory.current = historyKey;
+      }
+    } catch (e) {
+      if (run !== latest.current) return;
+      // A dropped connection used to leave the page on "กำลังโหลด…" for good
+      setError("โหลดข้อมูลรับของไม่สำเร็จ ลองรีเฟรช");
+      toast.error("โหลดข้อมูลรับของไม่สำเร็จ ลองรีเฟรช");
+    } finally {
+      if (run === latest.current) setLoading(false);
+    }
+  }, [branchId, historyKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const read = async (run: number) => {
     const today = format(new Date(), "yyyy-MM-dd");
     const unfinishedFrom = shiftDay(bangkokDate(), -UNFINISHED_DAYS);
     const [sent, unfinished, prs, hist] = await Promise.all([
@@ -137,7 +170,9 @@ export function useReceiveData(opts: {
         : Promise.resolve({ data: [], error: null }),
     ]);
     if (run !== latest.current) return;
-    if (sent.error || unfinished.error || prs.error || hist.error) toast.error("โหลดข้อมูลรับของไม่ครบ ลองรีเฟรช");
+    const partial = !!(sent.error || unfinished.error || prs.error || hist.error);
+    if (partial) toast.error("โหลดข้อมูลรับของไม่ครบ ลองรีเฟรช");
+    setError(partial ? "โหลดข้อมูลรับของไม่ครบ รายการที่เห็นอาจขาดไป ลองรีเฟรช" : null);
 
     // Anything already in this branch's stock is never offered a second time
     const orders = ([...(sent.data ?? []), ...(unfinished.data ?? [])] as any[]).map((to) => ({ ...to, receipts: Number(to.branch_receipts?.[0]?.count) || 0 }));
@@ -186,8 +221,7 @@ export function useReceiveData(opts: {
       })),
     );
     setHistory(((hist.data ?? []) as any[]).map(toLocal));
-    setLoading(false);
-  }, [branchId, historyKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   useEffect(() => {
     load();
@@ -390,6 +424,7 @@ export function useReceiveData(opts: {
     prGroups,
     history,
     loading,
+    error,
     reload: load,
     saveRows,
     receiveTransferOrder,

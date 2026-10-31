@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { thaiDay } from "./SalesDays";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { withBusy } from "@/lib/with-busy";
 
 export type Patch = Partial<Omit<SaleLine, "id" | "branch_id" | "receipt_no">>;
 
@@ -275,10 +276,10 @@ export function EditDialog({ line, onClose, onSave, onDelete }: { line: SaleLine
             loading={saving}
             disabled={!Object.keys(draft).length}
             onClick={async () => {
-              setSaving(true);
-              await onSave(draft);
-              setSaving(false);
-              setDraft({});
+              await withBusy(setSaving, async () => {
+                await onSave(draft);
+                setDraft({});
+              });
             }}
           >
             บันทึก

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { isoDate } from "@/lib/stock-count";
@@ -33,10 +34,33 @@ const EMPTY: CountStatus = { salesLines: 0, receipts: 0, waitingTransfers: 0, op
 export function useCountStatus(branchId: string | null, date: string) {
   const [status, setStatus] = useState<CountStatus>(EMPTY);
   const [loading, setLoading] = useState(true);
+  /** Which branch and day the figures on screen are for: a reload of the same day keeps them up */
+  const shownFor = useRef<string | null>(null);
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
     if (!branchId) return;
-    setLoading(true);
+    const key = `${branchId}|${date}`;
+    const run = ++latest.current;
+    // Only a different branch or day blanks the checks; "นับเสร็จ" refreshing them doesn't
+    if (shownFor.current !== key) setLoading(true);
+    try {
+      await read(key, run);
+    } catch {
+      if (run !== latest.current) return;
+      // Another branch's or day's figures never stay up under this one
+      if (shownFor.current !== key) {
+        setStatus(EMPTY);
+        shownFor.current = null;
+      }
+      toast.error("โหลดสถานะการนับไม่สำเร็จ (ยอดขาย/รับของที่เห็นอาจไม่ใช่ล่าสุด) ลองเปิดใหม่");
+    } finally {
+      if (run === latest.current) setLoading(false);
+    }
+  }, [branchId, date]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const read = async (key: string, run: number) => {
+    if (!branchId) return;
     const from = new Date(`${date}T00:00:00`);
     from.setDate(from.getDate() - 7);
     const fromIso = isoDate(from);
@@ -56,6 +80,9 @@ export function useCountStatus(branchId: string | null, date: string) {
           .range(a, b),
       ),
     ]);
+    const failed = [sales, receipts, tos, sheets].find((r) => r.error);
+    if (failed) throw failed.error;
+    if (run !== latest.current) return;
     const byDay = new Map<string, OpenDay & { finished: boolean; typed: boolean }>();
     for (const r of sheets.data as { count_date: string; physical_count: number | null; waste: number | null; is_submitted: boolean }[]) {
       const d = byDay.get(r.count_date) ?? { date: r.count_date, counted: 0, total: 0, finished: true, typed: false };
@@ -75,8 +102,8 @@ export function useCountStatus(branchId: string | null, date: string) {
         .map(({ date: dd, counted, total }) => ({ date: dd, counted, total })),
       todayFinished: byDay.get(date)?.finished ?? false,
     });
-    setLoading(false);
-  }, [branchId, date]);
+    shownFor.current = key;
+  };
 
   useEffect(() => {
     load();

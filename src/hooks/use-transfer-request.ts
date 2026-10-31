@@ -8,6 +8,8 @@ import { loadBranchStock, sharedBranchRead, type BranchStockData } from "@/hooks
 import { branchFigures, receiptConverter } from "@/lib/branch-stock";
 import { dailyUseWindow } from "@/lib/daily-use";
 import { requestFigures } from "@/lib/request-lines";
+import { brandMenuIds } from "@/lib/branch-menus-db";
+import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 
 export type TRLineSkuType = "SM" | "RM" | "PK";
 
@@ -93,21 +95,23 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     // The branch's counts and recipes, shared with the kitchen-made list (use-branch-sm-stock)
     const shared = sharedBranchRead(branchId, today);
     try {
-      // Get branch brand
-      const { data: branch } = await supabase.from("branches").select("brand_name").eq("id", branchId).single();
-      if (!branch) {
+      // The branch's brand and its active menus, the distributable RM/PK products and the SP
+      // recipes — one round (it was six in a row before the stock could start)
+      const [brand, distRes, spRes] = await Promise.all([
+        brandMenuIds(branchId),
+        fetchAllRowsOrThrow<{ id: string; sku_id: string; name: string; usage_uom: string; pack_size: number; lead_time: number; type: string; purchase_uom: string; converter: number }>((a, b) =>
+          supabase.from("skus").select("id, sku_id, name, usage_uom, pack_size, lead_time, type, purchase_uom, converter").in("type", ["RM", "PK"]).eq("status", "Active").eq("is_distributable", true).order("id").range(a, b),
+        ).then((data) => ({ data })),
+        fetchAllRowsOrThrow<{ sp_sku_id: string; ingredient_sku_id: string }>((a, b) => supabase.from("sp_bom").select("id, sp_sku_id, ingredient_sku_id").order("id").range(a, b) as never).then((data) => ({ data })),
+      ]);
+      if (!brand) {
         setRmLines([]);
         setRmLoading(false);
         return;
       }
 
-      // Get active menus for this brand
-      const { data: menus } = await supabase
-        .from("menus")
-        .select("id")
-        .eq("brand_name", branch.brand_name)
-        .eq("status", "Active");
-      const menuIds = (menus || []).map((m) => m.id);
+      // Active menus for this brand
+      const menuIds = brand.menuIds;
       if (menuIds.length === 0) {
         setRmLines([]);
         setRmLoading(false);
@@ -116,44 +120,23 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
 
       // Get BOM sku_ids
       const { data: bomEntries } = await supabase.from("menu_bom").select("sku_id").in("menu_id", menuIds);
-      const bomSkuIds = [...new Set((bomEntries || []).map((b) => b.sku_id))];
+      const bomSkuIds = new Set((bomEntries || []).map((b) => b.sku_id));
 
-      // Get RM ingredients via sp_bom
-      let rmFromSpBom: string[] = [];
-      if (bomSkuIds.length > 0) {
-        const { data: spBomLines } = await supabase
-          .from("sp_bom")
-          .select("ingredient_sku_id")
-          .in("sp_sku_id", bomSkuIds);
-        rmFromSpBom = (spBomLines || []).map((l) => l.ingredient_sku_id);
-      }
+      // RM ingredients via sp_bom (the SP recipes of those products)
+      const rmFromSpBom = spRes.data.filter((l) => bomSkuIds.has(l.sp_sku_id)).map((l) => l.ingredient_sku_id);
 
-      // Also fetch all distributable PK SKUs directly (PK has no BOM)
-      const { data: pkSkus } = await supabase
-        .from("skus")
-        .select("id")
-        .eq("type", "PK")
-        .eq("status", "Active")
-        .eq("is_distributable", true);
-      const pkSkuIds = (pkSkus || []).map((s) => s.id);
+      // Also every distributable PK SKU directly (PK has no BOM)
+      const pkSkuIds = (distRes.data || []).filter((s) => s.type === "PK").map((s) => s.id);
 
-      const allRelevantIds = [...new Set([...bomSkuIds, ...rmFromSpBom, ...pkSkuIds])];
-      if (allRelevantIds.length === 0) {
+      const allRelevantIds = new Set([...bomSkuIds, ...rmFromSpBom, ...pkSkuIds]);
+      if (allRelevantIds.size === 0) {
         setRmLines([]);
         setRmLoading(false);
         return;
       }
 
-      // Get distributable RM SKUs that are relevant to this brand's menus
-      const { data: rmSkus } = await supabase
-        .from("skus")
-        .select("id, sku_id, name, usage_uom, pack_size, lead_time, type, purchase_uom, converter")
-        .in("type", ["RM", "PK"])
-        .eq("status", "Active")
-        .eq("is_distributable", true)
-        .in("id", allRelevantIds);
-
-      const filtered = rmSkus || [];
+      // Distributable RM SKUs that are relevant to this brand's menus
+      const filtered = (distRes.data || []).filter((s) => allRelevantIds.has(s.id));
       if (filtered.length === 0) {
         setRmLines([]);
         setRmLoading(false);

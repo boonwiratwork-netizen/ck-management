@@ -82,24 +82,23 @@ export function useRequestData(branchId: string | null, brandName: string | null
   // Suppliers: those selling this brand's ingredients first (the old dropdown's rule)
   const loadSuppliers = useCallback(async () => {
     if (!branchId || !brandName) return setSuppliers([]);
-    const { data: menus } = await supabase.from("menus").select("id").eq("brand_name", brandName).eq("status", "Active");
+    // Everything but the recipes' lines in one round, then those lines (five rounds became two)
+    const [{ data: menus }, { data: all }, counts, sp, prices] = await Promise.all([
+      supabase.from("menus").select("id").eq("brand_name", brandName).eq("status", "Active"),
+      supabase.from("suppliers").select("id, name, is_central_kitchen, status").eq("status", "Active"),
+      pendingPrCounts(branchId),
+      fetchAllRows((a, b) => supabase.from("sp_bom").select("id, sp_sku_id, ingredient_sku_id").order("id").range(a, b)),
+      fetchAllRows((a, b) => supabase.from("prices").select("id, sku_id, supplier_id").eq("is_active", true).order("id").range(a, b)),
+    ]);
     const menuIds = (menus || []).map((m) => m.id);
     const ingredientIds = new Set<string>();
     if (menuIds.length) {
       const { data: bom } = await fetchAllRows((a, b) => supabase.from("menu_bom").select("id, sku_id").in("menu_id", menuIds).order("id").range(a, b));
-      const ids = (bom as { sku_id: string }[]).map((b) => b.sku_id);
+      const ids = new Set((bom as { sku_id: string }[]).map((b) => b.sku_id));
       ids.forEach((id) => ingredientIds.add(id));
-      if (ids.length) {
-        const { data: sp } = await supabase.from("sp_bom").select("ingredient_sku_id").in("sp_sku_id", [...new Set(ids)]);
-        (sp || []).forEach((l) => ingredientIds.add(l.ingredient_sku_id));
-      }
+      for (const l of sp.data as { sp_sku_id: string; ingredient_sku_id: string }[]) if (ids.has(l.sp_sku_id)) ingredientIds.add(l.ingredient_sku_id);
     }
-    const [{ data: all }, prices, counts] = await Promise.all([
-      supabase.from("suppliers").select("id, name, is_central_kitchen, status").eq("status", "Active"),
-      ingredientIds.size ? supabase.from("prices").select("supplier_id").eq("is_active", true).in("sku_id", [...ingredientIds]) : Promise.resolve({ data: [] as { supplier_id: string }[] }),
-      pendingPrCounts(branchId),
-    ]);
-    const relevant = new Set((prices.data || []).map((p) => p.supplier_id).filter(Boolean));
+    const relevant = new Set((prices.data as { sku_id: string; supplier_id: string | null }[]).filter((p) => ingredientIds.has(p.sku_id)).map((p) => p.supplier_id).filter(Boolean));
     setSuppliers(
       (all || [])
         .filter((s) => !s.is_central_kitchen)
@@ -195,9 +194,12 @@ export function useRequestData(branchId: string | null, brandName: string | null
 }
 
 async function pendingPrCounts(branchId: string): Promise<Record<string, number>> {
-  const { data: prs } = await supabase.from("purchase_requests").select("id").eq("branch_id", branchId).in("status", ["Submitted", "Acknowledged"]);
-  if (!prs?.length) return {};
-  const { data: lines } = await supabase.from("purchase_request_lines").select("pr_id, supplier_id").in("pr_id", prs.map((p) => p.id));
+  // The open orders' lines in one read (the orders, then their lines, was two in a row)
+  const { data: lines } = await supabase
+    .from("purchase_request_lines")
+    .select("pr_id, supplier_id, purchase_requests!inner(branch_id, status)")
+    .eq("purchase_requests.branch_id", branchId)
+    .in("purchase_requests.status", ["Submitted", "Acknowledged"]);
   const bySupplier: Record<string, Set<string>> = {};
   for (const l of lines || []) if (l.supplier_id) (bySupplier[l.supplier_id] ??= new Set()).add(l.pr_id);
   return Object.fromEntries(Object.entries(bySupplier).map(([k, v]) => [k, v.size]));
