@@ -47,7 +47,7 @@ export interface KitchenDay {
 export interface BranchDay {
   salesYesterday: number | null;
   salesMonth: number;
-  /** Yesterday's count sheet: finished / started but not finished / not started */
+  /** Yesterday's count: finished / counted but "นับเสร็จ" not pressed / nothing counted */
   countYesterday: "done" | "open" | "none";
   toReceive: number;
   /** Items with less than 2 days left at the latest finished count */
@@ -73,8 +73,9 @@ async function loadDays(branchIds: string[], today: string, yesterday: string, m
     const bs = sales.filter((s) => s.branch_id === b);
     const yRows = bs.filter((s) => s.sale_date === yesterday);
     const cy = counts.filter((c) => c.branch_id === b && c.count_date === yesterday);
-    // Latest finished sheet: days left = counted ÷ that day's expected use
-    const finished = counts.filter((c) => c.branch_id === b && c.is_submitted && c.physical_count !== null);
+    // Latest count: days left = counted ÷ that day's expected use. Finished or not, as
+    // the stock pages read it (a counted sheet left open used to fall back to an older one)
+    const finished = counts.filter((c) => c.branch_id === b && c.physical_count !== null);
     const lastDate = finished.reduce<string | null>((m, c) => (!m || c.count_date > m ? c.count_date : m), null);
     const low = finished
       .filter((c) => c.count_date === lastDate && Number(c.physical_count) > 0 && Number(c.expected_usage) > 0)
@@ -84,7 +85,8 @@ async function loadDays(branchIds: string[], today: string, yesterday: string, m
     out[b] = {
       salesYesterday: yRows.length ? yRows.reduce((t, s) => t + (Number(s.net_amount) || 0), 0) : null,
       salesMonth: bs.reduce((t, s) => t + (Number(s.net_amount) || 0), 0),
-      countYesterday: !cy.length ? "none" : cy.every((c) => c.is_submitted) ? "done" : "open",
+      // A sheet opened with nothing typed in isn't a count
+      countYesterday: !cy.some((c) => c.physical_count !== null) ? "none" : cy.every((c) => c.is_submitted) ? "done" : "open",
       toReceive: (tos.data ?? []).filter((t) => t.branch_id === b).length,
       low,
     };
@@ -255,7 +257,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
                   <Row
                     ok={d.countYesterday === "done"}
                     warn={d.countYesterday === "open"}
-                    text={d.countYesterday === "done" ? `นับสต๊อก ${yLabel} กดนับเสร็จแล้ว` : d.countYesterday === "open" ? `นับสต๊อก ${yLabel} ยังไม่กดนับเสร็จ` : `ยังไม่ได้นับสต๊อก ${yLabel}`}
+                    text={d.countYesterday === "done" ? `นับสต๊อก ${yLabel} กดนับเสร็จแล้ว` : d.countYesterday === "open" ? `นับสต๊อก ${yLabel} แล้ว ยังไม่กดนับเสร็จ` : `ยังไม่ได้นับสต๊อก ${yLabel}`}
                     action="ไปนับ"
                     tab="daily-stock-count"
                   />

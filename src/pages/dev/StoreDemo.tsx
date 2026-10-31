@@ -61,12 +61,12 @@ export default function StoreDemo() {
           onNavigate={(t) => alert(`ไปหน้า ${t}`)}
           // A month of days: some unfinished, some missed, a run of days with no sales
           calendarLoad={async (ids, from) => {
-            const counts: { branch_id: string; count_date: string; is_submitted: boolean }[] = [];
+            const counts: { branch_id: string; count_date: string; is_submitted: boolean; physical_count: number | null }[] = [];
             const sales: { branch_id: string; sale_date: string }[] = [];
             ids.forEach((b, i) => {
               for (let d = 1; d <= 30; d++) {
                 const date = `${from.slice(0, 8)}${String(d).padStart(2, "0")}`;
-                if ((d * (i + 3)) % 7 !== 0) counts.push({ branch_id: b, count_date: date, is_submitted: i === 1 ? d > 10 : d % 5 !== 0 });
+                if ((d * (i + 3)) % 7 !== 0) counts.push({ branch_id: b, count_date: date, is_submitted: i === 1 ? d > 10 : d % 5 !== 0, physical_count: 1 });
                 if (i !== 0 || d < 9 || d > 17) sales.push({ branch_id: b, sale_date: date });
               }
             });

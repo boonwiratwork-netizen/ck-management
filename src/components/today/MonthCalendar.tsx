@@ -19,7 +19,7 @@ export type CalendarLoad = (
   from: string,
   to: string,
 ) => Promise<{
-  counts: { branch_id: string; count_date: string; is_submitted: boolean }[];
+  counts: { branch_id: string; count_date: string; is_submitted: boolean; physical_count: number | null }[];
   sales: { branch_id: string; sale_date: string }[];
 }>;
 
@@ -36,11 +36,11 @@ async function loadMonth(branchIds: string[], from: string, to: string) {
   const all = <T,>(build: (a: number, b: number) => unknown) =>
     fetchAllRows<T>(build as never).then((r) => r.data);
   const [counts, sales] = await Promise.all([
-    all<{ branch_id: string; count_date: string; is_submitted: boolean }>(
+    all<{ branch_id: string; count_date: string; is_submitted: boolean; physical_count: number | null }>(
       (a, b) =>
         supabase
           .from("daily_stock_counts")
-          .select("id, branch_id, count_date, is_submitted")
+          .select("id, branch_id, count_date, is_submitted, physical_count")
           .in("branch_id", branchIds)
           .gte("count_date", from)
           .lte("count_date", to)
@@ -86,7 +86,7 @@ const TONE = {
 const ICON = { done: Check, open: CircleDot, none: X } as const;
 const COUNT_TEXT = {
   done: "นับเสร็จ",
-  open: "เปิดใบนับ ยังไม่กดนับเสร็จ",
+  open: "นับแล้ว ยังไม่กดนับเสร็จ",
   none: "ไม่ได้นับ",
 } as const;
 
@@ -332,8 +332,8 @@ export function MonthCalendar({
         );
       })}
       <p className="text-xs text-muted-foreground">
-        "ไม่กดเสร็จ" = เปิดใบนับแล้วแต่ยังไม่ได้กด "นับเสร็จ"
-        ระบบยังไม่ยึดยอดนั้น
+        "ไม่กดเสร็จ" = ใส่ยอดนับแล้ว (สต๊อกใช้ยอดนั้นแล้ว) แต่ยังไม่กด "นับเสร็จ"
+        ใบยังแก้ได้ และวันถัดไปจะเริ่มนับไม่ได้จนกว่าจะปิดวันที่ค้าง · เปิดใบนับแต่ไม่ได้ใส่ยอด = ไม่ได้นับ
         {canOpen && " · แตะวันเพื่อเปิดใบนับหรือยอดขายของวันนั้น"}
       </p>
     </section>

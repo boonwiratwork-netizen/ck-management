@@ -91,8 +91,20 @@ export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smS
   if (data && data.uncounted.length)
     attention.push({ key: "uncounted", tone: "amber", title: `วัตถุดิบ ${data.uncounted.length} ตัวไม่มีในใบนับ · คิดตามสูตรไปก่อน`, detail: `${data.uncounted.slice(0, 4).map(name).join(" · ")}${data.uncounted.length > 4 ? " · …" : ""} · นับให้ครบรอบหน้า ตัวเลขจะแม่นขึ้น` });
   if (cost) {
-    for (const r of cost.rows.filter((r) => r.stdCost <= 0 && r.outputG > 0).slice(0, 2))
-      attention.push({ key: `zero-${r.smSkuId}`, tone: "red", title: `${name(r.smSkuId)}: ผลิต ${grams(r.outputG, "ก.")} แต่ไม่มีสูตรหรือราคา`, detail: "ต้นทุนตามสูตรเป็น ฿0 · ตั้งสูตรใน Cost Center", go: () => openProduct(r.smSkuId), label: "ไปตั้งสูตร" });
+    // ฿0 by recipe has three causes; only two are worth a look. A recipe made only of
+    // kitchen-made items (ซุปโชยุผสมสต๊อก = ซุปโชยุ + น้ำสต๊อก) is ฿0 here on purpose:
+    // those items are costed in their own rows. Until Oct 2026 it was flagged "no recipe".
+    for (const r of cost.rows.filter((r) => r.stdCost <= 0 && r.outputG > 0 && (!r.lines.length || r.lines.some((l) => l.isRm))).slice(0, 2)) {
+      const noRecipe = !r.lines.length;
+      attention.push({
+        key: `zero-${r.smSkuId}`,
+        tone: "red",
+        title: `${name(r.smSkuId)}: ผลิต ${grams(r.outputG, "ก.")} แต่${noRecipe ? "ยังไม่มีสูตร" : "วัตถุดิบในสูตรยังไม่มีราคา"}`,
+        detail: noRecipe ? "ผลิตแล้วไม่ตัดวัตถุดิบ · ต้นทุนตามสูตรเป็น ฿0 · ตั้งสูตรใน Cost Center" : "ต้นทุนตามสูตรเป็น ฿0 · ใส่ราคาใน Cost Center",
+        go: () => openProduct(r.smSkuId),
+        label: noRecipe ? "ไปตั้งสูตร" : "ไปใส่ราคา",
+      });
+    }
     for (const r of cost.rows.filter((r) => r.stdCost > 0 && Math.abs(r.actCost - r.stdCost) >= 300 && Math.abs(pct(r.actCost - r.stdCost, r.stdCost)) >= 10).slice(0, 3)) {
       const d = r.actCost - r.stdCost;
       attention.push({ key: `var-${r.smSkuId}`, tone: "amber", title: `${name(r.smSkuId)}: ${d > 0 ? "แพงกว่า" : "ถูกกว่า"}สูตร ${signed(d)} (${pct(d, r.stdCost) > 0 ? "+" : ""}${pct(d, r.stdCost).toFixed(1)}%)`, detail: data?.estimated ? `เพราะราคา ${signed(r.priceVar)} · ส่วนใช้ รอนับปลายช่วง` : `เพราะราคา ${signed(r.priceVar)} · เพราะใช้ ${signed(r.usageVar)}`, go: () => setOpen(r), label: "ดูวัตถุดิบ" });
