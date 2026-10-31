@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
-import { batchShare, batchesForRecord, daysTone, deltas, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText } from "./production";
+import { batchShare, batchesForRecord, daysTone, deltas, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput } from "./production";
 
 const header = (o: Partial<BOMHeader>): BOMHeader => ({ id: "h", smSkuId: "sm", productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1, ...o }) as BOMHeader;
 const line = (o: Partial<BOMLine>): BOMLine => ({ id: Math.random().toString(), bomHeaderId: "h", rmSkuId: "bone", qtyPerBatch: 1000, yieldPercent: 1, ...o }) as BOMLine;
@@ -75,5 +75,20 @@ describe("weekly plan", () => {
   it("grams for people", () => {
     expect(gramsText(31900)).toBe("31.9 กก.");
     expect(gramsText(350)).toBe("350 ก.");
+  });
+});
+
+describe("output far from usual", () => {
+  const rec = (g: number, d: string) => ({ smSkuId: "soup", productionDate: d, actualOutputG: g });
+  const recs = [33000, 32000, 34000, 33500, 31000].map((g, i) => rec(g, `2026-10-0${i + 1}`));
+  it("the middle of the recent records", () => {
+    expect(usualOutput(recs, "soup")).toBe(33000);
+    expect(usualOutput(recs.slice(0, 4), "soup")).toBe(0);
+  });
+  it("asks only beyond 5 times either way", () => {
+    expect(farFromUsual(3500, 33000)).toBe(true);
+    expect(farFromUsual(200000, 33000)).toBe(true);
+    expect(farFromUsual(16500, 33000)).toBe(false);
+    expect(farFromUsual(3500, 0)).toBe(false);
   });
 });

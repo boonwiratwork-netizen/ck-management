@@ -108,7 +108,15 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   const branchId = lockedBranch ?? (activeBranches.some((b) => b.id === picked) ? picked : activeBranches[0]?.id ?? null);
   const branch = branches.find((b) => b.id === branchId);
   const [today, setToday] = useState(() => businessDate(new Date()));
-  const [date, setDate] = useState(today);
+  // Opened from a day on the Today calendar: start on that day
+  const [date, setDate] = useState(() => {
+    const asked = (location.state as { date?: string } | null)?.date;
+    return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= today ? asked : today;
+  });
+  // Read once: a reload or a return visit later starts on today again
+  useEffect(() => {
+    if ((location.state as { date?: string } | null)?.date) navigate({ pathname: location.pathname, hash: location.hash }, { replace: true, state: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // A page left open overnight moves on to the new count day (unless another day was picked)
   useEffect(() => {
     const check = () => {

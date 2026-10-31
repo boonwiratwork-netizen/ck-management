@@ -11,7 +11,7 @@ import type { SMStockBalance } from "@/hooks/use-sm-stock-data";
 import type { useProductionData } from "@/hooks/use-production-data";
 import { usePlanningAgent } from "@/hooks/use-planning-agent";
 import { useAuth } from "@/hooks/use-auth";
-import { indirectNeed } from "@/lib/production";
+import { farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
 import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
 import { ByproductDialog, type ByproductAsk } from "@/components/production/ByproductDialog";
@@ -241,7 +241,18 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
       })) });
     return wait();
   };
+  const [oddAsk, setOddAsk] = useState<{ skuId: string; grams: number; notes: string; usual: number } | null>(null);
+  const oddConfirmed = useRef(false);
   const onRecord = async (skuId: string, grams: number, notes: string) => {
+    // Far from what this pot usually makes (a dropped or extra zero): ask first
+    const usual = usualOutput(records, skuId);
+    if (farFromUsual(grams, usual)) {
+      setOddAsk({ skuId, grams, notes, usual });
+      return wait();
+    }
+    return checkTwice(skuId, grams, notes);
+  };
+  const checkTwice = async (skuId: string, grams: number, notes: string) => {
     // A by-product already went into stock with its parent pot today: ask before adding it twice
     const parent = parentOfBp.get(skuId);
     if (parent && records.some((r) => r.smSkuId === parent && r.productionDate === day)) {
@@ -378,6 +389,35 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!oddAsk}
+        onOpenChange={(o) => {
+          if (o) return;
+          if (oddConfirmed.current) {
+            oddConfirmed.current = false;
+            return;
+          }
+          if (oddAsk) {
+            setOddAsk(null);
+            settle(false);
+          }
+        }}
+        title={oddAsk ? `${nameOf(oddAsk.skuId)} ${gramsText(oddAsk.grams)} ถูกไหม?` : ""}
+        description={oddAsk ? `ปกติผลิตครั้งละประมาณ ${gramsText(oddAsk.usual)}` : ""}
+        confirmLabel="ถูกแล้ว บันทึก"
+        cancelLabel="แก้ตัวเลข"
+        variant="default"
+        onConfirm={async () => {
+          const d = oddAsk;
+          oddConfirmed.current = true;
+          setOddAsk(null);
+          if (!d) return;
+          const resolve = waiting.current;
+          waiting.current = null;
+          const ok = await checkTwice(d.skuId, d.grams, d.notes);
+          resolve?.(ok);
+        }}
+      />
       <ConfirmDialog
         open={!!dupAsk}
         onOpenChange={(o) => {

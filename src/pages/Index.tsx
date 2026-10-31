@@ -427,6 +427,7 @@ const Index = () => {
                     onNavigate={handleTabChange}
                     // Area managers look; the kitchen role can't open branch pages
                     readOnly={isAreaManager || role === "ck_manager"}
+                    canOpenDays={canAccessTab(role, "daily-stock-count") && canAccessTab(role, "sales-entry")}
                   />
                 ) : activeTab === "cost-center" ? (
                   <CostCenterPage

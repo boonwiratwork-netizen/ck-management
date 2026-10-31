@@ -8,7 +8,8 @@ import type { Branch } from "@/types/branch";
 import type { TabKey } from "@/components/AppSidebar";
 import { fetchPendingTrCount } from "@/lib/pending-trs";
 import { kitchenMonthEnd } from "@/lib/month-end";
-import { LOW_DAYS } from "@/lib/stock-count";
+import { LOW_DAYS, businessDate } from "@/lib/stock-count";
+import { MonthCalendar, type CalendarLoad } from "@/components/today/MonthCalendar";
 
 interface Props {
   branches: Branch[];
@@ -19,6 +20,10 @@ interface Props {
   load?: (branchIds: string[], today: string, yesterday: string, monthStart: string) => Promise<Record<string, BranchDay>>;
   /** Dev demo only: show the kitchen card and load it from here */
   kitchen?: { load: (today: string) => Promise<KitchenDay> };
+  /** The calendar's days open that day's count sheet and sales (not for the kitchen role) */
+  canOpenDays?: boolean;
+  /** Dev demo only: the month calendar's rows */
+  calendarLoad?: CalendarLoad;
 }
 
 /** The central kitchen's day: management run the kitchen from their own accounts */
@@ -121,7 +126,7 @@ const shortDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateStr
  * anything running out. Each open job is one tap from the page that does it.
  * Management and area managers see every branch they look after.
  */
-export default function StoreOverview({ branches, onNavigate, readOnly, load = loadDays, kitchen }: Props) {
+export default function StoreOverview({ branches, onNavigate, readOnly, load = loadDays, kitchen, calendarLoad, canOpenDays = true }: Props) {
   const { profile, isStoreManager, isManagement, isCkManager } = useAuth();
   const showKitchen = !!kitchen || isManagement || isCkManager;
   const loadK = kitchen?.load ?? loadKitchen;
@@ -268,6 +273,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
           );
         })}
       </div>
+      {shown.length > 0 && <MonthCalendar branches={shown} today={businessDate(now)} load={calendarLoad} canOpen={canOpenDays} />}
       <p className="text-xs text-muted-foreground">ใกล้หมด = ยอดนับล่าสุด ÷ ที่ใช้ในวันนั้น ไม่ถึง {LOW_DAYS} วัน · ดูทั้งหมดที่หน้าสต๊อกสาขา</p>
     </div>
   );

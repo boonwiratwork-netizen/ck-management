@@ -125,3 +125,20 @@ export function gramsText(g: number): string {
   const n = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
   return Math.abs(g) >= 1000 ? `${n(g / 1000)} กก.` : `${Math.round(g).toLocaleString("th-TH")} ก.`;
 }
+
+/**
+ * What a pot of this SM usually comes out at: the middle of its last 20 records
+ * (0 = fewer than 5 records, too few to know). Typing 3,500 for 33,000 is easy to miss.
+ */
+export function usualOutput(records: { smSkuId: string; productionDate: string; actualOutputG: number }[], skuId: string): number {
+  const own = records
+    .filter((r) => r.smSkuId === skuId && r.actualOutputG > 0)
+    .sort((a, b) => b.productionDate.localeCompare(a.productionDate))
+    .slice(0, 20)
+    .map((r) => r.actualOutputG)
+    .sort((a, b) => a - b);
+  return own.length < 5 ? 0 : own[Math.floor(own.length / 2)];
+}
+
+/** More than 5 times above or below the usual output: ask before saving */
+export const farFromUsual = (grams: number, usual: number) => usual > 0 && grams > 0 && (grams > usual * 5 || grams < usual / 5);

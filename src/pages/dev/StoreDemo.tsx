@@ -59,6 +59,19 @@ export default function StoreDemo() {
         <StoreOverview
           branches={fx.branches}
           onNavigate={(t) => alert(`ไปหน้า ${t}`)}
+          // A month of days: some unfinished, some missed, a run of days with no sales
+          calendarLoad={async (ids, from) => {
+            const counts: { branch_id: string; count_date: string; is_submitted: boolean }[] = [];
+            const sales: { branch_id: string; sale_date: string }[] = [];
+            ids.forEach((b, i) => {
+              for (let d = 1; d <= 30; d++) {
+                const date = `${from.slice(0, 8)}${String(d).padStart(2, "0")}`;
+                if ((d * (i + 3)) % 7 !== 0) counts.push({ branch_id: b, count_date: date, is_submitted: i === 1 ? d > 10 : d % 5 !== 0 });
+                if (i !== 0 || d < 9 || d > 17) sales.push({ branch_id: b, sale_date: date });
+              }
+            });
+            return { counts, sales };
+          }}
           // Real kitchen numbers, 30 Oct (month-end count due tomorrow)
           kitchen={{ load: async () => ({ suppliers: 2, runs: 4, requests: 0, sent: 0, monthEnd: { date: "2026-10-31", done: false } }) }}
           load={async (ids) =>
