@@ -202,6 +202,14 @@ export default function CostCenterDemo() {
         updateSupplier={async (id, patch) => (setSuppliers((p) => p.map((s) => (s.id === id ? { ...s, ...patch } : s))), true)}
         onNavigate={() => {}}
         canOpen={() => true}
+        files={{
+          ctx: { skus, suppliers, prices, menus: fx.menus, menuBomLines: fx.lines, spLines: fx.spLines, brands: [...new Set(fx.branches.map((b) => b.brandName))] },
+          // Dev: nothing is written, the rows are shown instead
+          saves: Object.fromEntries(
+            (["skus", "suppliers", "prices", "menus", "menu-bom", "sp-bom"] as const).map((k) => [k, async (rows: Record<string, string>[]) => (console.info(`[import demo] ${k}`, rows), { saved: rows.length, failed: 0 })]),
+          ) as never,
+          canEditMenus: true,
+        }}
         demoBills={bills}
         recipeActions={{
           addHeader: async (data) => {

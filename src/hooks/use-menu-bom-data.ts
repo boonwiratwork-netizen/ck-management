@@ -78,5 +78,35 @@ export function useMenuBomData() {
     return true;
   }, []);
 
-  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine };
+  // A menu's whole shared recipe swapped for new lines (import): every new line in
+  // one insert (all or nothing), the old shared lines out only after that worked,
+  // so a failure never leaves the menu with no recipe or with both. A branch's own
+  // lines stay.
+  const replaceShared = useCallback(async (menuId: string, next: Omit<MenuBomLine, 'id' | 'menuId' | 'branchId'>[]) => {
+    const { data: rows, error } = await supabase.from('menu_bom').insert(next.map((l) => ({
+      menu_id: menuId,
+      sku_id: l.skuId,
+      qty_per_serving: l.qtyPerServing,
+      uom: l.uom,
+      yield_pct: l.yieldPct,
+      effective_qty: l.effectiveQty,
+      cost_per_serving: l.costPerServing,
+      branch_id: null,
+    }))).select();
+    if (error || !rows) { toast.error('บันทึกสูตรเมนูไม่สำเร็จ: ' + (error?.message ?? '')); return false; }
+    const added = rows.map((r) => r.id as string);
+    // Every other shared line of the menu in the database, not just the ones on screen
+    const del = await supabase.from('menu_bom').delete().eq('menu_id', menuId).is('branch_id', null).not('id', 'in', `(${added.join(',')})`);
+    if (del.error) {
+      // Take the new lines back out: the old recipe stays as it was
+      const undo = await supabase.from('menu_bom').delete().in('id', added);
+      toast.error(undo.error ? `สูตรเมนูมีทั้งของเก่าและของใหม่ · เปิดเมนูนี้ใน Cost Center แล้วลบบรรทัดที่ซ้ำ (${del.error.message})` : 'บันทึกสูตรเมนูไม่สำเร็จ สูตรเดิมยังอยู่: ' + del.error.message);
+      if (undo.error) setLines(prev => [...prev, ...rows.map(toLocal)]);
+      return false;
+    }
+    setLines(prev => [...prev.filter(l => !(l.menuId === menuId && !l.branchId)), ...rows.map(toLocal)]);
+    return true;
+  }, []);
+
+  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine, replaceShared };
 }

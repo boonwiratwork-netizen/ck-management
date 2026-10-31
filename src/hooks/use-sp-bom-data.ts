@@ -91,5 +91,30 @@ export function useSpBomData() {
     return true;
   }, []);
 
-  return { lines, loading, getLinesForSp, addLine, updateLine, updateBatchYield, deleteLine, reload };
+  // An SP's whole recipe swapped for new lines (import), same order as menu
+  // recipes: all new lines in one insert, the old ones out only after that
+  const replaceLines = useCallback(async (spSkuId: string, next: Omit<SpBomLine, 'id'>[]) => {
+    const { data: rows, error } = await supabase.from('sp_bom').insert(next.map((l) => ({
+      sp_sku_id: l.spSkuId,
+      ingredient_sku_id: l.ingredientSkuId,
+      qty_per_batch: l.qtyPerBatch,
+      uom: l.uom,
+      batch_yield_qty: l.batchYieldQty,
+      batch_yield_uom: l.batchYieldUom,
+      cost_per_unit: l.costPerUnit,
+    }))).select();
+    if (error || !rows) { toast.error('บันทึกสูตร SP ไม่สำเร็จ: ' + (error?.message ?? '')); return false; }
+    const added = rows.map((r) => r.id as string);
+    const del = await supabase.from('sp_bom').delete().eq('sp_sku_id', spSkuId).not('id', 'in', `(${added.join(',')})`);
+    if (del.error) {
+      const undo = await supabase.from('sp_bom').delete().in('id', added);
+      toast.error(undo.error ? `สูตร SP มีทั้งของเก่าและของใหม่ · เปิด SP นี้ใน Cost Center แล้วลบบรรทัดที่ซ้ำ (${del.error.message})` : 'บันทึกสูตร SP ไม่สำเร็จ สูตรเดิมยังอยู่: ' + del.error.message);
+      if (undo.error) setLines(prev => [...prev, ...rows.map(toLocal)]);
+      return false;
+    }
+    setLines(prev => [...prev.filter(l => l.spSkuId !== spSkuId), ...rows.map(toLocal)]);
+    return true;
+  }, []);
+
+  return { lines, loading, getLinesForSp, addLine, updateLine, updateBatchYield, deleteLine, reload, replaceLines };
 }

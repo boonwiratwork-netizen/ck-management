@@ -27,6 +27,9 @@ import { KindBadge } from "@/components/cost-center/parts";
 import { BillPriceUpdate } from "@/components/cost-center/BillPriceUpdate";
 import type { RecipeEditActions } from "@/components/cost-center/RecipeEditor";
 import type { SpBomLine } from "@/types/sp-bom";
+import type { ImportContext } from "@/lib/import-datasets";
+import type { ImportSaves } from "@/hooks/use-import-saves";
+import { FilesView } from "@/components/cost-center/FilesView";
 
 type MenuSetupProps = React.ComponentProps<typeof MenuSetupPage>;
 
@@ -56,6 +59,8 @@ interface Props {
   canOpen: (tab: TabKey) => boolean;
   /** Every recipe in one Excel file (management only; it used to sit on every page's header) */
   onExportAll?: () => void;
+  /** Bulk import/export by file (replaced the old pages' import buttons) */
+  files?: { ctx: ImportContext; saves: ImportSaves; canEditMenus: boolean };
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
 }
@@ -212,20 +217,12 @@ export default function CostCenterPage(props: Props) {
   // so instead of throwing them out of Cost Center
   const menuNavigate = (tab: TabKey) => {
     if (tab === "price") return go("products");
-    // Every rule is a tab of the POS options now (the old rules page is gone)
-    if (tab === "modifier-rules") return go("pos/rules");
+    // Old pages whose work is here now (their pages are gone)
+    const here: Partial<Record<TabKey, string>> = { "modifier-rules": "pos/rules", sku: "products", "sp-bom": "products", supplier: "suppliers", "menu-master": "menus", "menu-bom": "menus" };
+    if (here[tab]) return go(here[tab]!);
     if (!props.canOpen(tab)) return toast.info("หน้านี้เปิดได้เฉพาะ management");
     props.onNavigate(tab);
   };
-  const tools: { tab: TabKey; label: string }[] = [
-    { tab: "sku-categories", label: "หมวดสินค้า" },
-    { tab: "sku", label: "นำเข้า/ส่งออกสินค้า (CSV)" },
-    { tab: "price", label: "ราคาทั้งหมด · ส่งออก Excel" },
-    { tab: "supplier", label: "นำเข้าซัพพลายเออร์ (CSV)" },
-    { tab: "sp-bom", label: "นำเข้าสูตร SP (CSV)" },
-    { tab: "menu-master", label: "นำเข้าเมนู (CSV)" },
-    { tab: "menu-bom", label: "สูตรเมนูแบบตาราง" },
-  ].filter((t) => props.canOpen(t.tab as TabKey)) as { tab: TabKey; label: string }[];
 
   if (!productSide && !supplierSide) {
     return (
@@ -251,22 +248,9 @@ export default function CostCenterPage(props: Props) {
               )}
             </div>
             <ProductOverview summaries={summaries} onOpenProduct={openProduct} />
-            {(tools.length > 0 || props.onExportAll) && (
-              <details className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-                <summary className="min-h-[32px] cursor-pointer text-[15px] font-medium">เครื่องมือ (นำเข้า/ส่งออกไฟล์ · หมวด)</summary>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {props.onExportAll && (
-                    <Button variant="outline" className="h-10" onClick={props.onExportAll}>
-                      ส่งออกสูตรทั้งหมด (Excel)
-                    </Button>
-                  )}
-                  {tools.map((t) => (
-                    <Button key={t.tab} variant="outline" className="h-10" onClick={() => props.onNavigate(t.tab)}>
-                      {t.label}
-                    </Button>
-                  ))}
-                </div>
-              </details>
+            {/* Products, suppliers and prices are the kitchen's to change; menus and recipes management's (as the database allows) */}
+            {props.files && canEditProducts && (
+              <FilesView ctx={props.files.ctx} saves={props.files.saves} canImport={(k) => (k === "skus" || k === "suppliers" || k === "prices" ? canEditProducts : !!props.files?.canEditMenus)} onExportAll={props.onExportAll} />
             )}
             <h3 className="mt-1 text-base font-semibold">เมนู</h3>
           </section>
