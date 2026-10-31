@@ -5,10 +5,13 @@
 // detail). One LINE push per TO sent.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, jsonResponse, pushLineMessage } from "../_shared/report-utils.ts";
+import { corsHeaders, jsonResponse, pushLineMessage, requireReportKey } from "../_shared/report-utils.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const denied = requireReportKey(req);
+  if (denied) return denied;
 
   try {
     const body = await req.json().catch(() => ({}));

@@ -11,6 +11,9 @@
 -- verify_jwt = false and (confirmed by a direct browser request) the
 -- project's gateway doesn't require an apikey header for them either.
 
+-- NOTE (2026-10-31): the call below is superseded by 20261031150000_report_key_gate.sql,
+-- which adds the required x-report-key header. Don't re-run this file on its own.
+
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 

@@ -13,6 +13,32 @@ export function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+// Shared-secret gate. These functions run with verify_jwt = false, so without
+// this anyone with the URL could read sales/stock figures or trigger LINE pushes.
+// The only legitimate callers — the pg_cron jobs and the notify_to_sent() DB
+// trigger — send header x-report-key, read from Vault secret "report_key",
+// which must hold the same value as the REPORT_KEY Edge Function secret.
+// Returns the error Response to send back, or null if the request may proceed.
+export function requireReportKey(req: Request): Response | null {
+  const expected = Deno.env.get("REPORT_KEY");
+  // Fail closed: a missing secret must never mean "open to everyone".
+  if (!expected) return jsonResponse({ error: "REPORT_KEY not configured" }, 500);
+  const given = req.headers.get("x-report-key") ?? "";
+  if (!timingSafeEqual(given, expected)) return jsonResponse({ error: "unauthorized" }, 401);
+  return null;
+}
+
+// Compare without bailing out at the first differing byte, so response timing
+// doesn't leak how much of a guessed key was right.
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < y.length; i++) diff |= (x[i] ?? 0) ^ y[i];
+  return diff === 0;
+}
+
 export function toBangkokDateStr(d: Date): string {
   const bkk = new Date(d.getTime() + 7 * 60 * 60 * 1000);
   return bkk.toISOString().slice(0, 10);

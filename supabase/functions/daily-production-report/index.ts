@@ -5,11 +5,14 @@
 // Pushes the result to a LINE group via the LINE Messaging API.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, jsonResponse, toBangkokDateStr, formatThaiDate, formatBaht, pushLineMessage } from "../_shared/report-utils.ts";
+import { corsHeaders, jsonResponse, toBangkokDateStr, formatThaiDate, formatBaht, pushLineMessage, requireReportKey } from "../_shared/report-utils.ts";
 import { computeCkStockValueByType } from "../_shared/stock-value.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const denied = requireReportKey(req);
+  if (denied) return denied;
 
   try {
     const url = new URL(req.url);

@@ -8,7 +8,7 @@
 // Pushes the result to a LINE group via the LINE Messaging API.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, jsonResponse, toBangkokDateStr, formatThaiDate, formatBaht, pushLineMessage } from "../_shared/report-utils.ts";
+import { corsHeaders, jsonResponse, toBangkokDateStr, formatThaiDate, formatBaht, pushLineMessage, requireReportKey } from "../_shared/report-utils.ts";
 import { computeAllNoodleUsage } from "../_shared/rm-usage.ts";
 
 const TOP_N_MENUS = 5;
@@ -26,6 +26,9 @@ function grossAmount(netAmount: number, orderType: string): number {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const denied = requireReportKey(req);
+  if (denied) return denied;
 
   try {
     const url = new URL(req.url);
