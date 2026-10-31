@@ -40,7 +40,11 @@ const roleTone: Record<string, string> = {
 
 const callAdminLive: CallAdmin = async (body) => {
   const { data, error } = await supabase.functions.invoke("admin-create-user", { body });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // A refusal from the function carries its own reason in the reply body
+    const reply = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    throw new Error(reply?.error ?? error.message);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 };

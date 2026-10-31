@@ -80,19 +80,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Assign role
-      await supabaseAdmin.from("user_roles").insert({
+      // Assign role. The account exists from here: a failure says so plainly, so the
+      // screen doesn't report a user that can't do anything as created
+      const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
         user_id: newUser.user!.id,
         role: role || "ck_manager",
       });
+      if (roleError) {
+        return new Response(JSON.stringify({ error: `สร้างบัญชีแล้ว แต่ตั้งตำแหน่งไม่สำเร็จ · เปิดบัญชีนี้แล้วเลือกตำแหน่งอีกครั้ง (${roleError.message})` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Update profile name and branch_id
       const profileUpdate: Record<string, unknown> = { full_name };
       if (branch_id) profileUpdate.branch_id = branch_id;
-      await supabaseAdmin
+      const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .update(profileUpdate)
         .eq("user_id", newUser.user!.id);
+      if (profileError) {
+        return new Response(JSON.stringify({ error: `สร้างบัญชีแล้ว แต่บันทึกชื่อ/สาขาไม่สำเร็จ · เปิดบัญชีนี้แล้วบันทึกอีกครั้ง (${profileError.message})` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       return new Response(
         JSON.stringify({ user: newUser.user }),
@@ -102,10 +115,13 @@ Deno.serve(async (req) => {
 
     if (action === "update_status") {
       const { user_id, status } = params;
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("profiles")
         .update({ status })
         .eq("user_id", user_id);
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -115,14 +131,28 @@ Deno.serve(async (req) => {
 
     if (action === "update_role") {
       const { user_id, role } = params;
-      await supabaseAdmin
-        .from("user_roles")
-        .delete()
-        .eq("user_id", user_id);
-
-      await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id, role });
+      const fail = (message: string) =>
+        new Response(JSON.stringify({ error: message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: before, error: readError } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user_id);
+      if (readError) return fail(readError.message);
+      const had = (before ?? []).map((r: { role: string }) => r.role);
+      if (!(had.length === 1 && had[0] === role)) {
+        // New role in first, then the others out: the user is never left with no role
+        const added = had.includes(role) ? { error: null } : await supabaseAdmin.from("user_roles").insert({ user_id, role });
+        if (!added.error) {
+          const { error } = await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id).neq("role", role);
+          if (error) return fail(error.message);
+        } else {
+          // One role per user allowed: swap, and put the old one back if the new one won't go in
+          const { error: delError } = await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id);
+          if (delError) return fail(delError.message);
+          const { error: insError } = await supabaseAdmin.from("user_roles").insert({ user_id, role });
+          if (insError) {
+            if (had.length) await supabaseAdmin.from("user_roles").insert(had.map((r: string) => ({ user_id, role: r })));
+            return fail(`เปลี่ยนตำแหน่งไม่สำเร็จ ตำแหน่งเดิมยังอยู่ (${insError.message})`);
+          }
+        }
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
