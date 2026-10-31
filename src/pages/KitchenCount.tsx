@@ -119,7 +119,7 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
           return { code: s?.skuId ?? "", name: s?.name ?? "", unit: s?.usageUom ?? "", storage: s?.storageCondition ?? "", last: prev ? lastQty.get(x.skuId) ?? null : undefined };
         }),
     }));
-    const lastLabel = prev ? `ยอดนับ ${new Date(`${prev.date}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}` : undefined;
+    const lastLabel = prev ? `ครั้งก่อน ${new Date(`${prev.date}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}` : undefined;
     const html = countSheetHtml({ title: "นับสต๊อกครัวกลาง", dateText: thaiDay(day), groups, lastLabel }).replace("</body>", "<script>window.onload=function(){window.print()}</script></body>");
     const w = window.open("", "_blank", "width=900,height=1000");
     if (!w) {

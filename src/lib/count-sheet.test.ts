@@ -41,13 +41,14 @@ describe("last count column", () => {
     const html = countSheetHtml({
       title: "นับสต๊อกครัวกลาง",
       dateText: "ศ. 31 ต.ค.",
-      lastLabel: "ยอดนับ 30 ก.ย.",
+      lastLabel: "ครั้งก่อน 30 ก.ย.",
       groups: [{ type: "SM", items: [
         { code: "SM-0001", name: "น้ำมันชิโอะ", unit: "ก.", storage: "Chilled", last: 4000 },
         { code: "SM-0011", name: "ซุปโชยุ", unit: "ก.", storage: "Chilled", last: null },
       ] }],
     });
-    expect(html).toContain("ยอดนับ 30 ก.ย.");
+    expect(html).toContain("ครั้งก่อน 30 ก.ย.");
+    expect(html).toContain("นับครั้งนี้");
     expect(html).toContain(">4,000<");
     expect(html).toContain('<td class="last">—</td>');
     expect(countSheetHtml({ title: "x", dateText: "y", groups: [{ type: "SM", items: [{ code: "a", name: "b", unit: "ก.", storage: "Chilled" }] }] })).not.toContain('class="last"');

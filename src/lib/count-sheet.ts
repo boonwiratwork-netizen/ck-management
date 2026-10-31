@@ -29,7 +29,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 
 const qty = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-/** `lastLabel` (e.g. "ยอดนับ 30 ก.ย.") adds the last count's column */
+/** `lastLabel` (e.g. "ครั้งก่อน 30 ก.ย.") adds the last count's column; the box is then "นับครั้งนี้" */
 export function countSheetHtml(p: { title: string; dateText: string; groups: SheetGroup[]; lastLabel?: string }): string {
   const withLast = !!p.lastLabel;
   const cols = withLast ? 6 : 5;
@@ -55,7 +55,7 @@ export function countSheetHtml(p: { title: string; dateText: string; groups: She
     <colgroup><col style="width:9mm"><col style="width:22mm"><col><col style="width:16mm">${withLast ? `<col style="width:28mm">` : ""}<col style="width:34mm"></colgroup>
     <thead>
       <tr class="title"><th colspan="${cols}"><div class="head"><h1>${esc(p.title)} · ${esc(TYPE_TITLE[g.type])}</h1><div class="meta">${esc(p.dateText)} · ${g.items.length} รายการ</div></div></th></tr>
-      <tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>หน่วย</th>${withLast ? `<th class="last">${esc(p.lastLabel!)}</th>` : ""}<th>นับได้</th></tr>
+      <tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>หน่วย</th>${withLast ? `<th class="last">${esc(p.lastLabel!)}</th>` : ""}<th>${withLast ? "นับครั้งนี้" : "นับได้"}</th></tr>
     </thead>
     <tbody><tr class="who"><td colspan="${cols}"><span>ผู้นับ ____________________</span><span>ผู้ตรวจ ____________________</span></td></tr></tbody>
     <tbody>
