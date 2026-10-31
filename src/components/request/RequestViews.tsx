@@ -4,7 +4,7 @@ import { Check, ChevronRight, Copy, Printer, Search, Store, Truck } from "lucide
 import type { TRDetailLine, TRHistoryRow } from "@/hooks/use-transfer-request";
 import type { PRDetailLine, PRHistoryRow } from "@/hooks/use-purchase-request";
 import type { SupplierOption } from "@/hooks/use-request-data";
-import { canCancel, prStatusLabel, statusLabel } from "@/lib/request-lines";
+import { UNKNOWN_STOCK_NOTE, canCancel, prStatusLabel, statusLabel } from "@/lib/request-lines";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,7 @@ export function RequestHome({
   onOpen,
   onHistory,
   onSupplier,
+  stockError,
 }: {
   needCount: number;
   loading: boolean;
@@ -66,6 +67,8 @@ export function RequestHome({
   onOpen: (r: AnyRequest) => void;
   onHistory: () => void;
   onSupplier: () => void;
+  /** The branch's stock couldn't be read: nothing is known to be enough */
+  stockError?: boolean;
 }) {
   const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
   return (
@@ -80,9 +83,11 @@ export function RequestHome({
             <p className="text-sm text-muted-foreground">ส่งพรุ่งนี้ {thaiDay(tomorrow)}</p>
           </div>
         </div>
-        <div className={cn("flex items-baseline gap-2 rounded-xl px-3 py-2.5", needCount ? "bg-warning-soft text-warning" : "bg-success-soft text-success")}>
+        <div className={cn("flex items-baseline gap-2 rounded-xl px-3 py-2.5", needCount || (stockError && !loading) ? "bg-warning-soft text-warning" : "bg-success-soft text-success")}>
           {loading ? (
             <span className="text-sm">กำลังคำนวณของที่ควรสั่ง…</span>
+          ) : stockError ? (
+            <span className="text-sm font-medium">โหลดสต๊อกสาขาไม่สำเร็จ ยังบอกไม่ได้ว่าต้องสั่งอะไร</span>
           ) : needCount ? (
             <>
               <span className="font-mono text-2xl font-bold">{needCount}</span>
@@ -200,7 +205,14 @@ export function RequestDetail({
             <div className="min-w-0 flex-1">
               <div className="text-[15px]">{l.skuName}</div>
               <div className="text-sm text-muted-foreground">
-                <span className="font-mono text-xs">{l.skuCode}</span> · ตอนขอเหลือ <b className="font-mono text-[15px] text-foreground">{Math.round(l.stockOnHand).toLocaleString()}</b> {l.uom}
+                <span className="font-mono text-xs">{l.skuCode}</span> ·{" "}
+                {(l.notes ?? "").includes(UNKNOWN_STOCK_NOTE) ? (
+                  "ตอนขอไม่รู้ยอดคงเหลือ"
+                ) : (
+                  <>
+                    ตอนขอเหลือ <b className="font-mono text-[15px] text-foreground">{Math.round(l.stockOnHand).toLocaleString()}</b> {l.uom}
+                  </>
+                )}
               </div>
               {"declineReason" in l && l.declineReason && <div className="text-sm font-medium text-destructive">ครัวกลางไม่ได้ส่ง: {l.declineReason}</div>}
             </div>

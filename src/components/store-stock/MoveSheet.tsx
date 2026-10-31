@@ -29,7 +29,8 @@ export function MoveSheet({
   write = async (rows) => !(await supabase.from("stock_adjustments").insert(rows as never)).error,
 }: {
   sku: SKU;
-  balance: number;
+  /** null: on no count sheet in 5 weeks, not known */
+  balance: number | null;
   branch: Branch;
   branches: Branch[];
   onClose: () => void;
@@ -90,8 +91,8 @@ export function MoveSheet({
               {branch.branchName} · {sku.name}
             </p>
             <h3 className="text-lg font-bold">ย้ายของ / ปรับยอด</h3>
-            <p className={cn("text-sm", balance < 0 ? "text-destructive" : "text-muted-foreground")}>
-              คงเหลือ {n0(balance)} {uom}
+            <p className={cn("text-sm", balance !== null && balance < 0 ? "text-destructive" : "text-muted-foreground")}>
+              {balance === null ? "คงเหลือ ไม่รู้ยอด (ไม่ได้นับเกิน 5 สัปดาห์)" : `คงเหลือ ${n0(balance)} ${uom}`}
             </p>
           </div>
           <Button variant="ghost" className="h-10 shrink-0 px-3" onClick={onClose} disabled={busy}>

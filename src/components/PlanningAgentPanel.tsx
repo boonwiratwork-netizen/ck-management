@@ -4,7 +4,7 @@ import { StatusDot, StatusDotStatus } from '@/components/ui/status-dot';
 import { Badge } from '@/components/ui/badge';
 import { X, AlertTriangle, Sparkles, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PlanningBranch, PlanSuggestion, MenuInfo } from '@/hooks/use-planning-agent';
+import { PlanningBranch, PlanSuggestion, MenuInfo, SmMenuLine } from '@/hooks/use-planning-agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toLocalDateStr } from '@/lib/utils';
 
@@ -14,8 +14,10 @@ interface PlanningAgentPanelProps {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
   menusByBrand: Record<string, MenuInfo[]>;
-  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
+  menuBomByMenuId: Record<string, SmMenuLine[]>;
   isLoading: boolean;
+  /** The figures couldn't be worked out (e.g. the week of sales didn't load): no plan, not "enough" */
+  error?: string | null;
   weekStart: string;
   onRecalculate: (overrides: Record<string, number>) => void;
   onApplyPlan: (planBatches: Record<string, number>) => void;
@@ -46,7 +48,7 @@ function ManualAssumptionInline({
 }: {
   branch: PlanningBranch;
   menus: MenuInfo[];
-  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
+  menuBomByMenuId: Record<string, SmMenuLine[]>;
   onSaved: () => void;
 }) {
   const bowlsRef = useRef<Record<string, number>>({});
@@ -85,6 +87,8 @@ function ManualAssumptionInline({
         const ingredients = menuBomByMenuId[menuId];
         if (!ingredients) continue;
         for (const ing of ingredients) {
+          // Shared lines and this branch's own; another branch's own lines aren't used here
+          if (ing.branchId !== null && ing.branchId !== branch.branchId) continue;
           totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + bowls * ing.effectiveQty);
         }
       }
@@ -195,6 +199,7 @@ export function PlanningAgentPanel({
   menusByBrand,
   menuBomByMenuId,
   isLoading,
+  error,
   weekStart,
   onRecalculate,
   onApplyPlan,
@@ -358,7 +363,9 @@ export function PlanningAgentPanel({
           {calculated && (
             <div className="px-4 py-3 border-t">
               <h3 className="text-sm font-semibold mb-2">แผนการผลิตที่แนะนำ</h3>
-              {suggestions.length === 0 ? (
+              {error ? (
+                <p className="text-xs text-destructive py-4 text-center">{error} ยังวางแผนไม่ได้</p>
+              ) : suggestions.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">
                   สต็อกเพียงพอสำหรับสัปดาห์หน้า
                 </p>

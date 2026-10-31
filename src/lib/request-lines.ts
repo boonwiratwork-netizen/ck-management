@@ -12,6 +12,54 @@ export interface StockFigures {
   packSize: number;
 }
 
+export type RequestStatus = "critical" | "low" | "sufficient" | "no-data";
+
+export interface RequestFigures {
+  stockOnHand: number;
+  /**
+   * False: the product is on no count sheet in the last 5 weeks (packaging, a new item), so
+   * nothing is known of what's there — on hand shows "—" and the suggestion assumes none
+   */
+  stockKnown: boolean;
+  avgDailyUsage: number;
+  peakDailyUsage: number;
+  rop: number;
+  parstock: number;
+  suggestedOrder: number;
+  status: RequestStatus;
+}
+
+/** Saved in a request line's notes when its stock wasn't known (the column can't be empty) */
+export const UNKNOWN_STOCK_NOTE = "ไม่รู้ยอด";
+
+/**
+ * A product's figures on the request page, from its branch stock figure (lib/branch-stock.ts
+ * branchFigures — the stock page's own numbers, so both pages agree). On hand is the
+ * balance with a book shortfall taken as nothing left: a negative balance means sales
+ * used more than the records show coming in, not stock owed, and ordering to fill it would
+ * over-order. No anchor (on no sheet in 5 weeks) = nothing known: the suggestion assumes
+ * none on hand (a full round), never the receipts of 5 weeks with nothing used.
+ */
+export function requestFigures(f: { balance: number; anchorDate: string | null; dailyUse: number; peakDailyUse: number } | undefined, opts: { leadTime: number }): RequestFigures {
+  const known = !!f && f.anchorDate !== null;
+  const stockOnHand = known ? Math.max(0, f!.balance) : 0;
+  const avg = f?.dailyUse ?? 0;
+  const peak = f?.peakDailyUse ?? 0;
+  const lt = opts.leadTime;
+  const safetyStock = (peak - avg) * lt;
+  const rop = avg * lt + safetyStock;
+  const parstock = avg + peak * lt;
+  const suggestedOrder = Math.max(0, parstock - stockOnHand);
+  let status: RequestStatus;
+  if (avg === 0) status = "no-data";
+  else if (stockOnHand === 0) status = "critical";
+  else if (stockOnHand < rop) status = "low";
+  else if (stockOnHand >= parstock) status = "sufficient";
+  else status = "low";
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  return { stockOnHand, stockKnown: known, avgDailyUsage: r2(avg), peakDailyUsage: r2(peak), rop: r2(rop), parstock: r2(parstock), suggestedOrder: r2(suggestedOrder), status };
+}
+
 /** Requested but not yet received, from requests still due (see freshPending) */
 export interface Pending {
   qty: number;

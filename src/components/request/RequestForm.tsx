@@ -26,6 +26,8 @@ export function RequestForm({
   loading,
   busy,
   onSubmit,
+  stockError,
+  onRetry,
 }: {
   title: string;
   subtitle: string;
@@ -34,6 +36,9 @@ export function RequestForm({
   loading: boolean;
   busy: boolean;
   onSubmit: (date: string, notes: string, picked: { item: RequestItem; packs: number }[]) => void;
+  /** The branch's stock couldn't be read: products are listed, amounts can be typed, nothing is suggested */
+  stockError?: boolean;
+  onRetry?: () => void;
 }) {
   const today = new Date();
   const choices = [
@@ -147,16 +152,32 @@ export function RequestForm({
         </button>
       )}
 
+      {stockError && !loading && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <span className="min-w-0 flex-1">โหลดสต๊อกสาขาไม่สำเร็จ ยังไม่รู้ว่าเหลือเท่าไร จึงยังไม่มีจำนวนแนะนำ ใส่จำนวนเองได้</span>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="min-h-[40px] rounded-full border border-destructive px-4 text-sm font-semibold">
+              ลองใหม่
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">กำลังคำนวณของที่ควรสั่ง…</div>
       ) : (
         <ul data-tour="req-lines" className="flex flex-col gap-2" onKeyDown={onEnterNext}>
           {shown.map(({ item, pending: p, state, suggest }) => {
             const v = packs[item.skuId] ?? 0;
-            const tone =
-              state.kind === "out" ? "text-destructive" : state.kind === "low" ? "text-warning" : state.kind === "coming" ? "text-info" : "text-muted-foreground";
-            const word =
-              state.kind === "nodata"
+            const tone = item.stockUnknown
+              ? "text-warning"
+              : state.kind === "out" ? "text-destructive" : state.kind === "low" ? "text-warning" : state.kind === "coming" ? "text-info" : "text-muted-foreground";
+            // Not known: the suggestion (if any) takes nothing on hand, a full round
+            const word = item.stockUnknown
+              ? suggest > 0
+                ? "ไม่รู้ยอดคงเหลือ · แนะนำเต็มรอบ (คิดว่าไม่มีของ)"
+                : "ยังไม่รู้ยอดคงเหลือ"
+              : state.kind === "nodata"
                 ? "ยังไม่มีข้อมูลการใช้"
                 : state.kind === "out"
                   ? "หมดแล้ว"
@@ -169,7 +190,7 @@ export function RequestForm({
                   <div className={cn("text-[15px] leading-snug", v > 0 || suggest > 0 ? "font-semibold" : "text-foreground/80")}>{item.name}</div>
                   <div className={cn("text-sm font-medium", tone)}>{word}</div>
                   <div className="text-sm text-muted-foreground">
-                    เหลือ <b className="font-mono text-[15px] text-foreground">{n0(Math.max(0, item.stockOnHand))}</b> {item.uom}
+                    เหลือ <b className="font-mono text-[15px] text-foreground">{item.stockUnknown ? "—" : n0(Math.max(0, item.stockOnHand))}</b> {item.uom}
                     {item.avgDailyUsage > 0 && (
                       <>
                         {" "}· ใช้วันละ ~<b className="font-mono text-[15px] text-foreground">{n0(item.avgDailyUsage)}</b> {item.uom}

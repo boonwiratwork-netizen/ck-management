@@ -107,6 +107,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
         parstock: l.parstock,
         suggestedQty: l.suggestedQty,
         skuType: l.skuType,
+        stockUnknown: l.stockUnknown,
       })),
     [tr.lines],
   );
@@ -130,10 +131,11 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
             parstock: st?.parstock ?? 0,
             suggestedQty: st?.suggestedOrder ?? 0,
             skuType: "RM" as const,
+            stockUnknown: rm.stockError || st?.stockKnown === false,
           };
         })
         .sort((a, b) => a.code.localeCompare(b.code)),
-    [rm.rmSkuList, rm.rmStock],
+    [rm.rmSkuList, rm.rmStock, rm.stockError],
   );
   const needCount = kitchenItems.filter((i) => suggestedPacks(i, req.pending.get(i.skuId)?.qty ?? 0) > 0).length;
 
@@ -195,6 +197,8 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
         loading={tr.isLoading}
         busy={busy}
         onSubmit={(d, n, items) => send("tr", d, n, items)}
+        stockError={tr.stockError}
+        onRetry={tr.retryStock}
       />
     ) : (
       <Empty text="บัญชีนี้ส่งคำขอไม่ได้" />
@@ -211,6 +215,8 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
         loading={rm.loading}
         busy={busy}
         onSubmit={(d, n, items) => send("pr", d, n, items)}
+        stockError={rm.stockError}
+        onRetry={rm.refresh}
       />
     );
   else if (view === "sent" && sent) work = <RequestSent {...sent} onDone={() => go("", true)} />;
@@ -308,6 +314,7 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
             <RequestHome
               needCount={needCount}
               loading={tr.isLoading}
+              stockError={tr.stockError}
               canCreate={canCreate}
               recent={all.slice(0, 5)}
               onNew={() => go("new")}

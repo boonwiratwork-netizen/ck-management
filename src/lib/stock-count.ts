@@ -23,17 +23,15 @@ export function businessDate(now: Date): string {
 }
 
 /**
- * Month-end: the last four days of a month (28–31 Oct) and the 1st of the next.
- * Food cost takes its closing and opening stock from these counts, so every
- * product must be counted.
+ * Month-end: the last five days of a month, ending on its last day (27–31 Oct). Food cost
+ * closes the month on its last count (and opens the next month from it), so every product
+ * must be counted by the month's last day. The 1st no longer belongs to it (Bucci, Oct
+ * 2026): a count dated the 1st is the new month's.
  */
 export function monthEndWindow(date: string): string[] | null {
   const d = new Date(`${date}T00:00:00`);
-  // The month being closed: this one, or the previous one when today is the 1st
-  const closing = d.getDate() === 1 ? new Date(d.getFullYear(), d.getMonth() - 1, 1) : d;
-  const lastDay = new Date(closing.getFullYear(), closing.getMonth() + 1, 0);
-  const last = isoDate(lastDay);
-  const days = [addDays(last, -3), addDays(last, -2), addDays(last, -1), last, addDays(last, 1)];
+  const last = isoDate(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  const days = [addDays(last, -4), addDays(last, -3), addDays(last, -2), addDays(last, -1), last];
   return days.includes(date) ? days : null;
 }
 

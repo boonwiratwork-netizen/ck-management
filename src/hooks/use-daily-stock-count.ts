@@ -1,6 +1,7 @@
-import { fetchAllRows } from "@/lib/fetch-all";
+import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { addSaleUsage, usageContextFromApp } from "@/lib/sale-usage";
+import { anchorWindow, pickAnchors, sheetOpening, type AdjustmentMove, type ReceiptMove, type SheetCountRow, type WasteRow } from "@/lib/branch-stock";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
@@ -197,7 +198,8 @@ export function useDailyStockCount({
   const calculateExpectedUsageRangeByDate = useCallback(
     async (branchId: string, fromDate: string, toDate: string): Promise<Record<string, Record<string, number>>> => {
       const [salesRes, overridesRes] = await Promise.all([
-        fetchAllRows((a, b) =>
+        // A failed page fails the opening (it is saved on the sheet: no partial week of sales)
+        fetchAllRowsOrThrow((a, b) =>
           supabase
             .from("sales_entries")
             .select("*")
@@ -206,7 +208,7 @@ export function useDailyStockCount({
             .lt("sale_date", toDate)
             .order("id")
             .range(a, b),
-        ),
+        ).then((data) => ({ data })),
         supabase
           .from("branch_menu_overrides")
           .select("menu_id, is_active")
@@ -236,7 +238,7 @@ export function useDailyStockCount({
     [menus, menuBomLines, modifierRules, spBomLines, skus],
   );
 
-  // Gap-resilient opening balance: reconstructs from last submitted count + gap transactions
+  // Gap-resilient opening balance: the last count before the day + what moved in the gap
   const computeOpeningWithGap = useCallback(
     async (branchId: string, beforeDate: string): Promise<Record<string, number>> => {
       // Step 1 — Find most recent count per SKU (submitted or not — calculated_balance is valid regardless).
@@ -246,7 +248,12 @@ export function useDailyStockCount({
       // last counted more than ~8 days ago started from 0.
       const recentFrom = new Date(`${beforeDate}T00:00:00`);
       recentFrom.setDate(recentFrom.getDate() - 14);
-      const { data: recentCounts } = await fetchAllRows((a, b) =>
+      // The 5-week anchor window up to the day before (lib/branch-stock.ts, shared with branch stock)
+      const dayBefore = new Date(`${beforeDate}T00:00:00`);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const windowStart = anchorWindow(toLocalDateStr(dayBefore)).from;
+      // Every read here fails the whole opening on a failed page: the result is saved on the sheet
+      const recentCounts = await fetchAllRowsOrThrow((a, b) =>
         supabase
           .from("daily_stock_counts")
           .select("id, sku_id, physical_count, calculated_balance, count_date")
@@ -267,63 +274,40 @@ export function useDailyStockCount({
       const noRowRecently = olderNeeded.filter((id) => !seenRecently.has(id));
       let olderCounts: any[] = [];
       if (olderNeeded.length) {
-        const olderFrom = new Date(recentFrom);
-        olderFrom.setDate(olderFrom.getDate() - 21);
         const older = (ids: string[], physicalOnly: boolean) =>
-          fetchAllRows((a, b) => {
+          fetchAllRowsOrThrow((a, b) => {
             let q = supabase
               .from("daily_stock_counts")
               .select("id, sku_id, physical_count, calculated_balance, count_date")
               .eq("branch_id", branchId)
               .lt("count_date", toLocalDateStr(recentFrom))
-              .gte("count_date", toLocalDateStr(olderFrom))
+              .gte("count_date", windowStart)
               .in("sku_id", ids);
             if (physicalOnly) q = q.not("physical_count", "is", null);
             return q.order("count_date", { ascending: false }).order("id").range(a, b);
           });
-        const [counted, anyRow] = await Promise.all([older(olderNeeded, true), noRowRecently.length ? older(noRowRecently, false) : Promise.resolve({ data: [] as any[], error: null })]);
-        olderCounts = [...(counted.data as any[]), ...(anyRow.data as any[])];
+        const [counted, anyRow] = await Promise.all([older(olderNeeded, true), noRowRecently.length ? older(noRowRecently, false) : Promise.resolve([] as any[])]);
+        olderCounts = [...(counted as any[]), ...(anyRow as any[])];
       }
-      // Latest physical count wins (anywhere in the ~5 weeks); a product never counted keeps its latest calculated row
-      const allCounts = [...(recentCounts as any[]), ...olderCounts].sort((x, y) => (x.count_date < y.count_date ? 1 : x.count_date > y.count_date ? -1 : 0));
+      // Latest physical count wins (anywhere in the ~5 weeks); a product never counted keeps
+      // its latest calculated row (pickAnchors: the same rule branch stock uses)
+      const anchors = pickAnchors([...(recentCounts as SheetCountRow[]), ...(olderCounts as SheetCountRow[])]);
 
-      const lastCountBySku = new Map<string, any>();
-      allCounts.forEach((r) => {
-        if (lastCountBySku.has(r.sku_id)) return;
-        if (r.physical_count !== null) {
-          lastCountBySku.set(r.sku_id, r);
-        }
-      });
-      allCounts.forEach((r) => {
-        if (!lastCountBySku.has(r.sku_id)) {
-          lastCountBySku.set(r.sku_id, r);
-        }
-      });
-      const baseOpening: Record<string, number> = {};
-      const lastCountDate: Record<string, string> = {};
-      lastCountBySku.forEach((r, skuId) => {
-        baseOpening[skuId] = Math.max(
-          0,
-          r.physical_count !== null ? Number(r.physical_count) : Number(r.calculated_balance),
-        );
-        lastCountDate[skuId] = r.count_date;
-      });
+      // Step 2 — Find earliest last count date for range query (sales and waste are
+      // replayed only after each product's own anchor; see Step 4)
+      const gapStartDate = anchors.length > 0 ? anchors.reduce((min, a) => (a.count_date < min ? a.count_date : min), anchors[0].count_date) : beforeDate;
 
-      // Step 2 — Find earliest last count date for range query
-      const gapStartDate =
-        lastCountBySku.size > 0
-          ? [...lastCountBySku.values()].reduce(
-              (min, r) => (r.count_date < min ? r.count_date : min),
-              [...lastCountBySku.values()][0].count_date,
-            )
-          : beforeDate;
-
-      // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date)
-      const [gapCkLinesRes, gapExtLinesRes, gapUsageByDate, gapAdjLinesRes] = await Promise.all([
-        fetchAllRows((a, b) =>
+      // Step 3 — Fetch gap transactions + calculate usage from raw sales (per-date), and
+      // the waste typed on sheets in the gap (a product left uncounted that day still had
+      // its waste written down; dropped here since Mar 2026, when gap usage moved to sales).
+      // A product with no anchor takes only what came in or was moved in this gap (after the
+      // earliest anchor), as before: not 5 weeks of receipts (a SKU received before it was
+      // listed opened at 50,000 g), and no sales replayed onto it
+      const [gapCkLinesRes, gapExtLinesRes, gapUsageByDate, gapAdjLinesRes, gapWasteRes] = await Promise.all([
+        fetchAllRowsOrThrow((a, b) =>
           supabase
             .from("branch_receipts")
-            .select("id, sku_id, qty_received, receipt_date")
+            .select("id, sku_id, qty_received, receipt_date, transfer_order_id")
             .eq("branch_id", branchId)
             .not("transfer_order_id", "is", null)
             .gt("receipt_date", gapStartDate)
@@ -331,10 +315,10 @@ export function useDailyStockCount({
             .order("id")
             .range(a, b),
         ),
-        fetchAllRows((a, b) =>
+        fetchAllRowsOrThrow((a, b) =>
           supabase
             .from("branch_receipts")
-            .select("id, sku_id, qty_received, receipt_date")
+            .select("id, sku_id, qty_received, receipt_date, transfer_order_id")
             .eq("branch_id", branchId)
             .is("transfer_order_id", null)
             .gt("receipt_date", gapStartDate)
@@ -343,7 +327,7 @@ export function useDailyStockCount({
             .range(a, b),
         ),
         calculateExpectedUsageRangeByDate(branchId, gapStartDate, beforeDate),
-        fetchAllRows((a, b) =>
+        fetchAllRowsOrThrow((a, b) =>
           supabase
             .from("stock_adjustments")
             .select("id, sku_id, quantity, adjustment_date, reason")
@@ -353,73 +337,33 @@ export function useDailyStockCount({
             .order("id")
             .range(a, b),
         ),
+        fetchAllRowsOrThrow((a, b) =>
+          supabase
+            .from("daily_stock_counts")
+            .select("id, sku_id, count_date, waste")
+            .eq("branch_id", branchId)
+            .gt("waste", 0)
+            .gt("count_date", gapStartDate)
+            .lt("count_date", beforeDate)
+            .order("id")
+            .range(a, b),
+        ),
       ]);
 
-      // Build per-SKU gap totals filtered by each SKU's own anchor date
-      // CK receipts: group by sku, only include lines where receipt_date > SKU's anchor
-      const gapCkBySku: Record<string, number> = {};
-      (gapCkLinesRes.data || []).forEach((r: any) => {
-        const anchor = lastCountDate[r.sku_id];
-        if (anchor && r.receipt_date && r.receipt_date <= anchor) return;
-        gapCkBySku[r.sku_id] = (gapCkBySku[r.sku_id] || 0) + Number(r.qty_received);
+      // Step 4 — Opening per product with the branch stock formula (lib/branch-stock.ts
+      // sheetOpening, the same as the branch stock and request pages). No longer floored at
+      // 0: a shortfall since the last count shows here as it does on branch stock.
+      const gapFirstDay = new Date(`${gapStartDate}T00:00:00`);
+      gapFirstDay.setDate(gapFirstDay.getDate() + 1);
+      return sheetOpening({
+        anchors,
+        unanchoredFrom: toLocalDateStr(gapFirstDay),
+        receipts: [...gapCkLinesRes, ...gapExtLinesRes] as ReceiptMove[],
+        adjustments: gapAdjLinesRes as AdjustmentMove[],
+        waste: gapWasteRes as WasteRow[],
+        usageByDate: gapUsageByDate,
+        converter: getSkuConverter,
       });
-
-      // External receipts: group by sku, only include lines where receipt_date > SKU's anchor
-      const gapExtBySku: Record<string, number> = {};
-      (gapExtLinesRes.data || []).forEach((r: any) => {
-        const anchor = lastCountDate[r.sku_id];
-        if (anchor && r.receipt_date && r.receipt_date <= anchor) return;
-        gapExtBySku[r.sku_id] = (gapExtBySku[r.sku_id] || 0) + Number(r.qty_received);
-      });
-
-      // Stock adjustments: group by sku, only include rows where adjustment_date > SKU's anchor.
-      // Also exclude "Stock Count" reason rows, matching the CK-side canonical formulas
-      // (use-sm-stock-data.ts / use-stock-data.ts / use-pk-stock-data.ts) — currently a no-op
-      // here since branch-level adjustments are only ever written by StoreStock.tsx's fixed
-      // reason enum (never "Stock Count"), but kept as a defensive guard against future drift.
-      const gapAdjBySku: Record<string, number> = {};
-      (gapAdjLinesRes.data || []).forEach((r: any) => {
-        const anchor = lastCountDate[r.sku_id];
-        if (anchor && r.adjustment_date && r.adjustment_date <= anchor) return;
-        if ((r.reason ?? "").includes("Stock Count")) return;
-        gapAdjBySku[r.sku_id] = (gapAdjBySku[r.sku_id] || 0) + Number(r.quantity);
-      });
-
-      // Usage: sum per-date usage only for dates > SKU's anchor
-      const gapUsageBySku: Record<string, number> = {};
-      const allUsageSkuIds = new Set<string>();
-      for (const dateStr of Object.keys(gapUsageByDate)) {
-        for (const skuId of Object.keys(gapUsageByDate[dateStr])) {
-          allUsageSkuIds.add(skuId);
-          const anchor = lastCountDate[skuId];
-          if (anchor && dateStr <= anchor) continue; // skip if before/on anchor
-          gapUsageBySku[skuId] = (gapUsageBySku[skuId] || 0) + gapUsageByDate[dateStr][skuId];
-        }
-      }
-
-      // waste from gap = 0 (no count sheet data available for it)
-
-      // Step 4 — Compute final opening per SKU
-      const result: Record<string, number> = {};
-      const allSkuIds = new Set([
-        ...Object.keys(baseOpening),
-        ...Object.keys(gapCkBySku),
-        ...Object.keys(gapExtBySku),
-        ...Object.keys(gapAdjBySku),
-        ...Object.keys(gapUsageBySku),
-      ]);
-
-      allSkuIds.forEach((skuId) => {
-        const base = baseOpening[skuId] ?? 0;
-        const ck = gapCkBySku[skuId] ?? 0;
-        const ext = gapExtBySku[skuId] ?? 0;
-        const extConv = getSkuConverter(skuId);
-        const adj = gapAdjBySku[skuId] ?? 0;
-        const usage = gapUsageBySku[skuId] ?? 0;
-        result[skuId] = Math.max(0, base + ck + ext * extConv + adj - usage);
-      });
-
-      return result;
     },
     [getSkuConverter, calculateExpectedUsageRangeByDate, getBranchRelevantSkuIds],
   );
@@ -430,12 +374,10 @@ export function useDailyStockCount({
       const branch = branches.find((b) => b.id === branchId);
       const branchName = branch?.branchName || "";
 
-      const { data: brData } = await supabase
-        .from("branch_receipts")
-        .select("sku_id, qty_received")
-        .eq("branch_id", branchId)
-        .eq("receipt_date", date)
-        .is("transfer_order_id", null);
+      // A failed read fails the sheet's figures (they are written to it): nothing saved from it
+      const brData = await fetchAllRowsOrThrow((a, b) =>
+        supabase.from("branch_receipts").select("id, sku_id, qty_received").eq("branch_id", branchId).eq("receipt_date", date).is("transfer_order_id", null).order("id").range(a, b),
+      );
 
       const extBySku: Record<string, number> = {};
       (brData || []).forEach((r) => {
@@ -444,12 +386,9 @@ export function useDailyStockCount({
       });
 
       // FROM CK: read from branch_receipts where transfer_order_id IS NOT NULL
-      const { data: ckData } = await supabase
-        .from("branch_receipts")
-        .select("sku_id, qty_received")
-        .eq("branch_id", branchId)
-        .eq("receipt_date", date)
-        .not("transfer_order_id", "is", null);
+      const ckData = await fetchAllRowsOrThrow((a, b) =>
+        supabase.from("branch_receipts").select("id, sku_id, qty_received").eq("branch_id", branchId).eq("receipt_date", date).not("transfer_order_id", "is", null).order("id").range(a, b),
+      );
 
       const ckBySku: Record<string, number> = {};
       (ckData || []).forEach((r) => {
@@ -465,7 +404,8 @@ export function useDailyStockCount({
   const calculateExpectedUsage = useCallback(
     async (branchId: string, date: string): Promise<Record<string, number>> => {
       const [salesRes, overridesRes] = await Promise.all([
-        supabase.from("sales_entries").select("*").eq("branch_id", branchId).eq("sale_date", date),
+        // Paged, and a failed read fails (a usage of 0 would be written into the sheet)
+        fetchAllRowsOrThrow((a, b) => supabase.from("sales_entries").select("*").eq("branch_id", branchId).eq("sale_date", date).order("id").range(a, b)).then((data) => ({ data })),
         supabase
           .from("branch_menu_overrides")
           .select("menu_id, is_active")
@@ -488,6 +428,19 @@ export function useDailyStockCount({
     [menus, menuBomLines, modifierRules, spBomLines, skus],
   );
 
+  /** The day's branch adjustments (adj_net term); a failed read fails, nothing is written from it */
+  const fetchDayAdjustments = useCallback(async (branchId: string, date: string) => {
+    const rows = await fetchAllRowsOrThrow((a, b) => supabase.from("stock_adjustments").select("id, sku_id, quantity, reason").eq("branch_id", branchId).eq("adjustment_date", date).order("id").range(a, b));
+    const adjMap = new Map<string, { net: number; details: AdjDetail[] }>();
+    for (const a of rows) {
+      const entry = adjMap.get(a.sku_id) ?? { net: 0, details: [] };
+      entry.net += Number(a.quantity);
+      entry.details.push({ quantity: Number(a.quantity), reason: a.reason ?? "" });
+      adjMap.set(a.sku_id, entry);
+    }
+    return adjMap;
+  }, []);
+
   // Load existing count sheet — recalculate received + expected usage live from current BOM
   const loadSheet = useCallback(
     async (branchId: string, date: string) => {
@@ -496,16 +449,16 @@ export function useDailyStockCount({
       const started = Date.now();
       const editedSince = (id: string) => (editedAt.current.get(id) ?? 0) >= started || queue.isPending(id);
       setLoading(true);
-      const [sheetResult, receipts, expectedUsage] = await Promise.all([
-        supabase
-          .from("daily_stock_counts")
-          .select("*")
-          .eq("branch_id", branchId)
-          .eq("count_date", date)
-          .order("created_at"),
-        fetchReceiptTotals(branchId, date),
-        calculateExpectedUsage(branchId, date),
-      ]);
+      // The day's live figures, read beside the sheet; if they fail, the sheet shows what was
+      // saved and nothing is written (they used to come back empty and be saved as 0)
+      const live = Promise.all([fetchReceiptTotals(branchId, date), calculateExpectedUsage(branchId, date), fetchDayAdjustments(branchId, date)]);
+      live.catch(() => undefined); // handled where it's awaited
+      const sheetResult = await supabase
+        .from("daily_stock_counts")
+        .select("*")
+        .eq("branch_id", branchId)
+        .eq("count_date", date)
+        .order("created_at");
 
       if (stale()) return;
       if (sheetResult.error) {
@@ -529,23 +482,20 @@ export function useDailyStockCount({
         return;
       }
 
-      // Fetch gap-resilient opening balances
-      const openingBySku = await computeOpeningWithGap(branchId, date);
-
-      // Fetch branch adjustments for this date (adj_net term)
-      const { data: adjRows } = await supabase
-        .from("stock_adjustments")
-        .select("sku_id, quantity, reason")
-        .eq("branch_id", branchId)
-        .eq("adjustment_date", date);
-
-      // Build adj map: skuId → { net, details[] }
-      const adjMap = new Map<string, { net: number; details: AdjDetail[] }>();
-      for (const a of adjRows ?? []) {
-        const entry = adjMap.get(a.sku_id) ?? { net: 0, details: [] };
-        entry.net += Number(a.quantity);
-        entry.details.push({ quantity: Number(a.quantity), reason: a.reason ?? "" });
-        adjMap.set(a.sku_id, entry);
+      // Fetch the day's figures and gap-resilient opening balances. A failed read changes
+      // nothing: the sheet shows what was saved (counts can still be typed), nothing is written
+      let receipts: Awaited<ReturnType<typeof fetchReceiptTotals>>;
+      let expectedUsage: Record<string, number>;
+      let adjMap: Map<string, { net: number; details: AdjDetail[] }>;
+      let openingBySku: Record<string, number>;
+      try {
+        [[receipts, expectedUsage, adjMap], openingBySku] = await Promise.all([live, computeOpeningWithGap(branchId, date)]);
+      } catch {
+        if (stale()) return;
+        toast.error("โหลดยอดของวันนี้ไม่สำเร็จ ยอดที่เห็นคือที่บันทึกไว้ ลองเปิดใหม่อีกครั้ง");
+        setRows(overlayQueue(data.map(toLocal), true));
+        setLoading(false);
+        return;
       }
 
       // Patch rows with live receipt data, live expected usage, corrected opening balance, and adj_net
@@ -583,8 +533,10 @@ export function useDailyStockCount({
       );
       if (stale()) return;
       if (updates.length > 0) {
-        // Rows being edited go through the save queue with their own balance
-        for (const u of updates.filter((x) => !editedSince(x.id))) {
+        // Rows being edited go through the save queue with their own balance. Only the
+        // worked-out columns are written (never a typed count or waste), and never on a
+        // finished row, even one finished since this load read it
+        for (const u of updates.filter((x) => !editedSince(x.id) && !x.is_submitted)) {
           supabase
             .from("daily_stock_counts")
             .update({
@@ -596,6 +548,7 @@ export function useDailyStockCount({
               variance: u.variance,
             })
             .eq("id", u.id)
+            .eq("is_submitted", false)
             .then(() => {});
         }
       }
@@ -663,7 +616,7 @@ export function useDailyStockCount({
         });
       });
     },
-    [fetchReceiptTotals, calculateExpectedUsage, skus, computeOpeningWithGap],
+    [fetchReceiptTotals, calculateExpectedUsage, fetchDayAdjustments, skus, computeOpeningWithGap],
   );
 
   // Generate count sheet
@@ -688,26 +641,17 @@ export function useDailyStockCount({
         return;
       }
 
-      const [expectedUsage, receipts] = await Promise.all([
-        calculateExpectedUsage(branchId, date),
-        fetchReceiptTotals(branchId, date),
-      ]);
-
-      const openingBySku = await computeOpeningWithGap(branchId, date);
-
-      // Fetch branch adjustments for this date (adj_net term)
-      const { data: adjRows } = await supabase
-        .from("stock_adjustments")
-        .select("sku_id, quantity, reason")
-        .eq("branch_id", branchId)
-        .eq("adjustment_date", date);
-
-      const adjMap = new Map<string, { net: number; details: AdjDetail[] }>();
-      for (const a of adjRows ?? []) {
-        const entry = adjMap.get(a.sku_id) ?? { net: 0, details: [] };
-        entry.net += Number(a.quantity);
-        entry.details.push({ quantity: Number(a.quantity), reason: a.reason ?? "" });
-        adjMap.set(a.sku_id, entry);
+      // A failed read makes no sheet (its figures would be saved wrong); trying again is safe
+      let expectedUsage: Record<string, number>;
+      let receipts: Awaited<ReturnType<typeof fetchReceiptTotals>>;
+      let adjMap: Map<string, { net: number; details: AdjDetail[] }>;
+      let openingBySku: Record<string, number>;
+      try {
+        [expectedUsage, receipts, adjMap, openingBySku] = await Promise.all([calculateExpectedUsage(branchId, date), fetchReceiptTotals(branchId, date), fetchDayAdjustments(branchId, date), computeOpeningWithGap(branchId, date)]);
+      } catch {
+        toast.error("สร้างใบนับไม่สำเร็จ โหลดยอดของวันนี้ไม่ได้ ลองอีกครั้ง");
+        setGenerating(false);
+        return;
       }
 
       const relevantSkuIds = getBranchRelevantSkuIds(branchId);
@@ -770,7 +714,7 @@ export function useDailyStockCount({
       toast.success(`สร้างใบนับแล้ว ${allInserted.length} รายการ`);
       setGenerating(false);
     },
-    [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter, computeOpeningWithGap],
+    [skus, calculateExpectedUsage, fetchReceiptTotals, fetchDayAdjustments, loadSheet, getSkuConverter, computeOpeningWithGap],
   );
 
   // Update physical count — staff enters directly in Usage UOM, no conversion needed

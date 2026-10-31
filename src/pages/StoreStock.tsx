@@ -51,7 +51,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
 
   const list = rows ?? [];
   const low = list.filter((r) => r.daysLeft !== null && r.balance > 0 && r.daysLeft < LOW_DAYS).sort((a, b) => a.daysLeft! - b.daysLeft!);
-  const negative = list.filter((r) => r.balance < -0.5);
+  const negative = list.filter((r) => r.known && r.balance < -0.5);
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const shown = list
     .filter((r) => (filter === "low" ? low.includes(r) : filter === "negative" ? negative.includes(r) : true))
@@ -62,7 +62,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
   const lastCount = list.reduce<string | null>((m, r) => (r.countDate && (!m || r.countDate > m) ? r.countDate : m), null);
   // Weighted days left per storage: Σ stock ÷ Σ daily use (CLAUDE.md cover day)
   const cover = (k: string) => {
-    const g = list.filter((r) => (r.sku.storageCondition || "Ambient") === k && r.balance > 0 && r.dailyUse > 0);
+    const g = list.filter((r) => (r.sku.storageCondition || "Ambient") === k && r.known && r.balance > 0 && r.dailyUse > 0);
     const use = g.reduce((t, r) => t + r.dailyUse, 0);
     return use > 0 ? g.reduce((t, r) => t + r.balance, 0) / use : null;
   };
@@ -73,7 +73,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
     r.daysLeft === null ? <span className="text-muted-foreground">—</span> : r.balance <= 0 ? <span className="font-semibold text-destructive">หมด</span> : <span className={cn(r.daysLeft < LOW_DAYS ? "font-semibold text-destructive" : r.daysLeft < 4 ? "text-warning" : "")}>{r.daysLeft >= 100 ? "100+" : r.daysLeft.toFixed(1)} วัน</span>;
 
   const exportExcel = () => {
-    const data = shown.map((r) => ({ รหัส: r.sku.skuId, ชื่อ: r.sku.name, ช่องเก็บ: STORAGE[r.sku.storageCondition] ?? r.sku.storageCondition, คงเหลือ: Math.round(r.balance * 100) / 100, หน่วย: r.sku.usageUom, ใช้ต่อวัน: Math.round(r.dailyUse * 10) / 10, พอขาย_วัน: r.daysLeft !== null ? Math.round(r.daysLeft * 10) / 10 : "", มูลค่า: Math.round(r.value * 100) / 100, นับล่าสุด: r.countDate ?? "ไม่เคยนับ" }));
+    const data = shown.map((r) => ({ รหัส: r.sku.skuId, ชื่อ: r.sku.name, ช่องเก็บ: STORAGE[r.sku.storageCondition] ?? r.sku.storageCondition, คงเหลือ: r.known ? Math.round(r.balance * 100) / 100 : "ไม่รู้ยอด", หน่วย: r.sku.usageUom, ใช้ต่อวัน: Math.round(r.dailyUse * 10) / 10, พอขาย_วัน: r.daysLeft !== null ? Math.round(r.daysLeft * 10) / 10 : "", มูลค่า: Math.round(r.value * 100) / 100, นับล่าสุด: r.countDate ?? "ไม่ได้นับเกิน 5 สัปดาห์" }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "สต๊อกสาขา");
     XLSX.writeFile(wb, `สต๊อกสาขา-${branch?.branchName ?? ""}-${toLocalDateStr(new Date())}.xlsx`);
@@ -104,7 +104,14 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
         </div>
       )}
 
-      {error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span className="min-w-0 flex-1">{error}</span>
+          <button type="button" onClick={reload} className="min-h-[40px] rounded-full border border-destructive px-4 text-sm font-semibold">
+            ลองใหม่
+          </button>
+        </div>
+      )}
 
       {!rows ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -118,7 +125,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="text-sm text-muted-foreground">มูลค่าสต๊อก {branch?.branchName}</div>
               <div className="break-all font-mono text-2xl font-semibold">{baht(totalValue)}</div>
-              <div className="text-xs text-muted-foreground">{list.length} รายการ · ไม่นับยอดติดลบ</div>
+              <div className="text-xs text-muted-foreground">{list.length} รายการ · ไม่นับยอดติดลบ{list.some((r) => !r.known) ? ` · ไม่รู้ยอด ${list.filter((r) => !r.known).length} รายการ ไม่นับ` : ""}</div>
             </div>
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="text-sm text-muted-foreground">พอขาย (เฉลี่ยตามช่องเก็บ)</div>
@@ -132,8 +139,8 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
-              <div className="text-sm text-muted-foreground">นับล่าสุด (กดนับเสร็จแล้ว)</div>
-              <div className="text-xl font-semibold">{lastCount ? new Date(`${lastCount}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" }) : "ยังไม่เคยนับ"}</div>
+              <div className="text-sm text-muted-foreground">นับล่าสุด</div>
+              <div className="text-xl font-semibold">{lastCount ? new Date(`${lastCount}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" }) : "ไม่ได้นับเกิน 5 สัปดาห์"}</div>
               <div className="text-xs text-muted-foreground">ใช้ต่อวัน = เฉลี่ยวันที่มียอดขาย 7 วันล่าสุด รวมของเสีย</div>
             </div>
           </div>
@@ -218,13 +225,13 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                       <td className="break-words px-3 py-2.5">
                         <span className="font-semibold">{r.sku.name}</span> <span className="font-mono text-xs text-muted-foreground">{r.sku.skuId}</span>
                       </td>
-                      <td className={cn("px-3 py-2.5 text-right font-mono tabular-nums", r.balance < -0.5 && "text-destructive")}>
-                        {n0(r.balance)} <span className="font-sans text-xs text-muted-foreground">{r.sku.usageUom}</span>
+                      <td className={cn("px-3 py-2.5 text-right font-mono tabular-nums", r.known && r.balance < -0.5 && "text-destructive")}>
+                        {r.known ? n0(r.balance) : "—"} <span className="font-sans text-xs text-muted-foreground">{r.sku.usageUom}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono tabular-nums">{r.dailyUse > 0 ? n0(r.dailyUse) : <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-3 py-2.5 text-right font-mono tabular-nums">{daysCell(r)}</td>
                       <td className="px-3 py-2.5 text-muted-foreground">{STORAGE[r.sku.storageCondition] ?? r.sku.storageCondition ?? "—"}</td>
-                      <td className="px-3 py-2.5">{r.countDate ? thaiDate(r.countDate) : <span className="text-warning">ไม่เคยนับ</span>}</td>
+                      <td className="px-3 py-2.5">{r.countDate ? thaiDate(r.countDate) : <span className="text-warning">ไม่ได้นับเกิน 5 สัปดาห์</span>}</td>
                       <td className="px-2 py-2">
                         <div className="flex justify-end gap-1.5">
                           <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setHistoryFor(r)}>
@@ -249,10 +256,10 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                   <button type="button" onClick={() => setHistoryFor(r)} className="min-w-0 flex-1 text-left">
                     <span className="block break-words font-semibold">{r.sku.name}</span>
                     <span className="block text-[13px] text-muted-foreground">
-                      <span className={cn("font-mono", r.balance < -0.5 && "text-destructive")}>
-                        {n0(r.balance)} {r.sku.usageUom}
+                      <span className={cn("font-mono", r.known && r.balance < -0.5 && "text-destructive")}>
+                        {r.known ? n0(r.balance) : "—"} {r.sku.usageUom}
                       </span>
-                      {r.dailyUse > 0 && ` · ใช้วันละ ${n0(r.dailyUse)}`} · {r.countDate ? `นับ ${thaiDate(r.countDate)}` : "ไม่เคยนับ"}
+                      {r.dailyUse > 0 && ` · ใช้วันละ ${n0(r.dailyUse)}`} · {r.countDate ? `นับ ${thaiDate(r.countDate)}` : "ไม่ได้นับเกิน 5 สัปดาห์"}
                     </span>
                   </button>
                   <span className="flex shrink-0 flex-col items-end gap-1">
@@ -277,7 +284,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
           skuType={historyFor.sku.type as "RM" | "SM"}
           sku={historyFor.sku}
           skus={skus}
-          currentStock={historyFor.balance}
+          currentStock={historyFor.known ? historyFor.balance : 0}
           stockValue={historyFor.value}
           onClose={() => setHistoryFor(null)}
           context="branch"
@@ -285,7 +292,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
           disableMismatchCheck
         />
       )}
-      {moveFor && branch && <MoveSheet sku={moveFor.sku} balance={moveFor.balance} branch={branch} branches={branches} onClose={() => setMoveFor(null)} onSaved={reload} write={write} />}
+      {moveFor && branch && <MoveSheet sku={moveFor.sku} balance={moveFor.known ? moveFor.balance : null} branch={branch} branches={branches} onClose={() => setMoveFor(null)} onSaved={reload} write={write} />}
     </div>
   );
 }

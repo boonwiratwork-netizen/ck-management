@@ -217,7 +217,7 @@ const Index = () => {
     byproductData.byproducts,
     kitchenData,
   );
-  const smDailyUsage = useSmDailyUsage(skuData.skus, kitchenData);
+  const smUse = useSmDailyUsage(skuData.skus, kitchenData);
   const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
   const branchData = useBranchData();
 
@@ -384,7 +384,9 @@ const Index = () => {
                     rm={stockData}
                     pk={pkStockData}
                     sm={smStockData}
-                    smDailyUsage={smDailyUsage}
+                    smDailyUsage={smUse.perDay}
+                    smUseError={smUse.error}
+                    onSmUseRetry={smUse.reload}
                     canEdit={!readOnly}
                   />
                 ) : activeTab === "production" ? (
@@ -396,7 +398,10 @@ const Index = () => {
                     bomSteps={bomData.steps}
                     smStockBalances={smStockData.stockBalances}
                     isStockDataReady={smStockData.isStockDataReady}
-                    smDailyUsage={smDailyUsage}
+                    smDailyUsage={smUse.perDay}
+                    smUseRead={smUse.read}
+                    smUseError={smUse.error}
+                    onSmUseRetry={smUse.reload}
                     refreshProductionRecords={smStockData.refreshProductionRecords}
                     byproducts={byproductData.byproducts}
                     onNavigate={handleTabChange}

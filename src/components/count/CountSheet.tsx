@@ -39,7 +39,8 @@ function Movement({ opening, received, used, salesIn, balance, waste = 0, adj = 
     <div className={cn("grid gap-1.5", withBalance ? "grid-cols-4" : "max-w-[360px] grid-cols-3")}>
       <span className={cell}>
         <span className={label}>ยกมา</span>
-        <span className={value}>{n0(opening)}</span>
+        {/* Below 0 = the system ran short since the last count (shown, as on branch stock) */}
+        <span className={cn(value, opening < 0 && "text-destructive")}>{n0(opening)}</span>
       </span>
       <span className={cn(cell, received && "bg-success-soft")}>
         <span className={cn(label, received && "text-success")}>รับ</span>
@@ -528,7 +529,7 @@ function DesktopRow({
       </span>
       {!compact && (
         <>
-          <span className={num}>{n0(row.openingBalance)}</span>
+          <span className={cn(num, row.openingBalance < 0 && "text-destructive")}>{n0(row.openingBalance)}</span>
           <span className={cn(num, received ? "font-semibold text-success" : "text-muted-foreground")}>{received ? `+${n0(received)}` : "—"}</span>
           <span className={num}>{salesIn ? `−${n0(row.expectedUsage)}` : <span className="font-sans text-xs text-warning">รอยอดขาย</span>}</span>
         </>

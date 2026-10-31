@@ -15,6 +15,7 @@ import { StockCard } from "@/components/StockCard";
 import { AdjustSheet } from "@/components/kitchen-stock/AdjustSheet";
 import { Button } from "@/components/ui/button";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import { UseReadError } from "@/components/UseReadError";
 
 type SmStock = ReturnType<typeof useSmStockData>;
 
@@ -48,6 +49,9 @@ interface Props {
   pk: KitchenItemStock;
   sm: SmStock;
   smDailyUsage: Record<string, number>;
+  /** The daily-use read failed: SM days left are unknown, not "none used" */
+  smUseError?: boolean;
+  onSmUseRetry?: () => void;
   canEdit: boolean;
 }
 
@@ -216,6 +220,8 @@ export default function KitchenStockPage(p: Props) {
           <SegmentedTabs<StockType> tabs={TABS} value={type} onChange={p.onType} />
         </div>
       </div>
+
+      {type === "SM" && p.smUseError && <UseReadError onRetry={p.onSmUseRetry} />}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card px-4 py-3">

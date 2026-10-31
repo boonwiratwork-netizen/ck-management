@@ -32,6 +32,8 @@ export interface PRDetailLine {
   rop: number;
   supplierId: string | null;
   packUnit: string;
+  /** UNKNOWN_STOCK_NOTE when the stock wasn't known as it was sent */
+  notes?: string | null;
 }
 
 export function usePurchaseRequest(branchId: string | null) {
@@ -118,7 +120,7 @@ export function usePurchaseRequest(branchId: string | null) {
     const { data, error } = await supabase
       .from("purchase_request_lines")
       .select(
-        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, rop, pack_size, supplier_id",
+        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, rop, pack_size, supplier_id, notes",
       )
       .eq("pr_id", prId);
     if (error || !data) return [];
@@ -147,6 +149,7 @@ export function usePurchaseRequest(branchId: string | null) {
       rop: d.rop || 0,
       supplierId: d.supplier_id,
       packUnit: skuMap[d.sku_id]?.packUnit || "แพ็ค",
+      notes: d.notes,
     }));
   }, []);
 

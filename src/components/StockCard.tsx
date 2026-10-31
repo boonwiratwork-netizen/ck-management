@@ -5,7 +5,8 @@ import { addSaleUsage, buildUsageContext } from "@/lib/sale-usage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDateStr } from "@/lib/utils";
+import { receiptConverter } from "@/lib/branch-stock";
 import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 import type { SKU } from "@/types/sku";
 import { afterCount, producedAfterCount, type CountAnchor } from "@/lib/count-anchor";
@@ -161,13 +162,15 @@ export function StockCard({
     new Map(),
   );
 
+  const branchReceiptConverter = receiptConverter(sku);
   useEffect(() => {
     let cancelled = false;
 
     // Calculate fromDate for CK context date filtering
     const fromD = new Date();
     fromD.setDate(fromD.getDate() - daysBack);
-    const fromDate = fromD.toISOString().slice(0, 10);
+    // Bangkok date: the UTC one is still yesterday before 07:00
+    const fromDate = toLocalDateStr(fromD);
 
     async function fetch() {
       setLoading(true);
@@ -302,8 +305,9 @@ export function StockCard({
           }
           for (const [date, q] of usageByDate) if (!(q > 0)) usageByDate.delete(date);
 
-          // Step 4 — Calculate daily receipts per day
-          const converter = sku.converter ?? 1;
+          // Step 4 — Calculate daily receipts per day. Supplier receipts in usage units by the
+          // count sheet's rule (converter only when purchase and usage units differ), as branch stock
+          const converter = branchReceiptConverter;
           const receiptsByDate = new Map<string, { ck: number; ext: number }>();
           for (const r of receipts) {
             const date = r.receipt_date;
@@ -316,20 +320,23 @@ export function StockCard({
             receiptsByDate.set(date, entry);
           }
 
-          // DSC rows by date for physical counts and waste: every count typed in, finished
-          // or not, as the count sheet and the branch stock page read it
+          // DSC rows by date for physical counts (every count typed in, finished or not) and
+          // waste (on any row, counted or not: branch stock takes it off either way)
           const dscByDate = new Map<string, any>();
+          const wasteByDate = new Map<string, number>();
           for (const row of dscRows) {
             if (row.physical_count !== null) {
               dscByDate.set(row.count_date, row);
             }
+            if (Number(row.waste) > 0) wasteByDate.set(row.count_date, (wasteByDate.get(row.count_date) ?? 0) + Number(row.waste));
           }
 
           // Step 5 — Build day-by-day ledger. Walk from effectiveStartDate (the anchor
           // date, if one exists) so prevBalance correctly snaps on the anchor day and
           // evolves through any gap days — but only display rows from resolvedStartDate
           // (the user's selected window) onward, below.
-          const today = new Date().toISOString().slice(0, 10);
+          // Today in Bangkok (the UTC date stopped the ledger at yesterday before 07:00)
+          const today = toLocalDateStr(new Date());
           const allDates: string[] = [];
           const d = new Date(effectiveStartDate);
           const end = new Date(today);
@@ -346,7 +353,7 @@ export function StockCard({
             const totalReceived = rec.ck + rec.ext;
             const usage = usageByDate.get(date) ?? 0;
             const dsc = dscByDate.get(date);
-            const waste = dsc ? Number(dsc.waste) : 0;
+            const waste = wasteByDate.get(date) ?? 0;
             const hasPhysical = !!dsc;
             const physicalCount = hasPhysical ? Number(dsc.physical_count) : null;
 
@@ -896,7 +903,7 @@ export function StockCard({
     return () => {
       cancelled = true;
     };
-  }, [skuId, skuType, sku.converter, skus, context, branchId, daysBack]);
+  }, [skuId, skuType, sku.converter, branchReceiptConverter, skus, context, branchId, daysBack]);
 
   const finalBalance = movements.length > 0 ? (movements[movements.length - 1].runningBalance ?? 0) : 0;
   const hasMismatch = Math.abs(finalBalance - currentStock) > 1;

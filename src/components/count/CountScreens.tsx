@@ -96,7 +96,7 @@ export function CountHome({
         <section className="flex flex-col gap-2 rounded-2xl bg-primary p-4 text-primary-foreground">
           <div className="text-sm font-semibold text-brand-soft">ช่วงปิดเดือน</div>
           <h2 className="text-lg font-bold">นับให้ครบทุกตัว ให้ได้ 100%</h2>
-          <p className="text-sm text-primary-foreground/75">ยอดนับช่วงนี้ใช้คิดต้นทุนอาหารของทั้งเดือน นับให้ครบทุกวันจนถึงวันที่ {Number(monthEnd[4].slice(8))}</p>
+          <p className="text-sm text-primary-foreground/75">ยอดนับล่าสุดของเดือนใช้ปิดต้นทุนอาหารของทั้งเดือน นับให้ครบทุกวันจนถึงวันที่ {Number(monthEnd[monthEnd.length - 1].slice(8))} (วันสิ้นเดือน)</p>
           <div className="grid grid-cols-5 gap-1.5 pt-1">
             {monthEnd.map((d) => (
               <span key={d} className={cn("flex min-h-[44px] flex-col items-center justify-center rounded-lg text-xs", d === date ? "bg-brand font-bold text-brand-foreground" : d < date ? "bg-success/80" : "border border-primary-foreground/20 text-primary-foreground/60")}>

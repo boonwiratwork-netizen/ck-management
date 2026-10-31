@@ -1,4 +1,5 @@
 import { addSaleUsage, type UsageContext } from "@/lib/sale-usage";
+import { afterCount } from "@/lib/count-anchor";
 
 /**
  * Food cost for a period, kept apart from the screen so it can be tested:
@@ -104,6 +105,9 @@ export function overlapShare(c: { dateFrom: string; dateTo: string }, from: stri
   return dayCount(a, b) / dayCount(c.dateFrom, c.dateTo);
 }
 
+/** The standard price on a day: price history, else today's standard price */
+export const priceOnOf = (priceAt: ((skuId: string, date: string) => number | undefined) | undefined, stdPrice: Map<string, number>) => (skuId: string, date: string) => priceAt?.(skuId, date) ?? stdPrice.get(skuId) ?? 0;
+
 export function computeStandard(input: {
   sales: FcSale[];
   ctx: UsageContext;
@@ -123,7 +127,7 @@ export function computeStandard(input: {
   to: string;
 }): Standard {
   const { sales, ctx, stdPrice, menuByCode, skuById } = input;
-  const priceOn = (skuId: string, date: string) => input.priceAt?.(skuId, date) ?? stdPrice.get(skuId) ?? 0;
+  const priceOn = priceOnOf(input.priceAt, stdPrice);
   const usage = new Map<string, number>();
   // Baht of each item's usage, each sale at its own day's price
   const usageCost = new Map<string, number>();
@@ -210,6 +214,58 @@ export function computeStandard(input: {
   };
 }
 
+// ─── The recipe over an item's own count span ───
+
+export interface DayUse {
+  qty: number;
+  /** Baht at that day's standard price */
+  cost: number;
+}
+
+/** Recipe usage per item per day of the sales given, each day with its own recipes and price (computeStandard's usage, kept by day) */
+export function recipeByDay(input: { sales: FcSale[]; ctx: UsageContext; ctxAt?: (date: string) => UsageContext; priceOn: (skuId: string, date: string) => number }): Map<string, Map<string, DayUse>> {
+  const out = new Map<string, Map<string, DayUse>>();
+  for (const s of input.sales) {
+    addSaleUsage(input.ctxAt?.(s.sale_date) ?? input.ctx, s, (skuId, q) => {
+      const days = out.get(skuId) ?? new Map<string, DayUse>();
+      const d = days.get(s.sale_date) ?? { qty: 0, cost: 0 };
+      d.qty += q;
+      d.cost += q * input.priceOn(skuId, s.sale_date);
+      days.set(s.sale_date, d);
+      out.set(skuId, days);
+    });
+  }
+  return out;
+}
+
+/**
+ * One item's recipe figure over a span (from … to, both days in), the way computeStandard
+ * works out a period: each day at its own price, recorded corrections by their share of the
+ * span (never below nothing), priced at the span's last day.
+ */
+export function recipeOver(days: Map<string, DayUse> | undefined, corrections: UsageCorrection[], from: string, to: string, endPrice: number): { qty: number; cost: number } {
+  let raw = 0;
+  let cost = 0;
+  for (const [d, u] of days ?? []) {
+    if (d < from || d > to) continue;
+    raw += u.qty;
+    cost += u.cost;
+  }
+  let corr: number | null = null;
+  for (const c of corrections) {
+    const share = overlapShare(c, from, to);
+    if (share > 0) corr = (corr ?? 0) + c.qty * share;
+  }
+  const qty = corr !== null ? Math.max(0, raw + corr) : raw;
+  return { qty, cost: qty <= 0 ? 0 : cost + (qty - raw) * endPrice };
+}
+
+const nextDay = (d: string) => {
+  const x = new Date(`${d}T00:00:00`);
+  x.setDate(x.getDate() + 1);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
 // ─── Actual (one branch, one closed month) ───
 
 export interface CountRow {
@@ -240,24 +296,36 @@ export function receiptUsage(r: ReceiptRow, converter: number): { qty: number; p
 export interface CountPick {
   qty: number;
   date: string;
-  /** Not counted on the day itself: the nearest count within 3 days */
-  nearby: boolean;
+  /** Not counted on the span's last day (month end): the latest count before it */
+  early: boolean;
   /** No physical count, the calculated balance was used */
   estimated: boolean;
 }
 
-/** The count closest to a date (physical counts first), within the rows given */
-export function pickCount(rows: CountRow[], target: string): CountPick | null {
-  if (!rows.length) return null;
-  const physical = rows.filter((r) => r.physical_count !== null);
-  const pool = physical.length ? physical : rows;
-  const t = Date.parse(target);
-  // Closest; on a tie (a day before and a day after) the later one, as the old page did
-  const dist = (r: CountRow) => Math.abs(Date.parse(r.count_date) - t);
-  const best = pool.reduce((a, b) => (dist(b) < dist(a) || (dist(b) === dist(a) && b.count_date > a.count_date) ? b : a));
+/**
+ * The last count of a span (CLAUDE.md "Food Cost Act Qty"): the latest physical count in
+ * it, else — nothing typed in that span — the latest sheet's calculated balance. Rows
+ * outside the span don't count: the nearest count ±3 days used to take the next month's
+ * count as this month's closing while receipts stopped at month end.
+ */
+export function lastCount(rows: CountRow[], from: string, to: string): CountPick | null {
+  const inSpan = rows.filter((r) => r.count_date >= from && r.count_date <= to);
+  if (!inSpan.length) return null;
+  const physical = inSpan.filter((r) => r.physical_count !== null);
+  const pool = physical.length ? physical : inSpan;
+  const best = pool.reduce((a, b) => (b.count_date > a.count_date ? b : a));
   const estimated = best.physical_count === null;
-  return { qty: num(estimated ? best.calculated_balance : best.physical_count), date: best.count_date, nearby: best.count_date !== target, estimated };
+  return { qty: num(estimated ? best.calculated_balance : best.physical_count), date: best.count_date, early: best.count_date < to, estimated };
 }
+
+/**
+ * A receipt counts between two branch counts when it's dated after the opening count's
+ * day and up to the closing count's day: a branch count is the day's end (the count
+ * sheet takes that day's receipts in before the count — the kitchen's count-anchor rule
+ * for counts with no "counted before" mark), so the opening day's receipts are already in
+ * the opening and the closing day's are in the closing.
+ */
+export const receivedBetween = (date: string, openingDate: string, closingDate: string) => afterCount({ count_date: openingDate }, date) && !afterCount({ count_date: closingDate }, date);
 
 export interface ActualRow extends SkuRow {
   opening: CountPick | null;
@@ -267,6 +335,14 @@ export interface ActualRow extends SkuRow {
   actQty: number | null;
   actPrice: number;
   actCost: number | null;
+  /**
+   * The recipe over this item's own count span — the day after its opening count up to its
+   * closing count day, as receipts — which actual is compared with. The whole period when
+   * it was counted on the month ends (stdQty / stdCost stay the period's figure).
+   */
+  recipeQty: number;
+  recipeCost: number;
+  span: { from: string; to: string };
   qtyVar: number | null;
   priceVar: number | null;
   totalVar: number | null;
@@ -279,19 +355,33 @@ export interface Actual {
   priceVar: number;
   usageVar: number;
   withCounts: number;
+  /** The recipe over the same spans as the counts (items with an actual): what actCost is compared with */
+  recipeCost: number;
+  /** The count days the actual comes from (items with an actual), first and last */
+  openingDays: { first: string; last: string } | null;
+  closingDays: { first: string; last: string } | null;
 }
 
 export function computeActual(input: {
   skus: SkuRow[];
+  /** Count rows of the month before (the opening is its last count) */
   openingRows: CountRow[];
+  /** Count rows of the period (the closing is its last count) */
   closingRows: CountRow[];
+  /** Receipts from the start of the month before to the period's end; each item takes those between its two counts */
   receipts: ReceiptRow[];
   /** Usage units per purchase unit, per SKU */
   converter: Map<string, number>;
-  /** Average paid before this month, for items not bought this month */
+  /** Average paid before the receipts given, for items with none in them */
   pastPrice: Map<string, number>;
-  openingDate: string;
-  closingDate: string;
+  /** The month before (opening) and the period (closing) */
+  opening: { from: string; to: string };
+  closing: { from: string; to: string };
+  /** Recipe usage per item per day across both months (recipeByDay); none = compare with the period's figure */
+  recipeDays?: Map<string, Map<string, DayUse>>;
+  /** Recorded corrections of this branch across both months */
+  corrections?: UsageCorrection[];
+  priceOn?: (skuId: string, date: string) => number;
 }): Actual {
   const group = (rows: CountRow[]) => {
     const m = new Map<string, CountRow[]>();
@@ -300,43 +390,100 @@ export function computeActual(input: {
   };
   const openBy = group(input.openingRows);
   const closeBy = group(input.closingRows);
-  const bought = new Map<string, { qty: number; value: number; n: number }>();
-  for (const r of input.receipts) {
-    // Usage units as the stock pages count them; price = what was paid ÷ that (the old
-    // page multiplied unit price by the converted qty: wrong for ml → g items)
-    const { qty, paid } = receiptUsage(r, input.converter.get(r.sku_id) || 1);
-    const b = bought.get(r.sku_id) ?? { qty: 0, value: 0, n: 0 };
-    b.qty += qty;
-    b.value += paid;
-    b.n += 1;
-    bought.set(r.sku_id, b);
-  }
+  const counted = (rows: CountRow[], span: { from: string; to: string }) => rows.some((r) => r.count_date >= span.from && r.count_date <= span.to);
+  const openingCounted = counted(input.openingRows, input.opening);
+  const closingCounted = counted(input.closingRows, input.closing);
+  const receiptsBy = new Map<string, ReceiptRow[]>();
+  for (const r of input.receipts) receiptsBy.set(r.sku_id, [...(receiptsBy.get(r.sku_id) ?? []), r]);
+  // Usage units as the stock pages count them; price = what was paid ÷ that (the old
+  // page multiplied unit price by the converted qty: wrong for ml → g items)
+  const sum = (rows: ReceiptRow[]) =>
+    rows.reduce(
+      (b, r) => {
+        const { qty, paid } = receiptUsage(r, input.converter.get(r.sku_id) || 1);
+        return { qty: b.qty + qty, value: b.value + paid, n: b.n + 1 };
+      },
+      { qty: 0, value: 0, n: 0 },
+    );
 
   let actCost = 0;
   let totalVar = 0;
   let priceVar = 0;
   let withCounts = 0;
+  let recipeCost = 0;
+  const days = { open: [] as string[], close: [] as string[] };
   const rows: ActualRow[] = input.skus.map((s) => {
-    const opening = pickCount(openBy.get(s.skuId) ?? [], input.openingDate);
-    const closing = pickCount(closeBy.get(s.skuId) ?? [], input.closingDate);
-    const b = bought.get(s.skuId);
-    const received = b?.qty ?? 0;
-    const actPrice = b && b.qty > 0 ? b.value / b.qty : input.pastPrice.get(s.skuId) ?? s.stdPrice;
-    const hasCounts = !!opening || !!closing;
-    const actQty = hasCounts ? (opening?.qty ?? 0) + received - (closing?.qty ?? 0) : null;
+    const opening = lastCount(openBy.get(s.skuId) ?? [], input.opening.from, input.opening.to);
+    const closing = lastCount(closeBy.get(s.skuId) ?? [], input.closing.from, input.closing.to);
+    // Received between the two counts (no count at one end: from the period's start / to its end)
+    const lo = opening?.date ?? input.opening.to;
+    const hi = closing?.date ?? input.closing.to;
+    const all = receiptsBy.get(s.skuId) ?? [];
+    const b = sum(all.filter((r) => receivedBetween(r.receipt_date, lo, hi)));
+    const received = b.qty;
+    // Paid for what came in between the counts; else for anything received around them; else before
+    const around = b.qty > 0 ? b : sum(all);
+    const actPrice = around.qty > 0 ? around.value / around.qty : input.pastPrice.get(s.skuId) ?? s.stdPrice;
+    // An item on one month's sheets but none of the other's, while the branch counted that
+    // month, wasn't carried then: 0. An item on no sheet in either month (packaging, a rule-only
+    // item) or a month the branch didn't count at all says nothing: no actual, not a count of 0
+    const onSheets = !!opening || !!closing;
+    const openQty = opening ? opening.qty : openingCounted && onSheets ? 0 : null;
+    const closeQty = closing ? closing.qty : closingCounted && onSheets ? 0 : null;
+    const actQty = openQty !== null && closeQty !== null ? openQty + received - closeQty : null;
+    // Compared with the recipe over the same days (sales on the opening count's day are in
+    // that count, the closing day's in the closing): an early count used to be set against
+    // the whole month and read as "the recipe counts twice"
+    const span = { from: nextDay(lo), to: hi };
+    const corr = (input.corrections ?? []).filter((c) => c.skuId === s.skuId);
+    const recipe = input.recipeDays ? recipeOver(input.recipeDays.get(s.skuId), corr, span.from, span.to, input.priceOn?.(s.skuId, span.to) ?? s.stdPrice) : { qty: s.stdQty, cost: s.stdCost };
+    const recipePrice = recipe.qty > 0 ? recipe.cost / recipe.qty : s.stdPrice;
     const cost = actQty !== null ? actQty * actPrice : null;
-    const pv = actQty !== null ? (actPrice - s.stdPrice) * actQty : null;
-    const tv = cost !== null ? cost - s.stdCost : null;
+    const pv = actQty !== null ? (actPrice - recipePrice) * actQty : null;
+    const tv = cost !== null ? cost - recipe.cost : null;
     if (tv !== null) {
       actCost += cost!;
       totalVar += tv;
       priceVar += pv ?? 0;
+      recipeCost += recipe.cost;
       withCounts += 1;
+      if (opening) days.open.push(opening.date);
+      if (closing) days.close.push(closing.date);
     }
-    return { ...s, opening, received, receipts: b?.n ?? 0, closing, actQty, actPrice, actCost: cost, qtyVar: actQty !== null ? actQty - s.stdQty : null, priceVar: pv, totalVar: tv };
+    return { ...s, opening, received, receipts: b.n, closing, actQty, actPrice, actCost: cost, recipeQty: recipe.qty, recipeCost: recipe.cost, span, qtyVar: actQty !== null ? actQty - recipe.qty : null, priceVar: pv, totalVar: tv };
   });
   rows.sort((a, b) => Math.abs(b.totalVar ?? 0) - Math.abs(a.totalVar ?? 0));
-  return { rows, actCost, totalVar, priceVar, usageVar: totalVar - priceVar, withCounts };
+  const firstLast = (d: string[]) => (d.length ? { first: d.reduce((m, x) => (x < m ? x : m)), last: d.reduce((m, x) => (x > m ? x : m)) } : null);
+  return { rows, actCost, totalVar, priceVar, usageVar: totalVar - priceVar, withCounts, recipeCost, openingDays: firstLast(days.open), closingDays: firstLast(days.close) };
+}
+
+/**
+ * Actual as % of sales, comparable with the recipe %: the recipe % × actual ÷ the recipe
+ * over the same items and days (the counts' spans). Dividing the counts' cost by the whole
+ * month's sales read 37.3% against a recipe 20.0% with ฿0 difference.
+ */
+export function actualPct(std: { revenue: number; stdCost: number }, actual: { actCost: number; recipeCost: number }): number | null {
+  if (std.revenue <= 0) return null;
+  return actual.recipeCost > 0 ? (std.stdCost / std.revenue) * (actual.actCost / actual.recipeCost) * 100 : (actual.actCost / std.revenue) * 100;
+}
+
+/**
+ * The named reads of a loader, each once per distinct arguments while it's in use: the
+ * trend works out several months, and a month's sales and counts are also the next
+ * month's "month before" (they used to be read again, one month after another).
+ */
+export function readOnce<T extends object>(loader: T, names: (keyof T)[]): T {
+  const memo = new Map<string, unknown>();
+  const out = { ...loader };
+  for (const n of names) {
+    const read = loader[n] as unknown as (...args: unknown[]) => unknown;
+    (out as Record<keyof T, unknown>)[n] = (...args: unknown[]) => {
+      const key = `${String(n)}|${JSON.stringify(args)}`;
+      if (!memo.has(key)) memo.set(key, read(...args));
+      return memo.get(key);
+    };
+  }
+  return out;
 }
 
 // ─── Things worth a look ───
@@ -377,22 +524,23 @@ export function findAttention(input: {
   if (input.actual) {
     // More used by the recipes than there ever was: the recipes count something twice
     // Only when it's worth money (฿300+): a few grams of pepper never stocked is noise
+    // (the recipe over the same days as the item's counts, not the whole month)
     const impossible = input.actual.rows
-      .filter((r) => r.actQty !== null && r.opening && r.stdQty > 0 && r.stdQty > (r.opening.qty + r.received) * 1.1 + 1 && Math.abs(r.stdCost - (r.actCost ?? 0)) >= 300)
-      .sort((a, b) => Math.abs(b.stdCost - (b.actCost ?? 0)) - Math.abs(a.stdCost - (a.actCost ?? 0)));
+      .filter((r) => r.actQty !== null && r.opening && r.recipeQty > 0 && r.recipeQty > (r.opening.qty + r.received) * 1.1 + 1 && Math.abs(r.recipeCost - (r.actCost ?? 0)) >= 300)
+      .sort((a, b) => Math.abs(b.recipeCost - (b.actCost ?? 0)) - Math.abs(a.recipeCost - (a.actCost ?? 0)));
     for (const r of impossible.slice(0, 3)) {
       out.push({
         key: `imp-${r.skuId}`,
         tone: "red",
         skuId: r.skuId,
-        title: `${r.name}: สูตรบอกใช้ ${n0(r.stdQty)} ${r.uom} แต่มีทั้งเดือนแค่ ${n0(r.opening!.qty + r.received)}`,
+        title: `${r.name}: สูตรบอกใช้ ${n0(r.recipeQty)} ${r.uom} แต่มีทั้งช่วงนับแค่ ${n0(r.opening!.qty + r.received)}`,
         detail: `ยกมา ${n0(r.opening!.qty)} + รับ ${n0(r.received)} · ใช้จริง ${n0(r.actQty!)} · สูตรน่าจะนับซ้ำหรือใส่จำนวนเกิน (${baht(r.totalVar ?? 0)})`,
       });
     }
     const shown = new Set(impossible.slice(0, 3).map((r) => r.skuId));
-    const off = input.actual.rows.filter((r) => !shown.has(r.skuId) && r.qtyVar !== null && r.stdQty > 0 && Math.abs(r.qtyVar) / r.stdQty > 0.25 && Math.abs(r.totalVar ?? 0) >= 300);
+    const off = input.actual.rows.filter((r) => !shown.has(r.skuId) && r.qtyVar !== null && r.recipeQty > 0 && Math.abs(r.qtyVar) / r.recipeQty > 0.25 && Math.abs(r.totalVar ?? 0) >= 300);
     for (const r of off.slice(0, 3)) {
-      const pct = Math.round((r.qtyVar! / r.stdQty) * 100);
+      const pct = Math.round((r.qtyVar! / r.recipeQty) * 100);
       out.push({
         key: `var-${r.skuId}`,
         tone: "amber",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canCancel, freshPending, lineMessage, lineState, suggestedPacks } from "./request-lines";
+import { canCancel, freshPending, lineMessage, lineState, requestFigures, suggestedPacks } from "./request-lines";
 
 const f = (stock: number, avg: number, rop: number, par: number, pack = 100) => ({ stockOnHand: stock, avgDailyUsage: avg, rop, parstock: par, packSize: pack });
 
@@ -11,6 +11,37 @@ describe("line situation (same thresholds as the old table)", () => {
     expect(lineState(f(500, 26, 200, 376)).kind).toBe("ok");
     // below reorder point, but what is coming lifts it back above → กำลังมา
     expect(lineState(f(150, 15, 200, 260), 200).kind).toBe("coming");
+  });
+});
+
+describe("request figures (from the branch stock page's own numbers)", () => {
+  const fig = (balance: number, anchorDate: string | null = "2026-10-21") => ({ balance, anchorDate, dailyUse: 1000, peakDailyUse: 1500 });
+
+  it("orders to parstock from the shared balance", () => {
+    // lead time 1: rop = 1000 + 500, parstock = 1000 + 1500
+    expect(requestFigures(fig(800), { leadTime: 1 })).toEqual({ stockOnHand: 800, stockKnown: true, avgDailyUsage: 1000, peakDailyUsage: 1500, rop: 1500, parstock: 2500, suggestedOrder: 1700, status: "low" });
+    expect(requestFigures(fig(3000), { leadTime: 1 }).status).toBe("sufficient");
+  });
+
+  it("takes a book shortfall as nothing left, not stock owed", () => {
+    // −400 on the stock page: order parstock, not parstock + 400
+    const r = requestFigures(fig(-400), { leadTime: 1 });
+    expect(r.stockOnHand).toBe(0);
+    expect(r.stockKnown).toBe(true);
+    expect(r.suggestedOrder).toBe(2500);
+    expect(r.status).toBe("critical");
+  });
+
+  it("a product on no sheet in 5 weeks is unknown: never 5 weeks of receipts as stock, the suggestion assumes none", () => {
+    // 80 kg of soup received over 5 weeks, nothing counted or listed: not "sufficient, order 0"
+    const r = requestFigures(fig(80000, null), { leadTime: 1 });
+    expect(r).toMatchObject({ stockKnown: false, stockOnHand: 0, suggestedOrder: 2500 });
+    // a system figure from a sheet is an anchor: known
+    expect(requestFigures(fig(1200, "2026-10-29"), { leadTime: 1 }).stockKnown).toBe(true);
+  });
+
+  it("has no usage data without a figure", () => {
+    expect(requestFigures(undefined, { leadTime: 2 })).toMatchObject({ stockOnHand: 0, stockKnown: false, avgDailyUsage: 0, suggestedOrder: 0, status: "no-data" });
   });
 });
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { freshPending, type Pending } from "@/lib/request-lines";
+import { UNKNOWN_STOCK_NOTE, freshPending, type Pending } from "@/lib/request-lines";
 
 /** One product on a request, with the figures saved alongside it (as before) */
 export interface RequestItem {
@@ -23,6 +23,8 @@ export interface RequestItem {
   /** The old suggestion (grams to parstock), still stored on the line */
   suggestedQty: number;
   skuType: "SM" | "RM" | "PK";
+  /** The branch's stock couldn't be read: on hand and the suggestion are not known */
+  stockUnknown?: boolean;
 }
 
 export interface SupplierOption {
@@ -137,7 +139,8 @@ export function useRequestData(branchId: string | null, brandName: string | null
           rop: l.rop,
           parstock: l.parstock,
           sku_type: l.skuType,
-          notes: "",
+          // stock_on_hand can't be empty: an unknown stock is said here, not saved as a real 0
+          notes: l.stockUnknown ? UNKNOWN_STOCK_NOTE : "",
         })),
       );
       if (linesError) {
@@ -175,7 +178,7 @@ export function useRequestData(branchId: string | null, brandName: string | null
           avg_daily_usage: l.avgDailyUsage,
           rop: l.rop,
           pack_size: l.packSize,
-          notes: "",
+          notes: l.stockUnknown ? UNKNOWN_STOCK_NOTE : "",
         })),
       );
       if (linesError) {

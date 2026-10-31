@@ -157,7 +157,10 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
     .slice()
     .sort((a, b) => (sort === "var" && actual ? Math.abs((b as ActualRow).totalVar ?? 0) - Math.abs((a as ActualRow).totalVar ?? 0) : b.stdCost - a.stdCost));
   const chip = (on: boolean) => cn("inline-flex min-h-[36px] items-center rounded-full border px-3 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border bg-card");
-  const pct = (r: SkuRow & Partial<ActualRow>) => (r.qtyVar != null && r.stdQty > 0 ? Math.round((r.qtyVar / r.stdQty) * 100) : null);
+  // Next to an actual, the recipe over that item's own count span (= the period when counted on the month ends)
+  const recipe = (r: SkuRow & Partial<ActualRow>) => r.recipeQty ?? r.stdQty;
+  const otherSpan = (r: SkuRow & Partial<ActualRow>) => !!(r.opening?.early || r.closing?.early);
+  const pct = (r: SkuRow & Partial<ActualRow>) => (r.qtyVar != null && recipe(r) > 0 ? Math.round((r.qtyVar / recipe(r)) * 100) : null);
   const badge = (t: string) => <span className={cn("mr-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-bold", t === "SM" ? "bg-foreground text-background" : "bg-brand-soft text-brand-soft-foreground")}>{t}</span>;
   return (
     <div ref={measure} className="flex flex-col gap-3">
@@ -227,7 +230,8 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
                       {p !== null && Math.abs(p) > 25 && <span className="block text-xs text-muted-foreground">ใช้จริง{p > 0 ? "มากกว่า" : "น้อยกว่า"}สูตร {Math.abs(p)}% · แตะดูที่มา</span>}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                      {n0(r.stdQty)} <span className="font-sans text-xs text-muted-foreground">{r.uom}</span>
+                      {n0(actual ? recipe(r) : r.stdQty)} <span className="font-sans text-xs text-muted-foreground">{r.uom}</span>
+                      {actual && otherSpan(r) && <span className="block font-sans text-xs text-muted-foreground">ช่วงวันนับ · ทั้งเดือน {n0(r.stdQty)}</span>}
                     </td>
                     {actual ? (
                       <>
@@ -262,7 +266,8 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
                       {r.name}
                     </span>
                     <span className="block text-[13px] text-muted-foreground">
-                      สูตร {n0(r.stdQty)} {r.uom}
+                      สูตร {n0(actual ? recipe(r) : r.stdQty)} {r.uom}
+                      {actual && otherSpan(r) && " (ช่วงวันนับ)"}
                       {actual && (r.actQty != null ? ` · ใช้จริง ${n0(r.actQty)}${p !== null ? ` (${p > 0 ? "+" : ""}${p}%)` : ""}` : " · ไม่มียอดนับ")}
                     </span>
                     {r.correction && <span className="block text-xs text-muted-foreground">ปรับ {r.correction.qty > 0 ? "+" : "−"}{n0(Math.abs(r.correction.qty))} · {r.correction.reasons.join(" · ")}</span>}
@@ -327,7 +332,10 @@ export function IngredientSheet({
 }) {
   const a = actual;
   const had = a?.opening ? a.opening.qty + a.received : null;
-  const impossible = a && had !== null && row.stdQty > had * 1.1 + 1;
+  // With an actual, the recipe over the same days as its counts (not always the whole month)
+  const recipeQty = a ? a.recipeQty : row.stdQty;
+  const otherSpan = !!(a && a.actQty != null && (a.opening?.early || a.closing?.early));
+  const impossible = a && had !== null && recipeQty > had * 1.1 + 1;
   const line = "flex items-baseline justify-between gap-3 border-t border-border py-2 text-[15px]";
   return (
     <div className="fixed inset-0 z-[45] flex items-end justify-center bg-black/30 md:items-center" onClick={onClose}>
@@ -345,14 +353,15 @@ export function IngredientSheet({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-secondary px-3 py-2">
-            <div className="text-xs text-muted-foreground">ตามสูตร (จากยอดขาย)</div>
+            <div className="text-xs text-muted-foreground">ตามสูตร (จากยอดขาย){otherSpan ? ` · ${thaiDate(a!.span.from)}–${thaiDate(a!.span.to)}` : ""}</div>
             <div className="font-mono text-lg font-semibold">
-              {n0(row.stdQty)} <span className="font-sans text-sm font-normal">{row.uom}</span>
+              {n0(otherSpan ? recipeQty : row.stdQty)} <span className="font-sans text-sm font-normal">{row.uom}</span>
             </div>
+            {otherSpan && <div className="text-xs text-muted-foreground">ช่วงเดียวกับวันนับ · ทั้งเดือน {n0(row.stdQty)}</div>}
           </div>
           <div className="rounded-xl border-[1.5px] border-foreground px-3 py-2">
             <div className="text-xs text-muted-foreground">ใช้จริง</div>
-            <div className="font-mono text-lg font-semibold">{a?.actQty != null ? <>{n0(a.actQty)} <span className="font-sans text-sm font-normal">{row.uom}</span></> : <span className="font-sans text-sm font-normal text-muted-foreground">{a ? "ไม่มียอดนับตัวนี้ช่วงต้น/ปลายเดือน" : "ดูได้เมื่อเลือกสาขาเดียว เดือนที่จบแล้ว"}</span>}</div>
+            <div className="font-mono text-lg font-semibold">{a?.actQty != null ? <>{n0(a.actQty)} <span className="font-sans text-sm font-normal">{row.uom}</span></> : <span className="font-sans text-sm font-normal text-muted-foreground">{a ? "ไม่มียอดนับตัวนี้ในเดือนก่อนหรือเดือนนี้" : "ดูได้เมื่อเลือกสาขาเดียว เดือนที่จบแล้ว"}</span>}</div>
           </div>
         </div>
         {row.correction && (
@@ -369,7 +378,7 @@ export function IngredientSheet({
               <b className="font-mono">{n0(a.opening?.qty ?? 0)}</b>
             </div>
             <div className={line}>
-              <span>+ รับเข้าทั้งช่วง{a.receipts ? ` (${a.receipts} ครั้ง)` : ""}</span>
+              <span>+ รับเข้าหลังวันนับยกมาถึงวันนับปิด{a.receipts ? ` (${a.receipts} ครั้ง)` : ""}</span>
               <b className="font-mono text-success">+{n0(a.received)}</b>
             </div>
             <div className={line}>
@@ -382,12 +391,12 @@ export function IngredientSheet({
                 {n0(a.actQty)} {row.uom}
               </b>
             </div>
-            {(a.opening?.nearby || a.closing?.nearby) && <p className="mt-1 text-xs text-muted-foreground">ไม่มียอดนับตรงวัน ระบบใช้วันที่ใกล้สุดในช่วง ±3 วัน</p>}
+            {(a.opening?.early || a.closing?.early) && <p className="mt-1 text-xs text-muted-foreground">ไม่ได้นับวันสิ้นเดือน ระบบใช้ยอดนับล่าสุดก่อนหน้า ใช้จริงจึงคิดตามช่วงระหว่างสองวันนับ และเทียบกับตามสูตรช่วงเดียวกัน</p>}
           </div>
         )}
         {impossible && (
           <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
-            ทั้งช่วงมีแค่ {n0(had!)} {row.uom} (ยกมา + รับ) แต่สูตรบอกใช้ {n0(row.stdQty)} ⇒ <b>สูตรน่าจะนับซ้ำหรือใส่จำนวนเกิน</b> ดูว่าเมนูไหนใช้ตัวนี้ใน Cost Center
+            ทั้งช่วงนับมีแค่ {n0(had!)} {row.uom} (ยกมา + รับ) แต่สูตรบอกใช้ {n0(recipeQty)} ⇒ <b>สูตรน่าจะนับซ้ำหรือใส่จำนวนเกิน</b> ดูว่าเมนูไหนใช้ตัวนี้ใน Cost Center
           </p>
         )}
         <Button variant="brand" className="h-12 text-[15px]" onClick={onOpenProduct}>

@@ -16,3 +16,13 @@ export async function fetchAllRows<T>(
   }
   return { data: out, error: null };
 }
+
+/**
+ * fetchAllRows for numbers people act on: a page that fails fails the whole read
+ * (throws), instead of handing back the pages before it as if they were everything.
+ */
+export async function fetchAllRowsOrThrow<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const r = await fetchAllRows(build);
+  if (r.error) throw r.error;
+  return r.data;
+}

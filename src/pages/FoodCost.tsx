@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFoodCostTrend, useFoodCost, isClosedMonth, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
 import { FoodCostTrend } from "@/components/food-cost/FoodCostTrend";
+import { actualPct, type Actual } from "@/lib/food-cost";
 import { AttentionBox, DayView, IngredientSheet, IngredientView, MenuView, baht, n0, pctTone, signedBaht } from "@/components/food-cost/FoodCostViews";
 import { StockCard } from "@/components/StockCard";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -21,6 +22,10 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const monthRange = (y: number, m: number) => ({ from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) });
 const thai = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 const monthLabel = (from: string) => new Date(`${from}T00:00:00`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
+/** The count days the actual comes from: " (30 ก.ย.)" or " (27 ก.ย. – 30 ก.ย.)" when items differ */
+const days = (d: { first: string; last: string } | null) => (!d ? "" : d.first === d.last ? ` (${thai(d.first)})` : ` (${thai(d.first)} – ${thai(d.last)})`);
+/** Some item's counts are not on the month ends, so its actual covers other days than the month */
+const offMonthEnd = (a: Actual) => a.rows.some((r) => r.actQty !== null && (!!r.opening?.early || !!r.closing?.early));
 
 /**
  * Food cost: what the recipes say sales should have cost, and (one branch, a month
@@ -71,6 +76,8 @@ export default function FoodCostPage(props: Props) {
   const historySku = historyFor ? props.skus.find((s) => s.id === historyFor) : undefined;
 
   const pct = (cost: number) => (std && std.revenue > 0 ? (cost / std.revenue) * 100 : 0);
+  // Actual %: the recipe % × actual ÷ the recipe over the counts' own days (comparable with the recipe %)
+  const actPct = std && actual ? actualPct(std, actual) : null;
   const chip = (on: boolean) => cn("inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border bg-card");
 
   const exportExcel = () => {
@@ -91,9 +98,14 @@ export default function FoodCostPage(props: Props) {
         ต้นทุนตามสูตร: Math.round(r.stdCost * 100) / 100,
         ...(a
           ? {
+              วันนับยกมา: a.opening?.date ?? "",
               ยกมา: a.opening?.qty ?? "",
               รับเข้า: Math.round(a.received * 100) / 100,
+              วันนับปิด: a.closing?.date ?? "",
               ปิดช่วง: a.closing?.qty ?? "",
+              // The recipe over the same days as this item's counts: what actual is compared with
+              "ตามสูตร ช่วงวันนับ": Math.round(a.recipeQty * 100) / 100,
+              "ต้นทุนตามสูตร ช่วงวันนับ": Math.round(a.recipeCost * 100) / 100,
               ใช้จริง: a.actQty != null ? Math.round(a.actQty * 100) / 100 : "",
               "฿/หน่วย จริง": Math.round(a.actPrice * 10000) / 10000,
               ต้นทุนจริง: a.actCost != null ? Math.round(a.actCost * 100) / 100 : "",
@@ -202,7 +214,7 @@ export default function FoodCostPage(props: Props) {
               <div className="text-sm text-muted-foreground">ต้นทุนตามสูตร</div>
               <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(std.stdCost)}</div>
               <div className="text-xs text-muted-foreground">
-                <b className={cn("font-mono", pctTone(pct(std.stdCost)))}>{pct(std.stdCost).toFixed(1)}%</b> ของยอดขาย
+                <b className={cn("font-mono", pctTone(pct(std.stdCost)))}>{pct(std.stdCost).toFixed(1)}%</b> ของยอดขาย · ทั้งช่วง
               </div>
             </div>
             <div className={cn("rounded-2xl bg-card px-4 py-3", actual ? "border-[1.5px] border-foreground" : "border border-border")}>
@@ -211,7 +223,7 @@ export default function FoodCostPage(props: Props) {
                 <>
                   <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(actual.actCost)}</div>
                   <div className="text-xs text-muted-foreground">
-                    <b className={cn("font-mono", pctTone(pct(actual.actCost)))}>{pct(actual.actCost).toFixed(1)}%</b> ของยอดขาย
+                    <b className={cn("font-mono", pctTone(actPct ?? 0))}>{actPct !== null ? `${actPct.toFixed(1)}%` : "—"}</b> ของยอดขาย · เทียบสูตรช่วงเดียวกัน
                   </div>
                 </>
               ) : (
@@ -228,6 +240,7 @@ export default function FoodCostPage(props: Props) {
                   <div className={cn("break-all font-mono text-xl font-semibold sm:text-2xl", actual.totalVar < 0 ? "text-success" : "text-destructive")}>{signedBaht(actual.totalVar)}</div>
                   <div className="text-xs text-muted-foreground">
                     ราคา {signedBaht(actual.priceVar)} · ใช้ {signedBaht(actual.usageVar)}
+                    {offMonthEnd(actual) && <span className="block">เทียบตามสูตรช่วงเดียวกับวันนับ {baht(actual.recipeCost)}</span>}
                   </div>
                 </>
               ) : (
@@ -240,7 +253,8 @@ export default function FoodCostPage(props: Props) {
           </div>
           {actual && (
             <p className="-mt-2 text-xs text-muted-foreground">
-              มียอดนับ {actual.withCounts}/{actual.rows.length} วัตถุดิบ · ยกมาจากยอดนับ {thai(result!.openingDate)} · ปิดช่วงจากยอดนับ {thai(result!.closingDate)} (ไม่มีตรงวันใช้วันใกล้สุด ±3 วัน)
+              มียอดนับ {actual.withCounts}/{actual.rows.length} วัตถุดิบ · ยกมา = ยอดนับล่าสุดของเดือนก่อน{days(actual.openingDays)} · ปิดช่วง = ยอดนับล่าสุดของเดือนนี้{days(actual.closingDays)} · รับเข้าและตามสูตรที่ใช้เทียบ = ระหว่างสองวันนับนั้น
+              {offMonthEnd(actual) && " · บางรายการไม่ได้นับวันสิ้นเดือน จึงเทียบกับตามสูตรช่วงเดียวกันนั้น ส่วนการ์ดต้นทุนตามสูตรคิดทั้งเดือน"}
             </p>
           )}
 

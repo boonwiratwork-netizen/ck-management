@@ -220,7 +220,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
       reloadStatus();
     }
   };
-  // Month-end days count for food cost: closing one that isn't fully counted needs a clear yes
+  // Month-end days (the last 5 of the month) count for food cost: closing one that isn't fully counted needs a clear yes
   const [monthEndWarn, setMonthEndWarn] = useState<string[] | null>(null);
   const finishOpenDays = async () => {
     const short = status.openDays.filter((d) => monthEndWindow(d.date) && d.counted < d.total).map((d) => d.date);
@@ -441,7 +441,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
         open={monthEndWarn !== null}
         onOpenChange={(o) => !o && setMonthEndWarn(null)}
         title="วันปิดเดือนยังนับไม่ครบ"
-        description={`${(monthEndWarn ?? []).map(thaiDay).join(", ")} อยู่ในช่วงปิดเดือน แต่ยังนับไม่ครบทุกตัว ถ้าปิดไป ต้นทุนอาหารของเดือนนี้จะคลาด ถ้ายังเป็นวันนี้อยู่ ให้กลับไปนับให้ครบก่อน`}
+        description={`${(monthEndWarn ?? []).map(thaiDay).join(", ")} อยู่ในช่วงปิดเดือน แต่ยังนับไม่ครบทุกตัว ถ้าปิดไป ต้นทุนอาหารเดือน${monthEndWarn?.length ? new Date(`${monthEndWarn[0]}T00:00:00`).toLocaleDateString("th-TH", { month: "short" }) : ""}จะคลาด (ตัวที่ไม่ได้นับใช้ยอดนับครั้งก่อน) ถ้ายังเป็นวันนี้อยู่ ให้กลับไปนับให้ครบก่อน`}
         confirmLabel="ปิดไปเลย"
         cancelLabel="กลับไปนับ"
         variant="warning"

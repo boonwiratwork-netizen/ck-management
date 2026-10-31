@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
+import { fetchAllRows } from "@/lib/fetch-all";
+import { loadSmUse, type SmUseRead } from "@/hooks/use-sm-daily-usage";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -12,6 +14,11 @@ interface SmStockBalance {
 interface HookInput {
   smStockBalances: SmStockBalance[];
   getOutputPerBatch: (skuId: string) => number;
+  /**
+   * The kitchen's daily-use read (useSmDailyUsage), so the week of sales is read once and
+   * both show the same numbers; not given = this hook reads it itself
+   */
+  smUse?: { read: SmUseRead | null; error: boolean };
 }
 
 export interface PlanningBranch {
@@ -49,12 +56,15 @@ export interface MenuInfo {
   menuName: string;
 }
 
+/** A menu's kitchen-made recipe line; branchId null = every branch, else that branch only */
+export type SmMenuLine = { skuId: string; effectiveQty: number; branchId: string | null };
+
 interface HookReturn {
   branches: PlanningBranch[];
   suggestions: PlanSuggestion[];
   smSkusByBrand: Record<string, SmSkuInfo[]>;
   menusByBrand: Record<string, MenuInfo[]>;
-  menuBomByMenuId: Record<string, Array<{ skuId: string; effectiveQty: number }>>;
+  menuBomByMenuId: Record<string, SmMenuLine[]>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -66,21 +76,21 @@ interface HookReturn {
 interface CachedData {
   allBranches: Array<{ id: string; branch_name: string; brand_name: string; avg_selling_price: number | null }>;
   forecastByBranch: Map<string, any>;
-  salesByBranch: Map<string, Array<{ menu_code: string; qty: number; branch_id: string; sale_date: string }>>;
-  menuCodeToId: Map<string, string>;
-  bomByMenu: Map<string, Array<{ skuId: string; effectiveQty: number }>>;
+  /** Branches that sold anything in the window */
+  salesBranches: Set<string>;
   smSkuMap: Map<string, { code: string; name: string }>;
-  menuBrandMap: Map<string, string>; // menuId → brand_name
-  // Per-branch ramen menu mix ratios for override recalculation
-  // branchId → Map<menuId, ratio> where ratio = menuQty / totalRamenBowls
-  menuMixByBranch: Map<string, Map<string, number>>;
-  // Per-branch days with sales for scaling
-  daysWithSalesByBranch: Map<string, number>;
+  // branchId → SM item → used per day: the kitchen stock / production figure (use-sm-daily-usage.ts)
+  usePerDayByBranch: Map<string, Record<string, number>>;
+  // branchId → bowls per selling day (sales of menus with a kitchen-made line), what a bowls override scales
+  bowlsPerDayByBranch: Map<string, number>;
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
-export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInput): HookReturn {
+export function usePlanningAgent({ smStockBalances, getOutputPerBatch, smUse }: HookInput): HookReturn {
+  const given = smUse !== undefined;
+  const givenRead = smUse?.read ?? null;
+  const givenError = !!smUse?.error;
   const smStockRef = useRef(smStockBalances);
   smStockRef.current = smStockBalances;
   const getOutputRef = useRef(getOutputPerBatch);
@@ -90,9 +100,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   const [suggestions, setSuggestions] = useState<PlanSuggestion[]>([]);
   const [smSkusByBrand, setSmSkusByBrand] = useState<Record<string, SmSkuInfo[]>>({});
   const [menusByBrand, setMenusByBrand] = useState<Record<string, MenuInfo[]>>({});
-  const [menuBomByMenuId, setMenuBomByMenuId] = useState<
-    Record<string, Array<{ skuId: string; effectiveQty: number }>>
-  >({});
+  const [menuBomByMenuId, setMenuBomByMenuId] = useState<Record<string, SmMenuLine[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const cachedDataRef = useRef<CachedData | null>(null);
@@ -100,7 +108,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
   // ── Shared aggregation logic ────────────────────────────────────────────
 
   const aggregate = useCallback((cached: CachedData, bowlsOverrides: Record<string, number> | null) => {
-    const { allBranches, forecastByBranch, salesByBranch, menuCodeToId, bomByMenu, smSkuMap, menuMixByBranch, daysWithSalesByBranch } = cached;
+    const { allBranches, forecastByBranch, salesBranches, smSkuMap, usePerDayByBranch, bowlsPerDayByBranch } = cached;
 
     const weeklyDemandBySku = new Map<string, number>();
     const resultBranches: PlanningBranch[] = [];
@@ -108,9 +116,17 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     for (const br of allBranches) {
       const branchId = br.id;
       const forecast = forecastByBranch.get(branchId) ?? null;
-      const branchSales = salesByBranch.get(branchId) ?? [];
-      const hasSalesHistory = branchSales.length > 0;
+      const hasSalesHistory = salesBranches.has(branchId);
       const avgPrice = br.avg_selling_price ?? 0;
+      const soldBowls = bowlsPerDayByBranch.get(branchId) ?? 0;
+      // A week of the branch's own use per day (the number kitchen stock and production
+      // show), scaled when the bowls planned differ from the bowls sold. It used to be
+      // worked out here from recipe lines alone: no SP, no options or toppings, other
+      // branches' own lines included, no waste, and at most one page of sales
+      const addWeek = (bowls: number) => {
+        const scale = soldBowls > 0 ? bowls / soldBowls : 1;
+        for (const [skuId, q] of Object.entries(usePerDayByBranch.get(branchId) ?? {})) weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + q * 7 * scale);
+      };
 
       let bowlsPerDay = 0;
       let forecastSource: PlanningBranch["forecastSource"] = "historical";
@@ -149,64 +165,14 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
             }
           }
         } else if (hasSalesHistory && !misconfigured) {
-          // Forecast branch WITH sales history — use menu mix for SM demand
-          const mixMap = menuMixByBranch.get(branchId);
-          if (mixMap) {
-            for (const [menuId, ratio] of mixMap) {
-              const ingredients = bomByMenu.get(menuId);
-              if (!ingredients) continue;
-              for (const ing of ingredients) {
-                const weeklyG = ratio * bowlsPerDay * 7 * ing.effectiveQty;
-                weeklyDemandBySku.set(ing.skuId, (weeklyDemandBySku.get(ing.skuId) ?? 0) + weeklyG);
-              }
-            }
-          }
+          // Forecast branch WITH sales history — its own use, scaled to the forecast bowls
+          addWeek(bowlsPerDay);
         }
       } else if (hasSalesHistory) {
-        // ── Historical branch — direct SM grams from sales × BOM ──────
+        // ── Historical branch — its own use per day × 7 (an override scales it) ──
         forecastSource = "historical";
-        const daysWithSales = daysWithSalesByBranch.get(branchId) ?? 7;
-
-        // Sum SM grams directly and count ramen bowls
-        const totalSmGrams = new Map<string, number>();
-        let totalRamenBowls = 0;
-
-        for (const sale of branchSales) {
-          const menuId = menuCodeToId.get(sale.menu_code);
-          if (!menuId) continue;
-          const ingredients = bomByMenu.get(menuId);
-          if (!ingredients) continue;
-          // This menu has SM BOM entries — it's a "ramen" menu
-          totalRamenBowls += sale.qty;
-          for (const ing of ingredients) {
-            totalSmGrams.set(ing.skuId, (totalSmGrams.get(ing.skuId) ?? 0) + sale.qty * ing.effectiveQty);
-          }
-        }
-
-        bowlsPerDay = daysWithSales > 0 ? totalRamenBowls / daysWithSales : 0;
-
-        // Apply override if provided — recalculate using menu mix ratios
-        if (bowlsOverrides && branchId in bowlsOverrides) {
-          const overrideBowls = bowlsOverrides[branchId];
-          bowlsPerDay = overrideBowls;
-          const mixMap = menuMixByBranch.get(branchId);
-          if (mixMap) {
-            for (const [menuId, ratio] of mixMap) {
-              const ingredients = bomByMenu.get(menuId);
-              if (!ingredients) continue;
-              for (const ing of ingredients) {
-                const weeklyG = ratio * overrideBowls * 7 * ing.effectiveQty;
-                weeklyDemandBySku.set(ing.skuId, (weeklyDemandBySku.get(ing.skuId) ?? 0) + weeklyG);
-              }
-            }
-          }
-        } else {
-          // No override — weekly demand = (totalGrams / daysWithSales) × 7
-          for (const [skuId, grams] of totalSmGrams) {
-            const weeklyG = daysWithSales > 0 ? (grams / daysWithSales) * 7 : 0;
-            weeklyDemandBySku.set(skuId, (weeklyDemandBySku.get(skuId) ?? 0) + weeklyG);
-          }
-        }
+        bowlsPerDay = bowlsOverrides && branchId in bowlsOverrides ? bowlsOverrides[branchId] : soldBowls;
+        addWeek(bowlsPerDay);
       }
 
       resultBranches.push({
@@ -261,41 +227,37 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     setError(null);
 
     try {
-      const today = new Date();
-      const todayStr = toLocalDateStr(today);
-      const sevenAgo = new Date(today);
-      sevenAgo.setDate(sevenAgo.getDate() - 7);
-      const sevenAgoStr = toLocalDateStr(sevenAgo);
+      const todayStr = toLocalDateStr(new Date());
+      // The kitchen's read when given: still on its way = wait; failed = say so
+      if (given && !givenRead) {
+        if (givenError) {
+          setError("โหลดยอดขาย 7 วันไม่สำเร็จ");
+          setIsLoading(false);
+        }
+        return;
+      }
 
-      const [branchRes, forecastRes, salesRes, menuRes, bomRes, skuRes] = await Promise.all([
+      const [branchRes, forecastRes, menuRes, skuRes, use] = await Promise.all([
         supabase.from("branches").select("id, branch_name, brand_name, avg_selling_price").eq("status", "Active"),
         supabase
           .from("branch_forecasts")
           .select("*")
           .gte("expires_at", todayStr)
           .order("created_at", { ascending: false }),
-        supabase
-          .from("sales_entries")
-          .select("menu_code, qty, branch_id, sale_date")
-          .gte("sale_date", sevenAgoStr)
-          .lte("sale_date", todayStr),
-        supabase.from("menus").select("id, menu_code, menu_name, brand_name"),
-        supabase.from("menu_bom").select("menu_id, sku_id, effective_qty"),
+        fetchAllRows<{ id: string; menu_code: string; menu_name: string; brand_name: string }>((a, b) => supabase.from("menus").select("id, menu_code, menu_name, brand_name").order("id").range(a, b) as never),
         supabase.from("skus").select("id, sku_id, name, type").eq("type", "SM"),
+        // Sales, recipes and waste of the shared 7-day window, worked out as kitchen stock does
+        givenRead ?? loadSmUse(todayStr),
       ]);
 
       if (branchRes.error) throw branchRes.error;
       if (forecastRes.error) throw forecastRes.error;
-      if (salesRes.error) throw salesRes.error;
       if (menuRes.error) throw menuRes.error;
-      if (bomRes.error) throw bomRes.error;
       if (skuRes.error) throw skuRes.error;
 
       const allBranches = branchRes.data ?? [];
       const allForecasts = forecastRes.data ?? [];
-      const allSales = salesRes.data ?? [];
-      const allMenus = menuRes.data ?? [];
-      const allBom = bomRes.data ?? [];
+      const allMenus = menuRes.data;
       const smSkus = skuRes.data ?? [];
 
       // ── Lookup maps ─────────────────────────────────────────────────────
@@ -304,19 +266,11 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       const menuCodeToId = new Map(allMenus.map((m) => [m.menu_code, m.id]));
       const menuBrandMap = new Map(allMenus.map((m) => [m.id, m.brand_name]));
 
-      const smBom = allBom.filter((b) => smSkuIdSet.has(b.sku_id));
-      const bomByMenu = new Map<string, Array<{ skuId: string; effectiveQty: number }>>();
-      for (const b of smBom) {
-        const arr = bomByMenu.get(b.menu_id) ?? [];
-        arr.push({ skuId: b.sku_id, effectiveQty: b.effective_qty });
-        bomByMenu.set(b.menu_id, arr);
-      }
-
-      const salesByBranch = new Map<string, typeof allSales>();
-      for (const s of allSales) {
-        const arr = salesByBranch.get(s.branch_id) ?? [];
-        arr.push(s);
-        salesByBranch.set(s.branch_id, arr);
+      // Kitchen-made recipe lines per menu, each with its branch (null = every branch)
+      const bomByMenu = new Map<string, SmMenuLine[]>();
+      for (const [menuId, lines] of use.ctx.bomByMenu) {
+        const sm = lines.filter((l) => smSkuIdSet.has(l.skuId)).map((l) => ({ skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId }));
+        if (sm.length) bomByMenu.set(menuId, sm);
       }
 
       const forecastByBranch = new Map<string, (typeof allForecasts)[0]>();
@@ -363,52 +317,35 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
       setMenusByBrand(derivedMenusByBrand);
 
       // ── Derive menuBomByMenuId ───────────────────────────────────────
-      const derivedMenuBom: Record<string, Array<{ skuId: string; effectiveQty: number }>> = {};
+      const derivedMenuBom: Record<string, SmMenuLine[]> = {};
       for (const [menuId, ingredients] of bomByMenu) {
         derivedMenuBom[menuId] = ingredients;
       }
       setMenuBomByMenuId(derivedMenuBom);
 
-      // ── Precompute per-branch menu mix ratios & days with sales ──────
-      const menuMixByBranch = new Map<string, Map<string, number>>();
-      const daysWithSalesByBranch = new Map<string, number>();
-
-      for (const [branchId, sales] of salesByBranch) {
-        // Count distinct sale dates
-        const dateSet = new Set(sales.map(s => s.sale_date));
-        daysWithSalesByBranch.set(branchId, dateSet.size);
-
-        // Count ramen bowls per menu (menus with SM BOM entries)
-        const qtyByMenu = new Map<string, number>();
-        let totalRamenBowls = 0;
-        for (const sale of sales) {
-          const menuId = menuCodeToId.get(sale.menu_code);
-          if (!menuId) continue;
-          if (!bomByMenu.has(menuId)) continue;
-          qtyByMenu.set(menuId, (qtyByMenu.get(menuId) ?? 0) + sale.qty);
-          totalRamenBowls += sale.qty;
-        }
-
-        if (totalRamenBowls > 0) {
-          const ratioMap = new Map<string, number>();
-          for (const [menuId, qty] of qtyByMenu) {
-            ratioMap.set(menuId, qty / totalRamenBowls);
-          }
-          menuMixByBranch.set(branchId, ratioMap);
-        }
+      // ── Bowls per selling day per branch (what the ชาม/วัน box shows and scales) ──
+      const bowlsByBranch = new Map<string, number>();
+      for (const sale of use.sales) {
+        const menuId = menuCodeToId.get(sale.menu_code);
+        const lines = menuId ? bomByMenu.get(menuId) : undefined;
+        // A menu with a kitchen-made line at this branch counts as a bowl
+        if (!lines || !lines.some((l) => l.branchId === null || l.branchId === sale.branch_id)) continue;
+        bowlsByBranch.set(sale.branch_id, (bowlsByBranch.get(sale.branch_id) ?? 0) + (Number(sale.qty) || 0));
+      }
+      const bowlsPerDayByBranch = new Map<string, number>();
+      for (const [branchId, bowls] of bowlsByBranch) {
+        const days = use.sellingDays.get(branchId) ?? 0;
+        bowlsPerDayByBranch.set(branchId, days > 0 ? bowls / days : 0);
       }
 
       // Cache for recalculation
       const cached: CachedData = {
         allBranches,
         forecastByBranch,
-        salesByBranch,
-        menuCodeToId,
-        bomByMenu,
+        salesBranches: new Set(use.sales.map((s) => s.branch_id)),
         smSkuMap,
-        menuBrandMap,
-        menuMixByBranch,
-        daysWithSalesByBranch,
+        usePerDayByBranch: use.perDay,
+        bowlsPerDayByBranch,
       };
       cachedDataRef.current = cached;
 
@@ -419,9 +356,10 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch }: HookInp
     } catch (err: any) {
       setError(err.message ?? "Failed to calculate planning data");
     } finally {
-      setIsLoading(false);
+      // Still waiting for the kitchen's read: stay loading
+      if (!given || givenRead) setIsLoading(false);
     }
-  }, [aggregate]);
+  }, [aggregate, given, givenRead, givenError]);
 
   useEffect(() => {
     calculate();

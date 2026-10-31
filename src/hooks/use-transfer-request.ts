@@ -1,11 +1,13 @@
-import { fetchAllRows } from "@/lib/fetch-all";
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { loadUsageContext, usageOf, type UsageSaleRow } from "@/lib/usage-context-db";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 import { useBranchSmStock, BranchSmStockStatus } from "@/hooks/use-branch-sm-stock";
 import { useBranchRmStock, BranchRmStockStatus } from "@/hooks/use-branch-rm-stock";
+import { loadBranchStock, sharedBranchRead, type BranchStockData } from "@/hooks/use-branch-stock";
+import { branchFigures, receiptConverter } from "@/lib/branch-stock";
+import { dailyUseWindow } from "@/lib/daily-use";
+import { requestFigures } from "@/lib/request-lines";
 
 export type TRLineSkuType = "SM" | "RM" | "PK";
 
@@ -25,6 +27,8 @@ export interface TRLine {
   parstock: number;
   status: BranchSmStockStatus;
   skuType: TRLineSkuType;
+  /** The stock read failed: on hand and the suggestion are not known (retry) */
+  stockUnknown?: boolean;
 }
 
 export interface TRHistoryRow {
@@ -56,6 +60,8 @@ export interface TRDetailLine {
   parstock: number;
   declineReason: string | null;
   declinedAt: string | null;
+  /** UNKNOWN_STOCK_NOTE when the stock wasn't known as it was sent */
+  notes?: string | null;
 }
 
 const statusOrder: Record<BranchSmStockStatus, number> = {
@@ -69,11 +75,12 @@ const statusOrder: Record<BranchSmStockStatus, number> = {
 const DISTRIBUTABLE_SENTINEL = "__distributable__";
 
 export function useTransferRequest(branchId: string | null, profileId: string | null) {
-  const { smStock, smSkuList, loading: stockLoading, refresh: refreshStock } = useBranchSmStock(branchId);
+  const { smStock, smSkuList, loading: stockLoading, refresh: refreshStock, stockError: smStockError } = useBranchSmStock(branchId);
 
   // Fetch distributable RM stock data
   const [rmLines, setRmLines] = useState<TRLine[]>([]);
   const [rmLoading, setRmLoading] = useState(false);
+  const [rmStockError, setRmStockError] = useState(false);
 
   const fetchDistributableRm = useCallback(async () => {
     if (!branchId) {
@@ -81,6 +88,10 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       return;
     }
     setRmLoading(true);
+    setRmStockError(false);
+    const today = toLocalDateStr(new Date());
+    // The branch's counts and recipes, shared with the kitchen-made list (use-branch-sm-stock)
+    const shared = sharedBranchRead(branchId, today);
     try {
       // Get branch brand
       const { data: branch } = await supabase.from("branches").select("brand_name").eq("id", branchId).single();
@@ -136,7 +147,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       // Get distributable RM SKUs that are relevant to this brand's menus
       const { data: rmSkus } = await supabase
         .from("skus")
-        .select("id, sku_id, name, usage_uom, pack_size, lead_time, type")
+        .select("id, sku_id, name, usage_uom, pack_size, lead_time, type, purchase_uom, converter")
         .in("type", ["RM", "PK"])
         .eq("status", "Active")
         .eq("is_distributable", true)
@@ -149,115 +160,25 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         return;
       }
 
-      const skuIds = filtered.map((s) => s.id);
-
-      // Avg daily usage from sales (last 7 days)
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const dateFrom = toLocalDateStr(sevenDaysAgo);
-
-      const { data: salesRows } = await fetchAllRows((a, b) =>
-        supabase
-          .from("sales_entries")
-          .select("menu_code, menu_name, qty, sale_date")
-          .eq("branch_id", branchId)
-          .gte("sale_date", dateFrom)
-          .order("id")
-          .range(a, b),
-      );
-      // Usage through the one engine (sale-usage.ts): recipe → SP → rules, as Food Cost
-      // and the count sheet count it
-      const ctx = await loadUsageContext();
-      const usage = usageOf(ctx, (salesRows || []) as UsageSaleRow[], branchId, new Set(skuIds));
-      const totalUsageBySkuId: Record<string, number> = { ...usage.total };
-
-      // Fetch waste from daily_stock_counts
-      const todayStr = toLocalDateStr(today);
-      const { data: wasteRows } = await supabase
-        .from("daily_stock_counts")
-        .select("sku_id, waste, count_date")
-        .eq("branch_id", branchId)
-        .gte("count_date", dateFrom)
-        .lte("count_date", todayStr)
-        .gt("waste", 0)
-        .in("sku_id", skuIds);
-      const totalWasteBySkuId: Record<string, number> = {};
-      const dailyWasteBySkuId: Record<string, Record<string, number>> = {};
-      for (const row of wasteRows || []) {
-        totalWasteBySkuId[row.sku_id] = (totalWasteBySkuId[row.sku_id] || 0) + Number(row.waste);
-        if (!dailyWasteBySkuId[row.sku_id]) dailyWasteBySkuId[row.sku_id] = {};
-        dailyWasteBySkuId[row.sku_id][row.count_date] =
-          (dailyWasteBySkuId[row.sku_id][row.count_date] || 0) + Number(row.waste);
+      // On hand and use per day exactly as the branch stock page works them out
+      // (lib/branch-stock.ts; the same read as the kitchen-made list, use-branch-sm-stock). This
+      // used to take the latest count row as it was, with nothing received, used or
+      // wasted since: on days a branch didn't count it ordered from an old figure.
+      let stock: BranchStockData | null = null;
+      try {
+        stock = await loadBranchStock(branchId, today, new Set(filtered.map((s) => s.id)), shared, { prices: false });
+      } catch {
+        // The products stay on the list with their stock unknown, to retry
+        setRmStockError(true);
       }
-
-      // Add waste to total usage
-      for (const [wSkuId, wTotal] of Object.entries(totalWasteBySkuId)) {
-        totalUsageBySkuId[wSkuId] = (totalUsageBySkuId[wSkuId] || 0) + wTotal;
-      }
-
-      // Per-day usage per SKU (for the peak day)
-      const dailyUsageBySkuId: Record<string, Record<string, number>> = Object.fromEntries(Object.entries(usage.byDay).map(([k, v]) => [k, { ...v }]));
-
-      // Add waste to daily usage
-      for (const [wSkuId, dates] of Object.entries(dailyWasteBySkuId)) {
-        if (!dailyUsageBySkuId[wSkuId]) dailyUsageBySkuId[wSkuId] = {};
-        for (const [date, waste] of Object.entries(dates)) {
-          dailyUsageBySkuId[wSkuId][date] = (dailyUsageBySkuId[wSkuId][date] || 0) + waste;
-        }
-      }
-
-      // Latest stock on hand — no is_submitted gate, matches StoreStock/DSC behaviour
-      const { data: latestCounts } = await supabase
-        .from("daily_stock_counts")
-        .select("sku_id, physical_count, calculated_balance")
-        .eq("branch_id", branchId)
-        .in("sku_id", skuIds)
-        .order("count_date", { ascending: false });
-      const latestBySkuId: Record<string, { physical_count: number | null; calculated_balance: number }> = {};
-      for (const row of latestCounts || []) {
-        if (!latestBySkuId[row.sku_id]) {
-          latestBySkuId[row.sku_id] = {
-            physical_count: row.physical_count,
-            calculated_balance: Number(row.calculated_balance),
-          };
-        }
-      }
+      const conv = new Map(filtered.map((s) => [s.id, receiptConverter({ purchaseUom: s.purchase_uom, usageUom: s.usage_uom, converter: s.converter })]));
+      const figures = stock ? branchFigures({ ...stock, window: dailyUseWindow(today), converter: (id) => conv.get(id) ?? 1 }) : new Map();
 
       // Build RM lines
       const lines: TRLine[] = filtered.map((s) => {
         const ps = Number(s.pack_size) || 1;
         const leadTime = Number(s.lead_time) || 1;
-        const activeDays = new Set((salesRows || []).map((s: any) => s.sale_date)).size || 1;
-        const avgDailyUsage = (totalUsageBySkuId[s.id] || 0) / activeDays;
-        const latest = latestBySkuId[s.id];
-        const stockOnHand = latest
-          ? latest.physical_count != null
-            ? Number(latest.physical_count)
-            : latest.calculated_balance
-          : 0;
-
-        // Merge daily usage + waste for peak
-        const mergedDaily: Record<string, number> = { ...(dailyUsageBySkuId[s.id] || {}) };
-        for (const [d, w] of Object.entries(dailyWasteBySkuId[s.id] || {})) {
-          mergedDaily[d] = (mergedDaily[d] || 0) + w;
-        }
-        const dailyValues = Object.values(mergedDaily);
-        const peakDailyUsage = dailyValues.length > 0 ? Math.max(...dailyValues) : avgDailyUsage;
-
-        const safetyStock = (peakDailyUsage - avgDailyUsage) * leadTime;
-        const rop = avgDailyUsage * leadTime + safetyStock;
-        const parstock = avgDailyUsage + peakDailyUsage * leadTime;
-        const suggestedOrder = Math.max(0, parstock - stockOnHand);
-        const suggestedBatches = suggestedOrder > 0 ? Math.ceil(suggestedOrder / ps) : 0;
-
-        let status: BranchSmStockStatus;
-        if (avgDailyUsage === 0) status = "no-data";
-        else if (stockOnHand === 0) status = "critical";
-        else if (stockOnHand < rop) status = "low";
-        else if (stockOnHand >= parstock) status = "sufficient";
-        else status = "low";
-
+        const f = requestFigures(figures.get(s.id), { leadTime });
         return {
           skuId: s.id,
           skuCode: s.sku_id,
@@ -265,20 +186,22 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
           uom: s.usage_uom,
           packSize: ps,
           requestedQty: 0,
-          suggestedQty: Math.round(suggestedOrder * 100) / 100,
-          suggestedBatches,
-          stockOnHand,
-          avgDailyUsage: Math.round(avgDailyUsage * 100) / 100,
-          peakDailyUsage: Math.round(peakDailyUsage * 100) / 100,
-          rop: Math.round(rop * 100) / 100,
-          parstock: Math.round(parstock * 100) / 100,
-          status,
+          suggestedQty: f.suggestedOrder,
+          suggestedBatches: f.suggestedOrder > 0 ? Math.ceil(f.suggestedOrder / ps) : 0,
+          stockOnHand: f.stockOnHand,
+          avgDailyUsage: f.avgDailyUsage,
+          peakDailyUsage: f.peakDailyUsage,
+          rop: f.rop,
+          parstock: f.parstock,
+          status: f.status,
           skuType: (s.type === "PK" ? "PK" : "RM") as TRLineSkuType,
+          stockUnknown: !stock || !f.stockKnown,
         };
       });
       setRmLines(lines);
     } catch {
       setRmLines([]);
+      setRmStockError(true);
     } finally {
       setRmLoading(false);
     }
@@ -323,6 +246,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         parstock: stock.parstock,
         status: stock.status,
         skuType: "SM" as TRLineSkuType,
+        stockUnknown: smStockError || stock.stockKnown === false,
       };
     });
     // Merge SM + distributable RM + PK
@@ -335,7 +259,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       return statusOrder[a.status] - statusOrder[b.status];
     });
     setLines(allLines);
-  }, [smStock, smSkuList, rmLines]);
+  }, [smStock, smSkuList, rmLines, smStockError]);
 
   // Update line by batches — stores requestedQty in grams (batches × packSize)
   const updateLineQty = useCallback((skuId: string, batches: number) => {
@@ -480,7 +404,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     const { data, error } = await supabase
       .from("transfer_request_lines")
       .select(
-        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, peak_daily_usage, rop, parstock, decline_reason, declined_at",
+        "id, sku_id, requested_qty, uom, suggested_qty, stock_on_hand, avg_daily_usage, peak_daily_usage, rop, parstock, decline_reason, declined_at, notes",
       )
       .eq("tr_id", trId);
     if (error || !data) return [];
@@ -508,6 +432,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       parstock: d.parstock,
       declineReason: d.decline_reason,
       declinedAt: d.declined_at,
+      notes: d.notes,
     }));
   }, []);
 
@@ -524,10 +449,19 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     [fetchHistory],
   );
 
+  // Both lists read the branch's stock again (after a failed read)
+  const retryStock = useCallback(() => {
+    refreshStock();
+    fetchDistributableRm();
+  }, [refreshStock, fetchDistributableRm]);
+
   return {
     lines,
     updateLineQty,
     isLoading: stockLoading || rmLoading,
+    /** The stock read failed for some lines: on hand / suggestions unknown */
+    stockError: smStockError || rmStockError,
+    retryStock,
     requiredDate,
     setRequiredDate,
     notes,

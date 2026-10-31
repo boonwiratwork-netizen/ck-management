@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { addSaleUsage, buildUsageContext, type UsageContext } from "@/lib/sale-usage";
 
 /**
@@ -9,12 +9,13 @@ import { addSaleUsage, buildUsageContext, type UsageContext } from "@/lib/sale-u
  * sale's own branch, so one context serves every branch.
  */
 export async function loadUsageContext(): Promise<UsageContext> {
+  // A failed page fails the read: half the recipes would quietly understate usage
   const all = <T,>(table: string, columns: string, filter?: (q: any) => any) => // eslint-disable-line @typescript-eslint/no-explicit-any
-    fetchAllRows<T>((a, b) => {
+    fetchAllRowsOrThrow<T>((a, b) => {
       let q = supabase.from(table as "menus").select(columns);
       if (filter) q = filter(q);
       return q.order("id").range(a, b) as never;
-    }).then((r) => r.data);
+    });
 
   const [menus, bom, rules, ruleMenus, sp, skus] = await Promise.all([
     all<{ id: string; menu_code: string }>("menus", "id, menu_code"),

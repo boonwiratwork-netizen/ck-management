@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildPriceAt, type PriceChange } from "@/lib/price-history";
 import { usageContextOn, type RecipeCopy } from "@/lib/recipe-history";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { usageContextFromApp, usageInputFromApp } from "@/lib/sale-usage";
+import { receiptConverter } from "@/lib/branch-stock";
 import {
+  actualPct,
   computeActual,
   computeStandard,
   datesWithoutSales,
   findAttention,
+  priceOnOf,
+  readOnce,
+  recipeByDay,
   type Actual,
   type Attention,
   type CountRow,
@@ -42,8 +47,6 @@ export interface FoodCostResult {
   actual: Actual | null;
   attention: Attention[];
   sales: FcSale[];
-  openingDate: string;
-  closingDate: string;
 }
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -100,20 +103,17 @@ export const supabaseLoader: FoodCostLoader = {
     const res = (await q.in("branch_id", branchIds).lte("date_from", to).gte("date_to", from)) as unknown as { data: CorrRow[] | null };
     return (res.data ?? []).map((c) => ({ id: c.id, branchId: c.branch_id, skuId: c.sku_id, dateFrom: c.date_from, dateTo: c.date_to, qty: Number(c.qty) || 0, reason: c.reason ?? "" }));
   },
-  counts: async (branchId, from, to) =>
-    (
-      await fetchAllRows<CountRow>((x, y) =>
-        supabase.from("daily_stock_counts").select("id, sku_id, count_date, physical_count, calculated_balance").eq("branch_id", branchId).gte("count_date", from).lte("count_date", to).order("id").range(x, y) as never,
-      )
-    ).data,
-  receipts: async (branchId, from, to, skuIds) =>
-    (
-      await fetchAllRows<ReceiptRow>((x, y) => {
-        let q = supabase.from("branch_receipts").select("id, sku_id, receipt_date, qty_received, actual_unit_price, actual_total, transfer_order_id").eq("branch_id", branchId).gte("receipt_date", from).lte("receipt_date", to);
-        if (skuIds) q = q.in("sku_id", skuIds);
-        return q.order("id").range(x, y) as never;
-      })
-    ).data,
+  // A failed page fails the month (no actual from half the counts or receipts)
+  counts: (branchId, from, to) =>
+    fetchAllRowsOrThrow<CountRow>((x, y) =>
+      supabase.from("daily_stock_counts").select("id, sku_id, count_date, physical_count, calculated_balance").eq("branch_id", branchId).gte("count_date", from).lte("count_date", to).order("id").range(x, y) as never,
+    ),
+  receipts: (branchId, from, to, skuIds) =>
+    fetchAllRowsOrThrow<ReceiptRow>((x, y) => {
+      let q = supabase.from("branch_receipts").select("id, sku_id, receipt_date, qty_received, actual_unit_price, actual_total, transfer_order_id").eq("branch_id", branchId).gte("receipt_date", from).lte("receipt_date", to);
+      if (skuIds) q = q.in("sku_id", skuIds);
+      return q.order("id").range(x, y) as never;
+    }),
 };
 
 /** What one period's work-out needs from the masters (built once per hook) */
@@ -151,24 +151,34 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
   const ctxAt = copies.length ? usageContextOn(usageInputFromApp(env.m), copies) : undefined;
   const std = computeStandard({ sales: salesRes.data, ctx: env.ctx, ctxAt, stdPrice: env.stdPrice, priceAt, menuByCode: env.menuByCode, skuById: env.skuById, corrections, branchIds: new Set(branchIds), from, to });
   const today = iso(new Date());
-  const openingDate = shift(from, -1);
-  const closingDate = to;
 
   let actual: Actual | null = null;
   if (branchIds.length === 1 && isClosedMonth(from, to, today)) {
     const b = branchIds[0];
-    const [open, close, rec] = await Promise.all([
-      loader.counts(b, shift(openingDate, -3), shift(openingDate, 3)),
-      loader.counts(b, shift(closingDate, -3), shift(closingDate, 3)),
-      loader.receipts(b, from, to),
+    // Opening = the last count of the month before, closing = the last count of this
+    // month (CLAUDE.md), received = what came in between those two count days, so the
+    // receipts are read from the start of the month before
+    const opening = { from: `${shift(from, -1).slice(0, 7)}-01`, to: shift(from, -1) };
+    const closing = { from, to };
+    // …and the recipe side over each item's same span: the month before's sales and
+    // corrections too, since a span can start there
+    const [open, close, rec, before, spanCorrections] = await Promise.all([
+      loader.counts(b, opening.from, opening.to),
+      loader.counts(b, closing.from, closing.to),
+      loader.receipts(b, opening.from, to),
+      loader.sales([b], opening.from, opening.to),
+      loader.corrections([b], opening.from, to),
     ]);
     if (!alive()) return null;
-    // Items not bought this month: what was paid over the 6 months before
+    if (before.error) throw new Error("sales");
+    const priceOn = priceOnOf(priceAt, env.stdPrice);
+    const recipeDays = recipeByDay({ sales: [...before.data, ...salesRes.data], ctx: env.ctx, ctxAt, priceOn });
+    // Items not bought in those two months: what was paid over the months before
     const boughtNow = new Set(rec.map((r) => r.sku_id));
     const need = std.skus.map((s) => s.skuId).filter((id) => !boughtNow.has(id));
     const pastPrice = new Map<string, number>();
     if (need.length) {
-      const past = await loader.receipts(b, shift(from, -183), shift(from, -1), need);
+      const past = await loader.receipts(b, shift(from, -183), shift(opening.from, -1), need);
       if (!alive()) return null;
       const agg = new Map<string, { q: number; v: number }>();
       for (const r of past) {
@@ -180,8 +190,8 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
       }
       for (const [id, a] of agg) if (a.q > 0) pastPrice.set(id, a.v / a.q);
     }
-    actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter: env.converter, pastPrice, openingDate, closingDate });
-    // Nothing counted around these dates: there is no actual to show (not ฿0)
+    actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter: env.converter, pastPrice, opening, closing, recipeDays, corrections: spanCorrections, priceOn });
+    // Nothing counted in these months: there is no actual to show (not ฿0)
     if (actual.withCounts === 0) actual = null;
   }
 
@@ -189,7 +199,7 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
   const missingDays = branchIds.map((b) => ({ branch: env.branchName.get(b) ?? "สาขา", dates: datesWithoutSales(salesRes.data, b, from, to, shift(today, -1)) }));
   const attention = findAttention({ std, actual, missingDays });
   if (!alive()) return null;
-  return { std, actual, attention, sales: salesRes.data, openingDate, closingDate };
+  return { std, actual, attention, sales: salesRes.data };
 }
 
 /** The masters, shaped once for working out periods */
@@ -206,7 +216,9 @@ function usePeriodEnv(m: FoodCostMasters): PeriodEnv {
   }, [m.prices]);
   const menuByCode = useMemo(() => new Map(m.menus.map((x) => [x.menuCode, { code: x.menuCode, name: x.menuName, category: x.category }])), [m.menus]);
   const skuById = useMemo(() => new Map(m.skus.map((s) => [s.id, { id: s.id, code: s.skuId, name: s.name, type: s.type, uom: s.usageUom }])), [m.skus]);
-  const converter = useMemo(() => new Map(m.skus.map((s) => [s.id, s.converter || 1])), [m.skus]);
+  // Supplier receipts in usage units by the count sheet's rule (CLAUDE.md UOM: the converter
+  // applies when purchase and usage units differ), as branch stock and the count sheet read them
+  const converter = useMemo(() => new Map(m.skus.map((s) => [s.id, receiptConverter(s)])), [m.skus]);
   const branchName = useMemo(() => new Map(m.branches.map((b) => [b.id, b.branchName])), [m.branches]);
   // `m` itself is a new object every render; what's read from it is the arrays above
   return useMemo(() => ({ m, ctx, stdPrice, menuByCode, skuById, converter, branchName }), [ctx, stdPrice, menuByCode, skuById, converter, branchName]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -285,12 +297,13 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
     setPoints(months.map(() => null));
     setError(false);
     (async () => {
-      // Price and recipe history once for all the months
+      // Price and recipe history once for all the months, every other read once per ask,
+      // and the months side by side (each fills in when done)
       const history = loadHistory(loader);
-      for (let i = 0; i < months.length; i++) {
-        const { from, to } = months[i];
+      const reads = readOnce(loader, ["sales", "corrections", "counts", "receipts"]);
+      await Promise.all(months.map(async ({ from, to }, i) => {
         try {
-          const r = await computePeriod(env, from, to, branchIds, loader, () => !cancelled, history);
+          const r = await computePeriod(env, from, to, branchIds, reads, () => !cancelled, history);
           if (!r || cancelled) return;
           const pct = (v: number) => (r.std.revenue > 0 ? (v / r.std.revenue) * 100 : null);
           const point: TrendPoint = {
@@ -298,7 +311,8 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
             to,
             revenue: r.std.revenue,
             stdPct: pct(r.std.stdCost),
-            actPct: r.actual ? pct(r.actual.actCost) : null,
+            // Comparable with the recipe % (the counts' own days against the same recipe)
+            actPct: r.actual ? actualPct(r.std, r.actual) : null,
             totalVar: r.actual?.totalVar ?? null,
             priceVar: r.actual?.priceVar ?? null,
             usageVar: r.actual?.usageVar ?? null,
@@ -309,7 +323,7 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
           setPoints((p) => p.map((x, k) => (k === i ? "failed" : x)));
           setError(true);
         }
-      }
+      }));
     })();
     return () => {
       cancelled = true;

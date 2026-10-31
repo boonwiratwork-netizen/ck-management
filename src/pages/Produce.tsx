@@ -10,6 +10,8 @@ import { getWeekStart } from "@/types/production";
 import type { SMStockBalance } from "@/hooks/use-sm-stock-data";
 import type { useProductionData } from "@/hooks/use-production-data";
 import { usePlanningAgent } from "@/hooks/use-planning-agent";
+import type { SmUseRead } from "@/hooks/use-sm-daily-usage";
+import { UseReadError } from "@/components/UseReadError";
 import { useAuth } from "@/hooks/use-auth";
 import { farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
@@ -55,6 +57,10 @@ interface Props {
   isStockDataReady?: boolean;
   /** Daily SM need from sales, the same figure as the SM Stock page */
   smDailyUsage: Record<string, number>;
+  /** The kitchen's daily-use read (one read shared with the plan helper) and whether it failed */
+  smUseRead?: SmUseRead | null;
+  smUseError?: boolean;
+  onSmUseRetry?: () => void;
   refreshProductionRecords?: () => void;
   /** Recipe by-products (น้ำสต๊อก → น้ำมันไก่ + น้ำสต๊อกโทริ ไพตัน) */
   byproducts?: BomByproduct[];
@@ -100,7 +106,7 @@ function useWeekPlan(weekStart: string) {
  * Central-kitchen production (replaces Production): record what was made each day,
  * and plan the week. Hash: "" recording, "plan" planning.
  */
-export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, refreshProductionRecords, byproducts = [], onNavigate, demoCanEdit }: Props) {
+export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, smUseRead, smUseError, onSmUseRetry, refreshProductionRecords, byproducts = [], onNavigate, demoCanEdit }: Props) {
   const { records, addRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch } = productionData;
   const { isManagement, role } = useAuth();
   const canEdit = demoCanEdit || isManagement || role === "ck_manager";
@@ -292,7 +298,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   };
 
   const [agentOpen, setAgentOpen] = useState(false);
-  const agent = usePlanningAgent({ smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })), getOutputPerBatch });
+  const agent = usePlanningAgent({ smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })), getOutputPerBatch, smUse: smUseRead === undefined ? undefined : { read: smUseRead, error: !!smUseError } });
 
   const weekLabel = `${format(new Date(recordWeek + "T00:00:00"), "d/M")} – ${format(addDays(new Date(recordWeek + "T00:00:00"), 6), "d/M")}`;
   return (
@@ -310,6 +316,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
       </div>
+      {smUseError && <UseReadError onRetry={onSmUseRetry} />}
       <div className={cn("grid grid-cols-1 gap-6", mode === "record" && "split:grid-cols-[320px_minmax(0,1fr)]")}>
         <div className={cn("min-w-0", mode === "plan" && "split:hidden")}>
           <ProdSide
@@ -491,6 +498,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
         menusByBrand={agent.menusByBrand}
         menuBomByMenuId={agent.menuBomByMenuId}
         isLoading={agent.isLoading}
+        error={agent.error}
         weekStart={planWeek}
         onRecalculate={agent.recalculateWithOverrides}
         onApplyPlan={(p) => planPlan.setPlan((prev) => ({ ...prev, ...p }))}

@@ -1,109 +1,83 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { SKU } from "@/types/sku";
 import { supabase } from "@/integrations/supabase/client";
-import { addSaleUsage, buildUsageContext } from "@/lib/sale-usage";
+import { fetchAllRows } from "@/lib/fetch-all";
+import { loadUsageContext } from "@/lib/usage-context-db";
+import { branchUsePerDay, dailyUseWindow, totalPerDay, type BranchSaleRow, type BranchWasteRow } from "@/lib/daily-use";
+import type { UsageContext } from "@/lib/sale-usage";
+import { toLocalDateStr } from "@/lib/utils";
 
 /**
- * Sales-based daily SM SKU usage over the last 7 days, counted the same way as
- * Food Cost (branch recipe lines, SP expansion, modifier rules incl. toppings and
- * set items), then divided by the days each SKU was actually used per branch.
- * Shared between Dashboard and SM Stock pages.
+ * Sales-based daily SM SKU usage, counted the same way as Food Cost (branch recipe
+ * lines, SP expansion, modifier rules incl. toppings and set items) plus waste typed on
+ * the count sheet, over the shared 7-day window (Bangkok dates), ÷ each branch's selling
+ * days (CLAUDE.md avgDailyUsage, lib/daily-use.ts). Until Nov 2026 this divided by the
+ * days each item happened to be used (an item used 2 days of 7 read 3.5× too high), left
+ * waste out and started the week on the UTC date.
+ * Shared between Kitchen Stock (cover day), Production (daily need) and the production
+ * plan helper (use-planning-agent.ts).
  */
-
-// Supabase returns at most 1,000 rows per request; a week of sales is more than that
-async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data } = await build(from, from + 999);
-    if (!data || data.length === 0) break;
-    out.push(...data);
-    if (data.length < 1000) break;
-  }
-  return out;
+export interface SmUseRead {
+  ctx: UsageContext;
+  /** The window's sales, every branch */
+  sales: BranchSaleRow[];
+  /** branch → SM item → used per day */
+  perDay: Map<string, Record<string, number>>;
+  /** branch → days in the window it sold anything */
+  sellingDays: Map<string, number>;
 }
 
-export function useSmDailyUsage(skus: SKU[], enabled = true) {
-  const [smDailyUsage, setSmDailyUsage] = useState<Record<string, number>>({});
+export async function loadSmUse(today: string): Promise<SmUseRead> {
+  const window = dailyUseWindow(today);
+  // A failed page fails the read (no silently short week)
+  const all = <T,>(build: (a: number, b: number) => unknown) =>
+    fetchAllRows<T>(build as never).then((r) => {
+      if (r.error) throw r.error;
+      return r.data;
+    });
+  const [sales, waste, ctx] = await Promise.all([
+    all<BranchSaleRow>((a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, menu_code, menu_name, qty").gte("sale_date", window.from).lte("sale_date", window.to).order("id").range(a, b)),
+    all<BranchWasteRow>((a, b) => supabase.from("daily_stock_counts").select("id, branch_id, sku_id, count_date, waste").gt("waste", 0).gte("count_date", window.from).lte("count_date", window.to).order("id").range(a, b)),
+    loadUsageContext(),
+  ]);
+  const smIds = new Set([...ctx.skuType].filter(([, t]) => t === "SM").map(([id]) => id));
+  const { perDay, sellingDays } = branchUsePerDay({ ctx, sales, waste, skuIds: smIds, window });
+  return { ctx, sales, perDay, sellingDays };
+}
+
+export interface SmDailyUse {
+  /** SM item → used per day, every branch together */
+  perDay: Record<string, number>;
+  /** The whole read, for the production plan helper (one read for both) */
+  read: SmUseRead | null;
+  /** The read failed: cover days and daily need are unknown, not 0 (the last good read stays) */
+  error: boolean;
+  reload: () => void;
+}
+
+export function useSmDailyUsage(skus: SKU[], enabled = true): SmDailyUse {
+  const [read, setRead] = useState<SmUseRead | null>(null);
+  const [error, setError] = useState(false);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     // Reads a week of sales; only kitchen pages need it (see Index)
     if (!enabled || skus.length === 0) return;
     let cancelled = false;
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const dateStr = sevenDaysAgo.toISOString().split("T")[0];
-
-    (async () => {
-      const [sales, bom, menus, rules, ruleMenus, sp] = await Promise.all([
-        fetchAll<any>((a, b) =>
-          supabase
-            .from("sales_entries")
-            .select("id, menu_code, menu_name, qty, sale_date, branch_id")
-            .gte("sale_date", dateStr)
-            .order("id")
-            .range(a, b),
-        ),
-        fetchAll<any>((a, b) =>
-          supabase.from("menu_bom").select("id, menu_id, sku_id, effective_qty, branch_id").order("id").range(a, b),
-        ),
-        fetchAll<any>((a, b) => supabase.from("menus").select("id, menu_code").order("id").range(a, b)),
-        fetchAll<any>((a, b) => supabase.from("menu_modifier_rules").select("*").eq("is_active", true).order("id").range(a, b)),
-        fetchAll<any>((a, b) => supabase.from("modifier_rule_menus").select("id, rule_id, menu_id").order("id").range(a, b)),
-        fetchAll<any>((a, b) =>
-          supabase.from("sp_bom").select("id, sp_sku_id, ingredient_sku_id, qty_per_batch, batch_yield_qty").order("id").range(a, b),
-        ),
-      ]);
-      if (cancelled) return;
-
-      const menusByRule = new Map<string, string[]>();
-      for (const rm of ruleMenus) menusByRule.set(rm.rule_id, [...(menusByRule.get(rm.rule_id) ?? []), rm.menu_id]);
-      const ctx = buildUsageContext({
-        menus: menus.map((m) => ({ id: m.id, menuCode: m.menu_code })),
-        bomLines: bom.map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty), branchId: l.branch_id })),
-        rules: rules.map((r) => ({
-          id: r.id,
-          ruleType: r.rule_type,
-          keyword: r.keyword,
-          skuId: r.sku_id,
-          swapSkuId: r.swap_sku_id,
-          submenuId: r.submenu_id,
-          qtyPerMatch: Number(r.qty_per_match) || 0,
-          isActive: r.is_active,
-          branchIds: r.branch_ids ?? [],
-          menuIds: menusByRule.get(r.id) ?? [],
-        })),
-        spLines: sp.map((l) => ({
-          spSkuId: l.sp_sku_id,
-          ingredientSkuId: l.ingredient_sku_id,
-          qtyPerBatch: Number(l.qty_per_batch),
-          batchYieldQty: Number(l.batch_yield_qty) || 1,
-        })),
-        skus,
+    setError(false);
+    loadSmUse(toLocalDateStr(new Date()))
+      .then((r) => {
+        if (!cancelled) setRead(r);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
       });
-
-      const smSkuIds = new Set(skus.filter((s) => s.type === "SM").map((s) => s.id));
-      // usage and active days per SKU × branch
-      const qtyByKey: Record<string, number> = {};
-      const daysByKey: Record<string, Set<string>> = {};
-      for (const sale of sales) {
-        addSaleUsage(ctx, sale, (skuId, q) => {
-          if (!smSkuIds.has(skuId)) return;
-          const key = `${skuId}__${sale.branch_id}`;
-          qtyByKey[key] = (qtyByKey[key] || 0) + q;
-          (daysByKey[key] ??= new Set()).add(sale.sale_date);
-        });
-      }
-      const usage: Record<string, number> = {};
-      for (const [key, q] of Object.entries(qtyByKey)) {
-        const skuId = key.split("__")[0];
-        usage[skuId] = (usage[skuId] || 0) + q / Math.max(1, daysByKey[key]?.size ?? 1);
-      }
-      setSmDailyUsage(usage);
-    })();
     return () => {
       cancelled = true;
     };
-  }, [skus, enabled]);
+  }, [skus, enabled, tick]);
 
-  return smDailyUsage;
+  const perDay = useMemo(() => (read ? totalPerDay(read.perDay) : {}), [read]);
+  return { perDay, read, error, reload };
 }

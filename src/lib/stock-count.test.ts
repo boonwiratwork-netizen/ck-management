@@ -11,16 +11,18 @@ describe("count day", () => {
   });
 });
 
-describe("month-end window (last 4 days + the 1st)", () => {
-  const oct = ["2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"];
-  it("covers 28–31 Oct and 1 Nov", () => {
+describe("month-end window (the last 5 days, ending on the last day)", () => {
+  const oct = ["2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31"];
+  it("is the same five days from any of them, and not the 1st", () => {
     for (const d of oct) expect(monthEndWindow(d)).toEqual(oct);
-    expect(monthEndWindow("2026-10-27")).toBeNull();
-    expect(monthEndWindow("2026-11-02")).toBeNull();
+    expect(monthEndWindow("2026-10-26")).toBeNull();
+    // The 1st is the new month's: it no longer closes the month before
+    expect(monthEndWindow("2026-11-01")).toBeNull();
   });
   it("follows short months and year end", () => {
-    expect(monthEndWindow("2027-02-25")).toEqual(["2027-02-25", "2027-02-26", "2027-02-27", "2027-02-28", "2027-03-01"]);
-    expect(monthEndWindow("2027-01-01")).toEqual(["2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31", "2027-01-01"]);
+    expect(monthEndWindow("2027-02-25")).toEqual(["2027-02-24", "2027-02-25", "2027-02-26", "2027-02-27", "2027-02-28"]);
+    expect(monthEndWindow("2026-12-31")).toEqual(["2026-12-27", "2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31"]);
+    expect(monthEndWindow("2027-01-01")).toBeNull();
   });
 });
 

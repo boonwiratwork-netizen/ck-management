@@ -55,20 +55,20 @@ export default function FoodCostDemo() {
             ? [{ id: "c9", branchId: shiro, skuId: noodle, dateFrom: "2026-09-01", dateTo: "2026-09-30", qty: -469, reason: "POS เก่านับเส้นซ้ำ (สูตรชาม + บรรทัดตัวเลือกเส้น)" }]
             : [],
         ),
-      // Every item counted at month end (stock = 2 days of use), the noodle with Shiro's real September counts
+      // Every item counted on the month's 30th (stock = 2 days of use), the noodle with Shiro's real September counts
       counts: (b, from) =>
         wait(
           fx.prices
             .filter((p) => p.isActive)
             .filter((p, i) => i < 80 || p.skuId === noodle)
-            .map((p) => ({ sku_id: p.skuId, count_date: from.slice(0, 8) + (from.endsWith("28") || from.endsWith("27") ? "31" : "30"), physical_count: 2000, calculated_balance: 2000 }))
-            .map((r) => (r.sku_id === noodle && b === shiro ? { ...r, count_date: from < "2026-09-15" ? "2026-09-01" : "2026-09-30", physical_count: from < "2026-09-15" ? 61 : 160 } : r)),
+            .map((p) => ({ sku_id: p.skuId, count_date: `${from.slice(0, 8)}30`, physical_count: 2000, calculated_balance: 2000 }))
+            .map((r) => (r.sku_id === noodle && b === shiro && (from === "2026-08-01" || from === "2026-09-01") ? { ...r, count_date: from === "2026-08-01" ? "2026-08-31" : "2026-09-30", physical_count: from === "2026-08-01" ? 61 : 160 } : r)),
         ),
       receipts: (b, from, to, skuIds) =>
         wait(
-          b === shiro && from <= "2026-09-30" && to >= "2026-09-01" && (!skuIds || skuIds.includes(noodle))
+          b === shiro && to.startsWith("2026-09") && (!skuIds || skuIds.includes(noodle))
             ? [150, 100, 115, 100, 150].map((q, i) => ({ sku_id: noodle, receipt_date: `2026-09-${10 + i}`, qty_received: q, actual_unit_price: 15 }))
-            : fx.prices.filter((p) => p.isActive && (!skuIds || skuIds.includes(p.skuId))).slice(0, 60).map((p) => ({ sku_id: p.skuId, receipt_date: from, qty_received: 1000, actual_unit_price: (price.get(p.skuId) ?? 0) * 1.03 })),
+            : fx.prices.filter((p) => p.isActive && (!skuIds || skuIds.includes(p.skuId))).slice(0, 60).map((p) => ({ sku_id: p.skuId, receipt_date: `${to.slice(0, 8)}15`, qty_received: 1000, actual_unit_price: (price.get(p.skuId) ?? 0) * 1.03 })),
         ),
     };
   }, [fx]);
