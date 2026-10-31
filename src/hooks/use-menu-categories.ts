@@ -14,7 +14,7 @@ export function useMenuCategories() {
   useEffect(() => {
     supabase.from('menu_categories').select('id, name').order('name')
       .then(({ data, error }) => {
-        if (error) toast.error('Failed to load categories');
+        if (error) toast.error('โหลดหมวดเมนูไม่สำเร็จ');
         else setCategories(data || []);
         setLoading(false);
       });
@@ -24,19 +24,19 @@ export function useMenuCategories() {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (categories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
-      toast.error('Category already exists');
+      toast.error('มีหมวดนี้แล้ว');
       return;
     }
     const { data, error } = await supabase.from('menu_categories')
       .insert({ name: trimmed }).select('id, name').single();
-    if (error) { toast.error('Failed to add category: ' + error.message); return; }
+    if (error) { toast.error('เพิ่มหมวดเมนูไม่สำเร็จ: ' + error.message); return; }
     setCategories(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-    toast.success(`Category "${trimmed}" added`);
+    toast.success(`เพิ่มหมวด "${trimmed}" แล้ว`);
   }, [categories]);
 
   const deleteCategory = useCallback(async (id: string) => {
     const { error } = await supabase.from('menu_categories').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete category'); return; }
+    if (error) { toast.error('ลบหมวดเมนูไม่สำเร็จ'); return; }
     setCategories(prev => prev.filter(c => c.id !== id));
   }, []);
 

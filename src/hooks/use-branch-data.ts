@@ -18,7 +18,7 @@ export function useBranchData() {
 
   useEffect(() => {
     loadWithDeviceCopy('branches', () => supabase.from('branches').select('*').order('created_at', { ascending: false }), (rows) => setBranches(rows.map(toLocal)))
-      .then(({ error }) => { if (error) toast.error('Failed to load branches'); });
+      .then(({ error }) => { if (error) toast.error('โหลดสาขาไม่สำเร็จ'); });
   }, []);
 
   const addBranch = useCallback(async (data: Omit<Branch, 'id'>) => {
@@ -48,7 +48,7 @@ export function useBranchData() {
 
   const deleteBranch = useCallback(async (id: string) => {
     const { error } = await supabase.from('branches').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete branch: ' + error.message); return; }
+    if (error) { toast.error('ลบสาขาไม่สำเร็จ: ' + error.message); return; }
     setBranches(prev => prev.filter(b => b.id !== id));
   }, []);
 

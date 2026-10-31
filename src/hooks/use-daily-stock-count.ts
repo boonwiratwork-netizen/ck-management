@@ -509,7 +509,7 @@ export function useDailyStockCount({
 
       if (stale()) return;
       if (sheetResult.error) {
-        toast.error("Failed to load count sheet");
+        toast.error("โหลดใบนับไม่สำเร็จ");
         setLoading(false);
         return;
       }
@@ -682,7 +682,7 @@ export function useDailyStockCount({
         .limit(1);
 
       if (existing && existing.length > 0) {
-        toast.info("Count sheet already exists, loading...");
+        toast.info("มีใบนับวันนี้แล้ว กำลังเปิด…");
         await loadSheet(branchId, date);
         setGenerating(false);
         return;
@@ -742,7 +742,7 @@ export function useDailyStockCount({
       });
 
       if (insertRows.length === 0) {
-        toast.warning("No active RM/SM SKUs found");
+        toast.warning("ไม่มีสินค้าที่ใช้อยู่ให้นับ");
         setGenerating(false);
         return;
       }
@@ -753,7 +753,7 @@ export function useDailyStockCount({
         const chunk = insertRows.slice(i, i + chunkSize);
         const { data: inserted, error } = await supabase.from("daily_stock_counts").insert(chunk).select();
         if (error) {
-          toast.error("Failed to generate count sheet: " + error.message);
+          toast.error("สร้างใบนับไม่สำเร็จ: " + error.message);
           setGenerating(false);
           return;
         }
@@ -767,7 +767,7 @@ export function useDailyStockCount({
         local.adjDetails = adjEntry.details;
         return local;
       }));
-      toast.success(`Count sheet generated with ${allInserted.length} SKUs`);
+      toast.success(`สร้างใบนับแล้ว ${allInserted.length} รายการ`);
       setGenerating(false);
     },
     [skus, calculateExpectedUsage, fetchReceiptTotals, loadSheet, getSkuConverter, computeOpeningWithGap],
@@ -846,7 +846,7 @@ export function useDailyStockCount({
 
       const { error } = await supabase.from("daily_stock_counts").delete().eq("id", rowId);
       if (error) {
-        toast.error("Failed to delete row");
+        toast.error("ลบแถวไม่สำเร็จ");
         return;
       }
       setRows((prev) => prev.filter((r) => r.id !== rowId));
@@ -867,7 +867,7 @@ export function useDailyStockCount({
       .eq("branch_id", branchId)
       .eq("count_date", date);
     if (error) {
-      toast.error("Failed to submit: " + error.message);
+      toast.error("กดนับเสร็จไม่สำเร็จ: " + error.message);
       return false;
     }
     setRows((prev) => prev.map((r) => ({ ...r, isSubmitted: true, submittedAt: now })));
@@ -902,11 +902,11 @@ export function useDailyStockCount({
       .eq("branch_id", branchId)
       .eq("count_date", date);
     if (error) {
-      toast.error("Failed to unlock: " + error.message);
+      toast.error("ปลดล็อกไม่สำเร็จ: " + error.message);
       return;
     }
     setRows((prev) => prev.map((r) => ({ ...r, isSubmitted: false, submittedAt: null })));
-    toast.success("Count sheet unlocked");
+    toast.success("ปลดล็อกใบนับแล้ว");
   }, []);
 
   return {

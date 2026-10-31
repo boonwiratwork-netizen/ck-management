@@ -38,7 +38,7 @@ export function useBomData() {
       sm_sku_id: data.smSkuId, production_type: data.productionType,
       bom_mode: data.bomMode, batch_size: data.batchSize, yield_percent: data.yieldPercent,
     }).select().single();
-    if (error) { toast.error('Failed to add BOM: ' + error.message); return ''; }
+    if (error) { toast.error('เพิ่มสูตรไม่สำเร็จ: ' + error.message); return ''; }
     setHeaders(prev => [toHeader(row), ...prev]);
     return row.id;
   }, []);
@@ -51,7 +51,7 @@ export function useBomData() {
     if (data.batchSize !== undefined) d.batch_size = data.batchSize;
     if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     const { error } = await supabase.from('bom_headers').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update BOM: ' + error.message); return false; }
+    if (error) { toast.error('แก้สูตรไม่สำเร็จ: ' + error.message); return false; }
     setHeaders(prev => prev.map(h => h.id === id ? { ...h, ...data } : h));
     return true;
   }, []);
@@ -61,7 +61,7 @@ export function useBomData() {
     await supabase.from('bom_lines').delete().eq('bom_header_id', id);
     await supabase.from('bom_steps').delete().eq('bom_header_id', id);
     const { error } = await supabase.from('bom_headers').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete BOM: ' + error.message); return false; }
+    if (error) { toast.error('ลบสูตรไม่สำเร็จ: ' + error.message); return false; }
     setHeaders(prev => prev.filter(h => h.id !== id));
     setLines(prev => prev.filter(l => l.bomHeaderId !== id));
     setSteps(prev => prev.filter(s => s.bomHeaderId !== id));
@@ -75,7 +75,7 @@ export function useBomData() {
       step_id: data.stepId ?? null,
       qty_type: data.qtyType ?? null, percent_of_input: data.percentOfInput ?? null,
     }).select().single();
-    if (error) { toast.error('Failed to add BOM line: ' + error.message); return false; }
+    if (error) { toast.error('เพิ่มบรรทัดสูตรไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => [...prev, toLine(row)]);
     return true;
   }, []);
@@ -89,14 +89,14 @@ export function useBomData() {
     if (data.qtyType !== undefined) d.qty_type = data.qtyType;
     if (data.percentOfInput !== undefined) d.percent_of_input = data.percentOfInput;
     const { error } = await supabase.from('bom_lines').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update BOM line: ' + error.message); return false; }
+    if (error) { toast.error('แก้บรรทัดสูตรไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
     return true;
   }, []);
 
   const deleteLine = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('bom_lines').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete BOM line: ' + error.message); return false; }
+    if (error) { toast.error('ลบบรรทัดสูตรไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.filter(l => l.id !== id));
     return true;
   }, []);
@@ -110,7 +110,7 @@ export function useBomData() {
       bom_header_id: data.bomHeaderId, step_number: data.stepNumber,
       step_name: data.stepName, yield_percent: data.yieldPercent,
     }).select().single();
-    if (error) { toast.error('Failed to add step: ' + error.message); return ''; }
+    if (error) { toast.error('เพิ่มขั้นไม่สำเร็จ: ' + error.message); return ''; }
     setSteps(prev => [...prev, toStep(row)]);
     return row.id;
   }, []);
@@ -121,16 +121,16 @@ export function useBomData() {
     if (data.stepName !== undefined) d.step_name = data.stepName;
     if (data.yieldPercent !== undefined) d.yield_percent = data.yieldPercent;
     const { error } = await supabase.from('bom_steps').update(d).eq('id', id);
-    if (error) { toast.error('Failed to update step: ' + error.message); return false; }
+    if (error) { toast.error('แก้ขั้นไม่สำเร็จ: ' + error.message); return false; }
     setSteps(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     return true;
   }, []);
 
   const deleteStep = useCallback(async (id: string): Promise<boolean> => {
     const { error: lineError } = await supabase.from('bom_lines').delete().eq('step_id', id);
-    if (lineError) { toast.error('Failed to delete step: ' + lineError.message); return false; }
+    if (lineError) { toast.error('ลบขั้นไม่สำเร็จ: ' + lineError.message); return false; }
     const { error } = await supabase.from('bom_steps').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete step: ' + error.message); return false; }
+    if (error) { toast.error('ลบขั้นไม่สำเร็จ: ' + error.message); return false; }
     setSteps(prev => prev.filter(s => s.id !== id));
     setLines(prev => prev.filter(l => l.stepId !== id));
     return true;

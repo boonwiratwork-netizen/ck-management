@@ -29,7 +29,7 @@ export function useSpBomData() {
         if (fromDevice) setLoading(false);
       },
     ).then(({ error }) => {
-      if (error) toast.error('Failed to load SP BOM');
+      if (error) toast.error('โหลดสูตร SPไม่สำเร็จ');
       setLoading(false);
     });
   }, []);
@@ -49,7 +49,7 @@ export function useSpBomData() {
       batch_yield_uom: data.batchYieldUom,
       cost_per_unit: data.costPerUnit,
     }).select().single();
-    if (error) { toast.error('Failed to add ingredient: ' + error.message); return false; }
+    if (error) { toast.error('เพิ่มวัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => [...prev, toLocal(row)]);
     return true;
   }, []);
@@ -64,7 +64,7 @@ export function useSpBomData() {
     if (data.costPerUnit !== undefined) dbData.cost_per_unit = data.costPerUnit;
 
     const { error } = await supabase.from('sp_bom').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update ingredient: ' + error.message); return false; }
+    if (error) { toast.error('แก้วัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
     return true;
   }, []);
@@ -76,7 +76,7 @@ export function useSpBomData() {
     const { error } = await supabase.from('sp_bom')
       .update({ batch_yield_qty: batchYieldQty, batch_yield_uom: batchYieldUom })
       .eq('sp_sku_id', spSkuId);
-    if (error) { toast.error('Failed to update batch yield: ' + error.message); return false; }
+    if (error) { toast.error('แก้จำนวนที่ได้ต่อรอบไม่สำเร็จ: ' + error.message); return false; }
     
     setLines(prev => prev.map(l => 
       l.spSkuId === spSkuId ? { ...l, batchYieldQty, batchYieldUom } : l
@@ -86,7 +86,7 @@ export function useSpBomData() {
 
   const deleteLine = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('sp_bom').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete ingredient: ' + error.message); return false; }
+    if (error) { toast.error('ลบวัตถุดิบไม่สำเร็จ: ' + error.message); return false; }
     setLines(prev => prev.filter(l => l.id !== id));
     return true;
   }, []);

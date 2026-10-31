@@ -56,7 +56,7 @@ export function useSupplierData() {
         if (!isRetry) {
           setTimeout(() => { if (!cancelled) attempt(true); }, 2000);
         } else {
-          toast.error('Failed to load suppliers');
+          toast.error('โหลดซัพพลายเออร์ไม่สำเร็จ');
         }
         return;
       }
@@ -69,7 +69,7 @@ export function useSupplierData() {
 
   const addSupplier = useCallback(async (data: Omit<Supplier, 'id'>): Promise<Supplier | null> => {
     const { data: row, error } = await supabase.from('suppliers').insert(toDb(data)).select().single();
-    if (error) { toast.error('Failed to add supplier: ' + error.message); return null; }
+    if (error) { toast.error('เพิ่มซัพพลายเออร์ไม่สำเร็จ: ' + error.message); return null; }
     const added = toLocal(row);
     setSuppliers(prev => [added, ...prev]);
     return added;
@@ -87,14 +87,14 @@ export function useSupplierData() {
     if (data.status !== undefined) dbData.status = data.status;
 
     const { error } = await supabase.from('suppliers').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update supplier: ' + error.message); return false; }
+    if (error) { toast.error('แก้ซัพพลายเออร์ไม่สำเร็จ: ' + error.message); return false; }
     setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     return true;
   }, []);
 
   const deleteSupplier = useCallback(async (id: string) => {
     const { error } = await supabase.from('suppliers').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete supplier: ' + error.message); return; }
+    if (error) { toast.error('ลบซัพพลายเออร์ไม่สำเร็จ: ' + error.message); return; }
     setSuppliers(prev => prev.filter(s => s.id !== id));
   }, []);
 

@@ -30,7 +30,7 @@ export function useMenuBomData() {
         if (fromDevice) setLoading(false);
       },
     ).then(({ error }) => {
-      if (error) toast.error('Failed to load Menu BOM');
+      if (error) toast.error('โหลดสูตรเมนูไม่สำเร็จ');
       setLoading(false);
     });
   }, []);

@@ -61,7 +61,7 @@ export function useSkuData() {
       () => fetchAllRows((a, b) => supabase.from('skus').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
       (rows) => setSkus(rows.map(toLocal)),
     );
-    if (error) toast.error('Failed to load SKUs');
+    if (error) toast.error('โหลดสินค้าไม่สำเร็จ');
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
@@ -79,7 +79,7 @@ export function useSkuData() {
   const addSku = useCallback(async (data: Omit<SKU, 'id' | 'skuId'>, customSkuId?: string): Promise<SKU | null> => {
     const skuId = customSkuId && customSkuId.trim() ? customSkuId.trim() : generateSkuId(data.type, skus);
     const { data: row, error } = await supabase.from('skus').insert(toDb(data, skuId)).select().single();
-    if (error) { toast.error('Failed to add SKU: ' + error.message); return null; }
+    if (error) { toast.error('เพิ่มสินค้าไม่สำเร็จ: ' + error.message); return null; }
     const added = toLocal(row);
     setSkus(prev => [added, ...prev]);
     return added;
@@ -105,7 +105,7 @@ export function useSkuData() {
     });
 
     const { data: inserted, error } = await supabase.from('skus').insert(inserts).select();
-    if (error) { toast.error('Failed to import SKUs: ' + error.message); return 0; }
+    if (error) { toast.error('นำเข้าสินค้าไม่สำเร็จ: ' + error.message); return 0; }
     setSkus(prev => [...(inserted || []).map(toLocal), ...prev]);
     return inserted?.length ?? 0;
   }, []);
@@ -132,14 +132,14 @@ export function useSkuData() {
     if (newSkuCode) dbData.sku_id = newSkuCode;
 
     const { error } = await supabase.from('skus').update(dbData).eq('id', id);
-    if (error) { toast.error('Failed to update SKU: ' + error.message); return false; }
+    if (error) { toast.error('แก้สินค้าไม่สำเร็จ: ' + error.message); return false; }
     setSkus(prev => prev.map(s => s.id === id ? { ...s, ...data, ...(newSkuCode ? { skuId: newSkuCode } : {}) } : s));
     return true;
   }, []);
 
   const deleteSku = useCallback(async (id: string) => {
     const { error } = await supabase.from('skus').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete SKU: ' + error.message); return; }
+    if (error) { toast.error('ลบสินค้าไม่สำเร็จ: ' + error.message); return; }
     setSkus(prev => prev.filter(s => s.id !== id));
   }, []);
 

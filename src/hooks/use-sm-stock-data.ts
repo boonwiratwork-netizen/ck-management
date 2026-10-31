@@ -229,7 +229,7 @@ export function useSmStockData(
       .from("stock_opening_balances")
       .upsert({ sku_id: skuId, quantity: qty }, { onConflict: "sku_id" });
     if (error) {
-      toast.error("Failed to set opening stock: " + error.message);
+      toast.error("ตั้งยอดยกมาไม่สำเร็จ: " + error.message);
       return;
     }
     setOpeningStocksState((prev) => ({ ...prev, [skuId]: qty }));

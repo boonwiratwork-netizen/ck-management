@@ -30,7 +30,7 @@ export function usePriceData() {
       () => fetchAllRows((a, b) => supabase.from('prices').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
       (rows) => setPrices(rows.map(toLocal)),
     );
-    if (error) toast.error('Failed to load prices');
+    if (error) toast.error('โหลดราคาไม่สำเร็จ');
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -81,7 +81,7 @@ export function usePriceData() {
       note: data.note,
     }).select().single();
 
-    if (error || !row) { toast.error('Failed to add price: ' + (error?.message ?? '')); return false; }
+    if (error || !row) { toast.error('เพิ่มราคาไม่สำเร็จ: ' + (error?.message ?? '')); return false; }
     if (data.isActive) await keepOnlyActive(data.skuId, data.supplierId, row.id);
     // Imports add many prices, then work costs out once (recostPrices)
     if (!opts?.batch) await afterPriceChange(data.skuId);
@@ -102,7 +102,7 @@ export function usePriceData() {
       note: data.note,
     }).eq('id', id);
 
-    if (error) { toast.error('Failed to update price: ' + error.message); return false; }
+    if (error) { toast.error('แก้ราคาไม่สำเร็จ: ' + error.message); return false; }
     if (data.isActive) await keepOnlyActive(data.skuId, data.supplierId, id);
     // Moved to another item: the old one's recipes need costing again too
     await afterPriceChange(...new Set([data.skuId, before].filter((x): x is string => !!x)));
@@ -112,7 +112,7 @@ export function usePriceData() {
   const deletePrice = useCallback(async (id: string): Promise<boolean> => {
     const skuId = prices.find(p => p.id === id)?.skuId;
     const { error } = await supabase.from('prices').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete price: ' + error.message); return false; }
+    if (error) { toast.error('ลบราคาไม่สำเร็จ: ' + error.message); return false; }
     setPrices(prev => prev.filter(p => p.id !== id));
     if (skuId) await afterPriceChange(skuId);
     return true;

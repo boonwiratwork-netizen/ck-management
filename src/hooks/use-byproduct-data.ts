@@ -34,7 +34,7 @@ export function useByproductData() {
       cost_allocation_pct: data.costAllocationPct,
       tracks_inventory: data.tracksInventory,
     } as any).select().single();
-    if (error) { toast.error('Failed to add by-product: ' + error.message); return false; }
+    if (error) { toast.error('เพิ่มผลพลอยได้ไม่สำเร็จ: ' + error.message); return false; }
     setByproducts(prev => [...prev, toByproduct(row)]);
     return true;
   }, []);
@@ -48,14 +48,14 @@ export function useByproductData() {
     if (data.tracksInventory !== undefined) d.tracks_inventory = data.tracksInventory;
     d.updated_at = new Date().toISOString();
     const { error } = await supabase.from('bom_byproducts' as any).update(d).eq('id', id);
-    if (error) { toast.error('Failed to update by-product: ' + error.message); return false; }
+    if (error) { toast.error('แก้ผลพลอยได้ไม่สำเร็จ: ' + error.message); return false; }
     setByproducts(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
     return true;
   }, []);
 
   const deleteByproduct = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('bom_byproducts' as any).delete().eq('id', id);
-    if (error) { toast.error('Failed to delete by-product: ' + error.message); return false; }
+    if (error) { toast.error('ลบผลพลอยได้ไม่สำเร็จ: ' + error.message); return false; }
     setByproducts(prev => prev.filter(b => b.id !== id));
     return true;
   }, []);

@@ -262,7 +262,7 @@ export function useSalesEntryData() {
       if (filters?.dateTo) q = q.lte("sale_date", filters.dateTo);
       const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
       if (error) {
-        toast.error("Failed to load sales");
+        toast.error("โหลดยอดขายไม่สำเร็จ");
         setLoading(false);
         return;
       }
@@ -369,7 +369,7 @@ export function useSalesEntryData() {
     }));
 
     if (insertRows.length === 0) {
-      toast.info(`All ${rows.length} rows already imported`);
+      toast.info(`ทั้ง ${rows.length} แถวนำเข้าไว้แล้ว`);
       return null;
     }
 
@@ -386,7 +386,7 @@ export function useSalesEntryData() {
 
     if (existingError) {
       console.error("Failed to check existing sales entries:", existingError);
-      toast.error("Import error: " + existingError.message);
+      toast.error("นำเข้าไม่สำเร็จ: " + existingError.message);
       return null;
     }
 
@@ -410,7 +410,7 @@ export function useSalesEntryData() {
     const skipped = intraBatchSkipped + existingSkipped;
 
     if (newRows.length === 0) {
-      toast.info(`All ${rows.length} rows already imported`);
+      toast.info(`ทั้ง ${rows.length} แถวนำเข้าไว้แล้ว`);
       return null;
     }
 
@@ -424,7 +424,7 @@ export function useSalesEntryData() {
 
       if (error) {
         console.error("Sales import error:", error);
-        toast.error("Import error: " + error.message);
+        toast.error("นำเข้าไม่สำเร็จ: " + error.message);
         return null;
       }
 
@@ -449,13 +449,13 @@ export function useSalesEntryData() {
       if (profile.id) {
         const { error } = await supabase.from("pos_mapping_profiles").update(row).eq("id", profile.id);
         if (error) {
-          toast.error("Failed to save profile");
+          toast.error("บันทึกรูปแบบไฟล์ POSไม่สำเร็จ");
           return false;
         }
       } else {
         const { error } = await supabase.from("pos_mapping_profiles").insert(row);
         if (error) {
-          toast.error("Failed to create profile");
+          toast.error("สร้างรูปแบบไฟล์ POSไม่สำเร็จ");
           return false;
         }
       }
@@ -469,7 +469,7 @@ export function useSalesEntryData() {
     async (id: string) => {
       const { error } = await supabase.from("pos_mapping_profiles").delete().eq("id", id);
       if (error) {
-        toast.error("Failed to delete profile");
+        toast.error("ลบรูปแบบไฟล์ POSไม่สำเร็จ");
         return false;
       }
       await fetchProfiles();
@@ -481,7 +481,7 @@ export function useSalesEntryData() {
   const deleteEntry = useCallback(async (id: string) => {
     const { error } = await supabase.from("sales_entries").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete");
+      toast.error("ลบไม่สำเร็จ");
       return;
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
@@ -510,7 +510,7 @@ export function useSalesEntryData() {
 
       const { error } = await supabase.from("sales_entries").update(patch).eq("id", id);
       if (error) {
-        toast.error("Failed to update entry");
+        toast.error("แก้รายการไม่สำเร็จ");
         return false;
       }
       setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...fields } : e)));

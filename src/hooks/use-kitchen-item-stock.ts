@@ -134,7 +134,7 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
   const setOpeningStock = useCallback(async (skuId: string, qty: number) => {
     const { error } = await supabase.from("stock_opening_balances").upsert({ sku_id: skuId, quantity: qty }, { onConflict: "sku_id" });
     if (error) {
-      toast.error("Failed to set opening stock: " + error.message);
+      toast.error("ตั้งยอดยกมาไม่สำเร็จ: " + error.message);
       return;
     }
     setOpeningStocksState((prev) => ({ ...prev, [skuId]: qty }));

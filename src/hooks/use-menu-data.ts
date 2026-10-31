@@ -29,7 +29,7 @@ export function useMenuData() {
         if (fromDevice) setLoading(false);
       },
     ).then(({ error }) => {
-      if (error) toast.error('Failed to load menus');
+      if (error) toast.error('โหลดเมนูไม่สำเร็จ');
       setLoading(false);
     });
   }, []);
@@ -105,7 +105,7 @@ export function useMenuData() {
       is_maindish: r.isMaindish,
     }));
     const { data, error } = await supabase.from('menus').insert(dbRows).select();
-    if (error) { toast.error('Bulk insert failed: ' + error.message); return 0; }
+    if (error) { toast.error('บันทึกเมนูไม่สำเร็จ: ' + error.message); return 0; }
     setMenus(prev => [...(data || []).map(toLocal), ...prev]);
     return data?.length || 0;
   }, []);

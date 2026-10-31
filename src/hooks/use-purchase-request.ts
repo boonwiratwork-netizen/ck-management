@@ -54,7 +54,7 @@ export function usePurchaseRequest(branchId: string | null) {
 
       const { data, error } = await query;
       if (error) {
-        toast.error("Failed to load PR history");
+        toast.error("โหลดประวัติใบสั่งซื้อไม่สำเร็จ");
         setHistoryLoading(false);
         return;
       }
@@ -154,7 +154,7 @@ export function usePurchaseRequest(branchId: string | null) {
     async (prId: string) => {
       const { error } = await supabase.from("purchase_requests").update({ status: "Cancelled" }).eq("id", prId);
       if (error) {
-        toast.error("Failed to cancel PR");
+        toast.error("ยกเลิกใบสั่งซื้อไม่สำเร็จ");
         return;
       }
       toast.success("PR cancelled");

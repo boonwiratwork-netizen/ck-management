@@ -23,7 +23,7 @@ export function useSkuCategories() {
         if (fromDevice) setLoading(false);
       },
     ).then(({ error }) => {
-      if (error) toast.error('Failed to load SKU categories');
+      if (error) toast.error('โหลดหมวดสินค้าไม่สำเร็จ');
       setLoading(false);
     });
   }, []);

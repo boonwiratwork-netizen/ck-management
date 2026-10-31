@@ -49,7 +49,7 @@ export function useBranchReceiptData() {
       .select("*")
       .order("receipt_date", { ascending: false });
     if (error) {
-      toast.error("Failed to load branch receipts");
+      toast.error("โหลดรายการรับของไม่สำเร็จ");
       setLoading(false);
       return;
     }
@@ -80,7 +80,7 @@ export function useBranchReceiptData() {
       }));
       const { error } = await supabase.from("branch_receipts").insert(inserts);
       if (error) {
-        toast.error("Failed to save receipts: " + error.message);
+        toast.error("บันทึกรายการรับของไม่สำเร็จ: " + error.message);
         return 0;
       }
       await fetchReceipts();
@@ -106,7 +106,7 @@ export function useBranchReceiptData() {
         })
         .eq("id", id);
       if (error) {
-        toast.error("Failed to update receipt");
+        toast.error("แก้รายการรับของไม่สำเร็จ");
         return false;
       }
       await fetchReceipts();

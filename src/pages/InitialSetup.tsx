@@ -23,7 +23,7 @@ export default function InitialSetup({ onComplete }: Props) {
     supabase.from('user_roles').select('id').in('role', ['admin', 'management']).limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          toast.info('Setup already completed. Redirecting to login…');
+          toast.info('ตั้งค่าไว้แล้ว กำลังไปหน้าเข้าสู่ระบบ…');
           onComplete();
         } else {
           setChecking(false);
@@ -42,7 +42,7 @@ export default function InitialSetup({ onComplete }: Props) {
       return;
     }
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('รหัสผ่านอย่างน้อย 6 ตัว');
       return;
     }
     setLoading(true);
@@ -53,7 +53,7 @@ export default function InitialSetup({ onComplete }: Props) {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       setDone(true);
-      toast.success('Admin account created!');
+      toast.success('สร้างบัญชีผู้บริหารแล้ว');
     } catch (err: any) {
       toast.error(err.message);
     } finally {

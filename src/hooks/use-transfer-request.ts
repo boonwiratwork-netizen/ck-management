@@ -381,7 +381,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
         })
         .select("id")
         .single();
-      if (trError || !trRow) return { error: trError?.message || "Failed to create TR" };
+      if (trError || !trRow) return { error: trError?.message || "สร้างใบขอเบิกไม่สำเร็จ" };
 
       const lineInserts = lines
         .filter((l) => l.requestedQty > 0)
@@ -430,7 +430,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
 
       const { data, error } = await query;
       if (error) {
-        toast.error("Failed to load TR history");
+        toast.error("โหลดประวัติใบขอเบิกไม่สำเร็จ");
         setHistoryLoading(false);
         return;
       }
@@ -515,7 +515,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     async (trId: string) => {
       const { error } = await supabase.from("transfer_requests").update({ status: "Cancelled" }).eq("id", trId);
       if (error) {
-        toast.error("Failed to cancel TR");
+        toast.error("ยกเลิกใบขอเบิกไม่สำเร็จ");
         return;
       }
       toast.success("TR cancelled");

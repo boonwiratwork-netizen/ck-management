@@ -22,7 +22,7 @@ export function useDeliveryData(enabled = true) {
     if (!enabled) return;
     supabase.from('deliveries').select('*').order('created_at', { ascending: false })
       .then(({ data, error }) => {
-        if (error) { toast.error('Failed to load deliveries'); return; }
+        if (error) { toast.error('โหลดประวัติส่งของไม่สำเร็จ'); return; }
         setDeliveries((data || []).map(toLocal));
       });
   }, [enabled]);
@@ -37,7 +37,7 @@ export function useDeliveryData(enabled = true) {
       qty_delivered_g: data.qtyDeliveredG,
       note: data.note,
     }).select().single();
-    if (error) { toast.error('Failed to add delivery: ' + error.message); return; }
+    if (error) { toast.error('เพิ่มรายการส่งของไม่สำเร็จ: ' + error.message); return; }
     setDeliveries(prev => [toLocal(row), ...prev]);
     return row.id;
   }, []);
@@ -52,13 +52,13 @@ export function useDeliveryData(enabled = true) {
       qty_delivered_g: data.qtyDeliveredG,
       note: data.note,
     }).eq('id', id);
-    if (error) { toast.error('Failed to update delivery: ' + error.message); return; }
+    if (error) { toast.error('แก้รายการส่งของไม่สำเร็จ: ' + error.message); return; }
     setDeliveries(prev => prev.map(d => d.id === id ? { ...d, ...data, weekNumber } : d));
   }, []);
 
   const deleteDelivery = useCallback(async (id: string) => {
     const { error } = await supabase.from('deliveries').delete().eq('id', id);
-    if (error) { toast.error('Failed to delete delivery: ' + error.message); return; }
+    if (error) { toast.error('ลบรายการส่งของไม่สำเร็จ: ' + error.message); return; }
     setDeliveries(prev => prev.filter(d => d.id !== id));
   }, []);
 

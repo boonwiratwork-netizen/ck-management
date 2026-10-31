@@ -93,7 +93,7 @@ export function useProductionData(
         .select()
         .single();
       if (error) {
-        toast.error("Failed to add plan: " + error.message);
+        toast.error("เพิ่มแผนผลิตไม่สำเร็จ: " + error.message);
         return "";
       }
       setPlans((prev) => [toPlan(row), ...prev]);
@@ -134,7 +134,7 @@ export function useProductionData(
         })
         .eq("id", id);
       if (error) {
-        toast.error("Failed to update plan: " + error.message);
+        toast.error("แก้แผนผลิตไม่สำเร็จ: " + error.message);
         return;
       }
       setPlans((prev) => prev.map((p) => (p.id === id ? updated : p)));
@@ -146,7 +146,7 @@ export function useProductionData(
     await supabase.from("production_records").delete().eq("plan_id", id);
     const { error } = await supabase.from("production_plans").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete plan: " + error.message);
+      toast.error("ลบแผนผลิตไม่สำเร็จ: " + error.message);
       return;
     }
     setPlans((prev) => prev.filter((p) => p.id !== id));

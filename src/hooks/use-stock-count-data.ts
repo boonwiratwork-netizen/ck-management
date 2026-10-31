@@ -99,7 +99,7 @@ export function useStockCountData({
         .select()
         .single();
       if (error) {
-        toast.error("Failed to create session: " + error.message);
+        toast.error("สร้างรอบนับไม่สำเร็จ: " + error.message);
         return "";
       }
 
@@ -146,7 +146,7 @@ export function useStockCountData({
           .insert(newLines)
           .select();
         if (lineError) {
-          toast.error("Failed to create count lines: " + lineError.message);
+          toast.error("สร้างรายการนับไม่สำเร็จ: " + lineError.message);
         }
         if (insertedLines) setLines((prev) => [...insertedLines.map(toLine), ...prev]);
       }
@@ -170,7 +170,7 @@ export function useStockCountData({
       const { error } = await req;
       pendingSaves.current.delete(req);
       if (error) {
-        toast.error("Failed to update line: " + error.message);
+        toast.error("แก้รายการไม่สำเร็จ: " + error.message);
         return;
       }
       setLines((prev) =>
@@ -208,11 +208,11 @@ export function useStockCountData({
         .select();
 
       if (lockError) {
-        toast.error("Failed to confirm session: " + lockError.message);
+        toast.error("ยืนยันรอบนับไม่สำเร็จ: " + lockError.message);
         return false;
       }
       if (!lockResult || lockResult.length === 0) {
-        toast.info("Session already confirmed or no longer Draft");
+        toast.info("รอบนับนี้ยืนยันไปแล้ว");
         return false;
       }
 
@@ -223,7 +223,7 @@ export function useStockCountData({
         .eq("session_id", sessionId);
 
       if (linesError) {
-        toast.error("Failed to fetch count lines: " + linesError.message);
+        toast.error("โหลดรายการนับไม่สำเร็จ: " + linesError.message);
         return false;
       }
 
@@ -315,7 +315,7 @@ export function useStockCountData({
         })
         .eq("id", sessionId);
       if (error) {
-        toast.error("Failed to delete session: " + error.message);
+        toast.error("ลบรอบนับไม่สำเร็จ: " + error.message);
         return;
       }
 

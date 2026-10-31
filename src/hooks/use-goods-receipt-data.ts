@@ -39,7 +39,7 @@ export function useGoodsReceiptData(enabled = true) {
       query = query.gte('receipt_date', getNinetyDaysAgo());
     }
     const { data, error } = await query;
-    if (error) { toast.error('Failed to load goods receipts'); return; }
+    if (error) { toast.error('โหลดบิลรับของไม่สำเร็จ'); return; }
     setReceipts((data || []).map(toLocal));
     setIsFullHistory(fullHistory);
   }, []);
@@ -93,7 +93,7 @@ export function useGoodsReceiptData(enabled = true) {
   ) => {
     const dbRow = buildDbRow(data, sku, prices);
     const { data: row, error } = await supabase.from('goods_receipts').insert(dbRow).select().single();
-    if (error) { toast.error('Failed to add receipt: ' + error.message); return; }
+    if (error) { toast.error('เพิ่มรายการรับของไม่สำเร็จ: ' + error.message); return; }
     setReceipts(prev => [toLocal(row), ...prev]);
   }, []);
 
