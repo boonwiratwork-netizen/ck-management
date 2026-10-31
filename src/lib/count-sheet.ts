@@ -2,8 +2,9 @@
  * The paper count sheet for the central kitchen's monthly count, as one A4 HTML
  * page set: SM, then RM, then PK (each starts on a new page), split by storage
  * inside, with an empty box to write the count. The system figure is left off on
- * purpose so the count isn't nudged towards it. Header rows repeat on every page
- * and a row never splits across pages.
+ * purpose so the count isn't nudged towards it; the last finished count can be
+ * shown beside it (the kitchen asked for it — counted, not calculated). Header
+ * rows repeat on every page and a row never splits across pages.
  */
 
 export interface SheetItem {
@@ -11,6 +12,8 @@ export interface SheetItem {
   name: string;
   unit: string;
   storage: string;
+  /** What the last finished count found (null = not counted then) */
+  last?: number | null;
 }
 
 export interface SheetGroup {
@@ -24,7 +27,12 @@ const STORAGE_ORDER = ["Frozen", "Chilled", "Ambient"];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-export function countSheetHtml(p: { title: string; dateText: string; groups: SheetGroup[] }): string {
+const qty = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+/** `lastLabel` (e.g. "ยอดนับ 30 ก.ย.") adds the last count's column */
+export function countSheetHtml(p: { title: string; dateText: string; groups: SheetGroup[]; lastLabel?: string }): string {
+  const withLast = !!p.lastLabel;
+  const cols = withLast ? 6 : 5;
   const sections = p.groups
     .filter((g) => g.items.length)
     .map((g) => {
@@ -35,21 +43,21 @@ export function countSheetHtml(p: { title: string; dateText: string; groups: She
       const rows = byStorage
         .map(
           ({ st, items }) =>
-            `<tr class="zone"><td colspan="5">${esc(STORAGE_TITLE[st] ?? (st || "ไม่ระบุช่องเก็บ"))} · ${items.length} รายการ</td></tr>` +
+            `<tr class="zone"><td colspan="${cols}">${esc(STORAGE_TITLE[st] ?? (st || "ไม่ระบุช่องเก็บ"))} · ${items.length} รายการ</td></tr>` +
             items
-              .map((i) => `<tr><td class="no">${++n}</td><td class="code">${esc(i.code)}</td><td class="name">${esc(i.name)}</td><td class="unit">${esc(i.unit)}</td><td class="box"></td></tr>`)
+              .map((i) => `<tr><td class="no">${++n}</td><td class="code">${esc(i.code)}</td><td class="name">${esc(i.name)}</td><td class="unit">${esc(i.unit)}</td>${withLast ? `<td class="last">${i.last == null ? "—" : qty(i.last)}</td>` : ""}<td class="box"></td></tr>`)
               .join(""),
         )
         .join("");
       // The title sits in the table header so it repeats on every page of the type
       return `<section>
   <table>
-    <colgroup><col style="width:9mm"><col style="width:22mm"><col><col style="width:16mm"><col style="width:34mm"></colgroup>
+    <colgroup><col style="width:9mm"><col style="width:22mm"><col><col style="width:16mm">${withLast ? `<col style="width:28mm">` : ""}<col style="width:34mm"></colgroup>
     <thead>
-      <tr class="title"><th colspan="5"><div class="head"><h1>${esc(p.title)} · ${esc(TYPE_TITLE[g.type])}</h1><div class="meta">${esc(p.dateText)} · ${g.items.length} รายการ</div></div></th></tr>
-      <tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>หน่วย</th><th>นับได้</th></tr>
+      <tr class="title"><th colspan="${cols}"><div class="head"><h1>${esc(p.title)} · ${esc(TYPE_TITLE[g.type])}</h1><div class="meta">${esc(p.dateText)} · ${g.items.length} รายการ</div></div></th></tr>
+      <tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>หน่วย</th>${withLast ? `<th class="last">${esc(p.lastLabel!)}</th>` : ""}<th>นับได้</th></tr>
     </thead>
-    <tbody><tr class="who"><td colspan="5"><span>ผู้นับ ____________________</span><span>ผู้ตรวจ ____________________</span></td></tr></tbody>
+    <tbody><tr class="who"><td colspan="${cols}"><span>ผู้นับ ____________________</span><span>ผู้ตรวจ ____________________</span></td></tr></tbody>
     <tbody>
     <tbody>${rows}</tbody>
   </table>
@@ -79,6 +87,7 @@ td.no { font-size: 9pt; color: #444; }
 td.code { font-family: "Menlo", "Courier New", monospace; font-size: 8.5pt; }
 td.name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 td.unit { font-size: 10pt; }
+td.last, th.last { text-align: right; font-size: 10pt; color: #444; padding-right: 2mm; white-space: nowrap; }
 td.box { border: 0.75pt solid #000; }
 tr.zone td { height: 7mm; background: #eee; font-weight: bold; font-size: 10pt; border-bottom: 1pt solid #000; }
 @media screen { body { background: #888; } section { background: #fff; width: 210mm; min-height: 297mm; margin: 8mm auto; padding: 12mm 10mm; } }

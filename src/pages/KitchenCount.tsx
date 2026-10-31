@@ -106,16 +106,21 @@ export default function KitchenCountPage({ skus, stockCountData, getStdUnitPrice
   // ── Printing the A4 sheet ──
   const print = () => {
     const source: { skuId: string; type: string }[] = session ? lines.map((l) => ({ skuId: l.skuId, type: l.type })) : candidates.map((s) => ({ skuId: s.id, type: s.type }));
+    // The last finished count before this one, beside the box (the kitchen asked to see it)
+    const day = session?.date ?? dueDate;
+    const prev = sessions.filter((x) => x.status === "Completed" && x.date < day).sort((x, y) => (x.date < y.date ? 1 : -1))[0];
+    const lastQty = new Map((prev ? getLinesForSession(prev.id) : []).map((l) => [l.skuId, l.physicalQty]));
     const groups: SheetGroup[] = TYPES.map((t) => ({
       type: t,
       items: source
         .filter((x) => x.type === t)
         .map((x) => {
           const s = skuOf(x.skuId);
-          return { code: s?.skuId ?? "", name: s?.name ?? "", unit: s?.usageUom ?? "", storage: s?.storageCondition ?? "" };
+          return { code: s?.skuId ?? "", name: s?.name ?? "", unit: s?.usageUom ?? "", storage: s?.storageCondition ?? "", last: prev ? lastQty.get(x.skuId) ?? null : undefined };
         }),
     }));
-    const html = countSheetHtml({ title: "นับสต๊อกครัวกลาง", dateText: thaiDay(session?.date ?? dueDate), groups }).replace("</body>", "<script>window.onload=function(){window.print()}</script></body>");
+    const lastLabel = prev ? `ยอดนับ ${new Date(`${prev.date}T00:00:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}` : undefined;
+    const html = countSheetHtml({ title: "นับสต๊อกครัวกลาง", dateText: thaiDay(day), groups, lastLabel }).replace("</body>", "<script>window.onload=function(){window.print()}</script></body>");
     const w = window.open("", "_blank", "width=900,height=1000");
     if (!w) {
       toast.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ ลองอนุญาตป๊อปอัป");
