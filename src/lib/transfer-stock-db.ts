@@ -23,9 +23,21 @@ export type DbCall<T> = { kind: "answer"; value: T } | { kind: "unavailable" } |
  * was rolled back, nothing saved); "unknown" = no answer (the connection dropped): it may or may
  * not have saved, so the caller reads the database back before saying anything.
  */
+/** How long a database function may take before the app stops waiting */
+export const DB_CALL_TIMEOUT_MS = 15000;
+
 export async function callDbFunction<T>(fn: string, args: Record<string, unknown>): Promise<DbCall<T>> {
   const call = supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbError }>;
-  const { data, error } = await call(fn, args);
+  // No answer within the limit = "unknown" (the caller reads back), so a stuck connection or
+  // sign-in refresh never leaves a button spinning for minutes
+  const timedOut = Symbol("timeout");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const res = await Promise.race([
+    Promise.resolve(call(fn, args)),
+    new Promise<typeof timedOut>((resolve) => { timer = setTimeout(() => resolve(timedOut), DB_CALL_TIMEOUT_MS); }),
+  ]).finally(() => clearTimeout(timer));
+  if (res === timedOut) return { kind: "unknown", message: "ระบบไม่ตอบ ลองรีเฟรชหน้า (F5) แล้วดูยอดก่อนบันทึกซ้ำ" };
+  const { data, error } = res;
   if (!error) return { kind: "answer", value: data as T };
   if (isMissingFunction(error)) return { kind: "unavailable" };
   // An answer from the database carries its error code (P0001, 42501, PGRST…); a dropped connection has none

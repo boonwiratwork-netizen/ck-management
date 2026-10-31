@@ -89,7 +89,7 @@ export function MoveSheet({
     setBusy(false);
     if (ok === "unknown") {
       // No answer: it may have saved, and saving again blindly could move it twice
-      toast.error("ไม่แน่ใจว่าบันทึกแล้วหรือยัง ดูยอดในหน้าสต๊อกก่อนบันทึกซ้ำ");
+      toast.error("ระบบไม่ตอบ ไม่แน่ใจว่าบันทึกแล้วหรือยัง: กด F5 รีเฟรชหน้า แล้วดูยอดก่อนบันทึกซ้ำ");
       onSaved();
       return;
     }
