@@ -27,13 +27,19 @@ export type DbCall<T> = { kind: "answer"; value: T } | { kind: "unavailable" } |
 export const DB_CALL_TIMEOUT_MS = 15000;
 
 export async function callDbFunction<T>(fn: string, args: Record<string, unknown>): Promise<DbCall<T>> {
-  const call = supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbError }>;
+  // bind: rpc reads this.rest, so a detached supabase.rpc throws before sending anything
+  const call = supabase.rpc.bind(supabase) as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbError }>;
   // No answer within the limit = "unknown" (the caller reads back), so a stuck connection or
   // sign-in refresh never leaves a button spinning for minutes
   const timedOut = Symbol("timeout");
   let timer: ReturnType<typeof setTimeout> | undefined;
   const res = await Promise.race([
-    Promise.resolve(call(fn, args)),
+    Promise.resolve()
+      .then(() => call(fn, args))
+      .then(
+        (r) => r,
+        (e: unknown) => ({ data: null, error: { message: e instanceof Error ? e.message : String(e) } as DbError }),
+      ),
     new Promise<typeof timedOut>((resolve) => { timer = setTimeout(() => resolve(timedOut), DB_CALL_TIMEOUT_MS); }),
   ]).finally(() => clearTimeout(timer));
   if (res === timedOut) return { kind: "unknown", message: "ระบบไม่ตอบ ลองรีเฟรชหน้า (F5) แล้วดูยอดก่อนบันทึกซ้ำ" };

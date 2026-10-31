@@ -50,7 +50,8 @@ vi.mock("@/integrations/supabase/client", () => {
     };
     return b;
   };
-  return { supabase: { from, rpc: (fn: string, args: unknown) => (fake.calls.push({ table: `rpc:${fn}`, op: "select", payload: args, filters: [] }), Promise.resolve({ data: null, error: null, ...fake.rpc(fn, args) })) } };
+  // rpc needs its client as "this" like the real one (supabase-js reads this.rest): a detached call throws
+  return { supabase: { from, rpc(this: { from?: unknown } | undefined, fn: string, args: unknown) { if (!this?.from) throw new TypeError("Cannot read properties of undefined (reading 'rest')"); return (fake.calls.push({ table: `rpc:${fn}`, op: "select", payload: args, filters: [] }), Promise.resolve({ data: null, error: null, ...fake.rpc(fn, args) })); } } };
 });
 
 import { callDbFunction, moveOrder, orderState, releaseClaim, removeDistribution, syncDistribution } from "./transfer-stock-db";
