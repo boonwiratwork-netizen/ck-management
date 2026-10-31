@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Search, X } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { GoodsReceipt } from "@/types/goods-receipt";
-import { checksFor, frequentFor, lineTotal, perUnitText, qtyText, type DraftLine } from "@/lib/goods-receipt";
+import { billDraftKey, checksFor, frequentFor, lineTotal, perUnitText, qtyText, type DraftLine } from "@/lib/goods-receipt";
 import { NoteField, SkuPicker, baht, onEnterNext } from "@/components/receive/parts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ interface Props {
 }
 
 const SHOW_FIRST = 12;
-const draftKey = (date: string, supplierId: string | null) => `ck-gr-draft:${date}:${supplierId ?? "other"}`;
+const draftKey = billDraftKey;
 /** A draft older than this is dropped (it may already have been typed in another way) */
 const DRAFT_DAYS = 2;
 interface Draft {

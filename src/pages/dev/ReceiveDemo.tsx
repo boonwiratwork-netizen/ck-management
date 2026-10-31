@@ -81,17 +81,18 @@ export default function ReceiveDemo() {
       },
       receiveTransferOrder: async (to: PendingTO, rows: ReceiptRow[], byLine: Map<string, number>) => {
         await wait();
-        rows.forEach((r) => note(`INSERT branch_receipts ${JSON.stringify(r)}`));
         const status = transferOrderStatusAfter(to.lines, byLine);
-        note(`UPDATE transfer_orders ${to.toNumber} status=${status}`);
-        if (to.trId) note(`UPDATE transfer_requests ${to.trId} status=Fulfilled`);
+        // One transaction in the database: the order locked, still waiting, receipts + status together
+        note(`RPC receive_transfer_order(${to.toNumber}, ${status}) →`);
+        rows.forEach((r) => note(`  INSERT branch_receipts ${JSON.stringify(r)}`));
+        note(`  UPDATE transfer_orders ${to.toNumber} status=${status}${to.trId ? `; transfer_requests ${to.trId} status=Fulfilled` : ""}`);
         setHistory((h) => [...rows.map((r) => toHist(r, to.toNumber)), ...h]);
         if (status !== "Sent") setTos((t) => t.filter((x) => x.id !== to.id));
         return rows.length;
       },
       declineTransferOrder: async (to: PendingTO, reason: string) => {
         await wait();
-        note(`UPDATE transfer_orders ${to.toNumber} status=Declined decline_reason=${JSON.stringify(reason)}`);
+        note(`RPC decline_transfer_order(${to.toNumber}, ${JSON.stringify(reason)}) → status=Declined; kitchen RM/PK "Distribution: ${to.toNumber}" rows removed`);
         setTos((t) => t.filter((x) => x.id !== to.id));
         return true;
       },

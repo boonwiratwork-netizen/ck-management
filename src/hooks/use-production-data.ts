@@ -11,7 +11,7 @@ import { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { batchShare, batchesForRecord, deltas, ingredientsPerBatch, movementFor, outputPerBatch, recordTag, shareText } from "@/lib/production";
+import { batchShare, batchesForRecord, deltas, editMovesStock, editTarget, ingredientsPerBatch, movementFor, outputPerBatch, recordTag, shareText } from "@/lib/production";
 
 const toPlan = (r: any): ProductionPlan => ({
   id: r.id,
@@ -263,27 +263,27 @@ export function useProductionData(
         return false;
       }
       const perOut = getOutputPerBatch(old.smSkuId);
-      const patch: Record<string, unknown> = {
-        production_date: data.productionDate,
-        actual_output_g: data.actualOutputG,
-        batches_produced: batchesForRecord(data.actualOutputG, perOut),
-      };
-      if (data.notes !== undefined) patch.notes = data.notes;
-      const { error } = await supabase.from("production_records").update(patch as never).eq("id", id);
-      if (error) {
-        toast.error("แก้บันทึกไม่ได้: " + error.message);
+      const outputChanged = Math.abs(data.actualOutputG - old.actualOutputG) > 1e-6;
+      const moves = editMovesStock(old, data);
+      // Only what changed is written: a note alone keeps the batch count (legacy records read their untagged base from it)
+      const patch: Record<string, unknown> = {};
+      if (outputChanged) Object.assign(patch, { actual_output_g: data.actualOutputG, batches_produced: batchesForRecord(data.actualOutputG, perOut) });
+      if (old.productionDate !== data.productionDate) patch.production_date = data.productionDate;
+      if (data.notes !== undefined && data.notes !== (old.notes ?? "")) patch.notes = data.notes;
+      if (Object.keys(patch).length === 0) return true;
+      const { data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id");
+      if (error || !saved?.length) {
+        toast.error("แก้บันทึกไม่ได้" + (error ? ": " + error.message : ""));
         return false;
       }
-      const per = await perBatchFor(old.smSkuId);
+      const per = moves ? await perBatchFor(old.smSkuId) : null;
       if (per) {
         const { current: now, legacy } = await currentFor(old, per);
         const share = batchShare(data.actualOutputG, perOut);
-        // Legacy records: ingredients only (their by-products stay as they were)
-        const want = movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share);
-        // By-products were weighed when recorded: keep that amount, scaled by the new output
-        const oldShare = batchShare(old.actualOutputG, perOut);
-        if (legacy == null && oldShare > 0)
-          for (const b of per.byproducts) want.set(b.skuId, (now.get(b.skuId) ?? 0) * (share / oldShare));
+        // What this record took out, scaled to the new output: the rule it was saved with
+        // (records before 27 Oct 2026 took net amounts), not today's. By-products scale the
+        // same way (weighed when recorded); legacy records never moved theirs.
+        const want = editTarget(now, old.actualOutputG, data.actualOutputG, () => movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share));
         const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
         const bpReason = (what: string) => `Production by-product ${what} ${tag}`;
         if (old.productionDate !== data.productionDate) {
@@ -295,7 +295,11 @@ export function useProductionData(
         }
       }
       setRecords((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: batchesForRecord(data.actualOutputG, perOut), notes: data.notes ?? r.notes } : r)),
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: outputChanged ? batchesForRecord(data.actualOutputG, perOut) : r.batchesProduced, notes: data.notes ?? r.notes }
+            : r,
+        ),
       );
       return true;
     },

@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Check, ChevronDown, ChevronRight, Copy, Pencil, Plus, Printer, Undo2 } from "lucide-react";
 import type { PendingTR, TOHistoryRow, TOLine } from "@/hooks/use-transfer-order";
 import { isShort, kitchenSentShort, packsOf, sentQtyOf, transferBadges, type Badge, type SendCheck } from "@/lib/transfer-lines";
+import { isWaiting, wasSent } from "@/lib/transfer-stock";
 import { ActionFooter, baht } from "@/components/receive/parts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -483,7 +484,6 @@ export function TransferHistory({
   loadDetail,
   onEditSent,
   onCancel,
-  onDelete,
   onDiscardDrafts,
   onPrint,
   onBack,
@@ -501,11 +501,10 @@ export function TransferHistory({
   kind: Kind;
   onKind: (k: Kind) => void;
   staleDrafts: TOHistoryRow[];
-  can: { editSent: boolean; cancel: boolean; remove: boolean; discard: boolean };
+  can: { editSent: boolean; cancel: boolean; discard: boolean };
   loadDetail: (row: TOHistoryRow) => Promise<OrderDetail>;
   onEditSent: (row: TOHistoryRow) => void;
   onCancel: (row: TOHistoryRow) => void;
-  onDelete: (row: TOHistoryRow) => void;
   onDiscardDrafts: () => void;
   onPrint: (row: TOHistoryRow, d: OrderDetail) => void;
   onBack: () => void;
@@ -607,7 +606,6 @@ export function TransferHistory({
                   loadDetail={loadDetail}
                   onEditSent={onEditSent}
                   onCancel={onCancel}
-                  onDelete={onDelete}
                   onPrint={onPrint}
                   packSizeOf={packSizeOf}
                 />
@@ -642,7 +640,6 @@ function HistoryRow({
   loadDetail,
   onEditSent,
   onCancel,
-  onDelete,
   onPrint,
   packSizeOf,
 }: {
@@ -650,11 +647,10 @@ function HistoryRow({
   row: TOHistoryRow;
   open: boolean;
   onToggle: () => void;
-  can: { editSent: boolean; cancel: boolean; remove: boolean };
+  can: { editSent: boolean; cancel: boolean };
   loadDetail: (row: TOHistoryRow) => Promise<OrderDetail>;
   onEditSent: (row: TOHistoryRow) => void;
   onCancel: (row: TOHistoryRow) => void;
-  onDelete: (row: TOHistoryRow) => void;
   onPrint: (row: TOHistoryRow, d: OrderDetail) => void;
 }) {
   const [detail, setDetail] = useState<OrderDetail | null>(null);
@@ -704,7 +700,8 @@ function HistoryRow({
                   </tr>
                 </thead>
                 <tbody>
-                  {detail.lines.map((l) => {
+                  {/* A line set to 0 after sending (not sent) shows as its request's "ไม่ส่ง" row below */}
+                  {detail.lines.filter(wasSent).map((l) => {
                     const sent = sentQtyOf(l);
                     const got = detail.receivedBySku?.get(l.skuId) ?? 0;
                     const kitchenShort = !!l.trLineId && kitchenSentShort(l, packSizeOf(l.skuId));
@@ -758,14 +755,11 @@ function HistoryRow({
                 <Pencil className="h-4 w-4" /> แก้ใบที่ส่งแล้ว
               </Button>
             )}
-            {can.cancel && row.status === "Sent" && (
+            {/* A sent order is never deleted (its receipts would turn into supplier receipts): it is cancelled while nothing is
+                received — also one marked received whose receive didn't finish (no receipt saved) */}
+            {can.cancel && isWaiting({ status: row.status, receipts: row.receipts }) && (
               <Button variant="outline" className="h-10" onClick={() => onCancel(row)}>
                 <Undo2 className="h-4 w-4" /> ยกเลิกใบนี้
-              </Button>
-            )}
-            {can.remove && (
-              <Button variant="ghost" className="h-10 text-destructive hover:text-destructive" onClick={() => onDelete(row)}>
-                ลบ
               </Button>
             )}
           </div>

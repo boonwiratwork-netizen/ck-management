@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
-import { batchShare, batchesForRecord, daysTone, deltas, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput } from "./production";
+import { batchShare, batchesForRecord, daysTone, deltas, editMovesStock, editTarget, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput } from "./production";
 
 const header = (o: Partial<BOMHeader>): BOMHeader => ({ id: "h", smSkuId: "sm", productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1, ...o }) as BOMHeader;
 const line = (o: Partial<BOMLine>): BOMLine => ({ id: Math.random().toString(), bomHeaderId: "h", rmSkuId: "bone", qtyPerBatch: 1000, yieldPercent: 1, ...o }) as BOMLine;
@@ -90,5 +90,35 @@ describe("output far from usual", () => {
     expect(farFromUsual(200000, 33000)).toBe(true);
     expect(farFromUsual(16500, 33000)).toBe(false);
     expect(farFromUsual(3500, 0)).toBe(false);
+  });
+});
+
+describe("editing a saved record", () => {
+  // A record saved before the bought-amount rule (27 Oct 2026): 1 batch took the trimmed 100 g of garlic
+  const garlic = [line({ rmSkuId: "garlic", qtyPerBatch: 100, yieldPercent: 0.55 })];
+  const today = () => movementFor(ingredientsPerBatch(header({}), garlic, []), [], 1);
+  const savedNet = new Map([["garlic", -100]]);
+
+  it("a note alone, or the same numbers again, moves no stock", () => {
+    const r = { actualOutputG: 33000, productionDate: "2026-10-26" };
+    expect(editMovesStock(r, { ...r })).toBe(false);
+    expect(editMovesStock(r, { ...r, actualOutputG: 30000 })).toBe(true);
+    expect(editMovesStock(r, { ...r, productionDate: "2026-10-25" })).toBe(true);
+  });
+
+  it("an output change scales what that record took, by its own rule (not today's)", () => {
+    // 33 kg → 16.5 kg: half of the 100 g it took, not half of today's 182 g
+    expect([...editTarget(savedNet, 33000, 16500, today)]).toEqual([["garlic", -50]]);
+    expect(deltas(editTarget(savedNet, 33000, 16500, today), savedNet)).toEqual([{ skuId: "garlic", qty: 50 }]);
+    // Unchanged output (a day move): exactly what it has, nothing re-worked
+    expect(deltas(editTarget(savedNet, 33000, 33000, today), savedNet)).toEqual([]);
+    // What the old edit did: today's rule against net rows took 82 g more for a note change
+    expect(deltas(today(), savedNet)[0].qty).toBeCloseTo(-81.82, 2);
+  });
+
+  it("by-products scale with it; today's recipe only when the record has nothing out or made nothing", () => {
+    expect([...editTarget(new Map([["bone", -1000], ["fat", 120]]), 33000, 66000, today)]).toEqual([["bone", -2000], ["fat", 240]]);
+    expect([...editTarget(new Map(), 33000, 16500, today)]).toEqual([...today()]);
+    expect([...editTarget(savedNet, 0, 16500, today)]).toEqual([...today()]);
   });
 });

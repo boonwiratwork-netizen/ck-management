@@ -52,7 +52,7 @@ const PENDING: PendingTR[] = [
   { trId: "t3", trNumber: "TR-2026-10-015", branchId: "b2", branchName: "Thaniya", requestedDate: "2026-10-24", requiredDate: "2026-10-26", createdAt: "2026-10-24T01:10:00Z", itemCount: 11, lines: [], draft: { toId: "d", toNumber: "TO-2026-10-024", createdAt: "2026-10-25T01:12:00Z" } },
 ];
 const row = (id: string, branch: string, status: string, k: number, b: number, day: string): TOHistoryRow => ({
-  id, toNumber: id, deliveryDate: day, branchId: branch, branchName: branch, trId: null, trRef: "TR-2026-10-0xx", itemCount: 10, totalValue: 9364, status, createdAt: `${day}T02:00:00Z`, updatedAt: `${day}T02:09:00Z`, notes: "", hasLineNotes: false, kitchenShort: k, branchShort: b,
+  id, toNumber: id, deliveryDate: day, branchId: branch, branchName: branch, trId: null, trRef: "TR-2026-10-0xx", itemCount: 10, totalValue: 9364, status, createdAt: `${day}T02:00:00Z`, updatedAt: `${day}T02:09:00Z`, notes: "", hasLineNotes: false, kitchenShort: k, branchShort: b, receipts: status === "Sent" ? 0 : 5,
 });
 const today = new Date().toISOString().slice(0, 10);
 const HISTORY = [row("TO-2026-10-023", "Shiro", "Received", 0, 0, today), row("TO-2026-10-022", "Thaniya", "Partially Received", 0, 1, today), row("TO-2026-10-020", "Shiro", "Sent", 1, 0, today)];
@@ -154,11 +154,10 @@ export default function TransferDemo() {
         kind={kind}
         onKind={setKind}
         staleDrafts={[row("TO-2026-04-018", "Thaniya", "Draft", 0, 0, "2026-04-22")]}
-        can={{ editSent: true, cancel: true, remove: true, discard: true }}
+        can={{ editSent: true, cancel: true, discard: true }}
         loadDetail={async () => detail}
         onEditSent={() => undefined}
         onCancel={() => undefined}
-        onDelete={() => undefined}
         onDiscardDrafts={() => undefined}
         onPrint={() => undefined}
         onBack={() => go("")}

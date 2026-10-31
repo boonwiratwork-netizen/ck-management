@@ -75,6 +75,26 @@ export function deltas(target: Map<string, number>, current: Map<string, number>
 /** "0.73" / "1" for the adjustment reason */
 export const shareText = (share: number) => (Math.abs(share - Math.round(share)) < 0.005 ? String(Math.round(share)) : share.toFixed(2));
 
+/** An edit moves stock only when the output or the day changed: a note alone moves nothing */
+export const editMovesStock = (old: { actualOutputG: number; productionDate: string }, next: { actualOutputG: number; productionDate: string }) =>
+  Math.abs(next.actualOutputG - old.actualOutputG) > 1e-6 || next.productionDate !== old.productionDate;
+
+/**
+ * What an edited record should have out: what it has out now (its own rows — the rule and
+ * recipe it was saved with) scaled to the new output. Re-working it with today's rule turned
+ * every edit of a record saved before the bought-amount rule (27 Oct 2026, net amounts) into
+ * a correction, even a note-only one. Today's recipe (`fresh`) is used only for a record that
+ * has nothing out yet or made nothing before.
+ */
+export function editTarget(current: Map<string, number>, oldOutputG: number, newOutputG: number, fresh: () => Map<string, number>): Map<string, number> {
+  const hasOut = [...current.values()].some((q) => Math.abs(q) > 0.0001);
+  if (!hasOut || oldOutputG <= 0) return fresh();
+  const k = newOutputG / oldOutputG;
+  const out = new Map<string, number>();
+  for (const [id, q] of current) if (Math.abs(q) > 0.0001) out.set(id, q * k);
+  return out;
+}
+
 // ─── Weekly plan ───
 
 export interface PlanFacts {

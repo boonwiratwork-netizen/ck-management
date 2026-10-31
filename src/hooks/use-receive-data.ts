@@ -5,6 +5,9 @@ import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
 import type { BranchReceipt } from "@/hooks/use-branch-receipt-data";
 import { CK_SUPPLIER_NAME, transferOrderStatusAfter, type ReceiptRow } from "@/lib/receive-rows";
+import { OVER_RECEIVE, UNFINISHED_DAYS, declineAnswer, overReceived, receiveAnswer, receiveSent, returnSent, statusWord, waitingOrders, wasSent, type DbDeclineAnswer, type DbReceiveAnswer, type ReceiveResult, type ReturnResult } from "@/lib/transfer-stock";
+import { callTransferFunction, moveOrder, orderState, releaseClaim, removeDistribution } from "@/lib/transfer-stock-db";
+import { bangkokDate, shiftDay } from "@/lib/day-follow";
 
 /**
  * Everything the Receive page reads and writes. On open, pending transfer orders,
@@ -43,6 +46,8 @@ export interface HistoryReceipt extends BranchReceipt {
 }
 
 const RECEIPT_SELECT = "*, transfer_orders(to_number)";
+// With its receipt count: an order received before store managers could close it is still "Sent"
+const PENDING_SELECT = "id, to_number, status, delivery_date, tr_id, transfer_order_lines!to_id(id, sku_id, planned_qty, actual_qty, uom, unit_cost, notes, packs_count), branch_receipts!transfer_order_id(count)";
 
 const toLocal = (row: any): HistoryReceipt => ({
   id: row.id,
@@ -99,15 +104,14 @@ export function useReceiveData(opts: {
     const run = ++latest.current;
     setLoading(true);
     const today = format(new Date(), "yyyy-MM-dd");
-    const [tos, prs, hist] = await Promise.all([
+    const unfinishedFrom = shiftDay(bangkokDate(), -UNFINISHED_DAYS);
+    const [sent, unfinished, prs, hist] = await Promise.all([
       branchId
-        ? supabase
-            .from("transfer_orders")
-            .select("id, to_number, delivery_date, tr_id, transfer_order_lines!to_id(id, sku_id, planned_qty, actual_qty, uom, unit_cost, notes, packs_count)")
-            .eq("branch_id", branchId)
-            .eq("status", "Sent")
-            .order("delivery_date")
-            .order("id")
+        ? supabase.from("transfer_orders").select(PENDING_SELECT).eq("branch_id", branchId).eq("status", "Sent").order("delivery_date").order("id")
+        : Promise.resolve({ data: [], error: null }),
+      // Marked received with nothing saved: a receive that didn't finish waits too
+      branchId
+        ? supabase.from("transfer_orders").select(PENDING_SELECT).eq("branch_id", branchId).in("status", ["Received", "Partially Received"]).gte("delivery_date", unfinishedFrom).order("delivery_date").order("id")
         : Promise.resolve({ data: [], error: null }),
       branchId
         ? supabase
@@ -133,25 +137,32 @@ export function useReceiveData(opts: {
         : Promise.resolve({ data: [], error: null }),
     ]);
     if (run !== latest.current) return;
-    if (tos.error || prs.error || hist.error) toast.error("โหลดข้อมูลรับของไม่ครบ ลองรีเฟรช");
+    if (sent.error || unfinished.error || prs.error || hist.error) toast.error("โหลดข้อมูลรับของไม่ครบ ลองรีเฟรช");
 
+    // Anything already in this branch's stock is never offered a second time
+    const orders = ([...(sent.data ?? []), ...(unfinished.data ?? [])] as any[]).map((to) => ({ ...to, receipts: Number(to.branch_receipts?.[0]?.count) || 0 }));
     setPendingTOs(
-      ((tos.data ?? []) as any[]).map((to) => ({
-        id: to.id,
-        toNumber: to.to_number,
-        deliveryDate: to.delivery_date,
-        trId: to.tr_id ?? null,
-        lines: (to.transfer_order_lines ?? []).map((l: any) => ({
-          id: l.id,
-          skuId: l.sku_id,
-          plannedQty: Number(l.planned_qty),
-          actualQty: Number(l.actual_qty),
-          uom: l.uom,
-          unitCost: Number(l.unit_cost),
-          notes: l.notes || "",
-          sentPacks: l.packs_count ?? null,
+      waitingOrders(orders, unfinishedFrom)
+        .sort((a, b) => a.delivery_date.localeCompare(b.delivery_date) || String(a.id).localeCompare(String(b.id)))
+        .map((to) => ({
+          id: to.id,
+          toNumber: to.to_number,
+          deliveryDate: to.delivery_date,
+          trId: to.tr_id ?? null,
+          lines: (to.transfer_order_lines ?? [])
+            .map((l: any) => ({
+              id: l.id,
+              skuId: l.sku_id,
+              plannedQty: Number(l.planned_qty),
+              actualQty: Number(l.actual_qty),
+              uom: l.uom,
+              unitCost: Number(l.unit_cost),
+              notes: l.notes || "",
+              sentPacks: l.packs_count ?? null,
+            }))
+            // Set to 0 by the kitchen after sending (not sent): nothing to receive
+            .filter(wasSent),
         })),
-      })),
     );
 
     // Same grouping as the old batch receive: by supplier, qty summed per SKU
@@ -192,8 +203,8 @@ export function useReceiveData(opts: {
     async (rows: ReceiptRow[]): Promise<number> => {
       if (rows.length === 0) return 0;
       const { data, error } = await supabase.from("branch_receipts").insert(rows.map(toInsert)).select(RECEIPT_SELECT);
-      if (error) {
-        toast.error("บันทึกรับของไม่สำเร็จ: " + error.message);
+      if (error || (data?.length ?? 0) < rows.length) {
+        toast.error("บันทึกรับของไม่สำเร็จ" + (error ? ": " + error.message : ""));
         return 0;
       }
       keepNew(data ?? []);
@@ -202,39 +213,104 @@ export function useReceiveData(opts: {
     [historyKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  /** Receive a transfer order: rows, then its status and its request, like before */
+  const drop = useCallback((toId: string) => setPendingTOs((prev) => prev.filter((t) => t.id !== toId)), []);
+
+  /**
+   * Receive a transfer order. With the 1 Nov 2026 migration in, receive_transfer_order does it
+   * in one transaction (the order locked, still waiting, its receipts saved once and its status
+   * set together); before that, the same steps here (lib/transfer-stock.ts receiveSent). After
+   * any failure the database decides: receipts saved for it = received.
+   */
   const receiveTransferOrder = useCallback(
     async (to: PendingTO, rows: ReceiptRow[], receivedByLine: Map<string, number>): Promise<number> => {
-      const count = await saveRows(rows);
-      if (!count) return 0;
       const status = transferOrderStatusAfter(to.lines, receivedByLine);
-      const [toUpd, trUpd] = await Promise.all([
-        supabase.from("transfer_orders").update({ status }).eq("id", to.id),
-        to.trId ? supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.trId) : Promise.resolve({ error: null }),
-      ]);
-      if (toUpd.error) {
-        toast.error("รับของสำเร็จ แต่อัปเดตสถานะใบโอนไม่ได้: " + toUpd.error.message);
-        return count;
+      if (rows.length === 0 || status === "Sent") return 0;
+      // A typing slip (80,000 for 8,000) would go straight into the branch's stock: the database refuses it too
+      const over = overReceived(to.lines, receivedByLine);
+      if (over.length) {
+        toast.error(`จำนวนที่รับมากกว่าที่ส่งมาเกิน ${OVER_RECEIVE} เท่า (${over.length} รายการ) ตรวจตัวเลขอีกครั้ง`);
+        return 0;
       }
-      if (trUpd.error) toast.error("รับของสำเร็จ แต่อัปเดตใบขอเบิกไม่ได้: " + trUpd.error.message);
-      if (status !== "Sent") setPendingTOs((prev) => prev.filter((t) => t.id !== to.id));
-      return count;
+      const db = await callTransferFunction<DbReceiveAnswer>("receive_transfer_order", { p_to_id: to.id, p_status: status, p_rows: rows.map(toInsert) });
+      let res: ReceiveResult;
+      if (db.kind === "answer") {
+        res = receiveAnswer(db.value, rows.length);
+        if (res.kind === "saved") keepNew(db.value.rows ?? []);
+      } else if (db.kind === "unavailable") {
+        res = await receiveSent(
+          {
+            read: () => orderState(to.id),
+            move: (from, s) => moveOrder(to.id, from, { status: s }),
+            release: (s) => releaseClaim(to.id, s),
+            save: () => saveRows(rows),
+          },
+          status,
+        );
+      } else {
+        // Refused, or the reply got lost: what does the database hold now?
+        const now = await orderState(to.id);
+        res = now && now.receipts > 0 ? { kind: "already" } : { kind: "error", message: db.message };
+      }
+      if (res.kind === "failed") {
+        toast.error(`ใบโอน ${to.toNumber} ยังไม่ได้รับเข้าสต๊อก ลองกดบันทึกอีกครั้ง`);
+        return 0;
+      }
+      if (res.kind === "error") {
+        toast.error("รับของไม่สำเร็จ: " + res.message);
+        return 0;
+      }
+      drop(to.id);
+      if (res.kind === "already") {
+        toast.info(`ใบโอน ${to.toNumber} รับเข้าสต๊อกแล้ว ไม่ต้องบันทึกซ้ำ`);
+        load(); // show what was saved
+        return 0;
+      }
+      if (res.kind === "taken") {
+        toast.error(`ใบโอน ${to.toNumber} ถูก${statusWord(res.status)}ไปแล้ว (อีกเครื่องหรือครัวกลาง)`);
+        return 0;
+      }
+      if (!res.closed) toast.warning("บันทึกรับของแล้ว แต่ปิดใบโอนไม่ได้ (บัญชีนี้ยังไม่มีสิทธิ์) แจ้งผู้ดูแลระบบ");
+      // The database function closes the request itself
+      if (db.kind !== "answer" && to.trId) {
+        const { data, error } = await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.trId).select("id");
+        if (error || !data?.length) toast.error("รับของสำเร็จ แต่อัปเดตใบขอเบิกไม่ได้" + (error ? ": " + error.message : ""));
+      }
+      return res.count;
     },
-    [saveRows],
+    [saveRows, drop, load], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const declineTransferOrder = useCallback(async (to: PendingTO, reason: string): Promise<boolean> => {
-    const { error } = await supabase
-      .from("transfer_orders")
-      .update({ status: "Declined", decline_reason: reason.trim() || null })
-      .eq("id", to.id);
-    if (error) {
-      toast.error("ปฏิเสธใบโอนไม่สำเร็จ: " + error.message);
+  /** Decline: decline_transfer_order once installed, else the same steps as the kitchen's cancel (returnSent) */
+  const declineTransferOrder = useCallback(
+    async (to: PendingTO, reason: string): Promise<boolean> => {
+      const db = await callTransferFunction<DbDeclineAnswer>("decline_transfer_order", { p_to_id: to.id, p_reason: reason });
+      let res: ReturnResult | { kind: "already" };
+      if (db.kind === "answer") res = declineAnswer(db.value);
+      else if (db.kind === "unavailable")
+        res = await returnSent({
+          read: () => orderState(to.id),
+          move: (from) => moveOrder(to.id, from, { status: "Declined", decline_reason: reason.trim() || null }),
+          returnStock: () => removeDistribution(to),
+        });
+      else {
+        const now = await orderState(to.id);
+        res = now?.status === "Declined" ? { kind: "already" } : { kind: "error", message: db.message };
+      }
+      if (res.kind === "done" || res.kind === "already") {
+        if (res.kind === "done" && res.stockError) toast.error("ปฏิเสธแล้ว แต่คืนสต๊อกวัตถุดิบ/บรรจุภัณฑ์ให้ครัวไม่ได้ แจ้งครัวกลาง: " + res.stockError);
+        drop(to.id);
+        return true;
+      }
+      if (res.kind === "received") toast.error(`ใบโอน ${to.toNumber} รับเข้าสต๊อกไปแล้ว ปฏิเสธไม่ได้`);
+      else if (res.kind === "taken") {
+        toast.error(`ใบโอน ${to.toNumber} ถูก${statusWord(res.status)}ไปแล้ว (อีกเครื่องหรือครัวกลาง)`);
+        drop(to.id);
+      } else if (res.kind === "blocked") toast.error("บัญชีนี้ยังปฏิเสธใบโอนไม่ได้ ให้ครัวกลางกดยกเลิกใบนี้แทน");
+      else toast.error("ปฏิเสธใบโอนไม่สำเร็จ: " + res.message);
       return false;
-    }
-    setPendingTOs((prev) => prev.filter((t) => t.id !== to.id));
-    return true;
-  }, []);
+    },
+    [drop],
+  );
 
   /** Mark purchase requests fulfilled after their goods were received */
   const fulfilPurchaseRequests = useCallback(async (supplierId: string, prIds: string[]) => {

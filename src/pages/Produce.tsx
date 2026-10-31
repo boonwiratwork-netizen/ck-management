@@ -13,6 +13,7 @@ import { usePlanningAgent } from "@/hooks/use-planning-agent";
 import type { SmUseRead } from "@/hooks/use-sm-daily-usage";
 import { UseReadError } from "@/components/UseReadError";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkDay } from "@/hooks/use-today";
 import { farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
 import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
@@ -116,9 +117,9 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   const setMode = (m: "record" | "plan") => navigate({ pathname: location.pathname, hash: m === "plan" ? "#plan" : "" }, { replace: true });
   const guide = useGuide("production-v1");
 
-  const today = iso(new Date());
+  // The production day follows today on a tablet left open overnight (unless another day was picked)
+  const { day, setDay, today } = useWorkDay();
   const thisWeek = getWeekStart(today);
-  const [day, setDay] = useState(today);
   const recordWeek = getWeekStart(day);
   const [planWeek, setPlanWeek] = useState(() => iso(addDays(new Date(thisWeek + "T00:00:00"), 7)));
 

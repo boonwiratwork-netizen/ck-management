@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { format } from "date-fns";
 import { HelpCircle } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Supplier } from "@/types/supplier";
 import type { Price } from "@/types/price";
 import type { GoodsReceipt } from "@/types/goods-receipt";
 import type { useGoodsReceiptData } from "@/hooks/use-goods-receipt-data";
-import { billsOf, lineTotal, noteWithoutPlace, placeOf, supplierRank, type Bill } from "@/lib/goods-receipt";
+import { billsOf, hasBillDraft, lineTotal, noteWithoutPlace, placeOf, supplierRank, type Bill } from "@/lib/goods-receipt";
 import { BillEntry, type SavedBill } from "@/components/goods-receipt/BillEntry";
+import { useWorkDay } from "@/hooks/use-today";
 import { EditLineDialog, GRHistory, GRSide } from "@/components/goods-receipt/GRViews";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,11 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
   const go = (v: string, replace = false) => navigate({ pathname: location.pathname, hash: v ? `#${v}` : "" }, { replace });
   const guide = useGuide("kitchen-receive-v1");
 
-  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const billFor = view.startsWith("bill/") ? view.slice(5) : null;
+  const billSupplier = billFor && billFor !== "other" ? billFor : null;
+  // The receipt day follows today on a tablet left open overnight (unless another day was
+  // picked); a bill with lines typed in keeps its day until it is saved or left
+  const { day: date, setDay: setDate, today } = useWorkDay((d) => !!billFor && hasBillDraft(d, billSupplier));
   const skuOf = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const supplierById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
   const supplierName = (id: string) => supplierById.get(id)?.name ?? "ไม่ทราบเจ้า";
@@ -72,9 +76,6 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<GoodsReceipt | null>(null);
   const [openKey, setOpenKey] = useState<string | undefined>();
-
-  const billFor = view.startsWith("bill/") ? view.slice(5) : null;
-  const billSupplier = billFor && billFor !== "other" ? billFor : null;
 
   const [backDated, setBackDated] = useState(false);
   const saveBill = async (bill: SavedBill) => {
@@ -111,7 +112,7 @@ export default function KitchenReceivePage({ receiptData, skus, suppliers, price
       );
       // A line added to an old bill doesn't leave the page on that old day
       if (backDated) {
-        setDate(format(new Date(), "yyyy-MM-dd"));
+        setDate(today);
         setBackDated(false);
       }
       go("", true);

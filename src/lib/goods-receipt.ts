@@ -89,6 +89,18 @@ export function billsOf(receipts: GoodsReceipt[]): Bill[] {
 /** What a line costs: the bill's amount, or the standard when none was typed (as before) */
 export const lineTotal = (typed: number | null, stdUnit: number, qty: number) => (typed != null ? typed : stdUnit * qty);
 
+/** Where a bill being typed is kept on this device until saved (BillEntry) */
+export const billDraftKey = (date: string, supplierId: string | null) => `ck-gr-draft:${date}:${supplierId ?? "other"}`;
+
+/** Lines typed into this day's bill and not saved yet (the page keeps its day while there are) */
+export function hasBillDraft(date: string, supplierId: string | null): boolean {
+  try {
+    return localStorage.getItem(billDraftKey(date, supplierId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export interface DraftLine {
   key: string;
   skuId: string;

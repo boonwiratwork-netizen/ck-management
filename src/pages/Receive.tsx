@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { addDays, format } from "date-fns";
 import { ArrowLeft, HelpCircle, History } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -8,6 +7,8 @@ import type { Branch } from "@/types/branch";
 import type { Supplier } from "@/types/supplier";
 import { useAuth } from "@/hooks/use-auth";
 import { useReceiveData, type HistoryReceipt, type PendingTO } from "@/hooks/use-receive-data";
+import { useWorkDay } from "@/hooks/use-today";
+import { shiftDay } from "@/lib/day-follow";
 import { stdUnitPriceFor, type ReceiptRow } from "@/lib/receive-rows";
 import { getRecentSupplierIds, pushRecentSupplier } from "@/lib/receive-scan";
 import { ReceiveHome } from "@/components/receive/ReceiveHome";
@@ -103,9 +104,17 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
     lockedBranch ??
     (activeBranches.length === 0 ? pickedBranch : activeBranches.some((b) => b.id === pickedBranch) ? pickedBranch : activeBranches[0].id);
   const branch = activeBranches.find((b) => b.id === branchId);
-  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
-  const today = format(new Date(), "yyyy-MM-dd");
-  const [range, setRange] = useState(() => ({ from: format(addDays(new Date(), -HISTORY_DAYS), "yyyy-MM-dd"), to: today }));
+  // The receipt day follows today on a tablet left open overnight (unless another day was picked)
+  const { day: date, setDay: setDate, today } = useWorkDay();
+  const [range, setRange] = useState(() => ({ from: shiftDay(today, -HISTORY_DAYS), to: today }));
+  // The history keeps ending today too, so this morning's receipts show in it
+  const rangeDay = useRef(today);
+  useEffect(() => {
+    if (rangeDay.current === today) return;
+    const was = rangeDay.current;
+    rangeDay.current = today;
+    setRange((r) => (r.to === was ? { ...r, to: today } : r));
+  }, [today]);
 
   const live = useReceiveData({
     branchId: demoData ? null : branchId || null,

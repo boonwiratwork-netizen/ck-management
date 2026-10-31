@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GoodsReceipt } from "@/types/goods-receipt";
-import { billsOf, checksFor, frequentFor, noteWithoutPlace, perUnitText, placeOf, qtyText, stalePrices, supplierRank } from "./goods-receipt";
+import { billDraftKey, billsOf, checksFor, frequentFor, hasBillDraft, noteWithoutPlace, perUnitText, placeOf, qtyText, stalePrices, supplierRank } from "./goods-receipt";
 
 const r = (o: Partial<GoodsReceipt>): GoodsReceipt => ({
   id: Math.random().toString(),
@@ -92,5 +92,17 @@ describe("units for people", () => {
     expect(perUnitText(1.5, "ใบ")).toBe("฿1.5/ใบ");
     expect(qtyText(20000, "ก.")).toBe("20 กก.");
     expect(qtyText(450, "ก.")).toBe("450 ก.");
+  });
+});
+
+describe("a bill typed but not saved", () => {
+  it("keeps the kitchen receive page on its day (the page follows today otherwise)", () => {
+    localStorage.removeItem(billDraftKey("2026-10-31", "fk"));
+    expect(hasBillDraft("2026-10-31", "fk")).toBe(false);
+    localStorage.setItem(billDraftKey("2026-10-31", "fk"), JSON.stringify({ rows: [{ key: "s1", skuId: "s1", qty: 500, total: null, note: "" }] }));
+    expect(hasBillDraft("2026-10-31", "fk")).toBe(true);
+    expect(hasBillDraft("2026-11-01", "fk")).toBe(false);
+    expect(hasBillDraft("2026-10-31", null)).toBe(false);
+    localStorage.removeItem(billDraftKey("2026-10-31", "fk"));
   });
 });

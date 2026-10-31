@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { branchShortCount, kitchenShortCount } from "@/lib/transfer-lines";
+import { ZERO_AFTER_SEND, isDelivered, planLineEdits, returnSent, statusWord } from "@/lib/transfer-stock";
+import { callTransferFunction, moveOrder, orderState, removeDistribution, syncDistribution } from "@/lib/transfer-stock-db";
 
 export interface PendingTR {
   trId: string;
@@ -63,6 +64,8 @@ export interface TOHistoryRow {
   kitchenShort: number;
   /** Lines the branch received >10% under what was sent (only once received) */
   branchShort: number;
+  /** Branch receipts saved for it (0 on a "received" order = a receive that didn't finish: it can still be cancelled) */
+  receipts: number;
 }
 
 export interface HistoryFilters {
@@ -93,29 +96,6 @@ async function linesOfTO(toId: string): Promise<TOLine[]> {
     trLineId: d.tr_line_id,
     packsCount: d.packs_count ?? null,
   }));
-}
-
-/** Kitchen stock taken out for a sent order's RM/PK lines (SM stock is read from the lines) */
-async function writeDistributionAdjustments(toId: string, toNumber: string): Promise<string | null> {
-  const { data: lines, error } = await supabase
-    .from("transfer_order_lines")
-    .select("sku_id, actual_qty, sku_type")
-    .eq("to_id", toId)
-    .in("sku_type", ["RM", "PK"]);
-  if (error) return error.message;
-  const today = toLocalDateStr(new Date());
-  const rows = (lines || [])
-    .filter((l) => l.actual_qty > 0)
-    .map((l) => ({
-      sku_id: l.sku_id,
-      quantity: -l.actual_qty,
-      stock_type: l.sku_type === "PK" ? "PK" : "RM",
-      adjustment_date: today,
-      reason: `Distribution: ${toNumber}`,
-    }));
-  if (rows.length === 0) return null;
-  const { error: insErr } = await supabase.from("stock_adjustments").insert(rows);
-  return insErr ? insErr.message : null;
 }
 
 /**
@@ -308,7 +288,9 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     const linesBy = new Map<string, any[]>();
     for (const l of lineRes.data) linesBy.set(l.to_id, [...(linesBy.get(l.to_id) || []), l]);
     const receivedBy = new Map<string, Map<string, number>>();
+    const receiptsOf = new Map<string, number>();
     for (const r of receiptRes.data) {
+      receiptsOf.set(r.transfer_order_id, (receiptsOf.get(r.transfer_order_id) || 0) + 1);
       const m = receivedBy.get(r.transfer_order_id) || new Map<string, number>();
       m.set(r.sku_id, (m.get(r.sku_id) || 0) + (Number(r.qty_received) || 0));
       receivedBy.set(r.transfer_order_id, m);
@@ -345,6 +327,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           hasLineNotes: (linesBy.get(d.id) || []).some((l) => (l.notes || "").trim() !== ""),
           kitchenShort: sent ? kitchenShortCount(lines, d.tr_id ? declinedBy.get(d.tr_id) || 0 : 0) : 0,
           branchShort: received ? branchShortCount(lines, receivedBy.get(d.id) || new Map()) : 0,
+          receipts: receiptsOf.get(d.id) || 0,
         };
       }),
     );
@@ -504,7 +487,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         .update(patch)
         .eq("id", toId)
         .eq("status", "Draft")
-        .select("id, tr_id, to_number");
+        .select("id, tr_id, to_number, sent_at, delivery_date");
       if (error) return { error: error.message };
       const to = sentRows?.[0];
       if (!to) return { error: "ใบนี้ถูกส่งไปแล้ว" };
@@ -514,17 +497,19 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
           supabase
             .from("transfer_order_lines")
             .update({ actual_qty: l.actualQty, line_value: l.actualQty * l.unitCost, notes: l.note, packs_count: l.packsCount })
-            .eq("id", l.id),
+            .eq("id", l.id)
+            .select("id"),
         ),
       );
-      const failed = results.find((r) => r.error);
-      if (failed?.error) {
-        // Put it back to a draft so nothing is taken out of stock half-written
-        await supabase.from("transfer_orders").update({ status: "Draft" }).eq("id", toId).eq("status", "Sent");
-        return { error: "บันทึกบางรายการไม่ได้ ยังไม่ได้ส่ง: " + failed.error.message };
+      const failed = results.find((r) => r.error || !r.data?.length);
+      if (failed) {
+        // Put it back to a draft so nothing is taken out of stock half-written (not sent: the next send dates it)
+        await supabase.from("transfer_orders").update({ status: "Draft", sent_at: null }).eq("id", toId).eq("status", "Sent");
+        return { error: "บันทึกบางรายการไม่ได้ ยังไม่ได้ส่ง" + (failed.error ? ": " + failed.error.message : "") };
       }
 
-      const adjErr = await writeDistributionAdjustments(toId, to.to_number);
+      // Kitchen RM/PK out for the lines, dated the day it went out (SM is read from the lines)
+      const adjErr = await syncDistribution({ id: toId, toNumber: to.to_number, sentAt: to.sent_at, deliveryDate: to.delivery_date });
       if (adjErr) toast.error("ส่งแล้ว แต่หักสต๊อกวัตถุดิบ/บรรจุภัณฑ์ของครัวไม่ได้: " + adjErr);
 
       if (to.tr_id) {
@@ -576,19 +561,40 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     [fetchPendingTRs],
   );
 
-  // ─── Cancel a sent order (management) ───
+  // ─── Cancel a sent order (management, CK manager) ───
+  // The undo for a sent order (it is never deleted: lib/transfer-stock.ts). The same steps as
+  // a branch's decline: only while nothing was received, claimed (so a branch can't receive
+  // it at that moment), then its RM/PK comes back to the kitchen (its SM by the status).
   const cancelTO = useCallback(
     async (toId: string) => {
-      const { data: to } = await supabase.from("transfer_orders").select("tr_id").eq("id", toId).single();
-      const { error } = await supabase.from("transfer_orders").update({ status: "Cancelled" }).eq("id", toId);
-      if (error) {
-        toast.error("ยกเลิกใบโอนไม่ได้");
+      const { data: to, error: toErr } = await supabase.from("transfer_orders").select("id, to_number, tr_id").eq("id", toId).maybeSingle();
+      if (toErr || !to) {
+        toast.error("โหลดใบโอนไม่ได้");
         return false;
       }
+      const res = await returnSent({
+        read: () => orderState(toId),
+        move: (from) => moveOrder(toId, from, { status: "Cancelled" }),
+        // The database does this itself once the 1 Nov 2026 migration is in (then nothing is left here)
+        returnStock: () => removeDistribution({ id: to.id, toNumber: to.to_number }),
+      });
+      if (res.kind !== "done") {
+        toast.error(
+          res.kind === "received"
+            ? `สาขารับของใบ ${to.to_number} แล้ว ยกเลิกไม่ได้ ถ้าส่งผิดให้กด “แก้ใบที่ส่งแล้ว”`
+            : res.kind === "taken"
+              ? `ใบ ${to.to_number} ถูก${statusWord(res.status)}ไปแล้ว`
+              : res.kind === "blocked"
+                ? "บัญชีนี้ยกเลิกใบโอนไม่ได้"
+                : "ยกเลิกใบโอนไม่ได้: " + res.message,
+        );
+        return false;
+      }
+      if (res.stockError) toast.error("ยกเลิกแล้ว แต่คืนสต๊อกวัตถุดิบ/บรรจุภัณฑ์เข้าครัวไม่ได้: " + res.stockError);
       // Reopen the request so it returns to the queue and stops counting as "on its way"
-      if (to?.tr_id) {
-        const { error: trErr } = await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id);
-        if (trErr) toast.error("ยกเลิกแล้ว แต่เปิดใบขอเบิกกลับไม่ได้: " + trErr.message);
+      if (to.tr_id) {
+        const { data: tr, error: trErr } = await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id).select("id");
+        if (trErr || !tr?.length) toast.error("ยกเลิกแล้ว แต่เปิดใบขอเบิกกลับไม่ได้" + (trErr ? ": " + trErr.message : ""));
         await clearDeclines([to.tr_id]);
       }
       toast.success("ยกเลิกใบโอนแล้ว");
@@ -598,68 +604,98 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     [fetchPendingTRs],
   );
 
-  // ─── Delete an order (CK manager) — gives back RM/PK stock and reopens the request ───
-  const deleteTO = useCallback(
-    async (toId: string) => {
-      const { data: to, error: toErr } = await supabase.from("transfer_orders").select("id, to_number, tr_id").eq("id", toId).single();
-      if (toErr || !to) {
-        toast.error("โหลดใบโอนไม่ได้");
-        return false;
-      }
-      const { error: adjErr } = await supabase.from("stock_adjustments").delete().eq("reason", `Distribution: ${to.to_number}`);
-      if (adjErr) {
-        toast.error("คืนสต๊อกไม่ได้: " + adjErr.message);
-        return false;
-      }
-      const { data: lines } = await supabase.from("transfer_order_lines").select("id").eq("to_id", toId);
-      const lineIds = (lines || []).map((l) => l.id);
-      if (lineIds.length) await supabase.from("transfer_order_lot_lines").delete().in("to_line_id", lineIds);
-      await supabase.from("transfer_order_lines").delete().eq("to_id", toId);
-      const { error: delErr } = await supabase.from("transfer_orders").delete().eq("id", toId);
-      if (delErr) {
-        toast.error("ลบใบโอนไม่ได้: " + delErr.message);
-        return false;
-      }
-      if (to.tr_id) {
-        await supabase.from("transfer_requests").update({ status: "Submitted" }).eq("id", to.tr_id);
-        await clearDeclines([to.tr_id]);
-      }
-      fetchPendingTRs();
-      toast.success("ลบใบโอนแล้ว");
-      return true;
-    },
-    [fetchPendingTRs],
-  );
-
-  // ─── Save changes to a sent order (CK manager) — rewrites its RM/PK stock deduction ───
-  const saveTOEdits = useCallback(async (toId: string, lines: TOLine[]): Promise<boolean> => {
-    const { data: to, error: toErr } = await supabase.from("transfer_orders").select("to_number").eq("id", toId).single();
+  // ─── Save changes to a sent order (CK manager) ───
+  // Its RM/PK deduction gets only the difference, dated the day the order went out: it was
+  // deleted and written again as today's, which put it after any kitchen count since (RM/PK
+  // read too low) and left the order with no deduction when the second write failed. A line set
+  // to 0 means "not sent" (lib/transfer-stock.ts planLineEdits). Once the 1 Nov 2026 migration
+  // is in, save_sent_transfer_order does all of it in one transaction (and an older copy of the
+  // app is refused before it saves a line).
+  const saveTOEdits = useCallback(async (toId: string, lines: TOLine[], declinedBy?: string | null): Promise<boolean> => {
+    const { data: to, error: toErr } = await supabase.from("transfer_orders").select("id, to_number, status, sent_at, delivery_date").eq("id", toId).maybeSingle();
     if (toErr || !to) {
       toast.error("โหลดใบโอนไม่ได้");
       return false;
     }
+    // Cancelled or declined meanwhile: its stock is already back, nothing to edit
+    if (!isDelivered(to.status)) {
+      toast.error(`ใบ ${to.to_number} ถูก${statusWord(to.status)}ไปแล้ว แก้ไม่ได้`);
+      return false;
+    }
+    const refusedMsg = (names: string) => `สาขารับ ${names} จากใบนี้แล้ว ใส่ 0 ไม่ได้ (สต๊อกจะกลับเข้าครัวทั้งที่สาขามีของ) · ใส่จำนวนที่ส่งจริงแทน`;
+    const db = await callTransferFunction<{ result: string; status?: string; product?: string }>("save_sent_transfer_order", {
+      p_to_id: toId,
+      p_lines: lines.map((l) => ({ id: l.id, actual_qty: l.actualQty, notes: l.note, packs_count: l.packsCount })),
+    });
+    if (db.kind === "answer") {
+      const r = db.value.result;
+      if (r === "saved") {
+        toast.success("บันทึกการแก้ไขแล้ว");
+        return true;
+      }
+      toast.error(r === "received_line" ? refusedMsg(db.value.product ?? "รายการนี้") : `ใบ ${to.to_number} ถูก${statusWord(r === "gone" ? null : db.value.status ?? null)}ไปแล้ว แก้ไม่ได้`);
+      return false;
+    }
+    if (db.kind === "unknown") {
+      // Saving again is safe: the lines are set to these numbers and only a missing difference is added
+      toast.error("บันทึกไม่สำเร็จ (หรือไม่แน่ใจว่าบันทึกแล้ว) กดบันทึกอีกครั้งได้ ไม่หักสต๊อกซ้ำ: " + db.message);
+      return false;
+    }
+    // Before the migration: the same plan here
+    const [storedRes, receivedRes] = await Promise.all([
+      supabase.from("transfer_order_lines").select("id, sku_id, actual_qty, planned_qty, tr_line_id").eq("to_id", toId).order("id"),
+      supabase.from("branch_receipts").select("sku_id, qty_received").eq("transfer_order_id", toId).order("id"),
+    ]);
+    if (storedRes.error || receivedRes.error) {
+      toast.error("โหลดใบโอนไม่ได้");
+      return false;
+    }
+    const receivedBySku = new Map<string, number>();
+    for (const r of receivedRes.data ?? []) receivedBySku.set(r.sku_id, (receivedBySku.get(r.sku_id) ?? 0) + (Number(r.qty_received) || 0));
+    const stored = (storedRes.data ?? []).map((l) => ({ id: l.id, skuId: l.sku_id, actualQty: Number(l.actual_qty) || 0, plannedQty: Number(l.planned_qty) || 0, trLineId: l.tr_line_id }));
+    const plan = planLineEdits(stored, lines, receivedBySku);
+    if (plan.refused.length) {
+      toast.error(refusedMsg(lines.filter((l) => plan.refused.includes(l.id)).map((l) => l.skuName).join(", ")));
+      return false;
+    }
+    const requested = new Map<string, number>();
+    if (plan.undecline.length) {
+      const { data: tr } = await supabase.from("transfer_request_lines").select("id, requested_qty").in("id", plan.undecline);
+      for (const t of tr ?? []) requested.set(t.id, Number(t.requested_qty) || 0);
+    }
+    const trOf = new Map(stored.map((l) => [l.id, l.trLineId]));
     const results = await Promise.all(
-      lines.map((l) =>
-        supabase
+      lines.map((l) => {
+        const p = plan.planned.get(l.id);
+        const planned = p === "requested" ? requested.get(trOf.get(l.id) ?? "") : p;
+        return supabase
           .from("transfer_order_lines")
-          .update({ actual_qty: l.actualQty, line_value: l.actualQty * l.unitCost, notes: l.note, packs_count: l.packsCount })
-          .eq("id", l.id),
-      ),
+          .update({ actual_qty: l.actualQty, line_value: l.actualQty * l.unitCost, notes: l.note, packs_count: l.packsCount, ...(planned !== undefined ? { planned_qty: planned } : {}) })
+          .eq("id", l.id)
+          .eq("to_id", toId)
+          .select("id");
+      }),
     );
-    const failed = results.find((r) => r.error);
-    if (failed?.error) {
-      toast.error("บันทึกบางรายการไม่ได้: " + failed.error.message);
+    const failed = results.find((r) => r.error || !r.data?.length);
+    if (failed) {
+      toast.error("บันทึกบางรายการไม่ได้" + (failed.error ? ": " + failed.error.message : ""));
       return false;
     }
+    // The request lines say which were not sent (the order's "ครัวกลางส่งไม่ครบ" label)
+    const trWrites = await Promise.all([
+      plan.decline.length ? supabase.from("transfer_request_lines").update({ decline_reason: ZERO_AFTER_SEND, declined_at: new Date().toISOString(), declined_by: declinedBy || null }).in("id", plan.decline).select("id") : null,
+      plan.undecline.length ? supabase.from("transfer_request_lines").update({ decline_reason: null, declined_at: null, declined_by: null }).in("id", plan.undecline).select("id") : null,
+    ]);
+    if (trWrites.some((w, i) => w && (w.error || (w.data?.length ?? 0) < (i === 0 ? plan.decline : plan.undecline).length))) toast.error("บันทึกแล้ว แต่บันทึกรายการที่ไม่ได้ส่งในใบขอเบิกไม่ได้");
     const totalValue = lines.reduce((s, l) => s + l.actualQty * l.unitCost, 0);
-    await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId);
-    const { error: delErr } = await supabase.from("stock_adjustments").delete().eq("reason", `Distribution: ${to.to_number}`);
-    if (delErr) {
-      toast.error("บันทึกแล้ว แต่ปรับสต๊อกวัตถุดิบไม่ได้: " + delErr.message);
+    const { data: head, error: headErr } = await supabase.from("transfer_orders").update({ total_value: totalValue }).eq("id", toId).select("id");
+    if (headErr || !head?.length) toast.error("บันทึกยอดรวมของใบไม่ได้" + (headErr ? ": " + headErr.message : ""));
+    const adjErr = await syncDistribution({ id: to.id, toNumber: to.to_number, sentAt: to.sent_at, deliveryDate: to.delivery_date });
+    if (adjErr) {
+      // The lines are saved; saving again adds only what is still missing
+      toast.error("บันทึกแล้ว แต่ปรับสต๊อกวัตถุดิบ/บรรจุภัณฑ์ไม่ได้ กดบันทึกอีกครั้ง: " + adjErr);
       return false;
     }
-    const adjErr = await writeDistributionAdjustments(toId, to.to_number);
-    if (adjErr) toast.error("บันทึกแล้ว แต่ปรับสต๊อกวัตถุดิบไม่ได้: " + adjErr);
     toast.success("บันทึกการแก้ไขแล้ว");
     return true;
   }, []);
@@ -799,7 +835,6 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
     sendTO,
     discardDrafts,
     cancelTO,
-    deleteTO,
     saveTOEdits,
     fetchHistory,
     fetchTODetail,

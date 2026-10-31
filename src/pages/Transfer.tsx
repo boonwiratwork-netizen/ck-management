@@ -8,6 +8,7 @@ import { useSkuData } from "@/hooks/use-sku-data";
 import { useTransferOrder, type PendingTR, type TOHistoryRow, type TOLine } from "@/hooks/use-transfer-order";
 import { useTransferLots } from "@/hooks/use-transfer-lots";
 import { packsAfterWeight, packsOf } from "@/lib/transfer-lines";
+import { wasSent } from "@/lib/transfer-stock";
 import { DeclineDialog, PackSheet, isPackLine, useSendCheck, type PackForm } from "@/components/transfer/PackSheet";
 import { ReviewSend, SentDone, TransferHistory, TransferHome, printSlip, sentMessage, type Kind, type OrderDetail, type SlipLine } from "@/components/transfer/TransferViews";
 import { SkuPicker } from "@/components/receive/parts";
@@ -230,7 +231,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
     if (!form) return;
     if (form.isEditingSent) {
       setBusy(true);
-      const ok = (await to.saveTOEdits(form.toId, form.lines)) && (await lots.commit());
+      const ok = (await to.saveTOEdits(form.toId, form.lines, profileId)) && (await lots.commit());
       setBusy(false);
       if (ok) {
         refreshSmStock?.();
@@ -375,14 +376,13 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
       branchName: row.branchName,
       date: row.deliveryDate,
       notes: row.notes,
-      lines: d.lines.map<SlipLine>((l) => {
+      lines: d.lines.filter(wasSent).map<SlipLine>((l) => {
         const sku = skuOf(l.skuId);
         return { name: l.skuName, packs: isPackLine(sku) ? packsOf(l, sku!.packSize) : null, qty: l.actualQty, uom: l.uom, note: l.note };
       }),
       declined: d.declined.map((x) => ({ name: x.name, reason: x.reason })),
     });
   const [cancelRow, setCancelRow] = useState<TOHistoryRow | null>(null);
-  const [deleteRow, setDeleteRow] = useState<TOHistoryRow | null>(null);
   const reloadHistory = () => fetchHistory({ branchIds, dateFrom: range.from, dateTo: range.to });
 
   // ─── Screens ───
@@ -464,12 +464,12 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
         onRange={setRangeKey}
         kind={kind}
         onKind={setKind}
-        staleDrafts={staleDrafts.map((d) => ({ ...d, deliveryDate: "", trRef: "—", totalValue: 0, status: "Draft", updatedAt: d.createdAt, notes: "", hasLineNotes: false, kitchenShort: 0, branchShort: 0 }))}
-        can={{ editSent: isCkManager || isManagement, cancel: isManagement, remove: isCkManager || isManagement, discard: canEdit }}
+        staleDrafts={staleDrafts.map((d) => ({ ...d, deliveryDate: "", trRef: "—", totalValue: 0, status: "Draft", updatedAt: d.createdAt, notes: "", hasLineNotes: false, kitchenShort: 0, branchShort: 0, receipts: 0 }))}
+        // A sent order is cancelled, never deleted (its receipts and stock stay right)
+        can={{ editSent: isCkManager || isManagement, cancel: isCkManager || isManagement, discard: canEdit }}
         loadDetail={loadDetail}
         onEditSent={editSent}
         onCancel={setCancelRow}
-        onDelete={setDeleteRow}
         onDiscardDrafts={async () => {
           const n = await to.discardDrafts(staleDrafts.map((d) => d.id));
           if (n) toast.success(`ทิ้งใบที่จัดค้างไว้ ${n} ใบแล้ว`);
@@ -507,7 +507,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
           <TransferHome
             pending={to.pendingTRs}
             loading={to.pendingLoading}
-            drafts={standaloneDrafts.map((d) => ({ ...d, deliveryDate: "", trRef: "—", totalValue: 0, status: "Draft", updatedAt: d.createdAt, notes: "", hasLineNotes: false, kitchenShort: 0, branchShort: 0 }))}
+            drafts={standaloneDrafts.map((d) => ({ ...d, deliveryDate: "", trRef: "—", totalValue: 0, status: "Draft", updatedAt: d.createdAt, notes: "", hasLineNotes: false, kitchenShort: 0, branchShort: 0, receipts: 0 }))}
             recent={recent}
             canEdit={canEdit}
             onStart={start}
@@ -553,28 +553,14 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
         open={!!cancelRow}
         onOpenChange={(o) => !o && setCancelRow(null)}
         title={`ยกเลิกใบ ${cancelRow?.toNumber ?? ""}?`}
-        description="สาขาจะไม่เห็นใบนี้ในหน้ารับของ และใบขอเบิกจะกลับไปรอในคิว"
+        description="สาขาจะไม่เห็นใบนี้ในหน้ารับของ ของทุกรายการในใบคืนเข้าสต๊อกครัว และใบขอเบิกจะกลับไปรอในคิว"
         confirmLabel="ยกเลิกใบนี้"
         cancelLabel="ไม่ใช่"
         variant="destructive"
         onConfirm={async () => {
           const r = cancelRow;
           setCancelRow(null);
-          if (r && (await to.cancelTO(r.id))) reloadHistory();
-        }}
-      />
-      <ConfirmDialog
-        open={!!deleteRow}
-        onOpenChange={(o) => !o && setDeleteRow(null)}
-        title={`ลบใบ ${deleteRow?.toNumber ?? ""}?`}
-        description="ลบแล้วคืนสต๊อกวัตถุดิบ/บรรจุภัณฑ์ที่หักไป และใบขอเบิกจะกลับไปรอในคิว"
-        confirmLabel="ลบ"
-        cancelLabel="ไม่ใช่"
-        variant="destructive"
-        onConfirm={async () => {
-          const r = deleteRow;
-          setDeleteRow(null);
-          if (r && (await to.deleteTO(r.id))) {
+          if (r && (await to.cancelTO(r.id))) {
             refreshSmStock?.();
             reloadHistory();
           }
