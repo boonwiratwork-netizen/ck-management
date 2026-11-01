@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // A logged-out request is sent to the login page (a redirect); a logged-in one gets the report page
     const page = await fetch(`${BASE}/th/salebyoption`, { headers, redirect: "manual" });
     const location = page.headers.get("location") ?? "";
-    const html = page.status === 200 ? await page.text() : "";
+    const html = await page.text();
     const loggedIn = page.status === 200 && /ออกจากระบบ|logout/i.test(html) && !/type=["']password["']/i.test(html);
 
     // And one data call the report page itself makes, to see the data side answers too
@@ -48,6 +48,14 @@ Deno.serve(async (req) => {
       page_status: page.status,
       // Only where it was sent (e.g. /login), never the cookie
       redirected_to: location ? new URL(location, BASE).pathname : null,
+      // Who refused: a Cloudflare bot check answers 403 with cf-mitigated / a "Just a moment" page,
+      // FoodStory itself with its own page. Only these markers, never the page or the cookie
+      blocked_by: {
+        cf_mitigated: page.headers.get("cf-mitigated"),
+        server: page.headers.get("server"),
+        title: (html.match(/<title[^>]*>([^<]{0,80})/i)?.[1] ?? "").trim() || null,
+        challenge: /just a moment|cf-chl|challenge-platform|attention required/i.test(html),
+      },
       branches,
       checked_at: new Date().toISOString(),
     });
