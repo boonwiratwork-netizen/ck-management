@@ -198,7 +198,7 @@ const roleLabels: Record<string, string> = {
 };
 
 /** The 4 daily jobs per role shown in the phone bottom bar (everything else: "เมนู") */
-export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string; icon: React.ElementType }[] {
+export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string; icon: React.ElementType; featured?: boolean }[] {
   const today = { key: "store" as TabKey, label: "วันนี้", icon: CalendarCheck };
   switch (role) {
     case "store_manager":
@@ -215,9 +215,16 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
         { key: "store-stock", label: "สต๊อก", icon: LayoutGrid },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
       ];
-    // The kitchen is run from management accounts (there are no CK manager users)
-    case "ck_manager":
+    // Management (the kitchen is run from these accounts too): Cost Center in the middle, as
+    // the raised button; production moves to "เมนู" (Bucci, 1 Nov 2026)
     case "management":
+      return [
+        today,
+        { key: "receipt", label: "รับของ", icon: ClipboardList },
+        { key: "cost-center", label: "Cost Center", icon: Layers, featured: true },
+        { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
+      ];
+    case "ck_manager":
     default:
       return [
         today,

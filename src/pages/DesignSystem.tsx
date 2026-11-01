@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ShieldCheck, Soup, AlertTriangle, Check, ScanLine, ClipboardCheck, ArrowUpFromLine, ShoppingCart } from "lucide-react";
+import { Plus, ShieldCheck, Soup, AlertTriangle, Check, ScanLine, ClipboardCheck, ArrowUpFromLine, ShoppingCart, Layers } from "lucide-react";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { Button } from "@/components/ui/button";
@@ -196,7 +196,7 @@ export default function DesignSystem() {
               items={[
                 { key: "receive", label: "รับของ", icon: ScanLine },
                 { key: "count", label: "นับสต๊อก", icon: ClipboardCheck },
-                { key: "request", label: "ขอเบิก", icon: ArrowUpFromLine },
+                { key: "center", label: "Cost Center", icon: Layers, featured: true },
                 { key: "sales", label: "ยอดขาย", icon: ShoppingCart },
               ]}
               activeKey={navKey}
