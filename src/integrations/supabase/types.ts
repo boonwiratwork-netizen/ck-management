@@ -2245,6 +2245,11 @@ export type Database = {
       }
     }
     Functions: {
+      ck_transfer_rules: { Args: never; Returns: Json }
+      decline_transfer_order: {
+        Args: { p_reason: string; p_to_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2256,9 +2261,14 @@ export type Database = {
         Args: { p_keep: string; p_sku: string; p_supplier: string }
         Returns: undefined
       }
+      move_branch_stock: { Args: { p_rows: Json }; Returns: number }
       next_doc_number: {
         Args: { p_month: number; p_type: string; p_year: number }
         Returns: string
+      }
+      receive_transfer_order: {
+        Args: { p_rows: Json; p_status: string; p_to_id: string }
+        Returns: Json
       }
       recipe_snapshot: {
         Args: { p_kind: string; p_owner: string }
@@ -2269,6 +2279,12 @@ export type Database = {
         Returns: undefined
       }
       record_standard_price: { Args: { p_sku: string }; Returns: undefined }
+      save_sent_transfer_order: {
+        Args: { p_lines: Json; p_to_id: string }
+        Returns: Json
+      }
+      sync_transfer_distribution: { Args: { p_to_id: string }; Returns: number }
+      transfer_order_receipts: { Args: { p_to_id: string }; Returns: Json }
     }
     Enums: {
       app_role:
