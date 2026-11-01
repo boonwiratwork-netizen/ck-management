@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { writeError, writeTimeout } from "@/lib/write-timeout";
 import { UNKNOWN_STOCK_NOTE, freshPending, type Pending } from "@/lib/request-lines";
 
 /** One product on a request, with the figures saved alongside it (as before) */
@@ -109,7 +110,7 @@ export function useRequestData(branchId: string | null, brandName: string | null
 
   const nextNumber = async (type: "TR" | "PR") => {
     const now = new Date();
-    const { data, error } = await supabase.rpc("next_doc_number", { p_type: type, p_year: now.getFullYear(), p_month: now.getMonth() + 1 });
+    const { data, error } = await supabase.rpc("next_doc_number", { p_type: type, p_year: now.getFullYear(), p_month: now.getMonth() + 1 }).abortSignal(writeTimeout());
     return error || !data ? { error: error?.message || `สร้างเลขที่ ${type} ไม่สำเร็จ` } : { number: data as string };
   };
 
@@ -123,8 +124,9 @@ export function useRequestData(branchId: string | null, brandName: string | null
         .from("transfer_requests")
         .insert({ tr_number: no.number, branch_id: branchId, requested_by: opts.profileId, requested_date: toLocalDateStr(new Date()), required_date: opts.requiredDate, status: "Submitted", notes: opts.notes })
         .select("id")
+        .abortSignal(writeTimeout())
         .single();
-      if (error || !head) return { error: error?.message || "สร้างใบขอเบิกไม่สำเร็จ" };
+      if (error || !head) return { error: (error && writeError(error)) || "สร้างใบขอเบิกไม่สำเร็จ" };
       const { error: linesError } = await supabase.from("transfer_request_lines").insert(
         opts.items.map(({ item: l, packs }) => ({
           tr_id: head.id,
@@ -141,11 +143,11 @@ export function useRequestData(branchId: string | null, brandName: string | null
           // stock_on_hand can't be empty: an unknown stock is said here, not saved as a real 0
           notes: l.stockUnknown ? UNKNOWN_STOCK_NOTE : "",
         })),
-      );
+      ).abortSignal(writeTimeout());
       if (linesError) {
         // Don't leave an empty request behind for the kitchen to wonder about
-        await supabase.from("transfer_requests").update({ status: "Cancelled" }).eq("id", head.id);
-        return { error: linesError.message };
+        await supabase.from("transfer_requests").update({ status: "Cancelled" }).eq("id", head.id).abortSignal(writeTimeout());
+        return { error: writeError(linesError) };
       }
       loadPending();
       return { number: no.number };
@@ -163,8 +165,9 @@ export function useRequestData(branchId: string | null, brandName: string | null
         .from("purchase_requests")
         .insert({ pr_number: no.number, branch_id: branchId, requested_by: opts.profileId, requested_date: toLocalDateStr(new Date()), required_date: opts.requiredDate, status: "Submitted", notes: opts.notes })
         .select("id")
+        .abortSignal(writeTimeout())
         .single();
-      if (error || !head) return { error: error?.message || "สร้างใบสั่งซื้อไม่สำเร็จ" };
+      if (error || !head) return { error: (error && writeError(error)) || "สร้างใบสั่งซื้อไม่สำเร็จ" };
       const { error: linesError } = await supabase.from("purchase_request_lines").insert(
         opts.items.map(({ item: l, packs }) => ({
           pr_id: head.id,
@@ -179,10 +182,10 @@ export function useRequestData(branchId: string | null, brandName: string | null
           pack_size: l.packSize,
           notes: l.stockUnknown ? UNKNOWN_STOCK_NOTE : "",
         })),
-      );
+      ).abortSignal(writeTimeout());
       if (linesError) {
-        await supabase.from("purchase_requests").update({ status: "Cancelled" }).eq("id", head.id);
-        return { error: linesError.message };
+        await supabase.from("purchase_requests").update({ status: "Cancelled" }).eq("id", head.id).abortSignal(writeTimeout());
+        return { error: writeError(linesError) };
       }
       loadPending();
       return { number: no.number };

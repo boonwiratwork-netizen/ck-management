@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { lastSeen, useKeepLastSeen } from "@/lib/page-cache";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { branchShortCount, kitchenShortCount } from "@/lib/transfer-lines";
 import { ZERO_AFTER_SEND, isDelivered, planLineEdits, returnSent, statusWord } from "@/lib/transfer-stock";
 import { callDbFunction, moveOrder, orderState, removeDistribution, syncDistribution } from "@/lib/transfer-stock-db";
+import { NO_ANSWER, noAnswer, writeTimeout } from "@/lib/write-timeout";
 
 export interface PendingTR {
   trId: string;
@@ -116,11 +118,24 @@ async function clearDeclines(trIds: string[]): Promise<{ message: string } | nul
   return error;
 }
 
+type Draft = { id: string; toNumber: string; branchId: string; branchName: string; trId: string | null; createdAt: string; itemCount: number };
+/** What the waiting queue is worked out from: a write to any drops its kept copy (lib/page-cache.ts) */
+const QUEUE_TABLES = ["transfer_requests", "transfer_request_lines", "transfer_orders", "transfer_order_lines", "branches", "skus"];
+const QUEUE_KEY = "transfer-queue";
+
 export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) {
-  const [pendingTRs, setPendingTRs] = useState<PendingTR[]>([]);
-  const [pendingLoading, setPendingLoading] = useState(true);
+  // Coming back: the queue as shown last is up at once and read again behind it. Starting an
+  // order waits for the fresh one (queueKept), so nothing is started from an old list
+  const [initial] = useState(() => lastSeen<{ pendingTRs: PendingTR[]; drafts: Draft[] }>(QUEUE_KEY)?.value ?? null);
+  const [pendingTRs, setPendingTRs] = useState<PendingTR[]>(initial?.pendingTRs ?? []);
+  const [pendingLoading, setPendingLoading] = useState(!initial);
+  /** The queue on screen is the kept one (not yet read again); `queueFailed`: reading it again failed */
+  const [queueKept, setQueueKept] = useState(!!initial);
+  const [queueFailed, setQueueFailed] = useState(false);
   /** Every unsent order, any age (the home list and the clean-up) */
-  const [drafts, setDrafts] = useState<{ id: string; toNumber: string; branchId: string; branchName: string; trId: string | null; createdAt: string; itemCount: number }[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>(initial?.drafts ?? []);
+  const queue = useMemo(() => ({ pendingTRs, drafts }), [pendingTRs, drafts]);
+  useKeepLastSeen(queueKept || pendingLoading ? null : QUEUE_KEY, QUEUE_TABLES, queue);
   const [toHistory, setToHistory] = useState<TOHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -150,11 +165,14 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   }, []);
 
   const fetchPendingTRs = useCallback(async () => {
+    setQueueFailed(false);
     try {
       await readPendingTRs();
+      setQueueKept(false);
     } catch {
       // The queue on screen stays as it was (never "nothing waiting" from a failed read)
       toast.error("โหลดใบขอเบิกที่รอไม่สำเร็จ รายการที่เห็นอาจไม่ล่าสุด ลองรีเฟรช");
+      setQueueFailed(true);
       setPendingLoading(false);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -167,7 +185,9 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       .in("status", ["Submitted", "Acknowledged"])
       .order("required_date", { ascending: true })
       .order("id");
-    if (error || !candidates || candidates.length === 0) {
+    // A failed read is not "nothing waiting" (it used to empty the queue)
+    if (error) throw error;
+    if (!candidates || candidates.length === 0) {
       setPendingTRs([]);
       setPendingLoading(false);
       return;
@@ -503,10 +523,34 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
         .update(patch)
         .eq("id", toId)
         .eq("status", "Draft")
-        .select("id, tr_id, to_number, sent_at, delivery_date");
-      if (error) return { error: error.message };
-      const to = sentRows?.[0];
-      if (!to) return { error: "ใบนี้ถูกส่งไปแล้ว" };
+        .select("id, tr_id, to_number, sent_at, delivery_date")
+        .abortSignal(writeTimeout());
+      let to = sentRows?.[0];
+      if (error) {
+        if (!noAnswer(error)) return { error: error.message };
+        // No answer: did it go out? The steps below only bring lines and stock to what the order
+        // says (writing them again adds nothing), so a Sent order carries on; a Draft one wasn't sent
+        const { data: now, error: readErr } = await supabase.from("transfer_orders").select("id, tr_id, to_number, sent_at, delivery_date, status").eq("id", toId).abortSignal(writeTimeout()).maybeSingle();
+        if (readErr || !now) return { error: NO_ANSWER };
+        if (now.status !== "Sent") return { error: "ระบบไม่ตอบ ใบนี้ยังไม่ได้ส่ง ลองกดส่งอีกครั้ง" };
+        to = now;
+      }
+      if (!to) {
+        // Already sent — possibly by an earlier press whose claim landed after it stopped waiting,
+        // so its kitchen deduction was never written. syncDistribution only adds what the lines
+        // still lack (never twice), so bring it up to date here.
+        const { data: now } = await supabase.from("transfer_orders").select("id, tr_id, to_number, sent_at, delivery_date, status").eq("id", toId).abortSignal(writeTimeout()).maybeSingle();
+        if (now && ["Sent", "Received", "Partially Received"].includes(now.status)) {
+          const [adjErr, { error: fulErr }] = await Promise.all([
+            syncDistribution({ id: toId, toNumber: now.to_number, sentAt: now.sent_at, deliveryDate: now.delivery_date }),
+            now.tr_id ? supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", now.tr_id).abortSignal(writeTimeout()) : Promise.resolve({ error: null }),
+          ]);
+          if (adjErr) toast.error("ใบนี้ส่งไปแล้ว แต่หักสต๊อกวัตถุดิบ/บรรจุภัณฑ์ของครัวไม่ได้: " + adjErr);
+          if (fulErr) toast.error("ใบนี้ส่งไปแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + fulErr.message);
+          fetchPendingTRs();
+        }
+        return { error: "ใบนี้ถูกส่งไปแล้ว" };
+      }
 
       const results = await Promise.all(
         lines.map((l) =>
@@ -514,13 +558,14 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
             .from("transfer_order_lines")
             .update({ actual_qty: l.actualQty, line_value: l.actualQty * l.unitCost, notes: l.note, packs_count: l.packsCount })
             .eq("id", l.id)
-            .select("id"),
+            .select("id")
+            .abortSignal(writeTimeout()),
         ),
       );
       const failed = results.find((r) => r.error || !r.data?.length);
       if (failed) {
         // Put it back to a draft so nothing is taken out of stock half-written (not sent: the next send dates it)
-        await supabase.from("transfer_orders").update({ status: "Draft", sent_at: null }).eq("id", toId).eq("status", "Sent");
+        await supabase.from("transfer_orders").update({ status: "Draft", sent_at: null }).eq("id", toId).eq("status", "Sent").abortSignal(writeTimeout());
         return { error: "บันทึกบางรายการไม่ได้ ยังไม่ได้ส่ง" + (failed.error ? ": " + failed.error.message : "") };
       }
 
@@ -528,7 +573,7 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
       // and the request closed: side by side (neither depends on the other)
       const [adjErr, { error: fulErr }] = await Promise.all([
         syncDistribution({ id: toId, toNumber: to.to_number, sentAt: to.sent_at, deliveryDate: to.delivery_date }),
-        to.tr_id ? supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.tr_id) : Promise.resolve({ error: null }),
+        to.tr_id ? supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.tr_id).abortSignal(writeTimeout()) : Promise.resolve({ error: null }),
       ]);
       if (adjErr) toast.error("ส่งแล้ว แต่หักสต๊อกวัตถุดิบ/บรรจุภัณฑ์ของครัวไม่ได้: " + adjErr);
       if (fulErr) toast.error("ส่งแล้ว แต่อัปเดตสถานะใบขอเบิกไม่ได้: " + fulErr.message);
@@ -844,6 +889,10 @@ export function useTransferOrder(getBomCostPerGram?: (skuId: string) => number) 
   return {
     pendingTRs,
     pendingLoading,
+    /** The queue shown is kept from the last visit and being read again */
+    queueRefreshing: queueKept && !queueFailed,
+    /** Reading the queue again failed: what's listed is the earlier list */
+    queueFailed,
     drafts,
     fetchDeclined,
     toHistory,

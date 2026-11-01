@@ -13,6 +13,8 @@ import { usePlanningAgent } from "@/hooks/use-planning-agent";
 import type { SmUseRead } from "@/hooks/use-sm-daily-usage";
 import { UseReadError } from "@/components/UseReadError";
 import { useAuth } from "@/hooks/use-auth";
+import { lastSeen, sharedRead, useKeepLastSeen } from "@/lib/page-cache";
+import { RefreshNote } from "@/components/RefreshNote";
 import { useWorkDay } from "@/hooks/use-today";
 import { farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
@@ -56,6 +58,9 @@ interface Props {
   bomSteps: BOMStep[];
   smStockBalances: SMStockBalance[];
   isStockDataReady?: boolean;
+  /** The kitchen-made stock couldn't be read (it retries by itself); shown with a retry button */
+  stockLoadFailed?: boolean;
+  onStockRetry?: () => void;
   /** Daily SM need from sales, the same figure as the SM Stock page */
   smDailyUsage: Record<string, number>;
   /** The kitchen's daily-use read (one read shared with the plan helper) and whether it failed */
@@ -75,39 +80,68 @@ const iso = (d: Date) => format(d, "yyyy-MM-dd");
 
 /** Weekly plan lines (grams per SM) for a week */
 function useWeekPlan(weekStart: string) {
-  const [plan, setPlan] = useState<Record<string, number>>({});
-  const [saved, setSaved] = useState<Record<string, number>>({});
-  const [loaded, setLoaded] = useState<string | null>(null);
+  // Coming back: the week's plan as saved last is up at once and read again behind it (lib/page-cache.ts)
+  const [initial] = useState(() => lastSeen<Record<string, number>>(`week-plan|${weekStart}`)?.value ?? null);
+  const [plan, setPlan] = useState<Record<string, number>>(initial ?? {});
+  const [saved, setSaved] = useState<Record<string, number>>(initial ?? {});
+  const [loaded, setLoaded] = useState<string | null>(initial ? weekStart : null);
+  /** The week read from the database (not only its kept copy): saving the plan waits for it */
+  const [fresh, setFresh] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [tick, setTick] = useState(0);
+  useKeepLastSeen(loaded === weekStart ? `week-plan|${weekStart}` : null, ["weekly_plan_lines"], saved);
   useEffect(() => {
     let stale = false;
-    // Don't show the previous week's plan while this one loads
-    setPlan({});
-    setSaved({});
+    // Don't show the previous week's plan while this one loads (its own kept copy is fine)
+    const seen = lastSeen<Record<string, number>>(`week-plan|${weekStart}`)?.value ?? null;
+    if (loaded !== weekStart) {
+      setPlan(seen ?? {});
+      setSaved(seen ?? {});
+      setLoaded(seen ? weekStart : null);
+    }
+    setFailed(false);
     supabase
       .from("weekly_plan_lines" as never)
       .select("sku_id, planned_qty_uom")
       .eq("week_start", weekStart)
-      .then(({ data }: { data: { sku_id: string; planned_qty_uom: number }[] | null }) => {
+      .then(({ data, error }: { data: { sku_id: string; planned_qty_uom: number }[] | null; error: unknown }) => {
         if (stale) return;
+        // A failed read is not "no plan" (saving it would replace the week with nothing)
+        if (error) return setFailed(true);
         const m: Record<string, number> = {};
         for (const r of data || []) m[r.sku_id] = Number(r.planned_qty_uom) || 0;
-        setPlan(m);
+        // Figures typed over the kept copy while this read ran stay as typed
+        setPlan((p) => (p === saved || loaded !== weekStart ? m : p));
         setSaved(m);
         setLoaded(weekStart);
+        setFresh(weekStart);
       });
     return () => {
       stale = true;
     };
-  }, [weekStart]);
+  }, [weekStart, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = loaded === weekStart && JSON.stringify(Object.entries(plan).filter(([, v]) => v > 0).sort()) !== JSON.stringify(Object.entries(saved).filter(([, v]) => v > 0).sort());
-  return { plan, setPlan, saved, setSaved, dirty, ready: loaded === weekStart };
+  return {
+    plan,
+    setPlan,
+    saved,
+    setSaved,
+    dirty,
+    ready: loaded === weekStart,
+    /** Read from the database this visit (a kept copy alone can't be saved over the week) */
+    fresh: fresh === weekStart,
+    /** Shown from the kept copy and being read again / that read failed */
+    refreshing: loaded === weekStart && fresh !== weekStart && !failed,
+    failed,
+    retry: () => setTick((t) => t + 1),
+  };
 }
 
 /**
  * Central-kitchen production (replaces Production): record what was made each day,
  * and plan the week. Hash: "" recording, "plan" planning.
  */
-export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, smDailyUsage, smUseRead, smUseError, onSmUseRetry, refreshProductionRecords, byproducts = [], onNavigate, demoCanEdit }: Props) {
+export default function ProducePage({ productionData, skus, bomHeaders, bomLines, smStockBalances, isStockDataReady = true, stockLoadFailed = false, onStockRetry, smDailyUsage, smUseRead, smUseError, onSmUseRetry, refreshProductionRecords, byproducts = [], onNavigate, demoCanEdit }: Props) {
   const { records, addRecord, updateRecordWithDelta, deleteRecord, getOutputPerBatch } = productionData;
   const { isManagement, role } = useAuth();
   const canEdit = demoCanEdit || isManagement || role === "ck_manager";
@@ -145,24 +179,28 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   }, [smSkus, bomHeaders, bomLines]);
 
   // ── Targets: global days, and per-product where set (as before) ──
-  const [globalTarget, setGlobalTarget] = useState(7);
-  const [skuTargets, setSkuTargets] = useState<Record<string, number>>({});
+  // Settings, read once for the app (5 min, or until a setting or product is saved: lib/page-cache.ts)
+  const [globalTarget, setGlobalTarget] = useState(() => lastSeen<number>("cover-target")?.value ?? 7);
+  const [skuTargets, setSkuTargets] = useState<Record<string, number>>(() => lastSeen<Record<string, number>>("cover-targets-sku")?.value ?? {});
+  useKeepLastSeen("cover-target", ["global_settings"], globalTarget);
+  useKeepLastSeen("cover-targets-sku", ["skus"], skuTargets);
   useEffect(() => {
-    supabase
-      .from("global_settings" as never)
-      .select("value")
-      .eq("key", "cover_days_target")
-      .maybeSingle()
-      .then(({ data }: { data: { value: string } | null }) => data && setGlobalTarget(Number(data.value) || 7));
-    supabase
-      .from("skus")
-      .select("id, cover_days_target" as never)
-      .not("cover_days_target", "is", null)
-      .then(({ data }) => {
-        const m: Record<string, number> = {};
-        for (const r of (data || []) as unknown as { id: string; cover_days_target: number }[]) m[r.id] = Number(r.cover_days_target);
-        setSkuTargets(m);
-      });
+    sharedRead("cover-target", ["global_settings"], async () => {
+      const { data, error } = await supabase.from("global_settings" as never).select("value").eq("key", "cover_days_target").maybeSingle();
+      if (error) throw error;
+      return (data as { value: string } | null) ? Number((data as { value: string }).value) || 7 : null;
+    })
+      .then((n) => n !== null && setGlobalTarget(n))
+      .catch(() => undefined);
+    sharedRead("cover-targets-sku", ["skus"], async () => {
+      const { data, error } = await supabase.from("skus").select("id, cover_days_target" as never).not("cover_days_target", "is", null);
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      for (const r of (data || []) as unknown as { id: string; cover_days_target: number }[]) m[r.id] = Number(r.cover_days_target);
+      return m;
+    })
+      .then(setSkuTargets)
+      .catch(() => undefined);
   }, []);
   const saveTarget = async (n: number) => {
     setGlobalTarget(n);
@@ -298,6 +336,11 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   // ── Planning ──
   const [saving, setSaving] = useState(false);
   const savePlan = async () => {
+    // The week is replaced as a whole: never from a plan that wasn't read this visit
+    if (!planPlan.fresh) {
+      toast.error(planPlan.failed ? "โหลดแผนสัปดาห์นี้ไม่สำเร็จ ลองใหม่ก่อนบันทึก" : "รอโหลดแผนล่าสุดสักครู่ แล้วกดบันทึกอีกครั้ง");
+      return;
+    }
     setSaving(true);
     // The week's lines are replaced as a whole (as before)
     const rows = Object.entries(planPlan.plan)
@@ -325,8 +368,20 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   const agent = usePlanningAgent({ smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })), getOutputPerBatch, smUse: smUseRead === undefined ? undefined : { read: smUseRead, error: !!smUseError } });
 
   const weekLabel = `${format(new Date(recordWeek + "T00:00:00"), "d/M")} – ${format(addDays(new Date(recordWeek + "T00:00:00"), 6), "d/M")}`;
+  const weekShown = mode === "plan" ? planPlan : recordPlan;
   return (
     <div className="flex flex-col gap-4">
+      <RefreshNote refreshing={weekShown.refreshing} failed={weekShown.failed} onRetry={weekShown.retry} />
+      {stockLoadFailed && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span className="min-w-0 flex-1">อ่านสต๊อกครัวผลิตไม่สำเร็จ ยอดคงเหลือและแผนยังไม่พร้อม ระบบจะลองใหม่เอง</span>
+          {onStockRetry && (
+            <button type="button" onClick={onStockRetry} className="min-h-[40px] rounded-full border border-destructive px-4 text-sm font-semibold">
+              ลองใหม่
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-end gap-3">
         <h1 className="mr-auto text-2xl font-bold">การผลิต</h1>
         <Button

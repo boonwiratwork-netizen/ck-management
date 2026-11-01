@@ -10,6 +10,7 @@ import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
 import type { CountTiming } from "@/lib/count-anchor";
 import { writeManyOrEach, type BulkResult } from "@/lib/bulk-write";
+import { NO_ANSWER, noAnswer, writeError, writeTimeout } from "@/lib/write-timeout";
 
 
 const toSession = (r: any): StockCountSession => ({
@@ -31,6 +32,53 @@ const toLine = (r: any): StockCountLine => ({
   variance: r.variance,
   note: r.note,
 });
+
+/** The session a count adjustment belongs to, at the end of its reason (still "Stock Count …" to every reader) */
+const countTag = (sessionId: string) => `[count ${sessionId}]`;
+
+/**
+ * The count's RM/PK stock adjustments. SM uses anchor-based balance (physical_qty in
+ * stock_count_lines is the anchor): writing a Stock Count adjustment for SM would cause
+ * double-counting when the anchor path filters it out, and overcounting if the anchor is deleted.
+ */
+function countAdjustments(lines: any[], date: string, sessionId: string): { type: string; adj: Omit<StockAdjustment, "id"> }[] {
+  return lines
+    .filter((line) => line.type === "RM" || line.type === "PK")
+    .map((line) => ({ type: line.type as string, adj: { skuId: line.sku_id, date, quantity: line.variance, reason: `Stock Count ${date}${line.note ? ": " + line.note : ""} ${countTag(sessionId)}` } }));
+}
+
+/**
+ * Completion stamps (completed_at) this device sent, per session, kept on the device: a session
+ * found Completed with one of them was completed by this device (an earlier press whose lock
+ * landed after it stopped waiting), so its missing adjustments are this device's to write.
+ * Clocks are never compared.
+ */
+const STAMPS_KEY = "ck-count-completions";
+function readStamps(): Record<string, string[]> {
+  try {
+    return JSON.parse(localStorage.getItem(STAMPS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function rememberStamp(sessionId: string, stamp: string) {
+  const all = readStamps();
+  all[sessionId] = [...(all[sessionId] ?? []), stamp];
+  try {
+    localStorage.setItem(STAMPS_KEY, JSON.stringify(all));
+  } catch {
+    // storage blocked: only this page's memory of it is lost
+  }
+}
+function forgetStamps(sessionId: string) {
+  const all = readStamps();
+  delete all[sessionId];
+  try {
+    localStorage.setItem(STAMPS_KEY, JSON.stringify(all));
+  } catch {
+    // nothing to forget
+  }
+}
 
 interface UseStockCountDataProps {
   enabled?: boolean;
@@ -217,42 +265,120 @@ export function useStockCountData({
     [lines],
   );
 
+  /**
+   * The session is Completed already. Completed by THIS device (its stamp is one this device
+   * sent: an earlier press whose lock landed after it stopped waiting) = its RM/PK adjustments
+   * were never written: the missing ones are written now (compared by session tag, never twice).
+   * Completed by another device = that device writes them; nothing is written here.
+   */
+  const alreadyCompleted = useCallback(
+    async (sessionId: string, date: string, dbLines: any[]): Promise<boolean | "partial"> => {
+      const { data: now, error } = await supabase.from("stock_count_sessions").select("status, completed_at").eq("id", sessionId).abortSignal(writeTimeout()).maybeSingle();
+      if (error || !now) {
+        toast.error("ตรวจรอบนับไม่ได้: " + writeError(error ?? { code: "", message: "" }));
+        return false;
+      }
+      if (now.status !== "Completed") {
+        toast.info("รอบนับนี้ยืนยันไม่ได้แล้ว (ถูกลบหรือเปลี่ยนไป) กลับไปหน้าแรกแล้วเปิดใหม่");
+        return false;
+      }
+      const markDone = () => setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, status: "Completed" as const, completedAt: now.completed_at ?? s.completedAt } : s)));
+      const mine = !!now.completed_at && (readStamps()[sessionId] ?? []).some((st) => Date.parse(st) === Date.parse(now.completed_at!));
+      if (!mine) {
+        markDone();
+        toast.info("รอบนับนี้ยืนยันจากอีกเครื่องไปแล้ว ไม่ต้องกดซ้ำ");
+        return false;
+      }
+      const want = countAdjustments(dbLines.filter((l) => l.physical_qty !== null && l.variance !== 0), date, sessionId);
+      const { data: saved, error: readErr } = await supabase
+        .from("stock_adjustments")
+        .select("sku_id, reason")
+        .is("branch_id", null)
+        .eq("adjustment_date", date)
+        .like("reason", `Stock Count ${date}%`)
+        .abortSignal(writeTimeout());
+      if (readErr) {
+        toast.error("ตรวจการปรับสต๊อกของรอบนับนี้ไม่ได้ ลองอีกครั้ง: " + writeError(readErr));
+        return false;
+      }
+      // This session's rows by their tag; an untagged row (written before the tag) by its whole reason
+      const tag = ` ${countTag(sessionId)}`;
+      const have = new Set(
+        (saved || [])
+          .filter((a) => a.reason.endsWith(tag) || !a.reason.includes("[count "))
+          .map((a) => `${a.sku_id}|${a.reason.endsWith(tag) ? a.reason.slice(0, -tag.length) : a.reason}`),
+      );
+      const toWrite = want.filter((w) => !have.has(`${w.adj.skuId}|${w.adj.reason.slice(0, -tag.length)}`));
+      const missing = await writeAdjustments(toWrite);
+      markDone();
+      if (toWrite.length) refreshSmInBackground();
+      if (missing.length) {
+        toast.error(`นับเสร็จแล้ว แต่ปรับสต๊อกไม่ได้ ${missing.length} รายการ: ${missing.map((a) => nameOf(a.skuId)).join(", ")} · แจ้งผู้ดูแลระบบ อย่ากดนับซ้ำ`, { duration: 20000 });
+        return "partial";
+      }
+      forgetStamps(sessionId);
+      toast.info(toWrite.length ? `รอบนับนี้ยืนยันไปแล้ว ปรับสต๊อกที่ยังขาด ${toWrite.length} รายการให้แล้ว` : "รอบนับนี้ยืนยันไปแล้ว");
+      return true;
+    },
+    [writeAdjustments, refreshSmInBackground, nameOf],
+  );
+
   const confirmSession = useCallback(
     async (sessionId: string, timing?: CountTiming | null, systemAt?: Record<string, number>) => {
       const session = sessions.find((s) => s.id === sessionId);
       if (!session || session.status === "Completed") return;
 
-      // Fix 1: DB-level lock — atomically set status to Completed only if still Draft
+      // Read the lines first (from the database, not React state): a failed read must never
+      // leave a session marked done without its stock adjustments
+      const { data: dbLines, error: linesError } = await supabase
+        .from("stock_count_lines")
+        .select("*")
+        .eq("session_id", sessionId)
+        .abortSignal(writeTimeout());
+
+      if (linesError) {
+        toast.error("โหลดรายการนับไม่สำเร็จ ยังไม่ได้นับเสร็จ ลองอีกครั้ง: " + writeError(linesError));
+        return false;
+      }
+
+      // DB-level lock — atomically set status to Completed only if still Draft
+      const completedAt = new Date().toISOString();
+      // Remembered before it is sent: it may land without an answer (alreadyCompleted)
+      rememberStamp(sessionId, completedAt);
       const { data: lockResult, error: lockError } = await supabase
         .from("stock_count_sessions")
         .update({
           status: "Completed",
-          completed_at: new Date().toISOString(),
+          completed_at: completedAt,
           // Whether the count day's movements were already in the count (count-anchor.ts)
           ...(timing ? { count_timing: timing } : {}),
         })
         .eq("id", sessionId)
         .eq("status", "Draft")
-        .select();
+        .select()
+        .abortSignal(writeTimeout());
 
       if (lockError) {
-        toast.error("ยืนยันรอบนับไม่สำเร็จ: " + lockError.message);
-        return false;
-      }
-      if (!lockResult || lockResult.length === 0) {
-        toast.info("รอบนับนี้ยืนยันไปแล้ว");
-        return false;
-      }
-
-      // Fix 2: Read fresh lines from DB, not React state
-      const { data: dbLines, error: linesError } = await supabase
-        .from("stock_count_lines")
-        .select("*")
-        .eq("session_id", sessionId);
-
-      if (linesError) {
-        toast.error("โหลดรายการนับไม่สำเร็จ: " + linesError.message);
-        return false;
+        if (!noAnswer(lockError)) {
+          toast.error("ยืนยันรอบนับไม่สำเร็จ: " + lockError.message);
+          return false;
+        }
+        // No answer: read it back. Completed with our own completed_at = our lock landed, so its
+        // adjustments are written now (else the session would be done without them)
+        const { data: now, error: readErr } = await supabase.from("stock_count_sessions").select("status, completed_at").eq("id", sessionId).abortSignal(writeTimeout()).maybeSingle();
+        if (readErr || !now) {
+          toast.error(NO_ANSWER);
+          return false;
+        }
+        if (now.status !== "Completed") {
+          toast.error("ระบบไม่ตอบ ยังไม่ได้นับเสร็จ ลองกดอีกครั้ง");
+          return false;
+        }
+        if (!now.completed_at || Date.parse(now.completed_at) !== Date.parse(completedAt)) return alreadyCompleted(sessionId, session.date, dbLines || []);
+      } else if (!lockResult || lockResult.length === 0) {
+        // Already completed — possibly by an earlier press whose lock landed after it gave up:
+        // then its adjustments were never written; write whichever are missing
+        return alreadyCompleted(sessionId, session.date, dbLines || []);
       }
 
       // The system figure as it stood when counting (count-anchor.ts systemAtCount),
@@ -264,7 +390,7 @@ export function useStockCountData({
           l.system_qty = systemAt[l.sku_id];
           l.variance = l.physical_qty !== null ? Number(l.physical_qty) - l.system_qty : 0;
         }
-        const results = await Promise.all(changed.map((l: any) => supabase.from("stock_count_lines").update({ system_qty: l.system_qty, variance: l.variance }).eq("id", l.id)));
+        const results = await Promise.all(changed.map((l: any) => supabase.from("stock_count_lines").update({ system_qty: l.system_qty, variance: l.variance }).eq("id", l.id).abortSignal(writeTimeout())));
         if (results.some((res) => res.error)) toast.error("บันทึกยอดระบบตอนนับไม่ครบ ตัวเลขต่างบางตัวอาจคลาด");
         const byId = new Map((changed as any[]).map((l) => [l.id, l]));
         setLines((prev) => prev.map((l) => (byId.has(l.id) ? { ...l, systemQty: byId.get(l.id).system_qty, variance: byId.get(l.id).variance } : l)));
@@ -273,18 +399,9 @@ export function useStockCountData({
       const freshLines = (dbLines || [])
         .filter((l: any) => l.physical_qty !== null && l.variance !== 0);
 
-      // SM uses anchor-based balance (physical_qty in stock_count_lines is the anchor).
-      // Writing a Stock Count adjustment for SM would cause double-counting when
-      // anchor path filters it out, and overcounting if anchor is ever deleted.
       // RM/PK: one insert per type (was one request per counted line, ~150 in a row)
-      const missing = await writeAdjustments(
-        freshLines
-          .filter((line: any) => line.type === "RM" || line.type === "PK")
-          .map((line: any) => ({
-            type: line.type as string,
-            adj: { skuId: line.sku_id, date: session.date, quantity: line.variance, reason: `Stock Count ${session.date}${line.note ? ": " + line.note : ""}` },
-          })),
-      );
+      const missing = await writeAdjustments(countAdjustments(freshLines, session.date, sessionId));
+      if (!missing.length) forgetStamps(sessionId);
 
       // Update local state
       setSessions((prev) =>
@@ -303,7 +420,7 @@ export function useStockCountData({
       }
       return true;
     },
-    [sessions, writeAdjustments, refreshSmInBackground, nameOf],
+    [sessions, writeAdjustments, refreshSmInBackground, nameOf, alreadyCompleted],
   );
 
   const softDeleteSession = useCallback(

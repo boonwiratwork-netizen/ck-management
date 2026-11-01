@@ -6,8 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/utils";
 import { SaveQueue, type Patch, type SaveState } from "@/lib/save-queue";
+import { noAnswer, writeTimeout } from "@/lib/write-timeout";
 import { splitDayReceipts } from "@/lib/stock-count";
 import { recentRead, startRead, type RecentSlot } from "@/lib/recent-read";
+import { USAGE_TABLES, lastSeen, useKeepLastSeen } from "@/lib/page-cache";
+
+/** What a count sheet is worked out from: a write to any drops its kept copy (lib/page-cache.ts) */
+export const COUNT_SHEET_TABLES = ["daily_stock_counts", "branch_receipts", "sales_entries", "stock_adjustments", ...USAGE_TABLES];
+const sheetKey = (branchId: string, date: string) => `count|${branchId}|${date}`;
 import { SKU } from "@/types/sku";
 import { MenuBomLine } from "@/types/menu-bom";
 import { ModifierRule } from "@/types/modifier-rule";
@@ -68,6 +74,8 @@ interface UseDailyStockCountProps {
   spBomLines: SpBomLine[];
   menus: Menu[];
   branches: Branch[];
+  /** The branch and day the page opens on: their sheet as shown last (if kept) is up at once */
+  opensOn?: { branchId: string | null; date: string };
 }
 
 export function useDailyStockCount({
@@ -77,8 +85,26 @@ export function useDailyStockCount({
   spBomLines,
   menus,
   branches,
+  opensOn,
 }: UseDailyStockCountProps) {
-  const [rows, setRows] = useState<DailyStockCountRow[]>([]);
+  // Coming back to the page: the sheet as shown last is up at once and read again behind it
+  // (lib/page-cache.ts). `seeded`: the rows on screen are that kept copy, not yet re-read
+  const [initial] = useState(() => {
+    const key = opensOn?.branchId ? sheetKey(opensOn.branchId, opensOn.date) : null;
+    const seen = lastSeen<DailyStockCountRow[]>(key);
+    return seen && key ? { key, rows: seen.value } : null;
+  });
+  const [rows, setRows] = useState<DailyStockCountRow[]>(initial?.rows ?? []);
+  const [rowsFor, setRowsFor] = useState<string | null>(initial?.key ?? null);
+  const [seeded, setSeeded] = useState(!!initial);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const shownKey = useRef<string | null>(initial?.key ?? null);
+  useKeepLastSeen(rowsFor, COUNT_SHEET_TABLES, rows);
+  /** The rows on screen are now read from the database for `key` */
+  const settle = (key: string) => {
+    setRowsFor(key);
+    setSeeded(false);
+  };
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -90,11 +116,15 @@ export function useDailyStockCount({
   if (!queueObj.current)
     queueObj.current = new SaveQueue(
       async (rowId, patch) => {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("daily_stock_counts")
           .update(patch as { physical_count?: number | null; waste?: number; calculated_balance?: number; variance?: number })
-          .eq("id", rowId);
-        return { error: error ? { message: error.message } : null };
+          .eq("id", rowId)
+          .select("id")
+          .abortSignal(writeTimeout());
+        if (error) return { error: { message: error.message } };
+        // Row security filters an update out silently (0 rows, no error): that is not saved
+        return { error: data?.length ? null : { message: "บัญชีนี้บันทึกยอดนับแถวนี้ไม่ได้ (ไม่มีสิทธิ์ หรือแถวถูกลบ)" } };
       },
       (rowId, st) =>
         setSaveState((p) => {
@@ -421,6 +451,16 @@ export function useDailyStockCount({
       const stale = () => token !== loadToken.current;
       const started = Date.now();
       const editedSince = (id: string) => (editedAt.current.get(id) ?? 0) >= started || queue.isPending(id);
+      const key = sheetKey(branchId, date);
+      setLoadFailed(false);
+      // Another branch or day: its own kept sheet, or nothing — never the last one's rows under it
+      if (shownKey.current !== key) {
+        const seen = lastSeen<DailyStockCountRow[]>(key);
+        shownKey.current = key;
+        setRows(seen?.value ?? []);
+        setRowsFor(seen ? key : null);
+        setSeeded(!!seen);
+      }
       setLoading(true);
       // The day's live figures, read beside the sheet; if they fail, the sheet shows what was
       // saved and nothing is written (they used to come back empty and be saved as 0)
@@ -441,6 +481,7 @@ export function useDailyStockCount({
       if (stale()) return;
       if (sheetResult.error) {
         toast.error("โหลดใบนับไม่สำเร็จ");
+        setLoadFailed(true);
         setLoading(false);
         return;
       }
@@ -450,12 +491,14 @@ export function useDailyStockCount({
       // now made only when counting starts (generateSheet)
       if (data.length === 0) {
         setRows([]);
+        settle(key);
         setLoading(false);
         return;
       }
       // A finished (submitted) sheet is a record: show what was saved, rewrite and add nothing
       if (data.every((r) => r.is_submitted)) {
         setRows(overlayQueue(data.map(toLocal), true));
+        settle(key);
         setLoading(false);
         return;
       }
@@ -472,6 +515,7 @@ export function useDailyStockCount({
         if (stale()) return;
         toast.error("โหลดยอดของวันนี้ไม่สำเร็จ ยอดที่เห็นคือที่บันทึกไว้ ลองเปิดใหม่อีกครั้ง");
         setRows(overlayQueue(data.map(toLocal), true));
+        settle(key);
         setLoading(false);
         return;
       }
@@ -576,6 +620,7 @@ export function useDailyStockCount({
         }
       }
       if (stale()) return;
+      settle(key);
       setLoading(false);
       // Merge adjNet/adjDetails into final rows (patched rows already have them; toLocal sets defaults for inserted)
       const patchedWithAdj = patched.map((r) => {
@@ -691,6 +736,8 @@ export function useDailyStockCount({
         if (inserted) allInserted.push(...inserted);
       }
 
+      shownKey.current = sheetKey(branchId, date);
+      settle(sheetKey(branchId, date));
       setRows(allInserted.map((r) => {
         const local = toLocal(r);
         const adjEntry = adjMap.get(r.sku_id) ?? { net: 0, details: [] };
@@ -792,13 +839,21 @@ export function useDailyStockCount({
       return false;
     }
     const now = new Date().toISOString();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("daily_stock_counts")
       .update({ is_submitted: true, submitted_at: now })
       .eq("branch_id", branchId)
-      .eq("count_date", date);
+      .eq("count_date", date)
+      .select("id")
+      .abortSignal(writeTimeout());
     if (error) {
-      toast.error("กดนับเสร็จไม่สำเร็จ: " + error.message);
+      // Pressing again is safe (it only marks the day finished)
+      toast.error("กดนับเสร็จไม่สำเร็จ: " + (noAnswer(error) ? "ระบบไม่ตอบ ลองกดนับเสร็จอีกครั้ง" : error.message));
+      return false;
+    }
+    // 0 rows = row security filtered it out: nothing was closed
+    if (!data?.length) {
+      toast.error("กดนับเสร็จไม่สำเร็จ: บัญชีนี้ปิดใบนับนี้ไม่ได้ (ไม่มีสิทธิ์) แจ้งผู้ดูแลระบบ");
       return false;
     }
     setRows((prev) => prev.map((r) => ({ ...r, isSubmitted: true, submittedAt: now })));
@@ -817,7 +872,8 @@ export function useDailyStockCount({
       .update({ is_submitted: true, submitted_at: new Date().toISOString() })
       .eq("branch_id", branchId)
       .in("count_date", dates)
-      .eq("is_submitted", false);
+      .eq("is_submitted", false)
+      .abortSignal(writeTimeout());
     if (error) {
       toast.error("บันทึกไม่สำเร็จ: " + error.message);
       return false;
@@ -843,6 +899,10 @@ export function useDailyStockCount({
   return {
     rows,
     loading,
+    /** The kept sheet is up and being read again (counting waits for it: its balances may be old) */
+    refreshing: seeded && !loadFailed,
+    /** Re-reading the kept sheet failed: the rows on screen are the earlier ones */
+    refreshFailed: loadFailed && seeded,
     generating,
     loadSheet,
     generateSheet,

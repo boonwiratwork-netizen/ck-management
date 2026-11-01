@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { clearDeviceCopies } from "@/lib/base-cache";
+import { cacheForUser, clearPageCache } from "@/lib/page-cache";
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -82,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        // Expired, signed out in another tab, or someone else signed in: nothing kept stays
+        cacheForUser(session?.user?.id ?? null);
         setSession(session);
         setUser(session?.user ?? null);
         setSessionLoading(false);
@@ -97,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      cacheForUser(session?.user?.id ?? null);
       setSession(session);
       setUser(session?.user ?? null);
       setSessionLoading(false);
@@ -117,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     clearDeviceCopies();
+    clearPageCache();
     setUser(null);
     setSession(null);
     setProfile(null);

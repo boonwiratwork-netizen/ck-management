@@ -11,6 +11,7 @@ import type { TabKey } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useDailyStockCount } from "@/hooks/use-daily-stock-count";
 import { useCountStatus } from "@/hooks/use-count-status";
+import { RefreshNote } from "@/components/RefreshNote";
 import { supabase } from "@/integrations/supabase/client";
 import { ZONES, businessDate, isBigDifference, isDormant, lowItems, monthEndWindow, orderLines, zoneOf } from "@/lib/stock-count";
 import { CountSheet, type SheetLine } from "@/components/count/CountSheet";
@@ -135,7 +136,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   }, [today]);
   const monthEnd = monthEndWindow(date);
 
-  const liveDsc = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches });
+  const liveDsc = useDailyStockCount({ skus, menuBomLines, modifierRules, spBomLines, menus, branches, opensOn: { branchId, date } });
   const liveStatus = useCountStatus(demo ? null : branchId, date);
   const dsc = demo?.dsc ?? liveDsc;
   const { status, loading: statusLoading, reload: reloadStatus } = demo?.status ?? liveStatus;
@@ -272,7 +273,10 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
   };
 
   // ── Screens ──
-  const locked = finished;
+  // A kept sheet being read again: counting waits (its balances, and the variance saved with a count, may be old)
+  const refreshing = !!dsc.refreshing;
+  const keptOnly = refreshing || !!dsc.refreshFailed;
+  const locked = finished || keptOnly;
   let work: React.ReactNode = null;
   if (!branchId) work = <Empty text="ยังไม่มีสาขาที่เปิดอยู่" />;
   else if (dsc.loading && !hasSheet) work = <Empty text="กำลังคำนวณใบนับ…" />;
@@ -385,6 +389,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
 
       {/* Side by side only on wide screens (split = 1440px): below that the panel and the
           count are one at a time, so the table gets the room (a 1280px laptop has ~960px) */}
+      <RefreshNote refreshing={refreshing} failed={!!dsc.refreshFailed} onRetry={() => branchId && dsc.loadSheet(branchId, date)} />
       <div className={"grid grid-cols-1 gap-6 split:grid-cols-[320px_minmax(0,1fr)]"}>
         <div className={cn("min-w-0 max-w-2xl split:max-w-none", !isHome && "hidden split:block")}>
           {branchId && (
@@ -398,7 +403,7 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
               dormantCount={dormant.length}
               monthEnd={monthEnd}
               canEdit={canEdit}
-              starting={starting || (dsc.loading && !hasSheet) || !baseReady}
+              starting={starting || (dsc.loading && !hasSheet) || !baseReady || keptOnly}
               onStart={start}
               onGoSales={() => onNavigate("sales-entry")}
               onGoReceive={() => onNavigate("branch-receipt")}

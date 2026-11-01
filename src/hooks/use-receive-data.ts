@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,6 +8,12 @@ import { CK_SUPPLIER_NAME, transferOrderStatusAfter, type ReceiptRow } from "@/l
 import { OVER_RECEIVE, UNFINISHED_DAYS, declineAnswer, overReceived, receiveAnswer, receiveSent, returnSent, statusWord, waitingOrders, wasSent, type DbDeclineAnswer, type DbReceiveAnswer, type ReceiveResult, type ReturnResult } from "@/lib/transfer-stock";
 import { callDbFunction, moveOrder, orderState, releaseClaim, removeDistribution } from "@/lib/transfer-stock-db";
 import { bangkokDate, shiftDay } from "@/lib/day-follow";
+import { writeError, writeTimeout } from "@/lib/write-timeout";
+import { lastSeen, useKeepLastSeen } from "@/lib/page-cache";
+
+/** What the receive page lists are read from: a write to any drops the kept copy (lib/page-cache.ts) */
+const RECEIVE_TABLES = ["transfer_orders", "transfer_order_lines", "branch_receipts", "purchase_requests", "purchase_request_lines"];
+type Kept = { pendingTOs: PendingTO[]; prGroups: PRGroup[]; history: HistoryReceipt[] };
 
 /**
  * Everything the Receive page reads and writes. On open, pending transfer orders,
@@ -93,23 +99,47 @@ export function useReceiveData(opts: {
   historyTo: string;
 }) {
   const { branchId, historyBranchIds, historyFrom, historyTo } = opts;
-  const [pendingTOs, setPendingTOs] = useState<PendingTO[]>([]);
-  const [prGroups, setPrGroups] = useState<PRGroup[]>([]);
-  const [history, setHistory] = useState<HistoryReceipt[]>([]);
+  const historyKey = `${historyBranchIds.join(",")}|${historyFrom}|${historyTo}`;
+  // Coming back: the lists as shown last for this branch and window are up at once and read
+  // again behind them (lib/page-cache.ts). Receiving and declining stay safe on them: the
+  // database refuses an order already received or declined elsewhere
+  const keyFor = (b: string | null, h: string) => (b ? `receive|${b}|${h}` : null);
+  const [initial] = useState(() => lastSeen<Kept>(keyFor(branchId, historyKey))?.value ?? null);
+  const [pendingTOs, setPendingTOs] = useState<PendingTO[]>(initial?.pendingTOs ?? []);
+  const [prGroups, setPrGroups] = useState<PRGroup[]>(initial?.prGroups ?? []);
+  const [history, setHistory] = useState<HistoryReceipt[]>(initial?.history ?? []);
   const [loading, setLoading] = useState(true);
   /** The last read failed (wholly or in part): what's listed may be missing orders or receipts */
   const [error, setError] = useState<string | null>(null);
-  const historyKey = `${historyBranchIds.join(",")}|${historyFrom}|${historyTo}`;
   const latest = useRef(0);
   /** Which branch the waiting lists, and which window the history, on screen are for */
-  const shownBranch = useRef<string | null>(null);
-  const shownHistory = useRef<string | null>(null);
+  const shownBranch = useRef<string | null>(initial ? branchId : null);
+  const shownHistory = useRef<string | null>(initial ? historyKey : null);
+  /** The lists on screen are the kept ones (not yet read again) */
+  const [kept, setKept] = useState(!!initial);
+  const [keptFor, setKeptFor] = useState<string | null>(null);
+  const keptValue = useMemo<Kept>(() => ({ pendingTOs, prGroups, history }), [pendingTOs, prGroups, history]);
+  useKeepLastSeen(keptFor, RECEIVE_TABLES, keptValue);
 
   const load = useCallback(async () => {
     const run = ++latest.current;
     setLoading(true);
     // Another branch's orders never stay up under this one, also while it loads or when its
     // read fails (they could be received into the wrong branch); a reload of the same keeps them
+    const k = keyFor(branchId, historyKey);
+    if (shownBranch.current !== branchId || shownHistory.current !== historyKey) {
+      setKeptFor(null);
+      const seen = lastSeen<Kept>(k)?.value;
+      if (seen) {
+        // This branch and window's own kept lists (never another branch's)
+        setPendingTOs(seen.pendingTOs);
+        setPrGroups(seen.prGroups);
+        setHistory(seen.history);
+        shownBranch.current = branchId;
+        shownHistory.current = historyKey;
+        setKept(true);
+      }
+    }
     if (shownBranch.current !== branchId) {
       setPendingTOs([]);
       setPrGroups([]);
@@ -120,10 +150,13 @@ export function useReceiveData(opts: {
       shownHistory.current = null;
     }
     try {
-      await read(run);
+      const complete = await read(run);
       if (run === latest.current) {
         shownBranch.current = branchId;
         shownHistory.current = historyKey;
+        setKept(false);
+        // A read that came back short is shown (with its warning), never kept
+        setKeptFor(complete ? k : null);
       }
     } catch (e) {
       if (run !== latest.current) return;
@@ -169,7 +202,7 @@ export function useReceiveData(opts: {
           )
         : Promise.resolve({ data: [], error: null }),
     ]);
-    if (run !== latest.current) return;
+    if (run !== latest.current) return false;
     const partial = !!(sent.error || unfinished.error || prs.error || hist.error);
     if (partial) toast.error("โหลดข้อมูลรับของไม่ครบ ลองรีเฟรช");
     setError(partial ? "โหลดข้อมูลรับของไม่ครบ รายการที่เห็นอาจขาดไป ลองรีเฟรช" : null);
@@ -221,6 +254,7 @@ export function useReceiveData(opts: {
       })),
     );
     setHistory(((hist.data ?? []) as any[]).map(toLocal));
+    return !partial;
   };
 
   useEffect(() => {
@@ -236,9 +270,9 @@ export function useReceiveData(opts: {
   const saveRows = useCallback(
     async (rows: ReceiptRow[]): Promise<number> => {
       if (rows.length === 0) return 0;
-      const { data, error } = await supabase.from("branch_receipts").insert(rows.map(toInsert)).select(RECEIPT_SELECT);
+      const { data, error } = await supabase.from("branch_receipts").insert(rows.map(toInsert)).select(RECEIPT_SELECT).abortSignal(writeTimeout());
       if (error || (data?.length ?? 0) < rows.length) {
-        toast.error("บันทึกรับของไม่สำเร็จ" + (error ? ": " + error.message : ""));
+        toast.error("บันทึกรับของไม่สำเร็จ" + (error ? ": " + writeError(error) : ""));
         return 0;
       }
       keepNew(data ?? []);
@@ -308,7 +342,7 @@ export function useReceiveData(opts: {
       if (!res.closed) toast.warning("บันทึกรับของแล้ว แต่ปิดใบโอนไม่ได้ (บัญชีนี้ยังไม่มีสิทธิ์) แจ้งผู้ดูแลระบบ");
       // The database function closes the request itself
       if (db.kind !== "answer" && to.trId) {
-        const { data, error } = await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.trId).select("id");
+        const { data, error } = await supabase.from("transfer_requests").update({ status: "Fulfilled" }).eq("id", to.trId).select("id").abortSignal(writeTimeout());
         if (error || !data?.length) toast.error("รับของสำเร็จ แต่อัปเดตใบขอเบิกไม่ได้" + (error ? ": " + error.message : ""));
       }
       return res.count;
@@ -352,7 +386,7 @@ export function useReceiveData(opts: {
   /** Mark purchase requests fulfilled after their goods were received */
   const fulfilPurchaseRequests = useCallback(async (supplierId: string, prIds: string[]) => {
     if (prIds.length === 0) return;
-    const { error } = await supabase.from("purchase_requests").update({ status: "Fulfilled" }).in("id", prIds);
+    const { error } = await supabase.from("purchase_requests").update({ status: "Fulfilled" }).in("id", prIds).abortSignal(writeTimeout());
     if (error) {
       toast.error("รับของสำเร็จ แต่ปิดใบขอซื้อไม่ได้: " + error.message);
       return;
@@ -424,6 +458,10 @@ export function useReceiveData(opts: {
     prGroups,
     history,
     loading,
+    /** The lists on screen are kept from the last visit and being read again */
+    refreshing: kept && loading,
+    /** Reading them again failed: they are the earlier lists */
+    refreshFailed: kept && !loading && !!error,
     error,
     reload: load,
     saveRows,

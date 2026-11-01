@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { afterCount, producedAfterCount, type CountAnchor, type CountTiming } from "@/lib/count-anchor";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { fetchAllRows, fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { StockAdjustment } from "@/types/stock";
 import { SKU } from "@/types/sku";
 import { ProductionRecord } from "@/types/production";
@@ -9,6 +9,7 @@ import { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import { BomByproduct } from "@/types/byproduct";
 import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
+import { writeError, writeTimeout } from "@/lib/write-timeout";
 import { toast } from "sonner";
 import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 
@@ -26,6 +27,62 @@ interface AnchorData extends CountAnchor {
   count_date: string;
   completed_at: string;
 }
+
+type DeliveredLine = { sku_id: string; qty: number; delivery_date: string; sent_at?: string };
+
+/**
+ * What the kitchen has sent to branches, per SM product and per line (for the balance and the
+ * moves after a count). Both reads are paged and ordered by id: one unpaged read of every
+ * transfer order line ever stopped silently at the row limit, understating sends and so
+ * overstating kitchen stock. A failed page fails the whole read (throws): never a partial total.
+ */
+async function readDelivered(): Promise<{ delivered: Record<string, number>; lineDetails: DeliveredLine[] }> {
+  const [lines, orders] = await Promise.all([
+    fetchAllRowsOrThrow<{ sku_id: string; planned_qty: number; actual_qty: number; to_id: string }>((a, b) =>
+      supabase.from("transfer_order_lines").select("id, sku_id, planned_qty, actual_qty, to_id").order("id").range(a, b) as never,
+    ),
+    fetchAllRowsOrThrow<{ id: string; status: string; delivery_date: string; sent_at: string }>((a, b) =>
+      supabase.from("transfer_orders").select("id, status, delivery_date, sent_at").in("status", TO_DELIVERED_STATUSES).order("id").range(a, b) as never,
+    ),
+  ]);
+  // Only lines of orders that went out (the status read above)
+  const byId = new Map(orders.map((t) => [t.id, t]));
+  const delivered: Record<string, number> = {};
+  const lineDetails: DeliveredLine[] = [];
+  for (const line of lines) {
+    const to = byId.get(line.to_id);
+    if (!to) continue;
+    const qty = computeToLineQty(line.actual_qty, line.planned_qty, to.status);
+    delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
+    // sent_at: when the order was last changed — the send, or a later receive (close enough to place it against a count)
+    lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: to.delivery_date, sent_at: to.sent_at });
+  }
+  return { delivered, lineDetails };
+}
+
+/**
+ * The kitchen's SM adjustments (production in/out, counts, manual), newest first. Paged with
+ * id as the tiebreaker: one unpaged read stopped silently at the row limit, dropping the oldest
+ * moves from the balance. A failed page fails the read (throws): never a partial list.
+ */
+async function readSmAdjustments(): Promise<StockAdjustment[]> {
+  const rows = await fetchAllRowsOrThrow<{ id: string; sku_id: string; adjustment_date: string; quantity: number; reason: string; created_at: string }>((a, b) =>
+    supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }).order("id").range(a, b) as never,
+  );
+  return rows.map((r) => ({ id: r.id, skuId: r.sku_id, date: r.adjustment_date, quantity: r.quantity, reason: r.reason, createdAt: r.created_at }));
+}
+
+/** Every production run, newest first (paged the same way, for the same reason) */
+async function readProductionRecords(): Promise<ProductionRecord[]> {
+  const rows = await fetchAllRowsOrThrow<{ id: string; plan_id: string; production_date: string; sm_sku_id: string; batches_produced: number; actual_output_g: number; created_at: string }>((a, b) =>
+    supabase.from("production_records").select("*").order("created_at", { ascending: false }).order("id").range(a, b) as never,
+  );
+  return rows.map((r) => ({ id: r.id, planId: r.plan_id, productionDate: r.production_date, smSkuId: r.sm_sku_id, batchesProduced: r.batches_produced, actualOutputG: r.actual_output_g, createdAt: r.created_at }));
+}
+
+const ADJUSTMENTS_FAILED = "อ่านรายการปรับยอดครัวผลิตไม่สำเร็จ ยอดคงเหลือครัวผลิต (SM) ยังไม่ถูก ลองรีเฟรช";
+
+const DELIVERED_FAILED = "อ่านยอดที่ส่งให้สาขาไม่สำเร็จ ยอดคงเหลือครัวผลิต (SM) ยังไม่ถูก ลองรีเฟรช";
 
 export function useSmStockData(
   skus: SKU[],
@@ -106,20 +163,30 @@ export function useSmStockData(
     setAnchorMap(map);
   }, []);
 
+  /** The first read failed: SM stock isn't ready; it says so, and tries again by itself (or on "ลองใหม่") */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadTry, setLoadTry] = useState(0);
+  const retryLoad = useCallback(() => setLoadTry((n) => n + 1), []);
+  useEffect(() => {
+    if (!loadFailed) return;
+    const t = setTimeout(retryLoad, 15_000);
+    return () => clearTimeout(t);
+  }, [loadFailed, loadTry, retryLoad]);
+
   useEffect(() => {
     setIsStockDataReady(false);
     // Kitchen data loads only once a kitchen page is opened (see Index)
     if (!enabled) return;
+    let cancelled = false;
     Promise.all([
       supabase.from("stock_opening_balances").select("*"),
-      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }),
-      supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
-      supabase
-        .from("transfer_orders")
-        .select("id, status, delivery_date, sent_at")
-        .in("status", TO_DELIVERED_STATUSES),
+      // A failed read stays null: the stock isn't marked ready on a partial list (said below)
+      readSmAdjustments().catch(() => null),
+      // A failed read stays null: the stock isn't marked ready on a partial total (said below)
+      readDelivered().catch(() => null),
       fetchAnchorData(),
-    ]).then(([obRes, adjRes, toLineRes, toRes]) => {
+    ]).then(([obRes, adj, sent]) => {
+      if (cancelled) return;
       if (obRes.data) {
         const map: Record<string, number> = {};
         obRes.data.forEach((r: any) => {
@@ -127,49 +194,28 @@ export function useSmStockData(
         });
         setOpeningStocksState(map);
       }
-      if (adjRes.data) {
-        setAdjustments(
-          adjRes.data.map((r: any) => ({
-            id: r.id,
-            skuId: r.sku_id,
-            date: r.adjustment_date,
-            quantity: r.quantity,
-            reason: r.reason,
-            createdAt: r.created_at,
-          })),
-        );
+      if (!adj) {
+        toast.error(ADJUSTMENTS_FAILED);
+        setLoadFailed(true);
+        return;
       }
+      setAdjustments(adj);
 
-      const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
-      const toStatusMap: Record<string, string> = {};
-      const toDateMap: Record<string, string> = {};
-      // When the order was last changed — the send, or a later receive (close enough to place it against a count)
-      const toSentMap: Record<string, string> = {};
-      for (const t of toRes.data || []) {
-        toStatusMap[t.id] = t.status;
-        toDateMap[t.id] = t.delivery_date;
-        toSentMap[t.id] = t.sent_at;
+      if (!sent) {
+        toast.error(DELIVERED_FAILED);
+        setLoadFailed(true);
+        return;
       }
+      setToDelivered(sent.delivered);
+      setToLineDetails(sent.lineDetails);
 
-      const delivered: Record<string, number> = {};
-      const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string; sent_at?: string }> = [];
-      for (const line of toLineRes.data || []) {
-        if (!validToIds.has(line.to_id)) continue;
-        const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
-        delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
-        lineDetails.push({
-          sku_id: line.sku_id,
-          qty,
-          delivery_date: toDateMap[line.to_id],
-          sent_at: toSentMap[line.to_id],
-        });
-      }
-      setToDelivered(delivered);
-      setToLineDetails(lineDetails);
-
+      setLoadFailed(false);
       setIsStockDataReady(true);
     });
-  }, [enabled]);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, loadTry]);
 
   const smSkus = useMemo(() => skus.filter((s) => s.type === "SM"), [skus]);
 
@@ -246,9 +292,10 @@ export function useSmStockData(
         stock_type: "SM",
       })
       .select()
+      .abortSignal(writeTimeout())
       .single();
     if (error || !row) {
-      toast.error("บันทึกปรับยอดไม่ได้: " + (error?.message ?? ""));
+      toast.error("บันทึกปรับยอดไม่ได้: " + writeError(error));
       return false;
     }
     setAdjustments((prev) => [
@@ -294,63 +341,28 @@ export function useSmStockData(
   );
 
   const refreshProductionRecords = useCallback(async () => {
-    const [prodRes, adjRes] = await Promise.all([
-      supabase.from("production_records").select("*").order("created_at", { ascending: false }),
-      supabase.from("stock_adjustments").select("*").eq("stock_type", "SM").is("branch_id", null).order("created_at", { ascending: false }),
-    ]);
-    if (prodRes.data) {
-      setLocalProductionRecords(
-        prodRes.data.map((r: any) => ({
-          id: r.id,
-          planId: r.plan_id,
-          productionDate: r.production_date,
-          smSkuId: r.sm_sku_id,
-          batchesProduced: r.batches_produced,
-          actualOutputG: r.actual_output_g,
-          createdAt: r.created_at,
-        })),
-      );
-    }
-    if (adjRes.data) {
-      setAdjustments(
-        adjRes.data.map((r: any) => ({
-          id: r.id,
-          skuId: r.sku_id,
-          date: r.adjustment_date,
-          quantity: r.quantity,
-          reason: r.reason,
-          createdAt: r.created_at,
-        })),
-      );
+    // Both or neither: a run without its stock moves (or the reverse) would show a wrong balance.
+    // On a failure the figures on screen stay as they were, and it says so
+    try {
+      const [records, adj] = await Promise.all([readProductionRecords(), readSmAdjustments()]);
+      setLocalProductionRecords(records);
+      setAdjustments(adj);
+    } catch {
+      toast.error(ADJUSTMENTS_FAILED);
     }
     // Also refresh anchor data
     await fetchAnchorData();
   }, [fetchAnchorData]);
 
   const refreshToDelivered = useCallback(async () => {
-    const [toLineRes, toRes] = await Promise.all([
-      supabase.from("transfer_order_lines").select("sku_id, planned_qty, actual_qty, to_id"),
-      supabase.from("transfer_orders").select("id, status, delivery_date, sent_at").in("status", TO_DELIVERED_STATUSES),
-    ]);
-    const validToIds = new Set((toRes.data || []).map((t: any) => t.id));
-    const toStatusMap: Record<string, string> = {};
-    const toDateMap: Record<string, string> = {};
-    const toSentMap: Record<string, string> = {};
-    for (const t of toRes.data || []) {
-      toStatusMap[t.id] = t.status;
-      toDateMap[t.id] = t.delivery_date;
-      toSentMap[t.id] = t.sent_at;
+    try {
+      const { delivered, lineDetails } = await readDelivered();
+      setToDelivered(delivered);
+      setToLineDetails(lineDetails);
+    } catch {
+      // The figures on screen stay as they were, and it says so (callers don't await an error)
+      toast.error(DELIVERED_FAILED);
     }
-    const delivered: Record<string, number> = {};
-    const lineDetails: Array<{ sku_id: string; qty: number; delivery_date: string; sent_at?: string }> = [];
-    for (const line of toLineRes.data || []) {
-      if (!validToIds.has(line.to_id)) continue;
-      const qty = computeToLineQty(line.actual_qty, line.planned_qty, toStatusMap[line.to_id]);
-      delivered[line.sku_id] = (delivered[line.sku_id] || 0) + qty;
-      lineDetails.push({ sku_id: line.sku_id, qty, delivery_date: toDateMap[line.to_id], sent_at: toSentMap[line.to_id] });
-    }
-    setToDelivered(delivered);
-    setToLineDetails(lineDetails);
   }, []);
 
   return {
@@ -363,6 +375,9 @@ export function useSmStockData(
     getLastProductionDate,
     openingStocks,
     isStockDataReady,
+    /** The first read failed (retrying by itself every 15 s); `retryLoad` tries now */
+    loadFailed,
+    retryLoad,
     refreshToDelivered,
     refreshProductionRecords,
   };

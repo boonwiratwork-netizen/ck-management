@@ -72,6 +72,8 @@ export default function ReceiveDemo() {
       prGroups: prs,
       history,
       loading: false,
+      refreshing: false,
+      refreshFailed: false,
       error: null,
       reload: async () => undefined,
       saveRows: async (rows: ReceiptRow[]) => {

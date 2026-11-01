@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { toast } from "sonner";
 
 export interface BranchReceipt {
@@ -44,16 +45,17 @@ export function useBranchReceiptData() {
 
   const fetchReceipts = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("branch_receipts")
-      .select("*")
-      .order("receipt_date", { ascending: false });
-    if (error) {
+    // Paged, id as the tiebreaker: an unpaged read stops silently at the row limit. A failed
+    // page fails the read (said), never a partial list
+    let data: any[];
+    try {
+      data = await fetchAllRowsOrThrow<any>((a, b) => supabase.from("branch_receipts").select("*").order("receipt_date", { ascending: false }).order("id").range(a, b));
+    } catch {
       toast.error("โหลดรายการรับของไม่สำเร็จ");
       setLoading(false);
       return;
     }
-    setReceipts((data || []).map(toLocal));
+    setReceipts(data.map(toLocal));
     setLoading(false);
   }, []);
 

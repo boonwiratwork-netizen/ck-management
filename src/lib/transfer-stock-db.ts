@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { bangkokDate } from "@/lib/day-follow";
+import { writeTimeout } from "@/lib/write-timeout";
 import { claimOutcome, distributionDate, distributionDeltas, distributionReasons, type Claim, type DistributionRow, type OrderState } from "@/lib/transfer-stock";
 
 /**
@@ -53,20 +54,20 @@ export async function callDbFunction<T>(fn: string, args: Record<string, unknown
 
 /** How many branch receipts point at an order (null = couldn't read) */
 export async function receiptCount(toId: string): Promise<number | null> {
-  const { count, error } = await supabase.from("branch_receipts").select("id", { count: "exact", head: true }).eq("transfer_order_id", toId);
+  const { count, error } = await supabase.from("branch_receipts").select("id", { count: "exact", head: true }).eq("transfer_order_id", toId).abortSignal(writeTimeout());
   return error ? null : count ?? 0;
 }
 
 /** The order's status and how many receipts it has (null = couldn't read) */
 export async function orderState(toId: string): Promise<OrderState | null> {
-  const [to, receipts] = await Promise.all([supabase.from("transfer_orders").select("status").eq("id", toId).maybeSingle(), receiptCount(toId)]);
+  const [to, receipts] = await Promise.all([supabase.from("transfer_orders").select("status").eq("id", toId).abortSignal(writeTimeout()).maybeSingle(), receiptCount(toId)]);
   if (to.error || receipts === null) return null;
   return { status: to.data?.status ?? null, receipts };
 }
 
 /** Move an order on from `from`: matches only while it still is `from` */
 export async function moveOrder(toId: string, from: string, patch: { status: string; decline_reason?: string | null }): Promise<Claim> {
-  const { data, error } = await supabase.from("transfer_orders").update(patch).eq("id", toId).eq("status", from).select("id");
+  const { data, error } = await supabase.from("transfer_orders").update(patch).eq("id", toId).eq("status", from).select("id").abortSignal(writeTimeout());
   if (error) return { kind: "error", message: error.message };
   if (data && data.length > 0) return { kind: "ok" };
   const { data: now, error: readErr } = await supabase.from("transfer_orders").select("status").eq("id", toId).maybeSingle();
@@ -77,7 +78,7 @@ export async function moveOrder(toId: string, from: string, patch: { status: str
 /** Put a claimed order back to Sent (tried a few times; false = it couldn't) */
 export async function releaseClaim(toId: string, claimedAs: string): Promise<boolean> {
   for (let i = 0; i < 3; i++) {
-    const { data, error } = await supabase.from("transfer_orders").update({ status: "Sent" }).eq("id", toId).eq("status", claimedAs).select("id");
+    const { data, error } = await supabase.from("transfer_orders").update({ status: "Sent" }).eq("id", toId).eq("status", claimedAs).select("id").abortSignal(writeTimeout());
     if (!error) return (data?.length ?? 0) > 0;
     await new Promise((r) => setTimeout(r, 400 * (i + 1)));
   }
@@ -112,7 +113,7 @@ export async function syncDistribution(to: { id: string; toNumber: string; sentA
   const date = distributionDate(current.rows, to.sentAt, to.deliveryDate, bangkokDate());
   const add = distributionDeltas(lines.data ?? [], current.rows, date, `Distribution: ${to.toNumber}`);
   if (add.length === 0) return null;
-  const { data, error } = await supabase.from("stock_adjustments").insert(add).select("id");
+  const { data, error } = await supabase.from("stock_adjustments").insert(add).select("id").abortSignal(writeTimeout());
   if (error) return error.message;
   if ((data?.length ?? 0) < add.length) return "บันทึกไม่ครบทุกรายการ";
   return null;
@@ -128,7 +129,7 @@ export async function removeDistribution(to: { id: string; toNumber: string }): 
   if (error) return error;
   if (rows.length === 0) return null;
   const ids = rows.map((r) => r.id);
-  const { data, error: delErr } = await supabase.from("stock_adjustments").delete().in("id", ids).select("id");
+  const { data, error: delErr } = await supabase.from("stock_adjustments").delete().in("id", ids).select("id").abortSignal(writeTimeout());
   if (delErr) return delErr.message;
   if ((data?.length ?? 0) < ids.length) return "บัญชีนี้ไม่มีสิทธิ์คืนสต๊อกครัว";
   return null;

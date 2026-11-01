@@ -5,6 +5,7 @@ import { StockBalance, StockAdjustment } from "@/types/stock";
 import { SKU } from "@/types/sku";
 import { Price } from "@/types/price";
 import { supabase } from "@/integrations/supabase/client";
+import { writeError, writeTimeout } from "@/lib/write-timeout";
 import { toast } from "sonner";
 import { bulkResult, type BulkResult } from "@/lib/bulk-write";
 
@@ -33,10 +34,26 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
   const [anchorMap, setAnchorMap] = useState<Record<string, { physical_qty: number } & CountAnchor>>({});
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** Being read again (the balances on screen are from the last read) */
+  const [refreshing, setRefreshing] = useState(false);
+  /** The last read failed in part: some balances on screen are from an earlier read (or incomplete) */
+  const [readFailed, setReadFailed] = useState(false);
 
   const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await read();
+    } catch {
+      setReadFailed(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const read = async () => {
+    let failed = false;
     // The finished counts are read beside the rest (they used to wait for it: one more round)
-    const [obRes, adjRes, grRes, { data: sessions }] = await Promise.all([
+    const [obRes, adjRes, grRes, { data: sessions, error: sessErr }] = await Promise.all([
       supabase.from("stock_opening_balances").select("*"),
       // Paged: production and transfers write several rows a day (well past 1,000)
       fetchAllRows<any>((f, t) =>
@@ -47,6 +64,7 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
       ),
       supabase.from("stock_count_sessions").select("id, count_date, completed_at, count_timing").eq("status", "Completed").is("deleted_at", null),
     ]);
+    failed = !!(obRes.error || adjRes.error || grRes.error || sessErr);
     if (obRes.data) {
       const map: Record<string, number> = {};
       obRes.data.forEach((r: any) => (map[r.sku_id] = r.quantity));
@@ -81,10 +99,11 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
             map[l.sku_id] = { physical_qty: Number(l.physical_qty), count_date: ss.count_date, completed_at: ss.completed_at, timing: ss.count_timing ?? null };
         });
         setAnchorMap(map);
-      }
+      } else failed = true;
     }
+    setReadFailed(failed);
     setLoaded(true);
-  }, [type]);
+  };
 
   useEffect(() => {
     // Kitchen data loads only once a kitchen page is opened (see Index)
@@ -149,9 +168,10 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
         .from("stock_adjustments")
         .insert({ sku_id: adj.skuId, adjustment_date: adj.date, quantity: adj.quantity, reason: adj.reason, stock_type: type })
         .select()
+        .abortSignal(writeTimeout())
         .single();
       if (error || !row) {
-        toast.error("บันทึกปรับยอดไม่ได้: " + (error?.message ?? ""));
+        toast.error("บันทึกปรับยอดไม่ได้: " + writeError(error));
         return false;
       }
       setAdjustments((prev) => [{ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason, createdAt: row.created_at }, ...prev]);
@@ -171,7 +191,8 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
       const res = await supabase
         .from("stock_adjustments")
         .insert(adjs.map((adj) => ({ sku_id: adj.skuId, adjustment_date: adj.date, quantity: adj.quantity, reason: adj.reason, stock_type: type })))
-        .select();
+        .select()
+        .abortSignal(writeTimeout());
       const data = res.data ?? [];
       // Rows that came back are in, whatever the answer says
       if (data.length) setAdjustments((prev) => [...data.map((row) => ({ id: row.id, skuId: row.sku_id, date: row.adjustment_date, quantity: row.quantity, reason: row.reason, createdAt: row.created_at })), ...prev]);
@@ -235,6 +256,9 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
     usagePerDay,
     openingStocks,
     loaded,
+    /** Read again behind balances already up (Index reloads on every visit) */
+    refreshing: loaded && refreshing,
+    readFailed,
     reload: load,
   };
 }

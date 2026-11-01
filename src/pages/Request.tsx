@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, HelpCircle } from "lucide-react";
 import type { Branch } from "@/types/branch";
 import { useAuth } from "@/hooks/use-auth";
+import { profileIdOf } from "@/lib/profile-id";
+import { RefreshNote } from "@/components/RefreshNote";
 import { useTransferRequest } from "@/hooks/use-transfer-request";
 import { usePurchaseRequest } from "@/hooks/use-purchase-request";
 import { useBranchRmStock } from "@/hooks/use-branch-rm-stock";
@@ -12,7 +14,6 @@ import { RequestForm } from "@/components/request/RequestForm";
 import { RequestDetail, RequestHome, RequestList, RequestSent, SupplierPick, numberOf, type AnyRequest } from "@/components/request/RequestViews";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { withBusy } from "@/lib/with-busy";
@@ -74,12 +75,8 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
   const [profileId, setProfileId] = useState<string | null>(null);
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => data && setProfileId(data.id));
+    // Read once per person for the whole app (lib/profile-id.ts)
+    profileIdOf(user.id).then((id) => id && setProfileId(id));
   }, [user]);
 
   const tr = useTransferRequest(branchId, profileId);
@@ -307,12 +304,14 @@ export default function RequestPage({ branches }: { branches: Branch[] }) {
         </Button>
       </div>
 
+      {/* Kept figures from the last visit on the home screen while they're read again */}
+      {isHome && <RefreshNote refreshing={tr.linesKept} />}
       <div className="grid grid-cols-1 gap-6 split:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cn("min-w-0", !isHome && "hidden split:block")}>
           {branchId ? (
             <RequestHome
               needCount={needCount}
-              loading={tr.isLoading}
+              loading={tr.isLoading && !tr.linesKept}
               stockError={tr.stockError}
               canCreate={canCreate}
               recent={all.slice(0, 5)}

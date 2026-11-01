@@ -9,6 +9,8 @@
  * installWriteGuard), so nothing is saved against yesterday's prices or recipes.
  */
 
+import { forgetTables, writtenTables } from "./page-cache";
+
 const PREFIX = "ck-base-v1";
 const AUTH_KEY_RE = /^sb-.+-auth-token$/;
 
@@ -140,6 +142,15 @@ export function installWriteGuard() {
     if (method !== "GET" && method !== "HEAD" && url.includes("/rest/v1/") && !url.includes("/rest/v1/rpc/")) {
       await whenBaseFresh();
     }
-    return original(input, init);
+    // A write throws away every page's kept copy made from the tables it touches (page-cache.ts):
+    // before it is sent (a read under way can't be kept as current) and again once it's answered
+    const written = writtenTables(url, method);
+    if (!written) return original(input, init);
+    forgetTables(written);
+    try {
+      return await original(input, init);
+    } finally {
+      forgetTables(written);
+    }
   };
 }

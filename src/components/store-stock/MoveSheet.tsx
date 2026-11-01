@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { moveRows, type MoveKind } from "@/lib/branch-stock";
 import { callDbFunction } from "@/lib/transfer-stock-db";
+import { noAnswer, writeTimeout } from "@/lib/write-timeout";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 import { cn, toLocalDateStr } from "@/lib/utils";
@@ -25,7 +26,11 @@ async function writeMove(rows: unknown[]): Promise<boolean | string | "unknown">
   const db = await callDbFunction<number>("move_branch_stock", { p_rows: rows });
   if (db.kind === "answer") return true;
   if (db.kind === "refused") return db.message;
-  if (db.kind === "unavailable") return !(await supabase.from("stock_adjustments").insert(rows as never).select("id")).error;
+  if (db.kind === "unavailable") {
+    const { error } = await supabase.from("stock_adjustments").insert(rows as never).select("id").abortSignal(writeTimeout());
+    // No answer: it may have saved (never "nothing saved")
+    return !error || (noAnswer(error) ? "unknown" : false);
+  }
   return "unknown";
 }
 

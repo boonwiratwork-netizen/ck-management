@@ -9,6 +9,7 @@ import type { KitchenItemStock } from "@/hooks/use-kitchen-item-stock";
 import type { useSmStockData } from "@/hooks/use-sm-stock-data";
 import { buildStockRow, coverByStorage, matchesFilter, shownOnPage, LOW_DAYS, type StockFilter, type StockRow, type StockType } from "@/lib/kitchen-stock-view";
 import { useFitsWidth } from "@/hooks/use-fits-width";
+import { RefreshNote } from "@/components/RefreshNote";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { GuideTour, useGuide, type GuideStep } from "@/components/GuideTour";
 import { StockCard } from "@/components/StockCard";
@@ -203,8 +204,12 @@ export default function KitchenStockPage(p: Props) {
     </th>
   );
 
+  // RM/PK balances are read again on every visit behind the ones already up: said so, and a failed read too
+  const itemStock = type === "RM" ? p.rm : type === "PK" ? p.pk : null;
   return (
     <div className="flex flex-col gap-4">
+      {itemStock && <RefreshNote refreshing={!!itemStock.refreshing} failed={!!itemStock.readFailed} onRetry={itemStock.reload} />}
+      {type === "SM" && p.sm.loadFailed && <RefreshNote refreshing={false} failed onRetry={p.sm.retryLoad} />}
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">สต๊อกครัว</h1>

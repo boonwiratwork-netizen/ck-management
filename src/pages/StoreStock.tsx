@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { Download, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { RefreshNote } from "@/components/RefreshNote";
 import { useBranchStock, type BranchStockLoader, type BranchStockRow } from "@/hooks/use-branch-stock";
 import { useFitsWidth } from "@/hooks/use-fits-width";
 import { StockCard } from "@/components/StockCard";
@@ -42,7 +43,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
   const branchId = own !== undefined ? own : picked ?? active[0]?.id ?? null;
   const branch = branches.find((b) => b.id === branchId) ?? null;
 
-  const { rows, loading, error, reload } = useBranchStock(branchId, skus, loader);
+  const { rows, refreshing, error, reload } = useBranchStock(branchId, skus, loader);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [historyFor, setHistoryFor] = useState<BranchStockRow | null>(null);
@@ -104,7 +105,9 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
         </div>
       )}
 
-      {error && (
+      {/* Rows kept from before (or before a move) and read again: said so; a failed read over them says they're the earlier ones */}
+      <RefreshNote refreshing={refreshing} failed={!!error && !!rows} onRetry={reload} />
+      {error && !rows && (
         <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span className="min-w-0 flex-1">{error}</span>
           <button type="button" onClick={reload} className="min-h-[40px] rounded-full border border-destructive px-4 text-sm font-semibold">
@@ -120,7 +123,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
           ))}
         </div>
       ) : (
-        <div className={cn("flex flex-col gap-4 transition-opacity", loading && "opacity-50")}>
+        <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 [&>*]:min-w-0">
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="text-sm text-muted-foreground">มูลค่าสต๊อก {branch?.branchName}</div>

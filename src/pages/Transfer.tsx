@@ -3,8 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { addDays, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useBranchData } from "@/hooks/use-branch-data";
-import { useSkuData } from "@/hooks/use-sku-data";
+import { RefreshNote } from "@/components/RefreshNote";
+import { profileIdOf } from "@/lib/profile-id";
+import type { SKU } from "@/types/sku";
+import type { Branch } from "@/types/branch";
 import { useTransferOrder, type PendingTR, type TOHistoryRow, type TOLine } from "@/hooks/use-transfer-order";
 import { useTransferLots } from "@/hooks/use-transfer-lots";
 import { packsAfterWeight, packsOf } from "@/lib/transfer-lines";
@@ -61,11 +63,24 @@ function rangeOf(k: RangeKey) {
  * The central kitchen sends what branches asked for (replaces TransferOrder).
  * Screens by hash: "" home, "pack", "review", "done", "history".
  */
-export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { getBomCostPerGram: (skuId: string) => number; refreshSmStock?: () => void }) {
+export default function TransferPage({
+  getBomCostPerGram,
+  refreshSmStock,
+  skus,
+  branches,
+  bomHeaders,
+}: {
+  getBomCostPerGram: (skuId: string) => number;
+  refreshSmStock?: () => void;
+  /** The app's shared products, branches and recipes (this page used to read its own copies on every open) */
+  skus: SKU[];
+  branches: Branch[];
+  bomHeaders: { smSkuId: string }[];
+}) {
   const { isManagement, isCkManager, user } = useAuth();
-  const { branches } = useBranchData();
-  const { skus } = useSkuData();
   const to = useTransferOrder(getBomCostPerGram);
+  // The queue on screen is the kept one from the last visit (being read again) or its re-read failed
+  const queueOld = to.queueRefreshing || to.queueFailed;
   const location = useLocation();
   const navigate = useNavigate();
   const view = decodeURIComponent(location.hash.slice(1));
@@ -80,12 +95,8 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   const [profileId, setProfileId] = useState<string | null>(null);
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => data && setProfileId(data.id));
+    // Read once per person for the whole app (lib/profile-id.ts)
+    profileIdOf(user.id).then((id) => id && setProfileId(id));
   }, [user]);
 
   // ─── The order being packed ───
@@ -116,6 +127,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
 
   const start = async (tr: PendingTR) => {
     if (busy) return; // a second tap must not start a second order
+    if (queueOld) return; // never started from the kept (not yet re-read) queue
     setBusy(true);
     try {
       // Continuing a started draft: its "ส่งไม่ได้" lines are read beside finding it
@@ -211,13 +223,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
   };
 
   // Products the kitchen can add: SM with a recipe, and RM/PK it hands out
-  const [bomSkuIds, setBomSkuIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    supabase
-      .from("bom_headers")
-      .select("sm_sku_id")
-      .then(({ data }) => data && setBomSkuIds(new Set(data.map((r: any) => r.sm_sku_id))));
-  }, []);
+  const bomSkuIds = useMemo(() => new Set(bomHeaders.map((h) => h.smSkuId)), [bomHeaders]);
   const addable = useMemo(
     () =>
       skus.filter(
@@ -534,6 +540,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
         </Button>
       </div>
 
+      {isHome && <RefreshNote refreshing={to.queueRefreshing} failed={to.queueFailed} onRetry={to.fetchPendingTRs} />}
       <div className={cn("grid grid-cols-1 gap-6", !wide && "split:grid-cols-[340px_minmax(0,1fr)]")}>
         <div className={cn("min-w-0", !isHome && "hidden", !isHome && !wide && "split:block")}>
           <TransferHome
@@ -543,7 +550,7 @@ export default function TransferPage({ getBomCostPerGram, refreshSmStock }: { ge
             recent={recent}
             canEdit={canEdit}
             onStart={start}
-            busy={busy}
+            busy={busy || queueOld}
             onOpenDraft={openDraft}
             onOpenRecent={(r) => {
               setOpenId(r.id);

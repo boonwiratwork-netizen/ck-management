@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ProductionPlan,
   ProductionRecord,
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { bulkResult, type BulkResult } from "@/lib/bulk-write";
+import { NO_ANSWER, newRowId, noAnswer, writeError, writeTimeout } from "@/lib/write-timeout";
 import { batchShare, batchesForRecord, deltas, editMovesStock, editTarget, ingredientsPerBatch, movementFor, outputPerBatch, recordTag, shareText, writeProductionMoves } from "@/lib/production";
 
 const toPlan = (r: any): ProductionPlan => ({
@@ -95,9 +96,10 @@ export function useProductionData(
           status: data.status,
         })
         .select()
+        .abortSignal(writeTimeout())
         .single();
       if (error) {
-        toast.error("เพิ่มแผนผลิตไม่สำเร็จ: " + error.message);
+        toast.error("เพิ่มแผนผลิตไม่สำเร็จ: " + writeError(error));
         return "";
       }
       setPlans((prev) => [toPlan(row), ...prev]);
@@ -169,10 +171,12 @@ export function useProductionData(
       // What untagged old records took (trimmed amounts, no line yield)
       const ingredientsNet = ingredientsPerBatch(header, bomLines, bomSteps, { gross: false });
       // The recipe's by-products and its ingredients' types, read together (they don't depend on each other)
-      const [{ data: bp }, { data: skuRows }] = await Promise.all([
-        supabase.from("bom_byproducts").select("sku_id, output_qty").eq("bom_header_id", header.id).eq("tracks_inventory", true).not("sku_id", "is", null),
-        supabase.from("skus").select("id, type").in("id", [...new Set(ingredients.map((l) => l.skuId))]),
+      const [{ data: bp, error: bpErr }, { data: skuRows, error: skuErr }] = await Promise.all([
+        supabase.from("bom_byproducts").select("sku_id, output_qty").eq("bom_header_id", header.id).eq("tracks_inventory", true).not("sku_id", "is", null).abortSignal(writeTimeout()),
+        supabase.from("skus").select("id, type").in("id", [...new Set(ingredients.map((l) => l.skuId))]).abortSignal(writeTimeout()),
       ]);
+      // Without them SM ingredients would go out as RM and by-products be missed: never guess
+      if (bpErr || skuErr) throw new Error(writeError(bpErr ?? skuErr));
       const byproducts = (bp || []).map((b) => ({ skuId: b.sku_id as string, qty: Number(b.output_qty) || 0 }));
       const typeOf = new Map((skuRows || []).map((r) => [r.id, r.type as string]));
       return { ingredients, ingredientsNet, byproducts, typeOf, byproductIds: new Set(byproducts.map((b) => b.skuId)) };
@@ -190,7 +194,9 @@ export function useProductionData(
    *   never moved them, so their true amount isn't known).
    */
   const currentFor = useCallback(async (record: ProductionRecord, per: NonNullable<Awaited<ReturnType<typeof perBatchFor>>>) => {
-    const { data } = await supabase.from("stock_adjustments").select("sku_id, quantity, reason").like("reason", `%${recordTag(record.id)}%`);
+    const { data, error } = await supabase.from("stock_adjustments").select("sku_id, quantity, reason").like("reason", `%${recordTag(record.id)}%`).abortSignal(writeTimeout());
+    // An empty answer would read as "legacy record, whole batches out": a failed read must stop the caller
+    if (error) throw new Error(writeError(error));
     const rows = data || [];
     const marked = rows.map((r) => /legacy=([\d.]+)/.exec(r.reason)?.[1]).find(Boolean);
     const legacy = marked != null ? Number(marked) : rows.length === 0 ? record.batchesProduced : null;
@@ -208,9 +214,9 @@ export function useProductionData(
   const writeMoves = useCallback(
     async (moves: { skuId: string; qty: number }[], date: string, reason: string, byproductReason: string, per: NonNullable<Awaited<ReturnType<typeof perBatchFor>>>): Promise<string[]> =>
       writeProductionMoves(moves, date, reason, byproductReason, per, {
-        smMany: async (rows) => bulkResult(rows.length, await supabase.from("stock_adjustments").insert(rows).select("id")),
+        smMany: async (rows) => bulkResult(rows.length, await supabase.from("stock_adjustments").insert(rows).select("id").abortSignal(writeTimeout())),
         smOne: async (row) => {
-          const { data, error } = await supabase.from("stock_adjustments").insert(row).select("id");
+          const { data, error } = await supabase.from("stock_adjustments").insert(row).select("id").abortSignal(writeTimeout());
           return !error && !!data?.length;
         },
         rmMany: addStockAdjustments,
@@ -230,6 +236,9 @@ export function useProductionData(
     [plans, addPlan],
   );
 
+  /** A record insert that got no answer and wasn't found: its id, used again if the same pot is saved again */
+  const unconfirmedInsert = useRef<{ key: string; id: string } | null>(null);
+
   const addRecord = useCallback(
     async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number> }): Promise<{ id: string; stockShort: string[] } | undefined> => {
       const planId = await planFor(data.smSkuId, data.productionDate);
@@ -243,16 +252,43 @@ export function useProductionData(
         actual_output_g: data.actualOutputG,
       };
       if (data.notes) row.notes = data.notes;
+      // The id is made here, so a save that got no answer can be looked up. Pressed again for the
+      // same pot after that, the same id goes again: a late landing can't become a second record
+      const key = `${data.smSkuId}|${data.productionDate}|${data.actualOutputG}`;
+      const reuse = unconfirmedInsert.current?.key === key;
+      const recordId = reuse ? unconfirmedInsert.current!.id : newRowId();
+      row.id = recordId;
       // The recipe's read starts beside the insert (it doesn't depend on it)
       const perRead = perBatchFor(data.smSkuId);
       perRead.catch(() => undefined); // awaited below, only once the record is in
-      const { data: saved, error } = await supabase.from("production_records").insert(row as never).select().single();
-      if (error || !saved) {
-        toast.error("บันทึกผลผลิตไม่ได้: " + (error?.message ?? ""));
+      const res = await supabase.from("production_records").insert(row as never).select().abortSignal(writeTimeout()).single();
+      let saved = res.data;
+      if (res.error && (noAnswer(res.error) || (reuse && res.error.code === "23505"))) {
+        // No answer (or it is already in from the unanswered press): did it land? Then carry on as saved
+        const back = await supabase.from("production_records").select().eq("id", recordId).abortSignal(writeTimeout()).maybeSingle();
+        if (back.data) saved = back.data;
+        else {
+          unconfirmedInsert.current = { key, id: recordId };
+          toast.error(back.error ? "บันทึกผลผลิต: " + NO_ANSWER : "ระบบไม่ตอบ ยังไม่ได้บันทึกผลผลิต ลองกดบันทึกอีกครั้ง");
+          return;
+        }
+      } else if (res.error || !saved) {
+        toast.error("บันทึกผลผลิตไม่ได้: " + writeError(res.error));
         return;
       }
+      unconfirmedInsert.current = null;
       setRecords((prev) => [toRecord(saved), ...prev]);
-      const per = await perRead;
+      const read = await perRead.then(
+        (p) => ({ per: p }),
+        (e: unknown) => ({ failed: e instanceof Error ? e.message : String(e) }),
+      );
+      if ("failed" in read) {
+        // Saved, but what to take out couldn't be read: the recipe's products are named as not moved
+        toast.error("อ่านสูตรไม่ได้ ยังไม่ได้ตัดสต๊อก: " + read.failed);
+        const header = bomHeaders.find((h) => h.smSkuId === data.smSkuId);
+        return { id: saved.id, stockShort: [...new Set(bomLines.filter((l) => l.bomHeaderId === header?.id).map((l) => l.rmSkuId))] };
+      }
+      const per = read.per;
       if (per) {
         const share = batchShare(data.actualOutputG, perOut);
         const want = movementFor(per.ingredients, per.byproducts, share);
@@ -265,7 +301,7 @@ export function useProductionData(
       }
       return { id: saved.id, stockShort: [] };
     },
-    [planFor, getOutputPerBatch, perBatchFor, writeMoves],
+    [planFor, getOutputPerBatch, perBatchFor, writeMoves, bomHeaders, bomLines],
   );
 
   const updateRecordWithDelta = useCallback(
@@ -285,18 +321,31 @@ export function useProductionData(
       if (old.productionDate !== data.productionDate) patch.production_date = data.productionDate;
       if (data.notes !== undefined && data.notes !== (old.notes ?? "")) patch.notes = data.notes;
       if (Object.keys(patch).length === 0) return { stockShort: [] };
-      // The recipe and what is out for the record now are read beside the update (neither
-      // depends on it; the update doesn't touch adjustments)
-      const perRead = moves ? perBatchFor(old.smSkuId) : Promise.resolve(null);
-      const outRead = perRead.then((p) => (p ? currentFor(old, p) : null));
-      outRead.catch(() => undefined); // awaited below, only once the record is saved
-      const { data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id");
-      if (error || !saved?.length) {
-        toast.error("แก้บันทึกไม่ได้" + (error ? ": " + error.message : ""));
+      // The recipe and what is out for the record now are read first: if either can't be read
+      // the edit stops here (a deduction is never worked out from missing figures)
+      let per: Awaited<ReturnType<typeof perBatchFor>> = null;
+      let out: Awaited<ReturnType<typeof currentFor>> | null = null;
+      try {
+        per = moves ? await perBatchFor(old.smSkuId) : null;
+        out = per ? await currentFor(old, per) : null;
+      } catch (e) {
+        toast.error("อ่านยอดที่ตัดสต๊อกของบันทึกนี้ไม่ได้ ยังไม่ได้แก้ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
         return false;
       }
-      const per = await perRead;
-      const out = await outRead;
+      const { data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id").abortSignal(writeTimeout());
+      if (error && noAnswer(error)) {
+        // No answer: read it back. Landed = carry on (the difference is written); else not saved
+        const back = await supabase.from("production_records").select("actual_output_g, batches_produced, production_date, notes").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
+        const now = back.data as Record<string, unknown> | null;
+        const landed = !!now && Object.entries(patch).every(([k, v]) => String(now[k] ?? "") === String(v ?? ""));
+        if (!landed) {
+          toast.error(back.error || !now ? "แก้บันทึก: " + NO_ANSWER : "ระบบไม่ตอบ ยังไม่ได้แก้ ลองอีกครั้ง");
+          return false;
+        }
+      } else if (error || !saved?.length) {
+        toast.error("แก้บันทึกไม่ได้" + (error ? ": " + writeError(error) : ""));
+        return false;
+      }
       let stockShort: string[] = [];
       if (per && out) {
         const { current: now, legacy } = out;
@@ -334,20 +383,32 @@ export function useProductionData(
     /** false = not deleted; else deleted, with the products whose material didn't come back (stockShort) */
     async (id: string): Promise<false | { stockShort: string[] }> => {
       const old = records.find((r) => r.id === id);
-      // What it took out is read beside the delete (the delete doesn't touch adjustments)
-      const perRead = old ? perBatchFor(old.smSkuId) : Promise.resolve(null);
-      const outRead = perRead.then((p) => (p && old ? currentFor(old, p) : null));
-      outRead.catch(() => undefined); // awaited below, only once the record is gone
-      const { error } = await supabase.from("production_records").delete().eq("id", id);
-      if (error) {
-        toast.error("ลบบันทึกไม่ได้: " + error.message);
+      // What it took out is read first: if it can't be, nothing is deleted (its material
+      // would never come back, or come back by a guess)
+      let per: Awaited<ReturnType<typeof perBatchFor>> = null;
+      let out: Awaited<ReturnType<typeof currentFor>> | null = null;
+      try {
+        per = old ? await perBatchFor(old.smSkuId) : null;
+        out = per && old ? await currentFor(old, per) : null;
+      } catch (e) {
+        toast.error("อ่านยอดที่ตัดสต๊อกของบันทึกนี้ไม่ได้ ยังไม่ได้ลบ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
+        return false;
+      }
+      const { error } = await supabase.from("production_records").delete().eq("id", id).abortSignal(writeTimeout());
+      if (error && noAnswer(error)) {
+        // No answer: gone = it landed, give the material back as on success; still there = not deleted
+        const back = await supabase.from("production_records").select("id").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
+        if (back.error || back.data) {
+          toast.error(back.error ? "ลบบันทึก: " + NO_ANSWER : "ระบบไม่ตอบ ยังไม่ได้ลบ ลองอีกครั้ง");
+          return false;
+        }
+      } else if (error) {
+        toast.error("ลบบันทึกไม่ได้: " + writeError(error));
         return false;
       }
       setRecords((prev) => prev.filter((r) => r.id !== id));
       let stockShort: string[] = [];
       if (old) {
-        const per = await perRead;
-        const out = await outRead;
         if (per && out) {
           const { current: now, legacy } = out;
           const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;

@@ -69,6 +69,10 @@ vi.mock("@/integrations/supabase/client", () => {
         own(this, "order");
         return this;
       },
+      abortSignal() {
+        own(this, "abortSignal");
+        return this;
+      },
       maybeSingle() {
         own(this, "maybeSingle");
         return run();

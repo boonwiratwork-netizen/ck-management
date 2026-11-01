@@ -24,27 +24,33 @@ import { useMenuData } from "@/hooks/use-menu-data";
 import { useMenuBomData } from "@/hooks/use-menu-bom-data";
 import { useSkuCategories } from "@/hooks/use-sku-categories";
 import { useAuth } from "@/hooks/use-auth";
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const GoodsReceiptPage = lazy(() => import("@/pages/KitchenReceive"));
-const KitchenStockPage = lazy(() => import("@/pages/KitchenStock"));
-const ProductionPage = lazy(() => import("@/pages/Produce"));
-const StockCountPage = lazy(() => import("@/pages/KitchenCount"));
-const TransferOrderPage = lazy(() => import("@/pages/Transfer"));
+import { pageChunks } from "@/pages/page-chunks";
+import { pageLoader } from "@/lib/new-version";
+import { PageErrorBoundary } from "@/components/PageErrorBoundary";
+import { prefetchPages } from "@/lib/page-prefetch";
+// Each page's code is its own download; the imports live in page-chunks.ts so the
+// prefetch (lib/page-prefetch.ts) fetches the very same files ahead of time
+const Dashboard = lazy(pageLoader(pageChunks.Dashboard));
+const GoodsReceiptPage = lazy(pageLoader(pageChunks.KitchenReceive));
+const KitchenStockPage = lazy(pageLoader(pageChunks.KitchenStock));
+const ProductionPage = lazy(pageLoader(pageChunks.Produce));
+const StockCountPage = lazy(pageLoader(pageChunks.KitchenCount));
+const TransferOrderPage = lazy(pageLoader(pageChunks.Transfer));
 // Branches, users and categories: one settings page, three tabs
-const SettingsPage = lazy(() => import("@/pages/Settings"));
-const MenuSetupPage = lazy(() => import("@/pages/MenuSetup"));
-const CostCenterPage = lazy(() => import("@/pages/CostCenter"));
+const SettingsPage = lazy(pageLoader(pageChunks.Settings));
+const MenuSetupPage = lazy(pageLoader(pageChunks.MenuSetup));
+const CostCenterPage = lazy(pageLoader(pageChunks.CostCenter));
 // One sales page for phones and computers (replaced SalesEntry)
-const SalesEntryPage = lazy(() => import("@/pages/Sales"));
+const SalesEntryPage = lazy(pageLoader(pageChunks.Sales));
 // The daily branch count, rebuilt (replaced DailyStockCount)
-const DailyStockCountPage = lazy(() => import("@/pages/DailyCount"));
+const DailyStockCountPage = lazy(pageLoader(pageChunks.DailyCount));
 // One receiving page for phones and computers (replaced BranchReceipt + BranchReceiptMobile)
-const ReceivePage = lazy(() => import("@/pages/Receive"));
+const ReceivePage = lazy(pageLoader(pageChunks.Receive));
 // One request page for phones and computers (replaced TransferRequest)
-const TransferRequestPage = lazy(() => import("@/pages/Request"));
-const FoodCostPage = lazy(() => import("@/pages/FoodCost"));
-const StoreOverview = lazy(() => import("@/pages/StoreOverview"));
-const StoreStockPage = lazy(() => import("@/pages/StoreStock"));
+const TransferRequestPage = lazy(pageLoader(pageChunks.Request));
+const FoodCostPage = lazy(pageLoader(pageChunks.FoodCost));
+const StoreOverview = lazy(pageLoader(pageChunks.StoreOverview));
+const StoreStockPage = lazy(pageLoader(pageChunks.StoreStock));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -221,17 +227,13 @@ const Index = () => {
   const pkStockData = usePkStockData(skuData.skus, receiptData.receipts, priceData.prices, kitchenData);
   const branchData = useBranchData();
 
-  // Kitchen RM/PK stock reads every receipt itself. Keep it fresh wherever its balance
-  // is used: after any receipt is added/edited/deleted (the shared receipts list
-  // changes), and on the pages that read it (stock, count, dashboard)
+  // Kitchen RM/PK stock reads every receipt itself. It is read again on every visit to a
+  // page that shows its balance (stock, count, dashboard), behind the balances already up.
+  // (It also used to re-read everything — all receipts and adjustments — after every receipt
+  // saved on the receive page, and a second time on the first kitchen open; that page shows
+  // no balance, and the next visit to one reads it anyway.)
   const onItemStockPage = activeTab === "stock" || activeTab === "pkstock";
   const readsItemStock = onItemStockPage || activeTab === "stockcount" || activeTab === "dashboard";
-  useEffect(() => {
-    if (!kitchenData) return;
-    stockData.reload();
-    pkStockData.reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [receiptData.receipts]);
   useEffect(() => {
     if (!kitchenData || !readsItemStock) return;
     stockData.reload();
@@ -294,6 +296,14 @@ const Index = () => {
     }),
     [skus, supplierData.suppliers, priceData.prices, menuData.menus, menuBomData.lines, spBomData.lines, branchData.branches],
   );
+  // Once signed in and idle, fetch the code of the pages this role uses, one at a time, so
+  // the first tap on each after a release doesn't wait for its download (lib/page-prefetch.ts)
+  const firstTab = useMemo(() => activeTab, [role]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!role || baseLoad === "first-load") return;
+    return prefetchPages(role as Parameters<typeof prefetchPages>[0], firstTab);
+  }, [role, baseLoad === "first-load"]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keep the address bar on the canonical /<page> path once the role is known
   useEffect(() => {
     if (!role) return;
@@ -364,6 +374,8 @@ const Index = () => {
               <CountReminder branchId={profile?.branch_id ?? null} onGo={() => handleTabChange("daily-stock-count")} />
             )}
             <BaseLoadingBar />
+            {/* A page whose code can't load (gone after a release, offline) shows a reload button, never a white screen */}
+            <PageErrorBoundary resetKey={activeTab}>
             <Suspense fallback={<div className="page-shell"><BasePageSkeleton /></div>}>
             {baseLoad === "first-load" ? (
               <div className="page-shell"><BasePageSkeleton /></div>
@@ -400,6 +412,8 @@ const Index = () => {
                     bomSteps={bomData.steps}
                     smStockBalances={smStockData.stockBalances}
                     isStockDataReady={smStockData.isStockDataReady}
+                    stockLoadFailed={smStockData.loadFailed}
+                    onStockRetry={smStockData.retryLoad}
                     smDailyUsage={smUse.perDay}
                     smUseRead={smUse.read}
                     smUseError={smUse.error}
@@ -550,6 +564,9 @@ const Index = () => {
                   <TransferOrderPage
                     getBomCostPerGram={smStockData.getBomCostPerGram}
                     refreshSmStock={smStockData.refreshToDelivered}
+                    skus={skus}
+                    branches={branchData.branches}
+                    bomHeaders={bomData.headers}
                   />
                 ) : activeTab === "daily-stock-count" ? (
                   <DailyStockCountPage
@@ -578,6 +595,7 @@ const Index = () => {
               </div>
             )}
             </Suspense>
+            </PageErrorBoundary>
           </main>
           <MobileNav role={role} activeTab={activeTab} onTabChange={handleTabChange} />
         </div>

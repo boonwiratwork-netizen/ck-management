@@ -36,6 +36,8 @@ export function useBranchSmStock(branchId: string | null) {
   const [loading, setLoading] = useState(false);
   /** The stock read failed: the list stays, its stock is unknown until a retry */
   const [stockError, setStockError] = useState(false);
+  /** The branch the figures on hand are for (null = none read yet) */
+  const [stockFor, setStockFor] = useState<string | null>(null);
 
   const calculate = useCallback(async () => {
     if (!branchId) {
@@ -148,6 +150,7 @@ export function useBranchSmStock(branchId: string | null) {
       setStockError(true);
     } finally {
       setLoading(false);
+      setStockFor(branchId);
     }
   }, [branchId]);
 
@@ -155,5 +158,5 @@ export function useBranchSmStock(branchId: string | null) {
     calculate();
   }, [calculate]);
 
-  return { smStock, smSkuList, loading, refresh: calculate, stockError };
+  return { smStock, smSkuList, loading, refresh: calculate, stockError, stockFor };
 }

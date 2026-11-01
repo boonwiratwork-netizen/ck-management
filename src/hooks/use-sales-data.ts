@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { writeError, writeTimeout } from "@/lib/write-timeout";
 import { toLocalDateStr } from "@/lib/utils";
 import type { POSMappingProfile } from "@/hooks/use-sales-entry-data";
 import { writeDay, type DayWrites, type ExistingRow, type SalesInsertRow, type SalesWriter } from "@/lib/sales-import";
@@ -51,8 +52,8 @@ const toLine = (r: Tables<"sales_entries">): SaleLine => ({
 async function deleteIds(ids: string[]): Promise<string | null> {
   for (let i = 0; i < ids.length; i += 200) {
     const part = ids.slice(i, i + 200);
-    const { data, error } = await supabase.from("sales_entries").delete().in("id", part).select("id");
-    if (error) return error.message;
+    const { data, error } = await supabase.from("sales_entries").delete().in("id", part).select("id").abortSignal(writeTimeout());
+    if (error) return writeError(error);
     if ((data?.length ?? 0) < part.length) return `ลบได้ ${data?.length ?? 0} จาก ${part.length} แถว (ไม่มีสิทธิ์ หรือถูกลบไปแล้ว)`;
   }
   return null;
@@ -60,13 +61,13 @@ async function deleteIds(ids: string[]): Promise<string | null> {
 
 const writer: SalesWriter = {
   insert: async (rows) => {
-    const { data, error } = await supabase.from("sales_entries").insert(rows).select("id");
-    return { ids: (data || []).map((r) => r.id), error: error?.message ?? null };
+    const { data, error } = await supabase.from("sales_entries").insert(rows).select("id").abortSignal(writeTimeout());
+    return { ids: (data || []).map((r) => r.id), error: error ? writeError(error) : null };
   },
   remove: deleteIds,
   update: async (id, patch) => {
-    const { data, error } = await supabase.from("sales_entries").update(patch).eq("id", id).select("id");
-    if (error) return error.message;
+    const { data, error } = await supabase.from("sales_entries").update(patch).eq("id", id).select("id").abortSignal(writeTimeout());
+    if (error) return writeError(error);
     return data?.length ? null : "แก้แถวเดิมไม่ได้ (ไม่มีสิทธิ์?)";
   },
 };

@@ -10,6 +10,8 @@ import { dailyUseWindow } from "@/lib/daily-use";
 import { requestFigures } from "@/lib/request-lines";
 import { brandMenuIds } from "@/lib/branch-menus-db";
 import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
+import { BRANCH_STOCK_TABLES } from "@/hooks/use-branch-stock";
+import { useKept } from "@/lib/page-cache";
 
 export type TRLineSkuType = "SM" | "RM" | "PK";
 
@@ -77,12 +79,14 @@ const statusOrder: Record<BranchSmStockStatus, number> = {
 const DISTRIBUTABLE_SENTINEL = "__distributable__";
 
 export function useTransferRequest(branchId: string | null, profileId: string | null) {
-  const { smStock, smSkuList, loading: stockLoading, refresh: refreshStock, stockError: smStockError } = useBranchSmStock(branchId);
+  const { smStock, smSkuList, loading: stockLoading, refresh: refreshStock, stockError: smStockError, stockFor: smFor } = useBranchSmStock(branchId);
 
   // Fetch distributable RM stock data
   const [rmLines, setRmLines] = useState<TRLine[]>([]);
   const [rmLoading, setRmLoading] = useState(false);
   const [rmStockError, setRmStockError] = useState(false);
+  /** The branch the distributable list is for (null = none read yet) */
+  const [rmFor, setRmFor] = useState<string | null>(null);
 
   const fetchDistributableRm = useCallback(async () => {
     if (!branchId) {
@@ -187,6 +191,7 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
       setRmStockError(true);
     } finally {
       setRmLoading(false);
+      setRmFor(branchId);
     }
   }, [branchId]);
 
@@ -438,10 +443,19 @@ export function useTransferRequest(branchId: string | null, profileId: string | 
     fetchDistributableRm();
   }, [refreshStock, fetchDistributableRm]);
 
+  // Coming back: the list (on hand, suggestions) as shown last for this branch is up at once
+  // for the home screen while it's read again; the form itself still waits for the fresh one
+  // (isLoading), so nothing is asked for from old figures (lib/page-cache.ts)
+  const fresh = !stockLoading && !rmLoading && smFor === branchId && rmFor === branchId;
+  const shown = useKept(branchId ? `request-lines|${branchId}|${toLocalDateStr(new Date())}` : null, BRANCH_STOCK_TABLES, lines, fresh, !smStockError && !rmStockError);
+
   return {
-    lines,
+    lines: shown.value,
+    /** `lines` are the kept ones from the last visit, being read again */
+    linesKept: shown.kept,
     updateLineQty,
-    isLoading: stockLoading || rmLoading,
+    // Kept lines are never ordered from: the form waits for the fresh read
+    isLoading: stockLoading || rmLoading || shown.kept,
     /** The stock read failed for some lines: on hand / suggestions unknown */
     stockError: smStockError || rmStockError,
     retryStock,

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { lastSeen, useKeepLastSeen } from "@/lib/page-cache";
+import { RefreshNote } from "@/components/RefreshNote";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, CircleDot, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,18 +107,34 @@ export function MonthCalendar({
   const navigate = useNavigate();
   const thisMonth = today.slice(0, 7);
   const [month, setMonth] = useState(thisMonth);
-  const [data, setData] = useState<Record<
-    string,
-    { days: CalDay[]; summary: CalSummary }
-  > | null>(null);
-  const [error, setError] = useState(false);
+  type MonthData = Record<string, { days: CalDay[]; summary: CalSummary }>;
   const key = branches.map((b) => b.id).join(",");
+  // Coming back to the Today page: last month view at once, read again behind it
+  // (lib/page-cache.ts; the dev demo passes its own loader and keeps nothing)
+  const cacheKey = (m: string) => (load === loadMonth && key ? `today-cal|${key}|${m}|${today}` : null);
+  const [data, setData] = useState<{ for: string; value: MonthData } | null>(() => {
+    const k = cacheKey(thisMonth);
+    const seen = lastSeen<MonthData>(k);
+    return seen && k ? { for: k, value: seen.value } : null;
+  });
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0);
+  useKeepLastSeen(data && cacheKey(month) === data.for ? data.for : null, ["daily_stock_counts", "sales_entries"], data?.value);
+  const forKey = `${key}|${month}|${today}`;
+  const shown = data && data.for.endsWith(forKey) ? data.value : null;
 
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
-    setData(null);
+    const k = cacheKey(month) ?? `demo|${forKey}`;
+    setData((d) => {
+      if (d?.for === k) return d;
+      const seen = lastSeen<MonthData>(cacheKey(month));
+      return seen ? { for: k, value: seen.value } : null;
+    });
     setError(false);
+    setLoading(true);
     const [y, m] = month.split("-").map(Number);
     const to = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
     load(key.split(","), `${month}-01`, to)
@@ -133,13 +151,14 @@ export function MonthCalendar({
             ),
           );
         }
-        setData(out);
+        setData({ for: k, value: out });
       })
-      .catch(() => !cancelled && setError(true));
+      .catch(() => !cancelled && setError(true))
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [key, month, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, month, today, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The count and sales pages each remember their own branch: point them at this one
   const open = (
@@ -203,13 +222,14 @@ export function MonthCalendar({
           </span>
         </div>
       </div>
-      {error && (
+      {error && !shown && (
         <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
           โหลดปฏิทินไม่สำเร็จ ลองใหม่อีกครั้ง
         </p>
       )}
+      <RefreshNote refreshing={loading && !!shown} failed={error && !!shown} onRetry={() => setTick((t) => t + 1)} />
       {branches.map((b) => {
-        const d = data?.[b.id];
+        const d = shown?.[b.id];
         return (
           <div
             key={b.id}

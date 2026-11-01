@@ -6,6 +6,7 @@ import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
 import type { Supplier } from "@/types/supplier";
 import { useAuth } from "@/hooks/use-auth";
+import { RefreshNote } from "@/components/RefreshNote";
 import { useReceiveData, type HistoryReceipt, type PendingTO } from "@/hooks/use-receive-data";
 import { useWorkDay } from "@/hooks/use-today";
 import { shiftDay } from "@/lib/day-follow";
@@ -284,7 +285,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
   const history = (
     <ReceiveHistory
       history={data.history}
-      loading={data.loading}
+      loading={data.loading && !data.refreshing}
       skuMap={skuMap}
       branches={branches}
       showBranch={false}
@@ -342,7 +343,8 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
         </Button>
       </div>
 
-      {data.error && (
+      <RefreshNote refreshing={!!data.refreshing} failed={!!data.refreshFailed} onRetry={data.reload} />
+      {data.error && !data.refreshFailed && (
         <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {data.error}
         </p>
@@ -353,7 +355,7 @@ export default function ReceivePage({ skus, prices, branches, suppliers = [], me
             <ReceiveHome
               pendingTOs={data.pendingTOs}
               prGroups={data.prGroups}
-              loading={data.loading}
+              loading={data.loading && !data.refreshing}
               brandSuppliers={brandSuppliers}
               otherSuppliers={otherSuppliers}
               recentIds={getRecentSupplierIds()}

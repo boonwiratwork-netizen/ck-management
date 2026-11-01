@@ -8,6 +8,10 @@ import { dailyUseWindow, sellingDays } from "@/lib/daily-use";
 import type { SKU } from "@/types/sku";
 import { toLocalDateStr } from "@/lib/utils";
 import { businessDate } from "@/lib/stock-count";
+import { USAGE_TABLES, lastSeen, useKeepLastSeen } from "@/lib/page-cache";
+
+/** What a branch's stock is worked out from: a write to any drops the kept copy (lib/page-cache.ts) */
+export const BRANCH_STOCK_TABLES = ["daily_stock_counts", "branch_receipts", "stock_adjustments", "sales_entries", "prices", ...USAGE_TABLES];
 
 export interface BranchStockRow {
   sku: SKU;
@@ -116,21 +120,37 @@ export const supabaseBranchStockLoader: BranchStockLoader = { load: (branchId, t
 
 /** One branch's stock: balance per item, daily use over the last week, days left */
 export function useBranchStock(branchId: string | null, skus: SKU[], loader: BranchStockLoader = supabaseBranchStockLoader) {
-  const [rows, setRows] = useState<BranchStockRow[] | null>(null);
+  // Coming back: the rows shown last for this branch and day are up at once, read again behind
+  // them (lib/page-cache.ts). Only the database loader's rows are kept (not the dev demo's)
+  const keyFor = (id: string | null) => (id && loader === supabaseBranchStockLoader ? `store-stock|${id}|${toLocalDateStr(new Date())}` : null);
+  const [shown, setShown] = useState<{ for: string; rows: BranchStockRow[] } | null>(() => {
+    const k = keyFor(branchId);
+    const seen = lastSeen<BranchStockRow[]>(k);
+    return seen && k ? { for: k, rows: seen.value } : null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
+  useKeepLastSeen(shown && keyFor(branchId) === shown.for ? shown.for : null, BRANCH_STOCK_TABLES, shown?.rows);
+  const setRows = (k: string, rows: BranchStockRow[]) => setShown({ for: k, rows });
 
   useEffect(() => {
     if (!branchId || !skus.length) {
-      setRows(null);
+      setShown(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
     const today = toLocalDateStr(new Date());
+    const k = keyFor(branchId) ?? `demo|${branchId}|${today}`;
+    // Another branch: its own kept rows, or none — never the last branch's under this one
+    setShown((s) => {
+      if (s?.for === k) return s;
+      const seen = lastSeen<BranchStockRow[]>(keyFor(branchId));
+      return seen ? { for: k, rows: seen.value } : null;
+    });
     loader
       .load(branchId, today)
       .then((d) => {
@@ -146,7 +166,7 @@ export function useBranchStock(branchId: string | null, skus: SKU[], loader: Bra
           const known = f.anchorDate !== null;
           out.push({ sku, balance: f.balance, known, countDate: f.countDate, dailyUse: f.dailyUse, daysLeft: known && f.dailyUse > 0 ? Math.max(0, f.balance) / f.dailyUse : null, price, value: known ? Math.max(0, f.balance) * price : 0 });
         }
-        setRows(out);
+        setRows(k, out);
         setLoading(false);
       })
       .catch(() => {
@@ -159,5 +179,8 @@ export function useBranchStock(branchId: string | null, skus: SKU[], loader: Bra
     };
   }, [branchId, skus, loader, tick]);
 
-  return { rows, loading, error, reload };
+  const rows = shown && shown.for.endsWith(`|${branchId}|${toLocalDateStr(new Date())}`) ? shown.rows : null;
+  /** Rows are up (kept from before, or a reload after a move) and being read again */
+  const refreshing = loading && !!rows;
+  return { rows, loading, refreshing, error, reload };
 }

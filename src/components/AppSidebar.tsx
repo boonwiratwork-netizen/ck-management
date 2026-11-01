@@ -235,6 +235,19 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
   }
 }
 
+/** The sidebar's groups for a role */
+function navGroupsFor(role: AppRole | null): NavGroup[] {
+  if (role === "management") return [todayGroup, ckGroup, storeGroup, setupGroup(true)];
+  if (role === "ck_manager") return [todayGroup, ckGroup, setupGroup(false)];
+  if (role === "store_manager" || role === "area_manager") return [todayGroup, storeGroup, setupGroup(false)];
+  return [];
+}
+
+/** Every page in a role's sidebar, top to bottom (the page prefetch reads this) */
+export function sidebarTabsFor(role: AppRole | null): TabKey[] {
+  return navGroupsFor(role).flatMap((g) => g.items.filter((i): i is NavItem => !isSubLabel(i)).map((i) => i.key));
+}
+
 export function getDefaultTab(role: AppRole | null): TabKey {
   // The today page for everyone: each role sees its own part
   return role ? "store" : "dashboard";
@@ -271,15 +284,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   }, [isManagement, isCkManager]);
 
   // Build groups based on role
-  const allGroups: NavGroup[] = [];
-
-  if (isManagement) {
-    allGroups.push(todayGroup, ckGroup, storeGroup, setupGroup(true));
-  } else if (role === "ck_manager") {
-    allGroups.push(todayGroup, ckGroup, setupGroup(false));
-  } else if (role === "store_manager" || role === "area_manager") {
-    allGroups.push(todayGroup, storeGroup, setupGroup(false));
-  }
+  const allGroups = navGroupsFor(isManagement ? "management" : role);
 
   const initials = (profile?.full_name || "U")
     .split(" ")

@@ -10,6 +10,20 @@ import { fetchPendingTrCount } from "@/lib/pending-trs";
 import { kitchenMonthEnd } from "@/lib/month-end";
 import { LOW_DAYS, businessDate } from "@/lib/stock-count";
 import { MonthCalendar, type CalendarLoad } from "@/components/today/MonthCalendar";
+import { lastSeen, sharedRead, useKeepLastSeen } from "@/lib/page-cache";
+import { RefreshNote } from "@/components/RefreshNote";
+
+/** What the branch cards and the kitchen card are worked out from (a write to any drops the kept copy) */
+const DAYS_TABLES = ["sales_entries", "daily_stock_counts", "transfer_orders", "skus"];
+const KITCHEN_TABLES = ["goods_receipts", "production_records", "transfer_requests", "transfer_orders", "stock_count_sessions"];
+
+/** Product names, shared by the whole app (master data: kept 5 min or until a product is saved) */
+const skuNames = () =>
+  sharedRead("sku-names", ["skus"], async () => {
+    const { data, error } = await supabase.from("skus").select("id, name");
+    if (error) throw error;
+    return new Map((data ?? []).map((s) => [s.id as string, s.name as string]));
+  });
 
 interface Props {
   branches: Branch[];
@@ -61,17 +75,16 @@ async function loadDays(branchIds: string[], today: string, yesterday: string, m
   // fetched one after another. A failed read fails the page (shown as an error, never as
   // "sales not in yet" or "nothing counted")
   const countFrom = toLocalDateStr(new Date(Date.parse(`${yesterday}T00:00:00`) - 6 * 86_400_000));
-  const [sales, counts, tos, skus] = await Promise.all([
+  const [sales, counts, tos, name] = await Promise.all([
     perBranchRows<{ branch_id: string; sale_date: string; net_amount: number }>(branchIds, (id, a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, net_amount").eq("branch_id", id).gte("sale_date", monthStart).lte("sale_date", today).order("id").range(a, b) as never),
     // The last few days of count sheets: yesterday's state and the latest finished count
     perBranchRows<{ branch_id: string; count_date: string; sku_id: string; physical_count: number | null; expected_usage: number; is_submitted: boolean }>(branchIds, (id, a, b) =>
       supabase.from("daily_stock_counts").select("id, branch_id, count_date, sku_id, physical_count, expected_usage, is_submitted").eq("branch_id", id).gte("count_date", countFrom).lte("count_date", today).order("id").range(a, b) as never,
     ),
     supabase.from("transfer_orders").select("id, branch_id").in("branch_id", branchIds).eq("status", "Sent"),
-    supabase.from("skus").select("id, name"),
+    skuNames(),
   ]);
   if (tos.error) throw tos.error;
-  const name = new Map((skus.data ?? []).map((s) => [s.id, s.name as string]));
   const out: Record<string, BranchDay> = {};
   for (const b of branchIds) {
     const bs = sales.filter((s) => s.branch_id === b);
@@ -145,34 +158,59 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
     [isStoreManager, profile?.branch_id, branches],
   );
   const key = shown.map((b) => b.id).join(",");
-  const [days, setDays] = useState<Record<string, BranchDay> | null>(null);
+  // Coming back: what this page showed last is up at once, read again behind it (lib/page-cache.ts).
+  // Dev demos pass their own loaders and keep nothing
+  const cached = !kitchen && load === loadDays;
+  const daysKey = cached && key ? `today|${key}|${today}` : null;
+  const kKey = cached ? `today-kitchen|${today}` : null;
+  const [days, setDays] = useState<{ for: string; value: Record<string, BranchDay> } | null>(() => {
+    const seen = lastSeen<Record<string, BranchDay>>(daysKey);
+    return seen && daysKey ? { for: daysKey, value: seen.value } : null;
+  });
   const [error, setError] = useState(false);
-  const [kDay, setKDay] = useState<KitchenDay | null>(null);
+  const [daysLoading, setDaysLoading] = useState(false);
+  const [kDay, setKDay] = useState<KitchenDay | null>(() => lastSeen<KitchenDay>(kKey)?.value ?? null);
   const [kError, setKError] = useState(false);
+  const [kLoading, setKLoading] = useState(false);
+  const [tick, setTick] = useState(0);
+  useKeepLastSeen(cached ? days?.for ?? null : null, DAYS_TABLES, days?.value);
+  useKeepLastSeen(kDay ? kKey : null, KITCHEN_TABLES, kDay);
 
   useEffect(() => {
     if (!showKitchen) return;
     let cancelled = false;
     setKError(false);
+    setKLoading(true);
     loadK(today)
       .then((d) => !cancelled && setKDay(d))
-      .catch(() => !cancelled && setKError(true));
+      .catch(() => !cancelled && setKError(true))
+      .finally(() => !cancelled && setKLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [showKitchen, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showKitchen, today, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
+    const forKey = `today|${key}|${today}`;
     setError(false);
+    setDaysLoading(true);
+    // Another set of branches (or day): its own kept copy, or nothing — never another's figures
+    setDays((d) => {
+      if (d?.for === forKey) return d;
+      const seen = lastSeen<Record<string, BranchDay>>(cached ? forKey : null);
+      return seen ? { for: forKey, value: seen.value } : null;
+    });
     load(key.split(","), today, yesterday, monthStart)
-      .then((d) => !cancelled && setDays(d))
-      .catch(() => !cancelled && setError(true));
+      .then((d) => !cancelled && setDays({ for: forKey, value: d }))
+      .catch(() => !cancelled && setError(true))
+      .finally(() => !cancelled && setDaysLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [key, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, today, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownDays = days?.for === `today|${key}|${today}` ? days.value : null;
 
   const yLabel = new Date(`${yesterday}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
   if (!shown.length && !showKitchen) return <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">บัญชีนี้ยังไม่ได้ตั้งสาขา ติดต่อผู้ดูแลระบบ</p>;
@@ -201,7 +239,13 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
           {now.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })} · {showKitchen ? "งานของครัวกลางและทุกสาขา" : "งานของแต่ละสาขา"} แตะเพื่อไปทำต่อ
         </p>
       </div>
-      {(error || kError) && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+      {/* A failed read over figures already up: they are the earlier ones, said so (never shown as fresh) */}
+      {(error && shownDays) || (kError && kDay) ? (
+        <RefreshNote refreshing={false} failed onRetry={() => setTick((t) => t + 1)} />
+      ) : (
+        <RefreshNote refreshing={(daysLoading && !!shownDays) || (kLoading && !!kDay)} />
+      )}
+      {((error && !shownDays) || (kError && !kDay)) && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
       {showKitchen && (
         <section className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -210,7 +254,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
               ภาพรวมครัวกลาง
             </Button>
           </div>
-          {kError ? null : !kDay ? (
+          {kError && !kDay ? null : !kDay ? (
             <div className="space-y-2 px-4 pb-4">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="h-10 animate-pulse rounded-xl bg-secondary" />
@@ -238,7 +282,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
       )}
       <div className={cn("grid gap-4", shown.length > 1 && "lg:grid-cols-2")}>
         {shown.map((b) => {
-          const d = days?.[b.id];
+          const d = shownDays?.[b.id];
           return (
             <section key={b.id} className="overflow-hidden rounded-2xl border border-border bg-card">
               <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">

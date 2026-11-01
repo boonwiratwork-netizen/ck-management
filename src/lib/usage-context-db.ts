@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
 import { addSaleUsage, buildUsageContext, type UsageContext } from "@/lib/sale-usage";
+import { USAGE_TABLES, sharedRead } from "@/lib/page-cache";
 
 /**
  * The usage engine's context read straight from the database, for hooks that don't
@@ -8,7 +9,16 @@ import { addSaleUsage, buildUsageContext, type UsageContext } from "@/lib/sale-u
  * Every branch's recipe lines are kept with their branch: the engine picks the
  * sale's own branch, so one context serves every branch.
  */
-export async function loadUsageContext(): Promise<UsageContext> {
+/**
+ * Master data, read once for the whole app (StoreStock, the request page and the kitchen's daily
+ * use all asked for it on every open: 6 paged reads each time). Read again after 5 minutes or
+ * once any of its tables is saved (lib/page-cache.ts).
+ */
+export function loadUsageContext(): Promise<UsageContext> {
+  return sharedRead("usage-context", USAGE_TABLES, readUsageContext);
+}
+
+async function readUsageContext(): Promise<UsageContext> {
   // A failed page fails the read: half the recipes would quietly understate usage
   const all = <T,>(table: string, columns: string, filter?: (q: any) => any) => // eslint-disable-line @typescript-eslint/no-explicit-any
     fetchAllRowsOrThrow<T>((a, b) => {
