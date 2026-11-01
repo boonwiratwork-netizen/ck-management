@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.to-sent-report]
 verify_jwt = false
+
+[functions.foodstory-probe]
+verify_jwt = false
