@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SKU } from "@/types/sku";
 import type { PendingTR, TOHistoryRow, TOLine } from "@/hooks/use-transfer-order";
-import { packsOf, reconcileLots, visibleRecords, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
+import { isUnknownLot, packsOf, reconcileLots, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
 import { DeclineDialog, PackSheet, useSendCheck, type LotsApi, type PackForm } from "@/components/transfer/PackSheet";
 import { ReviewSend, SentDone, TransferHistory, TransferHome, sentMessage, type Kind, type OrderDetail } from "@/components/transfer/TransferViews";
 import { GuideTour } from "@/components/GuideTour";
@@ -91,6 +91,9 @@ export default function TransferDemo() {
           return { ...p, [lineId]: next };
         }),
       fillToPacks: (l, packs) => setLots((p) => ({ ...p, [l.id]: reconcileLots(p[l.id] || [], visibleRecords(RECORDS[l.skuId] || [], STOCK[l.skuId], new Set()), packs, 0).next })),
+      markUnknown: (l, packs) => setLots((p) => ({ ...p, [l.id]: withUnknownLot(p[l.id] || [], packs, 0) })),
+      setUnknownPacks: (lineId, packs) =>
+        setLots((p) => ({ ...p, [lineId]: (p[lineId] || []).map((l) => (isUnknownLot(l) ? { ...l, packs } : l)).filter((l) => l.packs > 0) })),
     }),
     [lots],
   );

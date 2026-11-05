@@ -9,7 +9,7 @@ import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 import { useTransferOrder, type PendingTR, type TOHistoryRow, type TOLine } from "@/hooks/use-transfer-order";
 import { useTransferLots } from "@/hooks/use-transfer-lots";
-import { packsAfterWeight, packsOf } from "@/lib/transfer-lines";
+import { lotsCanCover, packsAfterWeight, packsOf } from "@/lib/transfer-lines";
 import { wasSent } from "@/lib/transfer-stock";
 import { DeclineDialog, PackSheet, isPackLine, useSendCheck, type PackForm } from "@/components/transfer/PackSheet";
 import { ReviewSend, SentDone, TransferHistory, TransferHome, printSlip, sentMessage, type Kind, type OrderDetail, type SlipLine } from "@/components/transfer/TransferViews";
@@ -472,6 +472,16 @@ export default function TransferPage({
             const l = form.lines.find((x) => x.id === m.lineId);
             if (l) lots.fillToPacks(l, m.packs);
           }
+        }}
+        onUnknownLot={(lineId) => {
+          const l = form.lines.find((x) => x.id === lineId);
+          const m = check.lotMismatch.find((x) => x.lineId === lineId);
+          if (l && m) lots.markUnknown(l, m.packs);
+        }}
+        canCoverLots={(lineId) => {
+          const l = form.lines.find((x) => x.id === lineId);
+          const m = check.lotMismatch.find((x) => x.lineId === lineId);
+          return !!l && !!m && lotsCanCover(lots.visibleFor(l.id, l.skuId), m.packs, skuOf(l.skuId)?.packSize ?? 0);
         }}
         onSend={send}
         onBack={() => go("pack", true)}

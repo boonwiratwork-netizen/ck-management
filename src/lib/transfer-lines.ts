@@ -69,6 +69,48 @@ export interface LotLine {
 }
 
 /**
+ * "ไม่ทราบล็อต": packs sent with no production record to point at (stock that came
+ * from a count, or was made outside the app). Stored as a lot row with no record
+ * and this date, because production_date can't be empty — it is never a real day,
+ * so every screen shows UNKNOWN_LOT_LABEL in its place (lotDateLabel). Only ever a
+ * person's explicit choice: the automatic fill never puts packs here.
+ */
+export const UNKNOWN_LOT_DATE = "1900-01-01";
+export const UNKNOWN_LOT_LABEL = "ไม่ทราบล็อต";
+
+/** The lot row stands for "ไม่ทราบล็อต" */
+export const isUnknownLot = (l: { productionDate: string | null | undefined }) => l.productionDate === UNKNOWN_LOT_DATE;
+
+/**
+ * One key per lot on a line: the production record, else "unknown" for ไม่ทราบล็อต,
+ * else "none:<date>" for an old row whose record is gone — so the two never merge.
+ */
+export const lotKey = (l: { productionRecordId: string | null | undefined; productionDate: string | null | undefined }) =>
+  l.productionRecordId || (isUnknownLot({ productionDate: l.productionDate }) ? "unknown" : `none:${l.productionDate ?? ""}`);
+
+/** A lot's date as people read it: the unknown-lot date becomes "ไม่ทราบล็อต" */
+export function lotDateLabel(date: string | null | undefined, format: (iso: string) => string): string {
+  if (!date) return "";
+  return date === UNKNOWN_LOT_DATE ? UNKNOWN_LOT_LABEL : format(date);
+}
+
+/** "ไม่ทราบล็อต": the packs the line still lacks go on the unknown lot (added to it if it's there) */
+export function withUnknownLot(current: LotLine[], packs: number, packWeightG: number): LotLine[] {
+  const gap = packs - current.reduce((s, l) => s + (l.packs || 0), 0);
+  if (gap <= 0) return current;
+  const unknown = current.find(isUnknownLot);
+  if (unknown) return current.map((l) => (l === unknown ? { ...l, packs: l.packs + gap } : l));
+  return [...current, { productionRecordId: "", productionDate: UNKNOWN_LOT_DATE, packs: gap, packWeightG }];
+}
+
+/** The lots shown could cover `packs` between them (what's left in each, in whole packs) */
+export function lotsCanCover(records: ProdRecord[], packs: number, packSize: number): boolean {
+  if (packSize <= 0) return records.length > 0;
+  const total = records.reduce((s, r) => s + Math.max(0, Math.floor((r.remainingG ?? r.actualOutputG ?? 0) / packSize)), 0);
+  return total >= packs;
+}
+
+/**
  * Lots still in the kitchen, oldest first: newest production runs whose amount
  * still left adds up to the current stock; older runs are taken as used up and
  * hidden. "Left" = output less what other orders already took from the lot, so
@@ -94,9 +136,10 @@ export function visibleRecords(records: ProdRecord[], currentStock: number | und
 }
 
 /**
- * Bring a line's lots to `packs`: too many → take them off the newest lots
- * first; too few → add the rest to the oldest lot not used yet, else onto the
- * newest lot already on the line. Returns the new list (lots at 0 removed) and
+ * Bring a line's lots to `packs`: too many → take them off the unknown lot, then
+ * the newest lots; too few → add the rest to the oldest lot not used yet, else
+ * onto the newest real lot already on the line (never onto "ไม่ทราบล็อต" — with
+ * no real lot the packs stay unassigned for a person to choose). Returns the new list (lots at 0 removed) and
  * the saved lots that were dropped, for the caller to delete.
  */
 export function reconcileLots(current: LotLine[], records: ProdRecord[], packs: number, packWeightG: number): { next: LotLine[]; removed: LotLine[] } {
@@ -105,7 +148,9 @@ export function reconcileLots(current: LotLine[], records: ProdRecord[], packs: 
   if (packs === assigned) return { next: lots, removed: [] };
   if (packs < assigned) {
     let over = assigned - packs;
-    for (const lot of [...lots].sort((a, b) => (b.productionDate || "").localeCompare(a.productionDate || ""))) {
+    // The unknown lot goes first (a real lot is the better record), then newest first
+    const order = (l: LotLine) => (isUnknownLot(l) ? "9999" : l.productionDate || "");
+    for (const lot of [...lots].sort((a, b) => order(b).localeCompare(order(a)))) {
       if (over <= 0) break;
       const take = Math.min(lot.packs, over);
       lot.packs -= take;
@@ -119,13 +164,16 @@ export function reconcileLots(current: LotLine[], records: ProdRecord[], packs: 
   if (fresh) {
     lots.push({ productionRecordId: fresh.id, productionDate: fresh.productionDate, packs: remaining, packWeightG });
     remaining = 0;
-  } else if (lots.length > 0) {
-    let newest = 0;
+  } else {
+    let newest = -1;
     lots.forEach((l, i) => {
-      if ((l.productionDate || "") > (lots[newest].productionDate || "")) newest = i;
+      if (isUnknownLot(l)) return;
+      if (newest < 0 || (l.productionDate || "") > (lots[newest].productionDate || "")) newest = i;
     });
-    lots[newest].packs += remaining;
-    remaining = 0;
+    if (newest >= 0) {
+      lots[newest].packs += remaining;
+      remaining = 0;
+    }
   }
   return { next: lots, removed: [] };
 }
@@ -152,6 +200,8 @@ export interface SendCheck {
   overStock: { lineId: string; skuName: string; needed: number; available: number }[];
   /** SM lines whose lots don't add up to the packs (must be fixed) */
   lotMismatch: { lineId: string; skuName: string; packs: number; assigned: number }[];
+  /** SM lines sent (partly) as "ไม่ทราบล็อต": not a blocker, listed so it stays visible */
+  unknownLot: { lineId: string; skuName: string; packs: number }[];
   /** Lines from the request sent more than 10% under what was asked */
   short: { lineId: string; skuName: string; requested: number; sent: number }[];
   /** Lines changed from the request within or above it, for the review list */
@@ -171,7 +221,7 @@ function differsFromRequest(l: { plannedQty: number; actualQty: number; packsCou
 }
 
 export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => SkuInfo | undefined, stock: Record<string, number>, lots: Record<string, LotLine[]>): SendCheck {
-  const out: SendCheck = { overStock: [], lotMismatch: [], short: [], changed: [] };
+  const out: SendCheck = { overStock: [], lotMismatch: [], unknownLot: [], short: [], changed: [] };
   for (const l of lines) {
     const sku = skuOf(l.skuId);
     if (l.actualQty > 0 && stock[l.skuId] != null && l.actualQty > stock[l.skuId]) {
@@ -180,8 +230,11 @@ export function checkBeforeSend(lines: PackLine[], skuOf: (skuId: string) => Sku
     // Lots are SM-only: RM and PK carry a pack size too, so never gate on pack size alone
     if (sku?.type === "SM" && sku.packSize > 0) {
       const packs = packsOf(l, sku.packSize);
+      // Packs on "ไม่ทราบล็อต" count as assigned: lots are traceability, never a reason not to send
       const assigned = (lots[l.id] || []).reduce((s, x) => s + (x.packs || 0), 0);
       if (packs !== assigned) out.lotMismatch.push({ lineId: l.id, skuName: l.skuName, packs, assigned });
+      const unknown = (lots[l.id] || []).filter(isUnknownLot).reduce((s, x) => s + (x.packs || 0), 0);
+      if (unknown > 0 && l.actualQty > 0) out.unknownLot.push({ lineId: l.id, skuName: l.skuName, packs: unknown });
     }
     if (l.trLineId && l.plannedQty > 0) {
       if (kitchenSentShort(l, sku?.packSize ?? 0)) out.short.push({ lineId: l.id, skuName: l.skuName, requested: l.plannedQty, sent: l.actualQty });

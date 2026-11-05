@@ -3,7 +3,7 @@ import { useFitsWidth } from "@/hooks/use-fits-width";
 import { AlertTriangle, ArrowLeft, Check, MoreHorizontal, Plus, Undo2, X } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { PendingTRLine, TOLine } from "@/hooks/use-transfer-order";
-import { checkBeforeSend, packsOf, type LotLine, type ProdRecord, type SendCheck } from "@/lib/transfer-lines";
+import { UNKNOWN_LOT_LABEL, checkBeforeSend, isUnknownLot, lotDateLabel, packsOf, type LotLine, type ProdRecord, type SendCheck } from "@/lib/transfer-lines";
 import { ActionFooter, FieldBox, NoteField, PackStepper, baht, onEnterNext } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,13 +29,20 @@ export interface PackForm {
 export interface LotsApi {
   stock: Record<string, number>;
   lots: Record<string, LotLine[]>;
+  /** Lines whose lot save didn't land (retried before sending) */
+  unsaved?: Set<string>;
   loading: boolean;
   /** The stock/lot read failed (shown above the lines) */
   error?: string | null;
   isLotLine: (skuId: string) => boolean;
   visibleFor: (lineId: string, skuId: string) => ProdRecord[];
   setLotPacks: (lineId: string, skuId: string, record: ProdRecord, packs: number) => void;
+  /** Real lots only — never "ไม่ทราบล็อต" */
   fillToPacks: (line: TOLine, packs: number) => void;
+  /** "ไม่ทราบล็อต": put the packs still lacking on the unknown lot (a person's choice) */
+  markUnknown: (line: TOLine, packs: number) => void;
+  /** Change the packs on the unknown lot (0 takes it off) */
+  setUnknownPacks: (lineId: string, packs: number) => void;
 }
 
 const num = (n: number) => Math.round(n).toLocaleString("th-TH");
@@ -43,6 +50,8 @@ const shortDate = (iso: string) => {
   const d = new Date(iso + "T00:00:00");
   return `${d.getDate()} ${["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."][d.getMonth()]}`;
 };
+/** One lot as the chip and lists read it: "3 พ.ย. ×2" or "ไม่ทราบล็อต ×1" */
+const lotText = (l: LotLine) => `${lotDateLabel(l.productionDate, shortDate)} ×${l.packs}`;
 /** Packs mode: the line is counted in packs (pack size above 1), else in its unit */
 export const isPackLine = (sku: SKU | undefined) => (sku?.packSize ?? 0) > 1;
 
@@ -65,15 +74,20 @@ function lineFacts(line: TOLine, sku: SKU | undefined, lots: LotsApi) {
   const lineLots = (lots.lots[line.id] || []).filter((l) => l.packs > 0);
   const assigned = lineLots.reduce((s, l) => s + l.packs, 0);
   const records = lotLine ? lots.visibleFor(line.id, line.skuId) : [];
-  return { ps, packMode, packs, over, stockText, lotLine, lineLots, assigned, records };
+  const unsaved = !!lots.unsaved?.has(line.id);
+  return { ps, packMode, packs, over, stockText, lotLine, lineLots, assigned, records, unsaved };
 }
 
 function LotChip({ v, onOpen }: { v: ReturnType<typeof lineFacts>; onOpen: () => void }) {
   if (!v.lotLine || v.packs <= 0) return null;
-  if (v.records.length === 0 && v.lineLots.length === 0)
-    return <span className="text-sm text-warning">ไม่มีบันทึกการผลิต เลือกล็อตไม่ได้</span>;
-  const ok = v.assigned === v.packs;
-  const text = v.lineLots.map((l) => `${shortDate(l.productionDate)} ×${l.packs}`).join(" · ") || "ยังไม่ได้เลือกล็อต";
+  // A failed save is never shown as done
+  const ok = v.assigned === v.packs && !v.unsaved;
+  // No production record to pick: still opens, so "ไม่ทราบล็อต" can be chosen
+  const text = v.lineLots.length
+    ? `${v.lineLots.some((l) => !isUnknownLot(l)) ? "ล็อต " : ""}${v.lineLots.map(lotText).join(" · ")}`
+    : v.records.length
+      ? "ยังไม่ได้เลือกล็อต"
+      : "ไม่มีบันทึกการผลิต";
   const gap = v.packs - v.assigned;
   return (
     <button
@@ -85,8 +99,8 @@ function LotChip({ v, onOpen }: { v: ReturnType<typeof lineFacts>; onOpen: () =>
         ok ? "border-success/30 bg-success-soft text-success" : "border-warning/40 bg-warning-soft text-warning",
       )}
     >
-      <span className="truncate">ล็อต {text}</span>
-      {ok ? <Check className="h-3.5 w-3.5 shrink-0" /> : <span className="shrink-0">· {gap > 0 ? `ขาด ${gap}` : `เกิน ${-gap}`} แพ็ค</span>}
+      <span className="truncate">{text}</span>
+      {ok ? <Check className="h-3.5 w-3.5 shrink-0" /> : gap === 0 ? <span className="shrink-0">· ยังบันทึกไม่ได้</span> : <span className="shrink-0">· {gap > 0 ? `ขาด ${gap}` : `เกิน ${-gap}`} แพ็ค</span>}
     </button>
   );
 }
@@ -146,6 +160,7 @@ export function LotDialog({ line, sku, lots, onClose }: { line: TOLine; sku: SKU
   const v = lineFacts(line, sku, lots);
   const current = lots.lots[line.id] || [];
   const gap = v.packs - v.assigned;
+  const unknown = current.find(isUnknownLot);
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
       <div role="dialog" aria-label={`เลือกล็อต ${line.skuName}`} className="flex max-h-[85dvh] w-full flex-col gap-3 rounded-t-2xl bg-card p-4 shadow-raised md:max-w-lg md:rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -158,8 +173,9 @@ export function LotDialog({ line, sku, lots, onClose }: { line: TOLine; sku: SKU
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className={cn("rounded-xl px-3 py-2.5 text-sm font-semibold", gap === 0 ? "bg-success-soft text-success" : "bg-warning-soft text-warning")}>
+        <div className={cn("rounded-xl px-3 py-2.5 text-sm font-semibold", gap === 0 && !v.unsaved ? "bg-success-soft text-success" : "bg-warning-soft text-warning")}>
           เลือกแล้ว {num(v.assigned)} / {num(v.packs)} แพ็ค{gap > 0 ? ` · ขาดอีก ${num(gap)}` : gap < 0 ? ` · เกิน ${num(-gap)}` : " · ครบ"}
+          {v.unsaved && " · ยังบันทึกไม่ได้ จะลองใหม่ตอนส่ง"}
         </div>
         <ul className="flex flex-col gap-2 overflow-y-auto">
           {v.records.map((r, i) => {
@@ -180,13 +196,29 @@ export function LotDialog({ line, sku, lots, onClose }: { line: TOLine; sku: SKU
               </li>
             );
           })}
+          {unknown && (
+            <li className="flex items-center gap-3 rounded-2xl border border-dashed border-border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-semibold">{UNKNOWN_LOT_LABEL}</div>
+                <div className="text-sm text-muted-foreground">ส่งได้ แต่ย้อนดูไม่ได้ว่าผลิตวันไหน</div>
+              </div>
+              <PackStepper value={unknown.packs} label={`แพ็คที่${UNKNOWN_LOT_LABEL}`} onChange={(p) => lots.setUnknownPacks(line.id, Math.round(p))} className="w-[128px]" />
+            </li>
+          )}
+          {v.records.length === 0 && !unknown && <li className="rounded-2xl bg-secondary/60 p-3 text-sm text-muted-foreground">ไม่มีบันทึกการผลิตของรายการนี้ให้เลือก</li>}
         </ul>
+        {gap > 0 && (
+          // Secondary on purpose: a real lot is always the better answer
+          <button type="button" onClick={() => lots.markUnknown(line, v.packs)} className="min-h-[44px] self-start rounded-lg px-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">
+            {UNKNOWN_LOT_LABEL} · ใส่ {num(gap)} แพ็คที่ขาด
+          </button>
+        )}
         <p className="text-sm text-muted-foreground">โชว์เฉพาะล็อตที่ยังมีของในครัว (ล็อตเก่าที่ส่งหมดแล้วซ่อนไว้)</p>
         <div className="flex gap-2 pb-[env(safe-area-inset-bottom)]">
           <Button variant="outline" className="h-12 flex-1" onClick={onClose}>
             ปิด
           </Button>
-          <Button variant="brand" className="h-12 flex-[2]" disabled={gap === 0} onClick={() => lots.fillToPacks(line, v.packs)}>
+          <Button variant="brand" className="h-12 flex-[2]" disabled={gap === 0 || (gap > 0 && v.records.length === 0)} onClick={() => lots.fillToPacks(line, v.packs)}>
             {gap >= 0 ? "เติมจากล็อตเก่าสุดให้ครบ" : "ตัดล็อตใหม่สุดออกให้พอดี"}
           </Button>
         </div>
@@ -379,7 +411,9 @@ export function PackSheet(p: SheetProps) {
         sub={
           check.lotMismatch.length + check.overStock.length > 0
             ? `ต้องดู ${issueIds.size} รายการ${check.overStock.length ? " · ของในครัวไม่พอ" : ""}${check.lotMismatch.length ? " · ล็อตไม่ครบ" : ""}`
-            : edit
+            : lots.unsaved?.size
+              ? `ล็อต ${lots.unsaved.size} รายการยังบันทึกไม่ได้ · จะลองใหม่ตอนส่ง`
+              : edit
               ? "การเปลี่ยนแปลงจะมีผลกับสต๊อกทันที"
               : "ทุกรายการพร้อมส่ง"
         }

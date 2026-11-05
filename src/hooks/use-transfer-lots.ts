@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { SKU } from "@/types/sku";
 import type { TOLine } from "@/hooks/use-transfer-order";
 import { kitchenStockForSkus } from "@/lib/kitchen-stock";
-import { packsOf, reconcileLots, visibleRecords, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
+import { isUnknownLot, lotKey, packsOf, reconcileLots, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
+import { newRowId, noAnswer, writeError, writeTimeout } from "@/lib/write-timeout";
 import { toast } from "sonner";
 
 interface SavedRow {
@@ -40,6 +41,8 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
   const dirty = useRef<Set<string>>(new Set());
   /** Lines whose last save didn't fully land; retried before sending */
   const unsynced = useRef<Set<string>>(new Set());
+  /** The same, for the screen: those lines say their lots aren't saved */
+  const [unsaved, setUnsaved] = useState<Set<string>>(new Set());
   const toIdRef = useRef(toId);
   toIdRef.current = toId;
   const filled = useRef<Set<string>>(new Set());
@@ -63,57 +66,86 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
     const run = async () => {
       // Packing writes only to an unsent order (another screen may have sent it)
       if (!deferRef.current && toIdRef.current) {
-        const { data } = await supabase.from("transfer_orders").select("status").eq("id", toIdRef.current).maybeSingle();
+        const { data, error } = await supabase.from("transfer_orders").select("status").eq("id", toIdRef.current).abortSignal(writeTimeout()).maybeSingle();
+        if (error) {
+          unsynced.current.add(lineId);
+          setUnsaved(new Set(unsynced.current));
+          toast.error("บันทึกล็อตไม่ได้: " + writeError(error));
+          return;
+        }
         if (data && data.status !== "Draft") return;
       }
-      let bad = false;
+      let failure = "";
+      const fail = (why: string) => void (failure ||= why);
+      /** The row is still there (a delete that answered 0 rows, or got no answer) */
+      const stillThere = async (id: string) => {
+        const { data, error } = await supabase.from("transfer_order_lot_lines").select("id").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
+        return !!error || !!data;
+      };
+      const remove = async (id: string) => {
+        // .select("id"): a delete RLS refuses answers with no error and 0 rows
+        const { data, error } = await supabase.from("transfer_order_lot_lines").delete().eq("id", id).select("id").abortSignal(writeTimeout());
+        if (!error && data?.length === 1) return true;
+        if ((error && !noAnswer(error)) || (await stillThere(id))) {
+          fail(error ? writeError(error) : "ไม่มีสิทธิ์ลบล็อต");
+          return false;
+        }
+        return true; // it's gone (landed without an answer, or already removed)
+      };
       const want = lotsRef.current[lineId] || [];
       const have = savedRef.current[lineId] || new Map<string, SavedRow[]>();
       const next = new Map<string, SavedRow[]>();
       for (const lot of want) {
-        const key = lot.productionRecordId;
+        const key = lotKey(lot);
         const rows = have.get(key) || [];
-        const row = { production_record_id: key || null, production_date: lot.productionDate, packs: lot.packs, pack_weight_g: lot.packWeightG };
+        const row = { production_record_id: lot.productionRecordId || null, production_date: lot.productionDate, packs: lot.packs, pack_weight_g: lot.packWeightG };
         if (rows.length) {
           // One row per lot: update the first, drop any extra copies
           let packs = rows[0].packs;
           if (rows[0].packs !== lot.packs) {
-            const { error } = await supabase.from("transfer_order_lot_lines").update(row).eq("id", rows[0].id);
-            if (error) bad = true;
+            const { data, error } = await supabase.from("transfer_order_lot_lines").update(row).eq("id", rows[0].id).select("id").abortSignal(writeTimeout());
+            // 0 rows = refused or the row is gone: not saved (setting the same packs again is safe to retry)
+            if (error) fail(writeError(error));
+            else if (data?.length !== 1) fail("แก้ล็อตเดิมไม่ได้ (ไม่มีสิทธิ์ หรือถูกลบไปแล้ว)");
             else packs = lot.packs;
           }
           const kept = [{ id: rows[0].id, packs }];
-          for (const extra of rows.slice(1)) {
-            const { error } = await supabase.from("transfer_order_lot_lines").delete().eq("id", extra.id);
-            if (error) {
-              bad = true;
-              kept.push(extra);
-            }
-          }
+          for (const extra of rows.slice(1)) if (!(await remove(extra.id))) kept.push(extra);
           next.set(key, kept);
         } else {
-          const { data, error } = await supabase.from("transfer_order_lot_lines").insert({ ...row, to_line_id: lineId }).select("id").single();
-          if (error || !data) bad = true;
-          else next.set(key, [{ id: data.id, packs: lot.packs }]);
+          // The id is made here so an insert that got no answer can be looked up (never inserted twice)
+          const id = newRowId();
+          const { data, error } = await supabase.from("transfer_order_lot_lines").insert({ ...row, id, to_line_id: lineId }).select("id").abortSignal(writeTimeout());
+          let landed = !error && data?.length === 1;
+          if (error && noAnswer(error)) {
+            const back = await supabase.from("transfer_order_lot_lines").select("id").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
+            landed = !back.error && !!back.data;
+          }
+          if (landed) next.set(key, [{ id, packs: lot.packs }]);
+          else fail(error ? writeError(error) : "บันทึกล็อตไม่ได้");
         }
       }
       for (const [key, rows] of have) {
         if (next.has(key)) continue;
-        for (const r of rows) {
-          const { error } = await supabase.from("transfer_order_lot_lines").delete().eq("id", r.id);
-          if (error) {
-            bad = true;
-            next.set(key, rows);
-          }
-        }
+        const left: SavedRow[] = [];
+        for (const r of rows) if (!(await remove(r.id))) left.push(r);
+        if (left.length) next.set(key, left);
       }
       savedRef.current = { ...savedRef.current, [lineId]: next };
-      if (bad) {
+      if (failure) {
         unsynced.current.add(lineId);
-        toast.error("บันทึกล็อตไม่ได้บางรายการ จะลองใหม่ตอนส่ง");
+        toast.error(`บันทึกล็อตไม่ได้บางรายการ จะลองใหม่ตอนส่ง (${failure})`);
       } else unsynced.current.delete(lineId);
+      setUnsaved(new Set(unsynced.current));
     };
-    const p = (chains.current[lineId] || Promise.resolve()).then(run, run);
+    // A thrown write still ends the run: the line counts as not saved, the queue moves on
+    const guarded = () =>
+      run().catch(() => {
+        unsynced.current.add(lineId);
+        setUnsaved(new Set(unsynced.current));
+        toast.error("บันทึกล็อตไม่ได้ จะลองใหม่ตอนส่ง");
+      });
+    const p = (chains.current[lineId] || Promise.resolve()).then(guarded, guarded);
     chains.current[lineId] = p;
     return p;
   }, []);
@@ -206,13 +238,15 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
       const saved: Record<string, Map<string, SavedRow[]>> = {};
       const shown: Record<string, LotLine[]> = {};
       for (const r of lotRes.data || []) {
-        const key = r.production_record_id || "";
+        // "ไม่ทราบล็อต" and an old row with no record are different lots: keyed apart, never merged
+        const lot = { productionRecordId: r.production_record_id || "", productionDate: r.production_date };
+        const key = lotKey(lot);
         const m = (saved[r.to_line_id] ||= new Map());
         m.set(key, [...(m.get(key) || []), { id: r.id, packs: r.packs }]);
         const list = (shown[r.to_line_id] ||= []);
-        const same = list.find((l) => l.productionRecordId === key);
+        const same = list.find((l) => lotKey(l) === key);
         if (same) same.packs += r.packs;
-        else list.push({ id: r.id, productionRecordId: key, productionDate: r.production_date, packs: r.packs, packWeightG: Number(r.pack_weight_g) || 0 });
+        else list.push({ id: r.id, ...lot, packs: r.packs, packWeightG: Number(r.pack_weight_g) || 0 });
       }
       // A line edited while this was loading keeps the edit, and what its own
       // saves recorded (the query may have run before they landed)
@@ -255,6 +289,7 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
     filled.current = new Set();
     dirty.current = new Set();
     unsynced.current = new Set();
+    setUnsaved(new Set());
   }, [toId]);
 
   /** Packs on a line changed: move its lots with it */
@@ -282,8 +317,31 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
     [skuOf, apply],
   );
 
-  /** "เติมจากล็อตเก่าสุดให้ครบ": top up (or trim) to the line's packs */
+  /** "เติมจากล็อตเก่าสุดให้ครบ": top up (or trim) to the line's packs — real lots only, never "ไม่ทราบล็อต" */
   const fillToPacks = useCallback((line: TOLine, packs: number) => followPacks(line, packs), [followPacks]);
 
-  return { stock, records, lots, loading, error, isLotLine, visibleFor, followPacks, setLotPacks, fillToPacks, settle, commit };
+  /** "ไม่ทราบล็อต": a person puts the packs the line still lacks on the unknown lot */
+  const markUnknown = useCallback(
+    (line: TOLine, packs: number) => {
+      if (!isLotLine(line.skuId)) return;
+      const ps = skuOf(line.skuId)?.packSize ?? 0;
+      const current = lotsRef.current[line.id] || [];
+      const next = withUnknownLot(current, packs, ps);
+      if (next !== current) apply(line.id, next);
+    },
+    [isLotLine, skuOf, apply],
+  );
+
+  /** Set the packs on the unknown lot (0 takes it off) */
+  const setUnknownPacks = useCallback(
+    (lineId: string, packs: number) => {
+      const current = lotsRef.current[lineId] || [];
+      const unknown = current.find(isUnknownLot);
+      if (!unknown) return;
+      apply(lineId, packs <= 0 ? current.filter((l) => l !== unknown) : current.map((l) => (l === unknown ? { ...l, packs } : l)));
+    },
+    [apply],
+  );
+
+  return { stock, records, lots, unsaved, loading, error, isLotLine, visibleFor, followPacks, setLotPacks, fillToPacks, markUnknown, setUnknownPacks, settle, commit };
 }

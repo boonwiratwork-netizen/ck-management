@@ -195,6 +195,8 @@ export function ReviewSend({
   onNotes,
   onFix,
   onFillLots,
+  onUnknownLot,
+  canCoverLots,
   onSend,
   onBack,
   packSizeOf,
@@ -208,6 +210,10 @@ export function ReviewSend({
   onNotes: (n: string) => void;
   onFix: (lineId: string) => void;
   onFillLots: () => void;
+  /** "ส่งแบบไม่ทราบล็อต": the line's missing packs go on the unknown lot */
+  onUnknownLot?: (lineId: string) => void;
+  /** The lots in the kitchen could cover the line (then "ส่งแบบไม่ทราบล็อต" isn't offered) */
+  canCoverLots?: (lineId: string) => boolean;
   onSend: () => void;
   onBack: () => void;
 }) {
@@ -248,6 +254,12 @@ export function ReviewSend({
                   ล็อตยังไม่ครบ {num(m.assigned)}/{num(m.packs)} แพ็ค · ต้องแก้ก่อนส่ง
                 </div>
               </div>
+              {/* No lot left that could cover it (stock from a count / made outside the app) */}
+              {onUnknownLot && m.assigned < m.packs && canCoverLots?.(m.lineId) === false && (
+                <Button variant="ghost" className="h-10 px-2 text-muted-foreground" onClick={() => onUnknownLot(m.lineId)}>
+                  ส่งแบบไม่ทราบล็อต
+                </Button>
+              )}
               <Button variant="outline" className="h-10" onClick={() => onFix(m.lineId)}>
                 แก้
               </Button>
@@ -274,6 +286,19 @@ export function ReviewSend({
               เติมล็อตจากเก่าสุดให้ครบทุกรายการ
             </Button>
           )}
+        </section>
+      )}
+
+      {check.unknownLot.length > 0 && (
+        // Not a blocker: kept on the list so it stays seen
+        <section className="rounded-2xl border border-border bg-card p-3 text-sm shadow-card">
+          <h3 className="mb-1 font-semibold">ไม่ทราบล็อต {check.unknownLot.length} รายการ · ส่งได้</h3>
+          {check.unknownLot.map((u) => (
+            <div key={u.lineId} className="flex items-baseline justify-between gap-3 py-1">
+              <span className="min-w-0 break-words">{u.skuName}</span>
+              <span className="shrink-0 text-muted-foreground">ส่งแบบไม่ทราบล็อต {num(u.packs)} แพ็ค</span>
+            </div>
+          ))}
         </section>
       )}
 

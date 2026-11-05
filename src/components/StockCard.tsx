@@ -10,6 +10,7 @@ import { receiptConverter } from "@/lib/branch-stock";
 import { TO_DELIVERED_STATUSES, computeToLineQty } from "@/lib/to-line-qty";
 import type { SKU } from "@/types/sku";
 import { afterCount, producedAfterCount, type CountAnchor } from "@/lib/count-anchor";
+import { lotDateLabel } from "@/lib/transfer-lines";
 
 type LedgerCount = CountAnchor & { completed_at: string };
 
@@ -830,10 +831,8 @@ export function StockCard({
             if (lots.length > 0) {
               lotText = lots
                 .sort((a, b) => a.production_date.localeCompare(b.production_date))
-                .map((l) => {
-                  const d = new Date(l.production_date);
-                  return `${d.getDate()}/${d.getMonth() + 1} ×${l.packs}`;
-                })
+                // The unknown-lot date ("ไม่ทราบล็อต") is never a real day
+                .map((l) => `${lotDateLabel(l.production_date, (iso) => { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}`; })} ×${l.packs}`)
                 .join(", ");
             }
             mvts.push({

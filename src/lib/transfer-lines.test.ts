@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchShortCount, checkBeforeSend, isShort, kitchenShortCount, packsOf, packsAfterWeight, reconcileLots, transferBadges, visibleRecords, type LotLine, type ProdRecord } from "./transfer-lines";
+import { UNKNOWN_LOT_DATE, UNKNOWN_LOT_LABEL, branchShortCount, checkBeforeSend, isShort, isUnknownLot, kitchenShortCount, lotDateLabel, lotKey, lotsCanCover, packsOf, packsAfterWeight, reconcileLots, transferBadges, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "./transfer-lines";
 
 const rec = (id: string, date: string, out: number): ProdRecord => ({ id, productionDate: date, actualOutputG: out, batchesProduced: 1 });
 const RECORDS = [rec("a", "2026-09-01", 2000), rec("b", "2026-10-16", 800), rec("c", "2026-10-22", 1200)];
@@ -119,5 +119,77 @@ describe("packs are their own fact (27 Oct 2026: 5 packs of 350 g weighed 2,005 
     const c = checkBeforeSend([line] as never, () => ({ type: "SM", packSize: 350 }) as never, {}, { x: [{ packs: 5 }] as never });
     expect(c.changed).toEqual([]);
     expect(c.short).toEqual([]);
+  });
+});
+
+describe("ไม่ทราบล็อต (no production record to pick)", () => {
+  const unknown = (packs: number): LotLine => ({ productionRecordId: "", productionDate: UNKNOWN_LOT_DATE, packs, packWeightG: 400 });
+  const real = (rid: string, date: string, packs: number): LotLine => ({ productionRecordId: rid, productionDate: date, packs, packWeightG: 400 });
+  const skuOf = () => ({ type: "SM", packSize: 400 });
+  const line = { id: "oil", skuId: "oil", skuName: "น้ำมันราเมนเหลือง", plannedQty: 400, actualQty: 400, packsCount: 1, trLineId: "t" };
+
+  it("packs on the unknown lot count as assigned: the line can be sent, and is listed as a note", () => {
+    const res = checkBeforeSend([line], skuOf, {}, { oil: [unknown(1)] });
+    expect(res.lotMismatch).toEqual([]);
+    expect(res.unknownLot).toEqual([{ lineId: "oil", skuName: "น้ำมันราเมนเหลือง", packs: 1 }]);
+  });
+  it("with nothing chosen the line still blocks (0/1)", () => {
+    const res = checkBeforeSend([line], skuOf, {}, {});
+    expect(res.lotMismatch).toEqual([{ lineId: "oil", skuName: "น้ำมันราเมนเหลือง", packs: 1, assigned: 0 }]);
+    expect(res.unknownLot).toEqual([]);
+  });
+  it("mixed real + unknown add up", () => {
+    const res = checkBeforeSend([{ ...line, actualQty: 1200, packsCount: 3 }], skuOf, {}, { oil: [real("a", "2026-11-01", 2), unknown(1)] });
+    expect(res.lotMismatch).toEqual([]);
+    expect(res.unknownLot[0].packs).toBe(1);
+  });
+
+  it("choosing it puts only the missing packs there, adding to an unknown lot already on the line", () => {
+    expect(withUnknownLot([], 2, 400)).toEqual([unknown(2)]);
+    expect(withUnknownLot([real("a", "2026-11-01", 1)], 3, 400)).toEqual([real("a", "2026-11-01", 1), unknown(2)]);
+    expect(withUnknownLot([unknown(1)], 3, 400)).toEqual([unknown(3)]);
+    const full = [real("a", "2026-11-01", 3)];
+    expect(withUnknownLot(full, 3, 400)).toBe(full);
+  });
+
+  it("the automatic fill never uses the unknown lot", () => {
+    // No production record at all: nothing is filled
+    expect(reconcileLots([], [], 2, 400).next).toEqual([]);
+    // Only the unknown lot on the line and no record: the extra packs stay unassigned
+    expect(reconcileLots([unknown(1)], [], 3, 400).next).toEqual([unknown(1)]);
+    // A real lot already on the line takes the extra, not the unknown one
+    expect(reconcileLots([real("a", "2026-11-01", 1), unknown(1)], [], 4, 400).next).toEqual([real("a", "2026-11-01", 3), unknown(1)]);
+    // A fresh real lot is used before anything else
+    const next = reconcileLots([unknown(1)], [RECORDS[1]], 3, 400).next;
+    expect(next.filter(isUnknownLot)).toEqual([unknown(1)]);
+    expect(next.find((l) => l.productionRecordId === "b")?.packs).toBe(2);
+  });
+  it("fewer packs come off the unknown lot first", () => {
+    const r = reconcileLots([real("a", "2026-11-01", 2), unknown(2)], [], 3, 400);
+    expect(r.next).toEqual([real("a", "2026-11-01", 2), unknown(1)]);
+  });
+
+  it("the date is shown as ไม่ทราบล็อต, never 1900", () => {
+    const fmt = (iso: string) => `d:${iso}`;
+    expect(lotDateLabel(UNKNOWN_LOT_DATE, fmt)).toBe(UNKNOWN_LOT_LABEL);
+    expect(lotDateLabel("2026-11-01", fmt)).toBe("d:2026-11-01");
+    expect(UNKNOWN_LOT_LABEL).toBe("ไม่ทราบล็อต");
+  });
+
+  it("the unknown lot never shows up as a record to pick, nor counts as one picked", () => {
+    expect(visibleRecords(RECORDS, 1500, new Set([""])).map((r) => r.id)).toEqual(["b", "c"]);
+  });
+
+  it("keys: a record, ไม่ทราบล็อต, and an old no-record row are three different lots", () => {
+    expect(lotKey(real("a", "2026-11-01", 1))).toBe("a");
+    expect(lotKey(unknown(1))).toBe("unknown");
+    expect(lotKey({ productionRecordId: "", productionDate: "2026-10-03" })).toBe("none:2026-10-03");
+    expect(lotKey({ productionRecordId: null, productionDate: UNKNOWN_LOT_DATE })).toBe("unknown");
+  });
+
+  it("lotsCanCover: whole packs left in the shown lots", () => {
+    expect(lotsCanCover([], 1, 400)).toBe(false);
+    expect(lotsCanCover([{ ...RECORDS[1], remainingG: 790 }], 2, 400)).toBe(false); // 1 whole pack
+    expect(lotsCanCover([RECORDS[1]], 2, 400)).toBe(true);
   });
 });
