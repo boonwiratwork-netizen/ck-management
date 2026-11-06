@@ -51,6 +51,7 @@ const TransferRequestPage = lazy(pageLoader(pageChunks.Request));
 const FoodCostPage = lazy(pageLoader(pageChunks.FoodCost));
 const StoreOverview = lazy(pageLoader(pageChunks.StoreOverview));
 const StoreStockPage = lazy(pageLoader(pageChunks.StoreStock));
+const AdminHomePage = lazy(pageLoader(pageChunks.AdminHome));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -98,7 +99,23 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   "food-cost": { title: "ต้นทุนอาหาร", subtitle: "ต้นทุนเทียบยอดขาย" },
   "sku-categories": { title: "ตั้งค่า", subtitle: "หมวดสินค้า" },
   pkstock: { title: "สต๊อกครัว", subtitle: "วัตถุดิบ · ครัวผลิต · บรรจุภัณฑ์" },
+  admin: { title: "หน้าแรกผู้บริหาร", subtitle: "ทีม × ตัวชี้วัด" },
+  search: { title: "ค้นหา", subtitle: "เร็วๆ นี้" },
+  rd: { title: "RD", subtitle: "เร็วๆ นี้" },
 };
+
+/** A tab that isn't built yet (management's ค้นหา and RD) */
+function ComingSoon({ title, onHome }: { title: string; onHome: () => void }) {
+  return (
+    <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3 rounded-2xl border border-dashed border-border px-4 py-10 text-center">
+      <h1 className="text-xl font-bold">{title}</h1>
+      <p className="text-sm text-muted-foreground">เร็วๆ นี้ · หน้านี้ยังไม่เปิดใช้</p>
+      <Button variant="outline" className="h-10" onClick={onHome}>
+        กลับหน้าแรก
+      </Button>
+    </div>
+  );
+}
 
 // Define which tabs each role can access
 function canAccessTab(role: string | null, tab: TabKey): boolean {
@@ -381,7 +398,21 @@ const Index = () => {
               <div className="page-shell"><BasePageSkeleton /></div>
             ) : (
               <div className="page-shell">
-                {activeTab === "dashboard" ? (
+                {activeTab === "admin" ? (
+                  <AdminHomePage
+                    masters={{
+                      skus,
+                      prices: priceData.prices,
+                      menus: menuData.menus,
+                      menuBomLines: menuBomData.lines,
+                      modifierRules: modifierRuleData.rules,
+                      spBomLines: spBomData.lines,
+                      branches: branchData.branches,
+                    }}
+                  />
+                ) : activeTab === "search" || activeTab === "rd" ? (
+                  <ComingSoon title={tabLabels[activeTab].title} onHome={() => handleTabChange("admin")} />
+                ) : activeTab === "dashboard" ? (
                   <Dashboard skus={skus} prices={priceData.prices} bomLines={bomData.lines} rmStockBalances={stockData.stockBalances} smStockBalances={smStockData.stockBalances} stockReady={stockData.loaded} />
                 ) : activeTab === "receipt" ? (
                   <GoodsReceiptPage receiptData={receiptData} skus={skus} suppliers={supplierData.suppliers} prices={priceData.prices} onNavigate={handleTabChange} />

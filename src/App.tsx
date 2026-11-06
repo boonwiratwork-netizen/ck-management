@@ -30,6 +30,7 @@ const FoodCostDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/FoodCo
 const StoreDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/StoreDemo")) : null;
 const SettingsDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/SettingsDemo")) : null;
 const CostCenterDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/CostCenterDemo")) : null;
+const AdminHomeDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/AdminHomeDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
               {StoreDemo && <Route path="/dev/store" element={<Suspense fallback={null}><StoreDemo /></Suspense>} />}
               {SettingsDemo && <Route path="/dev/settings" element={<Suspense fallback={null}><SettingsDemo /></Suspense>} />}
               {CostCenterDemo && <Route path="/dev/cost-center" element={<Suspense fallback={null}><CostCenterDemo /></Suspense>} />}
+              {AdminHomeDemo && <Route path="/dev/admin" element={<Suspense fallback={null}><AdminHomeDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

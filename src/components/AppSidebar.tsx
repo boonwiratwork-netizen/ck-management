@@ -36,6 +36,7 @@ import {
   LayoutGrid,
   ScanLine,
   Layers,
+  Search,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -72,7 +73,11 @@ export type TabKey =
   | "store-stock"
   | "food-cost"
   | "sku-categories"
-  | "pkstock";
+  | "pkstock"
+  // Management's first page (team × metric scores) and two tabs still to come
+  | "admin"
+  | "search"
+  | "rd";
 
 export type TabContext = "ck" | "store" | "management" | "overview";
 
@@ -107,6 +112,10 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   "food-cost": "store",
   "sku-categories": "management",
   pkstock: "ck",
+  // Management only; not kitchen pages, so they never wait for the kitchen stock data
+  admin: "management",
+  search: "management",
+  rd: "management",
 };
 
 interface AppSidebarProps {
@@ -142,6 +151,17 @@ const todayGroup: NavGroup = {
   labelKey: "",
   section: "overview",
   items: [{ key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck }],
+};
+
+// Management starts on its own first page (team scores); the old today page stays under it
+const adminGroup: NavGroup = {
+  label: "",
+  labelKey: "",
+  section: "overview",
+  items: [
+    { key: "admin", labelKey: "nav.adminHome", icon: LayoutGrid },
+    { key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck },
+  ],
 };
 
 // Daily jobs first, then the pages for looking back ("ดูภาพรวม")
@@ -215,14 +235,15 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
         { key: "store-stock", label: "สต๊อก", icon: LayoutGrid },
         { key: "daily-stock-count", label: "นับสต๊อก", icon: ClipboardCheck },
       ];
-    // Management (the kitchen is run from these accounts too): Cost Center in the middle, as
-    // the raised button; production moves to "เมนู" (Bucci, 1 Nov 2026)
+    // Management: their own first page (team scores), search, Cost Center in the middle as
+    // the raised button, RD; everything else under "เมนู" (board AdmH14HomeB, Nov 2026).
+    // ค้นหา and RD are "เร็วๆ นี้" pages for now
     case "management":
       return [
-        today,
-        { key: "receipt", label: "รับของ", icon: ClipboardList },
+        { key: "admin", label: "ภาพรวม", icon: LayoutGrid },
+        { key: "search", label: "ค้นหา", icon: Search },
         { key: "cost-center", label: "Cost Center", icon: Layers, featured: true },
-        { key: "transfer-order", label: "ใบโอน", icon: ArrowRightLeft },
+        { key: "rd", label: "RD", icon: FlaskConical },
       ];
     case "ck_manager":
     default:
@@ -237,7 +258,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
 
 /** The sidebar's groups for a role */
 function navGroupsFor(role: AppRole | null): NavGroup[] {
-  if (role === "management") return [todayGroup, ckGroup, storeGroup, setupGroup(true)];
+  if (role === "management") return [adminGroup, ckGroup, storeGroup, setupGroup(true)];
   if (role === "ck_manager") return [todayGroup, ckGroup, setupGroup(false)];
   if (role === "store_manager" || role === "area_manager") return [todayGroup, storeGroup, setupGroup(false)];
   return [];
@@ -249,7 +270,8 @@ export function sidebarTabsFor(role: AppRole | null): TabKey[] {
 }
 
 export function getDefaultTab(role: AppRole | null): TabKey {
-  // The today page for everyone: each role sees its own part
+  // Management lands on its own first page; everyone else on the today page (their own part)
+  if (role === "management") return "admin";
   return role ? "store" : "dashboard";
 }
 

@@ -13,10 +13,11 @@ describe("which pages' code is fetched ahead", () => {
     expect(new Set(order).size).toBe(order.length);
   });
 
-  it("management gets the kitchen and the branch pages; RM/SM/PK stock is one download", () => {
+  it("management gets its first page, the kitchen and the branch pages; RM/SM/PK stock is one download", () => {
     const order = prefetchOrder("management", "receipt");
-    expect(order.slice(0, 3)).toEqual(["StoreOverview", "CostCenter", "Transfer"]);
-    expect(order).toEqual(expect.arrayContaining(["Produce", "KitchenCount", "KitchenStock", "Dashboard", "DailyCount", "Settings"]));
+    // The phone bar (ภาพรวม · ค้นหา · Cost Center · RD: ค้นหา/RD have no code of their own yet), then the sidebar
+    expect(order.slice(0, 3)).toEqual(["AdminHome", "CostCenter", "StoreOverview"]);
+    expect(order).toEqual(expect.arrayContaining(["Transfer", "Produce", "KitchenCount", "KitchenStock", "Dashboard", "DailyCount", "Settings"]));
     expect(order).not.toContain("KitchenReceive");
     expect(order.filter((c) => c === "KitchenStock")).toHaveLength(1);
   });

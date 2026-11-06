@@ -8,6 +8,7 @@ import { afterCount, producedAfterCount, type CountAnchor, type CountTiming } fr
 import { productionCost, topWithOthers, type ProductionCost, type Recipe, type RmFlow } from "@/lib/ck-production-cost";
 import { computeToLineQty, TO_DELIVERED_STATUSES } from "@/lib/to-line-qty";
 import { toLocalDateStr } from "@/lib/utils";
+import { monthGap } from "@/lib/ck-trend";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 
 export interface CountPick {
@@ -75,6 +76,8 @@ async function pickCount(target: string, rmIds: Set<string>, after?: string): Pr
 interface Raw {
   from: string;
   to: string;
+  /** RM items in the recipes of what was made in the period: the base a count must cover half of */
+  rmIds: Set<string>;
   produced: { smSkuId: string; outputG: number }[];
   recipes: Map<string, Recipe>;
   type: Map<string, string>;
@@ -257,6 +260,7 @@ async function readPeriod(from: string, to: string, alive: () => boolean, opts: 
   return {
     from,
     to,
+    rmIds,
     produced: produced.map((p) => ({ smSkuId: p.sm_sku_id, outputG: Number(p.actual_output_g) || 0 })),
     recipes,
     type,
@@ -402,4 +406,48 @@ export function useCkTrend(months: { from: string; to: string }[], liveRm: { sku
       }),
     [raws, liveRm, liveReady],
   );
+}
+
+/** One closed month's kitchen cost over its recipes, as the kitchen dashboard's month line says it */
+export interface CkMonthGap {
+  /** yyyy-MM-01 */
+  month: string;
+  /** (actual − recipe) ÷ recipe × 100; null = can't be worked out (`why`) */
+  pct: number | null;
+  why?: string;
+  /**
+   * The month-end count, judged exactly as this cost judges its closing count (pickCount:
+   * a completed session within ±3 days of the month end that counted ≥50% of the RM items in
+   * the month's production recipes) — so the home page and the kitchen page never disagree.
+   * none = nothing made that month (no RM base to cover)
+   */
+  count: "pass" | "fail" | "none";
+}
+
+/**
+ * The months' cost gaps (หน้าแรกผู้บริหาร › ต้นทุนครัวต่างจากสูตร), one after another sharing
+ * one read of the masters. Only for months that have ended: a closed month without a
+ * closing count is blocked (never estimated from today's balances).
+ */
+export async function ckMonthGaps(months: string[]): Promise<CkMonthGap[]> {
+  const masters = loadMasters();
+  masters.catch(() => undefined);
+  const out: CkMonthGap[] = [];
+  for (const month of months) {
+    const d = new Date(`${month}T00:00:00`);
+    const to = toLocalDateStr(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+    const raw = await readPeriod(month, to, () => true, { costOnly: true }, masters);
+    if (!raw) continue;
+    const c = costOf(raw, [], true);
+    // The closing count is only looked for after an opening one; the month-end count is judged on its own
+    const closing = raw.closing ?? (raw.rmIds.size ? await pickCount(to, raw.rmIds, raw.opening?.session.count_date) : null);
+    const count = raw.rmIds.size === 0 ? "none" : closing ? "pass" : "fail";
+    if (c.blocked) out.push({ month, pct: null, why: c.blocked, count });
+    else if (!c.produced || !c.cost) out.push({ month, pct: null, why: "ไม่มีการผลิตในเดือนนี้", count });
+    else {
+      const gap = monthGap(c.cost, c.estimated);
+      out.push(gap.pct === null ? { month, pct: null, why: "ต้นทุนตามสูตรเป็น ฿0", count } : { month, pct: gap.pct, count });
+    }
+  }
+  return out;
 }

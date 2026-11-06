@@ -23,6 +23,7 @@ export const pageChunks = {
   FoodCost: () => import("@/pages/FoodCost"),
   StoreOverview: () => import("@/pages/StoreOverview"),
   StoreStock: () => import("@/pages/StoreStock"),
+  AdminHome: () => import("@/pages/AdminHome"),
 };
 
 export type PageChunk = keyof typeof pageChunks;
@@ -57,4 +58,8 @@ export const chunkForTab: Record<TabKey, PageChunk> = {
   "daily-stock-count": "DailyCount",
   "store-stock": "StoreStock",
   "food-cost": "FoodCost",
+  admin: "AdminHome",
+  // "เร็วๆ นี้" pages render inside Index (no code of their own yet)
+  search: "AdminHome",
+  rd: "AdminHome",
 };
