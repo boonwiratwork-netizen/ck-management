@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  ArrowRightLeft,
   BarChart3,
+  ClipboardList,
+  Factory,
   Bell,
   CalendarCheck,
   CalendarClock,
@@ -24,6 +27,7 @@ import { RefreshNote } from "@/components/RefreshNote";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { bangkokDate } from "@/lib/day-follow";
+import { fetchPendingTrCount } from "@/lib/pending-trs";
 
 /**
  * หน้าแรกผู้บริหาร (boards AdmH14HomeB · AdmH15Team · AdmH16Kitchen): every team's metrics
@@ -78,6 +82,19 @@ export default function AdminHome({ masters, demo }: Props) {
     }
   };
   const { view, error, refreshing, retry, noBranches } = useAdminHome(masters, period, demo?.loader, demo ? { today: demo.today, nowMs: demo.nowMs } : undefined);
+  // Branch requests waiting for a transfer order (the sidebar badge's count): a badge on
+  // จัดใบโอน once read; nothing shown until then (the dev demo reads nothing)
+  const [pendingRequests, setPendingRequests] = useState<number | null>(null);
+  useEffect(() => {
+    if (demo) return;
+    let cancelled = false;
+    fetchPendingTrCount()
+      .then((n) => !cancelled && setPendingRequests(n))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [demo]);
   const hash = decodeURIComponent(location.hash.slice(1));
   const teamId = hash.startsWith("team/") ? hash.slice(5) : null;
 
@@ -144,6 +161,8 @@ export default function AdminHome({ masters, demo }: Props) {
             เลื่อนซ้าย-ขวาดูครบ · ช่องเส้นประ = ยังคิดไม่ได้ (แตะดูเหตุผล) · สาขา: ตามแผน = นำเข้ายอดขายตรงเวลา · ครัวกลาง: นับ = นับปิดเดือน · ช่องสุดท้าย = บันทึกรับของตรงวัน
           </p>
 
+          <KitchenShortcuts pendingRequests={pendingRequests} onGo={follow} />
+
           <Section title={`อันดับ${nowWord(period)}`} note={`เทียบ${beforeWord(period)}`} />
           <League teams={view.teams} onOpen={openTeam} />
 
@@ -164,6 +183,44 @@ export default function AdminHome({ masters, demo }: Props) {
           <GoRail onGo={follow} />
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The kitchen is run from management accounts too: its daily jobs one tap from the home
+ * page (owner, Nov 2026)
+ */
+const KITCHEN_JOBS: { label: string; icon: React.ElementType; go: Go; badge?: "requests" }[] = [
+  { label: "รับของ", icon: ClipboardList, go: { path: "/receipt" } },
+  { label: "จัดใบโอน", icon: ArrowRightLeft, go: { path: "/transfer-order" }, badge: "requests" },
+  { label: "บันทึกผลิต", icon: Factory, go: { path: "/production" } },
+];
+
+export function KitchenShortcuts({ pendingRequests, onGo }: { pendingRequests: number | null; onGo: (go: Go) => void }) {
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold text-muted-foreground">ครัวกลาง ทางลัด</div>
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="ครัวกลาง ทางลัด">
+        {KITCHEN_JOBS.map((j) => {
+          const n = j.badge === "requests" ? pendingRequests : null;
+          return (
+            <button
+              key={j.label}
+              type="button"
+              onClick={() => onGo(j.go)}
+              className="relative flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 text-[13px] font-medium"
+              aria-label={n ? `${j.label} · ใบขอเบิกรอ ${n} ใบ` : j.label}
+            >
+              <j.icon className="h-[18px] w-[18px] shrink-0 text-brand" />
+              <span className="whitespace-nowrap">{j.label}</span>
+              {!!n && (
+                <span className="absolute -right-1 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-destructive px-1 text-[11px] font-bold text-destructive-foreground">{n}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
