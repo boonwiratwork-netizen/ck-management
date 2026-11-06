@@ -14,6 +14,225 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_cases: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          baseline: number | null
+          baseline_candidate: number | null
+          baseline_set_at: string | null
+          changed_at: string
+          closed_at: string | null
+          detail: string
+          habit_day: string | null
+          habit_key: string | null
+          habit_label: string | null
+          key: string
+          last_seen_at: string
+          last_value: number
+          link: Json
+          notified_value: number
+          opened_at: string
+          rule: string
+          scope: Json
+          severity: string
+          status: string
+          tier: string
+          title: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          baseline?: number | null
+          baseline_candidate?: number | null
+          baseline_set_at?: string | null
+          changed_at?: string
+          closed_at?: string | null
+          detail?: string
+          habit_day?: string | null
+          habit_key?: string | null
+          habit_label?: string | null
+          key: string
+          last_seen_at?: string
+          last_value?: number
+          link?: Json
+          notified_value?: number
+          opened_at?: string
+          rule?: string
+          scope?: Json
+          severity?: string
+          status?: string
+          tier?: string
+          title?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          baseline?: number | null
+          baseline_candidate?: number | null
+          baseline_set_at?: string | null
+          changed_at?: string
+          closed_at?: string | null
+          detail?: string
+          habit_day?: string | null
+          habit_key?: string | null
+          habit_label?: string | null
+          key?: string
+          last_seen_at?: string
+          last_value?: number
+          link?: Json
+          notified_value?: number
+          opened_at?: string
+          rule?: string
+          scope?: Json
+          severity?: string
+          status?: string
+          tier?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      alert_deliveries: {
+        Row: {
+          case_key: string | null
+          channel: string
+          id: string
+          result: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          case_key?: string | null
+          channel: string
+          id?: string
+          result: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          case_key?: string | null
+          channel?: string
+          id?: string
+          result?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alert_digests: {
+        Row: {
+          body: string
+          created_at: string
+          for_day: string
+          id: string
+          kind: string
+          lines: Json
+          pushed: boolean
+          started_at: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          for_day: string
+          id?: string
+          kind: string
+          lines?: Json
+          pushed?: boolean
+          started_at?: string | null
+          status?: string
+          title?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          for_day?: string
+          id?: string
+          kind?: string
+          lines?: Json
+          pushed?: boolean
+          started_at?: string | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alert_recipient_prefs: {
+        Row: {
+          enabled: boolean
+          rule: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          rule: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          rule?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alert_run_lock: {
+        Row: {
+          acquired_at: string | null
+          holder: string | null
+          id: number
+        }
+        Insert: {
+          acquired_at?: string | null
+          holder?: string | null
+          id?: number
+        }
+        Update: {
+          acquired_at?: string | null
+          holder?: string | null
+          id?: number
+        }
+        Relationships: []
+      }
+      alert_settings: {
+        Row: {
+          enabled: boolean
+          rule: string
+          thresholds: Json
+          tier: string
+          updated_at: string
+          updated_by: string | null
+          worsen_mode: string | null
+          worsen_step: number | null
+        }
+        Insert: {
+          enabled?: boolean
+          rule: string
+          thresholds?: Json
+          tier?: string
+          updated_at?: string
+          updated_by?: string | null
+          worsen_mode?: string | null
+          worsen_step?: number | null
+        }
+        Update: {
+          enabled?: boolean
+          rule?: string
+          thresholds?: Json
+          tier?: string
+          updated_at?: string
+          updated_by?: string | null
+          worsen_mode?: string | null
+          worsen_step?: number | null
+        }
+        Relationships: []
+      }
       bom_byproducts: {
         Row: {
           bom_header_id: string
@@ -1291,6 +1510,42 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          failure_count: number
+          id: string
+          last_success_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          device_label?: string
+          endpoint: string
+          failure_count?: number
+          id?: string
+          last_success_at?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          device_label?: string
+          endpoint?: string
+          failure_count?: number
+          id?: string
+          last_success_at?: string | null
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recipe_history: {
         Row: {
           created_at: string
@@ -2251,6 +2506,50 @@ export type Database = {
       }
     }
     Functions: {
+      alert_case_ack: { Args: { p_key: string }; Returns: number }
+      alert_case_use_as_normal: { Args: { p_key: string }; Returns: number }
+      alert_claim_digest: {
+        Args: {
+          p_day: string
+          p_force: boolean
+          p_kind: string
+          p_stale_minutes: number
+        }
+        Returns: boolean
+      }
+      alert_push_endpoint_ok: { Args: { p_endpoint: string }; Returns: boolean }
+      alert_register_device: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_label: string
+          p_p256dh: string
+        }
+        Returns: number
+      }
+      alert_release_lock: { Args: { p_holder: string }; Returns: undefined }
+      alert_try_lock: {
+        Args: { p_holder: string; p_stale_seconds: number }
+        Returns: boolean
+      }
+      alerts_prices: {
+        Args: { p_since: string }
+        Returns: {
+          kind: string
+          price: number
+          sku_id: string
+          valid_from: string
+        }[]
+      }
+      alerts_sales_daily: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          branch_id: string
+          first_created_at: string
+          net_amount: number
+          sale_date: string
+        }[]
+      }
       ck_transfer_rules: { Args: never; Returns: Json }
       decline_transfer_order: {
         Args: { p_reason: string; p_to_id: string }
