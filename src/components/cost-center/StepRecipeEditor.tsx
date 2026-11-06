@@ -14,6 +14,9 @@ import { KindBadge, baht, perUnit } from "./parts";
 import { RecipeLineSheet, type SheetLine } from "./RecipeLineSheet";
 import { enterNext, num, type RecipeEditActions } from "./RecipeEditor";
 import { useRecostSoon } from "./use-recost-soon";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const STEP_LINES_TABLE_MIN_W = tableMinWidth([196, 150, 90, 100, 128]);
 
 interface Props {
   sku: SKU;
@@ -46,7 +49,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, canEdit, actions, onChanged: changedNow, onOpenProduct, dependents, byproductPct }: Props) {
   const onChanged = useRecostSoon(changedNow);
   const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
-  const [measure, wide] = useFitsWidth(760);
+  const [measure, wide] = useFitsWidth(STEP_LINES_TABLE_MIN_W);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ text: string; run: () => void; danger?: boolean } | null>(null);
   const [gen, setGen] = useState(0);
@@ -289,7 +292,8 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
 
             {wide ? (
               own.length > 0 && (
-                <table className="w-full table-fixed text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full table-fixed text-sm" style={{ minWidth: STEP_LINES_TABLE_MIN_W }}>
                   <colgroup>
                     <col />
                     <col style={{ width: "196px" }} />
@@ -363,6 +367,7 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
                     })}
                   </tbody>
                 </table>
+                </div>
               )
             ) : (
               own.map((l, j) => {

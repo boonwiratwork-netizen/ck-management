@@ -11,6 +11,9 @@ import { useFitsWidth } from "@/hooks/use-fits-width";
 import { baht } from "./parts";
 import { enterNext, num, type RecipeEditActions } from "./RecipeEditor";
 import { useRecostSoon } from "./use-recost-soon";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const BYPRODUCT_TABLE_MIN_W = tableMinWidth([140, 130, 110, 90, 120]);
 
 interface Props {
   sku: SKU;
@@ -41,7 +44,7 @@ const one = (n: number) => Math.round(n * 10) / 10;
 export function ByproductEditor({ sku, skus, headerId, byproducts, batchCost, mainOutput, canEdit, actions, onChanged: changedNow, onOpenProduct, hasRecipe, blocked }: Props) {
   const onChanged = useRecostSoon(changedNow);
   const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
-  const [measure, wide] = useFitsWidth(700);
+  const [measure, wide] = useFitsWidth(BYPRODUCT_TABLE_MIN_W);
   const [busy, setBusy] = useState(false);
   const [gen, setGen] = useState(0);
   const [sheet, setSheet] = useState<{ id: string | null } | null>(null);
@@ -118,7 +121,8 @@ export function ByproductEditor({ sku, skus, headerId, byproducts, batchCost, ma
       </div>
 
       {byproducts.length > 0 && wide && (
-        <table className="w-full table-fixed text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full table-fixed text-sm" style={{ minWidth: BYPRODUCT_TABLE_MIN_W }}>
           <colgroup>
             <col />
             <col style={{ width: "140px" }} />
@@ -188,6 +192,7 @@ export function ByproductEditor({ sku, skus, headerId, byproducts, batchCost, ma
             </tr>
           </tbody>
         </table>
+        </div>
       )}
 
       {byproducts.length > 0 && !wide && (

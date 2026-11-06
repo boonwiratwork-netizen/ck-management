@@ -15,6 +15,10 @@ import { EditDialog, type Patch } from "./SalesDay";
 import { thaiDay } from "./SalesDays";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+// Widest variant (select OR edit column, never both): fixed cols + room for the menu name
+const SALES_TABLE_MIN_W = tableMinWidth([44, 96, 100, 96, 64, 112, 110, 52]);
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 
@@ -255,8 +259,8 @@ export function SalesHistory({
       ) : (
         <>
           {/* Computers: one table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
-            <table className="w-full table-fixed text-sm">
+          <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card md:block">
+            <table className="w-full table-fixed text-sm" style={{ minWidth: SALES_TABLE_MIN_W }}>
               <colgroup>
                 {selecting && <col style={{ width: "44px" }} />}
                 <col style={{ width: "96px" }} />
@@ -295,7 +299,7 @@ export function SalesHistory({
                       <td className="truncate px-3 py-2">{name.get(l.branch_id)}</td>
                       <td className="truncate px-3 py-2 font-mono">{l.receipt_no}</td>
                       <td className="px-3 py-2">
-                        <div className="truncate">{n.base}</div>
+                        <div className="break-words">{n.base}</div>
                         <div className="truncate text-xs text-muted-foreground">
                           <span className="font-mono">{l.menu_code}</span>
                           {n.options && ` · ${n.options}`}

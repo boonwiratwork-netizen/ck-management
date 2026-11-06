@@ -15,6 +15,10 @@ import { useFitsWidth } from "@/hooks/use-fits-width";
 import { KindBadge, baht, perUnit } from "./parts";
 import { RecipeLineSheet, type SheetLine } from "./RecipeLineSheet";
 import { useRecostSoon } from "./use-recost-soon";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+// Ingredient table: fixed cols (amount · yield% · ฿/unit · cost · actions) + room for the name
+const RECIPE_TABLE_MIN_W = tableMinWidth([130, 96, 90, 110, 128]);
 
 export interface RecipeEditActions {
   addHeader: (data: Omit<BOMHeader, "id">) => Promise<string>;
@@ -92,8 +96,8 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
   // Holds the line's id only: the sheet always reads the live line (an inline save
   // landing after it opened must not leave it comparing against an old number)
   const [sheet, setSheet] = useState<{ rowId: string | null } | null>(null);
-  // The table needs ~620px; a phone (or a squeezed laptop) gets cards instead
-  const [measure, wide] = useFitsWidth(620);
+  // The table shows only once the name column gets its room; a phone (or a squeezed laptop) gets cards
+  const [measure, wide] = useFitsWidth(RECIPE_TABLE_MIN_W);
 
   const rows = isSp
     ? spLines.map((l) => ({ id: l.id, skuId: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, used: l.qtyPerBatch }))
@@ -306,7 +310,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] table-fixed text-sm">
+          <table className="w-full table-fixed text-sm" style={{ minWidth: RECIPE_TABLE_MIN_W }}>
             <colgroup>
               <col />
               <col style={{ width: "130px" }} />
@@ -331,10 +335,10 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
                 const p = priceOf(r.skuId);
                 return (
                   <tr key={r.id} className="border-t border-border">
-                    <td className="truncate px-4 py-2">
+                    <td className="px-4 py-2">
                       <button type="button" onClick={() => onOpenProduct(r.skuId)} className="flex min-w-0 items-center gap-2 text-left hover:underline">
-                        {ing && <KindBadge kind={ing.type} />}
-                        <span className="break-words">{ing?.name ?? "—"}</span>
+                        {ing && <KindBadge kind={ing.type} className="shrink-0" />}
+                        <span className="min-w-0 break-words">{ing?.name ?? "—"}</span>
                         {ing?.status === "Inactive" && <span className="shrink-0 text-destructive">· ปิดใช้แล้ว</span>}
                       </button>
                     </td>

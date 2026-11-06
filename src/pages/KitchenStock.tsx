@@ -17,6 +17,9 @@ import { AdjustSheet } from "@/components/kitchen-stock/AdjustSheet";
 import { Button } from "@/components/ui/button";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import { UseReadError } from "@/components/UseReadError";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const KITCHEN_STOCK_TABLE_MIN_W = tableMinWidth([104, 88, 128, 120, 84, 96, 92]);
 
 type SmStock = ReturnType<typeof useSmStockData>;
 
@@ -82,7 +85,7 @@ export default function KitchenStockPage(p: Props) {
     setCardFor(null);
   }, [type]);
   // Every column from ~940px (a 1280px laptop with the side menu open); cards below
-  const [fitRef, fits] = useFitsWidth(940);
+  const [fitRef, fits] = useFitsWidth(Math.max(940, KITCHEN_STOCK_TABLE_MIN_W));
 
   const supplierName = useMemo(() => new Map(p.suppliers.map((s) => [s.id, s.name])), [p.suppliers]);
   const catName = useMemo(() => new Map(p.categories.map((c) => [c.code, c.nameTh || c.nameEn || c.code])), [p.categories]);
@@ -318,8 +321,8 @@ export default function KitchenStockPage(p: Props) {
 
       <div ref={fitRef} data-tour="ks-list">
         {fits ? (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <table className="w-full table-fixed text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+            <table className="w-full table-fixed text-sm" style={{ minWidth: KITCHEN_STOCK_TABLE_MIN_W }}>
               <colgroup>
                 <col />
                 <col style={{ width: "104px" }} />

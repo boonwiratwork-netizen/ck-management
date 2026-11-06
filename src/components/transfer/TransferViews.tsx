@@ -12,6 +12,9 @@ import { thaiDay } from "@/components/sales/SalesDays";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PackForm } from "./PackSheet";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const TO_LINES_TABLE_MIN_W = tableMinWidth([110, 110, 110, 190]);
 
 const num = (n: number) => Math.round(n).toLocaleString("th-TH");
 const time = (iso: string) => format(new Date(iso), "HH:mm");
@@ -707,7 +710,7 @@ function HistoryRow({
             <div className="h-16 animate-pulse rounded-xl bg-secondary" />
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[560px] table-fixed text-sm">
+              <table className="w-full table-fixed text-sm" style={{ minWidth: TO_LINES_TABLE_MIN_W }}>
                 <colgroup>
                   <col />
                   <col style={{ width: "110px" }} />

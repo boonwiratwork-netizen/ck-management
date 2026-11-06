@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const PACK_TABLE_MIN_W = tableMinWidth([110, 150, 230, 240, 104]);
 
 export interface PackForm {
   toId: string;
@@ -254,7 +257,7 @@ interface SheetProps {
  */
 export function PackSheet(p: SheetProps) {
   // Table only when this sheet really has the room for it (not "is the screen wide")
-  const [fitRef, fits] = useFitsWidth(1060);
+  const [fitRef, fits] = useFitsWidth(Math.max(1060, PACK_TABLE_MIN_W));
   const { form, skuOf, lots, check } = p;
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [lotFor, setLotFor] = useState<TOLine | null>(null);
@@ -325,8 +328,8 @@ export function PackSheet(p: SheetProps) {
       {/* One box around table + cards: it is what gets measured (no extra gap) */}
       <div ref={fitRef} className="flex flex-col gap-3">
 {/* Computer: a table */}
-      <div data-tour="to-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
-        <table className="w-full table-fixed text-sm">
+      <div data-tour="to-lines" className={cn("overflow-x-auto rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
+        <table className="w-full table-fixed text-sm" style={{ minWidth: PACK_TABLE_MIN_W }}>
           <colgroup>
             <col />
             <col style={{ width: "110px" }} />

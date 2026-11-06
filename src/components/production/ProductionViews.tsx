@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const PROD_LINES_TABLE_MIN_W = tableMinWidth([200, 110, 180, 120]);
+const PROD_PLAN_TABLE_MIN_W = tableMinWidth([110, 100, 100, 110, 190, 130]);
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 const parse = (raw: string) => Math.max(0, Number(raw.replace(/,/g, "")) || 0);
@@ -142,7 +146,7 @@ export function RecordView({
   const yesterday = iso(addDays(new Date(), -1));
   const [added, setAdded] = useState<string[]>([]);
   // Table only when this view really has the room for it (not "is the screen wide")
-  const [fitRef, fits] = useFitsWidth(830);
+  const [fitRef, fits] = useFitsWidth(Math.max(830, PROD_LINES_TABLE_MIN_W));
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -222,8 +226,8 @@ export function RecordView({
           {/* One box around table + cards: it is what gets measured (no extra gap) */}
           <div ref={fitRef} className="flex flex-col gap-3">
           {/* Computer */}
-          <div data-tour="prod-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
-            <table className="w-full table-fixed text-sm">
+          <div data-tour="prod-lines" className={cn("overflow-x-auto rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
+            <table className="w-full table-fixed text-sm" style={{ minWidth: PROD_LINES_TABLE_MIN_W }}>
               <colgroup>
                 <col />
                 <col style={{ width: "200px" }} />
@@ -505,7 +509,7 @@ export function PlanView({
       </div>
 
       <div data-tour="prod-plan" className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card" onKeyDown={onEnterNext}>
-        <table className="w-full min-w-[860px] table-fixed text-sm">
+        <table className="w-full table-fixed text-sm" style={{ minWidth: PROD_PLAN_TABLE_MIN_W }}>
           <colgroup>
             <col />
             <col style={{ width: "110px" }} />

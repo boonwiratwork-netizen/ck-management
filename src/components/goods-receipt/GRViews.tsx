@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const BILL_LINES_TABLE_MIN_W = tableMinWidth([120, 110, 110, 100, 96]);
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 const chip = (on: boolean) => cn("min-h-[44px] rounded-xl border px-3 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border bg-card");
@@ -284,7 +287,7 @@ export function GRHistory({
                     {isOpen && (
                       <div className="px-4 pb-3">
                         <div className="overflow-x-auto rounded-xl border border-border">
-                          <table className="w-full min-w-[560px] table-fixed text-sm">
+                          <table className="w-full table-fixed text-sm" style={{ minWidth: BILL_LINES_TABLE_MIN_W }}>
                             <colgroup>
                               <col />
                               <col style={{ width: "120px" }} />

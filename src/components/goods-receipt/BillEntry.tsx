@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const BILL_ENTRY_TABLE_MIN_W = tableMinWidth([130, 170, 170, 140, 48]);
 
 export const FREE_PLACE = "ของเคลม / ของแถม";
 
@@ -75,7 +78,7 @@ const parse = (raw: string) => Math.max(0, Number(raw.replace(/,/g, "")) || 0);
  */
 export function BillEntry({ date, supplierId, supplierName, skus, prices, suppliers, receipts, busy, onBack, onSave }: Props) {
   // Table only when this sheet really has the room for it (not "is the screen wide")
-  const [fitRef, fits] = useFitsWidth(880);
+  const [fitRef, fits] = useFitsWidth(Math.max(880, BILL_ENTRY_TABLE_MIN_W));
   const skuOf = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const activeFor = useMemo(() => {
     const m = new Map<string, Price>();
@@ -292,8 +295,8 @@ export function BillEntry({ date, supplierId, supplierName, skus, prices, suppli
       <div ref={fitRef} className="flex flex-col gap-3">
 {/* Computer */}
       {rows.length > 0 && (
-        <div data-tour="gr-lines" className={cn("overflow-hidden rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
-          <table className="w-full table-fixed text-sm">
+        <div data-tour="gr-lines" className={cn("overflow-x-auto rounded-2xl border border-border bg-card shadow-card", fits ? "block" : "hidden")} onKeyDown={onEnterNext}>
+          <table className="w-full table-fixed text-sm" style={{ minWidth: BILL_ENTRY_TABLE_MIN_W }}>
             <colgroup>
               <col />
               <col style={{ width: "130px" }} />

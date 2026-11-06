@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+// Widest variant (editable: 210px actions column)
+const STORE_STOCK_TABLE_MIN_W = tableMinWidth([140, 110, 110, 100, 100, 210]);
 
 interface Props {
   skus: SKU[];
@@ -48,7 +52,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
   const [query, setQuery] = useState("");
   const [historyFor, setHistoryFor] = useState<BranchStockRow | null>(null);
   const [moveFor, setMoveFor] = useState<BranchStockRow | null>(null);
-  const [measure, wide] = useFitsWidth(900);
+  const [measure, wide] = useFitsWidth(STORE_STOCK_TABLE_MIN_W);
 
   const list = rows ?? [];
   const low = list.filter((r) => r.daysLeft !== null && r.balance > 0 && r.daysLeft < LOW_DAYS).sort((a, b) => a.daysLeft! - b.daysLeft!);
@@ -200,8 +204,8 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
           {!shown.length ? (
             <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีรายการ</p>
           ) : wide ? (
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <table className="w-full table-fixed text-sm">
+            <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+              <table className="w-full table-fixed text-sm" style={{ minWidth: STORE_STOCK_TABLE_MIN_W }}>
                 <colgroup>
                   <col />
                   <col style={{ width: "140px" }} />

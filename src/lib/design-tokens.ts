@@ -358,11 +358,31 @@ export const buttons = {
  * When table risks overflow, trim in this order:
  * 1. Optional context columns (ROP, PARSTOCK)
  * 2. Wider numeric columns before narrower
- * 3. Name column minimum: 120px
+ * 3. Name column minimum: NAME_COL_MIN (180px; 160 for short names) —
+ *    enforced by tableMinWidth() + src/test/table-name-room.test.ts
  * 4. Code and unit columns: never below minimum
  * 5. Action columns: never shrink
  * ═══════════════════════════════════════════════
  */
+
+/** Smallest width the auto (name) column of a `table-fixed` table may get. */
+export const NAME_COL_MIN = 180;
+
+/**
+ * min-width for a `table-fixed` table: the sum of its fixed <col> widths plus room
+ * for the one auto (name) column. With table-layout: fixed the auto column only gets
+ * what is LEFT of the table width, so without this a narrow screen squeezes the name
+ * to a few px and Thai names wrap letter by letter.
+ *
+ * - Pass the widest variant of conditional columns (`canEdit ? 128 : 12` → 128).
+ * - Use it as `style={{ minWidth: X }}` on the table, inside an `overflow-x-auto`
+ *   wrapper (the table scrolls, never the page).
+ * - Tables that switch to cards with useFitsWidth: pass the same number there, so the
+ *   table only shows once it really fits.
+ */
+export function tableMinWidth(fixedCols: readonly number[], nameMin: number = NAME_COL_MIN): number {
+  return fixedCols.reduce((sum, w) => sum + w, 0) + nameMin;
+}
 
 export const table = {
   // ─── Layout ───────────────────────────────────

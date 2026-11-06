@@ -9,6 +9,9 @@ import type { Price } from "@/types/price";
 import type { BOMLine } from "@/types/bom";
 import type { SmProductionCost } from "@/lib/ck-production-cost";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const PROD_COST_TABLE_MIN_W = tableMinWidth([120, 130, 130, 130, 90]);
 
 interface Props {
   skus: SKU[];
@@ -51,7 +54,7 @@ export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smS
   // The month chips' months, side by side (costs only)
   const trend = useCkTrend(months, rmStockBalances, stockReady);
   const [open, setOpen] = useState<SmProductionCost | null>(null);
-  const [measure, wide] = useFitsWidth(820);
+  const [measure, wide] = useFitsWidth(Math.max(820, PROD_COST_TABLE_MIN_W));
 
   const byId = useMemo(() => new Map(skus.map((s) => [s.id, s])), [skus]);
   const name = (id: string) => byId.get(id)?.name ?? id;
@@ -224,8 +227,8 @@ export default function Dashboard({ skus, prices, bomLines, rmStockBalances, smS
 
           {cost && cost.rows.length > 0 ? (
             wide ? (
-              <div className="overflow-hidden rounded-2xl border border-border bg-card">
-                <table className="w-full table-fixed text-sm">
+              <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+                <table className="w-full table-fixed text-sm" style={{ minWidth: PROD_COST_TABLE_MIN_W }}>
                   <colgroup>
                     <col />
                     <col style={{ width: "120px" }} />

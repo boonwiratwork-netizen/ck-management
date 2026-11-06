@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useFitsWidth } from "@/hooks/use-fits-width";
 import { FC_TARGET, type ActualRow, type Attention, type DayRow, type MenuRow, type SkuRow } from "@/lib/food-cost";
 import { cn } from "@/lib/utils";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const MENU_TABLE_MIN_W = tableMinWidth([150, 90, 120, 130, 150, 110]);
+const SKU_ACTUAL_TABLE_MIN_W = tableMinWidth([130, 130, 140, 120, 120, 120]);
+const SKU_STD_TABLE_MIN_W = tableMinWidth([130, 120, 130]);
 
 export const n0 = (n: number) => Math.round(n).toLocaleString("th-TH");
 export const baht = (n: number) => `${n < 0 ? "−" : ""}฿${n0(Math.abs(n))}`;
@@ -55,7 +60,7 @@ type MenuSort = "pct" | "revenue" | "qty";
 export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: string) => void }) {
   const [sort, setSort] = useState<MenuSort>("pct");
   const [overOnly, setOverOnly] = useState(false);
-  const [measure, wide] = useFitsWidth(760);
+  const [measure, wide] = useFitsWidth(MENU_TABLE_MIN_W);
   const shown = rows
     .filter((r) => !overOnly || r.pct > FC_TARGET)
     .sort((a, b) => (sort === "pct" ? b.pct - a.pct : sort === "revenue" ? b.revenue - a.revenue : b.qty - a.qty));
@@ -79,8 +84,8 @@ export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: str
       {!shown.length ? (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีเมนูในช่วงนี้</p>
       ) : wide ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <table className="w-full table-fixed text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+          <table className="w-full table-fixed text-sm" style={{ minWidth: MENU_TABLE_MIN_W }}>
             <colgroup>
               <col />
               <col style={{ width: "150px" }} />
@@ -151,7 +156,7 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
   // "Most off the recipe" needs the actual; without it the list is by cost
   const sort: IngSort = actual ? picked : "cost";
   const [type, setType] = useState<"all" | "RM" | "SM">("all");
-  const [measure, wide] = useFitsWidth(actual ? 900 : 640);
+  const [measure, wide] = useFitsWidth(actual ? SKU_ACTUAL_TABLE_MIN_W : SKU_STD_TABLE_MIN_W);
   const list: (SkuRow & Partial<ActualRow>)[] = (actual ?? rows)
     .filter((r) => type === "all" || r.type === type)
     .slice()
@@ -177,23 +182,18 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
       {!list.length ? (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีวัตถุดิบในช่วงนี้</p>
       ) : wide ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <table className="w-full table-fixed text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+          <table className="w-full table-fixed text-sm" style={{ minWidth: actual ? SKU_ACTUAL_TABLE_MIN_W : SKU_STD_TABLE_MIN_W }}>
             <colgroup>
               <col />
               <col style={{ width: "130px" }} />
-              {actual ? (
-                <>
-                  <col style={{ width: "130px" }} />
-                  <col style={{ width: "140px" }} />
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "120px" }} />
-                </>
-              ) : (
+              <col style={{ width: actual ? "130px" : "120px" }} />
+              <col style={{ width: actual ? "140px" : "130px" }} />
+              {actual && (
                 <>
                   <col style={{ width: "120px" }} />
-                  <col style={{ width: "130px" }} />
+                  <col style={{ width: "120px" }} />
+                  <col style={{ width: "120px" }} />
                 </>
               )}
             </colgroup>

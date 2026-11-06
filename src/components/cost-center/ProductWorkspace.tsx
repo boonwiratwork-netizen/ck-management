@@ -29,6 +29,12 @@ import { RecipeSettings } from "./RecipeSettings";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import type { BomByproduct } from "@/types/byproduct";
 import type { SpBomLine } from "@/types/sp-bom";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+// Auto column = supplier name (short): 160px is enough
+const SUPPLIER_PRICE_TABLE_MIN_W = tableMinWidth([120, 120, 110, 100], 160);
+const BILLS_90D_TABLE_MIN_W = tableMinWidth([90, 110, 120, 100], 160);
+
 
 type WorkTab = "health" | "info" | "price" | "recipe" | "use" | "history";
 
@@ -526,7 +532,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] table-fixed text-sm">
+          <table className="w-full table-fixed text-sm" style={{ minWidth: SUPPLIER_PRICE_TABLE_MIN_W }}>
             <colgroup>
               <col style={{ width: "120px" }} />
               <col />
@@ -642,7 +648,7 @@ function PricePanel({ summary, prices, suppliers, skus, canEdit, actions, suppli
           <p className="border-t border-border px-4 py-6 text-center text-sm text-muted-foreground">ไม่ได้ซื้อใน 90 วัน</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] table-fixed text-sm">
+            <table className="w-full table-fixed text-sm" style={{ minWidth: BILLS_90D_TABLE_MIN_W }}>
               <colgroup>
                 <col style={{ width: "90px" }} />
                 <col />

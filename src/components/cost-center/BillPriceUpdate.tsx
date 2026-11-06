@@ -8,6 +8,9 @@ import { BILL_DRIFT } from "@/lib/product-health";
 import { Button } from "@/components/ui/button";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import { KindBadge, baht } from "./parts";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+const BILL_PRICE_TABLE_MIN_W = tableMinWidth([52, 120, 120, 90, 150]);
 
 interface Props {
   supplier: Supplier;
@@ -104,7 +107,7 @@ export function BillPriceUpdate({ supplier, date, bills, skus, prices, summaries
       </div>
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] table-fixed text-sm">
+          <table className="w-full table-fixed text-sm" style={{ minWidth: BILL_PRICE_TABLE_MIN_W }}>
             <colgroup>
               <col style={{ width: "52px" }} />
               <col />
@@ -132,10 +135,10 @@ export function BillPriceUpdate({ supplier, date, bills, skus, prices, summaries
                     <td className="px-3 py-2">
                       <input type="checkbox" className="h-5 w-5" disabled={!canEdit} checked={on} onChange={() => toggle(r.skuId)} aria-label={`อัปเดต ${r.sku!.name}`} />
                     </td>
-                    <td className="truncate px-2 py-2">
+                    <td className="px-2 py-2">
                       <button type="button" onClick={() => onOpenProduct(r.skuId)} className="flex min-w-0 items-center gap-2 text-left hover:underline">
-                        <KindBadge kind={r.sku!.type} />
-                        <span className="truncate">
+                        <KindBadge kind={r.sku!.type} className="shrink-0" />
+                        <span className="min-w-0 break-words">
                           {r.sku!.name} <span className="text-muted-foreground">/{pack}</span>
                           {r.newer && <span className="ml-1 text-xs text-muted-foreground">· มีบิลใหม่กว่า</span>}
                         </span>

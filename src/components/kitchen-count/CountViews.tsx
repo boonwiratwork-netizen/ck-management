@@ -8,6 +8,12 @@ import { Input } from "@/components/ui/input";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import type { CountDayEvent, CountTiming } from "@/lib/count-anchor";
+import { tableMinWidth } from "@/lib/design-tokens";
+
+// Past counts: auto column = count date (short), 160px is enough
+const PAST_COUNTS_TABLE_MIN_W = tableMinWidth([130, 170, 120, 80], 160);
+// Count sheet: keeps its existing 250px for the product name
+const COUNT_SHEET_TABLE_MIN_W = tableMinWidth([130, 190, 150], 250);
 
 export type CountType = "SM" | "RM" | "PK";
 export const TYPES: CountType[] = ["SM", "RM", "PK"];
@@ -128,7 +134,7 @@ export function CountHome({
           <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-4 text-sm text-muted-foreground">ยังไม่มี</div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card">
-            <table className="w-full min-w-[560px] table-fixed text-sm">
+            <table className="w-full table-fixed text-sm" style={{ minWidth: PAST_COUNTS_TABLE_MIN_W }}>
               <colgroup>
                 <col />
                 <col style={{ width: "130px" }} />
@@ -322,7 +328,7 @@ export function CountSheet({
       </div>
 
       <div data-tour="kc-lines" className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card" onKeyDown={onEnterNext}>
-        <table className="w-full min-w-[720px] table-fixed text-sm">
+        <table className="w-full table-fixed text-sm" style={{ minWidth: COUNT_SHEET_TABLE_MIN_W }}>
           <colgroup>
             <col />
             <col style={{ width: "130px" }} />
