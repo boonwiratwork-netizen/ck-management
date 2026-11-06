@@ -124,7 +124,16 @@ export default function AdminHome({ masters, demo }: Props) {
             {demo ? " · ข้อมูลตัวอย่าง (DEV)" : ""}
           </p>
         </div>
-        <a href="#need" className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card" aria-label={`ต้องดู ${view?.attention.length ?? 0} เรื่อง`}>
+        {/* Bell → the alerts inbox (เรื่องค้าง · ล่าสุด · ตั้งค่าแจ้งเตือน); the badge is still this page's ต้องดู */}
+        <a
+          href="/alerts"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/alerts");
+          }}
+          className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card"
+          aria-label={`แจ้งเตือน · ต้องดู ${view?.attention.length ?? 0} เรื่อง`}
+        >
           <Bell className="h-5 w-5" />
           {!!view?.attention.length && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-destructive px-1 text-[11px] font-bold text-destructive-foreground">{view.attention.length}</span>

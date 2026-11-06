@@ -31,8 +31,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// What this worker can do: the app asks before switching notifications on, so it never
+// subscribes through an older worker that has no push handler (it asks to update first)
+const SW_VERSION = "ck-sw-4";
+const SW_PUSH = true;
+
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
+  if (event.data && event.data.type === "version" && event.ports && event.ports[0]) event.ports[0].postMessage({ version: SW_VERSION, push: SW_PUSH });
 });
 
 self.addEventListener("fetch", (event) => {
@@ -85,4 +91,42 @@ self.addEventListener("fetch", (event) => {
     }
     event.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
   }
+});
+
+// ─── Push alerts (supabase/functions/alerts-run) ───
+// A push carries { title, body, url, tag }. Shown as a notification; a newer one with the
+// same tag (the same case) replaces the older one instead of stacking up.
+self.addEventListener("push", (event) => {
+  let p = {};
+  try {
+    p = event.data ? event.data.json() : {};
+  } catch {
+    p = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(p.title || "CK Manager", {
+      body: p.body || "",
+      tag: p.tag || undefined,
+      renotify: !!p.tag,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: p.url || "/alerts" },
+    }),
+  );
+});
+
+// Tapping it: an open window of the app goes to the link (and comes to the front); none
+// open → a new one. Only links inside the app are followed.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const raw = (event.notification.data && event.notification.data.url) || "/alerts";
+  const target = new URL(raw, self.location.origin);
+  const url = target.origin === self.location.origin ? target.href : new URL("/alerts", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const win = list.find((c) => new URL(c.url).origin === self.location.origin);
+      if (win) return win.focus().then((w) => (w || win).navigate(url)).catch(() => self.clients.openWindow(url));
+      return self.clients.openWindow(url);
+    }),
+  );
 });

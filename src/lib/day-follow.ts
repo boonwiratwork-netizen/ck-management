@@ -16,12 +16,9 @@ export function bangkokDate(now: Date = new Date()): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-/** A yyyy-MM-dd day moved by n days (calendar arithmetic, no time zone involved) */
-export function shiftDay(day: string, n: number): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
-}
+// shiftDay lives with the Edge Functions' shared code so both use the very same arithmetic
+import { shiftDay } from "../../supabase/functions/_shared/day-math.ts";
+export { shiftDay };
 
 /**
  * The day to show once "today" has moved on: a page still on the old today moves to the

@@ -24,6 +24,7 @@ export const pageChunks = {
   StoreOverview: () => import("@/pages/StoreOverview"),
   StoreStock: () => import("@/pages/StoreStock"),
   AdminHome: () => import("@/pages/AdminHome"),
+  AlertsInbox: () => import("@/pages/AlertsInbox"),
 };
 
 export type PageChunk = keyof typeof pageChunks;
@@ -62,4 +63,5 @@ export const chunkForTab: Record<TabKey, PageChunk> = {
   // "เร็วๆ นี้" pages render inside Index (no code of their own yet)
   search: "AdminHome",
   rd: "AdminHome",
+  alerts: "AlertsInbox",
 };

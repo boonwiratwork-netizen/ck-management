@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.foodstory-probe]
 verify_jwt = false
+
+[functions.alerts-run]
+verify_jwt = false

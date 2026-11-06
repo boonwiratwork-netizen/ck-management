@@ -34,6 +34,7 @@ import {
   ArrowUpFromLine,
   ArrowRightLeft,
   LayoutGrid,
+  Bell,
   ScanLine,
   Layers,
   Search,
@@ -77,7 +78,9 @@ export type TabKey =
   // Management's first page (team × metric scores) and two tabs still to come
   | "admin"
   | "search"
-  | "rd";
+  | "rd"
+  // Push alerts inbox + settings (management + ck_manager)
+  | "alerts";
 
 export type TabContext = "ck" | "store" | "management" | "overview";
 
@@ -116,6 +119,8 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   admin: "management",
   search: "management",
   rd: "management",
+  // Management + kitchen manager (canAccessTab); not a kitchen page, so it never waits for kitchen data
+  alerts: "management",
 };
 
 interface AppSidebarProps {
@@ -161,6 +166,18 @@ const adminGroup: NavGroup = {
   items: [
     { key: "admin", labelKey: "nav.adminHome", icon: LayoutGrid },
     { key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck },
+    { key: "alerts", labelKey: "nav.alerts", icon: Bell },
+  ],
+};
+
+// The kitchen manager's first page, with the alerts inbox under it
+const ckTodayGroup: NavGroup = {
+  label: "",
+  labelKey: "",
+  section: "overview",
+  items: [
+    { key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck },
+    { key: "alerts", labelKey: "nav.alerts", icon: Bell },
   ],
 };
 
@@ -259,7 +276,7 @@ export function bottomNavFor(role: AppRole | null): { key: TabKey; label: string
 /** The sidebar's groups for a role */
 function navGroupsFor(role: AppRole | null): NavGroup[] {
   if (role === "management") return [adminGroup, ckGroup, storeGroup, setupGroup(true)];
-  if (role === "ck_manager") return [todayGroup, ckGroup, setupGroup(false)];
+  if (role === "ck_manager") return [ckTodayGroup, ckGroup, setupGroup(false)];
   if (role === "store_manager" || role === "area_manager") return [todayGroup, storeGroup, setupGroup(false)];
   return [];
 }

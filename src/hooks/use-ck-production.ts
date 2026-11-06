@@ -9,6 +9,7 @@ import { productionCost, topWithOthers, type ProductionCost, type Recipe, type R
 import { computeToLineQty, TO_DELIVERED_STATUSES } from "@/lib/to-line-qty";
 import { toLocalDateStr } from "@/lib/utils";
 import { monthGap } from "@/lib/ck-trend";
+import { countCoverage, MIN_COUNT_COVERAGE, sessionsNear } from "../../supabase/functions/_shared/month-count.ts";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 
 export interface CountPick {
@@ -58,16 +59,11 @@ async function pickCount(target: string, rmIds: Set<string>, after?: string): Pr
   const sessions = await all<{ id: string; count_date: string; completed_at: string | null; count_timing: CountTiming | null }>((a, b) =>
     supabase.from("stock_count_sessions").select("id, count_date, completed_at, count_timing").eq("status", "Completed").is("deleted_at", null).gte("count_date", shift(target, -3)).lte("count_date", shift(target, 3)).order("id").range(a, b),
   );
-  const t = Date.parse(`${target}T00:00:00`);
-  const pool = sessions.filter((s) => !after || s.count_date > after);
-  pool.sort((x, y) => Math.abs(Date.parse(`${x.count_date}T00:00:00`) - t) - Math.abs(Date.parse(`${y.count_date}T00:00:00`) - t) || (y.count_date > x.count_date ? 1 : -1));
-  for (const s of pool) {
+  // Nearest first, ±3 days, and the half-of-the-RM rule: shared with the push alerts (month close)
+  for (const s of sessionsNear(sessions, target, after)) {
     const lines = await all<{ sku_id: string; physical_qty: number | null }>((a, b) => supabase.from("stock_count_lines").select("id, sku_id, physical_qty").eq("session_id", s.id).eq("type", "RM").order("id").range(a, b));
-    const qty = new Map<string, number>();
-    for (const l of lines) if (l.physical_qty != null && rmIds.has(l.sku_id)) qty.set(l.sku_id, Number(l.physical_qty));
-    // Half of the period's raw materials, not half of whatever the session listed
-    const coverage = rmIds.size ? qty.size / rmIds.size : 0;
-    if (coverage >= 0.5) return { session: { id: s.id, count_date: s.count_date, completed_at: s.completed_at, timing: s.count_timing }, qty, coverage };
+    const { qty, coverage } = countCoverage(lines, rmIds);
+    if (coverage >= MIN_COUNT_COVERAGE) return { session: { id: s.id, count_date: s.count_date, completed_at: s.completed_at, timing: s.count_timing }, qty, coverage };
   }
   return null;
 }

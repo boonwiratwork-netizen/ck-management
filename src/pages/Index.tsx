@@ -52,6 +52,7 @@ const FoodCostPage = lazy(pageLoader(pageChunks.FoodCost));
 const StoreOverview = lazy(pageLoader(pageChunks.StoreOverview));
 const StoreStockPage = lazy(pageLoader(pageChunks.StoreStock));
 const AdminHomePage = lazy(pageLoader(pageChunks.AdminHome));
+const AlertsInboxPage = lazy(pageLoader(pageChunks.AlertsInbox));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -102,6 +103,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   admin: { title: "หน้าแรกผู้บริหาร", subtitle: "ทีม × ตัวชี้วัด" },
   search: { title: "ค้นหา", subtitle: "เร็วๆ นี้" },
   rd: { title: "RD", subtitle: "เร็วๆ นี้" },
+  alerts: { title: "แจ้งเตือน", subtitle: "เรื่องค้าง · สรุป · ตั้งค่า" },
 };
 
 /** A tab that isn't built yet (management's ค้นหา and RD) */
@@ -121,6 +123,8 @@ function ComingSoon({ title, onHome }: { title: string; onHome: () => void }) {
 function canAccessTab(role: string | null, tab: TabKey): boolean {
   // Everyone opens Cost Center; what each role may change is decided inside it
   if (tab === "cost-center") return !!role;
+  // Push alerts: management and the kitchen manager only
+  if (tab === "alerts") return role === "management" || role === "ck_manager";
   const ctx = tabContextMap[tab];
   switch (role) {
     case "management":
@@ -159,6 +163,7 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "sp-bom",
       "sku-categories",
       "cost-center",
+      "alerts",
     ];
     return !editableCk.includes(tab);
   }
@@ -410,6 +415,8 @@ const Index = () => {
                       branches: branchData.branches,
                     }}
                   />
+                ) : activeTab === "alerts" ? (
+                  <AlertsInboxPage />
                 ) : activeTab === "search" || activeTab === "rd" ? (
                   <ComingSoon title={tabLabels[activeTab].title} onHome={() => handleTabChange("admin")} />
                 ) : activeTab === "dashboard" ? (
