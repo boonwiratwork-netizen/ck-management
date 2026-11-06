@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { loadWithDeviceCopy } from "@/lib/base-cache";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { MenuBomLine } from '@/types/menu-bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isMissingColumn, noteSaveProblem, saveLineSpecNote } from '@/lib/recipe-note-db';
 
 const toLocal = (row: any): MenuBomLine => ({
   id: row.id,
@@ -15,10 +16,15 @@ const toLocal = (row: any): MenuBomLine => ({
   effectiveQty: Number(row.effective_qty),
   costPerServing: Number(row.cost_per_serving),
   branchId: row.branch_id ?? null,
+  // select('*'): before the spec_note migration the column is simply absent
+  specNote: row.spec_note ?? '',
 });
 
 export function useMenuBomData() {
   const [lines, setLines] = useState<MenuBomLine[]>([]);
+  // The lines as they are now, for replaceShared (keeps notes across an import)
+  const linesRef = useRef<MenuBomLine[]>([]);
+  linesRef.current = lines;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,7 +89,11 @@ export function useMenuBomData() {
   // so a failure never leaves the menu with no recipe or with both. A branch's own
   // lines stay.
   const replaceShared = useCallback(async (menuId: string, next: Omit<MenuBomLine, 'id' | 'menuId' | 'branchId'>[]) => {
-    const { data: rows, error } = await supabase.from('menu_bom').insert(next.map((l) => ({
+    // A shop note stays with its item: the old shared line's note goes onto the new line
+    // of the same item (an import file has no notes). Without the spec_note column (the
+    // migration not run yet) the insert is sent again without it.
+    const oldNotes = new Map(linesRef.current.filter((l) => l.menuId === menuId && !l.branchId && l.specNote).map((l) => [l.skuId, l.specNote!]));
+    const build = (withNotes: boolean) => next.map((l) => ({
       menu_id: menuId,
       sku_id: l.skuId,
       qty_per_serving: l.qtyPerServing,
@@ -92,7 +102,10 @@ export function useMenuBomData() {
       effective_qty: l.effectiveQty,
       cost_per_serving: l.costPerServing,
       branch_id: null,
-    }))).select();
+      ...(withNotes && { spec_note: l.specNote?.trim() || oldNotes.get(l.skuId) || null }),
+    }));
+    let { data: rows, error } = await supabase.from('menu_bom').insert(build(oldNotes.size > 0 || next.some((l) => l.specNote?.trim()))).select();
+    if (error && isMissingColumn(error)) ({ data: rows, error } = await supabase.from('menu_bom').insert(build(false)).select());
     if (error || !rows) { toast.error('บันทึกสูตรเมนูไม่สำเร็จ: ' + (error?.message ?? '')); return false; }
     const added = rows.map((r) => r.id as string);
     // Every other shared line of the menu in the database, not just the ones on screen
@@ -108,5 +121,15 @@ export function useMenuBomData() {
     return true;
   }, []);
 
-  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine, replaceShared };
+  // The line's note for the shop (recipe sheet): its own write, so a missing column
+  // (migration not run yet) never blocks saving the recipe itself
+  const saveSpecNote = useCallback(async (id: string, note: string) => {
+    const r = await saveLineSpecNote('menu_bom', id, note);
+    const problem = noteSaveProblem(r);
+    if (problem || r.kind !== 'ok') { toast.error(problem ?? ''); return false; }
+    setLines(prev => prev.map(l => l.id === id ? { ...l, specNote: r.note } : l));
+    return true;
+  }, []);
+
+  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine, replaceShared, saveSpecNote };
 }

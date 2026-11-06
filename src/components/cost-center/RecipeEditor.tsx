@@ -37,6 +37,8 @@ export interface RecipeEditActions {
   addByproduct: (data: Omit<BomByproduct, "id">) => Promise<boolean>;
   updateByproduct: (id: string, data: Partial<Omit<BomByproduct, "id" | "bomHeaderId">>) => Promise<boolean>;
   deleteByproduct: (id: string) => Promise<boolean>;
+  /** A line's note for the shop (bom_lines.spec_note): saved on its own, true = saved */
+  saveLineNote?: (id: string, note: string) => Promise<boolean>;
 }
 
 interface Props {
@@ -100,10 +102,17 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
   const [measure, wide] = useFitsWidth(RECIPE_TABLE_MIN_W);
 
   const rows = isSp
-    ? spLines.map((l) => ({ id: l.id, skuId: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, used: l.qtyPerBatch }))
+    ? spLines.map((l) => ({ id: l.id, skuId: l.ingredientSkuId, qty: l.qtyPerBatch, yieldPct: null as number | null, used: l.qtyPerBatch, note: "" }))
     : header
-      ? resolveSm(header, lines, []).lines.map((r) => ({ id: (r.line as BOMLine).id, skuId: r.line.rmSkuId, qty: r.line.qtyPerBatch, yieldPct: Math.round((r.line.yieldPercent ?? 1) * 1000) / 10, used: r.qty }))
+      ? resolveSm(header, lines, []).lines.map((r) => ({ id: (r.line as BOMLine).id, skuId: r.line.rmSkuId, qty: r.line.qtyPerBatch, yieldPct: Math.round((r.line.yieldPercent ?? 1) * 1000) / 10, used: r.qty, note: (r.line as BOMLine).specNote ?? "" }))
       : [];
+  // The line's note for the shop (recipe sheet): SM lines only, saved on its own when the box is left
+  const notesOn = !isSp && canEdit && !!actions.saveLineNote;
+  const saveNote = (r: (typeof rows)[number], v: string) => {
+    const next = v.trim();
+    if (next === r.note.trim() || !actions.saveLineNote) return;
+    void actions.saveLineNote(r.id, next).then((ok) => !ok && setGen((g) => g + 1));
+  };
   const batchCost = rows.reduce((s, r) => s + r.used * priceOf(r.skuId), 0);
   const output = isSp ? spLines[0]?.batchYieldQty ?? 0 : header ? header.batchSize * header.yieldPercent : 0;
   // By-products take their set share of the pot's cost (same as the cost engine)
@@ -276,6 +285,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
                       ใช้ <span className="font-mono">{r.qty.toLocaleString()} {ing?.usageUom}</span>
                       {r.yieldPct != null && <> · ใช้ได้ {r.yieldPct}%</>}
                     </span>
+                    {r.note && <span className="block break-words text-[13px] text-muted-foreground">สเปค: {r.note}</span>}
                   </span>
                   <span className={cn("shrink-0 font-mono font-semibold tabular-nums", !p && "text-destructive")}>{p ? baht(r.used * p) : "ไม่มีราคา"}</span>
                 </button>
@@ -341,6 +351,20 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
                         <span className="min-w-0 break-words">{ing?.name ?? "—"}</span>
                         {ing?.status === "Inactive" && <span className="shrink-0 text-destructive">· ปิดใช้แล้ว</span>}
                       </button>
+                      {notesOn ? (
+                        <Input
+                          key={`n${gen}${r.id}${r.note}`}
+                          defaultValue={r.note}
+                          maxLength={300}
+                          placeholder={ing?.specNote ? `สเปคหน้าร้าน (ว่าง = ${ing.specNote})` : "สเปค / หมายเหตุสำหรับหน้าร้าน"}
+                          onBlur={(e) => saveNote(r, e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                          className="mt-1 h-8 text-sm"
+                          aria-label={`สเปค / หมายเหตุสำหรับหน้าร้าน ${ing?.name ?? ""}`}
+                        />
+                      ) : (
+                        r.note && <p className="mt-0.5 break-words text-xs text-muted-foreground">สเปค: {r.note}</p>
+                      )}
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
@@ -436,6 +460,7 @@ export function RecipeEditor({ sku, skus, header, lines, spLines, priceOf, canEd
           askBatch={!sheetRow && firstLine ? { label: isSp ? "ทำรอบละ" : "ผลิตรอบละ", uom: sku.usageUom } : null}
           busy={busy}
           onSave={saveSheet}
+          note={sheetRow && notesOn ? { value: sheetRow.note, placeholder: byId.get(sheetRow.skuId)?.specNote || undefined, onSave: (v) => saveNote(sheetRow, v) } : undefined}
           onRemove={sheetRow ? () => remove(sheetRow) : undefined}
           onClose={() => setSheet(null)}
         />

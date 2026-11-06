@@ -6,7 +6,9 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* force-light class: the light tokens again on an element inside dark mode (exported pictures/PDFs are always light) */
+  :root,
+  .force-light {
     /* ── 1. PALETTE ─────────────────────────────────────────────────────────
        Brand colors live here only (HSL triplets). To re-skin the app,
        change these values; every semantic token below points at them. */

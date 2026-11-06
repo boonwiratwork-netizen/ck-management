@@ -4,6 +4,7 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import { BOMHeader, BOMLine, BOMStep } from '@/types/bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { noteSaveProblem, saveLineSpecNote } from '@/lib/recipe-note-db';
 
 const toHeader = (r: any): BOMHeader => ({
   id: r.id, smSkuId: r.sm_sku_id, productionType: r.production_type,
@@ -14,6 +15,8 @@ const toLine = (r: any): BOMLine => ({
   qtyPerBatch: r.qty_per_batch, yieldPercent: r.yield_percent ?? 1.0,
   stepId: r.step_id ?? undefined,
   qtyType: r.qty_type ?? undefined, percentOfInput: r.percent_of_input ?? undefined,
+  // select('*'): before the spec_note migration the column is simply absent
+  specNote: r.spec_note ?? '',
 });
 const toStep = (r: any): BOMStep => ({
   id: r.id, bomHeaderId: r.bom_header_id, stepNumber: r.step_number,
@@ -94,6 +97,16 @@ export function useBomData() {
     return true;
   }, []);
 
+  // The line's note for the shop (recipe sheet): its own write, so a missing column
+  // (migration not run yet) never blocks saving the recipe itself
+  const saveLineNote = useCallback(async (id: string, note: string): Promise<boolean> => {
+    const r = await saveLineSpecNote('bom_lines', id, note);
+    const problem = noteSaveProblem(r);
+    if (problem || r.kind !== 'ok') { toast.error(problem ?? ''); return false; }
+    setLines(prev => prev.map(l => l.id === id ? { ...l, specNote: r.note } : l));
+    return true;
+  }, []);
+
   const deleteLine = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('bom_lines').delete().eq('id', id);
     if (error) { toast.error('ลบบรรทัดสูตรไม่สำเร็จ: ' + error.message); return false; }
@@ -147,7 +160,7 @@ export function useBomData() {
   return {
     headers, lines, steps, reload,
     addHeader, updateHeader, deleteHeader,
-    addLine, updateLine, deleteLine, getLinesForHeader,
+    addLine, updateLine, deleteLine, saveLineNote, getLinesForHeader,
     addStep, updateStep, deleteStep, getStepsForHeader, getLinesForStep,
   };
 }

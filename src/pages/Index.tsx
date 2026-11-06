@@ -466,6 +466,7 @@ const Index = () => {
                       addMenu: menuData.addMenu,
                       getNextCode: menuData.getNextCode,
                       spBomLines: spBomData.lines,
+                      suppliers: supplierData.suppliers,
                       updateRule: modifierRuleData.updateRule,
                       deleteRule: modifierRuleData.deleteRule,
                     }}
@@ -485,6 +486,7 @@ const Index = () => {
                       addLine: bomData.addLine,
                       updateLine: bomData.updateLine,
                       deleteLine: bomData.deleteLine,
+                      saveLineNote: bomData.saveLineNote,
                       spAddLine: spBomData.addLine,
                       spUpdateLine: spBomData.updateLine,
                       spUpdateBatchYield: spBomData.updateBatchYield,
@@ -537,6 +539,7 @@ const Index = () => {
                     addMenu={menuData.addMenu}
                     getNextCode={menuData.getNextCode}
                     spBomLines={spBomData.lines}
+                    suppliers={supplierData.suppliers}
                     updateRule={modifierRuleData.updateRule}
                     deleteRule={modifierRuleData.deleteRule}
                   />

@@ -10,6 +10,8 @@ export interface Supplier {
   phone: string;
   creditTerms: string;
   status: SupplierStatus;
+  /** The central kitchen itself (one supplier at most): its items are requested, not bought */
+  isCentralKitchen?: boolean;
 }
 
 export const EMPTY_SUPPLIER: Omit<Supplier, 'id'> = {

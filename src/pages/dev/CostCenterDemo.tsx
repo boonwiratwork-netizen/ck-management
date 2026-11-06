@@ -33,6 +33,7 @@ const SUP: Supplier[] = [
   { ...EMPTY_SUPPLIER, id: "s-mk", name: "Makro Pro (แมคโคร)", status: "Active" },
   { ...EMPTY_SUPPLIER, id: "s-kb", name: "Kobeya (โกเบย่า)", leadTime: 2, status: "Active" },
   { ...EMPTY_SUPPLIER, id: "s-pj", name: "พี่โจ (ทาเระ)", leadTime: 7, creditTerms: "30 วัน", status: "Active" },
+  { ...EMPTY_SUPPLIER, id: "s-ck", name: "ครัวกลาง Live to Eat", status: "Active", isCentralKitchen: true },
 ];
 // Real figures (live data, 25 Oct 2026): category / pack of the items the demo looks at
 const CURATED: Record<string, Partial<SKU>> = {
@@ -140,7 +141,14 @@ export default function CostCenterDemo() {
         menuSetup={{
           menus: fx.menus,
           updateMenu: async () => true,
-          menuBom: { lines: fx.lines, loading: false, addLine: async () => true, updateLine: async () => true, deleteLine: async () => true } as never,
+          menuBom: {
+            lines: fx.lines,
+            loading: false,
+            addLine: async () => true,
+            updateLine: async () => true,
+            deleteLine: async () => true,
+            saveSpecNote: async (id: string, note: string) => (await wait(), setFx((f) => f && { ...f, lines: f.lines.map((l) => (l.id === id ? { ...l, specNote: note.trim() } : l)) }), true),
+          } as never,
           rules: fx.rules,
           skus,
           prices,
@@ -151,6 +159,7 @@ export default function CostCenterDemo() {
           addMenu: async () => null,
           getNextCode: () => "MN-999",
           spBomLines: fx.spLines,
+          suppliers,
           updateRule: async () => true,
           demoExtras: { overrides: {}, soldByCode: {}, bills: [], setBranchOpenMany: async () => true },
         }}
@@ -221,6 +230,7 @@ export default function CostCenterDemo() {
           addLine: async (data) => (await wait(), setBomLines((p) => [...p, { ...data, id: crypto.randomUUID() } as BOMLine]), true),
           updateLine: async (id, patch) => (await wait(), setBomLines((p) => p.map((l) => (l.id === id ? { ...l, ...patch } : l))), true),
           deleteLine: async (id) => (await wait(), setBomLines((p) => p.filter((l) => l.id !== id)), true),
+          saveLineNote: async (id, note) => (await wait(), setBomLines((p) => p.map((l) => (l.id === id ? { ...l, specNote: note.trim() } : l))), true),
           spAddLine: async () => true,
           spUpdateLine: async () => true,
           spUpdateBatchYield: async () => true,

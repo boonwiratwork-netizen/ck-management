@@ -29,6 +29,8 @@ interface Props {
   step?: { name: string; base: number };
   busy: boolean;
   onSave: (next: SheetLine, batch: number | null) => void;
+  /** An existing line's note for the shop: saved on its own when the box is left (not with "บันทึก") */
+  note?: { value: string; placeholder?: string; onSave: (value: string) => void };
   onRemove?: () => void;
   onClose: () => void;
 }
@@ -46,7 +48,7 @@ const num = (v: string) => {
  * swap the item, type how much a batch uses and how much of it is usable. Swapping
  * keeps the amount and %, so nothing has to be remembered or typed again.
  */
-export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf, askBatch, step, busy, onSave, onRemove, onClose }: Props) {
+export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf, askBatch, step, busy, onSave, note, onRemove, onClose }: Props) {
   const [skuId, setSkuId] = useState(line?.skuId ?? "");
   const [pctMode, setPctMode] = useState(line?.pct != null);
   const [qty, setQty] = useState(line ? String(line.pct ?? line.qty) : "");
@@ -156,6 +158,20 @@ export function RecipeLineSheet({ line, recipeName, isSp, byId, options, priceOf
             </label>
           )}
         </div>
+
+        {note && (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold">สเปค / หมายเหตุสำหรับหน้าร้าน</span>
+            <Input
+              defaultValue={note.value}
+              maxLength={300}
+              placeholder={note.placeholder ? `ว่าง = ใช้สเปคสินค้า: ${note.placeholder}` : "เช่น หั่นเต๋า 1 ซม. · ไม่เอาหนัง"}
+              onBlur={(e) => note.onSave(e.target.value)}
+              className="h-12 text-[16px]"
+            />
+            <span className="text-xs text-muted-foreground">บันทึกเองเมื่อออกจากช่อง · ขึ้นในใบ “ส่งสูตรให้หน้าร้าน”</span>
+          </label>
+        )}
 
         {valid && (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2.5 text-sm">

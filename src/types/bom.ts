@@ -22,6 +22,8 @@ export interface BOMLine {
   stepId?: string | null;
   qtyType?: IngredientQtyType | null;
   percentOfInput?: number | null; // e.g. 0.10 = 10%
+  /** Spec / note for the shop on this line (recipe sheet); empty when none or the column isn't there yet */
+  specNote?: string;
 }
 
 export interface BOMStep {

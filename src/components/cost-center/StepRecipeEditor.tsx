@@ -85,6 +85,13 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
   };
 
   // ── Lines ──
+  // The line's note for the shop (recipe sheet): saved on its own when the box is left
+  const notesOn = canEdit && !!actions.saveLineNote;
+  const saveNote = (l: BOMLine, v: string) => {
+    const next = v.trim();
+    if (next === (l.specNote ?? "").trim() || !actions.saveLineNote) return;
+    void actions.saveLineNote(l.id, next).then((ok) => !ok && setGen((x) => x + 1));
+  };
   const isPct = (l: BOMLine) => l.qtyType === "percent" && !!l.percentOfInput;
   // Step 1's % lines are a share of its gram lines: a gram line turning into % is
   // no longer one of them, so it is measured against the others (else 400 g of 1,000
@@ -332,6 +339,20 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
                                 )}
                               </span>
                             </button>
+                            {notesOn ? (
+                              <Input
+                                key={`n${gen}${l.id}${l.specNote ?? ""}`}
+                                defaultValue={l.specNote ?? ""}
+                                maxLength={300}
+                                placeholder={ing?.specNote ? `สเปคหน้าร้าน (ว่าง = ${ing.specNote})` : "สเปค / หมายเหตุสำหรับหน้าร้าน"}
+                                onBlur={(e) => saveNote(l, e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                                className="mt-1 h-8 text-sm"
+                                aria-label={`สเปค / หมายเหตุสำหรับหน้าร้าน ${ing?.name ?? ""}`}
+                              />
+                            ) : (
+                              l.specNote && <p className="mt-0.5 break-words text-xs text-muted-foreground">สเปค: {l.specNote}</p>
+                            )}
                           </td>
                           <td className="px-2 py-2">
                             <div role="radiogroup" aria-label={`${ing?.name} ใส่แบบ`} className="inline-flex overflow-hidden rounded-lg border border-border text-xs">
@@ -390,6 +411,7 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
                           </>
                         )}
                       </span>
+                      {l.specNote && <span className="block break-words text-[13px] text-muted-foreground">สเปค: {l.specNote}</span>}
                     </span>
                     <span className={cn("shrink-0 font-mono font-semibold tabular-nums", !p && "text-destructive")}>{p ? baht(q * p) : "ไม่มีราคา"}</span>
                   </button>
@@ -435,6 +457,7 @@ export function StepRecipeEditor({ sku, skus, header, lines, steps, priceOf, can
           step={{ name: sheetStep.step.stepName, base: baseFor(sheetLine, sheetStep.base) }}
           busy={busy}
           onSave={(next) => saveSheet(next)}
+          note={sheetLine && notesOn ? { value: sheetLine.specNote ?? "", placeholder: byId.get(sheetLine.rmSkuId)?.specNote || undefined, onSave: (v) => saveNote(sheetLine, v) } : undefined}
           onRemove={sheetLine ? () => removeLine(sheetLine) : undefined}
           onClose={() => setSheet(null)}
         />

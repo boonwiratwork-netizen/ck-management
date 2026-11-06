@@ -17,6 +17,8 @@ export interface RecipeActions {
   addLine: (data: Omit<MenuBomLine, "id">) => Promise<boolean>;
   updateLine: (id: string, data: Partial<Omit<MenuBomLine, "id">>) => Promise<boolean>;
   deleteLine: (id: string) => Promise<boolean>;
+  /** A line's note for the shop (menu_bom.spec_note): saved on its own, true = saved */
+  saveSpecNote?: (id: string, note: string) => Promise<boolean>;
 }
 
 interface RecipeEditorProps {
@@ -114,6 +116,7 @@ export function RecipeEditor({ menu, sharedLines, branchLines, branches, skus, p
                           {line.yieldPct !== 100 && <span> · yield {line.yieldPct}%</span>}
                           {activeUnitCost(prices, line.skuId) <= 0 && <span className="text-warning"> · ไม่มีราคา</span>}
                         </div>
+                        {line.specNote && <div className="break-words text-sm text-muted-foreground">สเปค: {line.specNote}</div>}
                       </div>
                       <div className="shrink-0 text-right">
                         <div className="font-mono text-[15px] tabular-nums">
@@ -189,6 +192,8 @@ function LineForm({ menu, line, branchId, sharedLines, scopeLines, skus, prices,
   const [yieldPct, setYieldPct] = useState(line ? String(line.yieldPct) : "100");
   const [saving, setSaving] = useState(false);
   const [tried, setTried] = useState(false);
+  // Bumped when a note didn't save, so the box shows the saved note again
+  const [noteGen, setNoteGen] = useState(0);
 
   const options = useMemo(() => skuOptions(skus, prices, line?.skuId), [skus, prices, line?.skuId]);
 
@@ -257,6 +262,27 @@ function LineForm({ menu, line, branchId, sharedLines, scopeLines, skus, prices,
           <FieldError message={tried ? errors.yield : null} />
         </div>
       </div>
+      {/* Notes go to the shop with the central recipe only: a branch's own lines aren't on the sheet */}
+      {line && !line.branchId && actions.saveSpecNote && (
+        <div>
+          <label htmlFor={`spec-${line.id}`} className="mb-1.5 block text-sm font-medium">
+            สเปค / หมายเหตุสำหรับหน้าร้าน
+          </label>
+          <Input
+            id={`spec-${line.id}`}
+            key={`spec-${line.id}-${noteGen}-${line.specNote ?? ""}`}
+            defaultValue={line.specNote ?? ""}
+            maxLength={300}
+            placeholder={sku?.specNote ? `ว่าง = ใช้สเปคสินค้า: ${sku.specNote}` : "เช่น หั่นเต๋า 1 ซม. · ไม่เอาหนัง"}
+            onBlur={(e) => {
+              const next = e.target.value.trim();
+              if (next !== (line.specNote ?? "").trim()) void actions.saveSpecNote!(line.id, next).then((ok) => !ok && setNoteGen((g) => g + 1));
+            }}
+            className="h-11 text-[16px]"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">บันทึกเองเมื่อออกจากช่อง · ขึ้นในใบ “ส่งสูตรให้หน้าร้าน”</p>
+        </div>
+      )}
       {preview !== null && (
         <p className="text-sm text-muted-foreground">
           {preview > 0 ? (

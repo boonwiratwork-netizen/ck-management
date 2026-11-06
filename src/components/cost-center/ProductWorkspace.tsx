@@ -30,6 +30,8 @@ import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import type { BomByproduct } from "@/types/byproduct";
 import type { SpBomLine } from "@/types/sp-bom";
 import { tableMinWidth } from "@/lib/design-tokens";
+import { buildSmSheet, sheetDate } from "@/lib/recipe-sheet";
+import { RecipeSheetButton } from "@/components/recipe-sheet/RecipeSheetButton";
 
 // Auto column = supplier name (short): 160px is enough
 const SUPPLIER_PRICE_TABLE_MIN_W = tableMinWidth([120, 120, 110, 100], 160);
@@ -737,6 +739,15 @@ function RecipePanel(props: Props) {
             <Button variant="outline" className="h-10" onClick={() => actions.recost(sku.id)}>
               คิดต้นทุนใหม่
             </Button>
+          </div>
+        )}
+        {sku.type === "SM" && ownHeader && ownLines.length > 0 && (
+          <div className="flex justify-end">
+            <RecipeSheetButton
+              kind="sm"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
+              build={(batches) => buildSmSheet({ sku, header: ownHeader, lines: ownLines, steps: ownSteps, skus, prices, suppliers: props.suppliers, batches, date: sheetDate() })}
+            />
           </div>
         )}
         {ownHeader && (

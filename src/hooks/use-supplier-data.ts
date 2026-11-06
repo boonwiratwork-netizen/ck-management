@@ -15,6 +15,7 @@ const toLocal = (row: any): Supplier => ({
   phone: row.phone ?? '',
   creditTerms: row.credit_terms,
   status: row.status,
+  isCentralKitchen: !!row.is_central_kitchen,
 });
 
 const toDb = (data: Omit<Supplier, 'id'>) => ({

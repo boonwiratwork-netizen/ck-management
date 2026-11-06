@@ -7,6 +7,9 @@ import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Branch } from "@/types/branch";
+import type { Supplier } from "@/types/supplier";
+import { buildMenuSheet, sheetDate } from "@/lib/recipe-sheet";
+import { RecipeSheetButton } from "@/components/recipe-sheet/RecipeSheetButton";
 import type { TabKey } from "@/components/AppSidebar";
 import { useMenuSetupExtras, SALES_WINDOW_DAYS } from "@/hooks/use-menu-setup-extras";
 import { useMenuCategories } from "@/hooks/use-menu-categories";
@@ -48,6 +51,8 @@ interface MenuSetupProps {
   getNextCode: () => string;
   /** SP recipes, so the bill check expands SP items exactly like stock does */
   spBomLines: SpBomLine[];
+  /** For "ส่งสูตรให้หน้าร้าน": who each price is from, and which one is the central kitchen */
+  suppliers?: Supplier[];
   updateRule: (id: string, data: Partial<Omit<ModifierRule, "id">>) => Promise<boolean>;
   deleteRule?: (id: string) => Promise<boolean>;
   /** Inside Cost Center: its header (with the shared tabs) replaces this page's own */
@@ -143,7 +148,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, updateRule, deleteRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, suppliers = [], updateRule, deleteRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -410,6 +415,8 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               onNavigate={onNavigate}
               bills={extras.bills}
               lines={menuBom.lines}
+              spBomLines={spBomLines}
+              suppliers={suppliers}
               addRule={addRule}
               updateRule={updateRule}
               isNew={freshIds.has(selected.id)}
@@ -594,6 +601,8 @@ interface WorkspaceProps {
   onNavigate: (tab: TabKey) => void;
   bills: Bill[] | null;
   lines: MenuBomLine[];
+  spBomLines: SpBomLine[];
+  suppliers: Supplier[];
   addRule: MenuSetupProps["addRule"];
   updateRule: MenuSetupProps["updateRule"];
   /** Just created in this visit: show the setup steps */
@@ -647,6 +656,23 @@ function MenuWorkspace(props: WorkspaceProps) {
                 {summary.worst === "ok" ? "ตั้งครบแล้ว" : `${levelStyle[summary.worst].label} ${problems} เรื่อง`}
               </span>
               {menu.status === "Inactive" && <span className="rounded-full bg-white/10 px-3 py-1 text-sm">ปิดเมนู</span>}
+              <RecipeSheetButton
+                kind="menu"
+                className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-medium text-primary-foreground hover:bg-white/25"
+                build={(portions) =>
+                  buildMenuSheet({
+                    menu,
+                    // Central recipe only (branch_id null); buildMenuSheet skips branch lines too
+                    lines: props.lines.filter((l) => l.menuId === menu.id && !l.branchId),
+                    spLines: props.spBomLines,
+                    skus: props.skus,
+                    prices: props.prices,
+                    suppliers: props.suppliers,
+                    portions,
+                    date: sheetDate(),
+                  })
+                }
+              />
             </div>
           </div>
           <div className="flex gap-6 md:text-right">

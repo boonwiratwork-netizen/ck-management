@@ -115,6 +115,7 @@ export type Database = {
           qty_per_batch: number
           qty_type: string | null
           rm_sku_id: string
+          spec_note: string | null
           step_id: string | null
           yield_percent: number
         }
@@ -126,6 +127,7 @@ export type Database = {
           qty_per_batch?: number
           qty_type?: string | null
           rm_sku_id: string
+          spec_note?: string | null
           step_id?: string | null
           yield_percent?: number
         }
@@ -137,6 +139,7 @@ export type Database = {
           qty_per_batch?: number
           qty_type?: string | null
           rm_sku_id?: string
+          spec_note?: string | null
           step_id?: string | null
           yield_percent?: number
         }
@@ -674,6 +677,7 @@ export type Database = {
           menu_id: string
           qty_per_serving: number
           sku_id: string
+          spec_note: string | null
           uom: string
           yield_pct: number
         }
@@ -686,6 +690,7 @@ export type Database = {
           menu_id: string
           qty_per_serving?: number
           sku_id: string
+          spec_note?: string | null
           uom?: string
           yield_pct?: number
         }
@@ -698,6 +703,7 @@ export type Database = {
           menu_id?: string
           qty_per_serving?: number
           sku_id?: string
+          spec_note?: string | null
           uom?: string
           yield_pct?: number
         }
