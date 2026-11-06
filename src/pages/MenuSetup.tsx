@@ -83,7 +83,7 @@ const GUIDE: GuideStep[] = [
       </>
     ),
   },
-  { target: "setup-tabs", title: "มุมมองอื่น", body: "ภาพรวม = งานค้างทั้งหมด · สาขา = เมนูไหนเปิดขายที่ไหน · ตัวเลือก POS = ตัวเลือกในบิลถูกตัดสต๊อกหรือยัง" },
+  { target: "setup-tabs", title: "มุมมองอื่น", body: "ภาพรวม = งานค้างทั้งหมด · สาขา = เมนูไหนเปิดขายที่ไหน · ตัวเลือก = ตัวเลือกที่ลูกค้ากดตั้งวัตถุดิบครบหรือยัง" },
   { target: "setup-list", title: "แตะเมนูเพื่อเปิด", body: "ลองแตะเมนูแรกในรายการ", until: "click" },
   {
     target: "setup-menu-tabs",
@@ -134,6 +134,11 @@ function HealthDot({ level }: { level: CheckLevel }) {
 }
 
 /** Cost range across branches, e.g. "฿61.20" or "฿58.00–฿61.20" */
+/** "เกี๊ยวซ่า (6 ชิ้น)": the bracket never breaks across lines */
+function keepBrackets(name: string): React.ReactNode {
+  return name.split(/(\([^)]*\))/).map((part, i) => (i % 2 ? <span key={i} className="whitespace-nowrap">{part}</span> : part));
+}
+
 function costLabel(s: MenuSetupSummary): string {
   if (s.branches.length === 0) return "—";
   const costs = s.branches.map((b) => b.cost);
@@ -177,7 +182,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       : backTo !== listHash
         ? (() => {
             const label =
-              backTo === OVERVIEW_HASH ? "ภาพรวม" : backTo.startsWith(BRANCHES_HASH) ? "สาขา" : backTo === POS_HASH ? "ตัวเลือก POS" : menus.find((m) => m.menuCode === readHash(`#${backTo}`))?.menuName;
+              backTo === OVERVIEW_HASH ? "ภาพรวม" : backTo.startsWith(BRANCHES_HASH) ? "สาขา" : backTo === POS_HASH ? "ตัวเลือก" : menus.find((m) => m.menuCode === readHash(`#${backTo}`))?.menuName;
             return label ? { label, go: () => go(backTo) } : null;
           })()
         : null;
@@ -234,18 +239,24 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     { key: "overview", label: "ภาพรวม" },
     { key: "menus", label: "เมนู" },
     { key: "branches", label: "สาขา" },
-    { key: "pos", label: "ตัวเลือก POS" },
+    { key: "pos", label: "ตัวเลือก" },
   ];
   const header = outerHeader ? (
     <div className={cn((selected || isNew) && "hidden lg:block")}>{outerHeader}</div>
   ) : (
     <div className={cn("flex flex-col gap-3 md:flex-row md:items-end md:justify-between", (selected || isNew) && "hidden lg:flex")}>
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
-        <p className="text-sm text-muted-foreground">สูตร · สาขาที่ขาย · กฎพิเศษ · เช็คว่าตั้งครบ — ครบในที่เดียว</p>
+      {/* Phone: title with วิธีใช้ beside it, the tabs get their own full row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="text-2xl font-bold">ตั้งค่าเมนู</h2>
+          <p className="text-sm text-muted-foreground">สูตร สาขาที่ขาย และตัวเลือก ในที่เดียว</p>
+        </div>
+        <Button variant="outline" className="h-10 shrink-0 md:hidden" onClick={guide.start}>
+          <HelpCircle className="h-4 w-4" /> วิธีใช้
+        </Button>
       </div>
-      <div className="flex items-center gap-2">
-      <Button variant="outline" className="h-10 shrink-0" onClick={guide.start}>
+      <div className="flex min-w-0 items-center gap-2">
+      <Button variant="outline" className="hidden h-10 shrink-0 md:inline-flex" onClick={guide.start}>
         <HelpCircle className="h-4 w-4" /> วิธีใช้
       </Button>
       <div data-tour="setup-tabs" className="min-w-0">
@@ -558,15 +569,30 @@ function MenuList({
               >
                 <HealthDot level={s?.worst ?? "ok"} />
                 <div className="min-w-0 flex-1">
-                  <div className="break-words text-[15px] font-medium">{m.menuName}</div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    <span className="font-mono">{m.menuCode}</span> · {m.brandName || "ไม่ระบุแบรนด์"}
-                    {m.status === "Inactive" && " · ปิดเมนู"}
+                  <div className="break-words text-[15px] font-medium">
+                    {keepBrackets(m.menuName)} <span className="whitespace-nowrap font-mono text-xs font-normal text-muted-foreground">{m.menuCode}</span>
                   </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="font-mono text-sm tabular-nums">{s ? costLabel(s) : "—"}</div>
-                  <div className="font-mono text-sm tabular-nums text-muted-foreground">{first ? pct(first.costPct) : ""}</div>
+                  {/* Status in words (the dot alone means nothing), then cost and % on their own line */}
+                  <div className="flex flex-wrap gap-x-1 text-sm text-muted-foreground">
+                    {m.status === "Inactive" ? (
+                      <span className="whitespace-nowrap">ปิดเมนู</span>
+                    ) : (
+                      s && s.worst !== "ok" && <span className={cn("whitespace-nowrap font-medium", levelStyle[s.worst].text)}>{levelStyle[s.worst].label}</span>
+                    )}
+                    {s && costLabel(s) !== "—" && (
+                      <>
+                        <span className="whitespace-nowrap">
+                          {(m.status === "Inactive" || s.worst !== "ok") && " · "}ต้นทุน <span className="font-mono tabular-nums">{costLabel(s)}</span>
+                        </span>
+                        {first && first.costPct !== null && (
+                          <span className="whitespace-nowrap">
+                            {" "}
+                            · <span className="font-mono tabular-nums">{pct(first.costPct)}</span> ของราคา
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground split:hidden" aria-hidden="true" />
               </button>
@@ -643,8 +669,8 @@ function MenuWorkspace(props: WorkspaceProps) {
                 </button>
               )}
             </div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
-              {menu.menuCode} · {menu.brandName || "ไม่ระบุแบรนด์"} · {menu.category || "ไม่มีหมวด"}
+            <div className="text-sm font-medium text-primary-foreground/80">
+              {menu.brandName || "ไม่ระบุแบรนด์"} · {menu.category || "ไม่มีหมวด"} <span className="whitespace-nowrap font-mono text-xs font-normal">{menu.menuCode}</span>
             </div>
             <h3 className="mt-1 text-2xl font-bold leading-tight md:text-3xl">{menu.menuName}</h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -677,13 +703,13 @@ function MenuWorkspace(props: WorkspaceProps) {
           </div>
           <div className="flex gap-6 md:text-right">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">ต้นทุนตามสูตร</div>
+              <div className="text-sm font-medium text-primary-foreground/80">ต้นทุนตามสูตร</div>
               <div className="mt-1 font-mono text-2xl font-bold tabular-nums">{costLabel(summary)}</div>
-              <div className="text-sm text-primary-foreground/60">ขาย {menu.sellingPrice > 0 ? baht(menu.sellingPrice) : "—"}</div>
+              <div className="text-sm text-primary-foreground/80">ราคาขาย {menu.sellingPrice > 0 ? baht(menu.sellingPrice) : "ยังไม่ตั้ง"}</div>
             </div>
             {hero && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">% ต้นทุน</div>
+                <div className="text-sm font-medium text-primary-foreground/80">% ต้นทุน</div>
                 <div className="mt-1 font-mono text-4xl font-bold tabular-nums text-highlight">{pct(hero.costPct)}</div>
               </div>
             )}
@@ -712,7 +738,7 @@ function MenuWorkspace(props: WorkspaceProps) {
       {tab === "health" && <HealthPanel checks={summary.checks} onGo={(area) => setTab(areaTab[area])} />}
       {tab === "recipe" && summary.linkedRecipes.length > 0 && (
         <section className="flex flex-col gap-2 rounded-2xl bg-brand-soft p-4 text-brand-soft-foreground">
-          <p className="text-sm">ทุกบิลของเมนูนี้ตัดของตามสูตรเมนูอื่นผ่านกฎ — แก้สูตรที่เมนูต้นทาง</p>
+          <p className="text-sm">ทุกบิลของเมนูนี้ใช้ของตามสูตรเมนูอื่น แก้สูตรที่เมนูต้นทาง</p>
           {summary.linkedRecipes.map(({ rule, menu: sub }) => (
             <button
               key={rule.id}
@@ -797,7 +823,7 @@ function BranchesPanel({ menu, summary, canEdit, salesLoaded, setBranchOpen }: W
                 ต้นทุน <span className="font-mono">{baht(b.cost)}</span> · {pct(b.costPct)} ·{" "}
                 {salesLoaded ? `ขาย ${b.sold.toLocaleString()} ที่ใน ${SALES_WINDOW_DAYS} วัน` : "กำลังโหลดยอดขาย…"}
               </div>
-              {!b.open && b.sold > 0 && <p className="mt-1 text-sm text-warning">ปิดขายไว้แต่ยังมียอดขาย — ระบบยังตัดของตามยอดขายจริง</p>}
+              {!b.open && b.sold > 0 && <p className="mt-1 text-sm text-warning">ปิดขายไว้แต่ยังมียอดขาย สต๊อกยังลดตามจริง</p>}
             </div>
             <label className="flex min-h-[44px] shrink-0 items-center gap-2 text-sm">
               <span className={b.open ? "text-foreground" : "text-muted-foreground"}>{b.open ? "เปิดขาย" : "ปิดขาย"}</span>
@@ -815,7 +841,7 @@ function BranchesPanel({ menu, summary, canEdit, salesLoaded, setBranchOpen }: W
           </li>
         ))}
       </ul>
-      <p className="px-1 text-sm text-muted-foreground">ปิดขาย = ซ่อนจากรายการของสาขานั้น ถ้า POS ยังส่งยอดขายเข้ามา ระบบยังตัดวัตถุดิบตามจริง</p>
+      <p className="px-1 text-sm text-muted-foreground">ปิดขาย = ซ่อนจากรายการของสาขานั้น ถ้ายังมียอดขายเข้ามา สต๊อกยังลดตามจริง</p>
     </div>
   );
 }
@@ -895,7 +921,7 @@ function RulesPanel({ menu, menus, summary, skus, prices, allBranches, onNavigat
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
           <header className="border-b border-border px-4 py-3">
             <h4 className="text-base font-semibold">เมนูนี้ถูกใช้เป็นท็อปปิ้ง/ของในชุด</h4>
-            <p className="text-sm text-muted-foreground">สั่งเพิ่มในเมนูอื่นแล้ว ระบบตัดของตามสูตรของ {menu.menuCode}</p>
+            <p className="text-sm text-muted-foreground">สั่งเพิ่มในเมนูอื่นแล้ว ใช้ของตามสูตรของ {menu.menuName}</p>
           </header>
           <ul className="divide-y divide-border">
             {summary.usedAsTopping.map((r) =>
@@ -977,7 +1003,7 @@ function InfoPanel({ menu, canEdit, updateMenu }: WorkspaceProps) {
         <div>
           <span className="mb-1.5 block text-sm font-medium">รหัสเมนู</span>
           <div className="flex h-11 items-center rounded-xl bg-secondary px-3 font-mono">{menu.menuCode}</div>
-          <p className="mt-1.5 text-sm text-muted-foreground">ล็อกไว้ — ยอดขายจาก POS จับคู่ด้วยรหัสนี้</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">ล็อกไว้ ยอดขายจากเครื่องขายจับคู่ด้วยรหัสนี้</p>
         </div>
         <div>
           <span className="mb-1.5 block text-sm font-medium">แบรนด์</span>
@@ -1038,8 +1064,8 @@ function NewMenuChecklist({
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card [box-shadow:inset_4px_0_0_hsl(var(--brand))]">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">เมนูใหม่ · ตั้งไปแล้ว {doneCount} จาก {steps.length}</div>
-          <p className="text-sm text-muted-foreground">ทำครบแล้วกด "เสร็จ" — หลังเริ่มขาย มาเช็คตัวเลือก POS ที่ลูกค้ากดอีกครั้ง</p>
+          <div className="text-sm font-semibold text-brand">เมนูใหม่ · ตั้งไปแล้ว {doneCount} จาก {steps.length}</div>
+          <p className="text-sm text-muted-foreground">ทำครบแล้วกด "เสร็จ" — หลังเริ่มขาย มาเช็คตัวเลือกที่ลูกค้ากดอีกครั้ง</p>
         </div>
         {onDone && (
           <Button variant={doneCount === steps.length ? "brand" : "outline"} className="h-10 shrink-0" onClick={onDone}>
@@ -1074,7 +1100,7 @@ function NewMenuChecklist({
         ))}
       </ol>
       <Button variant="ghost" className="h-10 self-start text-brand" onClick={() => (window.location.hash = POS_HASH)}>
-        ภายหลัง: เช็คตัวเลือก POS ที่หน้า "ตัวเลือก POS"
+        ภายหลัง: เช็คตัวเลือกที่ลูกค้ากด ที่แท็บ "ตัวเลือก"
       </Button>
     </section>
   );
@@ -1110,10 +1136,10 @@ function BillsPanel({ bills, skus, branches, loaded }: { bills?: MenuBillCheck; 
                 {branchName(g.branchId)} · {g.plates.toLocaleString()} จาน
               </p>
             </div>
-            {g.empty && <Badge variant="danger">ไม่ตัดของ</Badge>}
+            {g.empty && <Badge variant="danger">สต๊อกไม่ลด</Badge>}
           </header>
           {g.empty ? (
-            <p className="px-4 py-3 text-sm text-destructive">บิลนี้ไม่ตัดวัตถุดิบเลย — ไม่มีสูตร และไม่มีกฎที่มีคำตรงกับบิล</p>
+            <p className="px-4 py-3 text-sm text-destructive">บิลนี้สต๊อกไม่ลดเลย ไม่มีสูตร และไม่มีกฎที่ตรงกับบิล</p>
           ) : (
             <ul className="divide-y divide-border">
               {g.perPlate.map(([id, q]) => (

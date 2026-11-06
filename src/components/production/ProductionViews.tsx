@@ -76,14 +76,24 @@ export function ProdSide({
         </button>
       </div>
       <div className="rounded-2xl border border-border bg-card p-3 shadow-card">
-        <div className="text-[13px] text-muted-foreground">สัปดาห์นี้ · {weekLabel}</div>
-        <div className="font-mono text-2xl font-bold">
-          {done} / {planned}
-        </div>
-        <div className="text-[13px] text-muted-foreground">รายการผลิตครบตามแผน</div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-          <div className="h-full bg-success" style={{ width: `${planned ? Math.min(100, (done / planned) * 100) : 0}%` }} />
-        </div>
+        <div className="text-[13px] text-muted-foreground">สัปดาห์นี้ {weekLabel}</div>
+        {planned === 0 ? (
+          // A lone "0 / 0" read as nothing; say it in words
+          <div className="text-lg font-bold">ยังไม่มีแผน</div>
+        ) : (
+          <>
+            <div className="text-[13px]">ผลิตครบตามแผนแล้ว</div>
+            <div className="text-2xl font-bold">
+              <span className="font-mono tabular-nums">
+                {done} / {planned}
+              </span>{" "}
+              <span className="text-base font-semibold">รายการ</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full bg-success" style={{ width: `${Math.min(100, (done / planned) * 100)}%` }} />
+            </div>
+          </>
+        )}
       </div>
       <section className="flex flex-col gap-1.5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <h2 className="text-[13px] font-bold">บันทึก{day === iso(new Date()) ? "วันนี้" : thaiDay(day)}</h2>
@@ -587,7 +597,7 @@ export function PlanView({
       {noBom.length > 0 && (
         // Each one opens its own recipe in Cost Center (the old BOM page was a different look)
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-          <span>{noBom.length} รายการยังไม่มีสูตร · แตะเพื่อทำสูตร:</span>
+          <span className="basis-full">ยังไม่มีสูตร {noBom.length} รายการ แตะชื่อเพื่อทำสูตร</span>
           {noBom.map((s) => (
             <button key={s.id} type="button" onClick={() => onSetupBom(s)} className="min-h-[32px] rounded-full border border-border bg-card px-3 text-foreground hover:bg-secondary">
               {s.name}
@@ -599,8 +609,8 @@ export function PlanView({
       <div data-tour="prod-save" className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-2 md:bottom-4">
         <div className="flex items-center gap-3 rounded-2xl bg-primary py-3 pl-4 pr-3 text-primary-foreground shadow-raised">
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold">แผน {planned} รายการ</div>
-            {short > 0 && <div className="truncate text-sm text-primary-foreground/70">ยังพอใช้ไม่ถึงเป้า {short} รายการ</div>}
+            <div className="text-[15px] font-semibold">แผน {planned} รายการ</div>
+            {short > 0 && <div className="text-sm text-primary-foreground/70">ยังพอใช้ไม่ถึงเป้า {short} รายการ</div>}
           </div>
           <Button variant="brand" className="h-12 min-w-[120px] text-base" loading={saving} disabled={!canEdit || !dirty} onClick={onSave}>
             {dirty ? "บันทึกแผน" : "บันทึกแล้ว"}

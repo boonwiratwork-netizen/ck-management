@@ -83,10 +83,7 @@ export function TransferHome({
   return (
     <div className="flex flex-col gap-4">
       <section data-tour="to-queue" className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[15px] font-semibold">รอจัดส่ง {loading ? "" : `${waiting.length} ใบ`}</h2>
-          <span className="text-[13px] text-muted-foreground">เรียงตามวันที่สาขาต้องการ</span>
-        </div>
+        <h2 className="text-[15px] font-semibold">รอจัดส่ง {loading ? "" : `${waiting.length} ใบ`}</h2>
         {loading ? (
           <div className="h-24 animate-pulse rounded-2xl bg-secondary" />
         ) : waiting.length === 0 ? (
@@ -98,12 +95,15 @@ export function TransferHome({
               <div key={tr.trId} className={cn("flex items-start gap-3 rounded-2xl border border-border bg-card p-3 shadow-card", need.urgent && "border-l-4 border-l-destructive")}>
                 <div className="min-w-0 flex-1">
                   <div className="text-base font-bold">{tr.branchName}</div>
+                  {/* Each phrase wraps whole: never "(อังคาร 27 ต.ค.) · 9" then "รายการ" alone */}
                   <div className={cn("text-sm font-semibold", need.urgent && "text-destructive")}>
-                    {need.text} · {tr.itemCount} รายการ
+                    <span className="whitespace-nowrap">{need.text}</span> · <span className="whitespace-nowrap">{tr.itemCount} รายการ</span>
                   </div>
                   <div className="text-[13px] text-muted-foreground">
-                    ขอเมื่อ {thaiDay(tr.createdAt.slice(0, 10))} {time(tr.createdAt)} · <span className="font-mono">{tr.trNumber}</span>
+                    <span className="whitespace-nowrap">ขอเมื่อ {thaiDay(tr.createdAt.slice(0, 10))} {time(tr.createdAt)}</span>
                   </div>
+                  {/* Code kept small for staff who quote it; never on the line that carries the date */}
+                  <div className="whitespace-nowrap font-mono text-xs text-muted-foreground">{tr.trNumber}</div>
                 </div>
                 {canEdit && (
                   <Button variant={i === 0 ? "brand" : "outline"} className="h-11 min-w-[104px] font-semibold" disabled={busy} data-tour={i === 0 ? "to-start" : undefined} onClick={() => onStart(tr)}>
@@ -125,9 +125,7 @@ export function TransferHome({
                 <div className="text-[15px] font-bold">
                   {tr.branchName} · {tr.itemCount} รายการ
                 </div>
-                <div className="text-[13px] text-warning">
-                  เริ่มเมื่อ {time(tr.draft!.createdAt)} · {needWhen(tr.requiredDate).text} · สาขายังไม่ได้รับของ
-                </div>
+                <div className="text-[13px] text-warning">{needWhen(tr.requiredDate).text}</div>
               </div>
               {canEdit && (
                 <Button className="h-11" disabled={busy} onClick={() => onStart(tr)}>
@@ -142,7 +140,7 @@ export function TransferHome({
                 <div className="text-[15px] font-bold">
                   {d.branchName} · โอนเอง {d.itemCount} รายการ
                 </div>
-                <div className="text-[13px] text-warning">เริ่ม {thaiDay(d.createdAt.slice(0, 10))} {time(d.createdAt)} · ยังไม่ได้ส่ง</div>
+                <div className="text-[13px] text-warning">เริ่ม {thaiDay(d.createdAt.slice(0, 10))} {time(d.createdAt)}</div>
               </div>
               {canEdit && (
                 <Button className="h-11" disabled={busy} onClick={() => onOpenDraft(d)}>
@@ -162,8 +160,9 @@ export function TransferHome({
           <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
             {recent.map((r) => (
               <li key={r.id}>
-                <button type="button" onClick={() => onOpenRecent(r)} className="flex min-h-[60px] w-full items-center gap-3 px-3 py-2 text-left hover:bg-secondary/60">
-                  <span className="min-w-0 flex-1">
+                {/* Pills drop to their own row when they don't fit beside the text */}
+                <button type="button" onClick={() => onOpenRecent(r)} className="flex min-h-[60px] w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-secondary/60">
+                  <span className="min-w-0 flex-1 basis-[10.5rem]">
                     <span className="block text-sm font-semibold">
                       {r.branchName} · {r.itemCount} รายการ
                     </span>
@@ -242,7 +241,7 @@ export function ReviewSend({
         </button>
         <h2 className="text-xl font-bold">ตรวจก่อนส่ง {form.branchName}</h2>
         <p className="text-sm text-muted-foreground">
-          <span className="font-mono">{form.toNumber}</span> · ส่ง {thaiDay(form.deliveryDate)}
+          <span className="whitespace-nowrap">ส่ง {thaiDay(form.deliveryDate)}</span> · <span className="whitespace-nowrap font-mono text-xs">{form.toNumber}</span>
         </p>
       </div>
 
@@ -427,7 +426,8 @@ export function SentDone({
       <div className="text-center">
         <h2 className="text-xl font-bold">ส่งให้ {branchName} แล้ว</h2>
         <p className="text-sm text-muted-foreground">
-          <span className="font-mono">{toNumber}</span> · {count} รายการ · {baht(value)}
+          <span className="whitespace-nowrap">{count} รายการ · {baht(value)}</span>
+          <span className="block whitespace-nowrap font-mono text-xs">{toNumber}</span>
         </p>
       </div>
       <div className="rounded-2xl border border-border bg-card p-3 text-sm leading-relaxed shadow-card">
@@ -590,8 +590,9 @@ export function TransferHistory({
       {can.discard && staleDrafts.length > 0 && (
         <div className="flex flex-col gap-2 rounded-2xl border border-warning/30 bg-warning-soft/60 p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-0 flex-1 text-sm">
-              <b>จัดค้างไว้แต่ไม่ได้ส่ง {staleDrafts.length} ใบ</b> <span className="text-warning">(เก่ากว่า 2 วัน · ไม่เคยหักสต๊อก)</span>
+            {/* Text gets the full row; the two buttons sit on the row below */}
+            <div className="min-w-0 basis-full text-sm">
+              <b>จัดค้างไว้แต่ไม่ได้ส่ง {staleDrafts.length} ใบ</b> <span className="whitespace-nowrap text-warning">เก่ากว่า 2 วัน</span>
             </div>
             <Button variant="outline" className="h-10" onClick={() => setShowDrafts((s) => !s)}>
               {showDrafts ? "ซ่อน" : "ดูรายการ"}
@@ -604,8 +605,8 @@ export function TransferHistory({
             <ul className="text-sm">
               {staleDrafts.map((d) => (
                 <li key={d.id} className="flex justify-between gap-3 py-0.5">
-                  <span>
-                    <span className="font-mono">{d.toNumber}</span> · {d.branchName}
+                  <span className="min-w-0">
+                    {d.branchName} <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">{d.toNumber}</span>
                   </span>
                   <span className="text-muted-foreground">{thaiDay(d.createdAt.slice(0, 10))}</span>
                 </li>
@@ -689,12 +690,20 @@ function HistoryRow({
   return (
     <div className="border-t border-border first:border-t-0">
       <button type="button" onClick={onToggle} aria-expanded={open} className="grid w-full grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-secondary/40 lg:grid-cols-[150px_1fr_110px_120px_auto_20px]">
-        <span className="font-mono text-sm lg:order-none">{row.toNumber}</span>
-        <span className="col-span-2 row-start-2 text-sm lg:col-span-1 lg:row-start-auto">
-          <b>{row.branchName}</b>{" "}
+        {/* Phone: branch is the headline, codes go small underneath. Wide screen: code column as before */}
+        <span className="min-w-0 text-sm font-semibold lg:hidden">{row.branchName}</span>
+        <span className="hidden font-mono text-sm lg:block">{row.toNumber}</span>
+        <span className="col-span-2 row-start-2 text-[13px] lg:col-span-1 lg:row-start-auto lg:text-sm">
+          <b className="hidden lg:inline">{row.branchName} · </b>
           <span className="text-muted-foreground">
-            · {row.status === "Draft" ? "ยังไม่ได้ส่ง" : `ส่ง ${time(row.updatedAt)}`}
-            {row.trRef !== "—" && ` · ตามใบขอ ${row.trRef}`}
+            <span className="whitespace-nowrap">{row.status === "Draft" ? "ยังไม่ได้ส่ง" : `ส่ง ${time(row.updatedAt)}`}</span>
+            <span className="lg:hidden"> </span>
+            <span className="whitespace-nowrap lg:hidden">· {row.itemCount} รายการ</span>
+            {row.trRef !== "—" && <span className="hidden whitespace-nowrap lg:inline"> · ตามใบขอ {row.trRef}</span>}
+          </span>
+          <span className="block whitespace-nowrap font-mono text-xs text-muted-foreground lg:hidden">
+            {row.toNumber}
+            {row.trRef !== "—" && ` · ขอ ${row.trRef}`}
           </span>
         </span>
         <span className="hidden text-right font-mono text-sm lg:block">{row.itemCount} รายการ</span>

@@ -181,7 +181,7 @@ export const monthClose: AlertRule = {
       const sheetDays = new Set(data.counts.filter((c) => c.branch_id === b.id && c.count_date >= start && c.count_date <= end).map((c) => c.count_date));
       const saleDays = new Set(data.salesDaily.filter((s) => s.branch_id === b.id).map((s) => s.sale_date));
       const missing = daysBetween(start, end).filter((d) => sheetDays.has(d) && !saleDays.has(d));
-      if (missing.length) info.push({ rule: "month_close", text: `${b.name} ยังไม่นำเข้ายอดขาย ${missing.length} วัน (${missing.slice(0, 3).map(thDay).join(", ")}${missing.length > 3 ? " …" : ""})`, link: { page: "sales", branchId: b.id, date: missing[0] } });
+      if (missing.length) info.push({ rule: "month_close", text: `${b.name} ยังไม่ลงยอดขาย ${missing.length} วัน (${missing.slice(0, 3).map(thDay).join(", ")}${missing.length > 3 ? " …" : ""})`, link: { page: "sales", branchId: b.id, date: missing[0] } });
     }
 
     const first = firstReceiptOf(data);

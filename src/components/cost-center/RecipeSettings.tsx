@@ -87,7 +87,7 @@ export function RecipeSettings({ sku, header, lines, steps, all, skus, prices, c
 
   const remove = () =>
     setConfirm({
-      text: `ลบสูตร ${sku.name} ทั้งสูตร (วัตถุดิบ ${lines.length} ตัว${steps.length ? ` · ${steps.length} ขั้น` : ""} · ผลพลอยได้)? ผลิตแล้วจะไม่ตัดวัตถุดิบจนกว่าจะทำสูตรใหม่`,
+      text: `ลบสูตร ${sku.name} ทั้งสูตร (วัตถุดิบ ${lines.length} ตัว${steps.length ? ` · ${steps.length} ขั้น` : ""} · ผลพลอยได้)? ผลิตแล้วสต๊อกวัตถุดิบจะไม่ลดจนกว่าจะทำสูตรใหม่`,
       danger: true,
       run: async () => {
         if (await actions.deleteHeader(header.id)) onDeleted(header.id);

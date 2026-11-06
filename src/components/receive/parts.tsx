@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, Search, X, Trash2, PencilLine } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import { Input } from "@/components/ui/input";
@@ -182,14 +182,31 @@ export function RemoveButton({ onClick, label }: { onClick: () => void; label: s
   );
 }
 
+/** "ส่ง 8 รายการ · ฿11,970": each "·" part stays on one line, so a wrap never splits a phrase */
+function keepParts(text: React.ReactNode): React.ReactNode {
+  if (typeof text !== "string" || !text.includes(" · ")) return text;
+  const parts = text.split(" · ");
+  return parts.map((part, i) => (
+    // "·" ends the part before it; the space after sits outside the no-wrap span so the line breaks there
+    <Fragment key={i}>
+      {i > 0 && " "}
+      <span className="whitespace-nowrap">
+        {part}
+        {i < parts.length - 1 && " ·"}
+      </span>
+    </Fragment>
+  ));
+}
+
 /** Dark sticky footer: summary + main action (same look as the SaveBar) */
 export function ActionFooter({ title, sub, action, onAction, busy, disabled, tour }: { title: React.ReactNode; sub?: React.ReactNode; action: string; onAction: () => void; busy?: boolean; disabled?: boolean; tour?: string }) {
   return (
     <div data-tour={tour} className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 mt-4 md:bottom-4">
       <div className="flex items-center gap-3 rounded-2xl bg-primary py-3 pl-4 pr-3 text-primary-foreground shadow-raised">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-semibold">{title}</div>
-          {sub && <div className="truncate text-sm text-primary-foreground/70">{sub}</div>}
+          {/* Wraps instead of truncating (the end is often the amount), and only between "·" parts */}
+          <div className="text-[15px] font-semibold">{keepParts(title)}</div>
+          {sub && <div className="text-sm text-primary-foreground/70">{keepParts(sub)}</div>}
         </div>
         <Button variant="brand" className="h-12 min-w-[104px] text-base" loading={busy} disabled={disabled} onClick={onAction}>
           {action}

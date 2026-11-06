@@ -231,7 +231,7 @@ const roleLabels: Record<string, string> = {
   management: "ผู้บริหาร",
   ck_manager: "ครัวกลาง",
   store_manager: "หัวหน้าสาขา",
-  area_manager: "Area",
+  area_manager: "ผู้จัดการเขต",
 };
 
 /** The 4 daily jobs per role shown in the phone bottom bar (everything else: "เมนู") */

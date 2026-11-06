@@ -217,14 +217,15 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
 
   // `kitchen`: the kitchen card's own jobs, which readOnly (branch pages) doesn't stop
   const Row = ({ ok, warn, text, sub, action, tab, kitchen: own }: { ok: boolean; warn?: boolean; text: string; sub?: string; action?: string; tab?: TabKey; kitchen?: boolean }) => (
-    <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+    // The button drops to its own line when it and the text don't both fit (never squeeze the text)
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-3">
       <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold", ok ? "bg-success-soft text-success" : warn ? "bg-warning-soft text-warning" : "bg-destructive/10 text-destructive")}>{ok ? "✓" : "!"}</span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 basis-[13rem]">
         <span className="block break-words">{text}</span>
-        {sub && <span className="block break-words text-sm text-muted-foreground">{sub}</span>}
+        {sub && <span className="block whitespace-pre-line break-words text-sm text-muted-foreground">{sub}</span>}
       </span>
       {!ok && action && tab && (!readOnly || own) && (
-        <Button variant="outline" className="h-10 shrink-0" onClick={() => onNavigate(tab)}>
+        <Button variant="outline" className="ml-auto h-10 shrink-0" onClick={() => onNavigate(tab)}>
           {action}
         </Button>
       )}
@@ -235,9 +236,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-bold">{isStoreManager ? `วันนี้ · ${shown[0].branchName}` : "วันนี้"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {now.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })} · {showKitchen ? "งานของครัวกลางและทุกสาขา" : "งานของแต่ละสาขา"} แตะเพื่อไปทำต่อ
-        </p>
+        <p className="text-sm text-muted-foreground">{now.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })}</p>
       </div>
       {/* A failed read over figures already up: they are the earlier ones, said so (never shown as fresh) */}
       {(error && shownDays) || (kError && kDay) ? (
@@ -313,7 +312,7 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
                   <Row
                     ok={d.low.length === 0}
                     text={d.low.length ? `ใกล้หมด ${d.low.length} รายการ` : "ไม่มีของใกล้หมด"}
-                    sub={d.low.length ? d.low.slice(0, 3).map((x) => `${x.name} ${x.days.toFixed(1)} วัน`).join(" · ") + (d.low.length > 3 ? " · …" : "") : undefined}
+                    sub={d.low.length ? d.low.slice(0, 3).map((x) => `${x.name} ${x.days.toFixed(1)} วัน`).join("\n") + (d.low.length > 3 ? `\nและอีก ${d.low.length - 3} รายการ` : "") : undefined}
                     action="ไปขอเบิก"
                     tab="transfer-request"
                   />
@@ -324,7 +323,6 @@ export default function StoreOverview({ branches, onNavigate, readOnly, load = l
         })}
       </div>
       {shown.length > 0 && <MonthCalendar branches={shown} today={businessDate(now)} load={calendarLoad} canOpen={canOpenDays} />}
-      <p className="text-xs text-muted-foreground">ใกล้หมด = ยอดนับล่าสุด ÷ ที่ใช้ในวันนั้น ไม่ถึง {LOW_DAYS} วัน · ดูทั้งหมดที่หน้าสต๊อกสาขา</p>
     </div>
   );
 }

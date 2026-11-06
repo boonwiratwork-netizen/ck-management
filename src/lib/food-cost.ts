@@ -556,8 +556,8 @@ export function findAttention(input: {
       key: `menu-${m.code}`,
       tone: "amber",
       menuCode: m.code,
-      title: `${m.name}: ต้นทุน ${m.pct.toFixed(1)}% ของราคาขาย (เป้า ${FC_TARGET}%)`,
-      detail: `ขาย ${n0(m.qty)} · ต้นทุน ฿${m.perServing.toFixed(2)}/ที่`,
+      title: m.name,
+      detail: `ต้นทุน ${m.pct.toFixed(1)}% ของราคา (เป้า ${FC_TARGET}%) · ฿${m.perServing.toFixed(2)} ต่อจาน`,
     });
   }
   for (const r of input.std.skus.filter((s) => s.correction)) {
@@ -576,10 +576,10 @@ export function findAttention(input: {
     out.push({
       key: "unknown",
       tone: "amber",
-      title: `ขายแล้วไม่มีในรายการเมนู ${u.length} รหัส · ยอด ฿${n0(u.reduce((t, x) => t + x.revenue, 0))} ไม่มีต้นทุน`,
+      title: `มีเมนูที่ยังไม่ได้ตั้งในระบบ ${u.length} เมนู · ขายได้ ฿${n0(u.reduce((t, x) => t + x.revenue, 0))}`,
       detail: u
         .slice(0, 3)
-        .map((x) => `${x.code} ${x.name}`.trim())
+        .map((x) => (x.name || x.code).trim())
         .join(" · "),
     });
   }

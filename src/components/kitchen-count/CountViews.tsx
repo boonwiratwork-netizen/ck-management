@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MoreHorizontal, Printer, RefreshCw, Search } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { StockCountLine, StockCountSession } from "@/types/stock-count";
@@ -9,6 +9,7 @@ import { thaiDay } from "@/components/sales/SalesDays";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import type { CountDayEvent, CountTiming } from "@/lib/count-anchor";
 import { tableMinWidth } from "@/lib/design-tokens";
+import { useFitsWidth } from "@/hooks/use-fits-width";
 
 // Past counts: auto column = count date (short), 160px is enough
 const PAST_COUNTS_TABLE_MIN_W = tableMinWidth([130, 170, 120, 80], 160);
@@ -17,6 +18,8 @@ const COUNT_SHEET_TABLE_MIN_W = tableMinWidth([130, 190, 150], 250);
 
 export type CountType = "SM" | "RM" | "PK";
 export const TYPES: CountType[] = ["SM", "RM", "PK"];
+/** What people call each group (no SM/RM/PK on screen) */
+export const TYPE_LABEL: Record<CountType, string> = { SM: "ของครัวผลิต", RM: "วัตถุดิบ", PK: "บรรจุภัณฑ์" };
 export const STORAGES = [
   { key: "Frozen", label: "แช่แข็ง" },
   { key: "Chilled", label: "ตู้เย็น" },
@@ -89,7 +92,8 @@ export function CountHome({
   const done = summaries.filter((s) => s.session.status === "Completed");
   return (
     <div className="flex flex-col gap-4">
-      <section data-tour="kc-due" className="flex flex-wrap items-center gap-3 rounded-2xl border border-border border-l-4 border-l-brand bg-card p-4 shadow-card">
+      {/* Title on its own line; the buttons sit on a row below it on a phone (never squeeze the title) */}
+      <section data-tour="kc-due" className="flex flex-col gap-3 rounded-2xl border border-border border-l-4 border-l-brand bg-card p-4 shadow-card sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <div className="text-lg font-bold">
             นับสิ้นเดือน {month} · {thaiDay(dueDate)}
@@ -99,17 +103,19 @@ export function CountHome({
               ? due.session.status === "Completed"
                 ? "นับเสร็จแล้ว"
                 : `นับแล้ว ${due.counted} / ${due.total}`
-              : `${daysLeft > 0 ? `อีก ${daysLeft} วัน · ` : daysLeft === 0 ? "วันนี้ · " : ""}${totals.SM + totals.RM + totals.PK} รายการ (SM ${totals.SM} · RM ${totals.RM} · PK ${totals.PK})`}
+              : `${daysLeft > 0 ? `อีก ${daysLeft} วัน · ` : daysLeft === 0 ? "วันนี้ · " : ""}ต้องนับ ${totals.SM + totals.RM + totals.PK} รายการ`}
           </div>
         </div>
-        <Button variant="outline" className="h-11" onClick={onPrint}>
-          <Printer className="h-4 w-4" /> พิมพ์ใบนับ
-        </Button>
-        {canEdit && (
-          <Button variant="brand" className="h-12 min-w-[120px] text-base" loading={busy} data-tour="kc-start" onClick={due ? () => onOpen(dueDate) : onStart}>
-            {due ? (due.session.status === "Completed" ? "ดูผล" : "นับต่อ") : "เริ่มนับ"}
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-12 flex-1 sm:flex-none" onClick={onPrint}>
+            <Printer className="h-4 w-4" /> พิมพ์ใบนับ
           </Button>
-        )}
+          {canEdit && (
+            <Button variant="brand" className="h-12 min-w-[120px] flex-1 text-base sm:flex-none" loading={busy} data-tour="kc-start" onClick={due ? () => onOpen(dueDate) : onStart}>
+              {due ? (due.session.status === "Completed" ? "ดูผล" : "นับต่อ") : "เริ่มนับ"}
+            </Button>
+          )}
+        </div>
       </section>
 
       {summaries.some((s) => s.session.status === "Draft" && s.session.date !== dueDate) && (
@@ -133,7 +139,31 @@ export function CountHome({
         {done.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-4 text-sm text-muted-foreground">ยังไม่มี</div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card">
+          <>
+          {/* Phone: one row per count — date and counted on the left, the money difference on the right */}
+          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-card sm:hidden">
+            {done.slice(0, 12).map((s) => (
+              <li key={s.session.id}>
+                <button type="button" onClick={() => onOpen(s.session.date)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-secondary/50">
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{thaiDay(s.session.date)}</span>
+                    <span className="block text-[13px] text-muted-foreground">
+                      <span className="whitespace-nowrap">นับครบ {s.counted} / {s.total}</span>
+                      {s.big > 0 && <span className="whitespace-nowrap"> · ต่างมาก {s.big} รายการ</span>}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-xs text-muted-foreground">ต่างจากระบบ</span>
+                    <span className={cn("block font-mono tabular-nums", s.value < -0.5 ? "text-destructive" : s.value > 0.5 ? "text-success" : "")}>
+                      {s.value < 0 ? "−" : s.value > 0 ? "+" : ""}
+                      {baht(Math.abs(s.value))}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-card sm:block">
             <table className="w-full table-fixed text-sm" style={{ minWidth: PAST_COUNTS_TABLE_MIN_W }}>
               <colgroup>
                 <col />
@@ -173,12 +203,13 @@ export function CountHome({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
 
       {canEdit && (
         <section className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">นับวันอื่น (เช่น นับบางกลุ่มกลางเดือน)</span>
+          <span className="text-muted-foreground">นับวันอื่น</span>
           <Input type="date" max={toLocalDateStr(new Date())} value={other} onChange={(e) => setOther(e.target.value)} className="h-11 w-[170px]" />
           <Button variant="outline" className="h-11" disabled={!other} onClick={() => onOther(other)}>
             เปิดใบนับ
@@ -244,6 +275,55 @@ export function CountSheet({
   const left = shown.filter((l) => l.physicalQty === null).length;
   const created = toLocalDateStr(new Date(session.createdAt));
   const stale = !done && !refreshed && created < toLocalDateStr(new Date());
+  // The table needs ~720px; narrower (a phone) gets one card per item with the box under the name
+  const [fitRef, fitsNow] = useFitsWidth(COUNT_SHEET_TABLE_MIN_W);
+  // Don't swap table ⇄ cards while a count box is being typed in (e.g. the phone is turned):
+  // the box would vanish without a blur and the number would never save. Swap after it blurs.
+  const [fits, setFits] = useState(fitsNow);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement && active.closest('[data-tour="kc-lines"]')) {
+      const later = () => setFits(fitsNow);
+      active.addEventListener("blur", later, { once: true });
+      return () => active.removeEventListener("blur", later);
+    }
+    setFits(fitsNow);
+  }, [fitsNow]);
+
+  // Shared by the table and the phone cards — same defaultValue + onBlur save either way
+  const countBox = (l: StockCountLine, sku: SKU | undefined, uom: string) =>
+    done ? (
+      <div className="py-2.5 text-right font-mono">{l.physicalQty === null ? "—" : qty(l.physicalQty, uom)}</div>
+    ) : (
+      <span className="flex h-11 w-full items-center overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+        <input
+          inputMode="decimal"
+          disabled={!canEdit}
+          key={`${l.id}-${l.physicalQty}`}
+          defaultValue={l.physicalQty ?? ""}
+          placeholder="—"
+          onFocus={(e) => e.target.select()}
+          onBlur={(e) => {
+            const raw = e.target.value.trim();
+            const v = raw === "" ? null : parse(raw);
+            if (v !== l.physicalQty) onCount(l, v);
+          }}
+          className="h-full w-full min-w-0 bg-transparent px-3 text-right font-mono text-base tabular-nums outline-none placeholder:text-muted-foreground/50"
+          aria-label={`นับได้ ${sku?.name ?? ""}`}
+        />
+        <span className="shrink-0 pr-3 text-sm text-muted-foreground">{uom}</span>
+      </span>
+    );
+  const diffText = (l: StockCountLine, uom: string) => (l.physicalQty === null ? "" : Math.abs(l.variance) < 0.5 ? "—" : `${l.variance > 0 ? "+" : "−"}${qty(Math.abs(l.variance), uom)}`);
+  const diffTone = (l: StockCountLine) => (l.physicalQty === null || Math.abs(l.variance) < 0.5 ? "text-muted-foreground" : l.variance > 0 ? "text-success" : "text-destructive");
+  const noteBox = (l: StockCountLine) =>
+    !done ? (
+      <div className="max-w-[260px]">
+        <NoteField value={l.note} onChange={(n) => n !== l.note && onNote(l, n)} />
+      </div>
+    ) : (
+      l.note && <div className="text-[13px] text-muted-foreground">{l.note}</div>
+    );
 
   return (
     <div className="flex flex-col gap-3">
@@ -301,33 +381,87 @@ export function CountSheet({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5" data-tour="kc-types">
+      {/* Groups on one row, storage on the next (each scrolls sideways on a phone instead of wrapping into 3 rows) */}
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center" data-tour="kc-types">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         {TYPES.map((t) => {
           const all = ofType(t);
           return (
-            <button key={t} type="button" aria-pressed={type === t} className={cn(chip(type === t), "text-base")} onClick={() => setType(t)}>
-              {t} {all.filter((l) => l.physicalQty !== null).length}/{all.length}
+            <button key={t} type="button" aria-pressed={type === t} className={cn(chip(type === t), "shrink-0 whitespace-nowrap text-base")} onClick={() => setType(t)}>
+              {TYPE_LABEL[t]} {all.filter((l) => l.physicalQty !== null).length}/{all.length}
             </button>
           );
         })}
+        </div>
         <span className="mx-1 hidden h-7 w-px bg-border sm:block" />
-        <button type="button" className={chip(storage === "all")} onClick={() => setStorage("all")}>
+        <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-1 sm:px-0">
+        <button type="button" className={cn(chip(storage === "all"), "shrink-0 whitespace-nowrap")} onClick={() => setStorage("all")}>
           ทุกช่องเก็บ
         </button>
         {STORAGES.map((s) => (
-          <button key={s.key} type="button" className={chip(storage === s.key)} onClick={() => setStorage(s.key)}>
+          <button key={s.key} type="button" className={cn(chip(storage === s.key), "shrink-0 whitespace-nowrap")} onClick={() => setStorage(s.key)}>
             {s.label}
           </button>
         ))}
         {type === "RM" && (
-          <button type="button" aria-pressed={ckOnly} className={chip(ckOnly)} onClick={() => setCkOnly((c) => !c)}>
+          <button type="button" aria-pressed={ckOnly} className={cn(chip(ckOnly), "shrink-0 whitespace-nowrap")} onClick={() => setCkOnly((c) => !c)}>
             เฉพาะของครัว
           </button>
         )}
-        {!done && <span className="ml-auto text-sm text-muted-foreground">ยังไม่นับ {left}</span>}
+        {!done && <span className="ml-auto shrink-0 whitespace-nowrap pl-2 text-sm text-muted-foreground">ยังไม่นับ {left}</span>}
+        </div>
       </div>
 
-      <div data-tour="kc-lines" className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card" onKeyDown={onEnterNext}>
+      <div ref={fitRef} data-tour="kc-lines" className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card" onKeyDown={onEnterNext}>
+        {!fits ? (
+          <ul>
+            {shown.map((l, i) => {
+              const sku = skuOf(l.skuId);
+              const uom = sku?.usageUom ?? "";
+              const prevStorage = i > 0 ? skuOf(shown[i - 1].skuId)?.storageCondition : null;
+              const st = sku?.storageCondition ?? "";
+              const flag = isBigDiff(l);
+              return [
+                storage === "all" && st !== prevStorage && (
+                  <li key={`z-${st}-${l.id}`} className={cn("bg-secondary/40 px-4 py-1.5 text-[13px] font-semibold text-muted-foreground", i > 0 && "border-t border-border")}>
+                    {STORAGES.find((x) => x.key === st)?.label ?? (st || "ไม่ระบุช่องเก็บ")}
+                  </li>
+                ),
+                <li key={l.id} className={cn("flex flex-col gap-1.5 border-t border-border px-4 py-3", flag && "bg-warning-soft/40")}>
+                  <div className="font-semibold leading-snug">
+                    {sku?.name ?? "สินค้าที่ถูกลบ"} <span className="whitespace-nowrap font-mono text-xs font-normal text-muted-foreground">{sku?.skuId}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1 text-[13px]">
+                      <div className="text-muted-foreground">
+                        ระบบมี <span className={cn("whitespace-nowrap font-mono tabular-nums", l.systemQty < 0 && "text-destructive")}>{qty(l.systemQty, uom)}</span>
+                      </div>
+                      {l.physicalQty !== null && (
+                        <div className={cn(diffTone(l), flag && "font-semibold")}>
+                          ต่าง <span className="whitespace-nowrap font-mono tabular-nums">{diffText(l, uom)}</span>
+                          {flag && priceOf(l.skuId) > 0 && <span className="whitespace-nowrap font-mono tabular-nums"> · {l.variance > 0 ? "+" : "−"}{baht(Math.abs(l.variance * priceOf(l.skuId)))}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-[150px] shrink-0">
+                      {done ? (
+                        <div className="text-right text-[13px]">
+                          <span className="text-muted-foreground">นับได้ </span>
+                          <b className="whitespace-nowrap font-mono tabular-nums">{l.physicalQty === null ? "—" : qty(l.physicalQty, uom)}</b>
+                        </div>
+                      ) : (
+                        countBox(l, sku, uom)
+                      )}
+                    </div>
+                  </div>
+                  {noteBox(l)}
+                </li>,
+              ];
+            })}
+            {shown.length === 0 && <li className="px-3 py-6 text-center text-muted-foreground">ไม่มีสินค้าในกลุ่มนี้</li>}
+          </ul>
+        ) : (
+        // desktop-only: under ~720px of room (phones, narrow tablets) the card list above shows instead
         <table className="w-full table-fixed text-sm" style={{ minWidth: COUNT_SHEET_TABLE_MIN_W }}>
           <colgroup>
             <col />
@@ -362,41 +496,12 @@ export function CountSheet({
                   <td className="px-3 py-2.5">
                     <div className="font-semibold leading-snug">{sku?.name ?? "สินค้าที่ถูกลบ"}</div>
                     <div className="font-mono text-[12px] text-muted-foreground">{sku?.skuId}</div>
-                    {!done ? (
-                      <div className="max-w-[260px]">
-                        <NoteField value={l.note} onChange={(n) => n !== l.note && onNote(l, n)} />
-                      </div>
-                    ) : (
-                      l.note && <div className="text-[13px] text-muted-foreground">{l.note}</div>
-                    )}
+                    {noteBox(l)}
                   </td>
                   <td className={cn("px-3 py-3 text-right font-mono", l.systemQty < 0 ? "text-destructive" : "text-muted-foreground")}>{qty(l.systemQty, uom)}</td>
-                  <td className="px-3 py-2">
-                    {done ? (
-                      <div className="py-2.5 text-right font-mono">{l.physicalQty === null ? "—" : qty(l.physicalQty, uom)}</div>
-                    ) : (
-                      <span className="flex h-11 w-full items-center overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-                        <input
-                          inputMode="decimal"
-                          disabled={!canEdit}
-                          key={`${l.id}-${l.physicalQty}`}
-                          defaultValue={l.physicalQty ?? ""}
-                          placeholder="—"
-                          onFocus={(e) => e.target.select()}
-                          onBlur={(e) => {
-                            const raw = e.target.value.trim();
-                            const v = raw === "" ? null : parse(raw);
-                            if (v !== l.physicalQty) onCount(l, v);
-                          }}
-                          className="h-full w-full min-w-0 bg-transparent px-3 text-right font-mono text-base tabular-nums outline-none placeholder:text-muted-foreground/50"
-                          aria-label={`นับได้ ${sku?.name ?? ""}`}
-                        />
-                        <span className="shrink-0 pr-3 text-sm text-muted-foreground">{uom}</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className={cn("px-3 py-3 text-right font-mono", l.physicalQty === null || Math.abs(l.variance) < 0.5 ? "text-muted-foreground" : l.variance > 0 ? "text-success" : "text-destructive", flag && "font-semibold")}>
-                    {l.physicalQty === null ? "" : Math.abs(l.variance) < 0.5 ? "—" : `${l.variance > 0 ? "+" : "−"}${qty(Math.abs(l.variance), uom)}`}
+                  <td className="px-3 py-2">{countBox(l, sku, uom)}</td>
+                  <td className={cn("px-3 py-3 text-right font-mono", diffTone(l), flag && "font-semibold")}>
+                    {diffText(l, uom)}
                     {flag && priceOf(l.skuId) > 0 && <div className="text-[12px]">{l.variance > 0 ? "+" : "−"}{baht(Math.abs(l.variance * priceOf(l.skuId)))}</div>}
                   </td>
                 </tr>,
@@ -411,6 +516,7 @@ export function CountSheet({
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       {!done && (
@@ -507,7 +613,7 @@ export function CountReview({
                   return (
                     <tr key={l.id} className="border-t border-border first:border-0">
                       <td className="py-2 pr-3">
-                        {sku?.name} <span className="text-[12px] text-muted-foreground">· {l.type}</span>
+                        {sku?.name} <span className="text-[12px] text-muted-foreground">· {TYPE_LABEL[l.type as CountType] ?? l.type}</span>
                       </td>
                       <td className="py-2 pr-3 text-right font-mono text-muted-foreground">ระบบ {qty(l.systemQty, uom)}</td>
                       <td className="py-2 pr-3 text-right font-mono">นับ {qty(l.physicalQty ?? 0, uom)}</td>

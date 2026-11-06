@@ -98,12 +98,13 @@ function LotChip({ v, onOpen }: { v: ReturnType<typeof lineFacts>; onOpen: () =>
       data-tour="to-lot"
       onClick={onOpen}
       className={cn(
-        "inline-flex min-h-[32px] max-w-full items-center gap-1 self-start rounded-full border px-3 text-left text-[13px] font-semibold",
+        "inline-flex min-h-[32px] max-w-full flex-wrap items-center gap-x-1 self-start rounded-2xl border px-3 py-1 text-left text-[13px] font-semibold",
         ok ? "border-success/30 bg-success-soft text-success" : "border-warning/40 bg-warning-soft text-warning",
       )}
     >
-      <span className="truncate">{text}</span>
-      {ok ? <Check className="h-3.5 w-3.5 shrink-0" /> : gap === 0 ? <span className="shrink-0">· ยังบันทึกไม่ได้</span> : <span className="shrink-0">· {gap > 0 ? `ขาด ${gap}` : `เกิน ${-gap}`} แพ็ค</span>}
+      {/* Wraps instead of cutting the lot date; the shortfall stays whole */}
+      <span className="min-w-0">{text}</span>
+      {ok ? <Check className="h-3.5 w-3.5 shrink-0" /> : gap === 0 ? <span className="whitespace-nowrap">· ยังบันทึกไม่ได้</span> : <span className="whitespace-nowrap">· {gap > 0 ? `ขาด ${gap}` : `เกิน ${-gap}`} แพ็ค</span>}
     </button>
   );
 }
@@ -277,12 +278,11 @@ export function PackSheet(p: SheetProps) {
         </button>
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-bold">{edit ? `แก้ใบที่ส่งแล้ว · ${form.branchName}` : `จัดของส่ง ${form.branchName}`}</h2>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-mono">{form.toNumber}</span>
-            {form.trNumber && <> · ตามใบขอ <span className="font-mono">{form.trNumber}</span></>}
-            {form.requiredDate && <> · ต้องการ {thaiDay(form.requiredDate)}</>}
-            {!edit && " · บันทึกให้อัตโนมัติ"}
-            {fits && <span> · กด Enter ไปช่องถัดไป</span>}
+          {/* One useful line (the day needed); codes small underneath. "บันทึกให้อัตโนมัติ" / Enter tip live in the tour */}
+          {form.requiredDate && <p className="text-sm text-muted-foreground">ต้องการ {thaiDay(form.requiredDate)}</p>}
+          <p className="font-mono text-xs text-muted-foreground">
+            <span className="whitespace-nowrap">{form.toNumber}</span>
+            {form.trNumber && <> <span className="whitespace-nowrap">· ขอ {form.trNumber}</span></>}
           </p>
         </div>
         {!edit && (
@@ -413,9 +413,9 @@ export function PackSheet(p: SheetProps) {
         title={edit ? `${sending} รายการ · ${baht(value)}` : `ส่ง ${sending}${asked ? ` จาก ${asked}` : ""} รายการ · ${baht(value)}`}
         sub={
           check.lotMismatch.length + check.overStock.length > 0
-            ? `ต้องดู ${issueIds.size} รายการ${check.overStock.length ? " · ของในครัวไม่พอ" : ""}${check.lotMismatch.length ? " · ล็อตไม่ครบ" : ""}`
+            ? `ต้องดู ${issueIds.size} รายการ`
             : lots.unsaved?.size
-              ? `ล็อต ${lots.unsaved.size} รายการยังบันทึกไม่ได้ · จะลองใหม่ตอนส่ง`
+              ? `ล็อต ${lots.unsaved.size} รายการยังไม่ได้บันทึก`
               : edit
               ? "การเปลี่ยนแปลงจะมีผลกับสต๊อกทันที"
               : "ทุกรายการพร้อมส่ง"

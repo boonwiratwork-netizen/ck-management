@@ -27,12 +27,12 @@ export function ImportCard({ busy, onCheck, onProfiles }: { busy: boolean; onChe
           <ClipboardList className="h-5 w-5 text-brand" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-semibold">นำยอดขายจาก POS เข้า</h2>
-          <p className="text-sm text-muted-foreground">วางได้หลายวันพร้อมกัน ระบบดูรูปแบบ POS ให้เอง</p>
+          <h2 className="text-[15px] font-semibold">เอายอดขายจากเครื่องขายเข้า</h2>
+          <p className="text-sm text-muted-foreground">วางได้หลายวันพร้อมกัน</p>
         </div>
       </div>
       <label className="block">
-        <span className="sr-only">ข้อมูลจาก POS</span>
+        <span className="sr-only">ยอดขายจากเครื่องขาย</span>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -41,14 +41,14 @@ export function ImportCard({ busy, onCheck, onProfiles }: { busy: boolean; onChe
             e.preventDefault();
             readFile(e.dataTransfer.files?.[0]);
           }}
-          placeholder="กดค้างแล้ววาง หรือ Ctrl+V · ลากไฟล์ CSV มาวางก็ได้"
+          placeholder="กดค้างแล้วเลือก “วาง” หรือลากไฟล์มาวาง"
           rows={4}
           className="w-full resize-none rounded-xl border border-dashed border-input bg-background px-3 py-2.5 font-mono text-base md:text-sm"
         />
       </label>
       <div className="flex gap-2">
         <Button variant="outline" className="h-11 flex-1" onClick={() => fileRef.current?.click()}>
-          <Upload className="h-4 w-4" /> เลือกไฟล์ CSV
+          <Upload className="h-4 w-4" /> เลือกไฟล์ยอดขาย
         </Button>
         <Button data-tour="check" variant="brand" className="h-11 flex-1 text-[15px]" loading={busy} disabled={!text.trim()} onClick={() => onCheck(text, "paste")}>
           ตรวจข้อมูล
@@ -65,7 +65,7 @@ export function ImportCard({ busy, onCheck, onProfiles }: { busy: boolean; onChe
         }}
       />
       <button type="button" onClick={onProfiles} className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-        รูปแบบ POS ที่ตั้งไว้
+        แบบไฟล์จากเครื่องขาย
       </button>
     </section>
   );
@@ -115,7 +115,7 @@ export function CheckView({
           ) : (
             <p className="text-[15px] leading-relaxed">ไม่พบแถวที่มีวันที่ รหัสเมนู และจำนวน</p>
           )}
-          <p className="text-sm leading-relaxed text-muted-foreground">น่าจะคัดลอกมาผิดหน้าใน POS ให้เปิดรายงานยอดขายรายเมนูแล้วคัดลอกใหม่ ระบบจะไม่บันทึกข้อมูลนี้</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">น่าจะคัดลอกมาผิดหน้าในเครื่องขาย ให้เปิดรายงานยอดขายรายเมนูแล้วคัดลอกใหม่ ระบบจะไม่บันทึกข้อมูลนี้</p>
         </section>
         {sample.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border bg-card text-sm">
@@ -178,7 +178,7 @@ export function CheckView({
         </span>
       </div>
 
-      <h3 className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">วันที่อยู่ในข้อมูลนี้</h3>
+      <h3 className="mt-1 text-[15px] font-semibold">วันที่อยู่ในข้อมูลนี้</h3>
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         {plans.map((p) => {
           const mode = modes[p.date] ?? "add";
@@ -309,9 +309,9 @@ export function ProfilesDialog({
       <Dialog open={open && editing === null} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>รูปแบบ POS ที่ตั้งไว้</DialogTitle>
+            <DialogTitle>แบบไฟล์จากเครื่องขาย</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">ระบบลองอ่านทุกแบบแล้วเลือกแบบที่อ่านรหัสเมนูได้มากที่สุดให้เอง แก้ที่นี่เมื่อ POS เปลี่ยนตำแหน่งคอลัมน์</p>
+          <p className="text-sm text-muted-foreground">ระบบลองอ่านทุกแบบแล้วเลือกแบบที่อ่านรหัสเมนูได้มากที่สุดให้เอง แก้ที่นี่เมื่อเครื่องขายเปลี่ยนตำแหน่งคอลัมน์</p>
           <ul className="divide-y divide-border rounded-xl border border-border">
             {profiles.map((p) => (
               <li key={p.id} className="flex items-center gap-2 px-3 py-2">

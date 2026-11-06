@@ -95,9 +95,11 @@ export function ReceiveHistory({ history, loading, skuMap, branches, showBranch,
                           <span className="break-words text-[15px]">{sku?.name ?? "สินค้าที่ถูกลบไปแล้ว"}</span>
                           {r.notes && <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={r.notes} />}
                         </div>
-                        <div className="truncate text-sm text-muted-foreground">
-                          <span className={cn(r.toNumber && "font-mono")}>{source(r)}</span>
-                          {showBranch && ` · ${branchName(r.branchId)}`} · {packLabel(sku, r.qtyReceived)}
+                        {/* Quantity first so it is never the part that gets cut; TO code small at the end */}
+                        <div className="text-sm text-muted-foreground">
+                          <span className="whitespace-nowrap">{packLabel(sku, r.qtyReceived)}</span> · {r.toNumber ? "ครัวกลาง" : source(r)}
+                          {showBranch && ` · ${branchName(r.branchId)}`}
+                          {r.toNumber && <> <span className="whitespace-nowrap font-mono text-xs">{r.toNumber}</span></>}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">

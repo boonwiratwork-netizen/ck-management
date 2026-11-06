@@ -80,7 +80,7 @@ export function RecipeEditor({ menu, sharedLines, branchLines, branches, skus, p
 
             {block.lines.length === 0 && !adding && (
               <p className="px-4 py-4 text-sm text-muted-foreground">
-                {block.branchId ? "ไม่มีบรรทัดเฉพาะสาขา" : hasLinked ? "ไม่มีวัตถุดิบเพิ่มจากสูตรต้นทาง" : "ยังไม่มีวัตถุดิบ — ขายเมนูนี้แล้วจะไม่ตัดของ"}
+                {block.branchId ? "ไม่มีแถวเฉพาะสาขา" : hasLinked ? "ไม่มีวัตถุดิบเพิ่มจากสูตรต้นทาง" : "ยังไม่มีวัตถุดิบ ขายแล้วสต๊อกจะไม่ลด"}
               </p>
             )}
 
@@ -160,7 +160,7 @@ export function RecipeEditor({ menu, sharedLines, branchLines, branches, skus, p
         open={!!toDelete}
         onOpenChange={(open) => !open && setToDelete(null)}
         title="ลบวัตถุดิบออกจากสูตร"
-        description={`ลบ "${toDelete ? skuById.get(toDelete.skuId)?.name ?? "" : ""}" ออกจากสูตร ${menu.menuCode}?\nยอดขายหลังจากนี้จะไม่ตัดวัตถุดิบนี้`}
+        description={`ลบ "${toDelete ? skuById.get(toDelete.skuId)?.name ?? "" : ""}" ออกจากสูตร ${menu.menuCode}?\nยอดขายหลังจากนี้จะไม่ใช้วัตถุดิบนี้`}
         confirmLabel="ลบ"
         variant="destructive"
         onConfirm={async () => {

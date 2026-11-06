@@ -25,6 +25,10 @@ const VERDICT: Record<Verdict, { label: string; cls: string }> = {
   error: { label: "มีปัญหา", cls: "bg-destructive/10 text-destructive" },
 };
 
+/** Words on screen (the dataset's own label/unit also name the files, so they stay) */
+const shownLabel = (d: Dataset) => (d.label === "สูตร SP" ? "สูตรของหน้าร้านเตรียม" : d.label);
+const shownUnit = (d: Dataset) => (d.unit === "บรรทัด" ? "แถว" : d.unit);
+
 /**
  * Bulk changes by file, for the six things that have them (replaces the import
  * buttons of six old pages): a template, today's data in the same columns, and an
@@ -44,31 +48,32 @@ export function FilesView({ ctx, saves, canImport, onExportAll }: Props) {
       </div>
       <ul className="divide-y divide-border border-t border-border">
         {DATASETS.map((d) => (
-          <li key={d.key} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-            <span className="min-w-[140px] flex-1">
-              <span className="block font-medium">{d.label}</span>
-              <span className="block text-xs text-muted-foreground">
-                <span className="font-mono">{counts[d.key].toLocaleString()}</span> {d.unit}
+          <li key={d.key} className="flex flex-wrap items-center gap-1 px-4 py-2.5">
+            {/* Name on its own line on a phone; the buttons sit under it */}
+            <span className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+              <span className="font-medium">{shownLabel(d)}</span>{" "}
+              <span className="whitespace-nowrap text-sm text-muted-foreground">
+                <span className="font-mono">{counts[d.key].toLocaleString()}</span> {shownUnit(d)}
               </span>
             </span>
-            <Button variant="ghost" className="h-10" onClick={() => writeRows(`แม่แบบ_${d.label}.xlsx`, d.columns.map((c) => c.name), [d.example])}>
-              แม่แบบ
-            </Button>
-            <Button variant="ghost" className="h-10" onClick={() => writeRows(`${d.label}_${today}.xlsx`, [...d.columns.map((c) => c.name), ...(d.exportOnly ?? [])], d.current(ctx))}>
+            <Button variant="ghost" className="h-10 px-3" onClick={() => writeRows(`${d.label}_${today}.xlsx`, [...d.columns.map((c) => c.name), ...(d.exportOnly ?? [])], d.current(ctx))}>
               <Download className="h-4 w-4" /> ส่งออก
             </Button>
             {canImport(d.key) && (
-              <Button variant="outline" className="h-10" onClick={() => setImporting(d)}>
+              <Button variant="outline" className="h-10 px-3" onClick={() => setImporting(d)}>
                 <Upload className="h-4 w-4" /> นำเข้า
               </Button>
             )}
+            <Button variant="ghost" className="h-10 px-3 text-muted-foreground" onClick={() => writeRows(`แม่แบบ_${d.label}.xlsx`, d.columns.map((c) => c.name), [d.example])}>
+              <FileSpreadsheet className="h-4 w-4" /> ไฟล์ตัวอย่าง
+            </Button>
           </li>
         ))}
         {onExportAll && (
           <li className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-            <span className="min-w-[140px] flex-1">
-              <span className="block font-medium">สูตรทั้งหมด (SM · SP · เมนู)</span>
-              <span className="block text-xs text-muted-foreground">ไฟล์สรุปสำหรับอ่าน มีต้นทุนทุกสูตร · นำเข้ากลับไม่ได้</span>
+            <span className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+              <span className="block font-medium">สูตรทั้งหมดในไฟล์เดียว</span>
+              <span className="block text-sm text-muted-foreground">มีต้นทุนทุกสูตร ไว้อ่านอย่างเดียว</span>
             </span>
             <Button variant="ghost" className="h-10" onClick={onExportAll}>
               <Download className="h-4 w-4" /> ส่งออก
@@ -76,7 +81,6 @@ export function FilesView({ ctx, saves, canImport, onExportAll }: Props) {
           </li>
         )}
       </ul>
-      <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">ส่งออกแล้วแก้ใน Excel นำเข้ากลับได้ · ก่อนบันทึกจะเห็นทุกแถวว่าใหม่ เปลี่ยน หรือมีปัญหา</p>
       {importing && <ImportSheet dataset={importing} ctx={ctx} save={saves[importing.key]} onClose={() => setImporting(null)} />}
     </section>
   );
@@ -112,15 +116,15 @@ function ImportSheet({ dataset, ctx, save, onClose }: { dataset: Dataset; ctx: I
     setBusy(true);
     const res = await save(rows);
     setBusy(false);
-    if (res.saved) toast.success(`บันทึก${dataset.label} ${res.saved.toLocaleString()} ${dataset.unit === "บรรทัด" ? "บรรทัด" : "รายการ"}แล้ว${res.failed ? ` · ไม่สำเร็จ ${res.failed}` : ""}`, res.note ? { description: res.note } : undefined);
-    else toast.error(`บันทึก${dataset.label}ไม่สำเร็จ`);
+    if (res.saved) toast.success(`บันทึก${shownLabel(dataset)} ${res.saved.toLocaleString()} ${dataset.unit === "บรรทัด" ? "แถว" : "รายการ"}แล้ว${res.failed ? ` · ไม่สำเร็จ ${res.failed}` : ""}`, res.note ? { description: res.note } : undefined);
+    else toast.error(`บันทึก${shownLabel(dataset)}ไม่สำเร็จ`);
     if (res.saved) onClose();
   };
   const shown = (preview ?? []).filter((p) => show === "all" || p.verdict === show);
 
   return (
     <EditSheet
-      title={`นำเข้า › ${dataset.label}`}
+      title={`นำเข้า › ${shownLabel(dataset)}`}
       onClose={onClose}
       footer={
         preview && sum ? (
@@ -151,7 +155,7 @@ function ImportSheet({ dataset, ctx, save, onClose }: { dataset: Dataset; ctx: I
           <button type="button" disabled={busy} onClick={() => file.current?.click()} className="flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-secondary/40 px-4 text-center hover:bg-secondary">
             <Upload className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
             <span className="font-medium">{busy ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel หรือ CSV"}</span>
-            <span className="text-sm text-muted-foreground">แถวแรกเป็นชื่อคอลัมน์ ตามแม่แบบ</span>
+            <span className="text-sm text-muted-foreground">แถวแรกเป็นชื่อคอลัมน์ เหมือนไฟล์ตัวอย่าง</span>
           </button>
           <details className="rounded-xl border border-border px-3 py-2 text-sm">
             <summary className="min-h-[32px] cursor-pointer font-medium">คอลัมน์ในไฟล์</summary>
@@ -170,7 +174,7 @@ function ImportSheet({ dataset, ctx, save, onClose }: { dataset: Dataset; ctx: I
           <p className="break-all text-sm text-muted-foreground">
             {name} · {preview.length.toLocaleString()} รายการ
           </p>
-          {missing.length > 0 && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">ไฟล์ไม่มีคอลัมน์ {missing.join(", ")} · ใช้แม่แบบ หรือไฟล์ที่ส่งออกจากที่นี่</p>}
+          {missing.length > 0 && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">ไฟล์ไม่มีคอลัมน์ {missing.join(", ")} · ใช้ไฟล์ตัวอย่าง หรือไฟล์ที่ส่งออกจากที่นี่</p>}
           <div className="flex flex-wrap gap-1.5">
             {(["all", "new", "change", "same", "skip", "error"] as const).map((v) => {
               const n = v === "all" ? preview.length : sum![v];

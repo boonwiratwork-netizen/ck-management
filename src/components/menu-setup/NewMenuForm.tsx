@@ -77,7 +77,7 @@ export function NewMenuForm({ menus, branches, nextCode, addMenu, closeAt, onCre
       }}
     >
       <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">เมนูใหม่ · ขั้นที่ 1 จาก 4</div>
+        <div className="text-sm font-semibold text-muted-foreground">เมนูใหม่ · ขั้นที่ 1 จาก 4</div>
         <h3 className="mt-1 text-xl font-bold">ข้อมูลเมนู</h3>
         <p className="text-sm text-muted-foreground">ถัดไป: ตั้งสูตร · เช็คราคาวัตถุดิบ · เลือกสาขา — ระบบพาไปทีละขั้น</p>
       </div>
@@ -108,7 +108,7 @@ export function NewMenuForm({ menus, branches, nextCode, addMenu, closeAt, onCre
 
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="nm-code">รหัสเมนู (ตรงกับ POS)</label>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="nm-code">รหัสเมนู (ตรงกับเครื่องขาย)</label>
           <Input id="nm-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className="h-11 font-mono" autoComplete="off" />
           <FieldError message={errors.code && (tried || codeTaken) ? errors.code : null} />
         </div>

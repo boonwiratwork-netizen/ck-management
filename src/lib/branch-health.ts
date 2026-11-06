@@ -85,8 +85,8 @@ export function summarizeBranch(input: {
       id: "no-recipe",
       level: "error",
       area: "recipe",
-      title: `ขายแล้วไม่ตัดของ ${soldNoRecipe.length} เมนู`,
-      detail: `${soldNoRecipe.map((r) => r.menu.menuCode).join(", ")} · ขายแล้วไม่ตัดวัตถุดิบ`,
+      title: `ขายแล้วแต่ยังไม่มีสูตร ${soldNoRecipe.length} เมนู`,
+      detail: `${soldNoRecipe.slice(0, 5).map((r) => r.menu.menuName || r.menu.menuCode).join(", ")}${soldNoRecipe.length > 5 ? " …" : ""} · สต๊อกวัตถุดิบไม่ลด`,
     });
 
   const unknownCodes: { code: string; qty: number }[] = [];
@@ -105,10 +105,10 @@ export function summarizeBranch(input: {
         id: "unknown-codes",
         level: "error",
         area: "info",
-        title: `ขายรหัสที่ไม่มีในรายการเมนู ${unknownCodes.length} รหัส`,
-        detail: `${unknownCodes.slice(0, 8).map((u) => `${u.code} (${u.qty})`).join(", ")} · ยอดขายพวกนี้ไม่ตัดของเลย ต้องสร้างเมนูรหัสนี้ หรือแก้รหัสใน POS`,
+        title: `มีเมนูที่ยังไม่ได้ตั้งในระบบ ${unknownCodes.length} เมนู`,
+        detail: `${unknownCodes.slice(0, 8).map((u) => `${u.code} (${u.qty})`).join(", ")} · ขายแล้วสต๊อกไม่ลด ตั้งเมนูรหัสนี้ หรือแก้รหัสในเครื่องขาย`,
       });
-    else checks.push({ id: "unknown-codes", level: "ok", area: "info", title: "ทุกรหัสที่ขายมีในรายการเมนู" });
+    else checks.push({ id: "unknown-codes", level: "ok", area: "info", title: "ทุกเมนูที่ขายตั้งในระบบแล้ว" });
   }
 
   // Rules limited to other branches but used on this brand's menus never fire here
@@ -125,10 +125,10 @@ export function summarizeBranch(input: {
       id: "rules-elsewhere",
       level: "warn",
       area: "rules",
-      title: `กฎ ${elsewhere.length} ตัวของเมนูแบรนด์นี้ไม่ได้เลือกสาขานี้`,
-      detail: `${elsewhere.slice(0, 8).map((r) => `"${r.keyword}"`).join(", ")}${elsewhere.length > 8 ? " …" : ""} · ถ้าสาขานี้ขายตัวเลือกพวกนี้ด้วย ต้องเพิ่มสาขานี้ในกฎ ไม่งั้นไม่ตัดของ`,
+      title: `ตัวเลือก ${elsewhere.length} อย่างยังไม่ได้ตั้งให้สาขานี้`,
+      detail: `${elsewhere.slice(0, 3).map((r) => `"${r.keyword}"`).join(", ")}${elsewhere.length > 3 ? " …" : ""} · ถ้าสาขานี้ขายด้วย ให้เพิ่มสาขานี้ ไม่งั้นสต๊อกไม่ลด`,
     });
-  else checks.push({ id: "rules-elsewhere", level: "ok", area: "rules", title: "กฎของแบรนด์นี้ครอบคลุมสาขานี้" });
+  else checks.push({ id: "rules-elsewhere", level: "ok", area: "rules", title: "ตัวเลือกของแบรนด์นี้ตั้งให้สาขานี้ครบ" });
 
   return { rows, checks, unknownCodes };
 }

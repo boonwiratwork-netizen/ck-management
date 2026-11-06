@@ -69,9 +69,9 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
       <section className="rounded-2xl bg-primary p-5 text-primary-foreground shadow-raised md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">เมนูที่ตั้งครบ</div>
+            <div className="text-[15px] font-semibold text-primary-foreground/90">เมนูที่ตั้งครบ</div>
             <div className="mt-1 font-mono text-5xl font-bold tabular-nums text-highlight">{readyPct}%</div>
-            <div className="text-sm text-primary-foreground/60">
+            <div className="text-sm text-primary-foreground/80">
               {tally.ok.toLocaleString()} จาก {active.length.toLocaleString()} เมนูที่เปิดอยู่
             </div>
           </div>
@@ -84,7 +84,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
               ] as const
             ).map(([lvl, label, n]) => (
               <div key={lvl} className="rounded-xl bg-white/[0.06] px-3 py-2">
-                <div className="text-sm text-primary-foreground/70">{label}</div>
+                <div className="text-sm text-primary-foreground/80">{label}</div>
                 <div className={cn("font-mono text-xl font-bold tabular-nums", lvl === "error" && n > 0 && "text-[hsl(var(--palette-red-soft))]")}>{n}</div>
               </div>
             ))}
@@ -113,8 +113,10 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
                   <span className="block break-words text-[15px] font-semibold">
                     {branch.branchName} <span className="font-normal text-muted-foreground">· {branch.brandName || "ไม่มีแบรนด์"}</span>
                   </span>
-                  <span className="block truncate text-sm text-muted-foreground">
-                    {lvl === "ok" ? "พร้อม" : [...errors, ...warns].map((c) => c.title).join(" · ")}
+                  {/* The first problem in full; the rest as a count (never cut mid-sentence) */}
+                  <span className="block break-words text-sm text-muted-foreground">
+                    {lvl === "ok" ? "พร้อม" : [...errors, ...warns][0].title}
+                    {errors.length + warns.length > 1 && <span className="whitespace-nowrap"> · อีก {errors.length + warns.length - 1} เรื่อง</span>}
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -149,7 +151,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
                       <span className="block text-[15px] font-medium">{g.title}</span>
                       <span className="block text-sm text-muted-foreground">{g.why}</span>
                     </span>
-                    <span className="shrink-0 font-mono text-sm tabular-nums">{g.menus.length} เมนู</span>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm tabular-nums">{g.menus.length} เมนู</span>
                     <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden="true" />
                   </button>
                   {expanded && (
@@ -163,7 +165,7 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
                           >
                             <span className="min-w-0 flex-1">
                               <span className="block break-words text-[15px]">
-                                <span className="font-mono text-muted-foreground">{menu.menuCode}</span> {menu.menuName}
+                                {menu.menuName} <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">{menu.menuCode}</span>
                               </span>
                               {detail !== g.title && <span className="block truncate text-sm text-muted-foreground">{detail}</span>}
                             </span>
@@ -183,10 +185,13 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
       {/* Unpriced ingredients */}
       {unpriced.length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-          <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h3 className="text-base font-semibold">วัตถุดิบในสูตรที่ยังไม่มีราคา {unpriced.length} ตัว</h3>
-              <p className="text-sm text-muted-foreground">ใส่ราคาตัวบนสุดก่อน — กระทบหลายเมนูที่สุด</p>
+          {/* Text on top, button under it: the title never squeezes beside the button */}
+          <header className="flex flex-col items-start gap-2 border-b border-border px-4 py-3">
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold">
+                วัตถุดิบยังไม่มีราคา <span className="whitespace-nowrap">{unpriced.length} ตัว</span>
+              </h3>
+              <p className="text-sm text-muted-foreground">ใส่ตัวบนสุดก่อน ใช้ในหลายเมนูที่สุด</p>
             </div>
             <Button variant="outline" className="h-10" onClick={() => onNavigate("price")}>
               ไปหน้าราคา
@@ -195,14 +200,10 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
           <ul className="divide-y divide-border">
             {(allUnpriced ? unpriced : unpriced.slice(0, 8)).map((u) => (
               <li key={u.skuId} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block break-words text-[15px]">{u.sku?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
-                  <span className="block truncate text-sm text-muted-foreground">
-                    <span className="font-mono">{u.sku?.skuId ?? "—"}</span> · {u.menus.map((m) => m.menuCode).slice(0, 6).join(", ")}
-                    {u.menus.length > 6 ? " …" : ""}
-                  </span>
+                <span className="min-w-0 flex-1 break-words text-[15px]">{u.sku?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว"}</span>
+                <span className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
+                  ใช้ใน <span className="font-mono tabular-nums text-foreground">{u.menus.length}</span> เมนู
                 </span>
-                <span className="shrink-0 font-mono text-sm tabular-nums">{u.menus.length} เมนู</span>
               </li>
             ))}
           </ul>
@@ -225,8 +226,8 @@ export function SetupOverview({ menus, lines, rules, skus, prices, branches, sum
           <ListChecks className="h-5 w-5 text-brand" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold">ตัวเลือก POS</span>
-          <span className="block text-sm text-muted-foreground">เช็คว่าตัวเลือกที่ลูกค้ากดมีกฎตัดของครบ</span>
+          <span className="block text-[15px] font-semibold">ตัวเลือกที่ลูกค้ากด</span>
+          <span className="block text-sm text-muted-foreground">เช็คว่าทุกตัวเลือกตั้งวัตถุดิบครบ</span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>

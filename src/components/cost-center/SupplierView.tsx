@@ -134,7 +134,12 @@ function SupplierList({
                     {activeCount(s.id)} ราคา{st ? ` · ล่าสุด ${shortDate(st.last)}` : ""}
                   </div>
                 </div>
-                {st && <div className="shrink-0 font-mono text-sm tabular-nums">{baht(st.spend, 0)}</div>}
+                {st && (
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono text-sm tabular-nums">{baht(st.spend, 0)}</div>
+                    <div className="text-xs text-muted-foreground">ซื้อ 90 วัน</div>
+                  </div>
+                )}
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground split:hidden" aria-hidden="true" />
               </button>
             </li>
@@ -196,20 +201,20 @@ function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdi
         </button>
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">ซัพพลายเออร์ · {supplier.status === "Active" ? "เปิดใช้" : "ปิดใช้"}</div>
+            <div className="text-sm font-medium text-primary-foreground/80">ซัพพลายเออร์ · {supplier.status === "Active" ? "เปิดใช้" : "ปิดใช้"}</div>
             <h3 className="mt-1 text-2xl font-bold md:text-3xl">{supplier.name}</h3>
           </div>
           <div className="flex flex-wrap gap-6 md:text-right">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">ซื้อ 90 วัน</div>
+              <div className="text-sm font-medium text-primary-foreground/80">ซื้อ 90 วัน</div>
               <div className="mt-1 font-mono text-2xl font-bold tabular-nums">{baht(stat?.spend ?? 0, 0)}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">วันที่รับของ</div>
+              <div className="text-sm font-medium text-primary-foreground/80">วันที่รับของ</div>
               <div className="mt-1 font-mono text-2xl font-bold tabular-nums">{stat?.days.size ?? 0}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">ราคาที่ใช้อยู่</div>
+              <div className="text-sm font-medium text-primary-foreground/80">ราคาที่ใช้อยู่</div>
               <div className="mt-1 font-mono text-2xl font-bold tabular-nums">{active.length}</div>
             </div>
           </div>
@@ -257,7 +262,7 @@ function SupplierWorkspace({ supplier, stat, active, skus, bills, prices, canEdi
 
         <div className="flex flex-col gap-3">
           <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-            <h4 className="px-4 py-3 font-semibold">บิลล่าสุด · กดเพื่ออัปเดตราคาทั้งบิล</h4>
+            <h4 className="px-4 py-3 font-semibold">บิลล่าสุด</h4>
             {(() => {
               const days = new Map<string, { n: number; off: number }>();
               for (const b of bills ?? []) {

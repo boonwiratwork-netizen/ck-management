@@ -5,6 +5,7 @@ import type { PendingTO, PRGroup } from "@/hooks/use-receive-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { baht } from "./parts";
+import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -38,7 +39,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
         className={cn("flex min-h-[56px] w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-secondary/60", activeView === view && "bg-secondary shadow-[inset_3px_0_0_hsl(var(--brand))]")}
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px]">{label}</span>
+          <span className="block break-words text-[15px]">{label}</span>
           {sub && <span className="block truncate text-sm text-muted-foreground">{sub}</span>}
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -49,7 +50,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
   return (
     <div className="flex flex-col gap-3">
       <div data-tour="recv-waiting" className="flex flex-col gap-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รอรับจากครัวกลาง · {loading ? "…" : pendingTOs.length}</div>
+        <h2 className="text-[15px] font-semibold">รอรับจากครัวกลาง · {loading ? "…" : pendingTOs.length}</h2>
         {!loading && pendingTOs.length === 0 && <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">ยังไม่มีใบโอนจากครัวกลางที่รอรับ</div>}
         {pendingTOs.map((to, ti) => (
           <section key={to.id} className={cn("flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card", activeView === `to/${to.id}` ? "border-primary" : "border-border")}>
@@ -59,9 +60,11 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-[15px] font-semibold">ใบโอนจากครัวกลาง</div>
-                <div className="truncate text-sm text-muted-foreground">
-                  <span className="font-mono">{to.toNumber}</span> · {to.lines.length} รายการ · ส่ง {to.deliveryDate}
+                <div className="text-sm text-muted-foreground">
+                  {to.deliveryDate && <><span className="whitespace-nowrap">ส่ง {thaiDay(to.deliveryDate)}</span> · </>}<span className="whitespace-nowrap">{to.lines.length} รายการ</span>
                 </div>
+                {/* Code small for quoting; never pushes the date out */}
+                <div className="whitespace-nowrap font-mono text-xs text-muted-foreground">{to.toNumber}</div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -74,7 +77,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
             </div>
           </section>
         ))}
-        {prGroups.length > 0 && <div className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ใบขอซื้อถึงกำหนด · {prGroups.length}</div>}
+        {prGroups.length > 0 && <h2 className="mt-2 text-[15px] font-semibold">ใบขอซื้อถึงกำหนด · {prGroups.length}</h2>}
         {prGroups.map((g) => {
           const s = supplierById.get(g.supplierId);
           return (
@@ -88,8 +91,16 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
                 <ClipboardList className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block break-words text-[15px] font-semibold">{s?.name ?? "ซัพพลายเออร์"} · ใบขอซื้อถึงกำหนด</span>
-                <span className="block truncate text-sm text-muted-foreground">{g.lines.length} รายการ · {g.prNumbers.join(", ")}</span>
+                <span className="block break-words text-[15px] font-semibold">{s?.name ?? "ซัพพลายเออร์"}</span>
+                <span className="block text-sm text-muted-foreground">{g.lines.length} รายการ</span>
+                <span className="block font-mono text-xs text-muted-foreground">
+                  {g.prNumbers.map((n, i) => (
+                    <span key={n} className="whitespace-nowrap">
+                      {i > 0 && ", "}
+                      {n}
+                    </span>
+                  ))}
+                </span>
               </span>
               <span className="shrink-0 text-sm font-semibold">รับตามใบ</span>
             </button>
@@ -98,7 +109,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
       </div>
 
       <div className="flex flex-col gap-3">
-        <div data-tour="recv-other" className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">รับจากที่อื่น</div>
+        <h2 data-tour="recv-other" className="mt-2 text-[15px] font-semibold">รับจากที่อื่น</h2>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นซัพพลายเออร์…" className="h-11 pl-9" aria-label="ค้นซัพพลายเออร์" />
@@ -117,7 +128,7 @@ export function ReceiveHome({ pendingTOs, prGroups, loading, brandSuppliers, oth
           {!words.length && row("branch", "รับจากสาขาอื่น")}
           {brandSuppliers.filter(match).map((s) => row(`sup/${s.id}`, s.name))}
           {otherSuppliers.filter(match).length > 0 && (
-            <li className="bg-secondary/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">ซัพพลายเออร์อื่น</li>
+            <li className="bg-secondary/60 px-4 py-1.5 text-[13px] font-semibold text-muted-foreground">ซัพพลายเออร์อื่น</li>
           )}
           {otherSuppliers.filter(match).map((s) => row(`sup/${s.id}`, s.name))}
         </ul>

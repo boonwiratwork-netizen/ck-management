@@ -70,14 +70,14 @@ const VIEWS: { key: View; label: string }[] = [
   { key: "overview", label: "ภาพรวม" },
   { key: "menus", label: "เมนู" },
   { key: "branches", label: "สาขา" },
-  { key: "pos", label: "ตัวเลือก POS" },
+  { key: "pos", label: "ตัวเลือก" },
   { key: "products", label: "สินค้า" },
   { key: "suppliers", label: "ซัพพลายเออร์" },
 ];
 
 const GUIDE: GuideStep[] = [
   { title: "Cost Center ที่เดียวครบ", body: "เมนู สินค้า ราคา สูตร ซัพพลายเออร์ เชื่อมกันหมด แก้ราคาวัตถุดิบตรงไหน ต้นทุนสูตรและเมนูคิดใหม่ให้เอง" },
-  { target: "cc-views", title: "แท็บข้างบนพาไปทุกเรื่อง", body: "ภาพรวม = เรื่องที่ต้องแก้ทั้งระบบ · เมนู/สาขา/ตัวเลือก POS = ฝั่งเมนู · สินค้า/ซัพพลายเออร์ = ฝั่งของที่ซื้อและที่ครัวทำ" },
+  { target: "cc-views", title: "แท็บข้างบนพาไปทุกเรื่อง", body: "ภาพรวม = เรื่องที่ต้องแก้ทั้งระบบ · เมนู/สาขา/ตัวเลือก = ฝั่งเมนู · สินค้า/ซัพพลายเออร์ = ฝั่งของที่ซื้อและที่ครัวผลิต" },
   { target: "cc-filter", title: "จุดสีบอกว่าต้องทำอะไร", body: "แดง = ต้องแก้ · เหลือง = ควรดู · เทา = ไม่ได้ใช้ แตะ “ต้องแก้” ดูเฉพาะที่ต้องทำ" },
   { target: "cc-list", title: "แตะสินค้าเพื่อเปิด", body: "ลองแตะตัวแรกในรายการ", until: "click" },
   { target: "cc-chain", title: "เส้นทางของสินค้า", body: "ซื้อจากใคร → ใช้ในสูตรไหน → เมนูไหน แตะกล่องไหนก็เปิดเรื่องนั้นต่อได้" },
@@ -183,26 +183,29 @@ export default function CostCenterPage(props: Props) {
     else if (from === "overview") label = "ภาพรวม";
     else if (from === "suppliers") label = "ซัพพลายเออร์ทั้งหมด";
     else if (from === "branches" || from.startsWith("branches/")) label = "สาขา";
-    else if (from === "pos") label = "ตัวเลือก POS";
+    else if (from === "pos") label = "ตัวเลือก";
     else label = props.menus.find((m) => m.menuCode === from)?.menuName;
     return label ? { label, go: () => navigate(-1) } : null;
   })();
 
+  const startGuide = () => {
+    go("products");
+    guide.start();
+  };
   const header = (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-bold">Cost Center</h2>
-        <p className="text-sm text-muted-foreground">เมนู · สินค้า · สูตร · ราคา · ซัพพลายเออร์ — ทุกอย่างเชื่อมกัน แก้ที่เดียว</p>
+      {/* Phone: title with วิธีใช้ beside it, the tabs get their own full row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="text-2xl font-bold">Cost Center</h2>
+          <p className="text-sm text-muted-foreground">เมนู สินค้า สูตร ราคา ในที่เดียว</p>
+        </div>
+        <Button variant="outline" className="h-10 shrink-0 md:hidden" onClick={startGuide}>
+          <HelpCircle className="h-4 w-4" /> วิธีใช้
+        </Button>
       </div>
       <div className="flex min-w-0 items-center gap-2">
-        <Button
-          variant="outline"
-          className="h-10 shrink-0"
-          onClick={() => {
-            go("products");
-            guide.start();
-          }}
-        >
+        <Button variant="outline" className="hidden h-10 shrink-0 md:inline-flex" onClick={startGuide}>
           <HelpCircle className="h-4 w-4" /> วิธีใช้
         </Button>
         <div data-tour="cc-views" className="min-w-0">

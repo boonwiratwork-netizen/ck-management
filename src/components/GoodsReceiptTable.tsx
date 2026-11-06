@@ -164,7 +164,7 @@ export function GoodsReceiptTable({ receipts, skus, suppliers, onEdit, onDelete 
                         }`}
                       >
                         <span
-                          className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
+                          className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
                             r.priceVariance > 0 ? "bg-destructive/10" : r.priceVariance < 0 ? "bg-success/10" : ""
                           }`}
                         >

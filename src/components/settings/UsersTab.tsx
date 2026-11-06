@@ -28,7 +28,7 @@ export const ROLES: { key: AppRole; label: string }[] = [
   { key: "management", label: "ผู้บริหาร" },
   { key: "ck_manager", label: "ครัวกลาง" },
   { key: "store_manager", label: "หัวหน้าสาขา" },
-  { key: "area_manager", label: "Area" },
+  { key: "area_manager", label: "ผู้จัดการเขต" },
 ];
 const roleLabel = (r: AppRole) => ROLES.find((x) => x.key === r)?.label ?? r;
 const roleTone: Record<string, string> = {

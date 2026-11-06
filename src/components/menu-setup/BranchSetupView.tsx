@@ -77,7 +77,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
     { key: "all", label: `ทั้งหมด ${counts.all}` },
     { key: "open", label: `เปิดขาย ${counts.open}` },
     { key: "closed", label: `ปิดขาย ${counts.closed}` },
-    { key: "norecipe", label: `ไม่ตัดของ ${counts.norecipe}` },
+    { key: "norecipe", label: `ไม่มีสูตร ${counts.norecipe}` },
   ];
 
   const apply = async (ids: string[], open: boolean, key: string) => {
@@ -120,7 +120,7 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         <header className="border-b border-border px-4 py-3">
           <h4 className="text-base font-semibold">สาขา {branch.branchName} พร้อมขายไหม</h4>
-          <p className="text-sm text-muted-foreground">เช็คจากเมนู กฎ และยอดขาย {SALES_WINDOW_DAYS} วัน{soldByCode ? "" : " (กำลังโหลดยอดขาย…)"}</p>
+          <p className="text-sm text-muted-foreground">เทียบกับยอดขาย {SALES_WINDOW_DAYS} วัน{soldByCode ? "" : " (กำลังโหลด…)"}</p>
         </header>
         <ul className="divide-y divide-border">
           {setup.checks.map((c) => {
@@ -130,15 +130,16 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
                 <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full", st.bg)}>
                   <st.icon className={cn("h-4 w-4", st.text)} aria-hidden="true" />
                 </span>
+                {/* The button sits under the text, never beside it squeezing it */}
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-medium">{c.title}</div>
                   {c.detail && <p className="mt-0.5 break-words text-sm text-muted-foreground">{c.detail}</p>}
+                  {c.level !== "ok" && c.id === "rules-elsewhere" && (
+                    <Button variant="outline" size="sm" className="mt-2 h-9" onClick={() => onNavigate("modifier-rules")}>
+                      ไปกฎพิเศษ
+                    </Button>
+                  )}
                 </div>
-                {c.level !== "ok" && c.id === "rules-elsewhere" && (
-                  <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => onNavigate("modifier-rules")}>
-                    ไปกฎพิเศษ
-                  </Button>
-                )}
               </li>
             );
           })}
@@ -197,11 +198,12 @@ export function BranchSetupView({ initialBranchId, branches, menus, rules, summa
               )}
               <button type="button" onClick={() => onOpenMenu(r.menu)} className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 text-left">
                 <div className="min-w-0 flex-1">
-                  <div className={cn("break-words text-[15px] font-medium", !r.open && "text-muted-foreground")}>{r.menu.menuName}</div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    <span className="font-mono">{r.menu.menuCode}</span>
-                    {r.noRecipe ? <span className={r.sold > 0 ? "text-destructive" : "text-warning"}> · {r.sold > 0 ? "ขายแล้วไม่ตัดของ" : "ไม่มีสูตร"}</span> : <> · ต้นทุน {pct(r.costPct)}</>}
-                    {soldByCode && ` · ขาย ${r.sold.toLocaleString()}`}
+                  <div className={cn("break-words text-[15px] font-medium", !r.open && "text-muted-foreground")}>
+                    {r.menu.menuName} <span className="whitespace-nowrap font-mono text-xs font-normal text-muted-foreground">{r.menu.menuCode}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {r.noRecipe ? <span className={r.sold > 0 ? "text-destructive" : "text-warning"}>{r.sold > 0 ? "ขายแล้วแต่ไม่มีสูตร" : "ไม่มีสูตร"}</span> : <span className="whitespace-nowrap">{r.costPct === null ? "ยังไม่มีราคาขาย" : `ต้นทุน ${pct(r.costPct)} ของราคา`}</span>}
+                    {soldByCode && <span className="whitespace-nowrap"> · ขาย {r.sold.toLocaleString()}</span>}
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

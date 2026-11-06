@@ -7,10 +7,10 @@ export type Kind = "supplier" | "RM" | "PK" | "SM" | "SP" | "menu" | "branch";
 
 const KIND: Record<Kind, { label: string; cls: string }> = {
   supplier: { label: "ซัพ", cls: "bg-secondary text-muted-foreground" },
-  RM: { label: "RM", cls: "bg-brand-soft text-brand-soft-foreground" },
-  PK: { label: "PK", cls: "bg-secondary text-foreground" },
-  SM: { label: "SM", cls: "bg-primary text-primary-foreground" },
-  SP: { label: "SP", cls: "border border-primary text-foreground" },
+  RM: { label: "วัตถุดิบ", cls: "bg-brand-soft text-brand-soft-foreground" },
+  PK: { label: "บรรจุ", cls: "bg-secondary text-foreground" },
+  SM: { label: "ครัวผลิต", cls: "bg-primary text-primary-foreground" },
+  SP: { label: "หน้าร้าน", cls: "border border-primary text-foreground" },
   menu: { label: "เมนู", cls: "bg-success-soft text-success" },
   branch: { label: "สาขา", cls: "bg-accent text-accent-foreground" },
 };
@@ -26,7 +26,7 @@ export const KIND_NAME: Record<Kind, string> = {
 };
 
 export function KindBadge({ kind, label, className }: { kind: Kind; label?: string; className?: string }) {
-  return <span className={cn("inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center rounded-md px-1.5 text-xs font-bold", KIND[kind].cls, className)}>{label ?? KIND[kind].label}</span>;
+  return <span className={cn("inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-md px-1.5 text-xs font-bold", KIND[kind].cls, className)}>{label ?? KIND[kind].label}</span>;
 }
 
 export const LEVEL_LABEL: Record<ProductLevel, string> = { ok: "ครบ", warn: "ควรดู", error: "ต้องแก้", idle: "ไม่ได้ใช้" };

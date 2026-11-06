@@ -24,10 +24,12 @@ const KITCHEN_STOCK_TABLE_MIN_W = tableMinWidth([104, 88, 128, 120, 84, 96, 92])
 type SmStock = ReturnType<typeof useSmStockData>;
 
 const TABS: { key: StockType; label: string }[] = [
-  { key: "RM", label: "วัตถุดิบ RM" },
-  { key: "SM", label: "ครัวผลิต SM" },
-  { key: "PK", label: "บรรจุภัณฑ์ PK" },
+  { key: "RM", label: "วัตถุดิบ" },
+  { key: "SM", label: "ของครัวผลิต" },
+  { key: "PK", label: "บรรจุภัณฑ์" },
 ];
+/** Plain word for each tab, used in the value card ("มูลค่าของครัวผลิต") */
+const TYPE_WORD: Record<StockType, string> = { RM: "วัตถุดิบ", SM: "ของครัวผลิต", PK: "บรรจุภัณฑ์" };
 const STORAGE: Record<string, string> = { Frozen: "แช่แข็ง", Chilled: "แช่เย็น", Ambient: "ของแห้ง" };
 const n0 = (n: number) => Math.round(n).toLocaleString();
 const baht = (n: number) => `฿${Math.round(n).toLocaleString()}`;
@@ -35,10 +37,10 @@ const thaiDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("th
 type SortKey = "name" | "stock" | "value" | "days";
 
 const GUIDE: GuideStep[] = [
-  { title: "สต๊อกครัว ที่เดียว 3 แท็บ", body: "วัตถุดิบ · ของที่ครัวผลิต · บรรจุภัณฑ์ ยอดและมูลค่าคิดแบบเดียวกับใบโอนและ Cost Center" },
-  { target: "ks-tabs", title: "สลับแท็บ RM / SM / PK", body: "แต่ละแท็บมีเรื่องที่ต้องดูของตัวเอง" },
+  { title: "สต๊อกครัว ที่เดียว 3 แท็บ", body: "วัตถุดิบ · ของครัวผลิต · บรรจุภัณฑ์ ยอดคิดแบบเดียวกับใบโอน มูลค่าคิดจากต้นทุนใน Cost Center" },
+  { target: "ks-tabs", title: "สลับแท็บ วัตถุดิบ / ของครัวผลิต / บรรจุภัณฑ์", body: "แต่ละแท็บมีเรื่องที่ต้องดูของตัวเอง · แท็บวัตถุดิบติ๊ก “เฉพาะของที่ครัวใช้” ไว้ = เฉพาะของที่อยู่ในสูตรของครัวผลิต หรือส่งสาขา" },
   { target: "ks-attention", title: "เรื่องที่ต้องดู", body: "ใกล้หมด · ติดลบ · ยอดผิดปกติ · ไม่ได้นับนาน แตะเพื่อดูเฉพาะกลุ่มนั้น" },
-  { target: "ks-list", title: "นับล่าสุด บอกว่ายอดเชื่อได้แค่ไหน", body: "ยอดในระบบ = ที่นับได้ + ของเข้า − ของออก หลังวันนับ · กด “ประวัติ” ดูว่าเข้าออกอะไรบ้าง · กด “ปรับยอด” เมื่อเอาของไป Workshop / ส่งเทส / ทิ้ง" },
+  { target: "ks-list", title: "นับล่าสุด บอกว่ายอดเชื่อได้แค่ไหน", body: "ยอดในระบบ = ที่นับได้ล่าสุด + ของเข้า − ของออก หลังวันนับ · ยิ่งนับนาน ยอดยิ่งคลาดได้ · กด “ประวัติ” ดูว่าเข้าออกอะไรบ้าง · กด “ปรับยอด” เมื่อเอาของไป Workshop / ส่งเทส / ทิ้ง" },
 ];
 
 interface Props {
@@ -64,6 +66,21 @@ interface Props {
  * worked numbers out their own way). Value = stock × the standard cost Cost Center
  * keeps; "นับล่าสุด" on every row shows how far the balance is from a real count.
  */
+/** "เรื่องที่ต้องดู" items, one per line: name left, figures right (max 5) */
+function ItemLines({ items }: { items: string[][] }) {
+  return (
+    <span className="mt-1 flex flex-col gap-0.5 text-sm text-muted-foreground">
+      {items.slice(0, 5).map(([name, ...figs], i) => (
+        <span key={i} className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span className="min-w-0 break-words">{name}</span>
+          <span className="shrink-0 whitespace-nowrap font-mono tabular-nums">{figs.join(" · ")}</span>
+        </span>
+      ))}
+      {items.length > 5 && <span>และอีก {items.length - 5} รายการ</span>}
+    </span>
+  );
+}
+
 export default function KitchenStockPage(p: Props) {
   const { type } = p;
   const today = toLocalDateStr(new Date());
@@ -187,15 +204,15 @@ export default function KitchenStockPage(p: Props) {
     r.lastCount ? (
       <span className={cn(r.flags.stale && "text-warning")}>
         {thaiDate(r.lastCount)}
-        <span className="text-xs text-muted-foreground"> · {r.movesAfter} รายการหลังนับ</span>
+        {r.movesAfter > 0 && <span className="block text-xs text-muted-foreground">เข้า-ออกอีก {r.movesAfter} ครั้ง</span>}
       </span>
     ) : (
       <span className={cn(r.stock !== 0 ? "font-semibold text-destructive" : "text-muted-foreground")}>ไม่เคยนับ</span>
     );
   const tags = (r: StockRow) => (
     <>
-      {r.flags.inactive && <span className="ml-1.5 rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">ปิดใช้</span>}
-      {r.flags.unusual && <span className="ml-1.5 rounded-md bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">ยอดผิดปกติ</span>}
+      {r.flags.inactive && <span className="ml-1.5 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">ปิดใช้</span>}
+      {r.flags.unusual && <span className="ml-1.5 rounded-md bg-warning-soft px-1.5 py-0.5 whitespace-nowrap text-xs font-semibold text-warning">ยอดผิดปกติ</span>}
     </>
   );
   const SortTh = ({ k, children, right }: { k: SortKey; children: React.ReactNode; right?: boolean }) => (
@@ -214,10 +231,7 @@ export default function KitchenStockPage(p: Props) {
       {itemStock && <RefreshNote refreshing={!!itemStock.refreshing} failed={!!itemStock.readFailed} onRetry={itemStock.reload} />}
       {type === "SM" && p.sm.loadFailed && <RefreshNote refreshing={false} failed onRetry={p.sm.retryLoad} />}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="mr-auto">
-          <h1 className="text-2xl font-bold">สต๊อกครัว</h1>
-          <p className="text-sm text-muted-foreground">ยอดในระบบ = นับล่าสุด + ของเข้า − ของออก หลังวันนับ · มูลค่าคิดจากต้นทุนใน Cost Center</p>
-        </div>
+        <h1 className="mr-auto w-full text-2xl font-bold sm:w-auto">สต๊อกครัว</h1>
         <Button variant="outline" className="h-10" onClick={exportExcel}>
           <Download className="h-4 w-4" /> ส่งออก Excel
         </Button>
@@ -233,12 +247,12 @@ export default function KitchenStockPage(p: Props) {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card px-4 py-3">
-          <div className="text-sm text-muted-foreground">มูลค่าสต๊อก {type}</div>
+          <div className="text-sm text-muted-foreground">มูลค่า{TYPE_WORD[type]}</div>
           <div className="font-mono text-2xl font-semibold">{baht(totalValue)}</div>
           <div className="text-xs text-muted-foreground">{base.length} รายการ{type === "RM" && ckOnly ? " · เฉพาะของที่ครัวใช้" : ""}</div>
         </div>
         <div className="rounded-2xl border border-border bg-card px-4 py-3">
-          <div className="text-sm text-muted-foreground">เหลือใช้ได้ (เฉลี่ยตามช่องเก็บ)</div>
+          <div className="text-sm text-muted-foreground">เหลือใช้ได้อีก</div>
           <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
             {(["Chilled", "Frozen", "Ambient"] as const).map((k) => (
               <div key={k}>
@@ -262,8 +276,8 @@ export default function KitchenStockPage(p: Props) {
             <button type="button" onClick={() => setFilter("low")} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50 first-of-type:border-t-0">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-destructive/10 font-bold text-destructive">!</span>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">ใกล้หมด · เหลือน้อยกว่า {LOW_DAYS} วัน ({lowNames.length})</span>
-                <span className="block break-words text-sm text-muted-foreground">{lowNames.slice(0, 5).map((r) => `${r.sku.name} ${r.daysLeft!.toFixed(1)} วัน`).join(" · ")}{lowNames.length > 5 ? " · …" : ""}</span>
+                <span className="block font-semibold">ใกล้หมด · ไม่ถึง {LOW_DAYS} วัน <span className="whitespace-nowrap">({lowNames.length})</span></span>
+                <ItemLines items={lowNames.map((r) => [r.sku.name, `${r.daysLeft!.toFixed(1)} วัน`])} />
               </span>
             </button>
           )}
@@ -271,8 +285,8 @@ export default function KitchenStockPage(p: Props) {
             <button type="button" onClick={() => setFilter("negative")} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-destructive/10 font-bold text-destructive">−</span>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">ติดลบ ({negativeNames.length}) · ใช้มากกว่าที่ระบบเห็นว่ามี ควรเช็คของเข้าหรือนับใหม่</span>
-                <span className="block break-words text-sm text-muted-foreground">{negativeNames.slice(0, 5).map((r) => `${r.sku.name} ${n0(r.stock)} ${r.sku.usageUom}`).join(" · ")}{negativeNames.length > 5 ? " · …" : ""}</span>
+                <span className="block font-semibold">ติดลบ <span className="whitespace-nowrap">({negativeNames.length})</span> · เช็คของเข้า หรือนับใหม่</span>
+                <ItemLines items={negativeNames.map((r) => [r.sku.name, `${n0(r.stock)} ${r.sku.usageUom}`])} />
               </span>
             </button>
           )}
@@ -280,41 +294,46 @@ export default function KitchenStockPage(p: Props) {
             <button type="button" onClick={() => setFilter("unusual")} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-warning-soft font-bold text-warning">!</span>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">ยอดโตผิดปกติ · ควรนับจริง ({unusualNames.length})</span>
-                <span className="block break-words text-sm text-muted-foreground">{unusualNames.slice(0, 5).map((r) => `${r.sku.name} ${n0(r.stock)} ${r.sku.usageUom}${r.lastCount ? ` · พอใช้ ${r.daysLeft ? Math.round(r.daysLeft) : "—"} วัน` : " · ไม่เคยนับ"}`).join(" · ")}</span>
+                <span className="block font-semibold">ยอดโตผิดปกติ · ควรนับจริง <span className="whitespace-nowrap">({unusualNames.length})</span></span>
+                <ItemLines items={unusualNames.map((r) => [r.sku.name, `${n0(r.stock)} ${r.sku.usageUom}`, r.lastCount ? `พอใช้ ${r.daysLeft ? Math.round(r.daysLeft) : "—"} วัน` : "ไม่เคยนับ"])} />
               </span>
             </button>
           )}
         </section>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filters: search · chips (one row, scrolls sideways on a phone) · dropdowns side by side */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
         <label className="relative">
           <span className="sr-only">ค้นหา</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นรหัส หรือชื่อ…" className="h-10 w-[220px] rounded-xl border border-border bg-card pl-9 pr-3 text-base sm:text-sm" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นรหัส หรือชื่อ…" className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-base sm:text-sm lg:w-[220px]" />
         </label>
-        <button type="button" className={chip(filter === "all")} onClick={() => setFilter("all")}>ทั้งหมด {base.length}</button>
-        <button type="button" className={chip(filter === "low", "bad")} onClick={() => setFilter("low")}>ใกล้หมด {counts.low}</button>
-        <button type="button" className={chip(filter === "negative", "bad")} onClick={() => setFilter("negative")}>ติดลบ {counts.negative}</button>
-        {type === "SM" && <button type="button" className={chip(filter === "unusual", "warn")} onClick={() => setFilter("unusual")}>ยอดผิดปกติ {counts.unusual}</button>}
-        <button type="button" className={chip(filter === "stale", "warn")} onClick={() => setFilter("stale")}>ไม่ได้นับนาน {counts.stale}</button>
-        <select aria-label="หมวด" value={category} onChange={(e) => setCategory(e.target.value)} className={select}>
-          <option value="all">ทุกหมวด</option>
-          {catsHere.map((c) => (
-            <option key={c} value={c}>{catName.get(c) ?? c}</option>
-          ))}
-        </select>
-        <select aria-label="ช่องเก็บ" value={storage} onChange={(e) => setStorage(e.target.value)} className={select}>
-          <option value="all">ทุกช่องเก็บ</option>
-          {Object.entries(STORAGE).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:px-0">
+          <button type="button" className={cn(chip(filter === "all"), "shrink-0 whitespace-nowrap")} onClick={() => setFilter("all")}>ทั้งหมด {base.length}</button>
+          <button type="button" className={cn(chip(filter === "low", "bad"), "shrink-0 whitespace-nowrap")} onClick={() => setFilter("low")}>ใกล้หมด {counts.low}</button>
+          <button type="button" className={cn(chip(filter === "negative", "bad"), "shrink-0 whitespace-nowrap")} onClick={() => setFilter("negative")}>ติดลบ {counts.negative}</button>
+          {type === "SM" && <button type="button" className={cn(chip(filter === "unusual", "warn"), "shrink-0 whitespace-nowrap")} onClick={() => setFilter("unusual")}>ยอดผิดปกติ {counts.unusual}</button>}
+          <button type="button" className={cn(chip(filter === "stale", "warn"), "shrink-0 whitespace-nowrap")} onClick={() => setFilter("stale")}>ไม่ได้นับนาน {counts.stale}</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 lg:flex">
+          <select aria-label="หมวด" value={category} onChange={(e) => setCategory(e.target.value)} className={cn(select, "min-w-0")}>
+            <option value="all">ทุกหมวด</option>
+            {catsHere.map((c) => (
+              <option key={c} value={c}>{catName.get(c) ?? c}</option>
+            ))}
+          </select>
+          <select aria-label="ช่องเก็บ" value={storage} onChange={(e) => setStorage(e.target.value)} className={cn(select, "min-w-0")}>
+            <option value="all">ทุกช่องเก็บ</option>
+            {Object.entries(STORAGE).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </div>
         {type === "RM" && (
-          <label className="ml-auto inline-flex min-h-[40px] cursor-pointer items-center gap-2 text-sm">
+          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 text-sm lg:ml-auto">
             <input type="checkbox" className="h-5 w-5" checked={ckOnly} onChange={(e) => setCkOnly(e.target.checked)} />
-            เฉพาะของที่ครัวใช้ (อยู่ในสูตร SM หรือส่งสาขา)
+            เฉพาะของที่ครัวใช้
           </label>
         )}
       </div>
@@ -401,20 +420,26 @@ export default function KitchenStockPage(p: Props) {
             {shown.map((r) => (
               <li key={r.sku.id} className="flex flex-col gap-1.5 px-4 py-3">
                 <button type="button" onClick={() => setCardFor(r)} className="flex items-start justify-between gap-3 text-left">
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="break-words font-semibold leading-snug">{r.sku.name}</span>
                     {tags(r)}
-                    <span className="block font-mono text-xs text-muted-foreground">{r.sku.skuId}</span>
                   </span>
                   <span className={cn("shrink-0 text-right font-mono font-semibold tabular-nums", r.flags.negative && "text-destructive")}>
                     {n0(r.stock)} <span className="font-sans text-xs font-normal text-muted-foreground">{r.sku.usageUom}</span>
                     <span className="block text-xs font-normal text-muted-foreground">{r.unitCost > 0 ? baht(r.value) : "—"}</span>
                   </span>
                 </button>
+                {/* One supporting line: days left + when it was last counted (the rest is in ประวัติ) */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-                  <span>เหลือใช้ {daysCell(r)}</span>
-                  <span>นับ {countCell(r)}</span>
-                  {r.lastIn && <span className="text-muted-foreground">{lastInLabel} {thaiDate(r.lastIn.date)}</span>}
+                  <span className="whitespace-nowrap">เหลือใช้ {daysCell(r)}</span>
+                  <span className="whitespace-nowrap">
+                    นับ{" "}
+                    {r.lastCount ? (
+                      <span className={cn(r.flags.stale && "text-warning")}>{thaiDate(r.lastCount)}</span>
+                    ) : (
+                      <span className={cn(r.stock !== 0 ? "font-semibold text-destructive" : "text-muted-foreground")}>ไม่เคยนับ</span>
+                    )}
+                  </span>
                 </div>
                 {p.canEdit && (
                   <div className="flex gap-2">

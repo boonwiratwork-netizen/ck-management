@@ -118,9 +118,14 @@ export type Format = "count" | "share" | "pct" | "signedPct" | "done";
 
 export interface MetricDef<Id extends string> {
   id: Id;
+  /** Plain words, one line on a phone (team page) */
   label: string;
   /** The target in words, under the label */
   target: (t: TeamTargets) => string;
+  /** Home table column: one short word that fits a 52px column … */
+  short: string;
+  /** … and its target under it, just as short */
+  shortTarget: (t: TeamTargets) => string;
   format: Format;
   /** Bullet scale: the target as a number on the value's scale */
   targetValue: (t: TeamTargets) => number;
@@ -128,32 +133,27 @@ export interface MetricDef<Id extends string> {
   lower?: boolean;
 }
 
+/** 23 → "5 ทุ่ม" (how people say evening hours); other hours as 15:00 */
+export const thaiHour = (h: number) => (h >= 19 && h <= 23 ? `${h - 18} ทุ่ม` : `${h}:00`);
+const pct = (share: number) => `${Math.round(share * 100)}%`;
+const bahtShort = (n: number) => `฿${n.toLocaleString("en-US")}`;
+
 export const BRANCH_METRICS: MetricDef<BranchMetricId>[] = [
-  { id: "countOnTime", label: "นับปิดวันตรงเวลา", target: (t) => `ก่อน ${t.countCloseHour}:00 · เป้า ทุกวัน`, format: "count", targetValue: (t) => t.countOnTimeShare },
-  { id: "receive", label: "รับของจากครัว ใน 1 วัน", target: (t) => `เป้า ${Math.round(t.receiveShare * 100)}%`, format: "count", targetValue: (t) => t.receiveShare },
-  { id: "salesImport", label: "นำเข้ายอดขาย", target: () => "ภายในวันถัดไป · เป้า ทุกวัน", format: "count", targetValue: (t) => t.salesImportShare },
-  { id: "diff", label: "diff นับ ≤ ฿1,000/วัน", target: (t) => `เป้า ${Math.round(t.diffPassShare * 7)}/7 วัน`, format: "count", targetValue: (t) => t.diffPassShare },
-  { id: "overRecipe", label: "ใช้วัตถุดิบเกินสูตร", target: (t) => `เป้า ≤${t.overRecipePct}%`, format: "signedPct", targetValue: (t) => t.overRecipePct, lower: true },
-  { id: "waste", label: "Waste ของยอดขาย", target: (t) => `เป้า ≤${t.wastePct}%`, format: "pct", targetValue: (t) => t.wastePct, lower: true },
+  { id: "countOnTime", label: "นับสต๊อกเสร็จทันเวลา", target: (t) => `กดนับเสร็จก่อน ${thaiHour(t.countCloseHour)} · เป้า ทุกวัน`, short: "นับเสร็จ", shortTarget: (t) => `ก่อน ${thaiHour(t.countCloseHour)}`, format: "count", targetValue: (t) => t.countOnTimeShare },
+  { id: "receive", label: "กดรับของจากครัวภายใน 1 วัน", target: (t) => (t.receiveShare >= 1 ? "เป้า ทุกใบ" : `เป้า ${pct(t.receiveShare)} ของใบโอน`), short: "รับของ", shortTarget: (t) => `ใน ${Math.round(t.receiveHours / 24)} วัน`, format: "count", targetValue: (t) => t.receiveShare },
+  { id: "salesImport", label: "ลงยอดขายภายในวันถัดไป", target: () => "เป้า ทุกวัน", short: "ลงยอด", shortTarget: () => "ทุกวัน", format: "count", targetValue: (t) => t.salesImportShare },
+  { id: "diff", label: "ของขาด/เกินจากระบบ ไม่เกิน ฿1,000", target: (t) => `นับแล้วต่างจากระบบไม่เกิน ${bahtShort(t.diffBahtPerDay)}/วัน · เป้า ${Math.round(t.diffPassShare * 7)} ใน 7 วัน`, short: "ขาด/เกิน", shortTarget: (t) => `≤${bahtShort(t.diffBahtPerDay)}`, format: "count", targetValue: (t) => t.diffPassShare },
+  { id: "overRecipe", label: "ใช้ของเกินสูตร", target: (t) => `เทียบปริมาณตามสูตรจากยอดขาย · เกินได้ไม่เกิน ${t.overRecipePct}%`, short: "เกินสูตร", shortTarget: (t) => `≤${t.overRecipePct}%`, format: "signedPct", targetValue: (t) => t.overRecipePct, lower: true },
+  { id: "waste", label: "ของเสีย เทียบยอดขาย", target: (t) => `มูลค่าของเสีย ÷ ยอดขาย · ไม่เกิน ${t.wastePct}%`, short: "ของเสีย", shortTarget: (t) => `≤${t.wastePct}%`, format: "pct", targetValue: (t) => t.wastePct, lower: true },
 ];
 
 export const KITCHEN_METRICS: MetricDef<KitchenMetricId>[] = [
-  { id: "onDay", label: "ส่งตรงวัน", target: (t) => `เป้า ${Math.round(t.kitchenOnDayShare * 100)}%`, format: "share", targetValue: (t) => t.kitchenOnDayShare },
-  { id: "fill", label: "ส่งครบตามที่สาขาขอ", target: (t) => `เป้า ≥${Math.round(t.kitchenFillShare * 100)}%`, format: "share", targetValue: (t) => t.kitchenFillShare },
-  { id: "plan", label: "ผลิตตามแผน", target: (t) => `เป้า ≥${Math.round(t.kitchenPlanShare * 100)}%`, format: "share", targetValue: (t) => t.kitchenPlanShare },
-  { id: "monthCount", label: "นับครัวปิดเดือน", target: () => "เดือนที่ปิดแล้ว · นับครบ", format: "done", targetValue: () => 1 },
-  { id: "costGap", label: "ต้นทุนครัวต่างจากสูตร", target: (t) => `เดือนที่ปิดแล้ว · เป้า ≤${t.kitchenCostGapPct}%`, format: "signedPct", targetValue: (t) => t.kitchenCostGapPct, lower: true },
-  { id: "billOnDay", label: "บันทึกรับของตรงวัน", target: (t) => `เป้า ≥${Math.round(t.kitchenReceiptShare * 100)}%`, format: "share", targetValue: (t) => t.kitchenReceiptShare },
-];
-
-/** The heatmap's 6 columns: one short heading, the branch's and the kitchen's metric in it */
-export const HEAT_COLUMNS: { short: string; branch: BranchMetricId; kitchen: KitchenMetricId }[] = [
-  { short: "ตรงเวลา", branch: "countOnTime", kitchen: "onDay" },
-  { short: "ครบ", branch: "receive", kitchen: "fill" },
-  { short: "ตามแผน", branch: "salesImport", kitchen: "plan" },
-  { short: "นับ", branch: "diff", kitchen: "monthCount" },
-  { short: "สูตร", branch: "overRecipe", kitchen: "costGap" },
-  { short: "เสีย/รับ", branch: "waste", kitchen: "billOnDay" },
+  { id: "onDay", label: "ส่งของตรงวันนัด", target: (t) => `เป้า ${pct(t.kitchenOnDayShare)} ของใบโอน`, short: "ส่งตรงวัน", shortTarget: (t) => pct(t.kitchenOnDayShare), format: "share", targetValue: (t) => t.kitchenOnDayShare },
+  { id: "fill", label: "ส่งของครบตามที่สาขาขอ", target: (t) => `เป้า อย่างน้อย ${pct(t.kitchenFillShare)}`, short: "ส่งครบ", shortTarget: (t) => `≥${pct(t.kitchenFillShare)}`, format: "share", targetValue: (t) => t.kitchenFillShare },
+  { id: "plan", label: "ผลิตได้ตามแผน", target: (t) => `เป้า อย่างน้อย ${pct(t.kitchenPlanShare)}`, short: "ตามแผน", shortTarget: (t) => `≥${pct(t.kitchenPlanShare)}`, format: "share", targetValue: (t) => t.kitchenPlanShare },
+  { id: "monthCount", label: "นับสต๊อกครัวสิ้นเดือน", target: () => "เดือนที่ปิดแล้ว · ต้องนับครบ", short: "ปิดเดือน", shortTarget: () => "นับครบ", format: "done", targetValue: () => 1 },
+  { id: "costGap", label: "ต้นทุนผลิตห่างจากสูตร", target: (t) => `เดือนที่ปิดแล้ว · ห่างได้ไม่เกิน ${t.kitchenCostGapPct}% ทั้งสูงและต่ำ`, short: "ต้นทุน", shortTarget: (t) => `±${t.kitchenCostGapPct}%`, format: "signedPct", targetValue: (t) => t.kitchenCostGapPct, lower: true },
+  { id: "billOnDay", label: "ลงบิลรับของวันเดียวกัน", target: (t) => `เป้า อย่างน้อย ${pct(t.kitchenReceiptShare)}`, short: "ลงบิล", shortTarget: (t) => `≥${pct(t.kitchenReceiptShare)}`, format: "share", targetValue: (t) => t.kitchenReceiptShare },
 ];
 
 export function formatMetric(v: MetricValue, f: Format): string {
@@ -165,6 +165,33 @@ export function formatMetric(v: MetricValue, f: Format): string {
   const s = abs >= 10 ? abs.toFixed(0) : abs.toFixed(1);
   if (f === "signedPct") return `${v.value > 0.05 ? "+" : v.value < -0.05 ? "−" : ""}${s}%`;
   return `${s}%`;
+}
+
+/** How far from the target, in words ("ขาด 2 วัน", "เกินมา 0.5%"); "" when met or unknown */
+export function gapText(m: Pick<TeamMetric, "id" | "format" | "lower" | "targetValue" | "value">): string {
+  const v = m.value;
+  if (v.value === null || v.grade === "pass" || v.grade === null) return "";
+  // Graded by counting (days or transfer orders), even when shown as a % → say how many short
+  if ((m.format === "count" || m.format === "share") && v.total !== undefined && v.passed !== undefined) {
+    const miss = Math.max(1, Math.ceil(v.total * m.targetValue - 1e-9) - v.passed);
+    return `ขาด ${miss} ${m.id === "receive" || m.id === "onDay" || m.id === "fill" || m.id === "billOnDay" ? "ใบ" : "วัน"}`;
+  }
+  if (m.format === "share") return `ขาด ${Math.max(1, Math.round((m.targetValue - v.value) * 100))} จุด`;
+  if (m.format === "done") return "ยังนับไม่ครบ";
+  const over = Math.abs(v.value) - m.targetValue;
+  return `เกินเป้ามา ${over >= 10 ? over.toFixed(0) : over.toFixed(1)}%`;
+}
+
+const VERDICT = { pass: "ถึงเป้า", near: "พลาดเป้านิดเดียว", fail: "ห่างเป้า" } as const;
+
+/** The sentence shown when a cell is tapped: value · target · verdict (+ how far) */
+export function explainMetric(m: TeamMetric): string {
+  const v = m.value;
+  if (v.value === null) return `${m.label}: ยังคิดไม่ได้ · ${v.why ?? "ข้อมูลยังไม่พอ"}`;
+  const val =
+    m.id === "overRecipe" && v.value < -0.05 ? `ใช้น้อยกว่าสูตร ${m.display.replace("−", "")}` : m.format === "count" ? `${v.passed} จาก ${v.total} ${m.id === "receive" ? "ใบ" : "วัน"}` : m.display;
+  const gap = gapText(m);
+  return `${m.label}: ${val} · ${m.targetText} · ${VERDICT[v.grade!]}${gap ? ` (${gap})` : ""}`;
 }
 
 // ─── Deep links ───
@@ -185,6 +212,9 @@ const goTransferHistory: Go = { path: "/transfer-order", hash: "history" };
 export interface TeamMetric {
   id: string;
   label: string;
+  /** Home table column word + its target */
+  short: string;
+  shortTarget: string;
   targetText: string;
   format: Format;
   lower: boolean;
@@ -338,6 +368,8 @@ function teamMetrics<Id extends string>(defs: MetricDef<Id>[], now: Record<Id, M
   return defs.map((d) => ({
     id: d.id,
     label: d.label,
+    short: d.short,
+    shortTarget: d.shortTarget(t),
     // The plan week (or that it's information only) said under the label
     targetText: now[d.id].note ? `${now[d.id].note} · ${d.target(t)}` : d.target(t),
     format: d.format,
@@ -374,7 +406,7 @@ const earlyItem = (b: Branch, days: string[]): Attention => ({
   key: `early-${b.id}`,
   tone: "amber",
   title: `${b.branchName} ${COUNTED_BEFORE_SALES} ${days.length} วัน`,
-  detail: `${days.map(thDay).join(" · ")} · diff และใช้เกินสูตรของวันนั้นจึงไม่ได้คิด ให้นำเข้ายอดขายก่อนกดนับเสร็จ`,
+  detail: `${days.map(thDay).join(" · ")} · ของขาด/เกิน และใช้เกินสูตรของวันนั้นจึงไม่ได้คิด ให้ลงยอดขายก่อนกดนับเสร็จ`,
   baht: null,
   action: { label: "ดูใบนับ", go: goCount(b.id, days[days.length - 1]) },
 });
@@ -388,13 +420,13 @@ function branchAttention(p: Prepared, b: Branch, period: Period, t: TeamTargets)
     // Only a judged day (a sheet still open before its deadline isn't one yet)
     const dayRows = input.counts.filter((r) => r.count_date === day);
     if (diffMark(dayRows, day, now, p.priceOn, t) === "fail" && !countedBeforeSales(dayRows, input.sales.filter((x) => x.sale_date === day)))
-      out.push({ key: `diff-${day}`, tone: "red", title: `diff นับ −${baht(d.total)} ${thDay(day)}`, detail: d.top.join(" · ") || "ดูรายการในใบนับ", baht: d.total, action: { label: "ดูใบนับ", go: goCount(b.id, day) } });
+      out.push({ key: `diff-${day}`, tone: "red", title: `นับแล้วขาด/เกิน ${baht(d.total)} ${thDay(day)}`, detail: d.top.join(" · ") || "ดูรายการในใบนับ", baht: d.total, action: { label: "ดูใบนับ", go: goCount(b.id, day) } });
     const rows = input.counts.filter((r) => r.count_date === day);
     if (countCloseMark(rows, day, now, t) === "fail")
-      out.push({ key: `close-${day}`, tone: "amber", title: rows.length && rows.every((r) => r.is_submitted) ? `นับปิดวันหลัง ${t.countCloseHour}:00 · ${thDay(day)}` : `ยังไม่กดนับเสร็จ · ${thDay(day)}`, detail: "ยอดคงเหลือวันถัดไปจะเริ่มจากใบที่ยังไม่ปิด", baht: null, action: { label: "ดูใบนับ", go: goCount(b.id, day) } });
+      out.push({ key: `close-${day}`, tone: "amber", title: rows.length && rows.every((r) => r.is_submitted) ? `นับเสร็จหลัง ${t.countCloseHour}:00 · ${thDay(day)}` : `ยังไม่กดนับเสร็จ · ${thDay(day)}`, detail: "ยอดคงเหลือวันถัดไปจะเริ่มจากใบที่ยังไม่ปิด", baht: null, action: { label: "ดูใบนับ", go: goCount(b.id, day) } });
     if (salesImportMark(input.sales.filter((s) => s.sale_date === day), day, now) === "fail") {
       const any = input.sales.some((s) => s.sale_date === day);
-      out.push({ key: `sales-${day}`, tone: "amber", title: any ? `นำเข้ายอดขายช้า · ${thDay(day)}` : `ยังไม่นำเข้ายอดขาย · ${thDay(day)}`, detail: "ยอดใช้ตามสูตรของวันนั้นจะไม่ถูก", baht: null, action: { label: "ดูยอดขาย", go: goSales(b.id, day) } });
+      out.push({ key: `sales-${day}`, tone: "amber", title: any ? `ลงยอดขายช้า · ${thDay(day)}` : `ยังไม่ลงยอดขาย · ${thDay(day)}`, detail: "ยอดใช้ตามสูตรของวันนั้นจะไม่ถูก", baht: null, action: { label: "ดูยอดขาย", go: goSales(b.id, day) } });
     }
   }
   const early = countedBeforeSalesDays(input, period);
@@ -543,7 +575,7 @@ export function homeAttention(p: Prepared, t: TeamTargets = DEFAULT_TARGETS): At
     const d = diffOf(p, b.id, y);
     const rows = p.branchInput.get(b.id)!.counts.filter((r) => r.count_date === y);
     if (diffMark(rows, y, nowMs, p.priceOn, t) === "fail" && !countedBeforeSales(rows, p.branchInput.get(b.id)!.sales.filter((x) => x.sale_date === y)))
-      out.push({ key: `diff-${b.id}`, tone: "red", title: `${b.branchName} นับ diff`, detail: `เมื่อวาน −${baht(d.total)}${d.top.length ? ` · ${d.top.join(" ")}` : ""}`, baht: d.total, action: { label: "ดูใบนับ", go: goCount(b.id, y) } });
+      out.push({ key: `diff-${b.id}`, tone: "red", title: `${b.branchName} นับแล้วขาด/เกิน`, detail: `เมื่อวาน${d.top.length ? ` · ${d.top.join(" ")}` : ""}`, baht: d.total, action: { label: "ดูใบนับ", go: goCount(b.id, y) } });
   }
 
   // Sheets finished before the sales came in, 2+ days of the last 7
@@ -558,7 +590,7 @@ export function homeAttention(p: Prepared, t: TeamTargets = DEFAULT_TARGETS): At
     const age = nowMs - Date.parse(to.sent_at);
     if (age <= t.receiveHours * 3_600_000) continue;
     const days = Math.floor(age / 86_400_000);
-    out.push({ key: `to-${to.id}`, tone: days >= 3 ? "red" : "amber", title: `${to.to_number} ยังไม่รับ ${days} วัน`, detail: `${branchName.get(to.branch_id)} · มูลค่า ${baht(Number(to.total_value) || 0)}`, baht: Number(to.total_value) || 0, action: { label: "ตามสาขา", go: goTransferHistory } });
+    out.push({ key: `to-${to.id}`, tone: days >= 3 ? "red" : "amber", title: `${branchName.get(to.branch_id) ?? "สาขา"} ยังไม่กดรับของ ${days} วัน`, detail: `ใบโอน ${to.to_number} · มูลค่า ${baht(Number(to.total_value) || 0)}`, baht: Number(to.total_value) || 0, action: { label: "ตามสาขา", go: goTransferHistory } });
   }
 
   // Standard price up ≥10% in the last 7 days (price_history), with the menus it's in
@@ -627,10 +659,10 @@ function kpis(p: Prepared, period: Period, prev: Period, t: TeamTargets): Kpi[] 
 
   const label = period.kind === "today" ? "วันนี้" : period.kind === "week" ? "สัปดาห์" : "เดือนนี้";
   return [
-    { key: "sales", label: `ยอดขาย${label}`, sub: b.sales > 0 ? `vs ${baht(b.sales)}` : "ช่วงก่อนไม่มียอด", value: hasSales(period) ? a.sales : null, prev: hasSales(prev) ? b.sales : null, target: null, lower: false, format: "baht", why: hasSales(period) ? undefined : "ยังไม่มียอดขายนำเข้าในช่วงนี้" },
-    { key: "foodcost", label: "Food cost ตามสูตร", sub: `เดือนนี้ · เป้า ≤${t.foodCostPct}%`, value: fc(mtd), prev: fc(before), target: t.foodCostPct, lower: true, format: "pct", why: mtd === null ? (y < mFrom ? "ยังไม่มีวันที่จบของเดือนนี้" : "กำลังโหลดสูตร/เมนู") : mtd.revenue <= 0 ? "ยังไม่มียอดขายเดือนนี้" : undefined },
-    { key: "waste", label: "Waste ของยอดขาย", sub: `เป้า ≤${t.wastePct}%`, value: a.sales > 0 ? (a.waste / a.sales) * 100 : null, prev: b.sales > 0 ? (b.waste / b.sales) * 100 : null, target: t.wastePct, lower: true, format: "pct", why: a.sales > 0 ? undefined : "ไม่มียอดขายในช่วงนี้" },
-    { key: "receive", label: "ใบโอนรับตรงเวลา", sub: `ภายใน ${t.receiveHours} ชม. · เป้า ${Math.round(t.receiveShare * 100)}%`, value: a.onTime === null ? null : a.onTime * 100, prev: b.onTime === null ? null : b.onTime * 100, target: t.receiveShare * 100, lower: false, format: "pct", why: a.onTime === null ? "ไม่มีใบโอนที่ครบกำหนดรับในช่วงนี้" : undefined },
+    { key: "sales", label: `ยอดขาย${label}`, sub: b.sales > 0 ? `ช่วงก่อน ${baht(b.sales)}` : "ช่วงก่อนไม่มียอด", value: hasSales(period) ? a.sales : null, prev: hasSales(prev) ? b.sales : null, target: null, lower: false, format: "baht", why: hasSales(period) ? undefined : "ยังไม่มียอดขายนำเข้าในช่วงนี้" },
+    { key: "foodcost", label: "ต้นทุนอาหารตามสูตร", sub: `เดือนนี้ · เป้า ไม่เกิน ${t.foodCostPct}%`, value: fc(mtd), prev: fc(before), target: t.foodCostPct, lower: true, format: "pct", why: mtd === null ? (y < mFrom ? "ยังไม่มีวันที่จบของเดือนนี้" : "กำลังโหลดสูตร/เมนู") : mtd.revenue <= 0 ? "ยังไม่มียอดขายเดือนนี้" : undefined },
+    { key: "waste", label: "ของเสีย เทียบยอดขาย", sub: `เป้า ไม่เกิน ${t.wastePct}%`, value: a.sales > 0 ? (a.waste / a.sales) * 100 : null, prev: b.sales > 0 ? (b.waste / b.sales) * 100 : null, target: t.wastePct, lower: true, format: "pct", why: a.sales > 0 ? undefined : "ไม่มียอดขายในช่วงนี้" },
+    { key: "receive", label: "สาขากดรับของทันเวลา", sub: `ภายใน ${t.receiveHours} ชม. · เป้า ${Math.round(t.receiveShare * 100)}%`, value: a.onTime === null ? null : a.onTime * 100, prev: b.onTime === null ? null : b.onTime * 100, target: t.receiveShare * 100, lower: false, format: "pct", why: a.onTime === null ? "ไม่มีใบโอนที่ครบกำหนดรับในช่วงนี้" : undefined },
   ];
 }
 

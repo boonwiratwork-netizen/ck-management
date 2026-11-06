@@ -62,7 +62,7 @@ export const DEFAULT_TARGETS: TeamTargets = {
   receiveShare: 1,
   salesImportShare: 1,
   overRecipePct: 3,
-  wastePct: 0.5,
+  wastePct: 2,
   kitchenPlanShare: 0.95,
   kitchenFillShare: 0.95,
   kitchenOnDayShare: 1,
@@ -327,7 +327,7 @@ const byDay = <T>(rows: T[], key: (r: T) => string) => {
   return m;
 };
 
-export const COUNTED_BEFORE_SALES = "นับก่อนนำเข้ายอดขาย";
+export const COUNTED_BEFORE_SALES = "นับก่อนลงยอดขาย";
 
 /**
  * The day's sheet was finished before the day's first sales row was saved: its stored

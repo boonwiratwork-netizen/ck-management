@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFitsWidth } from "@/hooks/use-fits-width";
 import { FC_TARGET, type ActualRow, type Attention, type DayRow, type MenuRow, type SkuRow } from "@/lib/food-cost";
@@ -26,9 +27,9 @@ export function AttentionBox({ items, onSku, onMenu }: { items: Attention[]; onS
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card">
       <h2 className="px-4 pt-3 text-base font-bold">
-        เรื่องที่ควรดู <span className="text-sm font-normal text-muted-foreground">· แตะเพื่อดูที่มาหรือไปแก้ที่ต้นทาง</span>
+        เรื่องที่ควรดู
       </h2>
-      {items.map((a) => {
+      {items.map((a, i) => {
         const go = a.skuId ? () => onSku(a.skuId!) : a.menuCode ? () => onMenu(a.menuCode!) : undefined;
         const body = (
           <>
@@ -37,15 +38,15 @@ export function AttentionBox({ items, onSku, onMenu }: { items: Attention[]; onS
               <span className="block break-words font-semibold">{a.title}</span>
               <span className="block break-words text-sm text-muted-foreground">{a.detail}</span>
             </span>
-            {go && <span className="shrink-0 self-center text-sm text-brand">{a.menuCode ? "เปิดเมนู ›" : "ดูที่มา ›"}</span>}
+            {go && <ChevronRight className="h-5 w-5 shrink-0 self-center text-muted-foreground" aria-label={a.menuCode ? "เปิดเมนู" : "ดูที่มา"} />}
           </>
         );
         return go ? (
-          <button key={a.key} type="button" onClick={go} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50 first-of-type:border-t-0">
+          <button key={a.key} type="button" onClick={go} className={cn("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-secondary/50", i > 0 && "border-t border-border")}>
             {body}
           </button>
         ) : (
-          <div key={a.key} className="flex items-start gap-3 border-t border-border px-4 py-3">
+          <div key={a.key} className={cn("flex items-start gap-3 px-4 py-3", i > 0 && "border-t border-border")}>
             {body}
           </div>
         );
@@ -73,11 +74,12 @@ export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: str
   return (
     <div ref={measure} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">เรียงตาม</span>
-        <button type="button" className={chip(sort === "pct")} onClick={() => setSort("pct")}>% ต้นทุนสูงสุด</button>
-        <button type="button" className={chip(sort === "revenue")} onClick={() => setSort("revenue")}>ยอดขาย</button>
-        <button type="button" className={chip(sort === "qty")} onClick={() => setSort("qty")}>ขายได้</button>
-        <button type="button" className={cn(chip(overOnly), "ml-auto")} onClick={() => setOverOnly((v) => !v)}>
+        <span className="flex flex-wrap items-center gap-2">
+          <button type="button" className={chip(sort === "pct")} onClick={() => setSort("pct")}>% ต้นทุนสูงสุด</button>
+          <button type="button" className={chip(sort === "qty")} onClick={() => setSort("qty")}>ขายมากสุด</button>
+          <button type="button" className={chip(sort === "revenue")} onClick={() => setSort("revenue")}>รายได้มากสุด</button>
+        </span>
+        <button type="button" className={cn(chip(overOnly), "whitespace-nowrap sm:ml-auto")} onClick={() => setOverOnly((v) => !v)}>
           เฉพาะเกินเป้า {FC_TARGET}%
         </button>
       </div>
@@ -99,18 +101,18 @@ export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: str
               <tr>
                 <th className="px-3 py-2.5 font-medium">เมนู</th>
                 <th className="px-3 py-2.5 font-medium">หมวด</th>
-                <th className="px-3 py-2.5 text-right font-medium">ขายได้</th>
-                <th className="px-3 py-2.5 text-right font-medium">ยอดขาย</th>
+                <th className="px-3 py-2.5 text-right font-medium">ขาย (จาน)</th>
+                <th className="px-3 py-2.5 text-right font-medium">รายได้</th>
                 <th className="px-3 py-2.5 text-right font-medium">ต้นทุนตามสูตร</th>
                 <th className="px-3 py-2.5 font-medium">% ต้นทุน</th>
-                <th className="px-3 py-2.5 text-right font-medium">ต้นทุน/ที่</th>
+                <th className="px-3 py-2.5 text-right font-medium">ต้นทุนต่อจาน</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((r) => (
                 <tr key={r.code} onClick={() => onOpen(r.code)} className="cursor-pointer border-t border-border hover:bg-secondary/40">
                   <td className="break-words px-3 py-2.5">
-                    <span className="font-semibold">{r.name}</span> <span className="font-mono text-xs text-muted-foreground">{r.code}</span>
+                    <span className="font-semibold">{r.name}</span> <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">{r.code}</span>
                   </td>
                   <td className="break-words px-3 py-2.5 text-muted-foreground">{r.category || "—"}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{n0(r.qty)}</td>
@@ -134,7 +136,7 @@ export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: str
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-semibold">{r.name}</span>
                   <span className="block text-[13px] text-muted-foreground">
-                    ขาย {n0(r.qty)} · ยอด {baht(r.revenue)} · ต้นทุน ฿{r.perServing.toFixed(2)}/ที่
+                    ต้นทุน ฿{r.perServing.toFixed(2)} ต่อจาน · {sort === "qty" ? <span className="whitespace-nowrap">ขาย {n0(r.qty)} จาน</span> : <span className="whitespace-nowrap">ขายได้ {baht(r.revenue)}</span>}
                   </span>
                 </span>
                 <b className={cn("shrink-0 font-mono tabular-nums", pctTone(r.pct))}>{r.revenue > 0 ? `${r.pct.toFixed(1)}%` : "—"}</b>
@@ -143,7 +145,7 @@ export function MenuView({ rows, onOpen }: { rows: MenuRow[]; onOpen: (code: str
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground">แตะเมนู = เปิดใน Cost Center แก้สูตรหรือราคาแล้วกลับมาที่นี่ · ต้นทุนรายเมนูไม่รวมรายการปรับ</p>
+      <p className="text-xs text-muted-foreground">ต้นทุนต่อเมนูยังไม่รวมรายการปรับ</p>
     </div>
   );
 }
@@ -166,7 +168,8 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
   const recipe = (r: SkuRow & Partial<ActualRow>) => r.recipeQty ?? r.stdQty;
   const otherSpan = (r: SkuRow & Partial<ActualRow>) => !!(r.opening?.early || r.closing?.early);
   const pct = (r: SkuRow & Partial<ActualRow>) => (r.qtyVar != null && recipe(r) > 0 ? Math.round((r.qtyVar / recipe(r)) * 100) : null);
-  const badge = (t: string) => <span className={cn("mr-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-bold", t === "SM" ? "bg-foreground text-background" : "bg-brand-soft text-brand-soft-foreground")}>{t}</span>;
+  // Only kitchen-made items get a tag: a plain ingredient is the default
+  const badge = (t: string) => (t === "SM" ? <span className="mr-1.5 whitespace-nowrap rounded-md bg-secondary px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">ครัวผลิต</span> : null);
   return (
     <div ref={measure} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -176,8 +179,8 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
         <button type="button" className={chip(sort === "cost")} onClick={() => setSort("cost")}>ต้นทุนสูงสุด</button>
         <span className="mx-1 h-6 w-px bg-border" />
         <button type="button" className={chip(type === "all")} onClick={() => setType("all")}>ทั้งหมด</button>
-        <button type="button" className={chip(type === "RM")} onClick={() => setType("RM")}>RM</button>
-        <button type="button" className={chip(type === "SM")} onClick={() => setType("SM")}>SM</button>
+        <button type="button" className={chip(type === "RM")} onClick={() => setType("RM")}>วัตถุดิบ</button>
+        <button type="button" className={chip(type === "SM")} onClick={() => setType("SM")}>ครัวผลิต</button>
       </div>
       {!list.length ? (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีวัตถุดิบในช่วงนี้</p>
@@ -280,7 +283,7 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        {actual ? "เขียว = ใช้น้อยกว่า/ถูกกว่าสูตร · แดง = มากกว่า · " : "ต้นทุนจริงดูได้เมื่อเลือกสาขาเดียว และเดือนที่จบแล้ว · "}แตะแถว = ดูที่มาและไปแก้สูตร
+        {actual ? "แตะแถวเพื่อดูว่าตัวเลขมาจากไหน" : "ต้นทุนจริงดูได้เมื่อเลือกสาขาเดียว เดือนที่จบแล้ว"}
       </p>
     </div>
   );
@@ -308,7 +311,7 @@ export function DayView({ days }: { days: DayRow[] }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-xs text-muted-foreground">แท่ง = ยอดขายต่อวัน · เส้น = % ต้นทุนตามสูตร (แกนขวา) · วันที่ไม่มียอดขายไม่แสดง · ไม่รวมรายการปรับ</p>
+      <p className="text-xs text-muted-foreground">แท่งเทา ยอดขายต่อวัน · เส้นส้ม % ต้นทุนตามสูตร (แกนขวา)</p>
     </div>
   );
 }

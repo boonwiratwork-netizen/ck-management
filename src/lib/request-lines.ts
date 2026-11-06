@@ -150,7 +150,7 @@ export function lineMessage(opts: { branch: string; date: string; notes?: string
 /** Status of a request in words for the branch */
 export const statusLabel: Record<string, { text: string; tone: "wait" | "work" | "done" | "off" }> = {
   Submitted: { text: "รอครัวกลาง", tone: "wait" },
-  Acknowledged: { text: "ครัวกลางรับเรื่องแล้ว", tone: "work" },
+  Acknowledged: { text: "รับเรื่องแล้ว", tone: "work" },
   Fulfilled: { text: "ได้ของแล้ว", tone: "done" },
   Cancelled: { text: "ยกเลิก", tone: "off" },
   Draft: { text: "ร่าง", tone: "off" },
@@ -158,7 +158,7 @@ export const statusLabel: Record<string, { text: string; tone: "wait" | "work" |
 export const prStatusLabel: Record<string, { text: string; tone: "wait" | "work" | "done" | "off" }> = {
   ...statusLabel,
   Submitted: { text: "ส่งแล้ว", tone: "wait" },
-  Acknowledged: { text: "ร้านรับเรื่องแล้ว", tone: "work" },
+  Acknowledged: { text: "รับเรื่องแล้ว", tone: "work" },
 };
 
 /** A request can be cancelled until its goods arrive */

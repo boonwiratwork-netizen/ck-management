@@ -15,13 +15,13 @@ import { Button } from "@/components/ui/button";
 export function gradeCell(g: Grade | null): string {
   if (g === "pass") return "bg-success-soft text-success";
   if (g === "near") return "bg-warning-soft text-warning";
-  if (g === "fail") return "bg-destructive text-destructive-foreground";
+  if (g === "fail") return "bg-destructive-soft text-destructive";
   return "border-[1.5px] border-dashed border-border text-muted-foreground";
 }
 export function statusCell(s: Status): string {
   if (s === "good") return "bg-success-soft text-success";
   if (s === "watch") return "bg-warning-soft text-warning";
-  if (s === "bad") return "bg-destructive text-destructive-foreground";
+  if (s === "bad") return "bg-destructive-soft text-destructive";
   return "border border-dashed border-border text-muted-foreground";
 }
 export const statusPill = (s: Status) => (s === "good" ? "bg-success-soft text-success" : s === "watch" ? "bg-warning-soft text-warning" : s === "bad" ? "bg-destructive-soft text-destructive" : "bg-secondary text-muted-foreground");
@@ -37,7 +37,7 @@ export function WeekChips({ chips, size = 15 }: { chips: Score[]; size?: number 
       {chips.map((c, i) => (
         <span
           key={i}
-          style={{ width: size, height: size, fontSize: size >= 17 ? 10.5 : 9.5 }}
+          style={{ width: size, height: size, fontSize: 11 }}
           className={cn(
             "inline-flex items-center justify-center rounded-[5px] font-semibold leading-none tabular-nums",
             statusCell(c.status),
@@ -92,26 +92,31 @@ export function Bullet({ value, prev, target, lower, max, grade }: BulletSpec) {
   );
 }
 
-export function BulletRow({ label, sub, display, spec, why }: { label: string; sub: string; display: string; spec: BulletSpec; why?: string }) {
+/**
+ * One metric on a phone: name and value on one line, the bar full width under them, then the
+ * target and how far off it is. (The old 3-column row squeezed the name into 112px → 3-line wraps.)
+ */
+export function BulletRow({ label, sub, gap, display, spec, why }: { label: string; sub: string; gap?: string; display: string; spec: BulletSpec; why?: string }) {
   return (
-    <div className="grid min-h-[30px] grid-cols-[112px_minmax(0,1fr)_54px] items-center gap-2" title={why}>
-      <div className="text-xs leading-tight">
-        {label}
-        <br />
-        <span className="text-[11px] text-muted-foreground">{sub}</span>
+    <div className="border-t border-border py-2.5 first:border-t-0" title={why}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 text-sm leading-snug">{label}</span>
+        <span className={cn("shrink-0 whitespace-nowrap text-right font-mono text-sm font-bold tabular-nums", gradeText(spec.grade))}>{display}</span>
       </div>
-      <div className="min-w-0">
+      <div className="mt-1.5">
         <Bullet {...spec} />
-        {why && spec.value === null && <div className="text-[11px] leading-tight text-muted-foreground">{why}</div>}
       </div>
-      <div className={cn("whitespace-nowrap text-right font-mono text-[13px] font-bold tabular-nums", gradeText(spec.grade))}>{display}</div>
+      <div className="mt-1 text-xs leading-snug text-muted-foreground">
+        {spec.value === null && why ? why : sub}
+        {gap && spec.value !== null ? <span className={cn("font-semibold", gradeText(spec.grade))}> · {gap}</span> : null}
+      </div>
     </div>
   );
 }
 
 export function BulletLegend({ now, before }: { now: string; before: string }) {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1">
         <i className="inline-block h-1.5 w-3.5 rounded-sm bg-success" />
         {now}
@@ -290,27 +295,38 @@ const thb = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`;
 
 export function Timeline({ items, onGo, empty }: { items: Attention[]; onGo: (go: Go) => void; empty: string }) {
   if (!items.length) return <p className="rounded-xl bg-secondary px-3 py-3 text-sm text-muted-foreground">{empty}</p>;
+  // Whole row is the tap target; the amount sits beside the title and the action is a small link
+  // under it — a button beside the text squeezed titles into 2–3 broken lines on a phone.
   return (
-    <div className="relative before:absolute before:bottom-2.5 before:left-[13px] before:top-2.5 before:w-0.5 before:bg-border">
-      {items.map((a) => (
-        <div key={a.key} className="relative flex items-center gap-2.5 py-1.5">
-          <span className="flex w-7 shrink-0 justify-center">
-            <svg width="28" height="28" viewBox="0 0 28 28" aria-label={a.tone === "red" ? "ด่วน" : "ควรดู"}>
-              <circle cx="14" cy="14" r="8" strokeWidth="2.5" className={cn(a.tone === "red" ? "fill-destructive" : "fill-highlight", "stroke-background")} />
-            </svg>
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="break-words text-[13.5px] font-bold leading-tight">{a.title}</div>
-            <div className="break-words text-xs text-muted-foreground">{a.detail}</div>
+    <div className="relative before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-0.5 before:bg-border">
+      {items.map((a) => {
+        const body = (
+          <>
+            <span className="flex w-7 shrink-0 justify-center pt-0.5">
+              <svg width="20" height="20" viewBox="0 0 28 28" aria-label={a.tone === "red" ? "ด่วน" : "ควรดู"}>
+                <circle cx="14" cy="14" r="9" strokeWidth="3" className={cn(a.tone === "red" ? "fill-destructive" : "fill-highlight", "stroke-background")} />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 text-sm font-semibold leading-snug">{a.title}</span>
+                {a.baht !== null && <b className="shrink-0 whitespace-nowrap font-mono text-sm tabular-nums">{thb(a.baht)}</b>}
+              </span>
+              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{a.detail}</span>
+              {a.action && <span className="mt-1 inline-flex items-center text-[13px] font-semibold text-brand">{a.action.label} ›</span>}
+            </span>
+          </>
+        );
+        return a.action ? (
+          <button key={a.key} type="button" onClick={() => onGo(a.action!.go)} className="relative flex w-full items-start gap-2.5 py-2.5 text-left">
+            {body}
+          </button>
+        ) : (
+          <div key={a.key} className="relative flex items-start gap-2.5 py-2.5">
+            {body}
           </div>
-          {a.baht !== null && <b className="min-w-[52px] text-right font-mono text-[13px] tabular-nums">{thb(a.baht)}</b>}
-          {a.action && (
-            <Button variant="outline" className="h-10 shrink-0 rounded-[10px] px-2.5 text-[13px]" onClick={() => onGo(a.action!.go)}>
-              {a.action.label}
-            </Button>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

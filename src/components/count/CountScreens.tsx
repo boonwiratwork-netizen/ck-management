@@ -109,7 +109,7 @@ export function CountHome({
       )}
 
       <section data-tour="count-check" className="overflow-hidden rounded-2xl border border-border bg-card">
-        <h2 className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ก่อนนับ เช็คให้ครบ</h2>
+        <h2 className="px-4 pb-1 pt-3 text-[15px] font-semibold">ก่อนนับ เช็คให้ครบ</h2>
         <CheckRow
           ok={status.salesLines > 0}
           loading={statusLoading}
@@ -117,9 +117,9 @@ export function CountHome({
           sub={status.salesLines > 0 ? `นำเข้าแล้ว ${status.salesLines} รายการ` : "ยังไม่ได้นำเข้า คงเหลือจะยังไม่หักยอดขาย"}
           action={status.salesLines > 0 ? undefined : { label: "ไปนำเข้า", onClick: onGoSales }}
         />
-        <CheckRow ok loading={statusLoading} title="รับของวันนี้" sub={status.receipts > 0 ? `รับแล้ว ${status.receipts} รายการ` : "ยังไม่มีรายการรับของ (ถ้ามีของเข้า รับก่อนนับ)"} action={{ label: "ไปรับของ", onClick: onGoReceive, quiet: true }} />
+        <CheckRow ok loading={statusLoading} title="รับของวันนี้" sub={status.receipts > 0 ? `รับแล้ว ${status.receipts} รายการ` : "ยังไม่มี ถ้ามีของเข้า รับก่อนนับ"} action={{ label: "ไปรับของ", onClick: onGoReceive, quiet: true }} />
         {status.waitingTransfers > 0 && (
-          <CheckRow ok={false} loading={statusLoading} title={`ใบโอนครัวกลางยังไม่ได้รับ ${status.waitingTransfers} ใบ`} sub="ถ้าของมาแล้ว รับก่อน ไม่งั้นยอดจะขาด" action={{ label: "ไปรับ", onClick: onGoReceive }} />
+          <CheckRow ok={false} loading={statusLoading} title={`ใบโอนครัวกลางยังไม่ได้รับ ${status.waitingTransfers} ใบ`} sub="ถ้าของมาแล้ว รับก่อนเริ่มนับ" action={{ label: "ไปรับ", onClick: onGoReceive }} />
         )}
       </section>
 
@@ -305,7 +305,7 @@ export function CountReview({
 
       {big.length > 0 && salesIn && (
         <>
-          <h3 className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ขาด/เกินจากคงเหลือมาก ลองนับซ้ำ · {big.length}</h3>
+          <h3 className="mt-1 text-[15px] font-semibold">ขาด/เกินจากคงเหลือมาก ลองนับซ้ำ · {big.length}</h3>
           <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
             {big.map((l) => {
               const d = differenceOf(l.row)!;

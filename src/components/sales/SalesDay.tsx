@@ -113,7 +113,7 @@ export function SalesDay({
 
       {!loading && !lines.length && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-          <p className="text-sm text-muted-foreground">{date < today ? "วันนี้ยังไม่มียอดขายในระบบ วางข้อมูลจาก POS ของวันนี้ในช่องนำยอดขายเข้า" : "ยังไม่มียอดขายของวันนี้"}</p>
+          <p className="text-sm text-muted-foreground">{date < today ? "ยังไม่มียอดขายของวันนั้น วางยอดจากเครื่องขายในช่องเอายอดขายเข้า" : "ยังไม่มียอดขายของวันนี้"}</p>
           {canEdit && (
             <Button variant="outline" className="h-11" onClick={onAdd}>
               <Plus className="h-4 w-4" /> เพิ่มรายการเอง

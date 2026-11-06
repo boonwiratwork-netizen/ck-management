@@ -164,7 +164,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "error",
       area: "info",
       title: `รหัส ${menu.menuCode} ซ้ำกับอีก ${sameCode.length} เมนู`,
-      detail: "ยอดขายจับคู่เมนูด้วยรหัส รหัสซ้ำ = ระบบตัดของผิดเมนู เปลี่ยนรหัสให้ไม่ซ้ำ",
+      detail: "ยอดขายจับคู่เมนูด้วยรหัส รหัสซ้ำ = ระบบหักสต๊อกผิดเมนู เปลี่ยนรหัสให้ไม่ซ้ำ",
     });
 
   const totalSold = Object.values(soldByBranch ?? {}).reduce((s, q) => s + q, 0);
@@ -174,7 +174,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "warn",
       area: "info",
       title: "ปิดเมนูไว้ แต่ยังมียอดขายเข้ามา",
-      detail: `ขายไป ${totalSold.toLocaleString()} ที่ในช่วงที่ดู · ถ้ายังขายอยู่ให้เปิดกลับเป็น Active ไม่งั้นบางรายงานจะไม่นับวัตถุดิบ`,
+      detail: `ขายไป ${totalSold.toLocaleString()} จานในช่วงที่ดู · ถ้ายังขายอยู่ให้เปิดขายกลับ ไม่งั้นบางรายงานจะไม่นับวัตถุดิบ`,
     });
 
   // ── Recipe ──
@@ -189,7 +189,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       id: "swap-leftover",
       level: "error",
       area: "recipe",
-      title: `${plates.toLocaleString()} จาน เลือก "${g.leftover[0].keyword}" แต่ยังตัด${skuName(g.leftover[0].skuId)}`,
+      title: `${plates.toLocaleString()} จาน เลือก "${g.leftover[0].keyword}" แต่ยังหัก ${skuName(g.leftover[0].skuId)}`,
       detail: `เช่นบิล "${g.name}" · เพิ่มเมนูนี้ในกฎสลับ "${g.leftover[0].keyword}" ไม่งั้นนับทั้งของเดิมและของใหม่`,
     });
   }
@@ -198,12 +198,12 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     const empty = billed.groups.find((g) => g.empty);
     add(
       billed.emptyPlates === 0
-        ? { id: "no-recipe", level: "ok", area: "recipe", title: `บิลจริง ${billed.plates.toLocaleString()} จาน ตัดของทุกจาน` }
+        ? { id: "no-recipe", level: "ok", area: "recipe", title: `บิลจริง ${billed.plates.toLocaleString()} จาน หักสต๊อกครบทุกจาน` }
         : {
             id: "no-recipe",
             level: "error",
             area: "recipe",
-            title: `${billed.emptyPlates.toLocaleString()} จาก ${billed.plates.toLocaleString()} จานขายแล้วไม่ตัดของ`,
+            title: `${billed.emptyPlates.toLocaleString()} จาก ${billed.plates.toLocaleString()} จานขายแล้วไม่หักสต๊อก`,
             detail: `เช่นบิล "${empty?.name ?? ""}" · เพิ่มสูตร หรือกฎที่มีคำตรงกับในบิล (ดูแท็บบิลจริง)`,
           },
     );
@@ -222,8 +222,8 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       id: "no-recipe",
       level: "warn",
       area: "recipe",
-      title: `ไม่มีสูตรของตัวเอง — ตัดของผ่านกฎท็อปปิ้ง/ชุด ${n} ตัว`,
-      detail: "ถ้าเป็นเมนูชุด แบบนี้ถูกแล้ว ไม่ต้องเพิ่มสูตร (จะตัดซ้ำ) · เช็คที่ตัวเลือก POS ว่าของในชุดมีกฎครบ",
+      title: `ไม่มีสูตรของตัวเอง — หักสต๊อกผ่านกฎท็อปปิ้ง/ชุด ${n} ตัว`,
+      detail: "ถ้าเป็นเมนูชุด แบบนี้ถูกแล้ว ไม่ต้องเพิ่มสูตร (จะหักซ้ำ) · เช็คที่ตัวเลือก POS ว่าของในชุดมีกฎครบ",
     });
   } else if (menuLines.length === 0 && /set|ชุด|เซ็ต|เซต/i.test(`${menu.menuName} ${menu.category}`) && activeRules.some((r) => r.ruleType === "submenu" && r.menuIds.length === 0)) {
     add({
@@ -231,7 +231,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "warn",
       area: "recipe",
       title: "เมนูชุด ไม่มีสูตรของตัวเอง",
-      detail: "ถ้าบิลของชุดนี้มีรหัส/ชื่อของในชุด กฎท็อปปิ้งจะตัดของให้เอง ไม่ต้องเพิ่มสูตร (จะตัดซ้ำ) · เช็คที่ตัวเลือก POS",
+      detail: "ถ้าบิลของชุดนี้มีรหัส/ชื่อของในชุด กฎท็อปปิ้งจะหักสต๊อกให้เอง ไม่ต้องเพิ่มสูตร (จะหักซ้ำ) · เช็คที่ตัวเลือก POS",
     });
   } else if (menuLines.length === 0) {
     const needed = usedAsTopping.length > 0 || totalSold > 0 || menu.status === "Active";
@@ -242,11 +242,11 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       title: "ยังไม่มีสูตร",
       detail:
         usedAsTopping.length > 0
-          ? `มีกฎ ${usedAsTopping.length} ตัวใช้เมนูนี้เป็นท็อปปิ้ง/ของในชุด แต่ไม่มีสูตร = สั่งเพิ่มแล้วไม่ตัดของ`
-          : "ขายเมนูนี้แล้วจะไม่ตัดวัตถุดิบเลย และไม่มีต้นทุน",
+          ? `มีกฎ ${usedAsTopping.length} ตัวใช้เมนูนี้เป็นท็อปปิ้ง/ของในชุด แต่ไม่มีสูตร = สั่งเพิ่มแล้วไม่หักสต๊อก`
+          : "ขายเมนูนี้แล้วจะไม่หักสต๊อกวัตถุดิบเลย และไม่มีต้นทุน",
     });
   } else {
-    add({ id: "no-recipe", level: "ok", area: "recipe", title: `มีสูตร ${menuLines.length} บรรทัด` });
+    add({ id: "no-recipe", level: "ok", area: "recipe", title: `มีสูตร ${menuLines.length} แถว` });
   }
 
   const unpriced = [...new Set(menuLines.filter((l) => activeUnitCost(prices, l.skuId) <= 0).map((l) => l.skuId))];
@@ -256,7 +256,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "warn",
       area: "recipe",
       title: `วัตถุดิบ ${unpriced.length} ตัวยังไม่มีราคา`,
-      detail: `${unpriced.map(skuName).join(", ")} · ต้นทุนเมนูจะต่ำกว่าจริง ใส่ราคาที่หน้า Price`,
+      detail: `${unpriced.map(skuName).join(", ")} · ต้นทุนเมนูจะต่ำกว่าจริง ใส่ราคาที่ Cost Center`,
     });
   else if (menuLines.length > 0) add({ id: "unpriced", level: "ok", area: "recipe", title: "วัตถุดิบทุกตัวมีราคา" });
 
@@ -276,7 +276,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       id: "bad-qty",
       level: "error",
       area: "recipe",
-      title: `ปริมาณหรือ % yield ผิด ${badYield.length} บรรทัด`,
+      title: `ปริมาณหรือ % yield ผิด ${badYield.length} แถว`,
       detail: `${badYield.map((l) => skuName(l.skuId)).join(", ")} · ปริมาณต้องมากกว่า 0 และ yield 1–100%`,
     });
 
@@ -298,7 +298,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       level: "warn",
       area: "recipe",
       title: `วัตถุดิบซ้ำในสูตร ${doubles.length} รายการ`,
-      detail: `${[...new Set(doubles)].join(", ")} · บรรทัดซ้ำถูกตัดบวกกัน ถ้าตั้งใจให้สาขาใช้ปริมาณต่าง ให้ลบบรรทัดกลางแล้วตั้งแยกรายสาขา`,
+      detail: `${[...new Set(doubles)].join(", ")} · แถวซ้ำถูกนับรวมกัน ถ้าตั้งใจให้สาขาใช้ปริมาณต่าง ให้ลบบรรทัดกลางแล้วตั้งแยกรายสาขา`,
     });
 
   const otherBrandLines = menuLines.filter((l) => l.branchId && !sellingBranches.some((b) => b.id === l.branchId));
@@ -307,8 +307,8 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       id: "foreign-branch",
       level: "warn",
       area: "recipe",
-      title: `มีบรรทัดเฉพาะสาขาที่ไม่ได้ขายแบรนด์นี้ ${otherBrandLines.length} บรรทัด`,
-      detail: "บรรทัดพวกนี้ไม่ถูกใช้เลย ลบทิ้งได้",
+      title: `มีแถวเฉพาะสาขาที่ไม่ได้ขายแบรนด์นี้ ${otherBrandLines.length} แถว`,
+      detail: "แถวพวกนี้ไม่ถูกใช้เลย ลบทิ้งได้",
     });
 
   // ── Branches ──
@@ -327,7 +327,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
         level: "warn",
         area: "branches",
         title: `${b.branchName}: ปิดขายไว้ แต่ยังมียอดขาย`,
-        detail: `ขายไป ${b.sold.toLocaleString()} ที่ · ระบบยังตัดของตามยอดขายจริง ถ้ายังขายอยู่ให้เปิดกลับ`,
+        detail: `ขายไป ${b.sold.toLocaleString()} จาน · ระบบยังหักสต๊อกตามยอดขายจริง ถ้ายังขายอยู่ให้เปิดกลับ`,
       });
   }
   if (menuLines.length > 0 || linkedRecipes.length > 0)
@@ -341,7 +341,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
           // Only a real problem once that branch actually sells it
           level: b.sold > 0 ? "error" : "warn",
           area: "branches",
-          title: `${b.branchName}: ขายแล้วไม่ตัดของ`,
+          title: `${b.branchName}: ขายแล้วไม่หักสต๊อก`,
           detail: `กฎที่ดึงสูตร ${linkedRecipes.map((x) => x.menu.menuCode).join(", ")} ไม่ได้เลือกสาขานี้ · เพิ่มสาขานี้ในกฎ หรือปิดขายที่สาขานี้`,
         });
     }
@@ -383,7 +383,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
           level: "error",
           area: "rules",
           title: `กฎ "${r.keyword}" ใส่ ${sub.menuName} ที่ยังไม่มีสูตร`,
-          detail: `สั่งเพิ่มแล้วไม่ตัดของ · ไปตั้งสูตรของ ${sub.menuCode}`,
+          detail: `สั่งเพิ่มแล้วไม่หักสต๊อก · ไปตั้งสูตรของ ${sub.menuCode}`,
         });
     }
     if ((r.ruleType === "add" || r.ruleType === "swap") && !r.skuId)
@@ -417,7 +417,7 @@ export function describeRule(rule: ModifierRule, skus: SKU[], menus: Menu[]): st
   if (rule.ruleType === "submenu") {
     const sub = menus.find((m) => m.id === rule.submenuId);
     const codeLike = /^[A-Z]{2,3}-\d+$/i.test(rule.keyword.trim());
-    return `${codeLike ? `ถ้าบิลเป็นรหัส ${rule.keyword} หรือมีคำนี้` : kw} → ตัดของตามสูตร ${sub ? `${sub.menuCode} ${sub.menuName}` : "เมนูที่ถูกลบแล้ว"}`;
+    return `${codeLike ? `ถ้าบิลเป็นรหัส ${rule.keyword} หรือมีคำนี้` : kw} → หักสต๊อกตามสูตร ${sub ? `${sub.menuCode} ${sub.menuName}` : "เมนูที่ถูกลบแล้ว"}`;
   }
-  return `${kw} → ตัด ${name(rule.skuId)} เพิ่ม ${rule.qtyPerMatch} ${rule.uom || ""}`.trim();
+  return `${kw} → หัก ${name(rule.skuId)} เพิ่ม ${rule.qtyPerMatch} ${rule.uom || ""}`.trim();
 }

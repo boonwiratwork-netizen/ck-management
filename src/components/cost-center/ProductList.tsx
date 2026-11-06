@@ -6,7 +6,7 @@ import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { KindBadge, LevelDot, baht } from "./parts";
+import { KIND_NAME, KindBadge, LevelDot, baht } from "./parts";
 
 export type ProductFilter = "all" | "error" | "warn" | "idle" | "inactive";
 type TypeFilter = "all" | SKUType;
@@ -104,7 +104,7 @@ export function ProductList({
                 type === t ? "border-primary bg-primary font-semibold text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
-              {t === "all" ? "ทุกประเภท" : t}
+              {t === "all" ? "ทุกประเภท" : KIND_NAME[t]}
             </button>
           ))}
         </div>

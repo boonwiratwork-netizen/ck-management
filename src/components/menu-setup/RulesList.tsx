@@ -105,7 +105,7 @@ export function RulesList({ rules, menus, lines, skus, prices, branches, bills, 
         <div className="flex flex-col gap-2 rounded-2xl border border-warning/40 bg-warning-soft p-4 sm:flex-row sm:items-center">
           <AlertTriangle className="h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
           <p className="flex-1 text-sm">
-            <b>กฎ {counts["one-branch"]} ตัวใช้ได้บางสาขา</b> · ถ้าสาขาอื่นขายเมนูนั้นด้วย สาขานั้นจะไม่ตัดวัตถุดิบ
+            <b>กฎ {counts["one-branch"]} ตัวใช้ได้บางสาขา</b> · ถ้าสาขาอื่นขายด้วย สต๊อกสาขานั้นจะไม่ลด
           </p>
           <Button variant="outline" className="h-10 shrink-0" onClick={() => setFilter("one-branch")}>
             ดู {counts["one-branch"]} ตัว
@@ -158,7 +158,7 @@ export function RulesList({ rules, menus, lines, skus, prices, branches, bills, 
               <span className="min-w-0 break-words text-sm text-muted-foreground">{menuLabel(r)}</span>
               <span className="min-w-0 break-words text-sm text-muted-foreground">
                 {branchLabel(r)}
-                {oneBranch(r) && <span className="block font-medium text-warning">{missing(r)} ไม่ตัด</span>}
+                {oneBranch(r) && <span className="block font-medium text-warning">{missing(r)} สต๊อกไม่ลด</span>}
               </span>
             </button>
             {open === r.id && <div className="border-t border-border bg-secondary/30 p-3">{form(r)}</div>}

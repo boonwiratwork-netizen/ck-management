@@ -238,39 +238,12 @@ export function MonthCalendar({
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <b>{b.branchName}</b>
               {d && (
-                <span className="text-sm text-muted-foreground">
-                  นับเสร็จ{" "}
-                  <b className="font-mono text-foreground">{d.summary.done}</b>{" "}
-                  · ไม่กดเสร็จ{" "}
-                  <b
-                    className={cn(
-                      "font-mono",
-                      d.summary.open ? "text-warning" : "text-foreground",
-                    )}
-                  >
-                    {d.summary.open}
-                  </b>{" "}
-                  · ไม่ได้นับ{" "}
-                  <b
-                    className={cn(
-                      "font-mono",
-                      d.summary.none ? "text-destructive" : "text-foreground",
-                    )}
-                  >
-                    {d.summary.none}
-                  </b>{" "}
-                  · ยอดขายไม่เข้า{" "}
-                  <b
-                    className={cn(
-                      "font-mono",
-                      d.summary.noSales
-                        ? "text-destructive"
-                        : "text-foreground",
-                    )}
-                  >
-                    {d.summary.noSales}
-                  </b>{" "}
-                  วัน
+                // Each "label number" stays whole; the parts wrap between them, never inside
+                <span className="flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+                  <span className="whitespace-nowrap">นับเสร็จ <b className="font-mono text-foreground">{d.summary.done}</b></span>
+                  <span className="whitespace-nowrap">· นับค้าง <b className={cn("font-mono", d.summary.open ? "text-warning" : "text-foreground")}>{d.summary.open}</b></span>
+                  <span className="whitespace-nowrap">· ไม่ได้นับ <b className={cn("font-mono", d.summary.none ? "text-destructive" : "text-foreground")}>{d.summary.none}</b></span>
+                  <span className="whitespace-nowrap">· ยอดขายไม่เข้า <b className={cn("font-mono", d.summary.noSales ? "text-destructive" : "text-foreground")}>{d.summary.noSales}</b> วัน</span>
                 </span>
               )}
             </div>
@@ -297,7 +270,7 @@ export function MonthCalendar({
                             day.date === today && "ring-1 ring-foreground/40",
                           )}
                         >
-                          <span className="font-mono text-[10px] text-muted-foreground">
+                          <span className="font-mono text-[11px] text-muted-foreground">
                             {Number(day.date.slice(8))}
                           </span>
                           {!blank && <I className="mt-0.5 h-3 w-3" />}
@@ -352,11 +325,7 @@ export function MonthCalendar({
           </div>
         );
       })}
-      <p className="text-xs text-muted-foreground">
-        "ไม่กดเสร็จ" = ใส่ยอดนับแล้ว (สต๊อกใช้ยอดนั้นแล้ว) แต่ยังไม่กด "นับเสร็จ"
-        ใบยังแก้ได้ และวันถัดไปจะเริ่มนับไม่ได้จนกว่าจะปิดวันที่ค้าง · เปิดใบนับแต่ไม่ได้ใส่ยอด = ไม่ได้นับ
-        {canOpen && " · แตะวันเพื่อเปิดใบนับหรือยอดขายของวันนั้น"}
-      </p>
+      {canOpen && <p className="text-xs text-muted-foreground">แตะวันเพื่อเปิดใบนับหรือยอดขายของวันนั้น</p>}
     </section>
   );
 }

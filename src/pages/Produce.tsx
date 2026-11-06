@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { thaiDay } from "@/components/sales/SalesDays";
 import type { TabKey } from "@/components/AppSidebar";
 import { fetchPendingTrCount } from "@/lib/pending-trs";
 
@@ -367,7 +368,8 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   const [agentOpen, setAgentOpen] = useState(false);
   const agent = usePlanningAgent({ smStockBalances: smStockBalances.map((s) => ({ skuId: s.skuId, currentStock: s.currentStock })), getOutputPerBatch, smUse: smUseRead === undefined ? undefined : { read: smUseRead, error: !!smUseError } });
 
-  const weekLabel = `${format(new Date(recordWeek + "T00:00:00"), "d/M")} – ${format(addDays(new Date(recordWeek + "T00:00:00"), 6), "d/M")}`;
+  // "2 พ.ย. – 8 พ.ย." (same words as the plan view's heading, not "2/11")
+  const weekLabel = `${thaiDay(recordWeek).replace(/^\S+ /, "")} – ${thaiDay(format(addDays(new Date(recordWeek + "T00:00:00"), 6), "yyyy-MM-dd")).replace(/^\S+ /, "")}`;
   const weekShown = mode === "plan" ? planPlan : recordPlan;
   return (
     <div className="flex flex-col gap-4">

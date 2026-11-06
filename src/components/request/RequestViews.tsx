@@ -34,8 +34,10 @@ export function RequestList({ items, onOpen, empty }: { items: AnyRequest[]; onO
               <span className="block text-[15px]">
                 {r.kind === "pr" ? `${r.row.supplierName || "ซัพพลายเออร์"} · ` : ""}ส่ง {thaiDay(r.row.requiredDate)}
               </span>
+              {/* Count first; the code is small and wraps whole if the pill needs the room */}
               <span className="block text-sm text-muted-foreground">
-                <span className="font-mono">{numberOf(r)}</span> · {r.row.itemCount} รายการ
+                <span className="whitespace-nowrap">{r.row.itemCount} รายการ ·</span>{" "}
+                <span className="whitespace-nowrap font-mono text-xs">{numberOf(r)}</span>
               </span>
             </span>
             <StatusChip r={r} />
@@ -105,11 +107,10 @@ export function RequestHome({
       </section>
 
       <div data-tour="req-sent" className="flex flex-col gap-2">
-        <h2 className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ใบที่ส่งไปแล้ว</h2>
+        <h2 className="mt-1 text-[15px] font-semibold">ใบที่ส่งไปแล้ว</h2>
         <RequestList items={recent} onOpen={onOpen} empty="ยังไม่มีใบขอเบิก" />
-        <button type="button" onClick={onHistory} className="flex min-h-[48px] items-center justify-between px-1 text-sm">
-          <span>ดูทั้งหมด</span>
-          <span className="font-semibold text-brand">ประวัติ</span>
+        <button type="button" onClick={onHistory} className="flex min-h-[48px] items-center justify-end px-1 text-sm font-semibold text-brand">
+          ดูทั้งหมด
         </button>
       </div>
 
@@ -133,8 +134,9 @@ export function RequestSent({ number, count, date, message, onDone }: { number: 
         </span>
         <h2 className="text-xl font-bold">ส่งคำขอแล้ว</h2>
         <p className="text-[15px] text-muted-foreground">
-          <span className="font-mono">{number}</span> · {count} รายการ · ส่ง {thaiDay(date)}
+          <span className="whitespace-nowrap">{count} รายการ</span> · <span className="whitespace-nowrap">ส่ง {thaiDay(date)}</span>
         </p>
+        <p className="whitespace-nowrap font-mono text-xs text-muted-foreground">{number}</p>
       </div>
       <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
         <h3 className="text-sm font-semibold">ข้อความสำหรับส่งในไลน์กลุ่ม</h3>
@@ -190,9 +192,10 @@ export function RequestDetail({
       <div className="flex flex-wrap items-start gap-2">
         <div className="mr-auto min-w-0">
           <div className="text-sm text-muted-foreground">{r.kind === "tr" ? "ขอเบิกจากครัวกลาง" : r.row.supplierName}</div>
-          <h2 className="font-mono text-xl font-bold">{numberOf(r)}</h2>
+          <h2 className="text-xl font-bold">ส่ง {thaiDay(r.row.requiredDate)}</h2>
           <p className="text-sm text-muted-foreground">
-            ขอวันที่ {thaiDay(r.row.requestedDate)} · ส่ง {thaiDay(r.row.requiredDate)}
+            <span className="whitespace-nowrap">ขอวันที่ {thaiDay(r.row.requestedDate)}</span>{" "}
+            <span className="whitespace-nowrap font-mono text-xs">{numberOf(r)}</span>
           </p>
         </div>
         <StatusChip r={r} />

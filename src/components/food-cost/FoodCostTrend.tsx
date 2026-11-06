@@ -75,14 +75,14 @@ export function FoodCostTrend({ months, points: raw, selected, onPick, oneBranch
             <svg width="22" height="8" aria-hidden>
               <line x1="0" x2="22" y1="4" y2="4" className="stroke-foreground" strokeWidth="2" strokeDasharray="5 3" />
             </svg>
-            ตามสูตร (จากยอดขาย)
+            ตามสูตร
           </span>
           {oneBranch && (
             <span className="inline-flex items-center gap-1.5">
               <svg width="22" height="8" aria-hidden>
                 <line x1="0" x2="22" y1="4" y2="4" className="stroke-brand" strokeWidth="2" />
               </svg>
-              จริง (จากนับสต๊อก)
+              ใช้จริง
             </span>
           )}
           <span className="inline-flex items-center gap-1.5">
@@ -176,7 +176,7 @@ export function FoodCostTrend({ months, points: raw, selected, onPick, oneBranch
       </div>
       {oneBranch && (
         <>
-          <div className="mt-1 text-xs text-muted-foreground">จริงต่างจากสูตร (แดง = ใช้จริงแพงกว่าสูตร)</div>
+          <div className="mt-1 text-xs text-muted-foreground">ใช้จริงเทียบสูตร (บาท) · บวก = เกินสูตร</div>
           <div
             className="mt-1 grid gap-1"
             style={{
@@ -200,7 +200,7 @@ export function FoodCostTrend({ months, points: raw, selected, onPick, oneBranch
           </div>
         </>
       )}
-      <p className="mt-2 text-xs text-muted-foreground">{oneBranch ? '"จริง" มีเฉพาะเดือนที่จบและนับปิดเดือนแล้ว · แตะเดือนเพื่อเปิดด้านล่าง' : "เลือกสาขาเดียวเพื่อดูต้นทุนจริงเทียบ · แตะเดือนเพื่อเปิดด้านล่าง"}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{oneBranch ? "ใช้จริงมีเมื่อนับปิดเดือนแล้ว" : "เลือกสาขาเดียวเพื่อดูต้นทุนจริง"}</p>
     </section>
   );
 }

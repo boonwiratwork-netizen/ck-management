@@ -56,15 +56,17 @@ export function GRSide({
     <div className="flex flex-col gap-4">
       <section data-tour="gr-date">
         <h2 className="mb-1.5 text-[13px] font-bold">วันที่รับ</h2>
-        <div className="flex gap-1.5">
-          <button type="button" className={cn(chip(date === today), "flex-1")} onClick={() => onDate(today)}>
+        {/* Three equal chips so "วันอื่น" never gets squeezed */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <button type="button" className={chip(date === today)} onClick={() => onDate(today)}>
             วันนี้
           </button>
-          <button type="button" className={cn(chip(date === yesterday), "flex-1")} onClick={() => onDate(yesterday)}>
+          <button type="button" className={chip(date === yesterday)} onClick={() => onDate(yesterday)}>
             เมื่อวาน
           </button>
-          <label className={cn(chip(date !== today && date !== yesterday), "relative flex items-center")}>
-            {date !== today && date !== yesterday ? thaiDay(date) : "วันอื่น"}
+          <label className={cn(chip(date !== today && date !== yesterday), "relative flex items-center justify-center whitespace-nowrap")}>
+            {/* Picked day shown short ("22 ต.ค.") so it fits a third of the row */}
+            {date !== today && date !== yesterday ? thaiDay(date).split(" ").slice(1).join(" ") : "วันอื่น"}
             <input type="date" max={today} value={date} onChange={(e) => e.target.value && onDate(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="เลือกวันที่รับ" />
           </label>
         </div>

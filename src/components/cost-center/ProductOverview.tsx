@@ -5,16 +5,16 @@ import { cn } from "@/lib/utils";
 import { KindBadge } from "./parts";
 
 const GROUPS: { id: ProductCheck["id"]; level: ProductLevel; title: string; why: string }[] = [
-  { id: "inactive-used", level: "error", title: "ปิดใช้แล้ว แต่ยังอยู่ในสูตร", why: "สูตรยังตัดของที่ไม่ได้ใช้แล้ว" },
+  { id: "inactive-used", level: "error", title: "ปิดใช้แล้ว แต่ยังอยู่ในสูตร", why: "สูตรยังใช้ของที่เลิกใช้แล้ว" },
   { id: "no-price", level: "error", title: "ใช้ในสูตรแต่ไม่มีราคา", why: "ต้นทุนเป็น ฿0 ทุกที่ที่ใช้" },
-  { id: "no-recipe", level: "error", title: "ของที่ทำเองยังไม่มีสูตร", why: "ผลิตแล้วไม่ตัดวัตถุดิบ" },
+  { id: "no-recipe", level: "error", title: "ของที่ทำเองยังไม่มีสูตร", why: "ผลิตแล้วสต๊อกวัตถุดิบไม่ลด" },
   { id: "recipe-inactive", level: "error", title: "สูตรใช้ของที่ปิดใช้แล้ว", why: "เปลี่ยนเป็นตัวที่ใช้อยู่" },
   { id: "recipe-no-price", level: "error", title: "สูตรมีวัตถุดิบที่ไม่มีราคา", why: "ต้นทุนสูตรต่ำกว่าจริง" },
-  { id: "bill-drift", level: "warn", title: "ราคาในบิลต่างจากราคามาตรฐานเกิน 10%", why: "ต้นทุนเมนูคลาดจากจริง" },
-  { id: "stale-cost", level: "warn", title: "ต้นทุนสูตรในระบบยังไม่ได้คิดใหม่", why: "ราคาวัตถุดิบเปลี่ยนหลังคิดครั้งล่าสุด" },
-  { id: "no-price", level: "warn", title: "ยังไม่มีราคา (ยังไม่ได้ใช้ในสูตร)", why: "ใส่ก่อนเอาไปใช้" },
+  { id: "bill-drift", level: "warn", title: "ราคาบิลต่างจากที่ตั้งเกิน 10%", why: "ต้นทุนเมนูคลาดจากจริง" },
+  { id: "stale-cost", level: "warn", title: "ต้นทุนยังไม่อัปเดต", why: "ราคาวัตถุดิบเปลี่ยนแล้ว" },
+  { id: "no-price", level: "warn", title: "ยังไม่มีราคา", why: "ยังไม่ได้ใช้ในสูตร ใส่ก่อนใช้" },
   { id: "draft", level: "warn", title: "ร่างค้าง", why: "ยังไม่ขึ้นในงานประจำวัน" },
-  { id: "unused", level: "idle", title: "ไม่ได้ใช้ในสูตรไหน และไม่ได้ซื้อ 90 วัน", why: "ปิดใช้ได้ รายการจะสั้นลง" },
+  { id: "unused", level: "idle", title: "ไม่ได้ใช้ 90 วัน", why: "ไม่อยู่ในสูตรและไม่ได้ซื้อ ปิดใช้ได้" },
 ];
 
 const ICON: Record<ProductLevel, { icon: React.ElementType; cls: string }> = {
@@ -49,7 +49,7 @@ export function ProductOverview({ summaries, onOpenProduct }: { summaries: Produ
                 <span className="block text-[15px] font-medium">{g.title}</span>
                 <span className="block text-sm text-muted-foreground">{g.why}</span>
               </span>
-              <span className="shrink-0 text-sm">{g.items.length} ตัว</span>
+              <span className="shrink-0 whitespace-nowrap text-sm">{g.items.length} ตัว</span>
               <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
             </button>
             {isOpen && (

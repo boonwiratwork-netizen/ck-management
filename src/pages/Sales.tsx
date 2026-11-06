@@ -38,7 +38,7 @@ const GUIDE: GuideStep[] = [
     title: "เอายอดขายเข้าวันละครั้ง 3 ขั้น",
     body: (
       <>
-        <b>1 วางยอดจาก POS</b> → <b>2 กดตรวจข้อมูล</b> → <b>3 กดบันทึก</b> คำแนะนำนี้จะพาทำทีละขั้น
+        <b>1 วางยอดขายจากเครื่องขาย</b> → <b>2 กดตรวจข้อมูล</b> → <b>3 กดบันทึก</b> คำแนะนำนี้จะพาทำทีละขั้น
       </>
     ),
   },
@@ -54,8 +54,8 @@ const GUIDE: GuideStep[] = [
   { target: "history", title: "ดูย้อนหลัง / แก้ / ลบ", body: "แตะ “ประวัติ” เลือกวันที่และสาขาได้ แก้รายการด้วยปุ่มดินสอ" },
   {
     target: "import",
-    title: "ขั้น 1: วางยอดจาก POS",
-    body: "ใน POS เปิดรายงานยอดขายรายเมนู กดคัดลอก แล้วมากดค้างในช่องนี้ เลือก “วาง” (วางหลายวันพร้อมกันได้ ไม่ต้องเลือกรูปแบบ POS)",
+    title: "ขั้น 1: วางยอดขายจากเครื่องขาย",
+    body: "ในเครื่องขาย (POS) เปิดรายงานยอดขายรายเมนู กดคัดลอก แล้วมากดค้างในช่องนี้ เลือก “วาง” วางหลายวันพร้อมกันได้ ระบบดูแบบไฟล์ให้เอง",
   },
   { target: "check", title: "ขั้น 2: แตะ “ตรวจข้อมูล”", body: "วางเสร็จแล้วแตะปุ่มนี้ ระบบจะสรุปยอดแยกรายวันให้ดูก่อน ยังไม่บันทึก", until: "click" },
   {
@@ -140,7 +140,7 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
   };
   const check = async (text: string, source: "paste" | "csv") => {
     if (!data.profiles.length) {
-      toast.error("ยังไม่มีรูปแบบ POS ให้ตั้งรูปแบบก่อน");
+      toast.error("ยังไม่ได้ตั้งแบบไฟล์จากเครื่องขาย ให้ตั้งก่อน");
       setProfilesOpen(true);
       return;
     }
@@ -200,7 +200,7 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
         onAgain={() => go("", true)}
       />
     ) : (
-      <Empty text="ยังไม่ได้วางข้อมูล กลับไปวางข้อมูลจาก POS ก่อน" />
+      <Empty text="ยังไม่ได้วางข้อมูล กลับไปวางยอดจากเครื่องขายก่อน" />
     );
   else if (view === "history")
     work = (

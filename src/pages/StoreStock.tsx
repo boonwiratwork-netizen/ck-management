@@ -72,6 +72,8 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
     return use > 0 ? g.reduce((t, r) => t + r.balance, 0) / use : null;
   };
 
+  const hasCover = (["Frozen", "Chilled", "Ambient"] as const).some((k) => cover(k) != null);
+
   const chip = (on: boolean, tone?: "bad") =>
     cn("inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 text-sm", on ? "border-primary bg-primary font-semibold text-primary-foreground" : tone === "bad" ? "border-destructive/40 bg-card text-destructive" : "border-border bg-card");
   const daysCell = (r: BranchStockRow) =>
@@ -89,10 +91,7 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
   return (
     <div ref={measure} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="mr-auto">
-          <h1 className="text-2xl font-bold">สต๊อกสาขา{branch && own !== undefined ? ` · ${branch.branchName}` : ""}</h1>
-          <p className="text-sm text-muted-foreground">คงเหลือ = นับล่าสุด + รับ − ใช้ตามยอดขาย − ของเสีย ± ย้าย/ปรับยอด (สูตรเดียวกับหน้านับสต๊อก)</p>
-        </div>
+        <h1 className="mr-auto text-2xl font-bold">สต๊อกสาขา{branch && own !== undefined ? ` · ${branch.branchName}` : ""}</h1>
         <Button variant="outline" className="h-10" onClick={exportExcel} disabled={!rows}>
           <Download className="h-4 w-4" /> ส่งออก Excel
         </Button>
@@ -128,14 +127,16 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 [&>*]:min-w-0">
+          <div className={cn("grid grid-cols-1 gap-3 [&>*]:min-w-0", hasCover ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="text-sm text-muted-foreground">มูลค่าสต๊อก {branch?.branchName}</div>
               <div className="break-all font-mono text-2xl font-semibold">{baht(totalValue)}</div>
               <div className="text-xs text-muted-foreground">{list.length} รายการ · ไม่นับยอดติดลบ{list.some((r) => !r.known) ? ` · ไม่รู้ยอด ${list.filter((r) => !r.known).length} รายการ ไม่นับ` : ""}</div>
             </div>
+            {/* Days left per storage — only when at least one group has sales to go by */}
+            {hasCover && (
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
-              <div className="text-sm text-muted-foreground">พอขาย (เฉลี่ยตามช่องเก็บ)</div>
+              <div className="text-sm text-muted-foreground">พอขายอีก</div>
               <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
                 {(["Frozen", "Chilled", "Ambient"] as const).map((k) => (
                   <div key={k}>
@@ -145,10 +146,10 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                 ))}
               </div>
             </div>
+            )}
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="text-sm text-muted-foreground">นับล่าสุด</div>
               <div className="text-xl font-semibold">{lastCount ? new Date(`${lastCount}T00:00:00`).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" }) : "ไม่ได้นับเกิน 5 สัปดาห์"}</div>
-              <div className="text-xs text-muted-foreground">ใช้ต่อวัน = เฉลี่ยวันที่มียอดขาย 7 วันล่าสุด รวมของเสีย</div>
             </div>
           </div>
 
@@ -160,24 +161,29 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                   <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-destructive" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold">
-                      ใกล้หมด · พอขายไม่ถึง {LOW_DAYS} วัน ({low.length})
+                      ใกล้หมด · พอขายไม่ถึง {LOW_DAYS} วัน <span className="whitespace-nowrap">({low.length})</span>
                     </span>
-                    <span className="block break-words text-sm text-muted-foreground">
-                      {low
-                        .slice(0, 4)
-                        .map((r) => `${r.sku.name} ${r.daysLeft!.toFixed(1)} วัน`)
-                        .join(" · ")}
-                      {low.length > 4 ? " · …" : ""} · ขอเบิกที่หน้าขอเบิก
+                    {/* One item per line: name left, days right */}
+                    <span className="mt-1 flex flex-col gap-0.5 text-sm text-muted-foreground">
+                      {low.slice(0, 4).map((r) => (
+                        <span key={r.sku.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
+                          <span className="min-w-0 break-words">{r.sku.name}</span>
+                          <span className="shrink-0 whitespace-nowrap font-mono tabular-nums">{r.daysLeft!.toFixed(1)} วัน</span>
+                        </span>
+                      ))}
+                      {low.length > 4 && <span>และอีก {low.length - 4} รายการ</span>}
+                      <span>ขอเบิกได้ที่หน้าขอเบิก</span>
                     </span>
                   </span>
                 </button>
               )}
               {negative.length > 0 && (
-                <button type="button" onClick={() => setFilter("negative")} className="flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-secondary/50">
+                <button type="button" onClick={() => setFilter("negative")} className={cn("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-secondary/50", low.length > 0 && "border-t border-border")}>
                   <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-warning" />
                   <span className="min-w-0 flex-1">
-                    <span className="block font-semibold">ติดลบ ({negative.length}) · ใช้มากกว่าที่ระบบเห็นว่ามี</span>
-                    <span className="block break-words text-sm text-muted-foreground">ของเข้าไม่ได้บันทึก หรือสูตรใช้มากเกิน · นับจริงแล้วยอดจะถูกเอง</span>
+                    <span className="block font-semibold">
+                      ติดลบ <span className="whitespace-nowrap">{negative.length} รายการ</span> <span className="font-normal text-muted-foreground">· นับใหม่แล้วจะถูกเอง</span>
+                    </span>
                   </span>
                 </button>
               )}
@@ -269,19 +275,25 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                       {r.dailyUse > 0 && ` · ใช้วันละ ${n0(r.dailyUse)}`} · {r.countDate ? `นับ ${thaiDate(r.countDate)}` : "ไม่ได้นับเกิน 5 สัปดาห์"}
                     </span>
                   </button>
-                  <span className="flex shrink-0 flex-col items-end gap-1">
-                    <b className="font-mono tabular-nums">{daysCell(r)}</b>
-                    {!readOnly && (
-                      <button type="button" onClick={() => setMoveFor(r)} className="min-h-[32px] text-sm font-semibold text-brand">
-                        ย้าย/ปรับ
-                      </button>
-                    )}
-                  </span>
+                  {/* Right side: days left (with its label) only when known, then the move button */}
+                  {(r.daysLeft !== null || !readOnly) && (
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {r.daysLeft !== null && (
+                        <span className="whitespace-nowrap text-[13px] text-muted-foreground">
+                          พอขาย <b className="font-mono tabular-nums">{daysCell(r)}</b>
+                        </span>
+                      )}
+                      {!readOnly && (
+                        <button type="button" onClick={() => setMoveFor(r)} className="min-h-[32px] whitespace-nowrap text-sm font-semibold text-brand">
+                          ย้าย/ปรับยอด
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
-          <p className="text-xs text-muted-foreground">ติดลบโชว์ตามจริง (ไม่ปัดเป็น 0) · {wide ? "กดประวัติ" : "แตะชื่อ"} = ดูของเข้า-ออกรายวัน</p>
         </div>
       )}
 

@@ -149,7 +149,7 @@ function ManualAssumptionInline({
   return (
     <div className="mt-1.5 rounded-md border border-dashed border-muted-foreground/30 px-2.5 py-2 space-y-2 bg-muted/20">
       {noMenus ? (
-        <p className="text-[10px] text-muted-foreground text-center py-2">ไม่พบเมนูสำหรับแบรนด์นี้</p>
+        <p className="text-[11px] text-muted-foreground text-center py-2">ไม่พบเมนูสำหรับแบรนด์นี้</p>
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {menus.map(m => (
@@ -165,7 +165,7 @@ function ManualAssumptionInline({
                 onBlur={(e) => handleBlur(m.menuId, e.target.value)}
                 className="w-16 h-6 text-[11px] font-mono text-right rounded border border-input px-1.5 bg-background focus:border-ring focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <span className="text-[10px] text-muted-foreground w-12 shrink-0">ชาม/วัน</span>
+              <span className="text-[11px] text-muted-foreground w-12 shrink-0">ชาม/วัน</span>
             </div>
           ))}
         </div>
@@ -175,7 +175,7 @@ function ManualAssumptionInline({
         <span className="text-[11px] font-medium">รวม {total} ชาม/วัน</span>
       </div>
 
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
 
       <Button
         size="sm"
@@ -300,7 +300,7 @@ export function PlanningAgentPanel({
                       {showAssumptionLink ? (
                         <button
                           onClick={() => setExpandedBranch(isExpanded ? null : br.branchId)}
-                          className="text-[10px] text-primary hover:underline shrink-0"
+                          className="text-[11px] text-primary hover:underline shrink-0"
                         >
                           ตั้งสมมติฐาน
                         </button>
@@ -315,14 +315,14 @@ export function PlanningAgentPanel({
                             disabled={br.misconfigured}
                             className="w-16 h-7 text-xs font-mono text-right rounded border border-input px-1.5 bg-background focus:border-ring focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
-                          <span className="text-[10px] text-muted-foreground w-12 shrink-0">ชาม/วัน</span>
+                          <span className="text-[11px] text-muted-foreground w-12 shrink-0">ชาม/วัน</span>
                         </>
                       )}
 
                       <Badge
                         variant="outline"
                         className={cn(
-                          'text-[10px] px-1.5 py-0 h-5 shrink-0',
+                          'text-[11px] px-1.5 py-0 h-5 shrink-0',
                           br.forecastSource === 'forecast' && 'border-primary/40 text-primary',
                           br.forecastSource === 'historical' && 'border-muted-foreground/30 text-muted-foreground',
                           br.forecastSource === 'assumption' && 'border-warning/40 text-warning',
@@ -384,9 +384,9 @@ export function PlanningAgentPanel({
                       <div className="text-right shrink-0">
                         <div className="text-sm font-mono font-semibold">
                           {s.suggestedBatches}
-                          <span className="text-[10px] text-muted-foreground ml-0.5">แบทช์</span>
+                          <span className="text-[11px] text-muted-foreground ml-0.5">แบทช์</span>
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-mono">
+                        <div className="text-[11px] text-muted-foreground font-mono">
                           ต้องการ {(s.weeklyDemandG / 1000).toFixed(1)} kg · มี {(s.currentStockG / 1000).toFixed(1)} kg
                         </div>
                       </div>

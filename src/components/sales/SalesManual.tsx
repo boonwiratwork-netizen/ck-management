@@ -59,7 +59,7 @@ export function SalesManual({
     <div className="flex flex-col gap-4">
       <div>
         <h2 className="text-xl font-bold">เพิ่มรายการเอง</h2>
-        <p className="text-sm text-muted-foreground">ใช้กับของที่ขายนอก POS หรือแถวที่ POS ไม่มีรหัสเมนู</p>
+        <p className="text-sm text-muted-foreground">ใช้กับของที่ขายนอกเครื่องขาย หรือแถวที่ไม่มีรหัสเมนู</p>
       </div>
 
       <label className="flex max-w-[220px] flex-col gap-1 text-sm">

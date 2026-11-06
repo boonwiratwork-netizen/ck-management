@@ -146,8 +146,8 @@ export function ProductWorkspace(props: Props) {
                 </button>
               )}
             </div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
-              {sku.skuId} · {KIND_NAME[sku.type]} · {props.categories.find((c) => c.code === sku.category)?.nameTh || sku.category} · {storageLabel(sku.storageCondition)}
+            <div className="text-sm font-medium text-primary-foreground/80">
+              {KIND_NAME[sku.type]} · {props.categories.find((c) => c.code === sku.category)?.nameTh || sku.category} · {storageLabel(sku.storageCondition)} <span className="whitespace-nowrap font-mono text-xs font-normal">{sku.skuId}</span>
             </div>
             <h3 className="mt-1 text-2xl font-bold leading-tight md:text-3xl">{sku.name}</h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -163,12 +163,12 @@ export function ProductWorkspace(props: Props) {
           </div>
           <div className="flex flex-wrap gap-6 md:text-right">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">{made ? "ต้นทุน" : "ราคามาตรฐาน"}</div>
+              <div className="text-sm font-medium text-primary-foreground/80">{made ? "ต้นทุน" : "ราคามาตรฐาน"}</div>
               <div className="mt-1 font-mono text-2xl font-bold tabular-nums">{packPriceLabel(summary) || "—"}</div>
             </div>
             {!made && lastBill && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">บิลล่าสุด</div>
+                <div className="text-sm font-medium text-primary-foreground/80">บิลล่าสุด</div>
                 <div className={cn("mt-1 font-mono text-2xl font-bold tabular-nums", summary.billRatio && Math.abs(summary.billRatio - 1) > 0.1 && "text-highlight")}>
                   {baht(lastBill.unitPrice * (sku.packSize || 1))}
                 </div>
@@ -846,7 +846,7 @@ function RecipePanel(props: Props) {
     return (
       <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border bg-card p-6">
         <p className="font-medium">ยังไม่มีสูตร</p>
-        <p className="text-sm text-muted-foreground">ผลิตแล้วจะไม่ตัดวัตถุดิบ และไม่มีต้นทุน</p>
+        <p className="text-sm text-muted-foreground">ผลิตแล้วสต๊อกวัตถุดิบจะไม่ลด และไม่มีต้นทุน</p>
       </div>
     );
 

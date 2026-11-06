@@ -259,7 +259,7 @@ describe("branch metrics over a period", () => {
     const m = branchMetrics(base({ counts, sales }), p, now);
     expect(m.diff).toMatchObject({ passed: 1, total: 1 }); // the 5th left out
     expect(m.overRecipe.value).toBeNull();
-    expect(m.overRecipe.why).toContain("นับก่อนนำเข้ายอดขาย");
+    expect(m.overRecipe.why).toContain("นับก่อนลงยอดขาย");
   });
 
   it("an item whose window has a day with sales but no sheet isn't judged (its expected use is incomplete)", () => {
@@ -422,6 +422,6 @@ describe("score and status", () => {
     expect(scoreOf([v(null)])).toEqual({ score: 0, total: 0, status: "none" });
   });
   it("targets are one config object", () => {
-    expect(DEFAULT_TARGETS).toMatchObject({ countCloseHour: 23, diffBahtPerDay: 1000, overRecipePct: 3, wastePct: 0.5, kitchenCostGapPct: 2, foodCostPct: 32 });
+    expect(DEFAULT_TARGETS).toMatchObject({ countCloseHour: 23, diffBahtPerDay: 1000, overRecipePct: 3, wastePct: 2, kitchenCostGapPct: 2, foodCostPct: 32 });
   });
 });

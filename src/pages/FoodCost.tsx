@@ -133,7 +133,7 @@ export default function FoodCostPage(props: Props) {
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h1 className="text-2xl font-bold">ต้นทุนอาหาร</h1>
-          <p className="text-sm text-muted-foreground">ต้นทุนตามสูตรจากยอดขาย · ต้นทุนจริงจากการนับสต๊อก (สาขาเดียว เดือนที่จบแล้ว)</p>
+          <p className="text-sm text-muted-foreground">ตามสูตร เทียบกับที่ใช้จริง</p>
         </div>
         {store.store && (
           <div className="flex flex-col items-end gap-0.5">
@@ -150,13 +150,14 @@ export default function FoodCostPage(props: Props) {
 
       {/* Period and branch: picking one works it out straight away */}
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="w-10 text-sm text-muted-foreground">เดือน</span>
+        {/* Months scroll sideways on a phone instead of wrapping to a second row */}
+        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
+          <span className="w-10 shrink-0 text-sm text-muted-foreground">เดือน</span>
           {months.map((m, i) => (
             <button
               key={m.from}
               type="button"
-              className={chip(!custom && period.from === m.from && period.to === m.to)}
+              className={cn(chip(!custom && period.from === m.from && period.to === m.to), "shrink-0 whitespace-nowrap")}
               onClick={() => {
                 setCustom(false);
                 setPeriod(m);
@@ -166,17 +167,17 @@ export default function FoodCostPage(props: Props) {
               {i === 0 ? <span className="text-xs opacity-80">· ยังไม่จบ</span> : ""}
             </button>
           ))}
-          <button type="button" className={chip(custom)} onClick={() => setCustom(true)}>
+          <button type="button" className={cn(chip(custom), "shrink-0 whitespace-nowrap")} onClick={() => setCustom(true)}>
             เลือกช่วงเอง
           </button>
-          {custom && (
-            <span className="flex flex-wrap items-center gap-2">
+        </div>
+        {custom && (
+          <div className="flex flex-wrap items-center gap-2 pl-12">
               <input type="date" aria-label="ตั้งแต่" value={period.from} max={period.to} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, from: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
               <span className="text-sm text-muted-foreground">ถึง</span>
               <input type="date" aria-label="ถึง" value={period.to} min={period.from} onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, to: e.target.value }))} className="h-10 rounded-xl border border-border bg-card px-3 text-base sm:text-sm" />
-            </span>
-          )}
-        </div>
+          </div>
+        )}
         {!own && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-10 text-sm text-muted-foreground">สาขา</span>
@@ -231,33 +232,32 @@ export default function FoodCostPage(props: Props) {
               <div className="text-sm text-muted-foreground">ต้นทุนตามสูตร</div>
               <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(std.stdCost)}</div>
               <div className="text-xs text-muted-foreground">
-                <b className={cn("font-mono", pctTone(pct(std.stdCost)))}>{pct(std.stdCost).toFixed(1)}%</b> ของยอดขาย · ทั้งช่วง
+                <b className={cn("font-mono", pctTone(pct(std.stdCost)))}>{pct(std.stdCost).toFixed(1)}%</b> ของยอดขาย
               </div>
             </div>
             <div className={cn("rounded-2xl bg-card px-4 py-3", actual ? "border-[1.5px] border-foreground" : "border border-border")}>
-              <div className="text-sm text-muted-foreground">ต้นทุนจริง (จากนับสต๊อก)</div>
+              <div className="text-sm text-muted-foreground">ต้นทุนจริง</div>
               {actual ? (
                 <>
                   <div className="break-all font-mono text-xl font-semibold sm:text-2xl">{baht(actual.actCost)}</div>
                   <div className="text-xs text-muted-foreground">
-                    <b className={cn("font-mono", pctTone(actPct ?? 0))}>{actPct !== null ? `${actPct.toFixed(1)}%` : "—"}</b> ของยอดขาย · เทียบสูตรช่วงเดียวกัน
+                    <b className={cn("font-mono", pctTone(actPct ?? 0))}>{actPct !== null ? `${actPct.toFixed(1)}%` : "—"}</b> ของยอดขาย
                   </div>
                 </>
               ) : (
                 <>
                   <div className="text-xl font-semibold text-muted-foreground">—</div>
-                  <div className="text-xs text-muted-foreground">{branchIds.length > 1 ? "เลือกสาขาเดียว" : closed ? "ไม่มียอดนับ" : custom ? "เลือกทั้งเดือนที่จบแล้ว" : "รอจบเดือน + นับปิดเดือน"}</div>
+                  <div className="text-xs text-muted-foreground">{branchIds.length > 1 ? "เลือกสาขาเดียว" : closed ? "ไม่มียอดนับ" : custom ? "เลือกทั้งเดือนที่จบแล้ว" : "รอนับปิดเดือน"}</div>
                 </>
               )}
             </div>
             <div className="rounded-2xl border border-border bg-card px-4 py-3">
-              <div className="text-sm text-muted-foreground">จริงต่างจากสูตร</div>
+              <div className="text-sm text-muted-foreground">{actual && actual.totalVar < 0 ? "ใช้จริงต่ำกว่าสูตร" : "ใช้จริงเกินสูตร"}</div>
               {actual ? (
                 <>
                   <div className={cn("break-all font-mono text-xl font-semibold sm:text-2xl", actual.totalVar < 0 ? "text-success" : "text-destructive")}>{signedBaht(actual.totalVar)}</div>
                   <div className="text-xs text-muted-foreground">
                     ราคา {signedBaht(actual.priceVar)} · ใช้ {signedBaht(actual.usageVar)}
-                    {offMonthEnd(actual) && <span className="block">เทียบตามสูตรช่วงเดียวกับวันนับ {baht(actual.recipeCost)}</span>}
                   </div>
                 </>
               ) : (
@@ -270,8 +270,8 @@ export default function FoodCostPage(props: Props) {
           </div>
           {actual && (
             <p className="-mt-2 text-xs text-muted-foreground">
-              มียอดนับ {actual.withCounts}/{actual.rows.length} วัตถุดิบ · ยกมา = ยอดนับล่าสุดของเดือนก่อน{days(actual.openingDays)} · ปิดช่วง = ยอดนับล่าสุดของเดือนนี้{days(actual.closingDays)} · รับเข้าและตามสูตรที่ใช้เทียบ = ระหว่างสองวันนับนั้น
-              {offMonthEnd(actual) && " · บางรายการไม่ได้นับวันสิ้นเดือน จึงเทียบกับตามสูตรช่วงเดียวกันนั้น ส่วนการ์ดต้นทุนตามสูตรคิดทั้งเดือน"}
+              นับยกมา{days(actual.openingDays)} · นับปิด{days(actual.closingDays)} · มียอดนับ {actual.withCounts} จาก {actual.rows.length} วัตถุดิบ
+              {offMonthEnd(actual) && ` · บางตัวไม่ได้นับสิ้นเดือน เทียบกับสูตรช่วงวันนับ ${baht(actual.recipeCost)}`}
             </p>
           )}
 

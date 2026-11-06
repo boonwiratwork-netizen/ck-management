@@ -37,8 +37,16 @@ export function SegmentedTabs<T extends string>({ tabs, value, onChange, classNa
 
   // Keep the selected tab visible (e.g. after a link opens a later tab)
   useEffect(() => {
-    const el = scroller.current?.querySelector<HTMLElement>('[aria-selected="true"]');
-    el?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    // Scroll only sideways, leaving room for the 48px edge fade so the tab isn't half hidden under it
+    const box = scroller.current;
+    const el = box?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!box || !el) return;
+    const FADE = 52;
+    const left = el.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
+    const right = left + el.offsetWidth;
+    const go = (x: number) => (typeof box.scrollTo === "function" ? box.scrollTo({ left: x, behavior: "smooth" }) : (box.scrollLeft = x));
+    if (right > box.scrollLeft + box.clientWidth - FADE) go(right - box.clientWidth + FADE);
+    else if (left < box.scrollLeft + FADE) go(Math.max(0, left - FADE));
   }, [value]);
 
   const nudge = (dir: 1 | -1) => scroller.current?.scrollBy({ left: dir * 160, behavior: "smooth" });

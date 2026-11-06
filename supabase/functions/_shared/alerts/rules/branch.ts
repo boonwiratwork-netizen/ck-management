@@ -90,7 +90,7 @@ export const countProblem: AlertRule = {
             link: { page: "count", branchId: b.id, date: day },
             habitKey: `count_missing:${b.id}`,
             habitDay: day,
-            habitLabel: `${b.name} นับปิดวันไม่ทัน`,
+            habitLabel: `${b.name} นับสต๊อกไม่ทันเวลา`,
           });
         }
         if (diffMark(rows, day, data.nowMs, input.priceOn, t) === "fail" && !countedBeforeSales(rows, sales)) {
@@ -98,7 +98,7 @@ export const countProblem: AlertRule = {
           cases.push({
             key: `count_diff:${b.id}:${day}`,
             rule: "count_problem",
-            title: `${b.name} นับ diff ${baht(total)} ${thDow(day)}`,
+            title: `${b.name} นับแล้วขาด/เกิน ${baht(total)} ${thDow(day)}`,
             detail: `เกินเกณฑ์ ${baht(t.diffBahtPerDay)}/วัน`,
             severity: total >= t.diffBahtPerDay * 2 ? "high" : "medium",
             value: total,
@@ -106,7 +106,7 @@ export const countProblem: AlertRule = {
             link: { page: "count", branchId: b.id, date: day },
             habitKey: `count_diff:${b.id}`,
             habitDay: day,
-            habitLabel: `${b.name} นับ diff เกิน ${baht(t.diffBahtPerDay)}`,
+            habitLabel: `${b.name} นับแล้วต่างจากระบบเกิน ${baht(t.diffBahtPerDay)}`,
           });
         }
       }
@@ -132,15 +132,15 @@ export const salesMissing: AlertRule = {
         cases.push({
           key: `sales_missing:${b.id}:${day}`,
           rule: "sales_missing",
-          title: `${b.name} ยังไม่นำเข้ายอดขาย ${thDow(day)}`,
-          detail: "ยอดใช้ตามสูตรและ diff ของวันนั้นจะยังไม่ถูก",
+          title: `${b.name} ยังไม่ลงยอดขาย ${thDow(day)}`,
+          detail: "ยอดใช้ตามสูตรและของขาด/เกินของวันนั้นจะยังไม่ถูก",
           severity: "medium",
           value: 1,
           scope: { branchId: b.id, date: day },
           link: { page: "sales", branchId: b.id, date: day },
           habitKey: `sales_missing:${b.id}`,
           habitDay: day,
-          habitLabel: `${b.name} นำเข้ายอดขายไม่ทัน`,
+          habitLabel: `${b.name} ลงยอดขายไม่ทัน`,
         });
       }
     return { cases, info: [] };
@@ -163,8 +163,8 @@ export const countedEarly: AlertRule = {
       cases.push({
         key: `counted_early:${b.id}`,
         rule: "counted_early",
-        title: `${b.name} กดนับเสร็จก่อนนำเข้ายอดขาย ${days.length} วัน`,
-        detail: `${days.map(thDow).join(" · ")} · ให้นำเข้ายอดขายก่อนกดนับเสร็จ`,
+        title: `${b.name} กดนับเสร็จก่อนลงยอดขาย ${days.length} วัน`,
+        detail: `${days.map(thDow).join(" · ")} · ให้ลงยอดขายก่อนกดนับเสร็จ`,
         severity: "low",
         value: days.length,
         scope: { branchId: b.id, date: days[days.length - 1] },

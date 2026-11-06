@@ -133,7 +133,7 @@ describe("counted before sales", () => {
     }
     const v = buildView(prepare(raw, masters), "week", new Map());
     expect(v.attention.map((a) => a.key)).toEqual(["early-b1"]);
-    expect(v.attention[0].title).toContain("นับก่อนนำเข้ายอดขาย 2 วัน");
+    expect(v.attention[0].title).toContain("นับก่อนลงยอดขาย 2 วัน");
     const team = v.teams.find((t) => t.id === "b1")!;
     expect(team.attention.some((a) => a.key === "early-b1")).toBe(true);
     expect(team.attention.some((a) => a.key.startsWith("diff"))).toBe(false);
@@ -161,7 +161,7 @@ describe("text", () => {
     const text = summaryText(v.teams.find((t) => t.id === "b1")!, v.period);
     expect(text).toContain("Sendo · Thaniya");
     expect(text).toContain("ตรงเป้า");
-    expect(text).toContain("- นับปิดวันตรงเวลา:");
+    expect(text).toContain("- นับสต๊อกเสร็จทันเวลา:");
     expect(text).not.toMatch(/<|>/);
   });
 });

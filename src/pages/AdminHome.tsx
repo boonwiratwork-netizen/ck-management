@@ -20,9 +20,9 @@ import {
   Tag,
 } from "lucide-react";
 import { useAdminHome, type AdminLoader } from "@/hooks/use-admin-home";
-import { HEAT_COLUMNS, summaryText, type AdminMasters, type AdminView, type Go, type Kpi, type Team } from "@/lib/admin-home";
+import { explainMetric, gapText, summaryText, type AdminMasters, type AdminView, type Go, type Kpi, type Team } from "@/lib/admin-home";
 import { STATUS_LABEL, chipWeeks, previousPeriod, type PeriodKind } from "@/lib/team-score";
-import { BulletLegend, BulletRow, DayDot, Funnel, ScoreBar, ScoreRing, StepChart, Timeline, WeekChips, gradeCell, metricSpec, statusPill } from "@/components/admin/AdminCharts";
+import { BulletLegend, BulletRow, DayDot, Funnel, ScoreRing, StepChart, Timeline, WeekChips, gradeCell, metricSpec, statusPill } from "@/components/admin/AdminCharts";
 import { RefreshNote } from "@/components/RefreshNote";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -120,8 +120,7 @@ export default function AdminHome({ masters, demo }: Props) {
           <h1 className="text-2xl font-bold leading-snug tracking-tight">หน้าแรก</h1>
           <p className="text-[13px] text-muted-foreground">
             {new Date(`${view?.today ?? demo?.today ?? bangkokDate()}T00:00:00`).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })}
-            {view ? ` · ครัวกลาง + ${view.teams.filter((t) => t.kind === "branch").length} สาขา` : ""}
-            {demo ? " · ข้อมูลตัวอย่าง (DEV)" : ""}
+            {view ? ` · ${view.teams.filter((t) => t.kind === "branch").length} สาขา` : ""}
           </p>
         </div>
         {/* Bell → the alerts inbox (เรื่องค้าง · ล่าสุด · ตั้งค่าแจ้งเตือน); the badge is still this page's ต้องดู */}
@@ -164,11 +163,7 @@ export default function AdminHome({ masters, demo }: Props) {
         !error && !noBranches && <Skeleton />
       ) : (
         <>
-          <Section title="ทีม × ตัวชี้วัด" note="แตะชื่อทีมเพื่อดูละเอียด" />
           <Heatmap teams={view.teams} onOpen={openTeam} />
-          <p className="-mt-1.5 text-[11px] text-muted-foreground">
-            เลื่อนซ้าย-ขวาดูครบ · ช่องเส้นประ = ยังคิดไม่ได้ (แตะดูเหตุผล) · สาขา: ตามแผน = นำเข้ายอดขายตรงเวลา · ครัวกลาง: นับ = นับปิดเดือน · ช่องสุดท้าย = บันทึกรับของตรงวัน
-          </p>
 
           <KitchenShortcuts pendingRequests={pendingRequests} onGo={follow} />
 
@@ -176,7 +171,7 @@ export default function AdminHome({ masters, demo }: Props) {
           <League teams={view.teams} onOpen={openTeam} />
 
           <div id="need" className="scroll-mt-20">
-            <Section title={view.attention.length ? `ต้องดู ${view.attention.length} เรื่อง` : "ต้องดู"} note="สี = ความรุนแรง · แดงก่อน" />
+            <Section title={view.attention.length ? `ต้องดู ${view.attention.length} เรื่อง` : "ต้องดู"} />
           </div>
           <Timeline items={view.attention} onGo={follow} empty="ไม่มีเรื่องที่ต้องดูตอนนี้" />
 
@@ -188,7 +183,7 @@ export default function AdminHome({ masters, demo }: Props) {
           </div>
           <BulletLegend now={nowWord(period)} before={beforeWord(period)} />
 
-          <Section title="ไปที่" note="เลื่อนดูต่อ" />
+          <Section title="ไปที่" />
           <GoRail onGo={follow} />
         </>
       )}
@@ -257,7 +252,7 @@ function Skeleton() {
 function TeamName({ t, withScore }: { t: Team; withScore?: boolean }) {
   return (
     <div className="min-w-0">
-      {t.brand && <div className="truncate text-[10.5px] leading-tight text-muted-foreground">{t.brand}</div>}
+      {t.brand && <div className="truncate text-[11px] leading-tight text-muted-foreground">{t.brand}</div>}
       <div className="line-clamp-2 break-words text-[12.5px] font-bold leading-tight text-foreground">{t.name}</div>
       {withScore && <div className="whitespace-nowrap font-mono text-[11px] font-semibold leading-snug text-muted-foreground">{t.kind === "rd" ? "ยังไม่มีข้อมูล" : t.score.total ? `${t.score.score}/${t.score.total} ตรงเป้า` : "ยังคิดไม่ได้"}</div>}
     </div>
@@ -267,89 +262,141 @@ function TeamName({ t, withScore }: { t: Team; withScore?: boolean }) {
 const SHOWN_BRANCHES = 4;
 const rankOf = (t: Team) => (t.score.total ? t.score.score / t.score.total : -1);
 
-/** Kitchen first, then branches worst first (4 shown, the rest behind "ดูทั้งหมด"), RD last */
+/**
+ * Home table, built for a 375px phone without sideways scrolling: kitchen and branches are two
+ * tables (each column means one thing), a team's name gets its own full line, and the 6 cells sit
+ * under it. Column heads are one short word + the target. Tapping a cell explains it in a sentence.
+ */
 function Heatmap({ teams, onOpen }: { teams: Team[]; onOpen: (id: string) => void }) {
   const [all, setAll] = useState(false);
+  const [picked, setPicked] = useState<{ team: string; metric: string } | null>(null);
   const ck = teams.filter((t) => t.kind === "kitchen");
   const branches = teams.filter((t) => t.kind === "branch").sort((a, b) => rankOf(a) - rankOf(b) || a.name.localeCompare(b.name, "th"));
   const rd = teams.filter((t) => t.kind === "rd");
-  const shown = [...ck, ...(all ? branches : branches.slice(0, SHOWN_BRANCHES)), ...rd];
+  const shownBranches = all ? branches : branches.slice(0, SHOWN_BRANCHES);
   const hidden = branches.length - SHOWN_BRANCHES;
-  const cell = (t: Team, i: number) => {
-    if (t.kind === "rd") return { text: "", cls: gradeCell(null), title: "ยังไม่มีข้อมูล RD" };
-    const id = t.kind === "kitchen" ? HEAT_COLUMNS[i].kitchen : HEAT_COLUMNS[i].branch;
-    const m = t.metrics.find((x) => x.id === id)!;
-    return { text: m.display, cls: gradeCell(m.value.grade), title: `${m.label}: ${m.display}${m.value.note ? ` · ${m.value.note}` : ""}${m.value.why ? ` · ${m.value.why}` : ""}` };
-  };
-  return (
-    <div role="table" aria-label="ทีม × ตัวชี้วัด">
-      <div className="relative flex">
-        <div className="w-24 shrink-0">
-          <div className="h-[34px]" />
-          {shown.map((t) => (
-            <button key={t.id} type="button" onClick={() => onOpen(t.id)} className="flex h-[62px] w-full items-center border-t border-border pr-1.5 text-left">
-              <TeamName t={t} withScore />
-            </button>
+  const pickedTeam = picked && teams.find((t) => t.id === picked.team);
+  const pickedMetric = pickedTeam && pickedTeam.metrics.find((m) => m.id === picked.metric);
+  const tap = (team: string, metric: string) => setPicked((p) => (p && p.team === team && p.metric === metric ? null : { team, metric }));
+  const explain = pickedTeam && pickedMetric && (
+    <div role="status" className="rounded-xl bg-secondary px-3 py-2.5 text-[13px] leading-relaxed">
+      <b className="font-semibold">{pickedTeam.name}</b> · {explainMetric(pickedMetric)}
+    </div>
+  );
+  const scoreText = (t: Team) => (t.score.total ? `ถึงเป้า ${t.score.score}/${t.score.total}` : "ยังคิดไม่ได้");
+  const block = (title: string, list: Team[], heads: { short: string; target: string }[], kind: "kitchen" | "branch") =>
+    list.length > 0 && (
+      <section aria-label={title} className="flex flex-col">
+        {kind === "kitchen" ? (
+          // One kitchen: the heading is its name, tapping it opens the kitchen's page
+          <button type="button" onClick={() => onOpen(list[0].id)} className="flex min-h-[32px] items-baseline justify-between gap-2 text-left">
+            <span role="heading" aria-level={2} className="text-[15px] font-bold">{title}</span>
+            <span className="flex items-center gap-0.5 whitespace-nowrap text-xs text-muted-foreground">
+              {scoreText(list[0])}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          </button>
+        ) : (
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-[15px] font-bold">{title}</h2>
+            <span className="text-xs text-muted-foreground">แตะชื่อสาขาเพื่อดูละเอียด</span>
+          </div>
+        )}
+        <div className="mt-2 grid grid-cols-6 gap-1">
+          {heads.map((h) => (
+            <div key={h.short} className="whitespace-nowrap text-center text-xs font-semibold leading-tight">
+              {h.short}
+              <span className="block text-[11px] font-normal text-muted-foreground">{h.target}</span>
+            </div>
           ))}
         </div>
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <div className="grid w-max gap-x-[3px] pr-6" style={{ gridTemplateColumns: "repeat(6, 38px) 74px" }}>
-            {HEAT_COLUMNS.map((c) => (
-              <div key={c.short} className="flex h-[34px] items-end justify-center pb-1 text-center text-[10px] font-semibold leading-tight text-muted-foreground">
-                {c.short}
-              </div>
-            ))}
-            <div className="flex h-[34px] flex-col items-center justify-end pb-1 text-center text-[9.5px] font-semibold leading-tight text-muted-foreground">
-              <div>4 สัปดาห์ล่าสุด</div>
-              <div className="font-normal">เก่า → ล่าสุด</div>
+        {list.map((t) => (
+          <div key={t.id} className={cn("mt-2", kind === "branch" && "border-t border-border pt-2")}>
+            {kind === "branch" && (
+            <button type="button" onClick={() => onOpen(t.id)} className="flex min-h-[32px] w-full items-baseline justify-between gap-2 text-left">
+              <span className="min-w-0 break-words text-sm font-semibold leading-snug">
+                {t.brand && kind === "branch" && <span className="mr-1 text-xs font-normal text-muted-foreground">{t.brand}</span>}
+                {t.name}
+              </span>
+              <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs text-muted-foreground">
+                {scoreText(t)}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            </button>
+            )}
+            <div className="mt-1 grid grid-cols-6 gap-1">
+              {t.metrics.map((m) => {
+                const on = picked?.team === t.id && picked.metric === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => tap(t.id, m.id)}
+                    aria-pressed={on}
+                    aria-label={explainMetric(m)}
+                    className={cn("flex h-10 items-center justify-center whitespace-nowrap rounded-lg font-mono text-[13px] font-semibold tabular-nums", gradeCell(m.value.grade), on && "ring-2 ring-foreground")}
+                  >
+                    {m.value.value === null ? "—" : m.display}
+                  </button>
+                );
+              })}
             </div>
-            {shown.map((t) => (
-              <Row key={t.id} t={t} cell={cell} onOpen={onOpen} />
-            ))}
+            {picked?.team === t.id && <div className="mt-2">{explain}</div>}
           </div>
-        </div>
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-[30px] bg-gradient-to-r from-transparent to-background" />
-      </div>
+        ))}
+      </section>
+    );
+  const headsOf = (t: Team | undefined) => (t ? t.metrics.map((m) => ({ short: m.short, target: m.shortTarget })) : []);
+  return (
+    <div className="flex flex-col gap-4">
+      <ColorKey />
+      {block("สาขา", shownBranches, headsOf(branches[0]), "branch")}
       {hidden > 0 && (
-        <button type="button" onClick={() => setAll((a) => !a)} className="flex min-h-[40px] w-full items-center justify-between border-t border-border text-[12.5px] font-semibold text-muted-foreground">
-          {all ? "ย่อกลับ" : `+ อีก ${hidden} สาขา · ดูทั้งหมด`}
+        <button type="button" onClick={() => setAll((a) => !a)} className="-mt-2 flex min-h-[40px] w-full items-center justify-between border-t border-border text-[13px] font-semibold text-muted-foreground">
+          {all ? "ย่อกลับ" : `ดูอีก ${hidden} สาขา`}
           <ChevronRight className={cn("h-4 w-4 transition-transform", all && "-rotate-90")} />
         </button>
       )}
+      {block("ครัวกลาง", ck, headsOf(ck[0]), "kitchen")}
+      {rd.map((t) => (
+        <button key={t.id} type="button" onClick={() => onOpen(t.id)} className="flex min-h-[40px] items-center justify-between border-t border-border pt-2 text-left">
+          <span className="text-[15px] font-bold">RD</span>
+          <span className="text-xs text-muted-foreground">ยังไม่มีข้อมูล</span>
+        </button>
+      ))}
     </div>
   );
 }
 
-function Row({ t, cell, onOpen }: { t: Team; cell: (t: Team, i: number) => { text: string; cls: string; title: string }; onOpen: (id: string) => void }) {
+/** What the three colours mean — one line, above the tables */
+function ColorKey() {
+  const item = (cls: string, text: string) => (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <i className={cn("inline-block h-3 w-3 rounded-[3px]", cls)} />
+      {text}
+    </span>
+  );
   return (
-    <>
-      {HEAT_COLUMNS.map((_, i) => {
-        const c = cell(t, i);
-        return (
-          <button key={i} type="button" onClick={() => onOpen(t.id)} title={c.title} aria-label={c.title} className="flex h-[62px] items-center justify-center border-t border-border">
-            <span className={cn("flex h-[38px] w-[38px] items-center justify-center whitespace-nowrap rounded-lg text-[10.5px] font-bold tabular-nums", c.cls)}>{c.text}</span>
-          </button>
-        );
-      })}
-      <div className="flex h-[62px] items-center justify-center border-t border-border">{t.kind === "rd" ? <span className="text-[11px] text-muted-foreground">ยังไม่มีข้อมูล</span> : <WeekChips chips={t.chips} />}</div>
-    </>
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      {item(gradeCell("pass"), "ถึงเป้า")}
+      {item(gradeCell("near"), "พลาดนิดเดียว")}
+      {item(gradeCell("fail"), "ห่างเป้า")}
+      <span className="whitespace-nowrap">แตะช่องเพื่ออ่านเหตุผล</span>
+    </div>
   );
 }
 
 /** Ranked by the share of metrics met; RD (no data) last */
 function League({ teams, onOpen }: { teams: Team[]; onOpen: (id: string) => void }) {
   const ranked = [...teams].sort((a, b) => (a.kind === "rd" ? 1 : 0) - (b.kind === "rd" ? 1 : 0) || rankOf(b) - rankOf(a) || b.score.score - a.score.score || a.name.localeCompare(b.name, "th"));
-  const cols = "grid grid-cols-[16px_minmax(0,1fr)_78px_86px_30px] items-center gap-x-1";
+  const cols = "grid grid-cols-[18px_minmax(0,1fr)_36px_88px_30px] items-center gap-x-1.5";
   return (
     <div className="text-[13px]">
-      <div className={cn(cols, "border-b border-border pb-1 text-[11px] font-semibold text-muted-foreground")}>
+      <div className={cn(cols, "border-b border-border pb-1 text-xs font-semibold text-muted-foreground")}>
         <span>#</span>
         <span>ทีม</span>
-        <span>คะแนน</span>
-        <span className="leading-tight">
-          4 สัปดาห์ล่าสุด
-          <span className="block text-[9.5px] font-normal">เก่า → ล่าสุด</span>
-        </span>
+        <span className="text-right">ถึงเป้า</span>
+        <span className="whitespace-nowrap">4 สัปดาห์</span>
         <span className="text-right">เทียบ</span>
       </div>
       {ranked.map((t, i) => (
@@ -358,7 +405,7 @@ function League({ teams, onOpen }: { teams: Team[]; onOpen: (id: string) => void
           <TeamName t={t} />
           {t.kind === "rd" ? <span className="col-span-3 text-xs text-muted-foreground">ยังไม่มีข้อมูล</span> : (
             <>
-              <ScoreBar s={t.score} />
+              <span className="text-right font-mono font-semibold tabular-nums">{t.score.total ? `${t.score.score}/${t.score.total}` : "—"}</span>
               <WeekChips chips={t.chips} size={17} />
               <span className="text-right font-mono">{t.delta === null || t.delta === 0 ? <span className="text-muted-foreground">–</span> : t.delta > 0 ? <span className="font-bold text-success">▲{t.delta}</span> : <span className="font-bold text-destructive">▼{-t.delta}</span>}</span>
             </>
@@ -377,22 +424,22 @@ function KpiRow({ k }: { k: Kpi }) {
 
 const RAIL: { label: string; icon: React.ElementType; go: Go }[] = [
   { label: "ขาย", icon: BarChart3, go: { path: "/sales-entry" } },
-  { label: "Food cost", icon: Percent, go: { path: "/food-cost" } },
+  { label: "ต้นทุนอาหาร", icon: Percent, go: { path: "/food-cost" } },
   { label: "ครัวกลาง", icon: ChefHat, go: { path: "/dashboard" } },
-  { label: "นับ & waste", icon: ClipboardCheck, go: { path: "/daily-stock-count" } },
+  { label: "นับสต๊อก", icon: ClipboardCheck, go: { path: "/daily-stock-count" } },
   { label: "ปิดเดือน", icon: CalendarCheck, go: { path: "/stockcount" } },
   { label: "RD", icon: FlaskConical, go: { path: "/rd" } },
   { label: "Cost Center", icon: Layers, go: { path: "/cost-center" } },
-  { label: "ราคาวัตถุดิบ", icon: Tag, go: { path: "/cost-center", hash: "products" } },
+  { label: "ราคาของ", icon: Tag, go: { path: "/cost-center", hash: "products" } },
   // The earlier management first page (kitchen card + each branch's day)
-  { label: "วันนี้ (หน้าเดิม)", icon: CalendarClock, go: { path: "/store" } },
+  { label: "หน้าเดิม", icon: CalendarClock, go: { path: "/store" } },
 ];
 
 function GoRail({ onGo }: { onGo: (go: Go) => void }) {
   return (
-    <nav aria-label="ไปที่" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+    <nav aria-label="ไปที่" className="grid grid-cols-4 gap-x-1 gap-y-3 sm:grid-cols-5">
       {RAIL.map((r) => (
-        <button key={r.label} type="button" onClick={() => onGo(r.go)} className="flex min-h-[64px] w-[66px] shrink-0 flex-col items-center gap-1 text-center text-[11px] leading-tight">
+        <button key={r.label} type="button" onClick={() => onGo(r.go)} className="flex min-h-[64px] flex-col items-center gap-1 whitespace-nowrap text-center text-xs leading-tight">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-soft text-brand">
             <r.icon className="h-5 w-5" />
           </span>
@@ -446,7 +493,6 @@ function TeamPage({ team, view, onBack, onGo }: { team: Team; view: AdminView; o
               <div className="mt-1 text-[13px]">
                 {beforeWord(k)} <b className="font-mono">{team.prevScore.total ? `${team.prevScore.score}/${team.prevScore.total}` : "—"}</b> · 4 สัปดาห์ก่อน <b className="font-mono">{team.chips[0]?.total ? `${team.chips[0].score}/${team.chips[0].total}` : "—"}</b>
               </div>
-              <div className="text-xs text-muted-foreground">คัดลอกสรุปไปวางในไลน์</div>
               <Button variant="outline" className="mt-1.5 h-10 gap-1.5 rounded-[10px] px-2.5 text-[13px]" onClick={copy}>
                 <Send className="h-[15px] w-[15px]" />
                 {team.kind === "kitchen" ? "ส่งข้อความถึงหัวหน้าครัว" : "ส่งข้อความถึงหัวหน้าสาขา"}
@@ -464,7 +510,7 @@ function TeamPage({ team, view, onBack, onGo }: { team: Team; view: AdminView; o
           <Section title="ตัวชี้วัด" note={nowWord(k)} />
           <div className="flex flex-col gap-1">
             {team.metrics.map((m) => (
-              <BulletRow key={m.id} label={m.label} sub={m.targetText} display={m.display} why={m.value.why} spec={metricSpec(m.value, m.prev, m.targetValue, m.lower, m.format)} />
+              <BulletRow key={m.id} label={m.label} sub={m.targetText} gap={gapText(m)} display={m.display} why={m.value.why} spec={metricSpec(m.value, m.prev, m.targetValue, m.lower, m.format)} />
             ))}
           </div>
           <BulletLegend now={nowWord(k)} before={`${beforeWord(k)} (${dShort(prev.from)}${prev.from !== prev.to ? `–${dShort(prev.to)}` : ""})`} />
@@ -476,7 +522,7 @@ function TeamPage({ team, view, onBack, onGo }: { team: Team; view: AdminView; o
             </>
           )}
 
-          <Section title="เรื่องที่ทำให้คะแนนตก" note="สี = ความรุนแรง · แดงก่อน" />
+          <Section title="เรื่องที่ทำให้คะแนนตก" />
           <Timeline items={team.attention.slice(0, 8)} onGo={onGo} empty="ไม่มีเรื่องที่ทำให้คะแนนตกในช่วงนี้" />
 
           <Section title="คะแนน 4 สัปดาห์" />
@@ -489,31 +535,31 @@ function TeamPage({ team, view, onBack, onGo }: { team: Team; view: AdminView; o
 
 function DayGrid({ days }: { days: NonNullable<Team["days"]> }) {
   const rows: { label: string; key: "countOnTime" | "diff" | "receive" | "salesImport" }[] = [
-    { label: "นับตรงเวลา", key: "countOnTime" },
-    { label: "diff ≤ ฿1,000", key: "diff" },
-    { label: "รับของใน 1 วัน", key: "receive" },
-    { label: "นำเข้ายอดขาย", key: "salesImport" },
+    { label: "นับเสร็จทัน", key: "countOnTime" },
+    { label: "ขาด/เกิน ≤฿1k", key: "diff" },
+    { label: "รับของทัน", key: "receive" },
+    { label: "ลงยอดขาย", key: "salesImport" },
   ];
   return (
     <div>
       <div className="grid items-center gap-y-0.5" style={{ gridTemplateColumns: `96px repeat(${days.length}, minmax(0, 1fr))` }}>
         <span />
         {days.map((d) => (
-          <span key={d.day} className="text-center text-[10.5px] text-muted-foreground">
+          <span key={d.day} className="text-center text-[11px] text-muted-foreground">
             {dWeek(d.day)}
           </span>
         ))}
         {rows.map((r) => (
           <Fragment key={r.key} label={r.label}>
             {days.map((d) => (
-              <span key={d.day} className="flex min-h-[22px] justify-center">
+              <span key={d.day} className="flex min-h-[24px] items-center justify-center">
                 <DayDot m={d[r.key]} />
               </span>
             ))}
           </Fragment>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">จุดเขียว = ผ่าน · กากบาทแดง = ไม่ผ่าน · วงกลมโปร่ง = ยังไม่ถึงกำหนด · ขีด = ไม่มีให้ดู</p>
+      <p className="mt-1 text-xs text-muted-foreground">จุดเขียว ผ่าน · กากบาท ไม่ผ่าน · วงกลม ยังไม่ถึงเวลา</p>
     </div>
   );
 }

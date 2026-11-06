@@ -37,9 +37,9 @@ interface PosOptionsViewProps {
 type Filter = "todo" | "partial" | "covered" | "ignored" | "all";
 
 const statusStyle: Record<OptionStatus, { icon: React.ElementType; text: string; bg: string; label: string }> = {
-  covered: { icon: CheckCircle2, text: "text-success", bg: "bg-success-soft", label: "มีกฎ" },
-  partial: { icon: AlertTriangle, text: "text-warning", bg: "bg-warning-soft", label: "กฎครอบไม่หมด" },
-  none: { icon: XCircle, text: "text-destructive", bg: "bg-destructive-soft", label: "ยังไม่มีกฎ" },
+  covered: { icon: CheckCircle2, text: "text-success", bg: "bg-success-soft", label: "ตั้งแล้ว" },
+  partial: { icon: AlertTriangle, text: "text-warning", bg: "bg-warning-soft", label: "ตั้งไม่ครบทุกบิล" },
+  none: { icon: XCircle, text: "text-destructive", bg: "bg-destructive-soft", label: "ยังไม่ได้ตั้ง" },
   ignored: { icon: MinusCircle, text: "text-muted-foreground", bg: "bg-secondary", label: "ไม่กระทบวัตถุดิบ" },
 };
 
@@ -116,9 +116,9 @@ export function PosOptionsView(props: PosOptionsViewProps) {
     );
 
   const tabs: { key: Filter; label: string }[] = [
-    { key: "todo", label: `ยังไม่มีกฎ ${counts.none}` },
-    { key: "partial", label: `ครอบไม่หมด ${counts.partial}` },
-    { key: "covered", label: `มีกฎ ${counts.covered}` },
+    { key: "todo", label: `ยังไม่ได้ตั้ง ${counts.none}` },
+    { key: "partial", label: `ตั้งไม่ครบ ${counts.partial}` },
+    { key: "covered", label: `ตั้งแล้ว ${counts.covered}` },
     { key: "ignored", label: `ไม่กระทบ ${counts.ignored}` },
     { key: "all", label: `ทั้งหมด ${catalog.length}` },
   ];
@@ -127,7 +127,7 @@ export function PosOptionsView(props: PosOptionsViewProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
         <p className="text-sm text-muted-foreground">
-          ตัวเลือกที่ลูกค้ากดใน POS ช่วง {SALES_WINDOW_DAYS} วัน — ตัวเลือกที่ใช้วัตถุดิบต้องมีกฎ ที่ไม่ใช้วัตถุดิบ (เช่น ความเค็ม) กด "ไม่กระทบวัตถุดิบ" ครั้งเดียวพอ
+          ตัวเลือกที่ลูกค้ากดใน {SALES_WINDOW_DAYS} วัน ตัวที่ใช้วัตถุดิบต้องตั้งให้ครบ
         </p>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -155,7 +155,7 @@ export function PosOptionsView(props: PosOptionsViewProps) {
 
       {groups.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          {filter === "todo" ? "ทุกตัวเลือกมีกฎหรือถูกตั้งว่าไม่กระทบวัตถุดิบแล้ว" : "ไม่มีตัวเลือกในกลุ่มนี้"}
+          {filter === "todo" ? "ทุกตัวเลือกตั้งครบแล้ว" : "ไม่มีตัวเลือกในกลุ่มนี้"}
         </div>
       )}
 
@@ -200,7 +200,7 @@ export function PosOptionsView(props: PosOptionsViewProps) {
                         <div className="truncate text-[15px] font-medium">{e.value}</div>
                         <div className="text-sm text-muted-foreground">
                           {st.label}
-                          {e.status === "partial" && ` · ${(e.plates - e.coveredPlates).toLocaleString()} จานไม่โดนกฎ`}
+                          {e.status === "partial" && ` · ${(e.plates - e.coveredPlates).toLocaleString()} จานยังไม่ได้ตั้ง`}
                         </div>
                       </div>
                       <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">{e.plates.toLocaleString()} จาน</span>
@@ -441,7 +441,7 @@ export function RuleDraftForm({
       <p className="-mt-2 text-sm text-muted-foreground">
         {draft.ruleType === "add" && "ลูกค้าเลือกแล้วใช้วัตถุดิบเพิ่ม เช่น ไข่ น้ำมัน ท็อปปิ้ง"}
         {draft.ruleType === "swap" && "ลูกค้าเลือกแล้วเอาของในสูตรออก ใส่อีกอย่างแทน เช่น เปลี่ยนเส้น"}
-        {draft.ruleType === "submenu" && "ลูกค้าเลือกแล้วตัดของตามสูตรของเมนูอื่น เช่น ท็อปปิ้งที่ตั้งสูตรเป็นเมนูไว้"}
+        {draft.ruleType === "submenu" && "ลูกค้าเลือกแล้วใช้ของตามสูตรของเมนูอื่น เช่น ท็อปปิ้งที่ตั้งสูตรเป็นเมนูไว้"}
       </p>
 
       <div>
@@ -472,7 +472,7 @@ export function RuleDraftForm({
         </div>
       ) : (
         <div>
-          <span className="mb-1.5 block text-sm font-medium">ตัดของตามสูตรของเมนู</span>
+          <span className="mb-1.5 block text-sm font-medium">ใช้ของตามสูตรของเมนู</span>
           <SearchableSelect value={draft.submenuId ?? ""} onValueChange={(v) => set("submenuId", v)} options={menuOpts} placeholder="ค้นชื่อหรือรหัสเมนู…" triggerClassName="h-11 w-full" />
           <FieldError message={tried ? errors.submenu : null} />
         </div>
@@ -538,7 +538,7 @@ export function RuleDraftForm({
             ทำงาน <b className="font-mono">{test.plates.toLocaleString()}</b> จาน
             {draft.ruleType !== "submenu" && sku && (
               <>
-                {" "}· ตัด {sku.name} รวม <b className="font-mono">{test.totalQty.toLocaleString()}</b> {sku.usageUom}
+                {" "}· ใช้ {sku.name} รวม <b className="font-mono">{test.totalQty.toLocaleString()}</b> {sku.usageUom}
               </>
             )}
           </p>
@@ -594,7 +594,7 @@ export function RuleDraftForm({
           open={askDelete}
           onOpenChange={setAskDelete}
           title="ลบกฎนี้?"
-          description={`"${rule.keyword}" จะไม่ตัดวัตถุดิบอีก · ถ้าอาจใช้อีก กด "ปิดกฎนี้" แทน`}
+          description={`"${rule.keyword}" จะไม่ใช้วัตถุดิบอีก · ถ้าอาจใช้อีก กด "ปิดกฎนี้" แทน`}
           confirmLabel="ลบ"
           cancelLabel="ไม่ลบ"
           variant="destructive"
@@ -608,7 +608,7 @@ export function RuleDraftForm({
         />
       )}
       <p className="-mt-2 text-right text-xs text-muted-foreground">
-        {entry ? `สาขาที่ขาย: ${[...entry.branchIds].map(branchName).join(", ")}` : rule ? "แก้แล้วมีผลกับยอดขายที่นำเข้าหลังจากนี้" : "ใส่คำตามที่ POS เขียนในบิล ดูตัวอย่างได้ที่แท็บบิลจริง"}
+        {entry ? `สาขาที่ขาย: ${[...entry.branchIds].map(branchName).join(", ")}` : rule ? "แก้แล้วมีผลกับยอดขายที่นำเข้าหลังจากนี้" : "ใส่คำตามที่เขียนในบิล ดูตัวอย่างได้ที่แท็บบิลจริง"}
       </p>
     </form>
   );

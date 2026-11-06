@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ActionFooter, NoteField, PackStepper, WeightField, baht, onEnterNext, packHint, packLabel } from "./parts";
 import { cn } from "@/lib/utils";
+import { thaiDay } from "@/components/sales/SalesDays";
 import { withBusy } from "@/lib/with-busy";
 
 interface Props {
@@ -94,8 +95,10 @@ export function ReceiveTransferOrder({ to, branchId, receiptDate, skuMap, onRece
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-sm text-muted-foreground">ครัวกลาง · ส่ง {to.deliveryDate}</div>
-          <h2 className="font-mono text-xl font-bold">{to.toNumber}</h2>
+          <div className="text-sm text-muted-foreground">ใบโอนจากครัวกลาง</div>
+          {/* The day is the headline, not the code (kept small below for quoting) */}
+          <h2 className="text-xl font-bold">{to.deliveryDate ? `ส่ง ${thaiDay(to.deliveryDate)}` : "ใบโอนจากครัวกลาง"}</h2>
+          <div className="whitespace-nowrap font-mono text-xs text-muted-foreground">{to.toNumber}</div>
         </div>
         <Button variant="outline" className="h-10" onClick={() => setDeclineOpen(true)}>
           ปฏิเสธใบนี้

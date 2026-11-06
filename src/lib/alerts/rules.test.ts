@@ -137,7 +137,7 @@ describe("5 · daily count", () => {
     const out = countProblem.evaluate(data({ counts: rows, salesDaily: [sale({})] }), cfg("count_problem"));
     expect(out.cases.map((c) => c.key)).toEqual(["count_diff:b1:2026-11-08"]);
     expect(out.cases[0].value).toBe(1600);
-    expect(out.cases[0].title).toBe("Sendo สยาม นับ diff ฿1,600 อา. 8 พ.ย.");
+    expect(out.cases[0].title).toBe("Sendo สยาม นับแล้วขาด/เกิน ฿1,600 อา. 8 พ.ย.");
     expect(out.cases[0].severity).toBe("medium");
     const big = countProblem.evaluate(data({ counts: [count({ variance: -20000 })], salesDaily: [sale({})] }), cfg("count_problem"));
     expect(big.cases[0].severity).toBe("high");
@@ -219,7 +219,7 @@ describe("11 + 12 · weekly", () => {
   it("scores best first", () => {
     const lines = weeklyScores.evaluate(data(badGoodWeek()), cfg("weekly_scores")).info.map((i) => i.text);
     expect(lines[0]).toMatch(/^1\. Shiro อารีย์ \d\/\d ดี/);
-    expect(lines[1]).toMatch(/^2\. Sendo สยาม 0\/\d มีปัญหา/);
+    expect(lines[1]).toMatch(/^2\. Sendo สยาม \d\/\d มีปัญหา/);
   });
   it("food cost from the saved analysis, waste % of 7 days, new menus and items, RD later", () => {
     const d = data({
@@ -255,7 +255,7 @@ describe("13 · month close", () => {
     });
     expect(monthClose.evaluate(d, cfg("month_close")).info.map((i) => i.text)).toEqual([
       "ครัวกลางยังไม่นับปิดเดือน ต.ค. (ภายใน ±3 วันจากสิ้นเดือน · นับอย่างน้อยครึ่งหนึ่งของวัตถุดิบ)",
-      "Sendo สยาม ยังไม่นำเข้ายอดขาย 1 วัน (30 ต.ค.)",
+      "Sendo สยาม ยังไม่ลงยอดขาย 1 วัน (30 ต.ค.)",
       "Shiro อารีย์ ยังไม่นับปิดวันสุดท้าย 31 ต.ค.",
       "ใบโอนเดือน ต.ค. ยังไม่กดรับ 1 ใบ",
       "Food cost ต.ค. ยังไม่บันทึก: Shiro อารีย์",

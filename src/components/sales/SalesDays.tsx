@@ -30,7 +30,7 @@ export function DayStrip({ today, days, loading, selected, onPick }: { today: st
   return (
     <section data-tour="days" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">14 วันล่าสุด</h2>
+        <h2 className="text-[15px] font-semibold">14 วันล่าสุด</h2>
         {!loading && <span className={cn("text-sm font-semibold", missing ? "text-warning" : "text-success")}>{missing ? `ยังไม่มียอด ${missing} วัน` : "ครบทุกวัน"}</span>}
       </div>
       <div className="grid grid-cols-7 gap-1.5">
@@ -51,11 +51,11 @@ export function DayStrip({ today, days, loading, selected, onPick }: { today: st
                 loading && "animate-pulse",
               )}
             >
-              <span className={cn("text-[11px] font-normal", st === "missing" ? "text-warning" : "text-muted-foreground")}>{DOW[getDay(date)]}</span>
+              <span className={cn("text-xs font-normal", st === "missing" ? "text-warning" : "text-muted-foreground")}>{DOW[getDay(date)]}</span>
               {date.getDate()}
               {st === "saved" && <span className="h-1.5 w-1.5 rounded-full bg-success" />}
-              {st === "missing" && <span className="text-[10px] font-medium leading-none">ขาด</span>}
-              {st === "today" && <span className="text-[10px] font-medium leading-none text-muted-foreground">วันนี้</span>}
+              {st === "missing" && <span className="text-xs font-medium leading-none">ขาด</span>}
+              {st === "today" && <span className="text-xs font-medium leading-none text-muted-foreground">วันนี้</span>}
             </button>
           );
         })}
@@ -155,7 +155,7 @@ export function RecentDays({ days, onPick, limit = 7 }: { days: Map<string, DayS
   if (!list.length) return null;
   return (
     <section data-tour="saved" className="flex flex-col gap-2">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">บันทึกแล้ว</h2>
+      <h2 className="text-[15px] font-semibold">บันทึกแล้ว</h2>
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         {list.map(([d, s]) => (
           <li key={d}>
