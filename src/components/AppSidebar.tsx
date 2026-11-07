@@ -38,6 +38,7 @@ import {
   ScanLine,
   Layers,
   Search,
+  Scale,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -80,7 +81,9 @@ export type TabKey =
   | "search"
   | "rd"
   // Push alerts inbox + settings (management + ck_manager)
-  | "alerts";
+  | "alerts"
+  // Recipe vs real use per item and branch (management + ck_manager)
+  | "reconcile";
 
 export type TabContext = "ck" | "store" | "management" | "overview";
 
@@ -121,6 +124,8 @@ export const tabContextMap: Record<TabKey, TabContext> = {
   rd: "management",
   // Management + kitchen manager (canAccessTab); not a kitchen page, so it never waits for kitchen data
   alerts: "management",
+  // Management + kitchen manager (canAccessTab); reads its own rows, never the kitchen stock data
+  reconcile: "management",
 };
 
 interface AppSidebarProps {
@@ -167,6 +172,7 @@ const adminGroup: NavGroup = {
     { key: "admin", labelKey: "nav.adminHome", icon: LayoutGrid },
     { key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck },
     { key: "alerts", labelKey: "nav.alerts", icon: Bell },
+    { key: "reconcile", labelKey: "nav.reconcile", icon: Scale },
   ],
 };
 
@@ -178,6 +184,7 @@ const ckTodayGroup: NavGroup = {
   items: [
     { key: "store", labelKey: "nav.storeOverview", icon: CalendarCheck },
     { key: "alerts", labelKey: "nav.alerts", icon: Bell },
+    { key: "reconcile", labelKey: "nav.reconcile", icon: Scale },
   ],
 };
 

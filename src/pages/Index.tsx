@@ -53,6 +53,7 @@ const StoreOverview = lazy(pageLoader(pageChunks.StoreOverview));
 const StoreStockPage = lazy(pageLoader(pageChunks.StoreStock));
 const AdminHomePage = lazy(pageLoader(pageChunks.AdminHome));
 const AlertsInboxPage = lazy(pageLoader(pageChunks.AlertsInbox));
+const ReconcilePage = lazy(pageLoader(pageChunks.Reconcile));
 import { AppSidebar, TabKey, tabContextMap, getDefaultTab, bottomNavFor } from "@/components/AppSidebar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -104,6 +105,7 @@ const tabLabels: Record<TabKey, { title: string; subtitle: string }> = {
   search: { title: "ค้นหา", subtitle: "เร็วๆ นี้" },
   rd: { title: "RD", subtitle: "เร็วๆ นี้" },
   alerts: { title: "แจ้งเตือน", subtitle: "เรื่องค้าง · สรุป · ตั้งค่า" },
+  reconcile: { title: "กระทบยอด", subtitle: "สูตร เทียบกับที่ใช้จริง" },
 };
 
 /** A tab that isn't built yet (management's ค้นหา and RD) */
@@ -125,6 +127,8 @@ function canAccessTab(role: string | null, tab: TabKey): boolean {
   if (tab === "cost-center") return !!role;
   // Push alerts: management and the kitchen manager only
   if (tab === "alerts") return role === "management" || role === "ck_manager";
+  // Recipe vs real use: management and the kitchen manager only
+  if (tab === "reconcile") return role === "management" || role === "ck_manager";
   const ctx = tabContextMap[tab];
   switch (role) {
     case "management":
@@ -164,6 +168,8 @@ function isTabReadOnly(role: string | null, tab: TabKey): boolean {
       "sku-categories",
       "cost-center",
       "alerts",
+      // Nothing to edit there: no "ดูอย่างเดียว" badge
+      "reconcile",
     ];
     return !editableCk.includes(tab);
   }
@@ -417,6 +423,8 @@ const Index = () => {
                   />
                 ) : activeTab === "alerts" ? (
                   <AlertsInboxPage />
+                ) : activeTab === "reconcile" ? (
+                  <ReconcilePage masters={{ skus, prices: priceData.prices, menus: menuData.menus, menuBomLines: menuBomData.lines, branches: branchData.branches }} />
                 ) : activeTab === "search" || activeTab === "rd" ? (
                   <ComingSoon title={tabLabels[activeTab].title} onHome={() => handleTabChange("admin")} />
                 ) : activeTab === "dashboard" ? (

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import CostCenterPage from "@/pages/CostCenter";
 import type { Menu } from "@/types/menu";
 import type { MenuBomLine } from "@/types/menu-bom";
+import type { MenuBomLineChange } from "@/hooks/use-menu-bom-data";
 import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -22,6 +23,8 @@ interface Fixture {
   prices: Price[];
   branches: Branch[];
   spLines: SpBomLine[];
+  /** menu code → branch id → sold (30 days) */
+  soldByCode?: Record<string, Record<string, number>>;
 }
 
 const CATS = [
@@ -65,6 +68,11 @@ export default function CostCenterDemo() {
     fetch("/fixtures.local/menu-setup.json")
       .then((r) => r.json())
       .then((d: Fixture) => {
+        // ต้นหอมไทย: one menu also has its own line at one branch (shared + branch shown apart)
+        const onion = d.skus.find((s) => s.skuId === "RM-0027");
+        const first = onion && d.lines.find((l) => l.skuId === onion.id && !l.branchId);
+        const br = d.branches[0];
+        if (first && br) d = { ...d, lines: [...d.lines, { ...first, id: "demo-branch-onion", branchId: br.id, qtyPerServing: 15, yieldPct: 50, effectiveQty: 30 }] };
         setFx(d);
         const sk = d.skus.map((s) => ({ ...s, category: s.type === "PK" ? "PK" : "DG", packSize: 1000, packUnit: "แพ็ค", storageCondition: "Chilled" as const, ...(CURATED[s.skuId] ?? {}) }));
         const id = (code: string) => sk.find((s) => s.skuId === code)!.id;
@@ -148,6 +156,16 @@ export default function CostCenterDemo() {
             updateLine: async () => true,
             deleteLine: async () => true,
             saveSpecNote: async (id: string, note: string) => (await wait(), setFx((f) => f && { ...f, lines: f.lines.map((l) => (l.id === id ? { ...l, specNote: note.trim() } : l)) }), true),
+            // "ใช้ในเมนู": saved in memory; a line of a closed menu fails, to show a partial save
+            updateLines: async (changes: MenuBomLineChange[]) => {
+              await wait();
+              const closed = new Set(fx.menus.filter((m) => m.status !== "Active").map((m) => m.id));
+              const lineMenu = new Map(fx.lines.map((l) => [l.id, l.menuId]));
+              const ok = changes.filter((c) => !closed.has(lineMenu.get(c.id) ?? ""));
+              const byId = new Map(ok.map((c) => [c.id, c]));
+              setFx((f) => f && { ...f, lines: f.lines.map((l) => (byId.has(l.id) ? { ...l, ...byId.get(l.id)! } : l)) });
+              return { saved: ok.map((c) => c.id), failed: changes.filter((c) => !byId.has(c.id)).map((c) => ({ id: c.id, reason: "ไม่มีสิทธิ์แก้ หรือถูกลบไปแล้ว" })) };
+            },
           } as never,
           rules: fx.rules,
           skus,
@@ -220,6 +238,7 @@ export default function CostCenterDemo() {
           canEditMenus: true,
         }}
         demoBills={bills}
+        demoSold={Object.fromEntries(Object.entries(fx.soldByCode ?? {}).map(([code, byBranch]) => [code, Math.round(Object.values(byBranch).reduce((a, b) => a + b, 0) / 4)]))}
         recipeActions={{
           addHeader: async (data) => {
             const id = crypto.randomUUID();

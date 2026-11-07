@@ -5,6 +5,34 @@ import { MenuBomLine } from '@/types/menu-bom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isMissingColumn, noteSaveProblem, saveLineSpecNote } from '@/lib/recipe-note-db';
+import { writeError, writeTimeout } from '@/lib/write-timeout';
+
+/**
+ * One menu recipe line's new amounts (yield and what follows from it, and qty when the
+ * qty itself was edited). Left out = qty_per_serving isn't written at all: a bulk yield
+ * change must never put back a qty from the screen's copy over a newer one.
+ */
+export interface MenuBomLineChange {
+  id: string;
+  qtyPerServing?: number;
+  yieldPct: number;
+  effectiveQty: number;
+  costPerServing: number;
+}
+
+/** What a bulk write did: the ids written, and every line that wasn't with the reason (Thai) */
+export interface MenuBomBulkResult {
+  saved: string[];
+  failed: { id: string; reason: string }[];
+}
+
+export type UpdateMenuBomLines = (changes: MenuBomLineChange[]) => Promise<MenuBomBulkResult>;
+
+/** A few writes at a time: quick for 36 lines, gentle on the database */
+const BULK_PARALLEL = 5;
+
+/** Nothing came back from an update: row security filtered it out (no right to edit), or the row is gone */
+export const NOT_UPDATED = 'ไม่มีสิทธิ์แก้ หรือถูกลบไปแล้ว';
 
 const toLocal = (row: any): MenuBomLine => ({
   id: row.id,
@@ -121,6 +149,44 @@ export function useMenuBomData() {
     return true;
   }, []);
 
+  // Many lines' yield, or one line's qty+yield (where-used matrix): each line its own write with a time limit,
+  // counted by the rows the database says it changed — a write row security filtered out
+  // (200, nothing changed) is a failure, never a success. Only lines that really changed
+  // are changed on screen; the caller says how many of how many.
+  const updateLines = useCallback<UpdateMenuBomLines>(async (changes) => {
+    const saved: string[] = [];
+    const failed: { id: string; reason: string }[] = [];
+    const one = async (c: MenuBomLineChange) => {
+      try {
+        const { data, error } = await supabase
+          .from('menu_bom')
+          .update({
+            ...(c.qtyPerServing !== undefined && { qty_per_serving: c.qtyPerServing }),
+            yield_pct: c.yieldPct,
+            effective_qty: c.effectiveQty,
+            cost_per_serving: c.costPerServing,
+          })
+          .eq('id', c.id)
+          .select('id')
+          .abortSignal(writeTimeout());
+        if (error) failed.push({ id: c.id, reason: writeError(error) || 'บันทึกไม่สำเร็จ' });
+        else if (!data || data.length === 0) failed.push({ id: c.id, reason: NOT_UPDATED });
+        else saved.push(c.id);
+      } catch (e) {
+        failed.push({ id: c.id, reason: writeError({ message: e instanceof Error ? e.message : String(e) }) });
+      }
+    };
+    for (let i = 0; i < changes.length; i += BULK_PARALLEL) await Promise.all(changes.slice(i, i + BULK_PARALLEL).map(one));
+    if (saved.length) {
+      const done = new Map(changes.filter((c) => saved.includes(c.id)).map((c) => [c.id, c]));
+      setLines(prev => prev.map(l => {
+        const c = done.get(l.id);
+        return c ? { ...l, qtyPerServing: c.qtyPerServing ?? l.qtyPerServing, yieldPct: c.yieldPct, effectiveQty: c.effectiveQty, costPerServing: c.costPerServing } : l;
+      }));
+    }
+    return { saved, failed };
+  }, []);
+
   // The line's note for the shop (recipe sheet): its own write, so a missing column
   // (migration not run yet) never blocks saving the recipe itself
   const saveSpecNote = useCallback(async (id: string, note: string) => {
@@ -131,5 +197,5 @@ export function useMenuBomData() {
     return true;
   }, []);
 
-  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine, replaceShared, saveSpecNote };
+  return { lines, loading, getLinesForMenu, addLine, updateLine, deleteLine, replaceShared, saveSpecNote, updateLines };
 }

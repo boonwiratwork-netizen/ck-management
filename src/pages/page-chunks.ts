@@ -25,6 +25,7 @@ export const pageChunks = {
   StoreStock: () => import("@/pages/StoreStock"),
   AdminHome: () => import("@/pages/AdminHome"),
   AlertsInbox: () => import("@/pages/AlertsInbox"),
+  Reconcile: () => import("@/pages/Reconcile"),
 };
 
 export type PageChunk = keyof typeof pageChunks;
@@ -64,4 +65,5 @@ export const chunkForTab: Record<TabKey, PageChunk> = {
   search: "AdminHome",
   rd: "AdminHome",
   alerts: "AlertsInbox",
+  reconcile: "Reconcile",
 };

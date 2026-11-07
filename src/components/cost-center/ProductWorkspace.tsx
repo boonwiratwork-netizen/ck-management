@@ -85,6 +85,8 @@ interface Props {
   prev?: { label: string; go: () => void } | null;
   onOpenProduct: (skuId: string) => void;
   onOpenMenu: (menu: Menu) => void;
+  /** Every menu using this item in one table (Cost Center "ใช้ในเมนู"), to change amounts/yields there */
+  onOpenUsage?: () => void;
   onOpenSupplier: (supplierId: string) => void;
   /** Open one supplier's bill of one day, to update its prices together */
   onOpenBill: (supplierId: string, date: string) => void;
@@ -856,13 +858,14 @@ function RecipePanel(props: Props) {
 
 // ───────────────────────── Where used ─────────────────────────
 
-function UsePanel({ summary, skus, menus, onOpenProduct, onOpenMenu }: Props) {
+function UsePanel({ summary, skus, menus, onOpenProduct, onOpenMenu, onOpenUsage }: Props) {
   const byId = new Map(skus.map((s) => [s.id, s]));
-  const groups: { title: string; items: { key: string; label: string; badge: "SM" | "SP" | "menu"; open: () => void }[] }[] = [
-    { title: "สูตรของที่ครัวผลิต (SM)", items: summary.usage.inSm.map((id) => ({ key: id, label: `${byId.get(id)?.skuId ?? ""} ${byId.get(id)?.name ?? ""}`, badge: "SM" as const, open: () => onOpenProduct(id) })) },
-    { title: "สูตรหน้าร้าน (SP)", items: summary.usage.inSp.map((id) => ({ key: id, label: `${byId.get(id)?.skuId ?? ""} ${byId.get(id)?.name ?? ""}`, badge: "SP" as const, open: () => onOpenProduct(id) })) },
+  const groups: { title: string; badge: "SM" | "SP" | "menu"; items: { key: string; label: string; badge: "SM" | "SP" | "menu"; open: () => void }[] }[] = [
+    { title: "สูตรของที่ครัวผลิต (SM)", badge: "SM" as const, items: summary.usage.inSm.map((id) => ({ key: id, label: `${byId.get(id)?.skuId ?? ""} ${byId.get(id)?.name ?? ""}`, badge: "SM" as const, open: () => onOpenProduct(id) })) },
+    { title: "สูตรหน้าร้าน (SP)", badge: "SP" as const, items: summary.usage.inSp.map((id) => ({ key: id, label: `${byId.get(id)?.skuId ?? ""} ${byId.get(id)?.name ?? ""}`, badge: "SP" as const, open: () => onOpenProduct(id) })) },
     {
       title: "เมนูที่เปิดขาย",
+      badge: "menu" as const,
       items: summary.usage.inMenus
         .map((id) => menus.find((m) => m.id === id))
         .filter((m): m is Menu => !!m)
@@ -874,9 +877,16 @@ function UsePanel({ summary, skus, menus, onOpenProduct, onOpenMenu }: Props) {
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
       {groups.map((g) => (
         <section key={g.title} className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-          <h4 className="px-4 py-3 font-semibold">
-            {g.title} · {g.items.length}
-          </h4>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3">
+            <h4 className="font-semibold">
+              {g.title} · {g.items.length}
+            </h4>
+            {g.badge === "menu" && onOpenUsage && (
+              <button type="button" onClick={onOpenUsage} className="min-h-[36px] whitespace-nowrap text-sm font-semibold text-primary hover:underline">
+                ดูทุกเมนูที่ใช้ ›
+              </button>
+            )}
+          </div>
           <ul className="divide-y divide-border border-t border-border">
             {g.items.map((it) => (
               <li key={it.key}>

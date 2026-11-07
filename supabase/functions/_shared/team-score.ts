@@ -419,6 +419,72 @@ export function branchMetrics(input: BranchInput, p: { from: string; to: string 
   };
 }
 
+/** One counted row that can be judged against the recipe, with the window it covers */
+export interface JudgedCountRow<T extends CountLine = CountLine> {
+  row: T;
+  /** The item's previous real count (the window runs from the day after it through row.count_date) */
+  prevCount: string;
+  /** This item's rows in the window (day after prevCount … row.count_date), the counted row last */
+  windowRows: T[];
+  /** Recipe use in the window: Σ expected_usage (≥ 0) on sales days, in usage units */
+  recipeQty: number;
+  /** The same in baht (each day at its own price) */
+  recipeBaht: number;
+  /** Price of the counted row's day */
+  price: number;
+}
+
+/**
+ * The counted rows of a period that can be judged against the recipe — one rule for the team
+ * score (overRecipeAndWaste) and the per-item reconcile page (lib/reconcile.ts).
+ *
+ * A row's difference (variance) is the gap since the item's previous real count, so its recipe
+ * base is the expected use summed from the day after that count through the counted day (sales
+ * days only). Judged only when: there is an earlier count of the item in the rows read; every
+ * day of the window with sales had a count sheet (else that day's expected use was never worked
+ * out); the counted day is in `days`, had sales, and wasn't counted before its sales came in;
+ * and the window's recipe use is above 0. Rows of every item may be passed together.
+ */
+export function judgedCountRows<T extends CountLine>(counts: T[], sales: Pick<SaleLine, "sale_date" | "created_at">[], days: Set<string>, priceOn: (skuId: string, day: string) => number): { rows: JudgedCountRow<T>[]; early: Set<string> } {
+  const salesDays = new Set(sales.map((x) => x.sale_date));
+  const sheetDays = new Set(counts.map((x) => x.count_date));
+  const sorted = [...days].sort();
+  const early = new Set(countedBeforeSalesDays({ counts, sales: sales as SaleLine[] }, { from: sorted[0] ?? "", to: sorted[sorted.length - 1] ?? "" }));
+  const bySku = new Map<string, T[]>();
+  for (const r of counts) {
+    const l = bySku.get(r.sku_id);
+    if (l) l.push(r);
+    else bySku.set(r.sku_id, [r]);
+  }
+  const out: JudgedCountRow<T>[] = [];
+  for (const list of bySku.values()) {
+    const rows = [...list].sort((a, b) => a.count_date.localeCompare(b.count_date));
+    let prevCount: string | null = null;
+    let since = 0; // expected use (baht) on sales days after the previous count
+    let sinceQty = 0;
+    let windowRows: T[] = [];
+    for (const r of rows) {
+      const price = priceOn(r.sku_id, r.count_date);
+      windowRows.push(r);
+      if (salesDays.has(r.count_date)) {
+        since += Math.max(0, num(r.expected_usage)) * price;
+        sinceQty += Math.max(0, num(r.expected_usage));
+      }
+      if (r.physical_count === null) continue;
+      // A day in the window with sales but no sheet at all: its expected use was never
+      // worked out, so the window's recipe base is incomplete — the item isn't judged
+      const gap = prevCount !== null && daysBetween(shiftDay(prevCount, 1), r.count_date).some((d) => salesDays.has(d) && !sheetDays.has(d));
+      if (prevCount !== null && !gap && !early.has(r.count_date) && days.has(r.count_date) && salesDays.has(r.count_date) && since > 0)
+        out.push({ row: r, prevCount, windowRows, recipeQty: sinceQty, recipeBaht: since, price });
+      prevCount = r.count_date;
+      since = 0;
+      sinceQty = 0;
+      windowRows = [];
+    }
+  }
+  return { rows: out, early };
+}
+
 /**
  * Over-recipe and waste of a period, on days with sales imported only (a day with no sales
  * in has no recipe use, so its difference would read as "used more than the recipe").
@@ -430,37 +496,14 @@ export function branchMetrics(input: BranchInput, p: { from: string; to: string 
  */
 export function overRecipeAndWaste(input: BranchInput, days: Set<string>) {
   const salesDays = new Set(input.sales.map((x) => x.sale_date));
-  const sheetDays = new Set(input.counts.map((x) => x.count_date));
-  const early = new Set(countedBeforeSalesDays(input, { from: [...days].sort()[0] ?? "", to: [...days].sort().pop() ?? "" }));
-  const bySku = new Map<string, CountLine[]>();
-  for (const r of input.counts) {
-    const l = bySku.get(r.sku_id);
-    if (l) l.push(r);
-    else bySku.set(r.sku_id, [r]);
-  }
+  const { rows: judged, early } = judgedCountRows(input.counts, input.sales, days, input.priceOn);
   let over = 0;
   let recipe = 0;
-  let judgedRows = 0;
-  for (const rows of bySku.values()) {
-    rows.sort((a, b) => a.count_date.localeCompare(b.count_date));
-    let prevCount: string | null = null;
-    let since = 0; // expected use (baht) on sales days after the previous count
-    for (const r of rows) {
-      const price = input.priceOn(r.sku_id, r.count_date);
-      if (salesDays.has(r.count_date)) since += Math.max(0, num(r.expected_usage)) * price;
-      if (r.physical_count === null) continue;
-      // A day in the window with sales but no sheet at all: its expected use was never
-      // worked out, so the window's recipe base is incomplete — the item isn't judged
-      const gap = prevCount !== null && daysBetween(shiftDay(prevCount, 1), r.count_date).some((d) => salesDays.has(d) && !sheetDays.has(d));
-      if (prevCount !== null && !gap && !early.has(r.count_date) && days.has(r.count_date) && salesDays.has(r.count_date) && since > 0) {
-        over += -num(r.variance) * price;
-        recipe += since;
-        judgedRows++;
-      }
-      prevCount = r.count_date;
-      since = 0;
-    }
+  for (const j of judged) {
+    over += -num(j.row.variance) * j.price;
+    recipe += j.recipeBaht;
   }
+  const judgedRows = judged.length;
   let waste = 0;
   for (const r of input.counts) if (days.has(r.count_date) && salesDays.has(r.count_date)) waste += Math.max(0, num(r.waste)) * input.priceOn(r.sku_id, r.count_date);
   let net = 0;

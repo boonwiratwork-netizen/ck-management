@@ -31,6 +31,7 @@ const StoreDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/StoreDemo
 const SettingsDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/SettingsDemo")) : null;
 const CostCenterDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/CostCenterDemo")) : null;
 const AdminHomeDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/AdminHomeDemo")) : null;
+const ReconcileDemo = import.meta.env.DEV ? lazy(() => import("./pages/dev/ReconcileDemo")) : null;
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const App = () => (
               {SettingsDemo && <Route path="/dev/settings" element={<Suspense fallback={null}><SettingsDemo /></Suspense>} />}
               {CostCenterDemo && <Route path="/dev/cost-center" element={<Suspense fallback={null}><CostCenterDemo /></Suspense>} />}
               {AdminHomeDemo && <Route path="/dev/admin" element={<Suspense fallback={null}><AdminHomeDemo /></Suspense>} />}
+              {ReconcileDemo && <Route path="/dev/reconcile" element={<Suspense fallback={null}><ReconcileDemo /></Suspense>} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

@@ -16,6 +16,7 @@ import {
   FlaskConical,
   Layers,
   Percent,
+  Scale,
   Send,
   Tag,
 } from "lucide-react";
@@ -427,6 +428,7 @@ const RAIL: { label: string; icon: React.ElementType; go: Go }[] = [
   { label: "ต้นทุนอาหาร", icon: Percent, go: { path: "/food-cost" } },
   { label: "ครัวกลาง", icon: ChefHat, go: { path: "/dashboard" } },
   { label: "นับสต๊อก", icon: ClipboardCheck, go: { path: "/daily-stock-count" } },
+  { label: "กระทบยอด", icon: Scale, go: { path: "/reconcile" } },
   { label: "ปิดเดือน", icon: CalendarCheck, go: { path: "/stockcount" } },
   { label: "RD", icon: FlaskConical, go: { path: "/rd" } },
   { label: "Cost Center", icon: Layers, go: { path: "/cost-center" } },

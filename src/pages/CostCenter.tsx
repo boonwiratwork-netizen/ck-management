@@ -30,12 +30,18 @@ import type { SpBomLine } from "@/types/sp-bom";
 import type { ImportContext } from "@/lib/import-datasets";
 import type { ImportSaves } from "@/hooks/use-import-saves";
 import { FilesView } from "@/components/cost-center/FilesView";
+import { UsageMatrix } from "@/components/cost-center/UsageMatrix";
+import type { UpdateMenuBomLines } from "@/hooks/use-menu-bom-data";
+import { codesFromHash } from "@/lib/usage-matrix";
 
 type MenuSetupProps = React.ComponentProps<typeof MenuSetupPage>;
 
 interface Props {
   /** Everything the menu side needs (the old Menu Setup page, unchanged inside) */
-  menuSetup: Omit<MenuSetupProps, "header" | "overviewExtra" | "listHash" | "prevScreen">;
+  menuSetup: Omit<MenuSetupProps, "header" | "overviewExtra" | "listHash" | "prevScreen" | "menuBom"> & {
+    /** The menu recipe hook (useMenuBomData): its bulk write powers the "ใช้ในเมนู" tab */
+    menuBom: MenuSetupProps["menuBom"] & { updateLines?: UpdateMenuBomLines };
+  };
   skus: SKU[];
   prices: Price[];
   suppliers: Supplier[];
@@ -50,6 +56,12 @@ interface Props {
   menuLines: { menuId: string; skuId: string }[];
   /** Management or CK manager: products, prices and suppliers */
   canEditProducts: boolean;
+  /**
+   * Who may change menu recipe amounts / yields from the "ใช้ในเมนู" table: management and
+   * the kitchen manager (owner's decision, 7 Nov 2026) — the same people as canEditProducts,
+   * which it follows unless given. Needs the menu_bom ck_manager update policy in the database.
+   */
+  canEditRecipes?: boolean;
   addSku: (data: Omit<SKU, "id" | "skuId">) => Promise<SKU | null>;
   productActions: ProductActions;
   addSupplier: (data: Omit<Supplier, "id">) => Promise<Supplier | null>;
@@ -63,15 +75,18 @@ interface Props {
   files?: { ctx: ImportContext; saves: ImportSaves; canEditMenus: boolean };
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
+  /** Dev harness only: sold in the last week per menu code ("ใช้ในเมนู"), instead of reading sales */
+  demoSold?: Record<string, number>;
 }
 
-type View = "overview" | "menus" | "branches" | "pos" | "products" | "suppliers";
+type View = "overview" | "menus" | "branches" | "pos" | "products" | "usage" | "suppliers";
 const VIEWS: { key: View; label: string }[] = [
   { key: "overview", label: "ภาพรวม" },
   { key: "menus", label: "เมนู" },
   { key: "branches", label: "สาขา" },
   { key: "pos", label: "ตัวเลือก" },
   { key: "products", label: "สินค้า" },
+  { key: "usage", label: "ใช้ในเมนู" },
   { key: "suppliers", label: "ซัพพลายเออร์" },
 ];
 
@@ -89,7 +104,8 @@ const GUIDE: GuideStep[] = [
  * suppliers — under one header and one row of tabs. The menu side is the Menu
  * Setup page; the product side lives here. The view is in the URL hash:
  * #overview · #menus · #branches · #pos · #<menu code> (menu side) ·
- * #products · #p/<code> · #new-product · #suppliers · #s/<id> (product side).
+ * #products · #p/<code> · #new-product · #suppliers · #s/<id> (product side) ·
+ * #usage · #usage/<code>,<code> (which menus use the picked items).
  */
 export default function CostCenterPage(props: Props) {
   const { skus, prices, canEditProducts } = props;
@@ -113,8 +129,9 @@ export default function CostCenterPage(props: Props) {
 
   const productSide = hash === "products" || hash.startsWith("p/") || hash === "new-product";
   const supplierSide = hash === "suppliers" || hash.startsWith("s/") || hash.startsWith("bill/");
+  const usageSide = hash === "usage" || hash.startsWith("usage/");
   const openBill = (supplierId: string, date: string) => go(`bill/${supplierId}/${date}`, { state: { from: hash } });
-  const view: View = productSide ? "products" : supplierSide ? "suppliers" : hash === "overview" ? "overview" : hash === "pos" || hash === "pos/rules" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
+  const view: View = productSide ? "products" : supplierSide ? "suppliers" : usageSide ? "usage" : hash === "overview" ? "overview" : hash === "pos" || hash === "pos/rules" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
 
   const loaded = useKitchenBills(!props.demoBills);
   const bills = props.demoBills ?? loaded.bills;
@@ -184,6 +201,7 @@ export default function CostCenterPage(props: Props) {
     else if (from === "suppliers") label = "ซัพพลายเออร์ทั้งหมด";
     else if (from === "branches" || from.startsWith("branches/")) label = "สาขา";
     else if (from === "pos") label = "ตัวเลือก";
+    else if (from === "usage" || from.startsWith("usage/")) label = "ใช้ในเมนู";
     else label = props.menus.find((m) => m.menuCode === from)?.menuName;
     return label ? { label, go: () => navigate(-1) } : null;
   })();
@@ -226,6 +244,27 @@ export default function CostCenterPage(props: Props) {
     if (!props.canOpen(tab)) return toast.info("หน้านี้เปิดได้เฉพาะ management");
     props.onNavigate(tab);
   };
+
+  if (usageSide)
+    return (
+      <div className="flex flex-col gap-4">
+        {header}
+        <UsageMatrix
+          skus={skus}
+          prices={prices}
+          menus={props.menus}
+          branches={props.menuSetup.branches}
+          lines={props.menuSetup.menuBom.lines}
+          codes={codesFromHash(hash)}
+          // Picking changes the address in place (the phone's back leaves the tab, not each pick)
+          onCodesChange={(c) => go(c.length ? `usage/${c.join(",")}` : "usage", { replace: true, state: location.state })}
+          canEdit={props.canEditRecipes ?? canEditProducts}
+          updateLines={props.menuSetup.menuBom.updateLines}
+          onOpenMenu={(m) => go(m.menuCode, { state: { from: hash } })}
+          demoSold={props.demoSold}
+        />
+      </div>
+    );
 
   if (!productSide && !supplierSide) {
     return (
@@ -355,6 +394,7 @@ export default function CostCenterPage(props: Props) {
               prev={prevScreen}
               onOpenProduct={openProduct}
               onOpenMenu={openMenu}
+              onOpenUsage={() => go(`usage/${selected.sku.skuId}`, { state: { from: hash } })}
               onOpenSupplier={(id) => go(`s/${id}`, { state: { from: hash } })}
               onOpenBill={openBill}
               onNavigate={props.onNavigate}
