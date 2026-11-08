@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  */
 interface Props {
   v: CostVariance;
-  /** "ต.ค. 2569" */
+  /** "ต.ค. 2569" or "1–7 พ.ย." */
   monthLabel: string;
   onOpenPlace?: (row: PlaceRow) => void;
   onOpenMover?: (m: Mover) => void;
@@ -84,7 +84,10 @@ export function CostSummary({ v, monthLabel, onOpenPlace, onOpenMover }: Props) 
                 onClick={() => onOpenPlace?.(r)}
                 className="grid min-h-[44px] w-full grid-cols-[minmax(0,1fr)_64px_64px_76px] items-center text-right text-sm disabled:cursor-default"
               >
-                <span className="truncate text-left text-foreground">{r.name}</span>
+                <span className="min-w-0 text-left">
+                  <span className="block truncate text-foreground">{r.name}</span>
+                  {r.warn && <span className="block text-xs text-warning">{r.warn}</span>}
+                </span>
                 {r.state === "ok" ? (
                   <>
                     <span className="tabular-nums text-muted-foreground">{signed(r.usage)}</span>

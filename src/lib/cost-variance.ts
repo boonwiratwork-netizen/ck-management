@@ -36,6 +36,10 @@ export interface PlaceInput {
   recipeCost?: number;
   /** Why there's no figure, when it isn't the usual "no closing count" */
   note?: string;
+  /** Never has a figure in this view (the kitchen in a week): left out of "นับครบ x/y" */
+  notApplicable?: boolean;
+  /** A figure to read with care ("ยอดขายไม่ครบ 9 วัน"): shown under the place's name */
+  warn?: string;
   usage?: number;
   price?: number;
   items?: VarItem[];
@@ -47,6 +51,7 @@ export interface PlaceRow {
   kind: "kitchen" | "branch";
   state: PlaceState;
   note?: string;
+  warn?: string;
   usage: number;
   price: number;
   total: number;
@@ -125,7 +130,7 @@ export function costVariance(places: PlaceInput[], skuName: (id: string) => stri
       if (Math.abs(t) < 0.5) continue;
       all.push({ skuId: it.skuId, name: skuName(it.skuId), place: p.name, placeKey: p.key, kind: p.kind, total: t, cause: Math.abs(it.usage) >= Math.abs(it.price) ? "usage" : "price" });
     }
-    return { key: p.key, name: p.name, kind: p.kind, state: p.state, usage: u, price: pr, total: u + pr };
+    return { key: p.key, name: p.name, kind: p.kind, state: p.state, warn: p.warn, usage: u, price: pr, total: u + pr };
   });
   const total = usage + price;
   all.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
@@ -141,7 +146,7 @@ export function costVariance(places: PlaceInput[], skuName: (id: string) => stri
     rows,
     movers: all.slice(0, moversN),
     counted,
-    places: places.length,
+    places: places.filter((p) => !p.notApplicable).length,
     done: places.every((p) => p.state !== "loading"),
   };
 }

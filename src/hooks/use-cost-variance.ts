@@ -3,6 +3,9 @@ import { useCkPeriod } from "@/hooks/use-ck-production";
 import { supabaseLoader, useFoodCostByBranch, type FoodCostLoader, type FoodCostMasters } from "@/hooks/use-food-cost";
 import { branchItems, costVariance, kitchenItems, type CostVariance, type PlaceInput } from "@/lib/cost-variance";
 import type { ProductionCost } from "@/lib/ck-production-cost";
+import { datesWithoutSales } from "@/lib/food-cost";
+import { bangkokDate } from "@/lib/day-follow";
+import { shiftDay } from "../../supabase/functions/_shared/day-math.ts";
 
 const NO_LIVE: { skuId: string; currentStock: number }[] = [];
 
@@ -21,13 +24,19 @@ export interface KitchenMonth {
  * worked out by its own page's numbers (Food Cost per branch, the kitchen dashboard's
  * production cost) and put together by costVariance.
  */
-export function useCostVariance(m: FoodCostMasters, period: { from: string; to: string }, opts?: { loader?: FoodCostLoader; kitchen?: KitchenMonth }): CostVariance {
+export function useCostVariance(
+  m: FoodCostMasters,
+  period: { from: string; to: string; week?: boolean },
+  /** The kitchen is read for the closed month always (it counts once a month; a week shows no kitchen figure) */
+  kitchenMonth: { from: string; to: string },
+  opts?: { loader?: FoodCostLoader; kitchen?: KitchenMonth; today?: string },
+): CostVariance {
   const branches = useMemo(() => m.branches.filter((b) => b.status === "Active"), [m.branches]);
   const ids = useMemo(() => branches.map((b) => b.id), [branches]);
-  const months = useFoodCostByBranch(m, period.from, period.to, ids, opts?.loader ?? supabaseLoader);
+  const months = useFoodCostByBranch(m, period.from, period.to, ids, opts?.loader ?? supabaseLoader, { week: period.week });
   // A closed month has its closing count, so no live balances are needed (none given:
   // a month without one comes back "estimated" and is shown as not counted)
-  const live = useCkPeriod(period.from, period.to, NO_LIVE, true);
+  const live = useCkPeriod(kitchenMonth.from, kitchenMonth.to, NO_LIVE, true);
   const kitchen: KitchenMonth = opts?.kitchen ?? {
     loading: live.loading,
     error: !!live.error,
@@ -41,8 +50,11 @@ export function useCostVariance(m: FoodCostMasters, period: { from: string; to: 
   }, [m.skus]);
 
   return useMemo(() => {
+    const yesterday = shiftDay(opts?.today ?? bangkokDate(), -1);
     const places: PlaceInput[] = [
-      kitchen.loading
+      period.week
+        ? { key: "ck", name: "ครัวกลาง", kind: "kitchen", state: "nocount", note: "นับเดือนละครั้ง ดูในแบบเดือน", notApplicable: true }
+        : kitchen.loading
         ? { key: "ck", name: "ครัวกลาง", kind: "kitchen", state: "loading" }
         : kitchen.error
           ? { key: "ck", name: "ครัวกลาง", kind: "kitchen", state: "failed" }
@@ -57,9 +69,12 @@ export function useCostVariance(m: FoodCostMasters, period: { from: string; to: 
         const { std, actual } = row.result;
         const recipe = { revenue: std.revenue, stdCost: std.stdCost };
         if (!actual) return { ...base, ...recipe, state: "nocount" };
-        return { ...base, ...recipe, state: "ok", actCost: actual.actCost, recipeCost: actual.recipeCost, usage: actual.usageVar, price: actual.priceVar, items: branchItems(actual.rows) };
+        // Days with no sales at all: the recipe side is short, so "used more" is partly that
+        const gaps = datesWithoutSales(row.result.sales, b.id, period.from, period.to, yesterday).length;
+        const warn = gaps > 0 ? `ยอดขายไม่ครบ ${gaps} วัน` : undefined;
+        return { ...base, ...recipe, state: "ok", warn, actCost: actual.actCost, recipeCost: actual.recipeCost, usage: actual.usageVar, price: actual.priceVar, items: branchItems(actual.rows) };
       }),
     ];
     return costVariance(places, skuName);
-  }, [kitchen.loading, kitchen.error, kitchen.cost, kitchen.note, branches, months, skuName]);
+  }, [period.week, period.from, period.to, opts?.today, kitchen.loading, kitchen.error, kitchen.cost, kitchen.note, branches, months, skuName]);
 }

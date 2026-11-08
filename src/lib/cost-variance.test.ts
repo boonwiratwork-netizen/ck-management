@@ -74,3 +74,17 @@ describe("last closed month", () => {
     expect(lastClosedMonth("2028-03-01").to).toBe("2028-02-29");
   });
 });
+
+describe("ครัวกลางในแบบสัปดาห์", () => {
+  it("isn't counted as missing", () => {
+    const v = costVariance(
+      [
+        { key: "ck", name: "ครัวกลาง", kind: "kitchen", state: "nocount", notApplicable: true },
+        { key: "t", name: "T", kind: "branch", state: "ok", revenue: 100, stdCost: 30, actCost: 31, recipeCost: 30, usage: 1, price: 0, warn: "ยอดขายไม่ครบ 2 วัน" },
+      ],
+      (id) => id,
+    );
+    expect([v.counted, v.places]).toEqual([1, 1]);
+    expect(v.rows[1].warn).toBe("ยอดขายไม่ครบ 2 วัน");
+  });
+});

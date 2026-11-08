@@ -100,15 +100,16 @@ export function demoFoodCostLoader(
           : [],
       ),
     // Every item counted on the month's 30th (stock = 2 days of use), the noodle with Shiro's real September counts
-    counts: (b, from) =>
+    // A month: counted on its 30th; a short span (Cost Center's week): on its last day
+    counts: (b, from, to) =>
       wait(
         fx.prices
           .filter((p) => p.isActive)
           .filter((p, i) => i < 80 || p.skuId === noodle)
           .map((p) => ({
             sku_id: p.skuId,
-            count_date: `${from.slice(0, 8)}30`,
-            physical_count: from.slice(5, 7) === "10" ? used(b) : 2000,
+            count_date: from.slice(0, 7) !== to.slice(0, 7) || to.slice(8) < "28" ? to : `${from.slice(0, 8)}30`,
+            physical_count: from.slice(5, 7) === "10" || to.slice(5, 7) === "11" ? used(b) : 2000,
             calculated_balance: 2000,
           }))
           .map((r) =>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, ChevronRight, FileText, HelpCircle, Leaf, ListChecks, PieChart, Scale, SlidersHorizontal, Store, Truck } from "lucide-react";
 import type { TabKey } from "@/components/AppSidebar";
@@ -9,6 +9,8 @@ import { lastClosedMonth } from "@/lib/cost-variance";
 import { rcHash } from "@/lib/reconcile";
 import { bangkokDate } from "@/lib/day-follow";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { shiftDay } from "../../../supabase/functions/_shared/day-math.ts";
 
 /**
  * Cost Center's front page (owner, 8 Nov 2026): the food cost dashboard on top, then one
@@ -80,20 +82,53 @@ export function CostCenterHome({ costMasters, canOpen, onNavigate, go, toFix, on
   );
 }
 
-/** The dashboard card; its own component so the reads run only for the roles that see it */
+/** 7 days ending yesterday (as the home page and กระทบยอด count a week) */
+function lastWeek(today: string): { from: string; to: string } {
+  const to = shiftDay(today, -1);
+  return { from: shiftDay(to, -6), to };
+}
+
+const thDay = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(`${d}T00:00:00Z`).toLocaleDateString("th-TH", { ...opts, timeZone: "UTC" });
+
+/**
+ * The dashboard card; its own component so the reads run only for the roles that see it.
+ * Opens on the last 7 days (owner, 8 Nov 2026); the last closed month is one tap away.
+ */
 function MonthCard({ m, demo }: { m: FoodCostMasters; demo?: Props["demo"] }) {
   const navigate = useNavigate();
-  const period = useMemo(() => lastClosedMonth(demo?.today ?? bangkokDate()), [demo?.today]);
-  const v = useCostVariance(m, period, demo ? { loader: demo.loader, kitchen: demo.kitchen } : undefined);
+  const today = demo?.today ?? bangkokDate();
+  const [kind, setKind] = useState<"week" | "month">("week");
+  const month = useMemo(() => lastClosedMonth(today), [today]);
+  const week = useMemo(() => lastWeek(today), [today]);
+  const period = useMemo(() => (kind === "week" ? { ...week, week: true } : { from: month.from, to: month.to }), [kind, week, month]);
+  const v = useCostVariance(m, period, month, { ...(demo ? { loader: demo.loader, kitchen: demo.kitchen } : {}), today });
   const code = useMemo(() => new Map(m.skus.map((s) => [s.id, s.skuId])), [m.skus]);
-  const monthLabel = new Date(`${period.from}T00:00:00Z`).toLocaleDateString("th-TH", { month: "short", year: "numeric", timeZone: "UTC" });
+  const monthShort = thDay(month.from, { month: "short" });
+  // "1–7 พ.ย." / "26 ต.ค.–1 พ.ย."; "ต.ค. 2569"
+  const label =
+    kind === "week"
+      ? week.from.slice(0, 7) === week.to.slice(0, 7)
+        ? `${Number(week.from.slice(8))}–${thDay(week.to, { day: "numeric", month: "short" })}`
+        : `${thDay(week.from, { day: "numeric", month: "short" })}–${thDay(week.to, { day: "numeric", month: "short" })}`
+      : thDay(month.from, { month: "short", year: "numeric" });
+  // A link into กระทบยอด on the same period: the week is its default, the month by name
+  const rcMonth = kind === "month" ? month.month : null;
   return (
-    <CostSummary
-      v={v}
-      monthLabel={monthLabel}
-      // A place opens กระทบยอด on that month, its side; an item opens it on that item alone
-      onOpenPlace={(r) => navigate(`/reconcile#${rcHash({ month: period.month, kitchen: r.kind === "kitchen" })}`)}
-      onOpenMover={(x) => navigate(`/reconcile#${rcHash({ month: period.month, kitchen: x.kind === "kitchen", sku: code.get(x.skuId) ?? null })}`)}
-    />
+    <>
+      <div className="grid grid-cols-2 rounded-xl bg-secondary p-[3px]" role="group" aria-label="ช่วงเวลา">
+        {(["week", "month"] as const).map((k) => (
+          <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("h-[38px] rounded-[10px] text-sm", kind === k ? "bg-card font-semibold text-foreground shadow-sm" : "text-muted-foreground")}>
+            {k === "week" ? "7 วันล่าสุด" : `${monthShort} (ปิดเดือนแล้ว)`}
+          </button>
+        ))}
+      </div>
+      <CostSummary
+        v={v}
+        monthLabel={label}
+        // A place opens กระทบยอด on that period, its side; an item opens it on that item alone
+        onOpenPlace={(r) => navigate(`/reconcile#${rcHash({ month: rcMonth, kitchen: r.kind === "kitchen" })}`)}
+        onOpenMover={(x) => navigate(`/reconcile#${rcHash({ month: rcMonth, kitchen: x.kind === "kitchen", sku: code.get(x.skuId) ?? null })}`)}
+      />
+    </>
   );
 }

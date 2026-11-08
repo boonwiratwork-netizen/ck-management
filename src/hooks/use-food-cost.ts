@@ -169,7 +169,18 @@ const loadHistory = (loader: FoodCostLoader): Promise<History> => Promise.all([l
  * throws when something can't be read. `history`: price and recipe history already
  * on the way (several periods share one read).
  */
-async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds: string[], loader: FoodCostLoader, alive: () => boolean, history?: Promise<History>, standardOnly = false): Promise<FoodCostResult | null> {
+async function computePeriod(
+  env: PeriodEnv,
+  from: string,
+  to: string,
+  branchIds: string[],
+  loader: FoodCostLoader,
+  alive: () => boolean,
+  history?: Promise<History>,
+  standardOnly = false,
+  /** Any period (Cost Center's week): the opening is the last count in these days instead of the month before */
+  actualOpening?: { from: string; to: string },
+): Promise<FoodCostResult | null> {
   const salesRes = await loader.sales(branchIds, from, to);
   if (!alive()) return null;
   if (salesRes.error) throw new Error("sales");
@@ -187,12 +198,12 @@ async function computePeriod(env: PeriodEnv, from: string, to: string, branchIds
 
   let actual: Actual | null = null;
   // standardOnly: the analytics refresh needs the recipe side only (std doesn't depend on it)
-  if (!standardOnly && branchIds.length === 1 && isClosedMonth(from, to, today)) {
+  if (!standardOnly && branchIds.length === 1 && (actualOpening || isClosedMonth(from, to, today))) {
     const b = branchIds[0];
     // Opening = the last count of the month before, closing = the last count of this
     // month (CLAUDE.md), received = what came in between those two count days, so the
     // receipts are read from the start of the month before
-    const opening = { from: `${shift(from, -1).slice(0, 7)}-01`, to: shift(from, -1) };
+    const opening = actualOpening ?? { from: `${shift(from, -1).slice(0, 7)}-01`, to: shift(from, -1) };
     const closing = { from, to };
     // …and the recipe side over each item's same span: the month before's sales and
     // corrections too, since a span can start there
@@ -430,13 +441,15 @@ export interface BranchMonth {
  * "Variance shows only for a past full month with a single branch selected"), side by
  * side, sharing the history read. Each branch fills in when done.
  */
-/** Months already worked out this visit (a closed month doesn't change while the app is open) */
+/** Periods already worked out this visit (a closed month or a week ending yesterday doesn't change while the app is open) */
 const byBranchCache = new Map<string, BranchMonth[]>();
 
-export function useFoodCostByBranch(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+export function useFoodCostByBranch(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader, opts?: { week?: boolean }) {
   const env = usePeriodEnv(m);
-  const key = `${from}|${to}|${[...branchIds].sort().join(",")}`;
-  const [rows, setRows] = useState<BranchMonth[]>(() => byBranchCache.get(key) ?? []);
+  const key = `${from}|${to}|${[...branchIds].sort().join(",")}|${opts?.week ? "w" : "m"}`;
+  // Tagged with the period they're for, so a switch never shows the other period's rows
+  const [state, setState] = useState<{ key: string; rows: BranchMonth[] }>(() => ({ key, rows: byBranchCache.get(key) ?? [] }));
+  const setRows = (f: BranchMonth[] | ((p: BranchMonth[]) => BranchMonth[])) => setState((s) => ({ key, rows: typeof f === "function" ? f(s.key === key ? s.rows : []) : f }));
   const ready = m.menus.length > 0 && m.skus.length > 0 && branchIds.length > 0;
 
   useEffect(() => {
@@ -456,7 +469,9 @@ export function useFoodCostByBranch(m: FoodCostMasters, from: string, to: string
       await Promise.all(
         branchIds.map(async (b) => {
           try {
-            const r = await computePeriod(env, from, to, [b], reads, () => !cancelled, history);
+            // A week: opened by each item's last count in the 7 days before (shops count daily)
+            const opening = opts?.week ? { from: shift(from, -7), to: shift(from, -1) } : undefined;
+            const r = await computePeriod(env, from, to, [b], reads, () => !cancelled, history, false, opening);
             if (!r || cancelled) return;
             out[out.findIndex((x) => x.branchId === b)] = { branchId: b, result: r, failed: false };
             setRows((p) => p.map((x) => (x.branchId === b ? { ...x, result: r } : x)));
@@ -475,7 +490,7 @@ export function useFoodCostByBranch(m: FoodCostMasters, from: string, to: string
     };
   }, [key, ready, env]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return rows;
+  return state.key === key ? state.rows : byBranchCache.get(key) ?? [];
 }
 
 /** Progress of the analytics refresh (null = not run this visit) */
