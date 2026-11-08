@@ -418,6 +418,66 @@ export function useFoodCostTrend(m: FoodCostMasters, months: { from: string; to:
   return { points, error };
 }
 
+/** One branch's month for Cost Center's top card: recipe side always, actual when counted */
+export interface BranchMonth {
+  branchId: string;
+  result: FoodCostResult | null;
+  failed: boolean;
+}
+
+/**
+ * One closed month, each branch on its own (actual cost is per branch: CLAUDE.md
+ * "Variance shows only for a past full month with a single branch selected"), side by
+ * side, sharing the history read. Each branch fills in when done.
+ */
+/** Months already worked out this visit (a closed month doesn't change while the app is open) */
+const byBranchCache = new Map<string, BranchMonth[]>();
+
+export function useFoodCostByBranch(m: FoodCostMasters, from: string, to: string, branchIds: string[], loader: FoodCostLoader = supabaseLoader) {
+  const env = usePeriodEnv(m);
+  const key = `${from}|${to}|${[...branchIds].sort().join(",")}`;
+  const [rows, setRows] = useState<BranchMonth[]>(() => byBranchCache.get(key) ?? []);
+  const ready = m.menus.length > 0 && m.skus.length > 0 && branchIds.length > 0;
+
+  useEffect(() => {
+    if (!ready) return;
+    // Back on the page: the month as it was worked out, without reading it all again
+    const hit = byBranchCache.get(key);
+    if (hit) {
+      setRows(hit);
+      return;
+    }
+    let cancelled = false;
+    const out: BranchMonth[] = branchIds.map((b) => ({ branchId: b, result: null, failed: false }));
+    setRows(out);
+    (async () => {
+      const history = loadHistory(loader);
+      const reads = readOnce(loader, ["sales", "corrections", "counts", "receipts"]);
+      await Promise.all(
+        branchIds.map(async (b) => {
+          try {
+            const r = await computePeriod(env, from, to, [b], reads, () => !cancelled, history);
+            if (!r || cancelled) return;
+            out[out.findIndex((x) => x.branchId === b)] = { branchId: b, result: r, failed: false };
+            setRows((p) => p.map((x) => (x.branchId === b ? { ...x, result: r } : x)));
+          } catch {
+            if (cancelled) return;
+            out[out.findIndex((x) => x.branchId === b)] = { branchId: b, result: null, failed: true };
+            setRows((p) => p.map((x) => (x.branchId === b ? { ...x, failed: true } : x)));
+          }
+        }),
+      );
+      // Kept only when every branch came back (a failed one is read again next time)
+      if (!cancelled && out.every((x) => x.result)) byBranchCache.set(key, out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, ready, env]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return rows;
+}
+
 /** Progress of the analytics refresh (null = not run this visit) */
 export interface RefreshState {
   running: boolean;

@@ -498,6 +498,12 @@ const Index = () => {
                   />
                 ) : activeTab === "cost-center" ? (
                   <CostCenterPage
+                    // The food cost card on its front page: the roles that see costs
+                    costMasters={
+                      isManagement || role === "ck_manager"
+                        ? { skus, prices: priceData.prices, menus: menuData.menus, menuBomLines: menuBomData.lines, modifierRules: modifierRuleData.rules, spBomLines: spBomData.lines, branches: branchData.branches }
+                        : undefined
+                    }
                     menuSetup={{
                       menus: menuData.menus,
                       updateMenu: menuData.updateMenu,

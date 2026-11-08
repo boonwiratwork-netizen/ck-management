@@ -1,0 +1,151 @@
+import type { FoodCostLoader } from "@/hooks/use-food-cost";
+import type { FcSale } from "@/lib/food-cost";
+
+/** Dev harness data (/dev/food-cost, /dev/cost-center): see FoodCostDemo */
+export interface DemoFixture {
+  skus: { id: string; skuId: string }[];
+  prices: { skuId: string; pricePerUsageUom: number; isActive: boolean }[];
+  branches: { id: string; branchName: string }[];
+  bills: {
+    menu_code: string;
+    menu_name: string;
+    qty: number;
+    branch_id: string;
+  }[];
+}
+
+const iso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * A made-up loader on the fixture's real menus. `spread`: each branch pays and uses a bit
+ * differently (some more, some less than the recipe), for Cost Center's top card.
+ */
+export function demoFoodCostLoader(
+  fx: DemoFixture,
+  spread = false,
+): FoodCostLoader {
+  const tilt = (b: string) =>
+    spread
+      ? [1.06, 0.95, 1.02, 0.99, 1.04][
+          Math.max(
+            0,
+            fx.branches.findIndex((x) => x.id === b),
+          ) % 5
+        ]
+      : 1.03;
+  const used = (b: string) =>
+    spread
+      ? [2000, 2200, 1900, 2100, 2000][
+          Math.max(
+            0,
+            fx.branches.findIndex((x) => x.id === b),
+          ) % 5
+        ]
+      : 2000;
+  const noodle = fx.skus.find((s) => s.skuId === "RM-0171")?.id ?? "";
+  const shiro = fx.branches.find((b) => b.branchName === "Shiro")?.id ?? "";
+  const price = new Map(
+    fx.prices
+      .filter((p) => p.isActive)
+      .map((p) => [p.skuId, p.pricePerUsageUom]),
+  );
+  // Every bill name sold each day, 120 days back; Shiro has no sales 9–17 Oct (POS change)
+  const sales: FcSale[] = [];
+  const start = new Date();
+  start.setDate(start.getDate() - 120);
+  for (let d = new Date(start); d <= new Date(); d.setDate(d.getDate() + 1)) {
+    const day = iso(d);
+    fx.bills.forEach((b, i) => {
+      if (b.branch_id === shiro && day >= "2026-10-09" && day <= "2026-10-17")
+        return;
+      if ((i + d.getDate()) % 4) return;
+      sales.push({
+        sale_date: day,
+        branch_id: b.branch_id,
+        menu_code: b.menu_code,
+        menu_name: b.menu_name,
+        qty: b.qty,
+        net_amount: b.qty * 330,
+        receipt_no: `${day}-${i}`,
+      });
+    });
+  }
+  const wait = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 250));
+  return {
+    sales: (ids, from, to) =>
+      wait({
+        data: sales.filter(
+          (s) =>
+            ids.includes(s.branch_id) &&
+            s.sale_date >= from &&
+            s.sale_date <= to,
+        ),
+        error: null,
+      }),
+    corrections: (ids, from, to) =>
+      wait(
+        ids.includes(shiro) && from <= "2026-09-30" && to >= "2026-09-01"
+          ? [
+              {
+                id: "c9",
+                branchId: shiro,
+                skuId: noodle,
+                dateFrom: "2026-09-01",
+                dateTo: "2026-09-30",
+                qty: -469,
+                reason: "POS เก่านับเส้นซ้ำ (สูตรชาม + บรรทัดตัวเลือกเส้น)",
+              },
+            ]
+          : [],
+      ),
+    // Every item counted on the month's 30th (stock = 2 days of use), the noodle with Shiro's real September counts
+    counts: (b, from) =>
+      wait(
+        fx.prices
+          .filter((p) => p.isActive)
+          .filter((p, i) => i < 80 || p.skuId === noodle)
+          .map((p) => ({
+            sku_id: p.skuId,
+            count_date: `${from.slice(0, 8)}30`,
+            physical_count: from.slice(5, 7) === "10" ? used(b) : 2000,
+            calculated_balance: 2000,
+          }))
+          .map((r) =>
+            r.sku_id === noodle &&
+            b === shiro &&
+            (from === "2026-08-01" || from === "2026-09-01")
+              ? {
+                  ...r,
+                  count_date:
+                    from === "2026-08-01" ? "2026-08-31" : "2026-09-30",
+                  physical_count: from === "2026-08-01" ? 61 : 160,
+                }
+              : r,
+          ),
+      ),
+    receipts: (b, from, to, skuIds) =>
+      wait(
+        b === shiro &&
+          to.startsWith("2026-09") &&
+          (!skuIds || skuIds.includes(noodle))
+          ? [150, 100, 115, 100, 150].map((q, i) => ({
+              sku_id: noodle,
+              receipt_date: `2026-09-${10 + i}`,
+              qty_received: q,
+              actual_unit_price: 15,
+            }))
+          : fx.prices
+              .filter(
+                (p) => p.isActive && (!skuIds || skuIds.includes(p.skuId)),
+              )
+              .slice(0, 60)
+              .map((p) => ({
+                sku_id: p.skuId,
+                receipt_date: `${to.slice(0, 8)}15`,
+                qty_received: 1000,
+                actual_unit_price: (price.get(p.skuId) ?? 0) * tilt(b),
+              })),
+      ),
+  };
+}

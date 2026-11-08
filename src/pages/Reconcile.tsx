@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, X } from "lucide-react";
 import { useReconcile, type ReconcileLoader, type ReconcileMasters } from "@/hooks/use-reconcile";
-import { daysWhy, onlyOff, periodText, reconcilePeriod, toTsv, type RcRow, type RcSku } from "@/lib/reconcile";
+import { daysWhy, monthsBack, onlyOff, parseRcHash, periodText, rcHash, reconcilePeriod, toTsv, type RcRow, type RcSku } from "@/lib/reconcile";
 import { ReconcileTable } from "@/components/reconcile/ReconcileTable";
 import { KitchenReconcile } from "@/components/reconcile/KitchenReconcile";
 import type { KitchenResult } from "@/lib/reconcile-kitchen";
@@ -53,18 +53,45 @@ async function copyText(text: string): Promise<boolean> {
 
 export default function Reconcile({ masters, demo }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
+  // A link in ("#m/2026-10/s/kitchen/sku/RM-0009", e.g. from Cost Center): which month,
+  // which side, and only that item until cleared
+  const link = useMemo(() => {
+    try {
+      return parseRcHash(decodeURIComponent(location.hash));
+    } catch {
+      return parseRcHash("");
+    }
+  }, [location.hash]);
+  const focus = link.sku;
+  const focusName = focus ? masters.skus.find((s) => s.skuId === focus)?.name ?? focus : null;
   const today = demo?.today ?? bangkokDate();
-  const [kind, setKind] = useState<Kind>("week");
-  const [back, setBack] = useState(0);
-  const [scope, setScope] = useState<Scope>("branches");
+  const [kind, setKind] = useState<Kind>(() => (parseRcHash(window.location.hash).month ? "month" : "week"));
+  const [back, setBack] = useState(() => {
+    const m = parseRcHash(window.location.hash).month;
+    return m ? monthsBack(today, m) : 0;
+  });
+  const [scope, setScope] = useState<Scope>(() => (parseRcHash(window.location.hash).kitchen ? "kitchen" : "branches"));
   const [offOnly, setOffOnly] = useState(false);
   const [kitchenShown, setKitchenShown] = useState<RcRow[]>([]);
+
+  // A new link while already here (the address changes, the page stays): follow it too
+  useEffect(() => {
+    if (link.month) {
+      setKind("month");
+      setBack(monthsBack(today, link.month));
+    }
+    if (link.month || link.kitchen) setScope(link.kitchen ? "kitchen" : "branches");
+  }, [link.month, link.kitchen, today]);
 
   const period = useMemo(() => reconcilePeriod(kind, today, back), [kind, today, back]);
   const { view, loading, error, retry, noBranches, price } = useReconcile(masters, period, demo?.loader);
   const skus = useMemo<RcSku[]>(() => masters.skus.map((s) => ({ id: s.id, code: s.skuId, name: s.name, purchaseUom: s.purchaseUom, usageUom: s.usageUom, converter: s.converter })), [masters.skus]);
 
-  const branchRows = useMemo(() => (view ? (offOnly ? onlyOff(view.rows) : view.rows) : []), [view, offOnly]);
+  const branchRows = useMemo(() => {
+    const rows = view ? (offOnly ? onlyOff(view.rows) : view.rows) : [];
+    return focus ? rows.filter((r) => r.sku.code === focus) : rows;
+  }, [view, offOnly, focus]);
   const columns = useMemo(() => (view ? view.branches.filter((b) => view.rows.some((r) => r.cells.has(b.id))).map((b) => ({ id: b.id, name: b.name })) : []), [view]);
 
   // Item codes that sit in at least one menu recipe (menu_bom). Others are used through a
@@ -133,6 +160,17 @@ export default function Reconcile({ masters, demo }: Props) {
         <button type="button" aria-pressed={offOnly} onClick={() => setOffOnly((v) => !v)} className={cn("h-9 whitespace-nowrap rounded-full border px-3 text-sm", offOnly ? "border-brand bg-brand-soft font-semibold text-brand-soft-foreground" : "border-border bg-card text-muted-foreground")}>
           เฉพาะที่ห่างเกิน 10%
         </button>
+        {focusName && (
+          <button
+            type="button"
+            onClick={() => navigate({ pathname: location.pathname, hash: rcHash({ ...link, sku: null }) }, { replace: true })}
+            aria-label={`ดูเฉพาะ ${focusName} · แตะเพื่อดูทั้งหมด`}
+            className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 text-sm font-semibold text-background"
+          >
+            <span className="truncate">เฉพาะ {focusName}</span>
+            <X className="h-4 w-4 shrink-0" aria-hidden />
+          </button>
+        )}
       </div>
 
       {scope === "kitchen" ? (
@@ -154,7 +192,7 @@ export default function Reconcile({ masters, demo }: Props) {
         ) : (
           <>
             <CopyButton onCopy={copy} />
-            <KitchenReconcile period={period} skus={skus} price={price} onlyOffRows={offOnly} onEditRecipe={editRecipe} onRows={setKitchenShown} demo={demo?.kitchen} />
+            <KitchenReconcile period={period} skus={skus} price={price} onlyOffRows={offOnly} focusCode={focus} onEditRecipe={editRecipe} onRows={setKitchenShown} demo={demo?.kitchen} />
           </>
         )
       ) : (
@@ -192,7 +230,7 @@ export default function Reconcile({ masters, demo }: Props) {
               </ul>
               <CopyButton onCopy={copy} />
               {branchRows.length === 0 ? (
-                <p className="rounded-xl bg-secondary px-3 py-3 text-sm text-muted-foreground">{offOnly ? "ไม่มีวัตถุดิบที่ห่างจากสูตรเกิน 10%" : "ไม่มีวัตถุดิบที่นับเทียบได้ในช่วงนี้"}</p>
+                <p className="rounded-xl bg-secondary px-3 py-3 text-sm text-muted-foreground">{focusName ? `${focusName} ไม่มีที่นับเทียบได้ในช่วงนี้${offOnly ? " หรือไม่ห่างเกิน 10%" : ""}` : offOnly ? "ไม่มีวัตถุดิบที่ห่างจากสูตรเกิน 10%" : "ไม่มีวัตถุดิบที่นับเทียบได้ในช่วงนี้"}</p>
               ) : (
                 <div className={cn(loading && "opacity-60")}>
                   <ReconcileTable rows={branchRows} columns={columns} onEditRecipe={editRecipe} />

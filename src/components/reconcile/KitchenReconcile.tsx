@@ -19,6 +19,8 @@ interface Props {
   skus: RcSku[];
   price: (id: string) => number;
   onlyOffRows: boolean;
+  /** Only this item (opened from search) */
+  focusCode?: string | null;
   onEditRecipe: (code: string) => void;
   /** Rows ready for the copy button */
   onRows: (rows: RcRow[]) => void;
@@ -36,10 +38,11 @@ export function KitchenReconcile(props: Props) {
   return props.demo ? <KitchenView {...props} result={props.demo} /> : <KitchenLive {...props} />;
 }
 
-function KitchenView({ result, onlyOffRows, onEditRecipe, onRows }: Omit<Props, "demo"> & { result: KitchenResult }) {
-  const shown = result.kind === "rows" ? (onlyOffRows ? onlyOff(result.rows) : result.rows) : [];
+function KitchenView({ result, onlyOffRows, focusCode, onEditRecipe, onRows }: Omit<Props, "demo"> & { result: KitchenResult }) {
+  const all = result.kind === "rows" ? (onlyOffRows ? onlyOff(result.rows) : result.rows) : [];
+  const shown = focusCode ? all.filter((r) => r.sku.code === focusCode) : all;
   // Hand the shown rows up for "คัดลอกเป็นตาราง"
-  useEffect(() => onRows(shown), [result, onlyOffRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => onRows(shown), [result, onlyOffRows, focusCode]); // eslint-disable-line react-hooks/exhaustive-deps
   if (result.kind === "loading") return <div className="h-40 animate-pulse rounded-xl bg-secondary" aria-label="กำลังโหลด" />;
   if (result.kind === "error") return <p className="rounded-xl bg-destructive/10 px-3 py-3 text-sm text-destructive">โหลดข้อมูลครัวไม่สำเร็จ ลองเปิดใหม่อีกครั้ง</p>;
   if (result.kind === "note") return <KitchenNote text={result.text} />;

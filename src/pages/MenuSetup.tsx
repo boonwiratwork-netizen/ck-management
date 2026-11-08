@@ -59,6 +59,8 @@ interface MenuSetupProps {
   header?: React.ReactNode;
   /** Inside Cost Center: shown above the menu overview (the product side of it) */
   overviewExtra?: React.ReactNode;
+  /** The address of the overview screen (Cost Center keeps its own front page at "overview" and this list at "issues") */
+  overviewHash?: string;
   /** The hash of the menu list ("" on its own page, "menus" inside Cost Center) */
   listHash?: string;
   /** Inside Cost Center: the screen a menu was opened from, by name (a product, a supplier…) */
@@ -153,7 +155,7 @@ function costLabel(s: MenuSetupSummary): string {
  * Selected menu lives in the URL hash (/menu-setup#MN-073) so links and the
  * phone back button work.
  */
-export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, suppliers = [], updateRule, deleteRule, demoExtras, header: outerHeader, overviewExtra, listHash = "", prevScreen }: MenuSetupProps) {
+export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus, prices, branches, readOnly = false, onNavigate, addRule, addMenu, getNextCode, spBomLines, suppliers = [], updateRule, deleteRule, demoExtras, header: outerHeader, overviewExtra, overviewHash = OVERVIEW_HASH, listHash = "", prevScreen }: MenuSetupProps) {
   const loaded = useMenuSetupExtras();
   const extras = demoExtras ? { ...loaded, ...demoExtras, setBranchOpen: (m: string, b: string, o: boolean) => demoExtras.setBranchOpenMany([m], b, o) } : loaded;
   // Menus created in this visit get the step-by-step checklist
@@ -182,7 +184,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
       : backTo !== listHash
         ? (() => {
             const label =
-              backTo === OVERVIEW_HASH ? "ภาพรวม" : backTo.startsWith(BRANCHES_HASH) ? "สาขา" : backTo === POS_HASH ? "ตัวเลือก" : menus.find((m) => m.menuCode === readHash(`#${backTo}`))?.menuName;
+              backTo === overviewHash ? (overviewHash === OVERVIEW_HASH ? "ภาพรวม" : "เรื่องที่ต้องแก้") : backTo.startsWith(BRANCHES_HASH) ? "สาขา" : backTo === POS_HASH ? "ตัวเลือก" : menus.find((m) => m.menuCode === readHash(`#${backTo}`))?.menuName;
             return label ? { label, go: () => go(backTo) } : null;
           })()
         : null;
@@ -228,7 +230,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
   // "#branches/<id>" opens one branch
   const branchView = code === BRANCHES_HASH || code.startsWith(`${BRANCHES_HASH}/`);
   const branchFromHash = code.startsWith(`${BRANCHES_HASH}/`) ? code.slice(BRANCHES_HASH.length + 1) : undefined;
-  const overviewView = code === OVERVIEW_HASH;
+  const overviewView = code === overviewHash;
   const isNew = code === NEW_HASH;
   const selected = posView || branchView || isNew || overviewView ? null : menus.find((m) => m.menuCode === code) ?? null;
   const pos = usePosOptionsData(posView && !demoExtras);
@@ -264,7 +266,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
         tabs={viewTabs}
         value={posView ? "pos" : branchView ? "branches" : overviewView ? "overview" : "menus"}
         onChange={(v) => {
-          go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? OVERVIEW_HASH : listHash);
+          go(v === "pos" ? POS_HASH : v === "branches" ? BRANCHES_HASH : v === "overview" ? overviewHash : listHash);
         }}
       />
       </div>
@@ -288,7 +290,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           summaries={summaries}
           soldByCode={extras.soldByCode}
           onOpenMenu={(m) => open(m)}
-          onOpenBranch={(id) => go(`${BRANCHES_HASH}/${id}`, { from: OVERVIEW_HASH })}
+          onOpenBranch={(id) => go(`${BRANCHES_HASH}/${id}`, { from: overviewHash })}
           onOpenPos={() => go(POS_HASH)}
           onNavigate={onNavigate}
         />

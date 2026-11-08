@@ -3,6 +3,9 @@ import {
   branchDaysOf,
   buildReconcile,
   cellText,
+  monthsBack,
+  parseRcHash,
+  rcHash,
   cellsOf,
   daysLine,
   daysText,
@@ -266,5 +269,23 @@ describe("kitchen", () => {
     expect(c).toMatchObject({ recipe: 1500, used: 1800, verdict: "short" });
     expect(rows[0].label).toBe("kitchen");
     expect(rows[0].gapBaht).toBe(300);
+  });
+});
+
+describe("ลิงก์เข้ากระทบยอด", () => {
+  it("reads month, kitchen and item in any order; bad parts ignored", () => {
+    expect(parseRcHash("#m/2026-10/s/kitchen/sku/RM-0009")).toEqual({ month: "2026-10", kitchen: true, sku: "RM-0009" });
+    expect(parseRcHash("sku/RM-1/m/2026-9")).toEqual({ month: null, kitchen: false, sku: "RM-1" });
+    expect(parseRcHash("")).toEqual({ month: null, kitchen: false, sku: null });
+  });
+  it("writes what it reads", () => {
+    const l = { month: "2026-10", kitchen: true, sku: "SM-0008" };
+    expect(parseRcHash(rcHash(l))).toEqual(l);
+    expect(rcHash({ month: "2026-10" })).toBe("m/2026-10");
+  });
+  it("months back", () => {
+    expect(monthsBack("2026-11-08", "2026-10")).toBe(1);
+    expect(monthsBack("2027-01-02", "2026-11")).toBe(2);
+    expect(monthsBack("2026-11-08", "2026-12")).toBe(0);
   });
 });

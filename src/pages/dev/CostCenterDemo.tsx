@@ -13,6 +13,7 @@ import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import type { BomByproduct } from "@/types/byproduct";
 import { EMPTY_SUPPLIER } from "@/types/supplier";
 import { recost } from "@/lib/cost-engine";
+import { demoFoodCostLoader } from "./food-cost-demo-data";
 import { BOM_SUPPLIER_ID } from "@/lib/bom-price-sync";
 
 interface Fixture {
@@ -141,11 +142,15 @@ export default function CostCenterDemo() {
     const out = recost(ids, book, map);
     return ps.map((p) => (p.isActive && out.has(p.skuId) ? { ...p, pricePerUsageUom: out.get(p.skuId)! } : p));
   };
+  // The food cost card: October with each branch a little off the recipe, either way, and a kitchen month
+  const demoCost = demoCostOf(fx, skus);
   const usage = (s: SKU | undefined, purchase: number) => (s ? purchase / (s.packSize || 1) / (s.converter || 1) : 0);
 
   return (
     <div className="min-h-screen bg-background px-4 py-4 md:p-6">
       <CostCenterPage
+        costMasters={{ skus, prices, menus: fx.menus, menuBomLines: fx.lines, modifierRules: fx.rules, spBomLines: fx.spLines, branches: fx.branches }}
+        demoCost={demoCost}
         menuSetup={{
           menus: fx.menus,
           updateMenu: async () => true,
@@ -270,4 +275,21 @@ export default function CostCenterDemo() {
       />
     </div>
   );
+}
+
+function demoCostOf(fx: Fixture, skus: SKU[]) {
+  const id = (code: string) => skus.find((s) => s.skuId === code)?.id ?? code;
+  const line = (code: string, expected: number, actual: number, stdPrice: number, actPrice: number) => ({ skuId: id(code), isRm: true, expected, actual, stdPrice, actPrice });
+  const rows = [
+    { smSkuId: id("SM-0007"), outputG: 0, runs: 0, stdCost: 0, actCost: 0, priceVar: 0, usageVar: 0, lines: [line("RM-0027", 20000, 23000, 0.12, 0.12), line("RM-0030", 40000, 41000, 0.06, 0.055)] },
+    { smSkuId: id("SM-0008"), outputG: 0, runs: 0, stdCost: 0, actCost: 0, priceVar: 0, usageVar: 0, lines: [line("RM-0171", 30000, 29000, 0.05, 0.05)] },
+  ];
+  const sum = (f: (l: (typeof rows)[0]["lines"][0]) => number) => rows.reduce((t, r) => t + r.lines.reduce((u, l) => u + f(l), 0), 0);
+  const usageVar = sum((l) => (l.actual - l.expected) * l.stdPrice);
+  const priceVar = sum((l) => (l.actPrice - l.stdPrice) * l.actual);
+  return {
+    today: "2026-11-08",
+    loader: demoFoodCostLoader(fx as never, true),
+    kitchen: { loading: false, error: false, cost: { rows, stdCost: 0, actCost: 0, usageVar, priceVar, rmUsed: new Map() } },
+  };
 }

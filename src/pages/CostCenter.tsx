@@ -23,11 +23,13 @@ import { ProductWorkspace, type ProductActions } from "@/components/cost-center/
 import { NewProductForm } from "@/components/cost-center/NewProductForm";
 import { SupplierView } from "@/components/cost-center/SupplierView";
 import { ProductOverview } from "@/components/cost-center/ProductOverview";
-import { KindBadge } from "@/components/cost-center/parts";
 import { BillPriceUpdate } from "@/components/cost-center/BillPriceUpdate";
 import type { RecipeEditActions } from "@/components/cost-center/RecipeEditor";
 import type { SpBomLine } from "@/types/sp-bom";
 import type { ImportContext } from "@/lib/import-datasets";
+import { CostCenterHome } from "@/components/cost-center/CostCenterHome";
+import type { FoodCostLoader, FoodCostMasters } from "@/hooks/use-food-cost";
+import type { KitchenMonth } from "@/hooks/use-cost-variance";
 import type { ImportSaves } from "@/hooks/use-import-saves";
 import { FilesView } from "@/components/cost-center/FilesView";
 import { UsageMatrix } from "@/components/cost-center/UsageMatrix";
@@ -73,6 +75,10 @@ interface Props {
   onExportAll?: () => void;
   /** Bulk import/export by file (replaced the old pages' import buttons) */
   files?: { ctx: ImportContext; saves: ImportSaves; canEditMenus: boolean };
+  /** What the food cost card at the top reads; given only to the roles that see costs */
+  costMasters?: FoodCostMasters;
+  /** Dev harness only: the food cost card's month without reading */
+  demoCost?: { today: string; loader: FoodCostLoader; kitchen: KitchenMonth };
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
   /** Dev harness only: sold in the last week per menu code ("ใช้ในเมนู"), instead of reading sales */
@@ -92,7 +98,7 @@ const VIEWS: { key: View; label: string }[] = [
 
 const GUIDE: GuideStep[] = [
   { title: "Cost Center ที่เดียวครบ", body: "เมนู สินค้า ราคา สูตร ซัพพลายเออร์ เชื่อมกันหมด แก้ราคาวัตถุดิบตรงไหน ต้นทุนสูตรและเมนูคิดใหม่ให้เอง" },
-  { target: "cc-views", title: "แท็บข้างบนพาไปทุกเรื่อง", body: "ภาพรวม = เรื่องที่ต้องแก้ทั้งระบบ · เมนู/สาขา/ตัวเลือก = ฝั่งเมนู · สินค้า/ซัพพลายเออร์ = ฝั่งของที่ซื้อและที่ครัวผลิต" },
+  { target: "cc-views", title: "แท็บข้างบนพาไปทุกเรื่อง", body: "ภาพรวม = food cost เดือนที่ปิดแล้ว และทางไปทุกส่วน · เมนู/สาขา/ตัวเลือก = ฝั่งเมนู · สินค้า/ซัพพลายเออร์ = ฝั่งของที่ซื้อและที่ครัวผลิต" },
   { target: "cc-filter", title: "จุดสีบอกว่าต้องทำอะไร", body: "แดง = ต้องแก้ · เหลือง = ควรดู · เทา = ไม่ได้ใช้ แตะ “ต้องแก้” ดูเฉพาะที่ต้องทำ" },
   { target: "cc-list", title: "แตะสินค้าเพื่อเปิด", body: "ลองแตะตัวแรกในรายการ", until: "click" },
   { target: "cc-chain", title: "เส้นทางของสินค้า", body: "ซื้อจากใคร → ใช้ในสูตรไหน → เมนูไหน แตะกล่องไหนก็เปิดเรื่องนั้นต่อได้" },
@@ -131,7 +137,7 @@ export default function CostCenterPage(props: Props) {
   const supplierSide = hash === "suppliers" || hash.startsWith("s/") || hash.startsWith("bill/");
   const usageSide = hash === "usage" || hash.startsWith("usage/");
   const openBill = (supplierId: string, date: string) => go(`bill/${supplierId}/${date}`, { state: { from: hash } });
-  const view: View = productSide ? "products" : supplierSide ? "suppliers" : usageSide ? "usage" : hash === "overview" ? "overview" : hash === "pos" || hash === "pos/rules" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
+  const view: View = productSide ? "products" : supplierSide ? "suppliers" : usageSide ? "usage" : hash === "overview" || hash === "issues" ? "overview" : hash === "pos" || hash === "pos/rules" ? "pos" : hash === "branches" || hash.startsWith("branches/") ? "branches" : "menus";
 
   const loaded = useKitchenBills(!props.demoBills);
   const bills = props.demoBills ?? loaded.bills;
@@ -198,6 +204,7 @@ export default function CostCenterPage(props: Props) {
     else if (from.startsWith("s/")) label = props.suppliers.find((s) => s.id === from.slice(2))?.name;
     else if (from.startsWith("bill/")) label = `บิล ${props.suppliers.find((s) => s.id === from.split("/")[1])?.name ?? ""}`.trim();
     else if (from === "overview") label = "ภาพรวม";
+    else if (from === "issues") label = "เรื่องที่ต้องแก้";
     else if (from === "suppliers") label = "ซัพพลายเออร์ทั้งหมด";
     else if (from === "branches" || from.startsWith("branches/")) label = "สาขา";
     else if (from === "pos") label = "ตัวเลือก";
@@ -245,6 +252,20 @@ export default function CostCenterPage(props: Props) {
     props.onNavigate(tab);
   };
 
+  // The front page: the food cost card, the menu of places, one line for what needs fixing
+  if (hash === "overview")
+    return (
+      <CostCenterHome
+        costMasters={props.costMasters}
+        canOpen={props.canOpen}
+        onNavigate={props.onNavigate}
+        go={(h) => go(h, { state: { from: "overview" } })}
+        toFix={counts.error}
+        onGuide={startGuide}
+        demo={props.demoCost}
+      />
+    );
+
   if (usageSide)
     return (
       <div className="flex flex-col gap-4">
@@ -273,18 +294,14 @@ export default function CostCenterPage(props: Props) {
         onNavigate={menuNavigate}
         header={header}
         listHash="menus"
+        overviewHash="issues"
         prevScreen={prevScreen}
         overviewExtra={
           <section className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <AreaCard kind="menu" title={`${props.menus.filter((m) => m.status === "Active").length} เมนูที่เปิดขาย`} sub="ดูเรื่องที่ต้องแก้ด้านล่าง" onOpen={() => go("menus")} />
-              <AreaCard kind="RM" title={`${counts.live} สินค้าที่ใช้อยู่`} sub={`ต้องแก้ ${counts.error} · ควรดู ${counts.warn} · ไม่ได้ใช้ ${counts.idle}`} onOpen={() => go("products")} />
-              <AreaCard kind="supplier" title={`${props.suppliers.filter((s) => s.status === "Active").length} ซัพพลายเออร์`} sub="ยอดซื้อ 90 วัน · ราคาที่ใช้อยู่" onOpen={() => go("suppliers")} />
-            </div>
             <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-semibold">สินค้า · เรื่องที่ต้องตั้งให้ครบ</h3>
               {canEditProducts && stale > 0 && (
-                <Button variant="brand" className="h-10" loading={recosting} onClick={recostAll}>
+                <Button variant="outline" className="h-10" loading={recosting} onClick={recostAll}>
                   คิดต้นทุนสูตรใหม่ทั้งหมด · {stale} ตัวไม่ตรง
                 </Button>
               )}
@@ -409,17 +426,5 @@ export default function CostCenterPage(props: Props) {
         </div>
       </div>
     </div>
-  );
-}
-
-function AreaCard({ kind, title, sub, onOpen }: { kind: "menu" | "RM" | "supplier"; title: string; sub: string; onOpen: () => void }) {
-  return (
-    <button type="button" onClick={onOpen} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-card hover:bg-secondary/60">
-      <KindBadge kind={kind} label={kind === "RM" ? "สินค้า" : undefined} />
-      <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{title}</span>
-        <span className="block text-sm text-muted-foreground">{sub}</span>
-      </span>
-    </button>
   );
 }

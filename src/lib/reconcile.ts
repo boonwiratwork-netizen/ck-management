@@ -465,3 +465,38 @@ export function toTsv(rows: RcRow[], cols: { id: string; name: string }[]): stri
   }
   return lines.join("\n");
 }
+
+// ─── Address ───
+
+/**
+ * Where a link into กระทบยอด opens: "#m/2026-10/s/kitchen/sku/RM-0009" (any part may be
+ * left out). m = that month (else this week), s = kitchen (else branches), sku = only that item.
+ */
+export interface RcLink {
+  month: string | null;
+  kitchen: boolean;
+  sku: string | null;
+}
+
+export function parseRcHash(hash: string): RcLink {
+  const parts = hash.replace(/^#/, "").split("/");
+  const out: RcLink = { month: null, kitchen: false, sku: null };
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const [k, v] = [parts[i], parts[i + 1]];
+    if (k === "m" && /^\d{4}-\d{2}$/.test(v)) out.month = v;
+    else if (k === "s") out.kitchen = v === "kitchen";
+    else if (k === "sku" && v) out.sku = v;
+  }
+  return out;
+}
+
+export function rcHash(link: Partial<RcLink>): string {
+  return [link.month && `m/${link.month}`, link.kitchen && "s/kitchen", link.sku && `sku/${link.sku}`].filter(Boolean).join("/");
+}
+
+/** How many months back from today's month a "yyyy-mm" is (0 = this month, never negative) */
+export function monthsBack(today: string, month: string): number {
+  const [ty, tm] = today.split("-").map(Number);
+  const [y, m] = month.split("-").map(Number);
+  return Math.max(0, (ty - y) * 12 + (tm - m));
+}
