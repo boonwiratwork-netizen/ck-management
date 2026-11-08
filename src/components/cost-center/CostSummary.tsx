@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import type { CostVariance, Mover, PlaceRow } from "@/lib/cost-variance";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Cost Center's top card (owner, 8 Nov 2026, board "แบบ 6"): one closed month's food
@@ -30,7 +31,7 @@ const tone = (n: number) => (Math.round(n) > 0 ? "text-destructive" : Math.round
 const pct = (n: number | null) => (n === null ? "–" : `${n.toFixed(1)}%`);
 
 const STATE_TEXT: Record<Exclude<PlaceRow["state"], "ok">, string> = {
-  loading: "กำลังคิด…",
+  loading: "",
   failed: "โหลดไม่ได้",
   nocount: "ไม่มียอดนับปิดเดือน",
 };
@@ -44,15 +45,15 @@ export function CostSummary({ v, monthLabel, onOpenPlace, onOpenMover }: Props) 
       <div className="grid grid-cols-[auto_auto_1fr] items-end gap-x-4">
         <div className="min-w-0">
           <p className="text-[13px] text-muted-foreground">ใช้จริง</p>
-          <p className="text-[28px] font-bold leading-tight tabular-nums">{busy ? "…" : pct(v.actPct)}</p>
+          <div className="text-[28px] font-bold leading-tight tabular-nums">{busy ? <Skeleton className="bg-foreground/10 mt-1 h-8 w-24" /> : pct(v.actPct)}</div>
         </div>
         <div className="min-w-0">
           <p className="text-[13px] text-muted-foreground">ตามสูตร</p>
-          <p className="text-[22px] font-bold leading-tight text-muted-foreground tabular-nums">{pct(v.stdPct)}</p>
+          <div className="text-[22px] font-bold leading-tight text-muted-foreground tabular-nums">{busy ? <Skeleton className="bg-foreground/10 mt-1 h-7 w-20" /> : pct(v.stdPct)}</div>
         </div>
         <div className="min-w-0 text-right">
           <p className="text-[13px] text-muted-foreground">จริง − สูตร</p>
-          <p className={cn("whitespace-nowrap text-[22px] font-bold leading-tight tabular-nums", busy ? "text-muted-foreground" : tone(v.total))}>{busy ? "…" : signedBaht(v.total)}</p>
+          <div className={cn("whitespace-nowrap text-[22px] font-bold leading-tight tabular-nums", busy ? "text-muted-foreground" : tone(v.total))}>{busy ? <Skeleton className="bg-foreground/10 ml-auto mt-1 h-7 w-24" /> : signedBaht(v.total)}</div>
         </div>
       </div>
 
@@ -94,6 +95,12 @@ export function CostSummary({ v, monthLabel, onOpenPlace, onOpenMover }: Props) 
                     <span className="tabular-nums text-muted-foreground">{signed(r.price)}</span>
                     <span className={cn("font-semibold tabular-nums", tone(r.total))}>{signed(r.total)}</span>
                   </>
+                ) : r.state === "loading" ? (
+                  <>
+                    <Skeleton className="bg-foreground/10 ml-auto h-4 w-12" />
+                    <Skeleton className="bg-foreground/10 ml-auto h-4 w-12" />
+                    <Skeleton className="bg-foreground/10 ml-auto h-4 w-14" />
+                  </>
                 ) : (
                   <span className="col-span-3 text-[13px] text-muted-foreground">{r.note ?? STATE_TEXT[r.state]}</span>
                 )}
@@ -103,7 +110,20 @@ export function CostSummary({ v, monthLabel, onOpenPlace, onOpenMover }: Props) 
         </ul>
       </div>
 
-      {v.movers.length > 0 && (
+      {/* Working out takes a few seconds (every branch's sales and counts): say so */}
+      {busy && (
+        <div className="flex flex-col gap-2" role="status">
+          <p className="text-[13px] text-muted-foreground">กำลังคิดจากยอดขายและยอดนับ…</p>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center justify-between gap-3 py-1">
+              <Skeleton className="bg-foreground/10 h-4 w-40" />
+              <Skeleton className="bg-foreground/10 h-4 w-14" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!busy && v.movers.length > 0 && (
         <div>
           <p className="pb-1 text-[13px] text-muted-foreground">ขยับมากสุด</p>
           <ul className="flex flex-col">
