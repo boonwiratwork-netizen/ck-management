@@ -318,7 +318,8 @@ function recipeCheck(
     findOwner: (code: string) => { id: string; title: string; ok: boolean; why?: string };
     before: (ownerId: string) => { count: number; sig: string };
     lineSig: (r: FileRow) => string;
-    validate: (r: FileRow) => string | null;
+    /** One row's problem; ownerId = the menu / SP the row belongs to */
+    validate: (r: FileRow, ownerId: string) => string | null;
     /** Menu recipes keep one line per ingredient; SP recipes keep every line as the old import did */
     mergeDuplicates: boolean;
     /** Whole-group check (an SP's batch yield must be one number) */
@@ -339,7 +340,7 @@ function recipeCheck(
     const owner = opts.findOwner(code);
     if (!owner.ok) return out.push(bad(line, code, owner.why ?? `ไม่มี "${code}" ในระบบ`));
     const g = groupOf(owner.id, owner.title, line);
-    const why = opts.validate(r);
+    const why = opts.validate(r, owner.id);
     if (why) {
       g.problems++;
       return out.push(bad(line, `${owner.title} · ${r["sku_code"] ?? ""}`, why));
@@ -390,7 +391,8 @@ const menuBom: Dataset = {
   example: { menu_code: "MN-999", sku_code: "RM-0027", qty: "15", yield_pct: "100" },
   current: ({ menuBomLines, menus, skus }) =>
     menuBomLines
-      .filter((l) => !l.branchId)
+      // the shop recipe: an import replaces it, delivery-only lines stay apart
+      .filter((l) => !l.branchId && !l.deliveryOnly)
       .map((l) => ({ menu_code: menus.find((m) => m.id === l.menuId)?.menuCode ?? "", sku_code: skus.find((s) => s.id === l.skuId)?.skuId ?? "", qty: String(l.qtyPerServing), yield_pct: String(l.yieldPct ?? 100) }))
       .filter((r) => r.menu_code && r.sku_code)
       .sort((a, b) => a.menu_code.localeCompare(b.menu_code)),
@@ -403,13 +405,20 @@ const menuBom: Dataset = {
       },
       before: (id) => {
         // Only the shared recipe is replaced; a branch's own lines stay
-        const own = menuBomLines.filter((l) => l.menuId === id && !l.branchId);
+        const own = menuBomLines.filter((l) => l.menuId === id && !l.branchId && !l.deliveryOnly);
         return { count: own.length, sig: own.map((l) => `${low(skus.find((s) => s.id === l.skuId)?.skuId)}:${k(l.qtyPerServing)}:${k(l.yieldPct ?? 100)}`).sort().join("|") };
       },
       lineSig: (r) => `${low(r["sku_code"])}:${k(num(r["qty"]))}:${k(yieldOf(r))}`,
-      validate: (r) => {
+      validate: (r, menuId) => {
         const y = yieldOf(r);
-        return skuProblem(r, skus) ?? (!(y > 0 && y <= 100) ? "yield_pct ต้องอยู่ระหว่าง 0 ถึง 100" : null);
+        const problem = skuProblem(r, skus) ?? (!(y > 0 && y <= 100) ? "yield_pct ต้องอยู่ระหว่าง 0 ถึง 100" : null);
+        if (problem) return problem;
+        // The item is already a delivery-only line of this menu: a shop line of it too would
+        // make delivery orders deduct it twice
+        const sku = skus.find((s) => low(s.skuId) === low(r["sku_code"]));
+        return sku && menuBomLines.some((l) => l.menuId === menuId && !l.branchId && l.deliveryOnly && l.skuId === sku.id)
+          ? `${r["sku_code"].trim()} อยู่ในสูตรเดลิเวอรีของเมนูนี้แล้ว (เดลิเวอรีเท่านั้น) · ลบแถวนั้นที่สูตรเดลิเวอรีก่อน ไม่งั้นออเดอร์เดลิเวอรีจะตัดซ้ำ`
+          : null;
       },
       mergeDuplicates: true,
     }),

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle, HelpCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Search, ChevronRight, ListFilter, Layers, Plus, Circle, HelpCircle, Info } from "lucide-react";
 import type { Menu } from "@/types/menu";
-import type { MenuBomLine } from "@/types/menu-bom";
+import { isShopLine, type MenuBomLine } from "@/types/menu-bom";
 import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -14,7 +14,7 @@ import type { TabKey } from "@/components/AppSidebar";
 import { useMenuSetupExtras, SALES_WINDOW_DAYS } from "@/hooks/use-menu-setup-extras";
 import { useMenuCategories } from "@/hooks/use-menu-categories";
 import { summarizeMenu, describeRule, brandBranches, type CheckLevel, type CheckArea, type HealthCheck, type MenuSetupSummary } from "@/lib/menu-health";
-import { RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
+import { type RecipeView, RecipeEditor, type RecipeActions } from "@/components/menu-setup/RecipeEditor";
 import { PosOptionsView, RuleDraftForm } from "@/components/menu-setup/PosOptionsView";
 import { RulesList } from "@/components/menu-setup/RulesList";
 import { BranchSetupView } from "@/components/menu-setup/BranchSetupView";
@@ -23,7 +23,7 @@ import { SetupOverview } from "@/components/menu-setup/SetupOverview";
 import { usePosOptionsData } from "@/hooks/use-pos-options-data";
 import type { Bill } from "@/lib/pos-options";
 import type { SpBomLine } from "@/types/sp-bom";
-import { buildUsageContext } from "@/lib/sale-usage";
+import { buildUsageContext, deliveryEffective } from "@/lib/sale-usage";
 import { checkBills, type MenuBillCheck } from "@/lib/bill-check";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { SaveBar } from "@/components/form/SaveBar";
@@ -124,6 +124,9 @@ const levelStyle: Record<CheckLevel, { icon: React.ElementType; text: string; bg
   error: { icon: XCircle, text: "text-destructive", bg: "bg-destructive-soft", label: "ต้องแก้" },
 };
 
+/** A neutral note in the checklist: not ok-green, not a warning */
+const infoStyle = { icon: Info, text: "text-info", bg: "bg-info/10", label: "ข้อมูล" };
+
 const areaTab: Record<CheckArea, WorkTab> = { info: "info", recipe: "recipe", branches: "branches", rules: "rules" };
 
 function HealthDot({ level }: { level: CheckLevel }) {
@@ -194,13 +197,17 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
     if (!extras.bills) return null;
     const ctx = buildUsageContext({
       menus: menus.map((m) => ({ id: m.id, menuCode: m.menuCode })),
-      bomLines: menuBom.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId ?? null })),
+      bomLines: menuBom.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, effectiveQty: l.effectiveQty, deliveryEffectiveQty: deliveryEffective(l.deliveryQty, l.yieldPct), deliveryOnly: !!l.deliveryOnly, branchId: l.branchId ?? null })),
       rules,
       spLines: spBomLines.map((l) => ({ spSkuId: l.spSkuId, ingredientSkuId: l.ingredientSkuId, qtyPerBatch: l.qtyPerBatch, batchYieldQty: l.batchYieldQty || 1 })),
       skus,
     });
     return checkBills(ctx, extras.bills);
   }, [extras.bills, menus, menuBom.lines, rules, spBomLines, skus]);
+
+  // The shop recipe: what rules, POS options, the overview and the recipe sheet look at.
+  // (summarizeMenu takes every line and keeps delivery-only ones apart itself.)
+  const shopLines = useMemo(() => menuBom.lines.filter(isShopLine), [menuBom.lines]);
 
   const summaries = useMemo(() => {
     const out = new Map<string, MenuSetupSummary>();
@@ -282,7 +289,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
         {overviewExtra}
         <SetupOverview
           menus={menus}
-          lines={menuBom.lines}
+          lines={shopLines}
           rules={rules}
           skus={skus}
           prices={prices}
@@ -334,7 +341,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
           <RulesList
             rules={rules}
             menus={menus}
-            lines={menuBom.lines}
+            lines={shopLines}
             skus={skus}
             prices={prices}
             branches={branches}
@@ -365,7 +372,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               : pos.setNoStockKeys
           }
           menus={menus}
-          lines={menuBom.lines}
+          lines={shopLines}
           rules={rules}
           skus={skus}
           prices={prices}
@@ -427,7 +434,7 @@ export default function MenuSetupPage({ menus, updateMenu, menuBom, rules, skus,
               onOpenMenu={(m) => open(m)}
               onNavigate={onNavigate}
               bills={extras.bills}
-              lines={menuBom.lines}
+              lines={shopLines}
               spBomLines={spBomLines}
               suppliers={suppliers}
               addRule={addRule}
@@ -641,6 +648,8 @@ interface WorkspaceProps {
 function MenuWorkspace(props: WorkspaceProps) {
   const { menu, summary, onBack } = props;
   const [tab, setTab] = useState<WorkTab>(props.isNew || summary.worst === "ok" ? "recipe" : "health");
+  // สูตร tab: the shop recipe or the delivery recipe (the health check can open the latter)
+  const [recipeView, setRecipeView] = useState<RecipeView>("shop");
   const problems = summary.checks.filter((c) => c.level !== "ok").length;
   const lineCount = summary.sharedLines.length + Object.values(summary.branchLines).reduce((s, l) => s + l.length, 0);
 
@@ -737,7 +746,16 @@ function MenuWorkspace(props: WorkspaceProps) {
         <SegmentedTabs<WorkTab> tabs={tabs} value={tab} onChange={setTab} />
       </div>
 
-      {tab === "health" && <HealthPanel checks={summary.checks} onGo={(area) => setTab(areaTab[area])} />}
+      {tab === "health" && (
+        <HealthPanel
+          checks={summary.checks}
+          onGo={(area) => setTab(areaTab[area])}
+          onGoDelivery={() => {
+            setRecipeView("delivery");
+            setTab("recipe");
+          }}
+        />
+      )}
       {tab === "recipe" && summary.linkedRecipes.length > 0 && (
         <section className="flex flex-col gap-2 rounded-2xl bg-brand-soft p-4 text-brand-soft-foreground">
           <p className="text-sm">ทุกบิลของเมนูนี้ใช้ของตามสูตรเมนูอื่น แก้สูตรที่เมนูต้นทาง</p>
@@ -761,6 +779,9 @@ function MenuWorkspace(props: WorkspaceProps) {
           menu={menu}
           sharedLines={summary.sharedLines}
           branchLines={summary.branchLines}
+          deliveryOnlyLines={summary.deliveryOnlyLines}
+          view={recipeView}
+          onViewChange={setRecipeView}
           branches={props.branches}
           skus={props.skus}
           prices={props.prices}
@@ -777,14 +798,15 @@ function MenuWorkspace(props: WorkspaceProps) {
   );
 }
 
-function HealthPanel({ checks, onGo }: { checks: HealthCheck[]; onGo: (area: CheckArea) => void }) {
+function HealthPanel({ checks, onGo, onGoDelivery }: { checks: HealthCheck[]; onGo: (area: CheckArea) => void; onGoDelivery: () => void }) {
   const order: Record<CheckLevel, number> = { error: 0, warn: 1, ok: 2 };
   const sorted = [...checks].sort((a, b) => order[a.level] - order[b.level]);
   const areaLabel: Record<CheckArea, string> = { info: "ข้อมูลเมนู", recipe: "สูตร", branches: "สาขา", rules: "กฎพิเศษ" };
   return (
     <ul className="flex flex-col gap-2">
       {sorted.map((c) => {
-        const st = levelStyle[c.level];
+        // A neutral note (e.g. delivery orders take the shop recipe): info colours, not a problem
+        const st = c.tone === "info" ? infoStyle : levelStyle[c.level];
         return (
           <li key={c.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
             <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", st.bg)}>
@@ -794,10 +816,16 @@ function HealthPanel({ checks, onGo }: { checks: HealthCheck[]; onGo: (area: Che
               <div className="text-[15px] font-medium">{c.title}</div>
               {c.detail && <p className="mt-0.5 text-sm text-muted-foreground">{c.detail}</p>}
             </div>
-            {c.level !== "ok" && (
-              <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => onGo(c.area)}>
-                ไป{areaLabel[c.area]}
+            {c.go === "delivery" ? (
+              <Button variant="outline" size="sm" className="h-11 shrink-0" onClick={onGoDelivery}>
+                ไปสูตรเดลิเวอรี
               </Button>
+            ) : (
+              c.level !== "ok" && (
+                <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => onGo(c.area)}>
+                  ไป{areaLabel[c.area]}
+                </Button>
+              )
             )}
           </li>
         );
@@ -1128,14 +1156,15 @@ function BillsPanel({ bills, skus, branches, loaded }: { bills?: MenuBillCheck; 
       </p>
       {shown.map((g) => (
         <section
-          key={`${g.branchId}-${g.name}`}
+          key={`${g.branchId}-${g.name}-${g.delivery ? "d" : ""}`}
           className={cn("overflow-hidden rounded-2xl border bg-card shadow-card", g.empty ? "border-destructive/40" : "border-border")}
         >
           <header className="flex items-start gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="break-words text-sm">{g.name}</p>
               <p className="text-sm text-muted-foreground">
-                {branchName(g.branchId)} · {g.plates.toLocaleString()} จาน
+                {branchName(g.branchId)}
+                {g.delivery ? " · เดลิเวอรี" : ""} · {g.plates.toLocaleString()} จาน
               </p>
             </div>
             {g.empty && <Badge variant="danger">สต๊อกไม่ลด</Badge>}

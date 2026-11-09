@@ -1,6 +1,6 @@
 import { fetchAllRows } from "@/lib/fetch-all";
 import { useEffect, useState } from "react";
-import { addSaleUsage, buildUsageContext } from "@/lib/sale-usage";
+import { addSaleUsage, buildUsageContext, deliveryEffective } from "@/lib/sale-usage";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, AlertTriangle, X } from "lucide-react";
@@ -227,7 +227,7 @@ export function StockCard({
               fetchAllRows((a, b) =>
                 supabase
                   .from("sales_entries")
-                  .select("sale_date, menu_code, menu_name, qty")
+                  .select("sale_date, menu_code, menu_name, qty, order_type, channel")
                   .eq("branch_id", branchId!)
                   .gte("sale_date", effectiveStartDate)
                   .order("sale_date", { ascending: true })
@@ -237,7 +237,8 @@ export function StockCard({
               fetchAllRows((a, b) =>
                 supabase
                   .from("menu_bom")
-                  .select("menu_id, sku_id, effective_qty")
+                  // "*": delivery_qty / delivery_only when the columns are there (absent = same as the shop)
+                  .select("*")
                   .or(`branch_id.is.null,branch_id.eq.${branchId}`)
                   .order("id")
                   .range(a, b),
@@ -282,7 +283,7 @@ export function StockCard({
           for (const rm of ruleMenus as { rule_id: string; menu_id: string }[]) menusByRule.set(rm.rule_id, [...(menusByRule.get(rm.rule_id) ?? []), rm.menu_id]);
           const ctx = buildUsageContext({
             menus: (menus as { id: string; menu_code: string }[]).map((m) => ({ id: m.id, menuCode: m.menu_code })),
-            bomLines: (menuBomLines as { menu_id: string; sku_id: string; effective_qty: number }[]).map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty) || 0, branchId: null })),
+            bomLines: (menuBomLines as { menu_id: string; sku_id: string; effective_qty: number; yield_pct?: number | null; delivery_qty?: number | null; delivery_only?: boolean | null }[]).map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty) || 0, deliveryEffectiveQty: deliveryEffective(l.delivery_qty, l.yield_pct ?? 100), deliveryOnly: l.delivery_only === true, branchId: null })),
             rules: (modRules as { id: string; rule_type: string; keyword: string; sku_id: string | null; swap_sku_id: string | null; submenu_id: string | null; qty_per_match: number; is_active: boolean; branch_ids: string[] | null }[]).map((r) => ({
               id: r.id,
               ruleType: r.rule_type,
@@ -299,7 +300,7 @@ export function StockCard({
             skus: allSkus as { id: string; type: string }[],
           });
           const usageByDate = new Map<string, number>();
-          for (const sale of sales as { sale_date: string; menu_code: string; menu_name: string | null; qty: number }[]) {
+          for (const sale of sales as { sale_date: string; menu_code: string; menu_name: string | null; qty: number; order_type: string | null; channel: string | null }[]) {
             addSaleUsage(ctx, { ...sale, branch_id: branchId ?? null }, (id, q) => {
               if (id === skuId) usageByDate.set(sale.sale_date, (usageByDate.get(sale.sale_date) ?? 0) + q);
             });

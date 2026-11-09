@@ -56,6 +56,8 @@ export interface RcBomLine {
   skuId: string;
   effectiveQty: number;
   branchId?: string | null;
+  /** A line only delivery uses: never "the amount per serving" a shop counts with */
+  deliveryOnly?: boolean;
 }
 
 export interface RcPeriod {
@@ -292,7 +294,7 @@ export function sortRows<T extends { gapBaht: number; sku: { name: string } }>(r
 
 /** The branch's best-selling menu (in the period) whose recipe has the item, and its amount per serving */
 export function servingFor(skuId: string, branch: RcBranch, sales: RcSale[], menus: RcMenu[], bomLines: RcBomLine[], cell: Cell | undefined, p: { from: string; to: string }): ServingBranch | null {
-  const lines = bomLines.filter((l) => l.skuId === skuId && (!l.branchId || l.branchId === branch.id));
+  const lines = bomLines.filter((l) => l.skuId === skuId && !l.deliveryOnly && (!l.branchId || l.branchId === branch.id));
   if (!lines.length) return null;
   const menuById = new Map(menus.map((m) => [m.id, m]));
   const perMenu = new Map<string, number>(); // menu id → per serving (the branch's own line wins)

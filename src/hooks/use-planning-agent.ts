@@ -269,7 +269,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch, smUse }: 
       // Kitchen-made recipe lines per menu, each with its branch (null = every branch)
       const bomByMenu = new Map<string, SmMenuLine[]>();
       for (const [menuId, lines] of use.ctx.bomByMenu) {
-        const sm = lines.filter((l) => smSkuIdSet.has(l.skuId)).map((l) => ({ skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId }));
+        // Shop recipe per bowl: a delivery-only line isn't part of every bowl
+        const sm = lines.filter((l) => smSkuIdSet.has(l.skuId) && !l.deliveryOnly).map((l) => ({ skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId }));
         if (sm.length) bomByMenu.set(menuId, sm);
       }
 

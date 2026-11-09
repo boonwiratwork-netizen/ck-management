@@ -1,5 +1,5 @@
 import { toLocalDateStr } from "@/lib/utils";
-import { buildUsageContext, type UsageBomLine, type UsageContext, type UsageRule, type UsageSpLine } from "@/lib/sale-usage";
+import { buildUsageContext, deliveryEffective, type UsageBomLine, type UsageContext, type UsageRule, type UsageSpLine } from "@/lib/sale-usage";
 
 /** One saved copy of a recipe (table recipe_history, written by the database) */
 export interface RecipeCopy {
@@ -71,7 +71,20 @@ export function usageContextOn(today: UsageInput, copies: RecipeCopy[]): (date: 
     const fromSp = new Set(spCopies.map((c) => c.ownerId));
     const bomLines: UsageBomLine[] = [
       ...today.bomLines.filter((l) => !fromMenus.has(l.menuId)),
-      ...menuCopies.flatMap((c) => ((c.snapshot as { sku_id: string; effective_qty: number; branch_id: string | null }[]) ?? []).map((l) => ({ menuId: c.ownerId!, skuId: l.sku_id, effectiveQty: n(l.effective_qty), branchId: l.branch_id ?? null }))),
+      // delivery_qty (+ the line's yield_pct) is in a copy only when the line had one;
+      // copies saved before delivery amounts existed have neither = same as the shop;
+      // delivery_only likewise
+      ...menuCopies.flatMap((c) =>
+        ((c.snapshot as { sku_id: string; effective_qty: number; branch_id: string | null; delivery_qty?: number | null; yield_pct?: number | null; delivery_only?: boolean }[]) ?? []).map((l) => ({
+          menuId: c.ownerId!,
+          skuId: l.sku_id,
+          effectiveQty: n(l.effective_qty),
+          deliveryEffectiveQty: deliveryEffective(l.delivery_qty, l.yield_pct ?? 100),
+          // only on lines that are (no key = an ordinary line)
+          deliveryOnly: l.delivery_only === true,
+          branchId: l.branch_id ?? null,
+        })),
+      ),
     ];
     const spLines: UsageSpLine[] = [
       ...today.spLines.filter((l) => !fromSp.has(l.spSkuId)),

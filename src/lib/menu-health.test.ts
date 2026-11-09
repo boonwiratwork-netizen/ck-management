@@ -192,7 +192,7 @@ describe("real bills decide", () => {
     emptyPlates,
     platesByBranch: { shiro: plates },
     emptyByBranch: emptyPlates ? { shiro: emptyPlates } : {},
-    groups: [{ name: "Mystery set", branchId: "shiro", plates, perPlate: [], empty: emptyPlates > 0, leftover: [] as { keyword: string; skuId: string }[] }],
+    groups: [{ name: "Mystery set", branchId: "shiro", delivery: false, plates, perPlate: [], empty: emptyPlates > 0, leftover: [] as { keyword: string; skuId: string }[] }],
   });
   it("a menu with no recipe whose bills all deduct is fine", () => {
     const s = summarizeMenu(base({ lines: [], bills: bills(5, 0) }));
@@ -207,5 +207,44 @@ describe("real bills decide", () => {
     b.groups[0].leftover = [{ keyword: "เส้นหนาหนึบ", skuId: "x" }];
     const s = summarizeMenu(base({ bills: b }));
     expect(s.checks.find((c) => c.id === "swap-leftover")).toMatchObject({ level: "error", title: expect.stringContaining('4 จาน เลือก "เส้นหนาหนึบ"') });
+  });
+});
+
+describe("delivery recipe", () => {
+  const group = (delivery: boolean, plates: number) => ({ name: "x", branchId: "shiro", delivery, plates, perPlate: [], empty: false, leftover: [] as { keyword: string; skuId: string }[] });
+  const bills = { plates: 10, emptyPlates: 0, platesByBranch: { shiro: 10 }, emptyByBranch: {}, groups: [group(false, 6), group(true, 4)] };
+
+  it("delivery-only lines stay out of the shop recipe and its cost", () => {
+    const s = summarizeMenu(base({ lines: [line({}), line({ skuId: "garnish", qtyPerServing: 5, deliveryOnly: true })] }));
+    expect(s.sharedLines.map((l) => l.skuId)).toEqual(["noodle"]);
+    expect(s.deliveryOnlyLines.map((l) => l.skuId)).toEqual(["garnish"]);
+    expect(s.branches[0].cost).toBe(20);
+    expect(s.hasDeliveryRecipe).toBe(true);
+  });
+
+  it("delivery sales without a delivery recipe: a neutral note with a way in, not a problem", () => {
+    const s = summarizeMenu(base({ bills }));
+    const c = s.checks.find((x) => x.id === "delivery")!;
+    expect(c).toMatchObject({ level: "ok", tone: "info", go: "delivery", title: "ขายเดลิเวอรี 4 จาน · ตัดตามสูตรหน้าร้าน" });
+    expect(s.worst).toBe("ok");
+  });
+
+  it("delivery sales with a delivery recipe: ok", () => {
+    const s = summarizeMenu(base({ bills, lines: [line({}), line({ skuId: "soup", qtyPerServing: 300, deliveryQty: 240 })] }));
+    const c = s.checks.find((x) => x.id === "delivery")!;
+    expect(c.title).toBe("ขายเดลิเวอรี 4 จาน · ตัดตามสูตรเดลิเวอรี");
+    expect(c.tone).toBeUndefined();
+  });
+
+  it("item checks cover delivery-only lines, labelled (เดลิเวอรี)", () => {
+    const s = summarizeMenu(base({ lines: [line({}), line({ skuId: "box", qtyPerServing: 1, deliveryOnly: true }), line({ skuId: "garnish", qtyPerServing: 0, deliveryOnly: true })] }));
+    const c = (id: string) => s.checks.find((x) => x.id === id)!;
+    expect(c("unpriced")).toMatchObject({ level: "warn" });
+    expect(c("unpriced").detail).toContain("(เดลิเวอรี)");
+    expect(c("bad-qty").detail).toContain("ต้นหอม (เดลิเวอรี)");
+  });
+
+  it("no delivery sales: no delivery item", () => {
+    expect(summarizeMenu(base({ bills: { ...bills, groups: [group(false, 10)] } })).checks.some((x) => x.id === "delivery")).toBe(false);
   });
 });

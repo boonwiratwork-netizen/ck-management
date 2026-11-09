@@ -19,6 +19,9 @@ export interface FcSale {
   qty: number | string;
   net_amount: number | string | null;
   receipt_no: string | null;
+  /** Delivery sales use the recipe's delivery amounts (sale-usage isDeliverySale) */
+  order_type?: string | null;
+  channel?: string | null;
 }
 
 /** A recorded fix to standard usage (Shiro's old POS counted noodles twice) */

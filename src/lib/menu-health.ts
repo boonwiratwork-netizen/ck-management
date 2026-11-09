@@ -1,5 +1,5 @@
 import type { Menu } from "@/types/menu";
-import type { MenuBomLine } from "@/types/menu-bom";
+import { isShopLine, type MenuBomLine } from "@/types/menu-bom";
 import type { ModifierRule } from "@/types/modifier-rule";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -23,6 +23,10 @@ export interface HealthCheck {
   title: string;
   /** What is wrong and what to do, when not ok */
   detail?: string;
+  /** "info" = neutral note (level stays ok: never counts as a problem) */
+  tone?: "info";
+  /** A button that opens the recipe in the delivery view */
+  go?: "delivery";
 }
 
 export interface BranchCost {
@@ -59,9 +63,14 @@ export interface MenuSetupInput {
 
 export interface MenuSetupSummary {
   branches: BranchCost[];
+  /** Shop recipe lines (delivery-only lines are in deliveryOnlyLines) */
   sharedLines: MenuBomLine[];
   /** Branch-only lines, by branch id */
   branchLines: Record<string, MenuBomLine[]>;
+  /** This menu's delivery-only lines (shared and per branch): the delivery recipe's extras */
+  deliveryOnlyLines: MenuBomLine[];
+  /** Delivery orders have their own recipe (an amount set on a line, or a delivery-only line) */
+  hasDeliveryRecipe: boolean;
   /** Rules picked only for this menu */
   ownRules: ModifierRule[];
   /** Rules that use this menu as a topping / set item (submenu) */
@@ -101,7 +110,10 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
   const skuById = new Map(skus.map((s) => [s.id, s]));
   const skuName = (id: string | null | undefined) => (id ? skuById.get(id)?.name ?? "วัตถุดิบที่ถูกลบไปแล้ว" : "—");
 
-  const menuLines = input.lines.filter((l) => l.menuId === menu.id);
+  // Cost, checks and the recipe blocks are the SHOP recipe: delivery-only lines stay apart
+  const shopLines = input.lines.filter(isShopLine);
+  const deliveryOnlyLines = input.lines.filter((l) => l.menuId === menu.id && l.deliveryOnly);
+  const menuLines = shopLines.filter((l) => l.menuId === menu.id);
   const sharedLines = menuLines.filter((l) => !l.branchId);
   const branchLines: Record<string, MenuBomLine[]> = {};
   for (const l of menuLines) if (l.branchId) (branchLines[l.branchId] ??= []).push(l);
@@ -123,7 +135,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       .filter(({ rule }) => rule.branchIds.length === 0 || rule.branchIds.includes(b.id))
       .reduce(
         (s, { menu: sub }) =>
-          s + input.lines.filter((l) => l.menuId === sub.id && (!l.branchId || l.branchId === b.id)).reduce((t, l) => t + lineCost(l, prices), 0),
+          s + shopLines.filter((l) => l.menuId === sub.id && (!l.branchId || l.branchId === b.id)).reduce((t, l) => t + lineCost(l, prices), 0),
         0,
       );
     const cost = ownCost + linkedCost;
@@ -193,6 +205,20 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       detail: `เช่นบิล "${g.name}" · เพิ่มเมนูนี้ในกฎสลับ "${g.leftover[0].keyword}" ไม่งั้นนับทั้งของเดิมและของใหม่`,
     });
   }
+  // Delivery orders: neutral note when they take the shop recipe (not a problem to fix),
+  // ok when the menu has a delivery recipe of its own
+  // (a menu that takes another menu's recipe through a rule takes its delivery recipe too)
+  const deliveryOwn = (id: string) => input.lines.some((l) => l.menuId === id && (l.deliveryOnly || (l.deliveryQty !== null && l.deliveryQty !== undefined)));
+  const hasDelivery = deliveryOwn(menu.id);
+  const deliveryVia = hasDelivery || linkedRecipes.some(({ menu: sub }) => deliveryOwn(sub.id));
+  const deliveryPlates = billed?.groups.filter((g) => g.delivery).reduce((t, g) => t + g.plates, 0) ?? 0;
+  // (added after the recipe checks below, so it reads after "บิลจริง … หักสต๊อกครบ")
+  const deliveryCheck: HealthCheck | null =
+    deliveryPlates === 0
+      ? null
+      : deliveryVia
+        ? { id: "delivery", level: "ok", area: "recipe", title: `ขายเดลิเวอรี ${deliveryPlates.toLocaleString()} จาน · ตัดตามสูตรเดลิเวอรี` }
+        : { id: "delivery", level: "ok", tone: "info", go: "delivery", area: "recipe", title: `ขายเดลิเวอรี ${deliveryPlates.toLocaleString()} จาน · ตัดตามสูตรหน้าร้าน` };
   if (billed) {
     // Real bills decide: whatever the recipe/rule setup, did every plate deduct something?
     const empty = billed.groups.find((g) => g.empty);
@@ -249,35 +275,39 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     add({ id: "no-recipe", level: "ok", area: "recipe", title: `มีสูตร ${menuLines.length} แถว` });
   }
 
-  const unpriced = [...new Set(menuLines.filter((l) => activeUnitCost(prices, l.skuId) <= 0).map((l) => l.skuId))];
+  // Item checks cover the delivery-only lines too, named "(เดลิเวอรี)" so it's clear where to look
+  const checkLines = [...menuLines, ...deliveryOnlyLines];
+  const lineName = (l: MenuBomLine) => `${skuName(l.skuId)}${l.deliveryOnly ? " (เดลิเวอรี)" : ""}`;
+  const namesOf = (ls: MenuBomLine[]) => [...new Set(ls.map(lineName))];
+  const unpriced = namesOf(checkLines.filter((l) => activeUnitCost(prices, l.skuId) <= 0));
   if (unpriced.length > 0)
     add({
       id: "unpriced",
       level: "warn",
       area: "recipe",
       title: `วัตถุดิบ ${unpriced.length} ตัวยังไม่มีราคา`,
-      detail: `${unpriced.map(skuName).join(", ")} · ต้นทุนเมนูจะต่ำกว่าจริง ใส่ราคาที่ Cost Center`,
+      detail: `${unpriced.join(", ")} · ต้นทุนเมนูจะต่ำกว่าจริง ใส่ราคาที่ Cost Center`,
     });
-  else if (menuLines.length > 0) add({ id: "unpriced", level: "ok", area: "recipe", title: "วัตถุดิบทุกตัวมีราคา" });
+  else if (checkLines.length > 0) add({ id: "unpriced", level: "ok", area: "recipe", title: "วัตถุดิบทุกตัวมีราคา" });
 
-  const inactiveSkus = [...new Set(menuLines.filter((l) => skuById.get(l.skuId)?.status === "Inactive").map((l) => l.skuId))];
+  const inactiveSkus = namesOf(checkLines.filter((l) => skuById.get(l.skuId)?.status === "Inactive"));
   if (inactiveSkus.length > 0)
     add({
       id: "inactive-sku",
       level: "warn",
       area: "recipe",
       title: `ใช้วัตถุดิบที่ปิดใช้งานแล้ว ${inactiveSkus.length} ตัว`,
-      detail: `${inactiveSkus.map(skuName).join(", ")} · เปลี่ยนเป็นตัวที่ใช้อยู่จริง`,
+      detail: `${inactiveSkus.join(", ")} · เปลี่ยนเป็นตัวที่ใช้อยู่จริง`,
     });
 
-  const badYield = menuLines.filter((l) => !(l.yieldPct > 0 && l.yieldPct <= 100) || !(l.qtyPerServing > 0));
+  const badYield = checkLines.filter((l) => !(l.yieldPct > 0 && l.yieldPct <= 100) || !(l.qtyPerServing > 0));
   if (badYield.length > 0)
     add({
       id: "bad-qty",
       level: "error",
       area: "recipe",
       title: `ปริมาณหรือ % yield ผิด ${badYield.length} แถว`,
-      detail: `${badYield.map((l) => skuName(l.skuId)).join(", ")} · ปริมาณต้องมากกว่า 0 และ yield 1–100%`,
+      detail: `${badYield.map(lineName).join(", ")} · ปริมาณต้องมากกว่า 0 และ yield 1–100%`,
     });
 
   // Same SKU listed twice at one branch (shared + branch, or twice in shared) counts double
@@ -301,15 +331,17 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       detail: `${[...new Set(doubles)].join(", ")} · แถวซ้ำถูกนับรวมกัน ถ้าตั้งใจให้สาขาใช้ปริมาณต่าง ให้ลบบรรทัดกลางแล้วตั้งแยกรายสาขา`,
     });
 
-  const otherBrandLines = menuLines.filter((l) => l.branchId && !sellingBranches.some((b) => b.id === l.branchId));
+  const otherBrandLines = checkLines.filter((l) => l.branchId && !sellingBranches.some((b) => b.id === l.branchId));
   if (otherBrandLines.length > 0)
     add({
       id: "foreign-branch",
       level: "warn",
       area: "recipe",
       title: `มีแถวเฉพาะสาขาที่ไม่ได้ขายแบรนด์นี้ ${otherBrandLines.length} แถว`,
-      detail: "แถวพวกนี้ไม่ถูกใช้เลย ลบทิ้งได้",
+      detail: `${namesOf(otherBrandLines).join(", ")} · แถวพวกนี้ไม่ถูกใช้เลย ลบทิ้งได้`,
     });
+
+  if (deliveryCheck) add(deliveryCheck);
 
   // ── Branches ──
   if (sellingBranches.length === 0)
@@ -362,7 +394,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       // A line that comes from a linked recipe isn't "missing": delivery bills (e.g. Line Man)
       // carry only the menu name, no options, so the swap never fires on them anyway
       const notFound = missing.filter(
-        (b) => !linkedRecipes.some(({ menu: sub }) => input.lines.some((l) => l.menuId === sub.id && l.skuId === r.swapSkuId && (!l.branchId || l.branchId === b.branchId))),
+        (b) => !linkedRecipes.some(({ menu: sub }) => shopLines.some((l) => l.menuId === sub.id && l.skuId === r.swapSkuId && (!l.branchId || l.branchId === b.branchId))),
       );
       if (notFound.length > 0 || (branches.length === 0 && !sharedLines.some((l) => l.skuId === r.swapSkuId)))
         add({
@@ -377,7 +409,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
       const sub = menus.find((m) => m.id === r.submenuId);
       if (!sub)
         add({ id: `sub-${r.id}`, level: "error", area: "rules", title: `กฎ "${r.keyword}" ชี้ไปเมนูที่ถูกลบแล้ว`, detail: "เลือกเมนูท็อปปิ้งใหม่ หรือปิดกฎนี้" });
-      else if (!input.lines.some((l) => l.menuId === sub.id))
+      else if (!shopLines.some((l) => l.menuId === sub.id))
         add({
           id: `sub-${r.id}`,
           level: "error",
@@ -398,7 +430,7 @@ export function summarizeMenu(input: MenuSetupInput): MenuSetupSummary {
     });
 
   const worst: CheckLevel = checks.some((c) => c.level === "error") ? "error" : checks.some((c) => c.level === "warn") ? "warn" : "ok";
-  return { branches, sharedLines, branchLines, ownRules, usedAsTopping, globalRuleCount, linkedRecipes, checks, worst, bills: input.bills };
+  return { branches, sharedLines, branchLines, deliveryOnlyLines, hasDeliveryRecipe: hasDelivery, ownRules, usedAsTopping, globalRuleCount, linkedRecipes, checks, worst, bills: input.bills };
 }
 
 /** True when a rule keyword is the menu's own code or part of its own name, so it fires on every sale */

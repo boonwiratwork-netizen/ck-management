@@ -40,11 +40,15 @@ export async function computeRmUsageForBranchDate(
   const soldMenuIds = Object.keys(qtySoldByMenuId);
   if (soldMenuIds.length === 0) return 0;
 
-  const { data: bomRows } = await supabase
+  // "*" + filter: delivery-only lines (menu_bom.delivery_only, absent before that
+  // migration) are skipped — this estimate counts every sale with the shop recipe
+  const { data: bomAll } = await supabase
     .from("menu_bom")
-    .select("menu_id, sku_id, effective_qty")
+    .select("*")
     .in("menu_id", soldMenuIds)
     .or(`branch_id.is.null,branch_id.eq.${branchId}`);
+  // deno-lint-ignore no-explicit-any
+  const bomRows = ((bomAll || []) as any[]).filter((b) => b.delivery_only !== true);
 
   let total = 0;
   const spSkuIds = new Set<string>();
@@ -106,10 +110,11 @@ export async function computeRmUsageForBranchDate(
   if (submenuIds.length > 0) {
     const { data } = await supabase
       .from("menu_bom")
-      .select("menu_id, sku_id, effective_qty")
+      .select("*")
       .in("menu_id", submenuIds)
       .or(`branch_id.is.null,branch_id.eq.${branchId}`);
-    submenuBom = data || [];
+    // deno-lint-ignore no-explicit-any
+    submenuBom = ((data || []) as any[]).filter((b) => b.delivery_only !== true);
     const spIds = [...new Set(submenuBom.filter((b) => b.sku_id !== targetSkuId).map((b) => b.sku_id))];
     if (spIds.length > 0) {
       const { data: sspb } = await supabase

@@ -3,7 +3,7 @@ import { SKU } from "@/types/sku";
 import { Price } from "@/types/price";
 import { Menu } from "@/types/menu";
 import { Branch } from "@/types/branch";
-import { MenuBomLine } from "@/types/menu-bom";
+import { MenuBomLine, isShopLine } from "@/types/menu-bom";
 import { SpBomLine } from "@/types/sp-bom";
 import { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
 import { toLocalDateStr } from "@/lib/utils";
@@ -443,6 +443,8 @@ export function exportMenuBom(
   branches: Branch[],
 ) {
   const wb = XLSX.utils.book_new();
+  // The shop recipe only: a delivery-only line would come back as a shop line on re-import
+  lines = lines.filter(isShopLine);
   XLSX.utils.book_append_sheet(
     wb,
     buildSummarySheet({ menu: { lines, menus }, skus, prices }),
@@ -491,7 +493,7 @@ export function exportAllBoms(params: {
   XLSX.utils.book_append_sheet(
     wb,
     buildSummarySheet({
-      menu: { lines: params.menuBomLines, menus: params.menus },
+      menu: { lines: params.menuBomLines.filter(isShopLine), menus: params.menus },
       sp: { lines: params.spBomLines },
       sm: { headers: params.bomHeaders, lines: params.bomLines, steps: params.bomSteps },
       skus: params.skus,
@@ -501,7 +503,7 @@ export function exportAllBoms(params: {
   );
   XLSX.utils.book_append_sheet(
     wb,
-    buildMenuBomSheet(params.menuBomLines, params.menus, params.skus, params.prices, params.branches),
+    buildMenuBomSheet(params.menuBomLines.filter(isShopLine), params.menus, params.skus, params.prices, params.branches),
     "Menu BOM",
   );
   XLSX.utils.book_append_sheet(wb, buildSpBomSheet(params.spBomLines, params.skus, params.prices), "SP BOM");

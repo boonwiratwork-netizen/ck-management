@@ -127,7 +127,7 @@ export const supabaseLoader: FoodCostLoader = {
   },
   sales: (branchIds, from, to) =>
     fetchAllRows<FcSale>((a, b) =>
-      supabase.from("sales_entries").select("id, sale_date, branch_id, menu_code, menu_name, qty, net_amount, receipt_no").in("branch_id", branchIds).gte("sale_date", from).lte("sale_date", to).order("id").range(a, b) as never,
+      supabase.from("sales_entries").select("id, sale_date, branch_id, menu_code, menu_name, qty, net_amount, receipt_no, order_type, channel").in("branch_id", branchIds).gte("sale_date", from).lte("sale_date", to).order("id").range(a, b) as never,
     ),
   async corrections(branchIds, from, to) {
     // Before the table exists there are simply none (not in the generated types yet)

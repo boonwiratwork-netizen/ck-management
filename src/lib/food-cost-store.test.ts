@@ -9,9 +9,9 @@ const ctx = buildUsageContext({
     { id: "m2", menuCode: "MN-080" },
   ],
   bomLines: [
-    { menuId: "m1", skuId: "noodle", effectiveQty: 1, branchId: null },
-    { menuId: "m1", skuId: "soup", effectiveQty: 300, branchId: null },
-    { menuId: "m2", skuId: "gyoza", effectiveQty: 3, branchId: null },
+    { menuId: "m1", skuId: "noodle", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null },
+    { menuId: "m1", skuId: "soup", effectiveQty: 300, deliveryEffectiveQty: null, branchId: null },
+    { menuId: "m2", skuId: "gyoza", effectiveQty: 3, deliveryEffectiveQty: null, branchId: null },
   ],
   rules: [],
   spLines: [],

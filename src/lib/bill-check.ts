@@ -1,4 +1,4 @@
-import { addSaleUsage, type UsageContext } from "@/lib/sale-usage";
+import { addSaleUsage, isDeliverySale, type UsageContext } from "@/lib/sale-usage";
 import { ruleMatchesSale } from "@/lib/modifier-rules";
 
 /**
@@ -13,12 +13,16 @@ export interface CheckBill {
   menu_name: string;
   qty: number;
   branch_id: string;
+  order_type?: string | null;
+  channel?: string | null;
 }
 
 export interface BillGroup {
   /** The bill name as the POS wrote it */
   name: string;
   branchId: string;
+  /** Sold for delivery: worked out with the recipe's delivery amounts */
+  delivery: boolean;
   plates: number;
   /** Ingredient → qty for ONE plate (usage is linear in qty) */
   perPlate: [string, number][];
@@ -46,20 +50,22 @@ const TINY = 1e-9;
 /** Bill check for every menu code that sold, keyed by menu code */
 export function checkBills(ctx: UsageContext, bills: CheckBill[]): Map<string, MenuBillCheck> {
   // Same name at the same branch behaves the same: work it out once
-  const grouped = new Map<string, { code: string; name: string; branchId: string; plates: number }>();
+  // (and the same way of selling: a delivery bill uses the delivery amounts)
+  const grouped = new Map<string, { code: string; name: string; branchId: string; delivery: boolean; plates: number }>();
   for (const b of bills) {
     const q = Number(b.qty) || 0;
     if (q <= 0) continue;
-    const key = `${b.menu_code}\u0000${b.branch_id}\u0000${b.menu_name}`;
+    const delivery = isDeliverySale(b);
+    const key = `${b.menu_code}\u0000${b.branch_id}\u0000${b.menu_name}\u0000${delivery ? "d" : ""}`;
     const g = grouped.get(key);
     if (g) g.plates += q;
-    else grouped.set(key, { code: b.menu_code, name: b.menu_name, branchId: b.branch_id, plates: q });
+    else grouped.set(key, { code: b.menu_code, name: b.menu_name, branchId: b.branch_id, delivery, plates: q });
   }
 
   const out = new Map<string, MenuBillCheck>();
   for (const g of grouped.values()) {
     const usage = new Map<string, number>();
-    const known = addSaleUsage(ctx, { menu_code: g.code, menu_name: g.name, qty: 1, branch_id: g.branchId }, (sku, q) =>
+    const known = addSaleUsage(ctx, { menu_code: g.code, menu_name: g.name, qty: 1, branch_id: g.branchId, order_type: g.delivery ? "Delivery" : null }, (sku, q) =>
       usage.set(sku, (usage.get(sku) ?? 0) + q),
     );
     if (!known) continue; // codes missing from the menu list are reported by the branch check
@@ -85,7 +91,7 @@ export function checkBills(ctx: UsageContext, bills: CheckBill[]): Map<string, M
       c.emptyPlates += g.plates;
       c.emptyByBranch[g.branchId] = (c.emptyByBranch[g.branchId] ?? 0) + g.plates;
     }
-    c.groups.push({ name: g.name, branchId: g.branchId, plates: g.plates, perPlate, empty, leftover });
+    c.groups.push({ name: g.name, branchId: g.branchId, delivery: g.delivery, plates: g.plates, perPlate, empty, leftover });
   }
   for (const c of out.values()) c.groups.sort((a, b) => Number(b.empty) - Number(a.empty) || b.plates - a.plates);
   return out;

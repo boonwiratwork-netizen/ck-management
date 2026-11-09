@@ -8,7 +8,7 @@ const ctx = buildUsageContext({
     { id: "set", menuCode: "MN-075" },
     { id: "empty", menuCode: "MN-099" },
   ],
-  bomLines: [{ menuId: "ramen", skuId: "noodle", effectiveQty: 1, branchId: null }],
+  bomLines: [{ menuId: "ramen", skuId: "noodle", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null }],
   rules: [
     { id: "r", ruleType: "submenu", keyword: "Standard Shio Ramen", skuId: null, swapSkuId: null, submenuId: "ramen", qtyPerMatch: 1, isActive: true, branchIds: [], menuIds: ["set"] },
   ],
@@ -48,8 +48,8 @@ describe("checkBills", () => {
     const c2 = buildUsageContext({
       menus: [{ id: "ramen", menuCode: "MN-001" }, { id: "other", menuCode: "MN-056" }],
       bomLines: [
-        { menuId: "ramen", skuId: "noodle", effectiveQty: 1, branchId: null },
-        { menuId: "other", skuId: "noodle", effectiveQty: 1, branchId: null },
+        { menuId: "ramen", skuId: "noodle", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null },
+        { menuId: "other", skuId: "noodle", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null },
       ],
       rules: [{ id: "s", ruleType: "swap", keyword: "เส้นหนาหนึบ", skuId: "thick", swapSkuId: "noodle", submenuId: null, qtyPerMatch: 1, isActive: true, branchIds: [], menuIds: ["ramen"] }],
       spLines: [],

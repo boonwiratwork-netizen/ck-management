@@ -36,7 +36,7 @@ export async function loadSmUse(today: string): Promise<SmUseRead> {
       return r.data;
     });
   const [sales, waste, ctx] = await Promise.all([
-    all<BranchSaleRow>((a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, menu_code, menu_name, qty").gte("sale_date", window.from).lte("sale_date", window.to).order("id").range(a, b)),
+    all<BranchSaleRow>((a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, menu_code, menu_name, qty, order_type, channel").gte("sale_date", window.from).lte("sale_date", window.to).order("id").range(a, b)),
     all<BranchWasteRow>((a, b) => supabase.from("daily_stock_counts").select("id, branch_id, sku_id, count_date, waste").gt("waste", 0).gte("count_date", window.from).lte("count_date", window.to).order("id").range(a, b)),
     loadUsageContext(),
   ]);

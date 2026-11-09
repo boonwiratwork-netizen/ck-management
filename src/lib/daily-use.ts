@@ -38,6 +38,9 @@ export interface BranchSaleRow {
   menu_code: string;
   menu_name: string | null;
   qty: number | string;
+  /** Delivery sales use the recipe's delivery amounts */
+  order_type?: string | null;
+  channel?: string | null;
 }
 export interface BranchWasteRow {
   branch_id: string;
@@ -70,7 +73,7 @@ export function branchUsePerDay(input: { ctx: UsageContext; sales: BranchSaleRow
     const d = days.get(s.branch_id) ?? new Set<string>();
     d.add(s.sale_date);
     days.set(s.branch_id, d);
-    addSaleUsage(ctx, { menu_code: s.menu_code, menu_name: s.menu_name, qty: s.qty, branch_id: s.branch_id }, (id, q) => add(s.branch_id, id, q));
+    addSaleUsage(ctx, { menu_code: s.menu_code, menu_name: s.menu_name, qty: s.qty, branch_id: s.branch_id, order_type: s.order_type, channel: s.channel }, (id, q) => add(s.branch_id, id, q));
   }
   for (const x of input.waste) if (inWindow(w, x.count_date)) add(x.branch_id, x.sku_id, Number(x.waste) || 0);
   const perDayOut = new Map<string, Record<string, number>>();

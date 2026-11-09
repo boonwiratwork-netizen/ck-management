@@ -26,6 +26,7 @@ import { ProductOverview } from "@/components/cost-center/ProductOverview";
 import { BillPriceUpdate } from "@/components/cost-center/BillPriceUpdate";
 import type { RecipeEditActions } from "@/components/cost-center/RecipeEditor";
 import type { SpBomLine } from "@/types/sp-bom";
+import { isShopLine } from "@/types/menu-bom";
 import type { ImportContext } from "@/lib/import-datasets";
 import { CostCenterHome } from "@/components/cost-center/CostCenterHome";
 import type { FoodCostLoader, FoodCostMasters } from "@/hooks/use-food-cost";
@@ -159,6 +160,8 @@ export default function CostCenterPage(props: Props) {
     [props.bomHeaders, props.bomLines, props.bomSteps, props.byproducts, props.spLines],
   );
   const recipeCosts = useMemo(() => allRecipeCosts(book, prices), [book, prices]);
+  // The where-used grid edits shop amounts: delivery-only lines aren't in it
+  const menuShopLines = useMemo(() => props.menuSetup.menuBom.lines.filter(isShopLine), [props.menuSetup.menuBom.lines]);
   const summaries: ProductSummary[] = useMemo(() => {
     const ctx = {
       skus,
@@ -275,7 +278,7 @@ export default function CostCenterPage(props: Props) {
           prices={prices}
           menus={props.menus}
           branches={props.menuSetup.branches}
-          lines={props.menuSetup.menuBom.lines}
+          lines={menuShopLines}
           codes={codesFromHash(hash)}
           // Picking changes the address in place (the phone's back leaves the tab, not each pick)
           onCodesChange={(c) => go(c.length ? `usage/${c.join(",")}` : "usage", { replace: true, state: location.state })}

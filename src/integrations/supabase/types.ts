@@ -891,6 +891,8 @@ export type Database = {
           branch_id: string | null
           cost_per_serving: number
           created_at: string
+          delivery_only: boolean
+          delivery_qty: number | null
           effective_qty: number
           id: string
           menu_id: string
@@ -904,6 +906,8 @@ export type Database = {
           branch_id?: string | null
           cost_per_serving?: number
           created_at?: string
+          delivery_only?: boolean
+          delivery_qty?: number | null
           effective_qty?: number
           id?: string
           menu_id: string
@@ -917,6 +921,8 @@ export type Database = {
           branch_id?: string | null
           cost_per_serving?: number
           created_at?: string
+          delivery_only?: boolean
+          delivery_qty?: number | null
           effective_qty?: number
           id?: string
           menu_id?: string

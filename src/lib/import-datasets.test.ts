@@ -143,3 +143,28 @@ describe("parseCsv", () => {
     expect(parseCsv("Name\nA\n\n,\nB\n").map((r) => r.__line)).toEqual(["2", "5"]);
   });
 });
+
+describe("menu recipe import and delivery-only lines", () => {
+  const withBox: ImportContext = {
+    ...ctx,
+    skus: [...ctx.skus, { id: "pk", skuId: "PK-0002", name: "ชาม", type: "PK" } as SKU],
+    menuBomLines: [...ctx.menuBomLines, { id: "b3", menuId: "m1", skuId: "pk", qtyPerServing: 1, yieldPct: 100, branchId: null, deliveryOnly: true } as never],
+  };
+
+  it("leaves delivery-only lines out of the comparison", () => {
+    expect(ds("menu-bom").check([{ menu_code: "MN-001", sku_code: "RM-0001", qty: "100" }], withBox)[0].verdict).toBe("same");
+    expect(ds("menu-bom").current(withBox).map((r) => r.sku_code)).toEqual(["RM-0001"]);
+  });
+
+  it("an item that is already a delivery-only line of the menu blocks the menu (would deduct twice)", () => {
+    const p = ds("menu-bom").check(
+      [
+        { menu_code: "MN-001", sku_code: "RM-0001", qty: "100" },
+        { menu_code: "MN-001", sku_code: "PK-0002", qty: "1" },
+      ],
+      withBox,
+    );
+    expect(p.every((r) => r.verdict === "error")).toBe(true);
+    expect(p.map((r) => r.detail).join(" ")).toContain("สูตรเดลิเวอรี");
+  });
+});

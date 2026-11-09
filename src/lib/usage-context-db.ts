@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRowsOrThrow } from "@/lib/fetch-all";
-import { addSaleUsage, buildUsageContext, type UsageContext } from "@/lib/sale-usage";
+import { addSaleUsage, buildUsageContext, deliveryEffective, type UsageContext } from "@/lib/sale-usage";
 import { USAGE_TABLES, sharedRead } from "@/lib/page-cache";
 
 /**
@@ -29,7 +29,8 @@ async function readUsageContext(): Promise<UsageContext> {
 
   const [menus, bom, rules, ruleMenus, sp, skus] = await Promise.all([
     all<{ id: string; menu_code: string }>("menus", "id, menu_code"),
-    all<{ menu_id: string; sku_id: string; effective_qty: number; branch_id: string | null }>("menu_bom", "id, menu_id, sku_id, effective_qty, branch_id"),
+    // "*": delivery_qty (and yield_pct for it) / delivery_only read when the columns are there, absent = same as the shop
+    all<{ menu_id: string; sku_id: string; effective_qty: number; branch_id: string | null; yield_pct?: number | null; delivery_qty?: number | null; delivery_only?: boolean | null }>("menu_bom", "*"),
     all<{ id: string; rule_type: string; keyword: string; sku_id: string | null; swap_sku_id: string | null; submenu_id: string | null; qty_per_match: number; is_active: boolean; branch_ids: string[] | null }>(
       "menu_modifier_rules",
       "id, rule_type, keyword, sku_id, swap_sku_id, submenu_id, qty_per_match, is_active, branch_ids",
@@ -43,7 +44,7 @@ async function readUsageContext(): Promise<UsageContext> {
   for (const rm of ruleMenus) menusByRule.set(rm.rule_id, [...(menusByRule.get(rm.rule_id) ?? []), rm.menu_id]);
   return buildUsageContext({
     menus: menus.map((m) => ({ id: m.id, menuCode: m.menu_code })),
-    bomLines: bom.map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty) || 0, branchId: l.branch_id })),
+    bomLines: bom.map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, effectiveQty: Number(l.effective_qty) || 0, deliveryEffectiveQty: deliveryEffective(l.delivery_qty, l.yield_pct ?? 100), deliveryOnly: l.delivery_only === true, branchId: l.branch_id })),
     rules: rules.map((r) => ({
       id: r.id,
       ruleType: r.rule_type,
@@ -65,7 +66,7 @@ async function readUsageContext(): Promise<UsageContext> {
  * Sales → usage of the given SKUs, in total and per day, through the one engine.
  * Lines whose menu isn't set up are skipped (no usage), as everywhere else.
  */
-export type UsageSaleRow = { sale_date: string; menu_code: string; menu_name: string | null; qty: number | string };
+export type UsageSaleRow = { sale_date: string; menu_code: string; menu_name: string | null; qty: number | string; order_type?: string | null; channel?: string | null };
 
 export function usageOf(
   ctx: UsageContext,
@@ -77,7 +78,7 @@ export function usageOf(
   const total: Record<string, number> = {};
   const byDay: Record<string, Record<string, number>> = {};
   for (const s of sales) {
-    addSaleUsage(ctx, { menu_code: s.menu_code, menu_name: s.menu_name, qty: s.qty, branch_id: branchId }, (id, q) => {
+    addSaleUsage(ctx, { menu_code: s.menu_code, menu_name: s.menu_name, qty: s.qty, branch_id: branchId, order_type: s.order_type, channel: s.channel }, (id, q) => {
       if (skuIds && !skuIds.has(id)) return;
       total[id] = (total[id] || 0) + q;
       const d = (byDay[id] ??= {});

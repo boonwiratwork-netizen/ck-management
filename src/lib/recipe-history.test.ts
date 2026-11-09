@@ -5,7 +5,7 @@ import { addSaleUsage } from "./sale-usage";
 const today = {
   menus: [{ id: "m1", menuCode: "MN-001" }],
   // Today's recipe: 120 g pork (changed on 15 Nov from 100 g)
-  bomLines: [{ menuId: "m1", skuId: "pork", effectiveQty: 120, branchId: null }],
+  bomLines: [{ menuId: "m1", skuId: "pork", effectiveQty: 120, deliveryEffectiveQty: null, branchId: null }],
   rules: [],
   spLines: [],
   skus: [{ id: "pork", type: "RM" }],

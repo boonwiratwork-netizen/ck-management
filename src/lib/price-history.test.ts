@@ -21,7 +21,7 @@ describe("buildPriceAt", () => {
 
 describe("food cost at the price of the day", () => {
   it("prices each sale at its own day, so a later change doesn't move a closed month", () => {
-    const ctx = buildUsageContext({ menus: [{ id: "m", menuCode: "MN-1" }], bomLines: [{ menuId: "m", skuId: "pork", effectiveQty: 100, branchId: null }], rules: [], spLines: [], skus: [{ id: "pork", type: "RM" }] });
+    const ctx = buildUsageContext({ menus: [{ id: "m", menuCode: "MN-1" }], bomLines: [{ menuId: "m", skuId: "pork", effectiveQty: 100, deliveryEffectiveQty: null, branchId: null }], rules: [], spLines: [], skus: [{ id: "pork", type: "RM" }] });
     const sale = (d: string) => ({ branch_id: "b", sale_date: d, menu_code: "MN-1", menu_name: "", qty: 1, net_amount: 100, receipt_no: d });
     const priceAt = buildPriceAt([
       { skuId: "pork", pricePerUsageUom: 0.2, validFrom: "2000-01-01T00:00:00+07:00" },

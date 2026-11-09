@@ -22,10 +22,10 @@ const ctx = buildUsageContext({
     { id: "m022", menuCode: "MN-022" },
   ],
   bomLines: [
-    { menuId: "m073", skuId: "noodle-wholewheat", effectiveQty: 1, branchId: null },
-    { menuId: "m073", skuId: "soup", effectiveQty: 300, branchId: null },
-    { menuId: "m073", skuId: "garnish", effectiveQty: 2, branchId: "shiro" },
-    { menuId: "m022", skuId: "egg", effectiveQty: 1, branchId: null },
+    { menuId: "m073", skuId: "noodle-wholewheat", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null },
+    { menuId: "m073", skuId: "soup", effectiveQty: 300, deliveryEffectiveQty: null, branchId: null },
+    { menuId: "m073", skuId: "garnish", effectiveQty: 2, deliveryEffectiveQty: null, branchId: "shiro" },
+    { menuId: "m022", skuId: "egg", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null },
   ],
   rules: [
     rule({ id: "home", ruleType: "swap", keyword: "เส้นโฮมเมด", skuId: "noodle-home", swapSkuId: "noodle-wholewheat" }),
@@ -77,7 +77,7 @@ describe("addSaleUsage", () => {
         { id: "set", menuCode: "MN-075" },
         { id: "ramen", menuCode: "MN-004" },
       ],
-      bomLines: [{ menuId: "ramen", skuId: "noodle-wholewheat", effectiveQty: 1, branchId: null }],
+      bomLines: [{ menuId: "ramen", skuId: "noodle-wholewheat", effectiveQty: 1, deliveryEffectiveQty: null, branchId: null }],
       rules: [
         rule({ id: "dish", ruleType: "submenu", keyword: "Signature Shio", submenuId: "ramen" }),
         rule({ id: "thick", ruleType: "swap", keyword: "เส้นหนาหนึบ", skuId: "noodle-thick", swapSkuId: "noodle-wholewheat", menuIds }),

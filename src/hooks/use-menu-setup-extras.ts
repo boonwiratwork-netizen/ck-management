@@ -46,7 +46,7 @@ export function useMenuSetupExtras() {
             supabase.from("branch_menu_overrides").select("id, menu_id, branch_id, is_active").order("id").range(a, b),
           ),
           fetchAll<CheckBill>((a, b) =>
-            supabase.from("sales_entries").select("id, menu_code, menu_name, branch_id, qty").gte("sale_date", sinceStr).order("id").range(a, b),
+            supabase.from("sales_entries").select("id, menu_code, menu_name, branch_id, qty, order_type, channel").gte("sale_date", sinceStr).order("id").range(a, b),
           ),
         ]);
         if (cancelled) return;

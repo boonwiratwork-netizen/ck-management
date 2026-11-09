@@ -53,7 +53,7 @@ export const supabaseAdminLoader: AdminLoader = {
     const ids = branchIds.length ? branchIds : ["00000000-0000-0000-0000-000000000000"];
     const [sales, counts, tos, receipts, plans, production, bills, priceChanges, recipeCopies, corrections] = await Promise.all([
       perBranchRows<AdminRaw["sales"][number]>(ids, (id, a, b) =>
-        supabase.from("sales_entries").select("id, branch_id, sale_date, created_at, net_amount, menu_code, menu_name, qty, receipt_no").eq("branch_id", id).gte("sale_date", readFrom).lte("sale_date", today).order("id").range(a, b) as never,
+        supabase.from("sales_entries").select("id, branch_id, sale_date, created_at, net_amount, menu_code, menu_name, qty, receipt_no, order_type, channel").eq("branch_id", id).gte("sale_date", readFrom).lte("sale_date", today).order("id").range(a, b) as never,
       ),
       perBranchRows<AdminRaw["counts"][number]>(ids, (id, a, b) =>
         supabase.from("daily_stock_counts").select("id, branch_id, count_date, sku_id, physical_count, variance, waste, expected_usage, is_submitted, submitted_at").eq("branch_id", id).gte("count_date", readFrom).lte("count_date", today).order("id").range(a, b) as never,

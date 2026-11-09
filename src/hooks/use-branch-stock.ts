@@ -105,7 +105,7 @@ export async function loadBranchStock(branchId: string, today: string, products:
     receiptsP,
     adjustmentsP,
     all<WasteRow>((a, b) => supabase.from("daily_stock_counts").select("id, sku_id, count_date, waste").eq("branch_id", branchId).gt("waste", 0).gte("count_date", from).lte("count_date", today).order("id").range(a, b)),
-    all<UsageSaleRow>((a, b) => supabase.from("sales_entries").select("id, sale_date, menu_code, menu_name, qty").eq("branch_id", branchId).gte("sale_date", from).lte("sale_date", today).order("id").range(a, b)),
+    all<UsageSaleRow>((a, b) => supabase.from("sales_entries").select("id, sale_date, menu_code, menu_name, qty, order_type, channel").eq("branch_id", branchId).gte("sale_date", from).lte("sale_date", today).order("id").range(a, b)),
     shared.ctx,
     pricesP,
   ]);
