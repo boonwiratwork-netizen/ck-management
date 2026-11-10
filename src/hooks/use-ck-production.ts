@@ -74,7 +74,7 @@ interface Raw {
   to: string;
   /** RM items in the recipes of what was made in the period: the base a count must cover half of */
   rmIds: Set<string>;
-  produced: { smSkuId: string; outputG: number }[];
+  produced: { smSkuId: string; outputG: number; batches?: number | null }[];
   recipes: Map<string, Recipe>;
   type: Map<string, string>;
   std: Map<string, number>;
@@ -157,8 +157,9 @@ async function readPeriod(from: string, to: string, alive: () => boolean, opts: 
   }
 
   // Production around the period (counts can sit a few days either side)
-  const prodRows = await all<{ sm_sku_id: string; actual_output_g: number; production_date: string; created_at: string }>((a, b) =>
-    supabase.from("production_records").select("id, sm_sku_id, actual_output_g, production_date, created_at").gte("production_date", shift(from, -4)).lte("production_date", shift(to, 3)).order("id").range(a, b),
+  // "*": deduct_batches (the batches a pot took out) comes with a migration, so it may not be there yet
+  const prodRows = await all<{ sm_sku_id: string; actual_output_g: number; production_date: string; created_at: string; deduct_batches?: number | null }>((a, b) =>
+    supabase.from("production_records").select("*").gte("production_date", shift(from, -4)).lte("production_date", shift(to, 3)).order("id").range(a, b),
   );
   if (!alive()) return null;
   const inPeriod = prodRows.filter((p) => p.production_date >= from && p.production_date <= to);
@@ -257,7 +258,7 @@ async function readPeriod(from: string, to: string, alive: () => boolean, opts: 
     from,
     to,
     rmIds,
-    produced: produced.map((p) => ({ smSkuId: p.sm_sku_id, outputG: Number(p.actual_output_g) || 0 })),
+    produced: produced.map((p) => ({ smSkuId: p.sm_sku_id, outputG: Number(p.actual_output_g) || 0, batches: p.deduct_batches == null ? null : Number(p.deduct_batches) })),
     recipes,
     type,
     std,

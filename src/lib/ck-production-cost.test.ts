@@ -32,6 +32,21 @@ describe("productionCost", () => {
     expect(a.lines.find((l) => l.skuId === "stock")).toMatchObject({ isRm: false, expected: 4000, actual: null });
   });
 
+  it("the standard follows the batches each pot took out (11 kg of a 10 kg recipe = 1 batch), older pots by output", () => {
+    const b = productionCost({
+      ...base,
+      produced: [
+        { smSkuId: "soupA", outputG: 11000, batches: 1 },
+        { smSkuId: "soupA", outputG: 1000, batches: 0.1 },
+        { smSkuId: "soupA", outputG: 5000 },
+      ],
+      rmFlow: new Map([["bones", { opening: 0, bought: 10000, toBranches: 0, closing: 0 }]]),
+    });
+    expect(b.rows[0].runs).toBeCloseTo(1.6, 6);
+    expect(b.rows[0].outputG).toBe(17000);
+    expect(b.rows[0].lines.find((l) => l.skuId === "bones")!.expected).toBeCloseTo(8000, 6);
+  });
+
   it("a raw material missing from a count is taken as the recipe says", () => {
     const u = productionCost({ ...base, produced: [{ smSkuId: "soupB", outputG: 20000 }], rmFlow: new Map([["bones", { opening: 0, bought: 0, toBranches: 0, closing: 0 }]]), uncounted: new Set(["bones"]) });
     expect(u.rows[0].lines[0].actual).toBe(5000);

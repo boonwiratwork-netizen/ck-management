@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { lastSeen, sharedRead, useKeepLastSeen } from "@/lib/page-cache";
 import { RefreshNote } from "@/components/RefreshNote";
 import { useWorkDay } from "@/hooks/use-today";
-import { farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
+import { autoBatches, farFromUsual, gramsText, indirectNeed, usualOutput } from "@/lib/production";
 import { EditRecordDialog, PlanView, ProdSide, RecordView, type ProdRow } from "@/components/production/ProductionViews";
 import { PlanningAgentPanel } from "@/components/PlanningAgentPanel";
 import { ByproductDialog, type ByproductAsk } from "@/components/production/ByproductDialog";
@@ -252,8 +252,8 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   }, [tracked, bomHeaders]);
   // A pending save waits for a dialog (by-products as weighed, or "already came in?")
   const waiting = useRef<((ok: boolean) => void) | null>(null);
-  const [bpAsk, setBpAsk] = useState<(ByproductAsk & { skuId: string; notes: string }) | null>(null);
-  const [dupAsk, setDupAsk] = useState<{ skuId: string; grams: number; notes: string; parent: string } | null>(null);
+  const [bpAsk, setBpAsk] = useState<(ByproductAsk & { skuId: string; notes: string; batches?: number | null }) | null>(null);
+  const [dupAsk, setDupAsk] = useState<{ skuId: string; grams: number; notes: string; batches?: number | null; parent: string } | null>(null);
   const wait = () => new Promise<boolean>((resolve) => (waiting.current = resolve));
   // The confirm button also closes the dialog: don't treat that close as "cancel"
   const dupConfirmed = useRef(false);
@@ -262,11 +262,11 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
     waiting.current = null;
   };
 
-  const save = async (skuId: string, grams: number, notes: string, byproductQty?: Record<string, number>) => {
+  const save = async (skuId: string, grams: number, notes: string, byproductQty?: Record<string, number>, batches?: number | null) => {
     setBusy(skuId);
     let saved: Awaited<ReturnType<typeof addRecord>>;
     try {
-      saved = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes, byproductQty });
+      saved = await addRecord({ smSkuId: skuId, productionDate: day, actualOutputG: grams, notes, byproductQty, batches });
     } catch (e) {
       toast.error("บันทึกผลผลิตไม่สำเร็จ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
       return false;
@@ -293,13 +293,14 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
   };
   /** Products whose stock didn't move with a save, named for a person to fix (not saved again) */
   const stockShortError = (what: string, ids: string[]) => toast.error(`${what} ${ids.length} รายการ: ${ids.map(nameOf).join(", ")} · แจ้งผู้ดูแลระบบ อย่าบันทึกซ้ำ`, { duration: 20000 });
-  const askByproducts = (skuId: string, grams: number, notes: string) => {
+  const askByproducts = (skuId: string, grams: number, notes: string, batches?: number | null) => {
     const header = bomHeaders.find((h) => h.smSkuId === skuId);
     const items = header ? tracked.filter((b) => b.bomHeaderId === header.id) : [];
-    if (!items.length) return save(skuId, grams, notes);
+    if (!items.length) return save(skuId, grams, notes, undefined, batches);
     const perOut = getOutputPerBatch(skuId);
-    const share = perOut > 0 ? grams / perOut : 0;
-    setBpAsk({ skuId, notes, name: nameOf(skuId), grams, items: items.map((b) => ({
+    // Expected by-products follow the batches the pot takes out (1 batch for 33 kg of a 30 kg recipe)
+    const share = batches && batches > 0 ? batches : autoBatches(grams, perOut);
+    setBpAsk({ skuId, notes, batches, name: nameOf(skuId), grams, items: items.map((b) => ({
         skuId: b.skuId!,
         name: nameOf(b.skuId!),
         expected: b.outputQty * share,
@@ -309,25 +310,25 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
       })) });
     return wait();
   };
-  const [oddAsk, setOddAsk] = useState<{ skuId: string; grams: number; notes: string; usual: number } | null>(null);
+  const [oddAsk, setOddAsk] = useState<{ skuId: string; grams: number; notes: string; batches?: number | null; usual: number } | null>(null);
   const oddConfirmed = useRef(false);
-  const onRecord = async (skuId: string, grams: number, notes: string) => {
+  const onRecord = async (skuId: string, grams: number, notes: string, batches?: number | null) => {
     // Far from what this pot usually makes (a dropped or extra zero): ask first
     const usual = usualOutput(records, skuId);
     if (farFromUsual(grams, usual)) {
-      setOddAsk({ skuId, grams, notes, usual });
+      setOddAsk({ skuId, grams, notes, batches, usual });
       return wait();
     }
-    return checkTwice(skuId, grams, notes);
+    return checkTwice(skuId, grams, notes, batches);
   };
-  const checkTwice = async (skuId: string, grams: number, notes: string) => {
+  const checkTwice = async (skuId: string, grams: number, notes: string, batches?: number | null) => {
     // A by-product already went into stock with its parent pot today: ask before adding it twice
     const parent = parentOfBp.get(skuId);
     if (parent && records.some((r) => r.smSkuId === parent && r.productionDate === day)) {
-      setDupAsk({ skuId, grams, notes, parent });
+      setDupAsk({ skuId, grams, notes, batches, parent });
       return wait();
     }
-    return askByproducts(skuId, grams, notes);
+    return askByproducts(skuId, grams, notes, batches);
   };
   const [editing, setEditing] = useState<ProductionRecord | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -450,14 +451,15 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
         <EditRecordDialog
           r={editing}
           name={nameOf(editing.smSkuId)}
+          perBatch={getOutputPerBatch(editing.smSkuId)}
           busy={editBusy}
           onCancel={() => setEditing(null)}
-          onSave={async (d, grams, notes) => {
+          onSave={async (d, grams, notes, batches) => {
             if (editBusy) return;
             setEditBusy(true);
             let ok: Awaited<ReturnType<typeof updateRecordWithDelta>> = false;
             try {
-              ok = await updateRecordWithDelta(editing.id, { productionDate: d, actualOutputG: grams, notes });
+              ok = await updateRecordWithDelta(editing.id, { productionDate: d, actualOutputG: grams, notes, batches });
             } catch (e) {
               toast.error("แก้บันทึกไม่สำเร็จ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
             } finally {
@@ -482,7 +484,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
             settle(false);
           }}
           onSave={async (qty) => {
-            const ok = await save(bpAsk.skuId, bpAsk.grams, bpAsk.notes, qty);
+            const ok = await save(bpAsk.skuId, bpAsk.grams, bpAsk.notes, qty, bpAsk.batches);
             if (!ok) return;
             setBpAsk(null);
             settle(true);
@@ -514,7 +516,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           if (!d) return;
           const resolve = waiting.current;
           waiting.current = null;
-          const ok = await checkTwice(d.skuId, d.grams, d.notes);
+          const ok = await checkTwice(d.skuId, d.grams, d.notes, d.batches);
           resolve?.(ok);
         }}
       />
@@ -544,7 +546,7 @@ export default function ProducePage({ productionData, skus, bomHeaders, bomLines
           // Resolve the waiting save once the next step (by-products, if any) is done
           const resolve = waiting.current;
           waiting.current = null;
-          const ok = await askByproducts(d.skuId, d.grams, d.notes);
+          const ok = await askByproducts(d.skuId, d.grams, d.notes, d.batches);
           resolve?.(ok);
         }}
       />

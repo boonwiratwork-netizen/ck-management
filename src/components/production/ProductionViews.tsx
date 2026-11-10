@@ -4,7 +4,7 @@ import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, Sparkles } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { ProductionRecord } from "@/types/production";
-import { daysTone, gramsText, planFacts } from "@/lib/production";
+import { SMALL_BATCH_BELOW, autoBatches, batchesText, daysTone, gramsText, handBatches, planFacts } from "@/lib/production";
 import { NoteField, SkuPicker, onEnterNext } from "@/components/receive/parts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -149,7 +149,8 @@ export function RecordView({
   dayRecords: ProductionRecord[];
   canEdit: boolean;
   busy: string | null;
-  onRecord: (skuId: string, grams: number, notes: string) => Promise<boolean>;
+  /** batches: typed by hand for this pot (null = the automatic count) */
+  onRecord: (skuId: string, grams: number, notes: string, batches?: number | null) => Promise<boolean>;
   onGoPlan: () => void;
 }) {
   const today = iso(new Date());
@@ -160,6 +161,8 @@ export function RecordView({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Batches typed by hand for a pot (rare: the automatic count guessed wrong); cleared with a new output
+  const [hand, setHand] = useState<Record<string, number | null>>({});
   const [again, setAgain] = useState<{ skuId: string; grams: number; text: string } | null>(null);
   const [showDone, setShowDone] = useState(false);
 
@@ -179,6 +182,8 @@ export function RecordView({
 
   const record = async (skuId: string, force = false, typedNow?: number) => {
     const grams = typedNow ?? typed[skuId] ?? 0;
+    // Enter with a new output: the hand count was for the old one (its clearing hasn't landed yet)
+    const handNow = typedNow !== undefined && typedNow !== (typed[skuId] || 0) ? null : hand[skuId] ?? null;
     if (grams <= 0) return;
     const before = dayRecords.filter((r) => r.smSkuId === skuId);
     if (before.length && !force) {
@@ -187,9 +192,10 @@ export function RecordView({
       setAgain({ skuId, grams, text: `บันทึก${day === today ? "วันนี้" : "วันนั้น"}ไปแล้ว ${gramsText(sum)}${at ? ` ตอน ${at}` : ""}` });
       return;
     }
-    if (await onRecord(skuId, grams, notes[skuId] || "")) {
+    if (await onRecord(skuId, grams, notes[skuId] || "", handNow)) {
       setTyped((p) => ({ ...p, [skuId]: 0 }));
       setNotes((p) => ({ ...p, [skuId]: "" }));
+      setHand((p) => ({ ...p, [skuId]: null }));
     }
   };
 
@@ -256,7 +262,7 @@ export function RecordView({
               </thead>
               <tbody>
                 {todo.map((r) => (
-                  <RecordRow key={r.sku.id} r={r} grams={typed[r.sku.id] || 0} note={notes[r.sku.id] || ""} busy={busy === r.sku.id} canEdit={canEdit} onGrams={(g) => setTyped((p) => ({ ...p, [r.sku.id]: g }))} onNote={(n) => setNotes((p) => ({ ...p, [r.sku.id]: n }))} onRecord={(g) => record(r.sku.id, false, g)} desk />
+                  <RecordRow key={r.sku.id} r={r} grams={typed[r.sku.id] || 0} note={notes[r.sku.id] || ""} busy={busy === r.sku.id} canEdit={canEdit} onGrams={(g) => { setTyped((p) => ({ ...p, [r.sku.id]: g })); if (g !== (typed[r.sku.id] || 0)) setHand((p) => ({ ...p, [r.sku.id]: null })); }} hand={hand[r.sku.id] ?? null} onHand={(b) => setHand((p) => ({ ...p, [r.sku.id]: b }))} onNote={(n) => setNotes((p) => ({ ...p, [r.sku.id]: n }))} onRecord={(g) => record(r.sku.id, false, g)} desk />
                 ))}
               </tbody>
             </table>
@@ -264,7 +270,7 @@ export function RecordView({
           {/* Phone */}
           <ul data-tour="prod-lines" className={fits ? "hidden" : "flex flex-col gap-2"} onKeyDown={onEnterNext}>
             {todo.map((r) => (
-              <RecordRow key={r.sku.id} r={r} grams={typed[r.sku.id] || 0} note={notes[r.sku.id] || ""} busy={busy === r.sku.id} canEdit={canEdit} onGrams={(g) => setTyped((p) => ({ ...p, [r.sku.id]: g }))} onNote={(n) => setNotes((p) => ({ ...p, [r.sku.id]: n }))} onRecord={(g) => record(r.sku.id, false, g)} />
+              <RecordRow key={r.sku.id} r={r} grams={typed[r.sku.id] || 0} note={notes[r.sku.id] || ""} busy={busy === r.sku.id} canEdit={canEdit} onGrams={(g) => { setTyped((p) => ({ ...p, [r.sku.id]: g })); if (g !== (typed[r.sku.id] || 0)) setHand((p) => ({ ...p, [r.sku.id]: null })); }} hand={hand[r.sku.id] ?? null} onHand={(b) => setHand((p) => ({ ...p, [r.sku.id]: b }))} onNote={(n) => setNotes((p) => ({ ...p, [r.sku.id]: n }))} onRecord={(g) => record(r.sku.id, false, g)} />
             ))}
           </ul>
           </div>
@@ -330,12 +336,17 @@ function RecordRow({
   busy,
   canEdit,
   onGrams,
+  hand,
+  onHand,
   onNote,
   onRecord,
   desk,
 }: {
   r: ProdRow;
   grams: number;
+  /** Batches typed by hand for this pot, else null (the automatic count) */
+  hand: number | null;
+  onHand: (b: number | null) => void;
   note: string;
   busy: boolean;
   canEdit: boolean;
@@ -347,7 +358,36 @@ function RecordRow({
 }) {
   const days = r.dailyNeed > 0 ? r.stock / r.dailyNeed : Infinity;
   const tone = daysTone(days, r.target, r.dailyNeed);
-  const share = r.perBatch > 0 && grams > 0 ? grams / r.perBatch : 0;
+  // Batches of raw material this pot takes out: whole batches, a small batch by its share, or typed
+  const share = r.perBatch > 0 && grams > 0 ? hand ?? autoBatches(grams, r.perBatch) : 0;
+  const [fixing, setFixing] = useState(false);
+  const batchLine = share > 0 && (
+    <>
+      <button
+        type="button"
+        disabled={!canEdit}
+        onClick={() => setFixing(true)}
+        className={cn("text-right text-[13px] underline decoration-dotted underline-offset-4", hand == null && share < SMALL_BATCH_BELOW ? "font-semibold text-info" : "text-muted-foreground")}
+        aria-label={`แก้จำนวนชุด ${r.sku.name}`}
+      >
+        {hand == null && share < SMALL_BATCH_BELOW ? "ชุดเล็ก · " : ""}ตัดวัตถุดิบ {batchesText(share)}
+        {hand != null ? " (แก้เอง)" : ""}
+      </button>
+      {fixing && (
+        <BatchesDialog
+          name={r.sku.name}
+          grams={grams}
+          perBatch={r.perBatch}
+          hand={hand}
+          onCancel={() => setFixing(false)}
+          onSave={(b) => {
+            setFixing(false);
+            onHand(b);
+          }}
+        />
+      )}
+    </>
+  );
   const pct = r.plan > 0 ? Math.min(100, (r.made / r.plan) * 100) : 0;
   const input = (
     <span className="flex h-11 w-full items-center overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
@@ -404,7 +444,7 @@ function RecordRow({
         <td className={cn("px-3 py-3 text-right font-semibold", toneText[tone])}>{daysText(days)}</td>
         <td className="px-3 py-2">
           {input}
-          {share > 0 && <div className="mt-0.5 text-right text-[13px] text-muted-foreground">≈ {share.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชุด</div>}
+          {batchLine && <div className="mt-0.5 flex justify-end">{batchLine}</div>}
         </td>
         <td className="px-3 py-2">{button}</td>
       </tr>
@@ -420,7 +460,7 @@ function RecordRow({
       <div className="flex w-[136px] shrink-0 flex-col items-end gap-1">
         <span className="text-[13px] text-muted-foreground">ผลิตได้</span>
         {input}
-        {share > 0 && <span className="text-[13px] text-muted-foreground">≈ {share.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชุด</span>}
+        {batchLine}
         {button}
       </div>
     </li>
@@ -621,11 +661,69 @@ export function PlanView({
   );
 }
 
-/** Fix a saved record: day, output, note */
-export function EditRecordDialog({ r, name, busy, onCancel, onSave }: { r: ProductionRecord; name: string; busy?: boolean; onCancel: () => void; onSave: (day: string, grams: number, notes: string) => void }) {
+/**
+ * How many batches of raw material a pot took, set by hand: for the rare pot the automatic
+ * count gets wrong (one and a half batches, a small batch over half the recipe).
+ */
+export function BatchesDialog({ name, grams, perBatch, hand, onCancel, onSave }: { name: string; grams: number; perBatch: number; hand: number | null; onCancel: () => void; onSave: (b: number | null) => void }) {
+  const auto = autoBatches(grams, perBatch);
+  const [v, setV] = useState(hand != null ? String(hand) : "");
+  const typedB = handBatches(v);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" onClick={onCancel}>
+      <div role="dialog" aria-label={`จำนวนชุด ${name}`} className="flex w-full flex-col gap-3 rounded-t-2xl bg-card p-4 text-left shadow-raised md:max-w-sm md:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-bold">
+          {name} · ได้ {gramsText(grams)}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          ระบบคิดเป็น {batchesText(auto)} (1 ชุด ≈ {gramsText(perBatch)}) · ถ้าใช้วัตถุดิบไม่เท่านี้ ใส่จำนวนชุดที่ใช้จริง
+        </p>
+        <label className="flex h-11 items-center overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+          <span className="shrink-0 pl-3 text-sm text-muted-foreground">ใช้วัตถุดิบ</span>
+          <input
+            autoFocus
+            inputMode="decimal"
+            value={v}
+            placeholder={String(Math.round(auto * 100) / 100)}
+            onChange={(e) => setV(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSave(typedB)}
+            className="h-full w-full min-w-0 bg-transparent px-3 text-right font-mono text-base tabular-nums outline-none placeholder:text-muted-foreground/50"
+            aria-label="จำนวนชุดที่ใช้วัตถุดิบ"
+          />
+          <span className="shrink-0 pr-3 text-sm text-muted-foreground">ชุด</span>
+        </label>
+        <div className="flex gap-2 pb-[env(safe-area-inset-bottom)]">
+          <Button variant="outline" className="h-12 flex-1" onClick={() => onSave(null)}>
+            ใช้ตามระบบ
+          </Button>
+          <Button variant="brand" className="h-12 flex-[2]" disabled={v.trim() !== "" && typedB == null} onClick={() => onSave(typedB)}>
+            ตกลง
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Fix a saved record: day, output, batches of raw material, note */
+export function EditRecordDialog({ r, name, perBatch = 0, busy, onCancel, onSave }: { r: ProductionRecord; name: string; /** What one batch makes (0 = no recipe: no batch field) */ perBatch?: number; busy?: boolean; onCancel: () => void; onSave: (day: string, grams: number, notes: string, batches: number | null) => void }) {
   const [day, setDay] = useState(r.productionDate);
   const [grams, setGrams] = useState(String(r.actualOutputG));
   const [notes, setNotes] = useState(r.notes ?? "");
+  // Shown filled only when it was set by hand (differs from what the system would count)
+  const savedHand = r.deductBatches != null && Math.abs(r.deductBatches - autoBatches(r.actualOutputG, perBatch)) > 1e-6 ? r.deductBatches : null;
+  const [batches, setBatchesRaw] = useState(savedHand != null ? String(savedHand) : "");
+  const [touched, setTouched] = useState(false);
+  const setBatches = (v: string) => {
+    setTouched(true);
+    setBatchesRaw(v);
+  };
+  const outputChanged = Math.abs(parse(grams) - r.actualOutputG) > 1e-6;
+  // Empty: a new output takes the automatic count; an unchanged one keeps what it took
+  const shownAuto = outputChanged || r.deductBatches == null ? autoBatches(parse(grams), perBatch) : r.deductBatches;
+  // A count left as it was is dropped when the output changes (the new output gets its own count)
+  const handB = outputChanged && !touched ? null : handBatches(batches);
+  const shownValue = outputChanged && !touched ? "" : batches;
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" onClick={onCancel}>
       <div role="dialog" aria-label={`แก้ ${name}`} className="flex w-full flex-col gap-3 rounded-t-2xl bg-card p-4 shadow-raised md:max-w-md md:rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -638,12 +736,21 @@ export function EditRecordDialog({ r, name, busy, onCancel, onSave }: { r: Produ
           ผลิตได้ (ก.)
           <Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} className="h-11 w-[180px] text-right font-mono text-base" />
         </label>
+        {perBatch > 0 && (
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>
+              ตัดวัตถุดิบ (ชุด)
+              <span className="block text-[13px] text-muted-foreground">ว่าง = ตามระบบ {batchesText(shownAuto)}</span>
+            </span>
+            <Input inputMode="decimal" value={shownValue} placeholder={String(Math.round(shownAuto * 100) / 100)} onChange={(e) => setBatches(e.target.value)} className="h-11 w-[180px] text-right font-mono text-base" aria-label="จำนวนชุดที่ตัดวัตถุดิบ" />
+          </label>
+        )}
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="หมายเหตุ" className="h-11" />
         <div className="flex gap-2 pb-[env(safe-area-inset-bottom)]">
           <Button variant="outline" className="h-12 flex-1" onClick={onCancel}>
             ยกเลิก
           </Button>
-          <Button variant="brand" className="h-12 flex-[2]" loading={busy} disabled={busy || parse(grams) <= 0 || !day} onClick={() => onSave(day, parse(grams), notes)}>
+          <Button variant="brand" className="h-12 flex-[2]" loading={busy} disabled={busy || parse(grams) <= 0 || !day || (shownValue.trim() !== "" && handB == null)} onClick={() => onSave(day, parse(grams), notes, handB)}>
             บันทึก
           </Button>
         </div>

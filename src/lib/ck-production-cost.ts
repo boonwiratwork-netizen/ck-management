@@ -65,7 +65,8 @@ export interface ProductionCost {
 }
 
 export function productionCost(input: {
-  produced: { smSkuId: string; outputG: number }[];
+  /** batches: what the pot took out (Nov 2026 on: 1 for 33 kg of a 30 kg recipe); none = output ÷ per batch */
+  produced: { smSkuId: string; outputG: number; batches?: number | null }[];
   recipes: Map<string, Recipe>;
   isRm: (skuId: string) => boolean;
   stdPrice: (skuId: string) => number;
@@ -76,15 +77,22 @@ export function productionCost(input: {
   uncounted?: Set<string>;
 }): ProductionCost {
   // Output per SM, and what each recipe should have used
+  // Batches per SM: what each pot took out of stock (whole batches), the same figure the
+  // stock moved by, so the standard here and the raw material taken agree
   const out = new Map<string, number>();
-  for (const p of input.produced) out.set(p.smSkuId, (out.get(p.smSkuId) ?? 0) + (Number(p.outputG) || 0));
+  const runsOf = new Map<string, number>();
+  for (const p of input.produced) {
+    const g = Number(p.outputG) || 0;
+    out.set(p.smSkuId, (out.get(p.smSkuId) ?? 0) + g);
+    const r = input.recipes.get(p.smSkuId);
+    const runs = p.batches != null && p.batches >= 0 ? p.batches : r && r.outputPerBatch > 0 ? g / r.outputPerBatch : 0;
+    runsOf.set(p.smSkuId, (runsOf.get(p.smSkuId) ?? 0) + runs);
+  }
   const expected = new Map<string, Map<string, number>>(); // sm → sku → qty
   const totalExpectedRm = new Map<string, number>();
-  const runsOf = new Map<string, number>();
-  for (const [sm, g] of out) {
+  for (const [sm] of out) {
     const r = input.recipes.get(sm);
-    const runs = r && r.outputPerBatch > 0 ? g / r.outputPerBatch : 0;
-    runsOf.set(sm, runs);
+    const runs = runsOf.get(sm) ?? 0;
     const m = new Map<string, number>();
     for (const l of r?.lines ?? []) {
       m.set(l.skuId, (m.get(l.skuId) ?? 0) + l.qty * runs);

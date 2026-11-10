@@ -1307,6 +1307,7 @@ export type Database = {
           actual_output_g: number
           batches_produced: number
           created_at: string
+          deduct_batches: number | null
           id: string
           notes: string
           plan_id: string
@@ -1317,6 +1318,7 @@ export type Database = {
           actual_output_g?: number
           batches_produced?: number
           created_at?: string
+          deduct_batches?: number | null
           id?: string
           notes?: string
           plan_id: string
@@ -1327,6 +1329,7 @@ export type Database = {
           actual_output_g?: number
           batches_produced?: number
           created_at?: string
+          deduct_batches?: number | null
           id?: string
           notes?: string
           plan_id?: string

@@ -18,6 +18,8 @@ const BYPRODUCTS = [
   { id: "b2", bomHeaderId: "h-stock", skuId: "toristock", name: "น้ำสต๊อกโทริ ไพตัน", outputQty: 30000, costAllocationPct: 42.25, tracksInventory: true },
 ];
 const HEADERS = Object.keys(PER).map((id) => ({ id: `h-${id}`, smSkuId: id, productionType: "CK", bomMode: "simple", batchSize: PER[id], yieldPercent: 1 }) as BOMHeader);
+// One made-up line each, so every recipe counts as set up (off-plan picker, batch line)
+const LINES = HEADERS.map((h) => ({ id: `l-${h.id}`, bomHeaderId: h.id, rmSkuId: "rm-bones", qtyPerBatch: 1000, yieldPercent: 1 }));
 const today = new Date().toISOString().slice(0, 10);
 
 export default function ProduceDemo() {
@@ -30,7 +32,7 @@ export default function ProduceDemo() {
     addPlan: async () => "p",
     updatePlan: async () => undefined,
     deletePlan: async () => undefined,
-    addRecord: async (d: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number> }) => {
+    addRecord: async (d: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number>; batches?: number | null }) => {
       const id = `r${Date.now()}`;
       // What a save would send (checked in the browser)
       (window as unknown as { __lastRecord?: unknown }).__lastRecord = d;
@@ -56,7 +58,7 @@ export default function ProduceDemo() {
           productionData={data}
           skus={SKUS}
           bomHeaders={HEADERS}
-          bomLines={[]}
+          bomLines={LINES as never}
           bomSteps={[]}
           smStockBalances={[
             { skuId: "soup", currentStock: 8000 },

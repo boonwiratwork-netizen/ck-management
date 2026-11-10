@@ -20,6 +20,12 @@ export interface ProductionRecord {
   smSkuId: string; // auto-filled from plan
   batchesProduced: number;
   actualOutputG: number; // actual output in grams
+  /**
+   * Batches of raw material this record took out (production_records.deduct_batches):
+   * 1 for a 33 kg pot of a 30 kg recipe, 0.1 for a small batch. Null = saved before
+   * Nov 2026 (the exact share of its output, or whole batches before 25 Oct).
+   */
+  deductBatches?: number | null;
   createdAt?: string; // ISO datetime
   notes?: string;
 }

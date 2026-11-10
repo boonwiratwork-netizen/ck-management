@@ -12,8 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { bulkResult, type BulkResult } from "@/lib/bulk-write";
+import { isMissingColumn } from "@/lib/recipe-note-db";
 import { NO_ANSWER, newRowId, noAnswer, writeError, writeTimeout } from "@/lib/write-timeout";
-import { batchShare, batchesForRecord, deltas, editMovesStock, editTarget, ingredientsPerBatch, movementFor, outputPerBatch, recordTag, shareText, writeProductionMoves } from "@/lib/production";
+import { autoBatches, batchShare, batchesForRecord, deltas, editMovesStock, editTarget, ingredientsPerBatch, movementFor, outputPerBatch, recordTag, shareText, writeProductionMoves } from "@/lib/production";
 
 const toPlan = (r: any): ProductionPlan => ({
   id: r.id,
@@ -32,6 +33,7 @@ const toRecord = (r: any): ProductionRecord => ({
   smSkuId: r.sm_sku_id,
   batchesProduced: r.batches_produced,
   actualOutputG: r.actual_output_g,
+  deductBatches: r.deduct_batches == null ? null : Number(r.deduct_batches),
   createdAt: r.created_at,
   notes: r.notes ?? "",
 });
@@ -194,7 +196,7 @@ export function useProductionData(
    *   never moved them, so their true amount isn't known).
    */
   const currentFor = useCallback(async (record: ProductionRecord, per: NonNullable<Awaited<ReturnType<typeof perBatchFor>>>) => {
-    const { data, error } = await supabase.from("stock_adjustments").select("sku_id, quantity, reason").like("reason", `%${recordTag(record.id)}%`).abortSignal(writeTimeout());
+    const { data, error } = await supabase.from("stock_adjustments").select("sku_id, quantity, reason, created_at").like("reason", `%${recordTag(record.id)}%`).abortSignal(writeTimeout());
     // An empty answer would read as "legacy record, whole batches out": a failed read must stop the caller
     if (error) throw new Error(writeError(error));
     const rows = data || [];
@@ -202,7 +204,9 @@ export function useProductionData(
     const legacy = marked != null ? Number(marked) : rows.length === 0 ? record.batchesProduced : null;
     const m = legacy != null ? movementFor(per.ingredientsNet, [], legacy) : new Map<string, number>();
     for (const r of rows) m.set(r.sku_id, (m.get(r.sku_id) || 0) + Number(r.quantity));
-    return { current: m, legacy };
+    // The batches its latest move was written for ("Production: 1 batches of …"): what it has out now
+    const latest = [...rows].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))).map((r) => /: (\d+(?:\.\d+)?) batches/.exec(r.reason)?.[1]).find(Boolean);
+    return { current: m, legacy, reasonShare: latest != null ? Number(latest) : null };
   }, []);
 
   /**
@@ -240,16 +244,19 @@ export function useProductionData(
   const unconfirmedInsert = useRef<{ key: string; id: string } | null>(null);
 
   const addRecord = useCallback(
-    async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number> }): Promise<{ id: string; stockShort: string[] } | undefined> => {
+    async (data: { smSkuId: string; productionDate: string; actualOutputG: number; notes?: string; byproductQty?: Record<string, number>; /** Typed by hand; else the automatic count (autoBatches) */ batches?: number | null }): Promise<{ id: string; stockShort: string[] } | undefined> => {
       const planId = await planFor(data.smSkuId, data.productionDate);
       if (!planId) return;
       const perOut = getOutputPerBatch(data.smSkuId);
+      // Batches of raw material out: whole batches, a small batch by its share, or the count typed
+      const share = data.batches && data.batches > 0 ? data.batches : autoBatches(data.actualOutputG, perOut);
       const row: Record<string, unknown> = {
         plan_id: planId,
         production_date: data.productionDate,
         sm_sku_id: data.smSkuId,
         batches_produced: batchesForRecord(data.actualOutputG, perOut),
         actual_output_g: data.actualOutputG,
+        deduct_batches: perOut > 0 ? share : null,
       };
       if (data.notes) row.notes = data.notes;
       // The id is made here, so a save that got no answer can be looked up. Pressed again for the
@@ -261,7 +268,12 @@ export function useProductionData(
       // The recipe's read starts beside the insert (it doesn't depend on it)
       const perRead = perBatchFor(data.smSkuId);
       perRead.catch(() => undefined); // awaited below, only once the record is in
-      const res = await supabase.from("production_records").insert(row as never).select().abortSignal(writeTimeout()).single();
+      let res = await supabase.from("production_records").insert(row as never).select().abortSignal(writeTimeout()).single();
+      // The column comes with a migration: until it is run, save without it (the stock still moves by batches)
+      if (res.error && isMissingColumn(res.error)) {
+        delete row.deduct_batches;
+        res = await supabase.from("production_records").insert(row as never).select().abortSignal(writeTimeout()).single();
+      }
       let saved = res.data;
       if (res.error && (noAnswer(res.error) || (reuse && res.error.code === "23505"))) {
         // No answer (or it is already in from the unanswered press): did it land? Then carry on as saved
@@ -290,7 +302,6 @@ export function useProductionData(
       }
       const per = read.per;
       if (per) {
-        const share = batchShare(data.actualOutputG, perOut);
         const want = movementFor(per.ingredients, per.byproducts, share);
         // By-products as weighed (น้ำมันไก่ 3–6 kg a pot), not the recipe's fixed amount
         for (const b of per.byproducts) if (data.byproductQty && data.byproductQty[b.skuId] !== undefined) want.set(b.skuId, Math.max(0, data.byproductQty[b.skuId]));
@@ -306,7 +317,7 @@ export function useProductionData(
 
   const updateRecordWithDelta = useCallback(
     /** false = nothing saved; else saved, with the products whose stock didn't move (stockShort) */
-    async (id: string, data: { productionDate: string; actualOutputG: number; notes?: string }): Promise<false | { stockShort: string[] }> => {
+    async (id: string, data: { productionDate: string; actualOutputG: number; notes?: string; /** Typed by hand; else the automatic count for the new output */ batches?: number | null }): Promise<false | { stockShort: string[] }> => {
       const old = records.find((r) => r.id === id);
       if (!old) {
         toast.error("ไม่พบบันทึกนี้");
@@ -314,30 +325,49 @@ export function useProductionData(
       }
       const perOut = getOutputPerBatch(old.smSkuId);
       const outputChanged = Math.abs(data.actualOutputG - old.actualOutputG) > 1e-6;
-      const moves = editMovesStock(old, data);
-      // Only what changed is written: a note alone keeps the batch count (legacy records read their untagged base from it)
-      const patch: Record<string, unknown> = {};
-      if (outputChanged) Object.assign(patch, { actual_output_g: data.actualOutputG, batches_produced: batchesForRecord(data.actualOutputG, perOut) });
-      if (old.productionDate !== data.productionDate) patch.production_date = data.productionDate;
-      if (data.notes !== undefined && data.notes !== (old.notes ?? "")) patch.notes = data.notes;
-      if (Object.keys(patch).length === 0) return { stockShort: [] };
+      const hand = data.batches && data.batches > 0 ? data.batches : null;
+      // Stock can move only with a new output, a new day or a count typed by hand: a note alone moves nothing
+      const mayMove = outputChanged || old.productionDate !== data.productionDate || hand != null;
       // The recipe and what is out for the record now are read first: if either can't be read
       // the edit stops here (a deduction is never worked out from missing figures)
       let per: Awaited<ReturnType<typeof perBatchFor>> = null;
       let out: Awaited<ReturnType<typeof currentFor>> | null = null;
       try {
-        per = moves ? await perBatchFor(old.smSkuId) : null;
+        per = mayMove ? await perBatchFor(old.smSkuId) : null;
         out = per ? await currentFor(old, per) : null;
       } catch (e) {
         toast.error("อ่านยอดที่ตัดสต๊อกของบันทึกนี้ไม่ได้ ยังไม่ได้แก้ ลองอีกครั้ง: " + (e instanceof Error ? e.message : String(e)));
         return false;
       }
-      const { data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id").abortSignal(writeTimeout());
+      // The batches it has out now: its own count; else the batches its latest move was written
+      // for (a record saved before the column existed, or by the exact-share rule of 25 Oct);
+      // else its untagged whole batches (before 25 Oct); else its share of the output
+      const oldShare =
+        old.deductBatches != null ? old.deductBatches : out?.reasonShare != null ? out.reasonShare : out?.legacy != null ? out.legacy : batchShare(old.actualOutputG, perOut);
+      // A new output gets the automatic count; a day change keeps what it took (an older record
+      // is not re-read by today's rule until its output or count is changed)
+      const newShare = hand ?? (outputChanged ? autoBatches(data.actualOutputG, perOut) : oldShare);
+      const batchesChanged = perOut > 0 && Math.abs(newShare - oldShare) > 1e-6;
+      const moves = !!per && editMovesStock(old, data, batchesChanged);
+      // Only what changed is written: a note alone keeps the batch count (legacy records read their untagged base from it)
+      const patch: Record<string, unknown> = {};
+      if (outputChanged) Object.assign(patch, { actual_output_g: data.actualOutputG, batches_produced: batchesForRecord(data.actualOutputG, perOut) });
+      if (old.productionDate !== data.productionDate) patch.production_date = data.productionDate;
+      if (data.notes !== undefined && data.notes !== (old.notes ?? "")) patch.notes = data.notes;
+      if (perOut > 0 && moves && (batchesChanged || old.deductBatches == null)) patch.deduct_batches = newShare;
+      if (Object.keys(patch).length === 0) return { stockShort: [] };
+      let { data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id").abortSignal(writeTimeout());
+      // Before the migration: save without the count (the stock still moves by it)
+      if (error && "deduct_batches" in patch && isMissingColumn(error)) {
+        delete patch.deduct_batches;
+        if (Object.keys(patch).length) ({ data: saved, error } = await supabase.from("production_records").update(patch as never).eq("id", id).select("id").abortSignal(writeTimeout()));
+        else ({ data: saved, error } = { data: [{ id }], error: null });
+      }
       if (error && noAnswer(error)) {
         // No answer: read it back. Landed = carry on (the difference is written); else not saved
-        const back = await supabase.from("production_records").select("actual_output_g, batches_produced, production_date, notes").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
+        const back = await supabase.from("production_records").select("*").eq("id", id).abortSignal(writeTimeout()).maybeSingle();
         const now = back.data as Record<string, unknown> | null;
-        const landed = !!now && Object.entries(patch).every(([k, v]) => String(now[k] ?? "") === String(v ?? ""));
+        const landed = !!now && Object.entries(patch).every(([k, v]) => (typeof v === "number" ? Math.abs(Number(now[k]) - v) < 1e-6 : String(now[k] ?? "") === String(v ?? "")));
         if (!landed) {
           toast.error(back.error || !now ? "แก้บันทึก: " + NO_ANSWER : "ระบบไม่ตอบ ยังไม่ได้แก้ ลองอีกครั้ง");
           return false;
@@ -347,13 +377,14 @@ export function useProductionData(
         return false;
       }
       let stockShort: string[] = [];
-      if (per && out) {
+      if (moves && per && out) {
         const { current: now, legacy } = out;
-        const share = batchShare(data.actualOutputG, perOut);
-        // What this record took out, scaled to the new output: the rule it was saved with
-        // (records before 27 Oct 2026 took net amounts), not today's. By-products scale the
-        // same way (weighed when recorded); legacy records never moved theirs.
-        const want = editTarget(now, old.actualOutputG, data.actualOutputG, () => movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share));
+        const share = newShare;
+        // What this record took out, scaled from the batches it took to the batches it takes
+        // now: the rule it was saved with (records before 27 Oct 2026 took net amounts), not
+        // today's. By-products scale the same way (weighed when recorded); legacy records
+        // never moved theirs and took whole batches (their untagged base).
+        const want = editTarget(now, oldShare, share, () => movementFor(per.ingredients, legacy != null ? [] : per.byproducts, share));
         const tag = `${recordTag(id)}${legacy != null ? ` legacy=${legacy}` : ""}`;
         const bpReason = (what: string) => `Production by-product ${what} ${tag}`;
         if (old.productionDate !== data.productionDate) {
@@ -369,7 +400,7 @@ export function useProductionData(
       setRecords((prev) =>
         prev.map((r) =>
           r.id === id
-            ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: outputChanged ? batchesForRecord(data.actualOutputG, perOut) : r.batchesProduced, notes: data.notes ?? r.notes }
+            ? { ...r, productionDate: data.productionDate, actualOutputG: data.actualOutputG, batchesProduced: outputChanged ? batchesForRecord(data.actualOutputG, perOut) : r.batchesProduced, deductBatches: "deduct_batches" in patch ? newShare : r.deductBatches, notes: data.notes ?? r.notes }
             : r,
         ),
       );

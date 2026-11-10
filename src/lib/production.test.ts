@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BOMHeader, BOMLine, BOMStep } from "@/types/bom";
-import { batchShare, batchesForRecord, daysTone, deltas, editMovesStock, editTarget, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput, writeProductionMoves } from "./production";
+import { autoBatches, batchShare, batchesForRecord, batchesText, handBatches, daysTone, deltas, editMovesStock, editTarget, farFromUsual, gramsText, indirectNeed, ingredientsPerBatch, movementFor, planFacts, shareText, usualOutput, writeProductionMoves } from "./production";
 
 const header = (o: Partial<BOMHeader>): BOMHeader => ({ id: "h", smSkuId: "sm", productionType: "CK", bomMode: "simple", batchSize: 33000, yieldPercent: 1, ...o }) as BOMHeader;
 const line = (o: Partial<BOMLine>): BOMLine => ({ id: Math.random().toString(), bomHeaderId: "h", rmSkuId: "bone", qtyPerBatch: 1000, yieldPercent: 1, ...o }) as BOMLine;
@@ -27,6 +27,30 @@ describe("ingredients per batch", () => {
       { skuId: "bone", qty: 2000 },
       { skuId: "sauce", qty: 100 },
     ]);
+  });
+});
+
+describe("raw material by the recipe batch (Nov 2026)", () => {
+  it("a pot uses one batch whatever it came out at; several round; under half is a small batch", () => {
+    expect(autoBatches(33000, 30000)).toBe(1);
+    expect(autoBatches(27000, 30000)).toBe(1);
+    expect(autoBatches(62000, 30000)).toBe(2);
+    expect(autoBatches(15000, 30000)).toBe(1); // half a batch and up: a pot
+    expect(autoBatches(3000, 30000)).toBeCloseTo(0.1, 6);
+    expect(autoBatches(0, 30000)).toBe(0);
+    expect(autoBatches(3000, 0)).toBe(0);
+  });
+  it("what the kitchen reads, and a count typed by hand", () => {
+    expect(batchesText(1)).toBe("1 ชุด");
+    expect(batchesText(2)).toBe("2 ชุด");
+    expect(batchesText(0.1)).toBe("1/10 ชุด");
+    expect(batchesText(0.25)).toBe("1/4 ชุด");
+    expect(batchesText(1.5)).toBe("1.5 ชุด");
+    expect(batchesText(0.13)).toBe("0.13 ชุด");
+    expect(handBatches("1.5")).toBe(1.5);
+    expect(handBatches("")).toBeNull();
+    expect(handBatches("0")).toBeNull();
+    expect(handBatches("abc")).toBeNull();
   });
 });
 

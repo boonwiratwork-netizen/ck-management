@@ -41,12 +41,42 @@ export function outputPerBatch(header: BOMHeader, lines: BOMLine[], steps: BOMSt
   return resolveSm(header, lines.filter((l) => l.bomHeaderId === header.id), own).output;
 }
 
-/**
- * How many batches an output is. Raw material comes out by this exact share (a
- * 3.5 kg pot from a 33 kg batch takes 0.11 of a batch) — it used to be rounded
- * to whole batches, so a small pot took nothing and 24 kg took a full 33 kg batch.
- */
+/** How many batches an output is, exactly (33 kg from a 30 kg batch = 1.1) */
 export const batchShare = (outputG: number, perBatch: number) => (perBatch > 0 ? outputG / perBatch : 0);
+
+/** Under half a batch is a small batch (ชุดเล็ก): it takes its share, not a whole batch */
+export const SMALL_BATCH_BELOW = 0.5;
+
+/**
+ * How many batches of raw material a record takes out (Nov 2026, Bucci's rule). A pot
+ * uses the recipe whatever it came out at: 33 kg or 27 kg from a 30 kg recipe is one
+ * batch, its raw material is one batch (taking 1.1 batches drove chicken bones negative).
+ * Several pots round to the nearest whole batch (62 kg = 2). Under half a batch is a
+ * small batch the kitchen made on purpose: it takes its exact share (3 kg = 0.1), so
+ * a small pot never takes a whole batch. A person can set the count by hand (`deductBatches`
+ * on the record) when this guess is wrong, e.g. one and a half batches.
+ * Oct 25 – Nov 2026 records took the exact share of every output (`batchShare`).
+ */
+export function autoBatches(outputG: number, perBatch: number): number {
+  if (!(outputG > 0) || !(perBatch > 0)) return 0;
+  const r = outputG / perBatch;
+  return r < SMALL_BATCH_BELOW ? r : Math.round(r);
+}
+
+/** A count typed by hand: a number above 0, else none (the automatic count applies) */
+export const handBatches = (v: unknown): number | null => {
+  const n = typeof v === "string" ? Number(v.replace(/,/g, "")) : Number(v);
+  return v !== null && v !== undefined && v !== "" && Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** "1 ชุด", "2 ชุด", "1/10 ชุด", "1.5 ชุด", "0.13 ชุด" — what the kitchen reads under the output */
+export function batchesText(b: number): string {
+  if (!(b > 0)) return "0 ชุด";
+  if (Math.abs(b - Math.round(b)) < 0.005) return `${Math.round(b)} ชุด`;
+  // Only the fractions a kitchen says (½, ¼, 1/10 …): 0.09 stays a number, not "1/11"
+  if (b < 1) for (const n of [2, 3, 4, 5, 8, 10, 20]) if (Math.abs(b - 1 / n) < 0.004) return `1/${n} ชุด`;
+  return `${b.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชุด`;
+}
 
 /** The whole-batch count kept on the record (what screens show), at least 1 when something was made */
 export const batchesForRecord = (outputG: number, perBatch: number) => (outputG > 0 && perBatch > 0 ? Math.max(1, Math.round(outputG / perBatch)) : 0);
@@ -77,20 +107,21 @@ export function deltas(target: Map<string, number>, current: Map<string, number>
 export const shareText = (share: number) => (Math.abs(share - Math.round(share)) < 0.005 ? String(Math.round(share)) : share.toFixed(2));
 
 /** An edit moves stock only when the output or the day changed: a note alone moves nothing */
-export const editMovesStock = (old: { actualOutputG: number; productionDate: string }, next: { actualOutputG: number; productionDate: string }) =>
-  Math.abs(next.actualOutputG - old.actualOutputG) > 1e-6 || next.productionDate !== old.productionDate;
+export const editMovesStock = (old: { actualOutputG: number; productionDate: string }, next: { actualOutputG: number; productionDate: string }, batchesChanged = false) =>
+  batchesChanged || Math.abs(next.actualOutputG - old.actualOutputG) > 1e-6 || next.productionDate !== old.productionDate;
 
 /**
  * What an edited record should have out: what it has out now (its own rows — the rule and
- * recipe it was saved with) scaled to the new output. Re-working it with today's rule turned
+ * recipe it was saved with) scaled from the batches it took to the batches it takes now
+ * (`oldShare` → `newShare`; before Nov 2026 these were the outputs themselves). Re-working it with today's rule turned
  * every edit of a record saved before the bought-amount rule (27 Oct 2026, net amounts) into
  * a correction, even a note-only one. Today's recipe (`fresh`) is used only for a record that
  * has nothing out yet or made nothing before.
  */
-export function editTarget(current: Map<string, number>, oldOutputG: number, newOutputG: number, fresh: () => Map<string, number>): Map<string, number> {
+export function editTarget(current: Map<string, number>, oldShare: number, newShare: number, fresh: () => Map<string, number>): Map<string, number> {
   const hasOut = [...current.values()].some((q) => Math.abs(q) > 0.0001);
-  if (!hasOut || oldOutputG <= 0) return fresh();
-  const k = newOutputG / oldOutputG;
+  if (!hasOut || oldShare <= 0) return fresh();
+  const k = newShare / oldShare;
   const out = new Map<string, number>();
   for (const [id, q] of current) if (Math.abs(q) > 0.0001) out.set(id, q * k);
   return out;

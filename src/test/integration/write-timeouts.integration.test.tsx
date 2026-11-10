@@ -306,11 +306,11 @@ describe("writes that landed but got no answer", () => {
     expect(moved()).toEqual([["rm-1", -600]]);
   });
 
-  it("production update landed: the difference is written (1000 → 1500 g: −300)", async () => {
+  it("production update landed: the difference is written (1000 → 2000 g = 2 batches: −600)", async () => {
     const h = await savedRecord();
     net.fault({ kind: "stall", landed: true }, FakeNetwork.to("production_records", "PATCH"), true);
-    expect(await pastTheLimit(() => h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1500 }))).toEqual({ stockShort: [] });
-    expect(moved()).toEqual([["rm-1", -300]]);
+    expect(await pastTheLimit(() => h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 2000 }))).toEqual({ stockShort: [] });
+    expect(moved()).toEqual([["rm-1", -600]]);
   });
 
   it("production update didn't land: not saved, nothing written", async () => {
@@ -414,6 +414,7 @@ describe("production edit read-back covers every changed column", () => {
     expect(await pastTheLimit(() => h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1500 }))).toEqual({ stockShort: [] });
     expect(net.tables.production_records[0]).toMatchObject({ actual_output_g: 1500 });
     const readBack = net.sent("production_records", "GET").at(-1)!;
-    expect(readBack.query.select[0].split(",")).toEqual(expect.arrayContaining(["actual_output_g", "batches_produced"]));
+    // Every column (deduct_batches too, which may not exist before its migration)
+    expect(readBack.query.select[0]).toBe("*");
   });
 });

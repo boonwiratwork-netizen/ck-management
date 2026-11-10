@@ -62,6 +62,39 @@ describe("Produce save (addRecord)", () => {
     expect(all.every((r) => r.reason.startsWith("Production:"))).toBe(true);
   });
 
+  const taken = () => net.sent("stock_adjustments", "POST").flatMap((r) => r.body as { sku_id: string; quantity: number }[]).map((r) => [r.sku_id, r.quantity]).sort();
+
+  it("a pot over the recipe (1,100 g of a 1,000 g batch) takes one batch, not 1.1", async () => {
+    const h = mount();
+    await act(() => settles(h.result.current.addRecord({ ...record, actualOutputG: 1100 })));
+    expect(taken()).toEqual([["rm-1", -600], ["sm-base", -400]]);
+    expect(net.sent("production_records", "POST")[0].body).toMatchObject({ actual_output_g: 1100, deduct_batches: 1 });
+  });
+
+  it("a small batch (100 g, under half the recipe) takes its share, not a whole batch", async () => {
+    const h = mount();
+    await act(() => settles(h.result.current.addRecord({ ...record, actualOutputG: 100 })));
+    expect(taken()).toEqual([["rm-1", -60], ["sm-base", -40]]);
+    expect(net.sent("production_records", "POST")[0].body).toMatchObject({ deduct_batches: 0.1 });
+  });
+
+  it("batches typed by hand win (1,500 g as 1.5 batches, not 2)", async () => {
+    const h = mount();
+    await act(() => settles(h.result.current.addRecord({ ...record, actualOutputG: 1500, batches: 1.5 })));
+    expect(taken()).toEqual([["rm-1", -900], ["sm-base", -600]]);
+  });
+
+  it("before the migration (no deduct_batches column): saved without it, stock still by batches", async () => {
+    net.fault({ kind: "refuse", code: "PGRST204", message: "Could not find the 'deduct_batches' column of 'production_records' in the schema cache" }, FakeNetwork.to("production_records", "POST"), true);
+    const h = mount();
+    const res = await act(() => settles(h.result.current.addRecord({ ...record, actualOutputG: 1100 })));
+    expect(res?.stockShort).toEqual([]);
+    const posts = net.sent("production_records", "POST");
+    expect(posts).toHaveLength(2);
+    expect(posts[1].body).not.toHaveProperty("deduct_batches");
+    expect(taken()).toEqual([["rm-1", -600], ["sm-base", -400]]);
+  });
+
   it("record insert refused or dropped: settles undefined with a message, takes nothing out", async () => {
     const h = mount();
     net.fault({ kind: "refuse" }, FakeNetwork.to("production_records", "POST"), true);
@@ -119,11 +152,77 @@ describe("Produce edit / delete of a saved record", () => {
     }
   }
 
-  it("output 1000 → 1500 g: takes out only the difference (−300 / −200)", async () => {
+  const addedNow = () => net.sent("stock_adjustments", "POST").flatMap((r) => r.body as { sku_id: string; quantity: number }[]).map((r) => [r.sku_id, r.quantity]).sort();
+
+  it("output 1000 → 1500 g (rounds to 2 batches): takes out only the difference, one more batch", async () => {
     const h = await mountLoaded();
     expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", edit)))).toEqual({ stockShort: [] });
-    const added = net.sent("stock_adjustments", "POST").flatMap((r) => r.body as { sku_id: string; quantity: number }[]);
-    expect(added.map((r) => [r.sku_id, r.quantity]).sort()).toEqual([["rm-1", -300], ["sm-base", -200]]);
+    expect(addedNow()).toEqual([["rm-1", -600], ["sm-base", -400]]);
+    expect(net.tables.production_records[0]).toMatchObject({ actual_output_g: 1500, deduct_batches: 2 });
+  });
+
+  it("output 1000 → 1100 g: still one batch, the output is saved and no stock moves", async () => {
+    const h = await mountLoaded();
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1100 })))).toEqual({ stockShort: [] });
+    expect(addedNow()).toEqual([]);
+    expect(net.tables.production_records[0]).toMatchObject({ actual_output_g: 1100, deduct_batches: 1 });
+  });
+
+  it("batches set by hand on an edit (1 → 1.5): takes out the half batch more", async () => {
+    const h = await mountLoaded();
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1000, batches: 1.5 })))).toEqual({ stockShort: [] });
+    expect(addedNow()).toEqual([["rm-1", -300], ["sm-base", -200]]);
+    expect(net.tables.production_records[0]).toMatchObject({ deduct_batches: 1.5 });
+  });
+
+  async function mountWith(rec: Record<string, unknown>, adjs: Record<string, unknown>[]) {
+    net.seed("production_records", [{ id: "rec-1", plan_id: "p1", production_date: "2026-11-01", sm_sku_id: "sm-1", batches_produced: 1, notes: null, created_at: "2026-11-01T03:00:00Z", ...rec }]);
+    net.seed("stock_adjustments", adjs);
+    const h = renderHook(() => {
+      const rm = useKitchenItemStock("RM", NONE, NONE, false);
+      return useProductionData(headers, lines, rm.addAdjustment, NONE, true, rm.addAdjustments);
+    });
+    await waitFor(() => expect(h.result.current.records).toHaveLength(1));
+    net.requests = [];
+    return h;
+  }
+
+  it("an old untagged record (whole batch, 1,100 g) moved to another day: the same batch, no extra", async () => {
+    const h = await mountWith({ actual_output_g: 1100 }, []);
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-02", actualOutputG: 1100 })))).toEqual({ stockShort: [] });
+    const rows = net.sent("stock_adjustments", "POST").flatMap((r) => r.body as { sku_id: string; quantity: number; adjustment_date: string }[]);
+    const net1 = (d: string) => rows.filter((r) => r.sku_id === "rm-1" && r.adjustment_date === d).reduce((t, r) => t + r.quantity, 0);
+    expect(net1("2026-11-01")).toBeCloseTo(600, 6);
+    expect(net1("2026-11-02")).toBeCloseTo(-600, 6);
+    expect(net.tables.production_records[0]).toMatchObject({ deduct_batches: 1 });
+  });
+
+  it("a record saved before the column (reason says 1 batch for 1,100 g): 1,100 → 1,200 g moves nothing", async () => {
+    const h = await mountWith({ actual_output_g: 1100 }, [
+      { id: "a1", sku_id: "rm-1", quantity: -600, reason: "Production: 1 batches of sm-1 [rec rec-1]", created_at: "2026-11-01T03:00:01Z" },
+      { id: "a2", sku_id: "sm-base", quantity: -400, reason: "Production: 1 batches of sm-1 [rec rec-1]", created_at: "2026-11-01T03:00:01Z" },
+    ]);
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1200 })))).toEqual({ stockShort: [] });
+    expect(addedNow()).toEqual([]);
+  });
+
+  it("a record of the exact-share days (1.1 batches for 1,100 g): an output edit brings it to 1 batch", async () => {
+    const h = await mountWith({ actual_output_g: 1100 }, [
+      { id: "a1", sku_id: "rm-1", quantity: -660, reason: "Production: 1.10 batches of sm-1 [rec rec-1]", created_at: "2026-11-01T03:00:01Z" },
+      { id: "a2", sku_id: "sm-base", quantity: -440, reason: "Production: 1.10 batches of sm-1 [rec rec-1]", created_at: "2026-11-01T03:00:01Z" },
+    ]);
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1050 })))).toEqual({ stockShort: [] });
+    const got = addedNow() as [string, number][];
+    expect(got.map(([k]) => k)).toEqual(["rm-1", "sm-base"]);
+    expect(got[0][1]).toBeCloseTo(60, 6);
+    expect(got[1][1]).toBeCloseTo(40, 6);
+  });
+
+  it("a note-only edit of an older record moves nothing (not re-read by the new rule)", async () => {
+    const h = await mountLoaded();
+    expect(await act(() => settles(h.result.current.updateRecordWithDelta("rec-1", { productionDate: "2026-11-01", actualOutputG: 1000, notes: "ok" })))).toEqual({ stockShort: [] });
+    expect(net.sent("stock_adjustments", "POST")).toHaveLength(0);
+    expect(net.tables.production_records[0].deduct_batches ?? null).toBeNull();
   });
 
   for (const fault of [{ kind: "refuse" }, { kind: "fail" }] as const) {
