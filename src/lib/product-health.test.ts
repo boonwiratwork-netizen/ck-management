@@ -137,3 +137,31 @@ describe("unitLooksOff", () => {
     expect(unitLooksOff(60, "VG", skus.slice(0, 3), prices)).toBeNull();
   });
 });
+
+describe("summarizeProduct · WIP (made at the branch by weight)", () => {
+  const wip = sku("WIP-0001", "WIP", { name: "ชาชูรวม" });
+  const chashu = sku("SM-0008", "SM", { name: "สามชั้น" });
+  const ctx = (over: Partial<ProductContext> = {}) =>
+    base({ skus: [onion, soup, wip, chashu], menuLines: [{ menuId: "m1", skuId: "WIP-0001" }, { menuId: "m1", skuId: "SM-0008", yieldPct: 100 }], ...over });
+
+  it("needs what may go in; never made = cost ฿0 (a warning, not a missing price)", () => {
+    const s = summarizeProduct(wip, ctx());
+    expect(ids(s)).toEqual(["wip-no-inputs:error", "wip-never-made:warn"]);
+    expect(s.checks.some((c) => c.id === "no-price")).toBe(false);
+  });
+
+  it("set up and made: ok, its inputs are what it is made from", () => {
+    const s = summarizeProduct(wip, ctx({ wipInputs: [{ wipSkuId: "WIP-0001", skuId: "SM-0008" }], prices: [price("WIP-0001", 0.25, { supplierId: BOM_SUPPLIER_ID })] }));
+    expect(ids(s)).toEqual([]);
+    expect(s.madeFrom).toEqual(["SM-0008"]);
+  });
+
+  it("an input still lost in a menu's yield would be taken twice: flagged", () => {
+    const s = summarizeProduct(
+      wip,
+      ctx({ wipInputs: [{ wipSkuId: "WIP-0001", skuId: "SM-0008" }], prices: [price("WIP-0001", 0.25)], menuLines: [{ menuId: "m1", skuId: "WIP-0001" }, { menuId: "m1", skuId: "SM-0008", yieldPct: 80 }] }),
+    );
+    expect(ids(s)).toEqual(["wip-input-yield:warn"]);
+    expect(s.checks[0].detail).toContain("สามชั้น (1 เมนู)");
+  });
+});

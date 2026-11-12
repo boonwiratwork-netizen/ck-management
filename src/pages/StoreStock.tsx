@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { WipSheet } from "@/components/wip/WipSheet";
+import { dayClosed, loadWipInputs, type WipInput } from "@/lib/wip";
+import { businessDate } from "@/lib/stock-count";
 import * as XLSX from "xlsx";
 import { Download, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -52,6 +56,30 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
   const [query, setQuery] = useState("");
   const [historyFor, setHistoryFor] = useState<BranchStockRow | null>(null);
   const [moveFor, setMoveFor] = useState<BranchStockRow | null>(null);
+  // Making a WIP here: what may go in, and the count day it lands on (the next one once today's count is sent)
+  const [makeFor, setMakeFor] = useState<SKU | null>(null);
+  const [wipInputs, setWipInputs] = useState<WipInput[] | null>(null);
+  // The sheet opens only once the day is checked (a save can't go to a day that was just closed)
+  const [makeDay, setMakeDay] = useState<{ date: string; ready: boolean }>({ date: businessDate(new Date()), ready: false });
+  useEffect(() => {
+    if (!makeFor || !branchId) return;
+    setMakeDay((d) => ({ ...d, ready: false }));
+    loadWipInputs().then(setWipInputs, () => setWipInputs([]));
+    const today = businessDate(new Date());
+    dayClosed(branchId, today).then(
+      (closed) => {
+        if (!closed) return setMakeDay({ date: today, ready: true });
+        // Today's count is sent: a batch would land on tomorrow, which this page doesn't show yet
+        // (pressing again would make a second one). Tomorrow's batches are made on the count page.
+        setMakeFor(null);
+        toast.info("ใบนับของวันนี้ส่งแล้ว", { description: "บันทึกการทำได้ที่หน้านับสต๊อก (เข้าใบนับของพรุ่งนี้)" });
+      },
+      () => {
+        setMakeFor(null);
+        toast.error("เช็ควันที่ไม่ได้ ลองอีกครั้ง");
+      },
+    );
+  }, [makeFor, branchId]);
   const [measure, wide] = useFitsWidth(STORE_STOCK_TABLE_MIN_W);
 
   const list = rows ?? [];
@@ -250,6 +278,11 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                           <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setHistoryFor(r)}>
                             ประวัติ
                           </Button>
+                          {!readOnly && r.sku.type === "WIP" && (
+                            <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setMakeFor(r.sku)}>
+                              ทำ
+                            </Button>
+                          )}
                           {!readOnly && (
                             <Button variant="outline" className="h-9 px-3 text-sm" onClick={() => setMoveFor(r)}>
                               ย้าย/ปรับยอด
@@ -283,6 +316,11 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
                           พอขาย <b className="font-mono tabular-nums">{daysCell(r)}</b>
                         </span>
                       )}
+                      {!readOnly && r.sku.type === "WIP" && (
+                        <button type="button" onClick={() => setMakeFor(r.sku)} className="min-h-[32px] whitespace-nowrap text-sm font-semibold text-brand">
+                          ทำ
+                        </button>
+                      )}
                       {!readOnly && (
                         <button type="button" onClick={() => setMoveFor(r)} className="min-h-[32px] whitespace-nowrap text-sm font-semibold text-brand">
                           ย้าย/ปรับยอด
@@ -309,6 +347,23 @@ export default function StoreStockPage({ skus, branches, readOnly, loader, write
           context="branch"
           branchId={branchId}
           disableMismatchCheck
+        />
+      )}
+      {makeFor && branch && wipInputs && makeDay.ready && (
+        <WipSheet
+          wip={makeFor}
+          inputs={wipInputs}
+          skus={skus}
+          branchId={branch.id}
+          branchName={branch.branchName}
+          date={makeDay.date}
+          balanceOf={(id) => {
+            const x = rows.find((y) => y.sku.id === id);
+            return x && x.known ? x.balance : null;
+          }}
+          onClose={() => setMakeFor(null)}
+          onSaved={reload}
+          save={write ? async () => ({ ok: true as const }) : undefined}
         />
       )}
       {moveFor && branch && <MoveSheet sku={moveFor.sku} balance={moveFor.known ? moveFor.balance : null} branch={branch} branches={branches} onClose={() => setMoveFor(null)} onSaved={reload} write={write} />}

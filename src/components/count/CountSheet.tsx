@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { adjustmentLabels } from "@/lib/wip";
 import { Check, Search, WifiOff } from "lucide-react";
 import type { SKU } from "@/types/sku";
 import type { DailyStockCountRow } from "@/hooks/use-daily-stock-count";
@@ -31,7 +32,23 @@ function DiffText({ diff, big, uom }: { diff: number; big: boolean; uom?: string
  * (the team found the old one-line grey text too small to work from).
  * Received is green when something came in today.
  */
-function Movement({ opening, received, used, salesIn, balance, waste = 0, adj = 0, withBalance }: { opening: number; received: number; used: number; salesIn: boolean; balance?: number; waste?: number; adj?: number; withBalance: boolean }) {
+/** The day's moves other than sales and receipts, by name (ทำชาชูรวม, โอน, ปรับยอด) */
+function AdjLine({ details }: { details: { quantity: number; reason: string }[] }) {
+  const items = adjustmentLabels(details);
+  if (!items.length) return null;
+  return (
+    <>
+      {items.map((i) => (
+        <span key={i.label} className={cn(i.label === "ปรับยอด" ? "" : "font-semibold text-foreground")}>
+          {i.label} {i.qty > 0 ? "+" : "−"}
+          {n0(Math.abs(i.qty))}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function Movement({ opening, received, used, salesIn, balance, waste = 0, adj = 0, adjDetails, withBalance }: { opening: number; received: number; used: number; salesIn: boolean; balance?: number; waste?: number; adj?: number; adjDetails?: { quantity: number; reason: string }[]; withBalance: boolean }) {
   const cell = "min-w-0 rounded-lg bg-secondary px-2 py-1";
   const label = "block text-[12px] leading-tight text-muted-foreground";
   const value = "block font-mono text-[15px] font-semibold leading-snug tabular-nums";
@@ -61,7 +78,7 @@ function Movement({ opening, received, used, salesIn, balance, waste = 0, adj = 
       {(waste > 0 || adj !== 0) && (
         <span className={cn("flex flex-wrap gap-x-3 text-[13px] text-muted-foreground", withBalance ? "col-span-4" : "col-span-3")}>
           {waste > 0 && <span>ของเสีย −{n0(waste)}</span>}
-          {adj !== 0 && <span>ปรับยอด {adj > 0 ? "+" : "−"}{n0(Math.abs(adj))}</span>}
+          {adj !== 0 && (adjDetails?.length ? <AdjLine details={adjDetails} /> : <span>ปรับยอด {adj > 0 ? "+" : "−"}{n0(Math.abs(adj))}</span>)}
         </span>
       )}
     </div>
@@ -443,7 +460,7 @@ function CountRow({
       </div>
 
       {/* Reconcile: where the balance comes from */}
-      <Movement opening={row.openingBalance} received={received} used={row.expectedUsage} salesIn={salesIn} balance={row.calculatedBalance} waste={row.waste} adj={row.adjNet} withBalance />
+      <Movement opening={row.openingBalance} received={received} used={row.expectedUsage} salesIn={salesIn} balance={row.calculatedBalance} waste={row.waste} adj={row.adjNet} adjDetails={row.adjDetails} withBalance />
 
       {!locked && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
@@ -520,6 +537,12 @@ function DesktopRow({
           {sku.skuId} · {sku.usageUom}
           {isPacksMode(sku) && ` · 1 ${sku.packUnit} = ${n0(sku.packSize)}`}
         </span>
+        {/* The day's other moves (in the balance, never shown on this table before) */}
+        {row.adjNet !== 0 && (
+          <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+            <AdjLine details={row.adjDetails ?? []} />
+          </span>
+        )}
         {compact && (
           <span className="mt-1.5 block">
             {/* คงเหลือ has its own column here, so three boxes */}

@@ -160,8 +160,9 @@ export function useBranchStock(branchId: string | null, skus: SKU[], loader: Bra
         const out: BranchStockRow[] = [];
         for (const [id, f] of figures) {
           const sku = byId.get(id);
-          // Branch stock is ingredients and kitchen-made items; packaging and SP mixes aren't counted here
-          if (!sku || (sku.type !== "RM" && sku.type !== "SM")) continue;
+          // Branch stock is ingredients, kitchen-made items and what the branch makes itself (WIP);
+          // packaging and SP mixes aren't counted here
+          if (!sku || (sku.type !== "RM" && sku.type !== "SM" && sku.type !== "WIP")) continue;
           const price = d.prices.get(id) ?? 0;
           const known = f.anchorDate !== null;
           out.push({ sku, balance: f.balance, known, countDate: f.countDate, dailyUse: f.dailyUse, daysLeft: known && f.dailyUse > 0 ? Math.max(0, f.balance) / f.dailyUse : null, price, value: known ? Math.max(0, f.balance) * price : 0 });

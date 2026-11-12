@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { WipPanel } from "./WipPanel";
+import type { WipInput } from "@/lib/wip";
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, XCircle } from "lucide-react";
 import type { SKU, StorageCondition } from "@/types/sku";
 import type { Price } from "@/types/price";
@@ -77,6 +79,9 @@ interface Props {
   /** The recipe rows themselves (with ids), for editing */
   recipeRows: { headers: BOMHeader[]; lines: BOMLine[]; steps: BOMStep[]; byproducts: BomByproduct[]; spLines: SpBomLine[] };
   recipeActions: RecipeEditActions;
+  /** What may go into each WIP, and a re-read after it changes */
+  wipInputs?: WipInput[];
+  onWipChanged?: () => void;
   canEdit: boolean;
   actions: ProductActions;
   /** Up to the product list (phone; on a wide screen the list is beside it) */
@@ -97,18 +102,19 @@ interface Props {
 export function ProductWorkspace(props: Props) {
   const { summary, onBack } = props;
   const { sku } = summary;
-  const made = sku.type === "SM" || sku.type === "SP";
+  const wip = sku.type === "WIP";
+  const made = sku.type === "SM" || sku.type === "SP" || wip;
   const problems = summary.checks.filter((c) => c.level === "error" || c.level === "warn").length;
   const [tab, setTab] = useState<WorkTab>(problems ? "health" : made ? "recipe" : "price");
   const usedCount = summary.usage.inSm.length + summary.usage.inSp.length + summary.usage.inMenus.length + summary.usage.inRules;
-  const supplierName = (id: string) => (id === BOM_SUPPLIER_ID ? "คิดจากสูตร" : props.suppliers.find((s) => s.id === id)?.name ?? "—");
+  const supplierName = (id: string) => (id === BOM_SUPPLIER_ID ? (wip ? "คิดจากรอบที่ทำ" : "คิดจากสูตร") : props.suppliers.find((s) => s.id === id)?.name ?? "—");
   const pack = sku.packUnit || sku.purchaseUom;
   const lastBill = summary.bills.find((b) => b.unitPrice > 0);
 
   const tabs: { key: WorkTab; label: string }[] = [
     { key: "health", label: problems ? `เช็คการตั้งค่า · ${problems}` : "เช็คการตั้งค่า" },
     { key: "info", label: "ข้อมูล" },
-    made ? { key: "recipe", label: `สูตร · ${summary.madeFrom.length}` } : { key: "price", label: "ราคา" },
+    made ? { key: "recipe", label: wip ? `ของที่ใส่ได้ · ${summary.madeFrom.length}` : `สูตร · ${summary.madeFrom.length}` } : { key: "price", label: "ราคา" },
     { key: "use", label: `ใช้ที่ไหน · ${usedCount}` },
     ...(props.canEdit ? [{ key: "history" as WorkTab, label: "ประวัติ" }] : []),
   ];
@@ -116,7 +122,7 @@ export function ProductWorkspace(props: Props) {
   const name = (id: string) => props.skus.find((s) => s.id === id)?.name ?? "—";
   const nodes: ChainNode[] = [];
   if (made) {
-    nodes.push({ kind: "RM", title: `${summary.madeFrom.length} วัตถุดิบ`, sub: summary.madeFrom.slice(0, 1).map(name).join("") + (summary.madeFrom.length > 1 ? ` · +${summary.madeFrom.length - 1}` : ""), onOpen: () => setTab("recipe") });
+    nodes.push({ kind: wip ? "SM" : "RM", title: wip ? `${summary.madeFrom.length} ของที่ใส่ได้` : `${summary.madeFrom.length} วัตถุดิบ`, sub: summary.madeFrom.slice(0, 1).map(name).join("") + (summary.madeFrom.length > 1 ? ` · +${summary.madeFrom.length - 1}` : ""), onOpen: () => setTab("recipe") });
   } else if (summary.standard) {
     nodes.push({ kind: "supplier", title: supplierName(summary.standard.supplierId), sub: `มาตรฐาน ${baht(summary.standard.pricePerPurchaseUom)}/${pack}`, onOpen: () => props.onOpenSupplier(summary.standard!.supplierId) });
   } else {
@@ -199,7 +205,7 @@ export function ProductWorkspace(props: Props) {
       )}
       {tab === "info" && <InfoPanel key={sku.id} {...props} />}
       {tab === "price" && <PricePanel key={sku.id} {...props} supplierName={supplierName} />}
-      {tab === "recipe" && <RecipePanel {...props} />}
+      {tab === "recipe" && (wip ? <WipPanel sku={sku} skus={props.skus} prices={props.prices} inputs={props.wipInputs ?? []} canEdit={props.canEdit && !!props.onWipChanged} onChanged={() => props.onWipChanged?.()} onActivate={() => props.actions.updateSku(sku.id, { status: "Active" })} /> : <RecipePanel {...props} />)}
       {tab === "use" && <UsePanel {...props} />}
       {tab === "history" && <HistoryPanel {...props} />}
     </div>
@@ -930,7 +936,7 @@ function HistoryPanel({ summary, skus, suppliers, prices, book, canEdit, actions
     // Back to "on" only when it could go live today: a bought item needs a price, a
     // made one a recipe (same bar as a draft going live)
     if (row.table_name === "skus" && row.old_row?.status === "Active" && changedFields(row).includes("status")) {
-      const made = sku.type === "SM" || sku.type === "SP";
+      const made = sku.type === "SM" || sku.type === "SP" || sku.type === "WIP";
       if (made ? !summary.madeFrom.length : !summary.active.length) {
         toast.error(made ? "ย้อนเป็นเปิดใช้ไม่ได้ · ยังไม่มีสูตร" : "ย้อนเป็นเปิดใช้ไม่ได้ · ยังไม่มีราคา");
         return;

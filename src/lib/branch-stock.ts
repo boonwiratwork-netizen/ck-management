@@ -202,7 +202,7 @@ export function sheetOpening(input: {
 export const receiptConverter = (s: { purchaseUom?: string | null; usageUom?: string | null; converter?: number | null } | undefined) => (s && s.purchaseUom !== s.usageUom ? Number(s.converter) || 1 : 1);
 
 export interface BranchFigure extends BranchBalance {
-  /** (sales usage + waste) over the daily-use window ÷ selling days (lib/daily-use.ts) */
+  /** (sales usage + waste + what went into a WIP) over the daily-use window ÷ selling days (lib/daily-use.ts) */
   dailyUse: number;
   /** The busiest day in the window (usage + waste); 0 when nothing was sold */
   peakDailyUse: number;
@@ -238,9 +238,19 @@ export function branchFigures(input: {
     m[w.count_date] = (m[w.count_date] || 0) + num(w.waste);
     wasteBy.set(w.sku_id, m);
   }
+  // What went into a WIP made at the branch is used up too (ชาชูรวม from chashu trimmings):
+  // counted in the day's use, so a request orders enough of it
+  const wipBy = new Map<string, Record<string, number>>();
+  for (const a of input.adjustments) {
+    if (!inW(a.adjustment_date) || !(a.reason ?? "").startsWith("WIP: ใช้ทำ")) continue;
+    const m = wipBy.get(a.sku_id) ?? {};
+    m[a.adjustment_date] = (m[a.adjustment_date] || 0) - num(a.quantity);
+    wipBy.set(a.sku_id, m);
+  }
   const out = new Map<string, BranchFigure>();
   for (const [id, b] of bal) {
     const day: Record<string, number> = { ...(wasteBy.get(id) ?? {}) };
+    for (const [d, q] of Object.entries(wipBy.get(id) ?? {})) day[d] = (day[d] || 0) + q;
     for (const [d, q] of Object.entries(input.usageByDay[id] ?? {})) if (inW(d)) day[d] = (day[d] || 0) + q;
     const values = Object.values(day);
     const total = values.reduce((t, q) => t + q, 0);

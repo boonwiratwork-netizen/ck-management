@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { loadWipInputs, type WipInput } from "@/lib/wip";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, Layers } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -56,7 +57,7 @@ interface Props {
   byproducts: BomByproduct[];
   spLines: SpBomLine[];
   recipeActions: RecipeEditActions;
-  menuLines: { menuId: string; skuId: string }[];
+  menuLines: { menuId: string; skuId: string; yieldPct?: number }[];
   /** Management or CK manager: products, prices and suppliers */
   canEditProducts: boolean;
   /**
@@ -82,6 +83,8 @@ interface Props {
   demoCost?: { today: string; loader: FoodCostLoader; kitchen: KitchenMonth };
   /** Dev harness only: kitchen bills instead of reading them */
   demoBills?: Bill[];
+  /** Dev demo: what may go into each WIP (the database isn't read) */
+  demoWipInputs?: WipInput[];
   /** Dev harness only: sold in the last week per menu code ("ใช้ในเมนู"), instead of reading sales */
   demoSold?: Record<string, number>;
 }
@@ -160,6 +163,14 @@ export default function CostCenterPage(props: Props) {
     [props.bomHeaders, props.bomLines, props.bomSteps, props.byproducts, props.spLines],
   );
   const recipeCosts = useMemo(() => allRecipeCosts(book, prices), [book, prices]);
+  // What may go into each WIP (made at the branch by weight); read once, again after a change
+  const [wipInputs, setWipInputsState] = useState<WipInput[]>(props.demoWipInputs ?? []);
+  // The dev demo (its own bills) never reads or writes the database's WIP set-up
+  const wipLive = !props.demoBills;
+  const reloadWip = useCallback(() => {
+    if (wipLive) loadWipInputs().then(setWipInputsState, () => undefined);
+  }, [wipLive]);
+  useEffect(() => reloadWip(), [reloadWip]);
   // The where-used grid edits shop amounts: delivery-only lines aren't in it
   const menuShopLines = useMemo(() => props.menuSetup.menuBom.lines.filter(isShopLine), [props.menuSetup.menuBom.lines]);
   const summaries: ProductSummary[] = useMemo(() => {
@@ -173,9 +184,10 @@ export default function CostCenterPage(props: Props) {
       bills: bills ?? null,
       branchBought,
       ruleSkuIds,
+      wipInputs,
     };
     return skus.map((s) => summarizeProduct(s, ctx));
-  }, [skus, prices, book, recipeCosts, props.menuLines, props.menus, bills, branchBought, ruleSkuIds]);
+  }, [skus, prices, book, recipeCosts, props.menuLines, props.menus, bills, branchBought, ruleSkuIds, wipInputs]);
   const stale = summaries.filter((s) => s.checks.some((c) => c.id === "stale-cost")).length;
   const [recosting, setRecosting] = useState(false);
   const recostAll = async () => {
@@ -398,6 +410,8 @@ export default function CostCenterPage(props: Props) {
           ) : selected ? (
             <ProductWorkspace
               key={selected.sku.id}
+              wipInputs={wipInputs}
+              onWipChanged={wipLive ? reloadWip : undefined}
               summary={selected}
               skus={skus}
               prices={prices}

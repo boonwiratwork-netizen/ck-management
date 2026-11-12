@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { thaiDay } from "@/components/sales/SalesDays";
 import { cn } from "@/lib/utils";
+import { isWipInputReason, isWipReason } from "@/lib/wip";
 
 const n0 = (n: number) => Math.round(n).toLocaleString();
 
@@ -31,7 +32,10 @@ export function CountHome({
   onFinishOpenDays,
   onOpenDay,
   onShowDormant,
+  extraChecks,
 }: {
+  /** More rows for the checklist (what the branch made itself today: WIP) */
+  extraChecks?: React.ReactNode;
   date: string;
   status: CountStatus;
   statusLoading: boolean;
@@ -121,6 +125,7 @@ export function CountHome({
         {status.waitingTransfers > 0 && (
           <CheckRow ok={false} loading={statusLoading} title={`ใบโอนครัวกลางยังไม่ได้รับ ${status.waitingTransfers} ใบ`} sub="ถ้าของมาแล้ว รับก่อนเริ่มนับ" action={{ label: "ไปรับ", onClick: onGoReceive }} />
         )}
+        {extraChecks}
       </section>
 
       <section data-tour="count-start" className={cn("flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card", blocked && canEdit && "opacity-50")}>
@@ -287,6 +292,11 @@ export function CountReview({
   const big = lines.filter((l) => l.big);
   const dormantLeft = dormant.filter((l) => l.row.physicalCount === null);
   const wasted = lines.filter((l) => l.row.waste > 0).length;
+  // WIP checks: trimmings that went into a WIP are not waste (it would take them twice), and
+  // a WIP sold below zero with no batch recorded that day was probably made and not recorded
+  const madeFrom = (l: SheetLine) => (l.row.adjDetails ?? []).some((d) => isWipInputReason(d.reason));
+  const wipWaste = lines.filter((l) => l.row.waste > 0 && madeFrom(l));
+  const wipShort = lines.filter((l) => l.sku.type === "WIP" && salesIn && l.row.calculatedBalance < 0 && !(l.row.adjDetails ?? []).some((d) => isWipReason(d.reason)));
   const allCounted = uncounted.length === 0 && (!monthEnd || dormantLeft.length === 0);
   const canFinish = !locked && counted > 0;
   // Month-end asks for everything, but a partial count (say 80%) may still be finished, with a clear yes
@@ -302,6 +312,33 @@ export function CountReview({
         {allCounted ? <Check className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
         นับแล้ว {counted}/{lines.length} รายการ · ของเสีย {wasted} รายการ
       </div>
+
+      {(wipWaste.length > 0 || wipShort.length > 0) && (
+        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-warning/40 bg-card">
+          {wipWaste.map((l) => (
+            <li key={`w${l.row.id}`} className="flex gap-3 px-4 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <div className="min-w-0 text-sm">
+                <div className="text-[15px] font-semibold">
+                  {l.sku.name} ลงของเสีย {Math.round(l.row.waste).toLocaleString("th-TH")} {l.sku.usageUom} วันเดียวกับที่ใช้ทำ WIP
+                </div>
+                <div className="text-muted-foreground">เศษที่เอาไปทำ WIP ไม่ต้องลงของเสีย (ระบบตัดตอนบันทึกการทำแล้ว) · ถ้าเป็นของทิ้งจริง ปล่อยไว้ได้</div>
+              </div>
+            </li>
+          ))}
+          {wipShort.map((l) => (
+            <li key={`s${l.row.id}`} className="flex gap-3 px-4 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <div className="min-w-0 text-sm">
+                <div className="text-[15px] font-semibold">
+                  {l.sku.name} ขายจนติดลบ {Math.round(-l.row.calculatedBalance).toLocaleString("th-TH")} {l.sku.usageUom} แต่วันนี้ไม่มีบันทึกการทำ
+                </div>
+                <div className="text-muted-foreground">ลืมบันทึกการทำหรือเปล่า · กลับไปหน้าแรกของการนับ กด "+ ทำ{l.sku.name}"</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {big.length > 0 && salesIn && (
         <>

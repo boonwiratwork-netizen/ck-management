@@ -3,7 +3,7 @@ import type { Price } from "@/types/price";
 import { activeUnitCost } from "@/lib/menu-health";
 
 /**
- * Dropdown options for picking an ingredient: grouped SM → RM → SP, active only, flags
+ * Dropdown options for picking an ingredient: grouped SM → RM → SP → WIP, active only, flags
  * missing prices. withPackaging adds PK (the delivery recipe: box, sauce cup, bag).
  */
 export function skuOptions(skus: SKU[], prices: Price[], keepId?: string | null, withPackaging = false) {
@@ -11,6 +11,7 @@ export function skuOptions(skus: SKU[], prices: Price[], keepId?: string | null,
     { type: "SM", label: "ของจากครัวกลาง (SM)" },
     { type: "RM", label: "วัตถุดิบ (RM)" },
     { type: "SP", label: "เตรียมที่ร้าน (SP)" },
+    { type: "WIP", label: "ทำเองที่ร้าน (WIP)" },
     ...(withPackaging ? [{ type: "PK" as SKU["type"], label: "บรรจุภัณฑ์ (PK)" }] : []),
   ];
   return groups.flatMap((g) => {

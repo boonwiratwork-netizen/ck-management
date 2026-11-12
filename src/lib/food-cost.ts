@@ -333,6 +333,8 @@ export const receivedBetween = (date: string, openingDate: string, closingDate: 
 export interface ActualRow extends SkuRow {
   opening: CountPick | null;
   received: number;
+  /** Moved in (+) or out (−) without being used: transfers, returns to the kitchen, WIP batches */
+  moved?: number;
   receipts: number;
   closing: CountPick | null;
   actQty: number | null;
@@ -385,6 +387,13 @@ export function computeActual(input: {
   /** Recorded corrections of this branch across both months */
   corrections?: UsageCorrection[];
   priceOn?: (skuId: string, date: string) => number;
+  /**
+   * Stock that moved without being used (+ in, − out), in usage units: a transfer to or
+   * from another branch, a return to the kitchen, a WIP batch (its inputs out, the WIP in).
+   * Counted as coming in or going out, never as used: a branch that passed 2 kg on, or put
+   * 300 g of trimmings into ชาชูรวม, didn't use them.
+   */
+  moves?: { sku_id: string; date: string; qty: number }[];
 }): Actual {
   const group = (rows: CountRow[]) => {
     const m = new Map<string, CountRow[]>();
@@ -396,6 +405,8 @@ export function computeActual(input: {
   const counted = (rows: CountRow[], span: { from: string; to: string }) => rows.some((r) => r.count_date >= span.from && r.count_date <= span.to);
   const openingCounted = counted(input.openingRows, input.opening);
   const closingCounted = counted(input.closingRows, input.closing);
+  const movesBy = new Map<string, { date: string; qty: number }[]>();
+  for (const m of input.moves ?? []) movesBy.set(m.sku_id, [...(movesBy.get(m.sku_id) ?? []), m]);
   const receiptsBy = new Map<string, ReceiptRow[]>();
   for (const r of input.receipts) receiptsBy.set(r.sku_id, [...(receiptsBy.get(r.sku_id) ?? []), r]);
   // Usage units as the stock pages count them; price = what was paid ÷ that (the old
@@ -424,6 +435,8 @@ export function computeActual(input: {
     const all = receiptsBy.get(s.skuId) ?? [];
     const b = sum(all.filter((r) => receivedBetween(r.receipt_date, lo, hi)));
     const received = b.qty;
+    // Moved in or out between the same two counts (the same day rule as receipts)
+    const moved = (movesBy.get(s.skuId) ?? []).filter((m) => receivedBetween(m.date, lo, hi)).reduce((t, m) => t + m.qty, 0);
     // Paid for what came in between the counts; else for anything received around them; else before
     const around = b.qty > 0 ? b : sum(all);
     const actPrice = around.qty > 0 ? around.value / around.qty : input.pastPrice.get(s.skuId) ?? s.stdPrice;
@@ -433,7 +446,7 @@ export function computeActual(input: {
     const onSheets = !!opening || !!closing;
     const openQty = opening ? opening.qty : openingCounted && onSheets ? 0 : null;
     const closeQty = closing ? closing.qty : closingCounted && onSheets ? 0 : null;
-    const actQty = openQty !== null && closeQty !== null ? openQty + received - closeQty : null;
+    const actQty = openQty !== null && closeQty !== null ? openQty + received + moved - closeQty : null;
     // Compared with the recipe over the same days (sales on the opening count's day are in
     // that count, the closing day's in the closing): an early count used to be set against
     // the whole month and read as "the recipe counts twice"
@@ -453,7 +466,7 @@ export function computeActual(input: {
       if (opening) days.open.push(opening.date);
       if (closing) days.close.push(closing.date);
     }
-    return { ...s, opening, received, receipts: b.n, closing, actQty, actPrice, actCost: cost, recipeQty: recipe.qty, recipeCost: recipe.cost, span, qtyVar: actQty !== null ? actQty - recipe.qty : null, priceVar: pv, totalVar: tv };
+    return { ...s, opening, received, moved, receipts: b.n, closing, actQty, actPrice, actCost: cost, recipeQty: recipe.qty, recipeCost: recipe.cost, span, qtyVar: actQty !== null ? actQty - recipe.qty : null, priceVar: pv, totalVar: tv };
   });
   rows.sort((a, b) => Math.abs(b.totalVar ?? 0) - Math.abs(a.totalVar ?? 0));
   const firstLast = (d: string[]) => (d.length ? { first: d.reduce((m, x) => (x < m ? x : m)), last: d.reduce((m, x) => (x > m ? x : m)) } : null);
@@ -529,14 +542,14 @@ export function findAttention(input: {
     // Only when it's worth money (฿300+): a few grams of pepper never stocked is noise
     // (the recipe over the same days as the item's counts, not the whole month)
     const impossible = input.actual.rows
-      .filter((r) => r.actQty !== null && r.opening && r.recipeQty > 0 && r.recipeQty > (r.opening.qty + r.received) * 1.1 + 1 && Math.abs(r.recipeCost - (r.actCost ?? 0)) >= 300)
+      .filter((r) => r.actQty !== null && r.opening && r.recipeQty > 0 && r.recipeQty > (r.opening.qty + r.received + (r.moved ?? 0)) * 1.1 + 1 && Math.abs(r.recipeCost - (r.actCost ?? 0)) >= 300)
       .sort((a, b) => Math.abs(b.recipeCost - (b.actCost ?? 0)) - Math.abs(a.recipeCost - (a.actCost ?? 0)));
     for (const r of impossible.slice(0, 3)) {
       out.push({
         key: `imp-${r.skuId}`,
         tone: "red",
         skuId: r.skuId,
-        title: `${r.name}: สูตรบอกใช้ ${n0(r.recipeQty)} ${r.uom} แต่มีทั้งช่วงนับแค่ ${n0(r.opening!.qty + r.received)}`,
+        title: `${r.name}: สูตรบอกใช้ ${n0(r.recipeQty)} ${r.uom} แต่มีทั้งช่วงนับแค่ ${n0(r.opening!.qty + r.received + (r.moved ?? 0))}`,
         detail: `ยกมา ${n0(r.opening!.qty)} + รับ ${n0(r.received)} · ใช้จริง ${n0(r.actQty!)} · สูตรน่าจะนับซ้ำหรือใส่จำนวนเกิน (${baht(r.totalVar ?? 0)})`,
       });
     }

@@ -62,6 +62,12 @@ describe("branchFigures (what the stock page and the request page both read)", (
     converter: () => 1,
   };
 
+  it("what went into a WIP is in the use per day (and the balance once, through the adjustment)", () => {
+    const f = branchFigures({ ...base, adjustments: [{ sku_id: "soup", adjustment_date: "2026-10-30", quantity: -500, reason: "WIP: ใช้ทำชาชูรวม [wip a1]" }] }).get("soup")!;
+    expect(f.balance).toBe(9000 + 6000 - 1000 - 2000 - 3000 - 100 - 400 - 500);
+    expect(f.dailyUse).toBe(1180);
+  });
+
   it("balance = count + received − used − waste after it; use per day over the window only", () => {
     const f = branchFigures(base).get("soup")!;
     expect(f.balance).toBe(9000 + 6000 - 1000 - 2000 - 3000 - 100 - 400);

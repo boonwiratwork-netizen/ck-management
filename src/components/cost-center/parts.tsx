@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { ProductLevel } from "@/lib/product-health";
 
 /** One look per kind of thing, the same on every Cost Center screen */
-export type Kind = "supplier" | "RM" | "PK" | "SM" | "SP" | "menu" | "branch";
+export type Kind = "supplier" | "RM" | "PK" | "SM" | "SP" | "WIP" | "menu" | "branch";
 
 const KIND: Record<Kind, { label: string; cls: string }> = {
   supplier: { label: "ซัพ", cls: "bg-secondary text-muted-foreground" },
@@ -11,6 +11,7 @@ const KIND: Record<Kind, { label: string; cls: string }> = {
   PK: { label: "บรรจุ", cls: "bg-secondary text-foreground" },
   SM: { label: "ครัวผลิต", cls: "bg-primary text-primary-foreground" },
   SP: { label: "หน้าร้าน", cls: "border border-primary text-foreground" },
+  WIP: { label: "WIP", cls: "border border-dashed border-primary text-foreground" },
   menu: { label: "เมนู", cls: "bg-success-soft text-success" },
   branch: { label: "สาขา", cls: "bg-accent text-accent-foreground" },
 };
@@ -21,12 +22,13 @@ export const KIND_NAME: Record<Kind, string> = {
   PK: "บรรจุภัณฑ์",
   SM: "ครัวผลิต",
   SP: "หน้าร้านเตรียม",
+  WIP: "ทำเองที่ร้าน (WIP)",
   menu: "เมนู",
   branch: "สาขา",
 };
 
 export function KindBadge({ kind, label, className }: { kind: Kind; label?: string; className?: string }) {
-  return <span className={cn("inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-md px-1.5 text-xs font-bold", KIND[kind].cls, className)}>{label ?? KIND[kind].label}</span>;
+  return <span className={cn("inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-md px-1.5 text-xs font-bold", (KIND[kind] ?? KIND.RM).cls, className)}>{label ?? (KIND[kind] ?? { label: kind }).label}</span>;
 }
 
 export const LEVEL_LABEL: Record<ProductLevel, string> = { ok: "ครบ", warn: "ควรดู", error: "ต้องแก้", idle: "ไม่ได้ใช้" };

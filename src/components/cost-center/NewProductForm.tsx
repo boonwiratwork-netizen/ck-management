@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn, toLocalDateStr } from "@/lib/utils";
 import { KindBadge, KIND_NAME, perUnit } from "./parts";
 
-const TYPES: SKUType[] = ["RM", "SM", "PK", "SP"];
+const TYPES: SKUType[] = ["RM", "SM", "PK", "SP", "WIP"];
 const STORAGE: { value: StorageCondition; label: string }[] = [
   { value: "Frozen", label: "ช่องแช่แข็ง" },
   { value: "Chilled", label: "ตู้เย็น" },
@@ -71,7 +71,8 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, up
   const [unitOk, setUnitOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const made = type === "SM" || type === "SP";
+  // WIP is made at the branch: no supplier price; what may go in is chosen after creating it
+  const made = type === "SM" || type === "SP" || type === "WIP";
   const similar = useMemo(() => similarNames(name, skus), [name, skus]);
   const size = Number(packSize);
   const price = Number(amount);
@@ -82,7 +83,9 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, up
     { done: name.trim().length > 1, label: "ชื่อไม่ซ้ำ", sub: similar.length ? `มีชื่อคล้าย ${similar.length} ตัว · ดูแล้ว` : "ไม่พบชื่อซ้ำ" },
     { done: size > 0 && !!usageUom, label: "หน่วยครบ", sub: size > 0 ? `1 ${packUnit || "หน่วย"} = ${size.toLocaleString()} ${usageUom}` : "ใส่ว่า 1 หน่วยที่ซื้อมีเท่าไร" },
     made
-      ? { done: false, label: "สูตร", sub: "ทำต่อหลังสร้าง · ระหว่างนี้เป็นร่าง" }
+      ? type === "WIP"
+        ? { done: false, label: "ของที่ใส่ได้", sub: "เลือกต่อหลังสร้าง · ระหว่างนี้เป็นร่าง" }
+        : { done: false, label: "สูตร", sub: "ทำต่อหลังสร้าง · ระหว่างนี้เป็นร่าง" }
       : { done: !!supplierId && price > 0 && (!odd || unitOk), label: "มีราคามาตรฐาน", sub: perUse ? `${perUnit(perUse, usageUom)} · ${suppliers.find((s) => s.id === supplierId)?.name ?? "เลือกเจ้า"}` : "ไม่มีราคา = เป็นร่างไปก่อน" },
     { done: !!category && !!storage, label: "หมวดและช่องเก็บ", sub: category && storage ? `${categories.find((c) => c.code === category)?.nameTh ?? category} · ${STORAGE.find((s) => s.value === storage)?.label}` : "เลือกด้านล่าง" },
   ];
@@ -290,7 +293,7 @@ export function NewProductForm({ skus, prices, suppliers, categories, addSku, up
           </Button>
           <p className="text-sm text-muted-foreground">
             {ready ? "เลือกได้ในรับของเข้าครัวและในสูตรทันที" : "ร่าง = ยังไม่ขึ้นในรับของ ใบโอน ใบนับ และยังใส่ในสูตรไม่ได้ จนกว่าจะตั้งครบ"}
-            {made && " · สร้างแล้วไปทำสูตรต่อ"}
+            {made && (type === "WIP" ? " · สร้างแล้วไปเลือกของที่ใส่ได้ต่อ" : " · สร้างแล้วไปทำสูตรต่อ")}
           </p>
         </aside>
       </div>

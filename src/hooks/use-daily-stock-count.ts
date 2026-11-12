@@ -579,7 +579,7 @@ export function useDailyStockCount({
       const existingSkuIds = new Set(data.map((r) => r.sku_id));
       const relevantSkuIds = getBranchRelevantSkuIds(branchId);
       const activeSkus = skus.filter(
-        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM") && relevantSkuIds.has(s.id),
+        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM" || s.type === "WIP") && relevantSkuIds.has(s.id),
       );
       const newSkuRows: any[] = [];
       for (const sku of activeSkus) {
@@ -688,7 +688,7 @@ export function useDailyStockCount({
 
       const relevantSkuIds = getBranchRelevantSkuIds(branchId);
       const activeSkus = skus.filter(
-        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM") && relevantSkuIds.has(s.id),
+        (s) => s.status === "Active" && (s.type === "RM" || s.type === "SM" || s.type === "WIP") && relevantSkuIds.has(s.id),
       );
 
       const insertRows = activeSkus.map((sku) => {

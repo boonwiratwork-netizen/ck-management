@@ -55,6 +55,7 @@ Env vars (in `.env`, VITE_-prefixed for the client): `VITE_SUPABASE_URL`, `VITE_
 - **SM** (semi-manufactured) — produced at CK from RM via BOM. **The only type with production lots.**
 - **PK** (packaging) — consumables. Flow like "RM distributable" (TR→TO→Branch Receipt) but tracked with `stock_type = "PK"`. **No BOM, no lots, no cover day.**
 - **SP** — store-level semi-prep, no CK inventory.
+- **WIP** — made at a branch from the actual weights put in each time (ชาชูรวม from chashu trimmings); no recipe, has branch stock and a count line. A batch (`save_wip_batch` RPC) writes branch `stock_adjustments`: inputs out (`WIP: ใช้ทำ…`), the WIP in (`WIP: ทำ…`), tagged `[wip <id>]`. Its price = 30-day weighted batch cost (BOM Calculation price row).
 
 **Core inventory flow:**
 ```
@@ -125,7 +126,7 @@ Physical counts are **ground truth** — they snap the balance on entry and over
 - **Modifier rules** (`menu_modifier_rules`, keywords match menu **name** strings): swap/add → `sale.menu_name.includes(rule.keyword)`; submenu → `sale.menu_code === rule.keyword || menu_name.includes(rule.keyword)`. The POS never sends the set item's code in `menu_code` — it sits inside `menu_name` ("Set Menu : MN-011 …"), so code-only matching silently never fires (it didn't, Jun–Oct 2026, everywhere except Daily Stock Count).
 - **Cover Day scorecards:** weighted average `Σ(currentStock) ÷ Σ(dailyUsage)` per storage group, not a simple average.
 - **Stock Value:** `price_per_usage_uom × Math.max(0, physical_count ?? calculated_balance)`.
-- **Food Cost Act Qty:** `Opening (last physical count of prev month, fallback calc balance) + branch_receipts in period − Closing (last physical count this month, fallback calc balance)`. Don't add adjustments — closing already reflects them. Variance shows only for a past full month with a single branch selected.
+- **Food Cost Act Qty:** `Opening (last physical count of prev month, fallback calc balance) + branch_receipts in period − Closing (last physical count this month, fallback calc balance)`. Don't add waste or fix adjustments — closing already reflects them. Moves that aren't use DO count as in/out (`moved`): branch transfers, returns to the kitchen and WIP batches (`isTransferReason`, `src/lib/wip.ts`). Variance shows only for a past full month with a single branch selected.
 - **CK Dashboard production cost:** `begin + purchased − end` per RM SKU. Ending count requires a valid RM session within ±3 days AND RM `physical_qty ≥ 50%` of RM SKUs; else estimated (period open) or blocked (period closed). Never fall back to a session outside that window.
 
 ---

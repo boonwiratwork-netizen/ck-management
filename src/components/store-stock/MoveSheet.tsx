@@ -136,7 +136,8 @@ export function MoveSheet({
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {KINDS.map((k) => (
+          {/* A WIP is made at the branch: the kitchen keeps none, so it can't go back there */}
+          {KINDS.filter((k) => !(sku.type === "WIP" && k.kind === "kitchen")).map((k) => (
             <button key={k.kind} type="button" onClick={() => setKind(k.kind)} className={cn("rounded-xl border bg-card p-2.5 text-left", kind === k.kind ? "border-[1.5px] border-foreground" : "border-border")}>
               <span className="block font-semibold">{k.title}</span>
               <span className="block text-xs text-muted-foreground">{k.hint}</span>

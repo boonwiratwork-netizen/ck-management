@@ -556,7 +556,7 @@ const Index = () => {
                       updateByproduct: byproductData.updateByproduct,
                       deleteByproduct: byproductData.deleteByproduct,
                     }}
-                    menuLines={menuBomData.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
+                    menuLines={menuBomData.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, yieldPct: l.yieldPct }))}
                     canEditProducts={isManagement || role === "ck_manager"}
                     addSku={addSku}
                     productActions={{

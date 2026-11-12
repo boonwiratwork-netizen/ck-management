@@ -88,7 +88,7 @@ export function isoDate(s: string | undefined): string | null | "" {
 const n2 = (v: number) => (Math.round(v * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const bad = (line: number, title: string, detail: string): PreviewRow => ({ line, verdict: "error", title, detail, rows: [] });
 
-const SKU_TYPES = ["RM", "SM", "SP", "PK"];
+const SKU_TYPES = ["RM", "SM", "SP", "PK", "WIP"];
 const STORAGE = ["Frozen", "Chilled", "Ambient"];
 
 const skus: Dataset = {
@@ -244,6 +244,8 @@ const prices: Dataset = {
       if (!sup) return bad(line, title, `ไม่มีซัพชื่อ "${supName}" ในระบบ`);
       // Recipe-made items get their price from the recipe, never from a file
       if (sku.type === "SM" || sku.type === "SP") return { line, verdict: "skip", title, detail: "ของที่ทำเอง ราคามาจากสูตร", rows: [] };
+      // A WIP's price comes from the batches the branches made, never from a file
+      if (sku.type === "WIP") return { line, verdict: "skip", title, detail: "ทำเองที่ร้าน ราคามาจากรอบที่ทำ", rows: [] };
       const date = isoDate(r["Effective Date"]);
       if (date === null) return bad(line, title, `วันที่ "${r["Effective Date"]}" อ่านไม่ได้ · ใช้ 2026-11-01 หรือ 1/11/2026`);
       const fixed = date ? { ...r, "Effective Date": date } : r;

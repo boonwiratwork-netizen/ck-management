@@ -75,7 +75,7 @@ export default function CostCenterDemo() {
         const br = d.branches[0];
         if (first && br) d = { ...d, lines: [...d.lines, { ...first, id: "demo-branch-onion", branchId: br.id, qtyPerServing: 15, yieldPct: 50, effectiveQty: 30 }] };
         setFx(d);
-        const sk = d.skus.map((s) => ({ ...s, category: s.type === "PK" ? "PK" : "DG", packSize: 1000, packUnit: "แพ็ค", storageCondition: "Chilled" as const, ...(CURATED[s.skuId] ?? {}) }));
+        const sk = d.skus.map((s) => ({ ...s, category: s.type === "PK" ? "PK" : "DG", packSize: 1000, packUnit: "แพ็ค", storageCondition: "Chilled" as const, ...(CURATED[s.skuId] ?? {}), ...(s.skuId === "RM-0202" ? { type: "WIP" as const, skuId: "WIP-0001" } : {}) }));
         const id = (code: string) => sk.find((s) => s.skuId === code)!.id;
         setSkus(sk);
         const pr: Price[] = d.prices
@@ -196,7 +196,7 @@ export default function CostCenterDemo() {
         bomSteps={steps}
         byproducts={byproducts}
         spLines={fx.spLines}
-        menuLines={fx.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId }))}
+        menuLines={fx.lines.map((l) => ({ menuId: l.menuId, skuId: l.skuId, yieldPct: l.yieldPct }))}
         canEditProducts
         addSku={async (data) => {
           await wait();
@@ -243,6 +243,7 @@ export default function CostCenterDemo() {
           canEditMenus: true,
         }}
         demoBills={bills}
+        demoWipInputs={skus.filter((s) => ["SM-0005", "SM-0006", "SM-0007", "SM-0008", "SM-0009"].includes(s.skuId)).map((s) => ({ id: `wi-${s.id}`, wipSkuId: skus.find((x) => x.skuId === "WIP-0001")?.id ?? "", skuId: s.id }))}
         demoSold={Object.fromEntries(Object.entries(fx.soldByCode ?? {}).map(([code, byBranch]) => [code, Math.round(Object.values(byBranch).reduce((a, b) => a + b, 0) / 4)]))}
         recipeActions={{
           addHeader: async (data) => {

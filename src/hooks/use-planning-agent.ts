@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { loadRecentWipBatches, wipMix } from "@/lib/wip";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalDateStr } from "@/lib/utils";
 import { fetchAllRows } from "@/lib/fetch-all";
@@ -237,7 +238,7 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch, smUse }: 
         return;
       }
 
-      const [branchRes, forecastRes, menuRes, skuRes, use] = await Promise.all([
+      const [branchRes, forecastRes, menuRes, skuRes, use, wipBatches] = await Promise.all([
         supabase.from("branches").select("id, branch_name, brand_name, avg_selling_price").eq("status", "Active"),
         supabase
           .from("branch_forecasts")
@@ -248,6 +249,8 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch, smUse }: 
         supabase.from("skus").select("id, sku_id, name, type").eq("type", "SM"),
         // Sales, recipes and waste of the shared 7-day window, worked out as kitchen stock does
         givenRead ?? loadSmUse(todayStr),
+        // What the branches put into their WIP lately (ชาชูรวม = chashu): a bowl using it draws on those
+        loadRecentWipBatches(toLocalDateStr(new Date(Date.now() - 30 * 86400000))),
       ]);
 
       if (branchRes.error) throw branchRes.error;
@@ -266,11 +269,17 @@ export function usePlanningAgent({ smStockBalances, getOutputPerBatch, smUse }: 
       const menuCodeToId = new Map(allMenus.map((m) => [m.menu_code, m.id]));
       const menuBrandMap = new Map(allMenus.map((m) => [m.id, m.brand_name]));
 
+      const mix = wipMix(wipBatches);
       // Kitchen-made recipe lines per menu, each with its branch (null = every branch)
       const bomByMenu = new Map<string, SmMenuLine[]>();
       for (const [menuId, lines] of use.ctx.bomByMenu) {
         // Shop recipe per bowl: a delivery-only line isn't part of every bowl
         const sm = lines.filter((l) => smSkuIdSet.has(l.skuId) && !l.deliveryOnly).map((l) => ({ skuId: l.skuId, effectiveQty: l.effectiveQty, branchId: l.branchId }));
+        // A WIP line (ชาชูรวม 100 g) draws its inputs by the recent batches' mix
+        for (const l of lines) {
+          if (l.deliveryOnly) continue;
+          for (const m of mix.get(l.skuId) ?? []) if (smSkuIdSet.has(m.skuId)) sm.push({ skuId: m.skuId, effectiveQty: l.effectiveQty * m.perUnit, branchId: l.branchId });
+        }
         if (sm.length) bomByMenu.set(menuId, sm);
       }
 

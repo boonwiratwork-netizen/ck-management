@@ -157,7 +157,7 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
   const [picked, setSort] = useState<IngSort>("var");
   // "Most off the recipe" needs the actual; without it the list is by cost
   const sort: IngSort = actual ? picked : "cost";
-  const [type, setType] = useState<"all" | "RM" | "SM">("all");
+  const [type, setType] = useState<"all" | "RM" | "SM" | "WIP">("all");
   const [measure, wide] = useFitsWidth(actual ? SKU_ACTUAL_TABLE_MIN_W : SKU_STD_TABLE_MIN_W);
   const list: (SkuRow & Partial<ActualRow>)[] = (actual ?? rows)
     .filter((r) => type === "all" || r.type === type)
@@ -169,7 +169,8 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
   const otherSpan = (r: SkuRow & Partial<ActualRow>) => !!(r.opening?.early || r.closing?.early);
   const pct = (r: SkuRow & Partial<ActualRow>) => (r.qtyVar != null && recipe(r) > 0 ? Math.round((r.qtyVar / recipe(r)) * 100) : null);
   // Only kitchen-made items get a tag: a plain ingredient is the default
-  const badge = (t: string) => (t === "SM" ? <span className="mr-1.5 whitespace-nowrap rounded-md bg-secondary px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">ครัวผลิต</span> : null);
+  const badge = (t: string) =>
+    t === "SM" || t === "WIP" ? <span className="mr-1.5 whitespace-nowrap rounded-md bg-secondary px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">{t === "WIP" ? "ทำเองที่ร้าน" : "ครัวผลิต"}</span> : null;
   return (
     <div ref={measure} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -181,6 +182,9 @@ export function IngredientView({ rows, actual, onOpen }: { rows: SkuRow[]; actua
         <button type="button" className={chip(type === "all")} onClick={() => setType("all")}>ทั้งหมด</button>
         <button type="button" className={chip(type === "RM")} onClick={() => setType("RM")}>วัตถุดิบ</button>
         <button type="button" className={chip(type === "SM")} onClick={() => setType("SM")}>ครัวผลิต</button>
+        {(actual ?? rows).some((r) => r.type === "WIP") && (
+          <button type="button" className={chip(type === "WIP")} onClick={() => setType("WIP")}>ทำเองที่ร้าน</button>
+        )}
       </div>
       {!list.length ? (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">ไม่มีวัตถุดิบในช่วงนี้</p>

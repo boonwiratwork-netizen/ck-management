@@ -14,7 +14,7 @@ export type ProductArea = "info" | "price" | "recipe" | "use";
 
 export interface ProductCheck {
   /** Same id across products, so the overview can group them */
-  id: "no-price" | "multi-price" | "bill-drift" | "no-recipe" | "recipe-inactive" | "recipe-no-price" | "stale-cost" | "inactive-used" | "unused" | "draft";
+  id: "no-price" | "multi-price" | "bill-drift" | "no-recipe" | "wip-no-inputs" | "wip-never-made" | "wip-input-yield" | "recipe-inactive" | "recipe-no-price" | "stale-cost" | "inactive-used" | "unused" | "draft";
   level: ProductLevel;
   area: ProductArea;
   /** One line in plain Thai */
@@ -36,8 +36,10 @@ export interface ProductContext {
   skus: SKU[];
   prices: Price[];
   book: RecipeBook;
-  /** menu_bom rows: which menu uses which item */
-  menuLines: { menuId: string; skuId: string }[];
+  /** menu_bom rows: which menu uses which item (and its yield, for the WIP check) */
+  menuLines: { menuId: string; skuId: string; yieldPct?: number }[];
+  /** What may go into each WIP (wip_inputs) */
+  wipInputs?: { wipSkuId: string; skuId: string }[];
   /** Menus that are on sale */
   activeMenuIds: Set<string>;
   /** Kitchen bills of the last 90 days; null while loading (bill checks wait) */
@@ -125,7 +127,8 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   const parentSm = parent ? ctx.book.headers.find((h) => h.id === parent.bomHeaderId)?.smSkuId : undefined;
   const ownLines = header ? ctx.book.lines.filter((l) => l.bomHeaderId === header.id).map((l) => l.rmSkuId) : [];
   // A by-product with an empty recipe of its own (น้ำมันไก่) still comes from its parent
-  const recipeLines = ownLines.length ? ownLines : spLines.length ? spLines.map((l) => l.ingredientSkuId) : parentSm ? [parentSm] : [];
+  const wipLines = sku.type === "WIP" ? (ctx.wipInputs ?? []).filter((w) => w.wipSkuId === sku.id).map((w) => w.skuId) : [];
+  const recipeLines = ownLines.length ? ownLines : spLines.length ? spLines.map((l) => l.ingredientSkuId) : wipLines.length ? wipLines : parentSm ? [parentSm] : [];
   const madeFrom = [...new Set(recipeLines)];
   const costs = ctx.recipeCosts ?? allRecipeCosts(ctx.book, ctx.prices);
   const recipeCost = costs.get(sku.id) ?? null;
@@ -141,7 +144,24 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
     return { sku, level: worst(checks), checks, standard, active, madeFrom, usage, bills, billRatio: null, recipeCost };
   }
 
-  if (isMadeItem(sku) || parentSm) {
+  if (sku.type === "WIP") {
+    // Made at the branch by what was put in: no recipe; its price comes from its batches
+    if (!wipLines.length) checks.push({ id: "wip-no-inputs", level: "error", area: "recipe", title: "ยังไม่ได้เลือกของที่ใส่ได้", detail: "หน้าร้านบันทึกการทำไม่ได้จนกว่าจะเลือก" });
+    if (!active.length) checks.push({ id: "wip-never-made", level: "warn", area: "price", title: "ยังไม่เคยทำ", detail: "ต้นทุนเป็น ฿0 จนกว่าหน้าร้านบันทึกการทำรอบแรก" });
+    // A trimming used in a WIP still lost in a menu's yield is taken twice (by the yield and by the batch)
+    const low = new Map<string, number>();
+    for (const l of ctx.menuLines)
+      if (wipLines.includes(l.skuId) && ctx.activeMenuIds.has(l.menuId) && l.yieldPct !== undefined && l.yieldPct < 100) low.set(l.skuId, (low.get(l.skuId) ?? 0) + 1);
+    if (low.size)
+      checks.push({
+        id: "wip-input-yield",
+        level: "warn",
+        // The yields are in the menus' recipes: open where it's used
+        area: "use",
+        title: "ของที่ใส่ได้ ยังตั้ง yield ต่ำกว่า 100% ในสูตรเมนู",
+        detail: `${[...low].map(([id, n]) => `${byId.get(id)?.name ?? id} (${n} เมนู)`).join(" · ")} · เศษจะถูกตัดซ้ำ ตั้งเป็น 100%`,
+      });
+  } else if (isMadeItem(sku) || parentSm) {
     if (!madeFrom.length && isMadeItem(sku)) checks.push({ id: "no-recipe", level: "error", area: "recipe", title: sku.type === "SM" ? "ครัวผลิตแต่ยังไม่มีสูตร" : "ยังไม่มีสูตร", detail: "ผลิตแล้วไม่ตัดวัตถุดิบ · ต้นทุนไม่มี" });
     const off = madeFrom.filter((id) => byId.get(id)?.status === "Inactive");
     if (off.length) checks.push({ id: "recipe-inactive", level: "error", area: "recipe", title: "สูตรใช้ของที่ปิดใช้แล้ว", detail: off.map((id) => byId.get(id)?.name).join(" · ") });
@@ -180,7 +200,7 @@ export function summarizeProduct(sku: SKU, ctx: ProductContext): ProductSummary 
   }
 
   // Only once bills and branch receipts have loaded (else everything looks unused)
-  if (!isMadeItem(sku) && !used && ctx.bills && ctx.branchBought !== null && !bills.length && !ctx.branchBought?.has(sku.id))
+  if (!isMadeItem(sku) && sku.type !== "WIP" && !used && ctx.bills && ctx.branchBought !== null && !bills.length && !ctx.branchBought?.has(sku.id))
     checks.push({ id: "unused", level: "idle", area: "use", title: "ไม่ได้ใช้ในสูตรไหน และไม่ได้ซื้อ 90 วัน" });
 
   return { sku, level: worst(checks), checks, standard, active, madeFrom, usage, bills, billRatio, recipeCost };

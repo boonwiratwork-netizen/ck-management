@@ -22,6 +22,8 @@ const REAL: [string, number, number][] = [
   ["SM-0007", 1881, 556],
   ["RM-0006", 2669, 525],
   ["RM-0171", -12, 40],
+  // ชาชูรวม as the WIP it becomes at go-live (its "ทำ" button)
+  ["WIP-0001", 220, 300],
 ];
 
 export default function StoreDemo() {
@@ -29,7 +31,7 @@ export default function StoreDemo() {
   useEffect(() => {
     fetch("/fixtures.local/menu-setup.json")
       .then((r) => r.json())
-      .then((d) => setFx({ skus: d.skus.map((s: SKU) => ({ ...s, storageCondition: s.skuId.startsWith("SM") ? "Frozen" : "Chilled" })), branches: d.branches }));
+      .then((d) => setFx({ skus: d.skus.map((s: SKU) => ({ ...s, storageCondition: s.skuId.startsWith("SM") ? "Frozen" : "Chilled", ...(s.skuId === "RM-0202" ? { type: "WIP" as const, skuId: "WIP-0001" } : {}) })), branches: d.branches }));
   }, []);
   const loader = useMemo<BranchStockLoader | null>(() => {
     if (!fx) return null;

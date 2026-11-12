@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isTransferReason } from "@/lib/wip";
 import { supabase } from "@/integrations/supabase/client";
 import { buildPriceAt, type PriceChange } from "@/lib/price-history";
 import { usageContextOn, type RecipeCopy } from "@/lib/recipe-history";
@@ -70,6 +71,8 @@ export interface FoodCostLoader {
   corrections(branchIds: string[], from: string, to: string): Promise<UsageCorrection[]>;
   counts(branchId: string, from: string, to: string): Promise<CountRow[]>;
   receipts(branchId: string, from: string, to: string, skuIds?: string[]): Promise<ReceiptRow[]>;
+  /** Branch stock that moved without being used (transfers, returns, WIP batches); none = no moves */
+  moves?(branchId: string, from: string, to: string): Promise<{ sku_id: string; date: string; qty: number }[]>;
   /** Standard-price changes (price history); none = every day at today's price */
   priceHistory?(): Promise<PriceChange[]>;
   /** Saved copies of recipes and option rules (recipe history); none = today's recipes */
@@ -147,6 +150,12 @@ export const supabaseLoader: FoodCostLoader = {
       if (skuIds) q = q.in("sku_id", skuIds);
       return q.order("id").range(x, y) as never;
     }),
+  moves: async (branchId, from, to) => {
+    const rows = await fetchAllRowsOrThrow<{ sku_id: string; adjustment_date: string; quantity: number; reason: string | null }>((x, y) =>
+      supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity, reason").eq("branch_id", branchId).gte("adjustment_date", from).lte("adjustment_date", to).order("id").range(x, y) as never,
+    );
+    return rows.filter((r) => isTransferReason(r.reason)).map((r) => ({ sku_id: r.sku_id, date: r.adjustment_date, qty: Number(r.quantity) || 0 }));
+  },
 };
 
 /** What one period's work-out needs from the masters (built once per hook) */
@@ -207,12 +216,13 @@ async function computePeriod(
     const closing = { from, to };
     // …and the recipe side over each item's same span: the month before's sales and
     // corrections too, since a span can start there
-    const [open, close, rec, before, spanCorrections] = await Promise.all([
+    const [open, close, rec, before, spanCorrections, moves] = await Promise.all([
       loader.counts(b, opening.from, opening.to),
       loader.counts(b, closing.from, closing.to),
       loader.receipts(b, opening.from, to),
       loader.sales([b], opening.from, opening.to),
       loader.corrections([b], opening.from, to),
+      loader.moves ? loader.moves(b, opening.from, to) : Promise.resolve([]),
     ]);
     if (!alive()) return null;
     if (before.error) throw new Error("sales");
@@ -235,7 +245,7 @@ async function computePeriod(
       }
       for (const [id, a] of agg) if (a.q > 0) pastPrice.set(id, a.v / a.q);
     }
-    actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter: env.converter, pastPrice, opening, closing, recipeDays, corrections: spanCorrections, priceOn });
+    actual = computeActual({ skus: std.skus, openingRows: open, closingRows: close, receipts: rec, converter: env.converter, pastPrice, opening, closing, recipeDays, corrections: spanCorrections, priceOn, moves });
     // Nothing counted in these months: there is no actual to show (not ฿0)
     if (actual.withCounts === 0) actual = null;
   }

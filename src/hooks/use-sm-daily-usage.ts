@@ -35,13 +35,18 @@ export async function loadSmUse(today: string): Promise<SmUseRead> {
       if (r.error) throw r.error;
       return r.data;
     });
-  const [sales, waste, ctx] = await Promise.all([
+  const [sales, waste, wipDraws, ctx] = await Promise.all([
     all<BranchSaleRow>((a, b) => supabase.from("sales_entries").select("id, branch_id, sale_date, menu_code, menu_name, qty, order_type, channel").gte("sale_date", window.from).lte("sale_date", window.to).order("id").range(a, b)),
     all<BranchWasteRow>((a, b) => supabase.from("daily_stock_counts").select("id, branch_id, sku_id, count_date, waste").gt("waste", 0).gte("count_date", window.from).lte("count_date", window.to).order("id").range(a, b)),
+    // What branches put into a WIP they made (ชาชูรวม from chashu): used up like a sale
+    all<{ branch_id: string; sku_id: string; adjustment_date: string; quantity: number }>((a, b) =>
+      supabase.from("stock_adjustments").select("id, branch_id, sku_id, adjustment_date, quantity").not("branch_id", "is", null).like("reason", "WIP: ใช้ทำ%").gte("adjustment_date", window.from).lte("adjustment_date", window.to).order("id").range(a, b),
+    ),
     loadUsageContext(),
   ]);
+  const used: BranchWasteRow[] = [...waste, ...wipDraws.map((d) => ({ branch_id: d.branch_id, sku_id: d.sku_id, count_date: d.adjustment_date, waste: -Number(d.quantity) || 0 }) as BranchWasteRow)];
   const smIds = new Set([...ctx.skuType].filter(([, t]) => t === "SM").map(([id]) => id));
-  const { perDay, sellingDays } = branchUsePerDay({ ctx, sales, waste, skuIds: smIds, window });
+  const { perDay, sellingDays } = branchUsePerDay({ ctx, sales, waste: used, skuIds: smIds, window });
   return { ctx, sales, perDay, sellingDays };
 }
 

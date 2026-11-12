@@ -18,6 +18,8 @@ export function packPriceLabel(s: ProductSummary): string {
   // Under ฿1 (a recipe cost per gram) shows 3 decimals, like the cost line under the recipe
   const amount = (n: number) => baht(n, n < 1 ? 3 : 2);
   if (sku.type === "SM" || sku.type === "SP") return s.recipeCost ? `${amount(s.recipeCost * (sku.packSize || 1))}/${pack || sku.usageUom}` : "";
+  // WIP: its cost per unit from the batches the branches made (no packs)
+  if (sku.type === "WIP") return s.standard ? `${amount(s.standard.pricePerUsageUom)}/${sku.usageUom || "ก."}` : "";
   if (s.standard) return `${amount(s.standard.pricePerPurchaseUom)}/${pack}`;
   return "";
 }
@@ -79,7 +81,7 @@ export function ProductList({
     { key: "idle", label: `ไม่ได้ใช้ ${counts.idle}` },
     { key: "inactive", label: `ปิดใช้ ${counts.inactive}` },
   ];
-  const types: TypeFilter[] = ["all", "RM", "SM", "SP", "PK"];
+  const types: TypeFilter[] = ["all", "RM", "SM", "SP", "WIP", "PK"];
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card split:sticky split:top-20 split:max-h-[calc(100dvh-7rem)]">

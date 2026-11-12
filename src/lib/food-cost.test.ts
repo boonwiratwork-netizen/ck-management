@@ -161,6 +161,18 @@ describe("computeActual: the counts and what came in between them", () => {
   const run = (o: ReturnType<typeof count>[], c: ReturnType<typeof count>[], r: ReturnType<typeof rec>[]) =>
     computeActual({ skus: noodle, openingRows: o, closingRows: c, receipts: r, converter: new Map(), pastPrice: new Map(), opening: AUG, closing: SEP });
 
+  it("stock that moved without being used (a transfer, a WIP batch) is in or out, never used", () => {
+    // 100 counted, 200 came in, 50 passed to another branch, 30 put into ชาชูรวม, 80 counted at the end
+    const moves = [
+      { sku_id: "noodle", date: "2026-09-05", qty: -50 },
+      { sku_id: "noodle", date: "2026-09-12", qty: -30 },
+      { sku_id: "noodle", date: "2026-08-20", qty: -999 }, // before the opening count: in it already
+    ];
+    const a = computeActual({ skus: noodle, openingRows: [count("2026-08-31", 100)], closingRows: [count("2026-09-30", 80)], receipts: [rec("2026-09-10", 200)], converter: new Map(), pastPrice: new Map(), opening: AUG, closing: SEP, moves });
+    expect(a.rows[0].moved).toBe(-80);
+    expect(a.rows[0].actQty).toBe(100 + 200 - 80 - 80);
+  });
+
   it("takes receipts after the opening count (even in the month before) up to the closing count", () => {
     // Last August count on the 28th, last September count on the 27th
     const a = run([count("2026-08-28", 100)], [count("2026-09-01", 500), count("2026-09-27", 80)], [rec("2026-08-28", 999), rec("2026-08-30", 50), rec("2026-09-10", 200), rec("2026-09-27", 10), rec("2026-09-29", 777)]);

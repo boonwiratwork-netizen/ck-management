@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { WipCheck } from "@/components/wip/WipCheck";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, GripVertical, HelpCircle, Printer, Unlock } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -38,7 +39,7 @@ interface Props {
   menuBomLoading?: boolean;
   onNavigate: (tab: TabKey) => void;
   /** Dev harness only: in-memory stand-ins for the database layer */
-  demo?: { dsc: ReturnType<typeof useDailyStockCount>; status: ReturnType<typeof useCountStatus>; customOrder?: string[] | null };
+  demo?: { dsc: ReturnType<typeof useDailyStockCount>; status: ReturnType<typeof useCountStatus>; customOrder?: string[] | null; wip?: React.ComponentProps<typeof WipCheck>["demo"] };
 }
 
 const LAST_BRANCH_KEY = "ck-count-branch";
@@ -87,6 +88,13 @@ const GUIDE: GuideStep[] = [
  * zone by zone (or in the person's own saved order), review big differences,
  * finish. Hash screens: "" home, "count", "dormant", "review", "arrange".
  */
+/** yyyy-mm-dd plus n days */
+const addDaysIso = (d: string, n: number) => {
+  const x = new Date(`${d}T00:00:00`);
+  x.setDate(x.getDate() + n);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
 export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBomLines, menus, branches, menuBomLoading = false, onNavigate, demo }: Props) {
   const { isManagement, isStoreManager, profile, user } = useAuth();
   const location = useLocation();
@@ -415,6 +423,27 @@ export default function DailyCountPage({ skus, menuBomLines, modifierRules, spBo
                 go("review");
               }}
               onShowDormant={() => go("dormant")}
+              extraChecks={
+                // The dev demo never reaches the database: its WIP is in memory or not shown
+                demo && !demo.wip ? undefined : (
+                  <WipCheck
+                    branchId={branchId}
+                    branchName={branch?.branchName ?? ""}
+                    date={date}
+                    // Same rule as the database: any sent row closes the day for WIP
+                    closed={dsc.rows.some((r) => r.isSubmitted)}
+                    nextDate={addDaysIso(date, 1)}
+                    skus={skus}
+                    canEdit={canEdit}
+                    balanceOf={(id) => {
+                      const r = dsc.rows.find((x) => x.skuId === id);
+                      return r ? r.calculatedBalance : null;
+                    }}
+                    onChanged={() => branchId && dsc.loadSheet(branchId, date)}
+                    demo={demo?.wip}
+                  />
+                )
+              }
             />
           )}
         </div>

@@ -1,4 +1,7 @@
-export type SKUType = 'RM' | 'SM' | 'SP' | 'PK';
+/** WIP = made at a branch from what it has (ชาชูรวม), by the weights put in each time: no recipe */
+export type SKUType = 'RM' | 'SM' | 'SP' | 'PK' | 'WIP';
+/** Made by a branch from actual weights (see wip_batches) */
+export const isWip = (t: string | null | undefined) => t === 'WIP';
 /** Draft = being set up in Cost Center: hidden from daily pages (they show Active only) */
 export type SKUStatus = 'Active' | 'Inactive' | 'Draft';
 export type StorageCondition = 'Frozen' | 'Chilled' | 'Ambient';
@@ -33,6 +36,7 @@ export const SKU_TYPE_LABELS: Record<SKUType, string> = {
   SM: 'Semi-finished',
   SP: 'Special',
   PK: 'Packaging',
+  WIP: 'Work in progress',
 };
 
 // Legacy static labels kept for backward compat but dynamic categories preferred

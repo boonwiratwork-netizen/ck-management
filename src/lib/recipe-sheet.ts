@@ -231,7 +231,7 @@ function makeRow(ctx: SheetContext, key: string, skuId: string, perUnit: number,
     itemRows: 1,
     itemPrep: prep,
   };
-  if (sku?.type === "SP") return { ...base, kind: "shop", packSize: null, pricePerPack: null, supplier: SHOP_MADE, noPrice: false };
+  if (sku?.type === "SP" || sku?.type === "WIP") return { ...base, kind: "shop", packSize: null, pricePerPack: null, supplier: SHOP_MADE, noPrice: false };
   const price = activePrice(ctx.prices, skuId);
   const supplier = price ? ctx.suppliers.find((s) => s.id === price.supplierId) : undefined;
   const packSize = sku && sku.packSize > 0 ? sku.packSize : 1;
