@@ -86,7 +86,7 @@ export function useRequestData(branchId: string | null, brandName: string | null
     // Everything but the recipes' lines in one round, then those lines (five rounds became two)
     const [{ data: menus }, { data: all }, counts, sp, prices] = await Promise.all([
       supabase.from("menus").select("id").eq("brand_name", brandName).eq("status", "Active"),
-      supabase.from("suppliers").select("id, name, is_central_kitchen, status").eq("status", "Active"),
+      supabase.from("suppliers_safe").select("id, name, is_central_kitchen, status").eq("status", "Active"),
       pendingPrCounts(branchId),
       fetchAllRows((a, b) => supabase.from("sp_bom").select("id, sp_sku_id, ingredient_sku_id").order("id").range(a, b)),
       fetchAllRows((a, b) => supabase.from("prices").select("id, sku_id, supplier_id").eq("is_active", true).order("id").range(a, b)),

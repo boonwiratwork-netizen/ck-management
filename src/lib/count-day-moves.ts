@@ -26,7 +26,7 @@ export async function loadCountDay(date: string, skus: SKU[], skuIds: string[]):
   const [systemNow, gr, sup, to, prod, adj] = await Promise.all([
     kitchenStockForSkus(skus, skuIds).catch(() => null),
     fetchAllRows<any>((f, t) => supabase.from("goods_receipts").select("id, sku_id, quantity_received, receipt_date, supplier_id, created_at").gte("receipt_date", date).order("id").range(f, t)),
-    supabase.from("suppliers").select("id, name").order("id"),
+    supabase.from("suppliers_safe").select("id, name").order("id"),
     fetchAllRows<any>((f, t) =>
       supabase
         .from("transfer_orders")

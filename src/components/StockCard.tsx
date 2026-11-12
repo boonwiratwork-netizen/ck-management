@@ -423,7 +423,7 @@ export function StockCard({
               .gte("adjustment_date", fromDate)
               .order("adjustment_date", { ascending: true })
               .order("created_at", { ascending: true }),
-            supabase.from("suppliers").select("id, name"),
+            supabase.from("suppliers_safe").select("id, name"),
             supabase
               .from("stock_count_sessions")
               .select("id, count_date, completed_at, count_timing")

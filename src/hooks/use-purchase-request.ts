@@ -87,7 +87,7 @@ export function usePurchaseRequest(branchId: string | null) {
       const supplierIds = [...new Set(Object.values(prSupplierMap).filter(Boolean) as string[])];
       let supplierNames: Record<string, string> = {};
       if (supplierIds.length > 0) {
-        const { data: suppliers } = await supabase.from("suppliers").select("id, name").in("id", supplierIds);
+        const { data: suppliers } = await supabase.from("suppliers_safe").select("id, name").in("id", supplierIds);
         for (const s of suppliers || []) supplierNames[s.id] = s.name;
       }
 

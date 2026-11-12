@@ -99,7 +99,7 @@ const loadMasters = () =>
     all<{ id: string; bom_header_id: string; step_number: number; step_name: string; yield_percent: number }>((a, b) => supabase.from("bom_steps").select("id, bom_header_id, step_number, step_name, yield_percent").order("id").range(a, b)),
     all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b)),
     all<{ id: string; type: string; converter: number | null }>((a, b) => supabase.from("skus").select("id, type, converter").order("id").range(a, b)),
-    all<{ id: string; name: string }>((a, b) => supabase.from("suppliers").select("id, name").order("id").range(a, b)),
+    all<{ id: string; name: string }>((a, b) => supabase.from("suppliers_safe").select("id, name").order("id").range(a, b)),
     all<{ id: string; branch_name: string }>((a, b) => supabase.from("branches").select("id, branch_name").order("id").range(a, b)),
   ]);
 type Masters = Awaited<ReturnType<typeof loadMasters>>;

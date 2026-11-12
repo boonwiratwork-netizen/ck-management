@@ -65,7 +65,7 @@ export function useBranchSmStock(branchId: string | null) {
         fetchAllRowsOrThrow<{ id: string; sku_id: string; name: string; usage_uom: string; pack_size: number; purchase_uom: string; converter: number }>((a, b) =>
           supabase.from("skus").select("id, sku_id, name, usage_uom, pack_size, purchase_uom, converter").eq("type", "SM").eq("status", "Active").order("id").range(a, b),
         ).then((data) => ({ data })),
-        supabase.from("suppliers").select("lead_time").eq("is_central_kitchen", true).limit(1).maybeSingle(),
+        supabase.from("suppliers_safe").select("lead_time").eq("is_central_kitchen", true).limit(1).maybeSingle(),
       ]);
       if (!brand) {
         setSmStock({});
