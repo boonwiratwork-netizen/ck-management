@@ -6,8 +6,39 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { deleteWipBatch, loadWipBatches, loadWipInputs, type WipBatch, type WipInput } from "@/lib/wip";
 import { WipSheet } from "./WipSheet";
+import { GuideTour, useGuide } from "@/components/GuideTour";
+import { WIP_GUIDE } from "./wip-guide";
 
 const n0 = (n: number) => Math.round(n).toLocaleString("th-TH");
+
+/** The "ใหม่" tag shows for two weeks from the first time this device sees the row */
+const NEW_KEY = "ck-wip-new-since";
+const NEW_DAYS = 14;
+function useIsNew(show: boolean): boolean {
+  const [isNew, setIsNew] = useState(false);
+  useEffect(() => {
+    if (!show) return;
+    try {
+      let since = localStorage.getItem(NEW_KEY);
+      if (!since) {
+        since = new Date().toISOString();
+        localStorage.setItem(NEW_KEY, since);
+      }
+      setIsNew(Date.now() - new Date(since).getTime() < NEW_DAYS * 86400000);
+    } catch {
+      setIsNew(false);
+    }
+  }, [show]);
+  return isNew;
+}
+/** Shown on its own only to someone who already went through the count page's guide (else that guide has it) */
+function seenCountGuide(): boolean {
+  try {
+    return !!localStorage.getItem("ck-guide-count-v2");
+  } catch {
+    return true;
+  }
+}
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 
 /**
@@ -67,6 +98,14 @@ export function WipCheck({
     const withInputs = new Set((inputs ?? []).map((i) => i.wipSkuId));
     return skus.filter((s) => s.type === "WIP" && s.status === "Active" && withInputs.has(s.id));
   }, [skus, inputs]);
+  const visible = !!inputs && wips.length > 0;
+  const isNew = useIsNew(visible);
+  const guide = useGuide("count-wip");
+  // Someone new gets the WIP steps inside the count page's own guide: this one is then done
+  const { open: guideOpen, close: closeGuide } = guide;
+  useEffect(() => {
+    if (guideOpen && !seenCountGuide()) closeGuide();
+  }, [guideOpen, closeGuide]);
   if (!inputs || !wips.length) return null;
 
   const name = (id: string) => skus.find((s) => s.id === id)?.name ?? "";
@@ -81,13 +120,17 @@ export function WipCheck({
   };
 
   return (
-    <div className="border-t border-border bg-secondary/40 px-4 py-2">
+    <div data-tour="count-wip" className="border-t border-border bg-secondary/40 px-4 py-2">
+      {canEdit && <GuideTour steps={WIP_GUIDE} open={guide.open && seenCountGuide()} onClose={guide.close} />}
       <div className="flex min-h-[52px] items-center gap-3">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-foreground">
           <Hammer className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px]">ทำเองที่ร้าน (WIP){closed ? " · พรุ่งนี้" : " วันนี้"}</span>
+          <span className="flex flex-wrap items-center gap-1.5 text-[15px]">
+            ทำเองที่ร้าน (WIP){closed ? " · พรุ่งนี้" : " วันนี้"}
+            {isNew && <span className="rounded-md bg-brand px-1.5 py-0.5 text-[11px] font-bold text-brand-foreground">ใหม่</span>}
+          </span>
           <span className="block text-sm text-muted-foreground">{summary}</span>
         </span>
         {canEdit && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { WipCheck } from "@/components/wip/WipCheck";
+import { WIP_GUIDE } from "@/components/wip/wip-guide";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, GripVertical, HelpCircle, Printer, Unlock } from "lucide-react";
 import type { SKU } from "@/types/sku";
@@ -55,6 +56,8 @@ const GUIDE: GuideStep[] = [
     ),
   },
   { target: "count-check", title: "ขั้น 1: เช็คก่อนนับ", body: "ต้องมีเครื่องหมายถูกที่ “ยอดขายวันนี้” ก่อน ถ้ายังไม่มี กด “ไปนำเข้า” แล้วค่อยกลับมานับ ไม่งั้นคงเหลือจะไม่ถูก" },
+  // Only at a branch that makes a WIP (the row isn't there otherwise: the step is skipped)
+  { target: "count-wip", title: WIP_GUIDE[0].title, body: WIP_GUIDE[0].body },
   {
     target: "count-open",
     title: "ปิดวันที่ค้างก่อน",
