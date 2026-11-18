@@ -289,6 +289,11 @@ export function moveRows(m: {
   sign?: 1 | -1;
   note: string;
   date: string;
+  /**
+   * The receiving branch's day when it differs (its count for `date` is already sent: the
+   * goods go into its next sheet). The kitchen side always takes `date`.
+   */
+  toDate?: string;
 }): MoveRow[] {
   const q = Math.abs(m.qty);
   const note = m.note.trim();
@@ -299,7 +304,7 @@ export function moveRows(m: {
       if (!m.toBranch || m.toBranch.id === m.fromBranch.id) throw new Error("เลือกสาขาปลายทาง");
       return [
         { ...base, branch_id: m.fromBranch.id, quantity: -q, reason: withNote(`โอนให้สาขาอื่น → ${m.toBranch.name}`) },
-        { ...base, branch_id: m.toBranch.id, quantity: q, reason: withNote(`รับโอนจากสาขาอื่น → ${m.fromBranch.name}`) },
+        { ...base, adjustment_date: m.toDate ?? m.date, branch_id: m.toBranch.id, quantity: q, reason: withNote(`รับโอนจากสาขาอื่น → ${m.fromBranch.name}`) },
       ];
     case "kitchen":
       // The kitchen's own stock is the row with no branch

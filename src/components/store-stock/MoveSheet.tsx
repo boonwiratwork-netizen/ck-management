@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,15 @@ import { noAnswer, writeTimeout } from "@/lib/write-timeout";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 import { cn, toLocalDateStr } from "@/lib/utils";
+import { shiftDay } from "@/lib/day-follow";
+import { dayClosed } from "@/lib/wip";
+
+/**
+ * The day a side of a move is written on: today, or tomorrow once that branch's count for
+ * today is sent (its sheet can't take it any more; written today it would read as a loss on
+ * the next count: Thaniya 13 Nov, −40 "over-used"). The same rule as a WIP batch.
+ */
+export const moveDay = (today: string, closed: boolean) => (closed ? shiftDay(today, 1) : today);
 
 const KINDS: { kind: MoveKind; title: string; hint: string }[] = [
   { kind: "branch", title: "ให้สาขาอื่น", hint: "บันทึก 2 ฝั่งพร้อมกัน" },
@@ -47,6 +56,7 @@ export function MoveSheet({
   onClose,
   onSaved,
   write = writeMove,
+  closedOn = dayClosed,
 }: {
   sku: SKU;
   /** null: on no count sheet in 5 weeks, not known */
@@ -57,6 +67,8 @@ export function MoveSheet({
   onSaved: () => void;
   /** Dev demo only */
   write?: (rows: unknown[]) => Promise<boolean | string | "unknown">;
+  /** Is that branch's count for that day sent (tests / demo); a failed read = not sent */
+  closedOn?: (branchId: string, date: string) => Promise<boolean>;
 }) {
   const [kind, setKind] = useState<MoveKind>("branch");
   const others = branches.filter((b) => b.id !== branch.id && b.status === "Active");
@@ -65,8 +77,26 @@ export function MoveSheet({
   const [sign, setSign] = useState<1 | -1>(-1);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const today = toLocalDateStr(new Date());
+  // Which branches already sent today's count (read once each; unknown = today, as before)
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    let live = true;
+    for (const id of [branch.id, to].filter(Boolean)) {
+      if (id in closed) continue;
+      closedOn(id, today).then(
+        (c) => live && setClosed((m) => ({ ...m, [id]: c })),
+        () => undefined,
+      );
+    }
+    return () => {
+      live = false;
+    };
+  }, [branch.id, to, today]); // eslint-disable-line react-hooks/exhaustive-deps -- closed: read each branch once
   const q = Math.abs(Number(qty.replace(/,/g, "")) || 0);
   const target = others.find((b) => b.id === to);
+  const fromClosed = !!closed[branch.id];
+  const toClosed = kind === "branch" && !!target && !!closed[target.id];
   const uom = sku.usageUom;
   const ready = q > 0 && (kind !== "branch" || !!target) && (kind !== "fix" || note.trim().length > 0);
   const n0 = (n: number) => Math.round(n).toLocaleString("th-TH");
@@ -84,7 +114,18 @@ export function MoveSheet({
     if (!ready || busy) return;
     let rows;
     try {
-      rows = moveRows({ kind, fromBranch: { id: branch.id, name: branch.branchName }, toBranch: target ? { id: target.id, name: target.branchName } : undefined, skuId: sku.id, skuType: sku.type, qty: q, sign, note, date: toLocalDateStr(new Date()) });
+      rows = moveRows({
+        kind,
+        fromBranch: { id: branch.id, name: branch.branchName },
+        toBranch: target ? { id: target.id, name: target.branchName } : undefined,
+        skuId: sku.id,
+        skuType: sku.type,
+        qty: q,
+        sign,
+        note,
+        date: moveDay(today, fromClosed),
+        toDate: kind === "branch" ? moveDay(today, toClosed) : undefined,
+      });
     } catch (e) {
       toast.error((e as Error).message);
       return;
@@ -176,6 +217,15 @@ export function MoveSheet({
           <input value={note} onChange={(e) => setNote(e.target.value)} className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base" aria-label="หมายเหตุ" placeholder={kind === "fix" ? "เช่น นับผิด 26 ต.ค." : ""} />
         </label>
         {q > 0 && <p className="rounded-xl bg-secondary px-3 py-2 text-sm">{summary}</p>}
+        {(fromClosed || toClosed) && (
+          <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
+            {fromClosed && toClosed
+              ? `ใบนับของวันนี้ของทั้ง ${branch.branchName} และ ${target?.branchName} ส่งแล้ว รายการนี้จะเข้าใบนับของพรุ่งนี้`
+              : fromClosed
+                ? `ใบนับของวันนี้ของ ${branch.branchName} ส่งแล้ว รายการนี้จะเข้าใบนับของพรุ่งนี้`
+                : `ใบนับของวันนี้ของ ${target?.branchName} ส่งแล้ว ฝั่งรับจะเข้าใบนับของพรุ่งนี้`}
+          </p>
+        )}
         <Button variant="brand" className="h-12 text-[16px]" loading={busy} disabled={!ready} onClick={save}>
           {kind === "branch" ? `ยืนยันย้าย${q ? ` ${n0(q)} ${uom}` : ""}${target ? ` ไป ${target.branchName}` : ""}` : kind === "kitchen" ? "ยืนยันส่งคืนครัวกลาง" : "ยืนยัน"}
         </Button>

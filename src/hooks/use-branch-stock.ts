@@ -8,6 +8,7 @@ import { dailyUseWindow, sellingDays } from "@/lib/daily-use";
 import type { SKU } from "@/types/sku";
 import { toLocalDateStr } from "@/lib/utils";
 import { businessDate } from "@/lib/stock-count";
+import { shiftDay } from "@/lib/day-follow";
 import { USAGE_TABLES, lastSeen, useKeepLastSeen } from "@/lib/page-cache";
 
 /** What a branch's stock is worked out from: a write to any drops the kept copy (lib/page-cache.ts) */
@@ -88,7 +89,9 @@ export async function loadBranchStock(branchId: string, today: string, products:
   // Receipts, moves and prices don't depend on the counts: asked for now, alongside them (one
   // round trip less on every open and after every save)
   const receiptsP = all<ReceiptMove>((a, b) => supabase.from("branch_receipts").select("id, sku_id, receipt_date, qty_received, transfer_order_id").eq("branch_id", branchId).gte("receipt_date", window.from).lte("receipt_date", today).order("id").range(a, b));
-  const adjustmentsP = all<AdjustmentMove>((a, b) => supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity, reason").eq("branch_id", branchId).gte("adjustment_date", window.from).lte("adjustment_date", today).order("id").range(a, b));
+  // Up to tomorrow: a move or WIP batch made after today's count was sent is dated tomorrow
+  // (MoveSheet / WipSheet), yet it has already happened: the balance shows it now
+  const adjustmentsP = all<AdjustmentMove>((a, b) => supabase.from("stock_adjustments").select("id, sku_id, adjustment_date, quantity, reason").eq("branch_id", branchId).gte("adjustment_date", window.from).lte("adjustment_date", shiftDay(today, 1)).order("id").range(a, b));
   const pricesP = opts.prices === false ? Promise.resolve([] as { sku_id: string; price_per_usage_uom: number }[]) : all<{ sku_id: string; price_per_usage_uom: number }>((a, b) => supabase.from("prices").select("id, sku_id, price_per_usage_uom, created_at").eq("is_active", true).order("created_at", { ascending: false }).order("id").range(a, b));
   // Not left unhandled if the counts fail first (the await below rethrows them)
   for (const p of [receiptsP, adjustmentsP, pricesP]) p.catch(() => undefined);

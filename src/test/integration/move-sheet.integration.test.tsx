@@ -17,6 +17,8 @@ vi.mock("sonner", () => ({ toast: toasts.toast }));
 
 import { MoveSheet } from "@/components/store-stock/MoveSheet";
 import { DB_CALL_TIMEOUT_MS } from "@/lib/transfer-stock-db";
+import { toLocalDateStr } from "@/lib/utils";
+import { shiftDay } from "@/lib/day-follow";
 import type { SKU } from "@/types/sku";
 import type { Branch } from "@/types/branch";
 
@@ -27,10 +29,11 @@ const other = branch("b-2", "Sendo อารีย์");
 
 let onSaved: ReturnType<typeof vi.fn>;
 let onClose: ReturnType<typeof vi.fn>;
-function open() {
+function open(closedIds: string[] = []) {
   onSaved = vi.fn();
   onClose = vi.fn();
-  render(<MoveSheet sku={sku} balance={1000} branch={from} branches={[from, other]} onClose={onClose} onSaved={onSaved} />);
+  const closedOn = async (id: string) => closedIds.includes(id);
+  render(<MoveSheet sku={sku} balance={1000} branch={from} branches={[from, other]} onClose={onClose} onSaved={onSaved} closedOn={closedOn} />);
   fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "250" } });
   return screen.getByRole("button", { name: /ยืนยันย้าย/ });
 }
@@ -53,6 +56,33 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+describe("MoveSheet day: a branch whose count for today is sent gets the move tomorrow", () => {
+  const today = toLocalDateStr(new Date());
+  const tomorrow = shiftDay(today, 1);
+  const daysSent = async (closedIds: string[]) => {
+    net.rpcs.move_branch_stock = () => 2;
+    const button = open(closedIds);
+    await act(() => new Promise((r) => setTimeout(r, 0))); // the "count sent?" reads come back
+    await confirm(button);
+    const rows = (net.sent("move_branch_stock", "POST")[0].body as { p_rows: { branch_id: string; adjustment_date: string }[] }).p_rows;
+    return rows.map((r) => [r.branch_id, r.adjustment_date]);
+  };
+  it("neither sent: both today", async () => {
+    expect(await daysSent([])).toEqual([["b-1", today], ["b-2", today]]);
+  });
+  it("this branch sent: its side tomorrow, and the sheet says so", async () => {
+    expect(await daysSent(["b-1"])).toEqual([["b-1", tomorrow], ["b-2", today]]);
+  });
+  it("the receiving branch sent: only its side tomorrow", async () => {
+    expect(await daysSent(["b-2"])).toEqual([["b-1", today], ["b-2", tomorrow]]);
+  });
+  it("the note shows before saving", async () => {
+    open(["b-1"]);
+    await act(() => new Promise((r) => setTimeout(r, 0)));
+    expect(screen.getByText(/รายการนี้จะเข้าใบนับของพรุ่งนี้/)).toBeInTheDocument();
+  });
 });
 
 describe("MoveSheet save", () => {
