@@ -1,5 +1,6 @@
 import { judgedCountRows, daysBetween, monthStartOf, countedBeforeSalesDays, type CountLine, type SaleLine } from "@/lib/team-score";
 import { shiftDay } from "@/lib/day-follow";
+import { isTransferReason, isWipInputReason, isWipReason } from "@/lib/wip";
 
 /**
  * กระทบยอด สูตร เทียบ ของจริง — per item, per branch, for a week or a month.
@@ -32,6 +33,15 @@ export interface RcSale extends SaleLine {
   menu_code: string;
   qty: number;
 }
+/** A branch stock move that isn't use: a transfer, a return to the kitchen, a WIP batch (either side) */
+export interface RcMove {
+  branch_id: string;
+  sku_id: string;
+  adjustment_date: string;
+  quantity: number;
+  reason: string;
+}
+
 export interface RcSku {
   id: string;
   code: string;
@@ -174,6 +184,55 @@ export interface Cell {
   /** (used − recipe) ÷ recipe: > 0 = used more than the recipe ("ใช้เกิน") */
   pct: number;
   verdict: Verdict;
+  /** Moves in the judged windows (not use: the count already carries them), net; − = went out */
+  moves?: number;
+  /** The same, one line per day and kind ("13 พ.ย. โอนให้ Shiro −40") */
+  moveLines?: MoveLine[];
+  /** The judged counts with the biggest differences (up to 3), with that window's moves and waste */
+  bigDays?: DiffDay[];
+  /** A difference that equals its window's moves: likely a move the saved difference missed, not use */
+  moveMatch?: boolean;
+}
+
+export interface MoveLine {
+  date: string;
+  /** "โอนให้ Shiro" · "รับโอนจาก Thaniya" · "ส่งคืนครัวกลาง" · "ใช้ทำชาชูรวม" · "ทำชาชูรวม" */
+  text: string;
+  qty: number;
+  wip: boolean;
+}
+
+export interface DiffDay {
+  date: string;
+  diff: number;
+  moves: number;
+  waste: number;
+  matchesMove: boolean;
+}
+
+/** A move said the way the branch knows it */
+export function moveText(reason: string): string {
+  const r = reason ?? "";
+  if (isWipReason(r)) return r.replace(/^WIP: /, "").replace(/ \[wip [^\]]+\]$/, "").trim();
+  const to = (head: string, word: string) => {
+    const m = r.slice(head.length).match(/^\s*→\s*([^:]+)/);
+    return m ? `${word} ${m[1].trim()}` : head;
+  };
+  if (r.startsWith("โอนให้สาขาอื่น")) return to("โอนให้สาขาอื่น", "โอนให้");
+  if (r.startsWith("รับโอนจากสาขาอื่น")) return to("รับโอนจากสาขาอื่น", "รับโอนจาก");
+  if (r.startsWith("ส่งคืนครัวกลาง")) return "ส่งคืนครัวกลาง";
+  return r;
+}
+
+/**
+ * A difference that is the window's moves, give or take that day's ordinary gap: the count was
+ * saved without them (a move recorded after the count was sent). Both signs: a transfer out
+ * missed reads −40, one received missed reads +40.
+ */
+const MOVE_MATCH_SHARE = 0.1;
+export function diffMatchesMoves(diff: number, moves: number): boolean {
+  if (Math.abs(moves) < 1 || Math.abs(diff) < 1) return false;
+  return Math.abs(diff - moves) <= Math.max(1, Math.abs(moves) * MOVE_MATCH_SHARE);
 }
 
 /** How far from the recipe still counts as near it */
@@ -188,8 +247,17 @@ export function verdictOf(recipe: number, used: number): Verdict {
   return pct > 0 ? "short" : "over";
 }
 
-export function cellsOf(counts: RcCount[], sales: RcSale[], p: { from: string; to: string }, skuById: Map<string, RcSku>): Map<string, Cell> {
+export function cellsOf(counts: RcCount[], sales: RcSale[], p: { from: string; to: string }, skuById: Map<string, RcSku>, moves: RcMove[] = []): Map<string, Cell> {
   const days = new Set(daysBetween(p.from, p.to));
+  // Moves by item and day (only the kinds that aren't use)
+  const movesBy = new Map<string, RcMove[]>();
+  for (const m of moves) {
+    if (!isTransferReason(m.reason) || !(Number(m.quantity) || 0)) continue;
+    const k = `${m.sku_id}|${m.adjustment_date}`;
+    movesBy.set(k, [...(movesBy.get(k) ?? []), m]);
+  }
+  const lineMap = new Map<string, Map<string, MoveLine>>();
+  const diffDays = new Map<string, DiffDay[]>();
   // Judged on quantities: a price of 1 makes the shared rule's "recipe use above ฿0" mean
   // "recipe use above 0", so an item without a price is still compared
   const { rows } = judgedCountRows(counts, sales, days, () => 1);
@@ -200,16 +268,44 @@ export function cellsOf(counts: RcCount[], sales: RcSale[], p: { from: string; t
     const c = out.get(sku) ?? { branchId: j.row.branch_id, recipe: 0, diff: 0, used: 0, waste: 0, received: 0, counts: 0, firstCount: j.row.count_date, lastCount: j.row.count_date, pct: 0, verdict: "near" as Verdict };
     c.recipe += j.recipeQty;
     c.diff += Number(j.row.variance) || 0;
+    let wWaste = 0;
     for (const w of j.windowRows) {
-      c.waste += Math.max(0, Number(w.waste) || 0);
+      wWaste += Math.max(0, Number(w.waste) || 0);
       c.received += (Number(w.received_from_ck) || 0) + (Number(w.received_external) || 0) * conv;
     }
+    c.waste += wWaste;
+    // The window's moves: the day after the previous count through the counted day
+    let wMoves = 0;
+    const lines = lineMap.get(sku) ?? new Map<string, MoveLine>();
+    for (const d of daysBetween(shiftDay(j.prevCount, 1), j.row.count_date)) {
+      for (const m of movesBy.get(`${sku}|${d}`) ?? []) {
+        const q = Number(m.quantity) || 0;
+        wMoves += q;
+        const text = moveText(m.reason);
+        const k = `${d}|${text}`;
+        const l = lines.get(k) ?? { date: d, text, qty: 0, wip: isWipReason(m.reason) };
+        l.qty += q;
+        lines.set(k, l);
+      }
+    }
+    lineMap.set(sku, lines);
+    c.moves = (c.moves ?? 0) + wMoves;
+    const diff = Number(j.row.variance) || 0;
+    const matchesMove = diffMatchesMoves(diff, wMoves);
+    if (matchesMove) c.moveMatch = true;
+    diffDays.set(sku, [...(diffDays.get(sku) ?? []), { date: j.row.count_date, diff, moves: wMoves, waste: wWaste, matchesMove }]);
     c.counts++;
     if (j.row.count_date < c.firstCount) c.firstCount = j.row.count_date;
     if (j.row.count_date > c.lastCount) c.lastCount = j.row.count_date;
     out.set(sku, c);
   }
-  for (const c of out.values()) {
+  for (const [sku, c] of out) {
+    c.moveLines = [...(lineMap.get(sku)?.values() ?? [])].filter((l) => Math.abs(l.qty) >= 0.5).sort((a, b) => a.date.localeCompare(b.date) || a.text.localeCompare(b.text, "th"));
+    c.bigDays = (diffDays.get(sku) ?? [])
+      .filter((d) => Math.abs(d.diff) >= 0.5)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff) || a.date.localeCompare(b.date))
+      .slice(0, 3);
+    c.moveMatch = !!c.moveMatch;
     c.used = c.recipe - c.diff;
     c.pct = c.recipe > 0 ? (c.used - c.recipe) / c.recipe : 0;
     c.verdict = verdictOf(c.recipe, c.used);
@@ -219,9 +315,10 @@ export function cellsOf(counts: RcCount[], sales: RcSale[], p: { from: string; t
 
 // ─── Row label ───
 
-export type Label = "bad" | "bom" | "shop" | "near" | "kitchen";
+export type Label = "move" | "bad" | "bom" | "shop" | "near" | "kitchen";
 
 export const LABEL_TEXT: Record<Label, string> = {
+  move: "ส่วนต่างตรงกับยอดโอน · เช็คก่อน",
   bad: "ข้อมูลนับผิด",
   bom: "หลายสาขาเหมือนกัน · เช็คสูตร",
   shop: "หน้าร้าน",
@@ -233,8 +330,11 @@ export const LABEL_TEXT: Record<Label, string> = {
  * น่าจะเป็น: a number that can't be real → ข้อมูลนับผิด; every branch with data off ≥10%
  * the same way (2 or more) → the recipe; one branch off, or branches off in opposite ways →
  * the shop; all within ±10% → near. The kitchen (one column) off → its recipe or production.
+ * Before all of them: a branch off (or unreal) whose difference equals a day's moves → check
+ * that move first (likely a count saved without it, not use).
  */
 export function labelOf(cells: Cell[], scope: "branches" | "kitchen" = "branches"): Label {
+  if (cells.some((c) => c.verdict !== "near" && c.moveMatch)) return "move";
   if (cells.some((c) => c.verdict === "bad")) return "bad";
   const off = cells.filter((c) => c.verdict === "short" || c.verdict === "over");
   if (off.length === 0) return "near";
@@ -278,6 +378,8 @@ export interface RcInput {
   branches: RcBranch[];
   counts: RcCount[];
   sales: RcSale[];
+  /** Branch moves in the rows read (transfers, returns, WIP batches); none = no notes */
+  moves?: RcMove[];
   skus: RcSku[];
   /** Active price per usage unit (0 when none) */
   price: (skuId: string) => number;
@@ -333,7 +435,7 @@ export function buildReconcile(input: RcInput): RcView {
     const counts = input.counts.filter((c) => c.branch_id === b.id);
     const sales = input.sales.filter((s) => s.branch_id === b.id);
     days.push(branchDaysOf(b.id, counts.filter((c) => c.count_date >= period.from), sales, period));
-    perBranch.set(b.id, cellsOf(counts, sales, period, skuById));
+    perBranch.set(b.id, cellsOf(counts, sales, period, skuById, (input.moves ?? []).filter((m) => m.branch_id === b.id)));
   }
   const skuIds = new Set<string>();
   for (const m of perBranch.values()) for (const id of m.keys()) skuIds.add(id);

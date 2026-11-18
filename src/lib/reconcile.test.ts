@@ -9,6 +9,8 @@ import {
   cellsOf,
   daysLine,
   daysText,
+  diffMatchesMoves,
+  moveText,
   kitchenRows,
   labelOf,
   onlyOff,
@@ -20,6 +22,7 @@ import {
   verdictOf,
   type Cell,
   type RcCount,
+  type RcMove,
   type RcSale,
   type RcSku,
 } from "@/lib/reconcile";
@@ -287,5 +290,56 @@ describe("ลิงก์เข้ากระทบยอด", () => {
     expect(monthsBack("2026-11-08", "2026-10")).toBe(1);
     expect(monthsBack("2027-01-02", "2026-11")).toBe(2);
     expect(monthsBack("2026-11-08", "2026-12")).toBe(0);
+  });
+});
+
+describe("move notes (transfers, returns, WIP batches)", () => {
+  const mv = (day: string, quantity: number, reason: string, skuId = "a", branch = "b1"): RcMove => ({ branch_id: branch, sku_id: skuId, adjustment_date: day, quantity, reason });
+  const sales = week.map((d) => sale(d));
+
+  it("says each move the way the branch knows it", () => {
+    expect(moveText("โอนให้สาขาอื่น → Shiro: นำไปขายเมนูโนริพาสต้า")).toBe("โอนให้ Shiro");
+    expect(moveText("โอนให้สาขาอื่น → Shiro")).toBe("โอนให้ Shiro");
+    expect(moveText("รับโอนจากสาขาอื่น → Thaniya: ของขาด")).toBe("รับโอนจาก Thaniya");
+    expect(moveText("ส่งคืนครัวกลาง: ส่งเทสครัวกลาง 13/11/69")).toBe("ส่งคืนครัวกลาง");
+    expect(moveText("WIP: ใช้ทำชาชูรวม [wip 30946b10-6897]")).toBe("ใช้ทำชาชูรวม");
+  });
+
+  it("a difference equal to that day's transfer: flagged, and the row says check the move first", () => {
+    // Thaniya เส้นตรง, 13 Nov: 40 sent to Shiro, the count saved without it (−40)
+    const counts = week.map((d) => cnt(d, "a", { variance: d === "2026-11-05" ? -40 : 0 }));
+    const moves = [mv("2026-11-04", -20, "โอนให้สาขาอื่น → Shiro"), mv("2026-11-05", -40, "โอนให้สาขาอื่น → Shiro")];
+    const c = cellsOf(counts, sales, P, SKUS, moves).get("a")!;
+    expect(c.moves).toBe(-60);
+    expect(c.moveLines?.map((l) => `${l.date} ${l.text} ${l.qty}`)).toEqual(["2026-11-04 โอนให้ Shiro -20", "2026-11-05 โอนให้ Shiro -40"]);
+    expect(c.bigDays?.[0]).toMatchObject({ date: "2026-11-05", diff: -40, moves: -40, matchesMove: true });
+    expect(c.moveMatch).toBe(true);
+    expect(labelOf([{ ...c, verdict: "short" }])).toBe("move");
+  });
+
+  it("a move saved right (difference 0) is a note only, never a flag", () => {
+    const counts = week.map((d) => cnt(d, "a", { variance: d === "2026-11-03" ? -5 : 0 }));
+    const c = cellsOf(counts, sales, P, SKUS, [mv("2026-11-05", -300, "WIP: ใช้ทำชาชูรวม [wip x]")]).get("a")!;
+    expect(c.moveMatch).toBe(false);
+    expect(c.moveLines).toEqual([{ date: "2026-11-05", text: "ใช้ทำชาชูรวม", qty: -300, wip: true }]);
+    expect(c.bigDays).toEqual([{ date: "2026-11-03", diff: -5, moves: 0, waste: 0, matchesMove: false }]);
+  });
+
+  it("received side: a missed transfer in reads + and matches too; other adjustments and other items are not moves", () => {
+    const counts = week.map((d) => cnt(d, "a", { variance: d === "2026-11-02" ? 2000 : 0 }));
+    const moves = [mv("2026-11-02", 2000, "รับโอนจากสาขาอื่น → Thaniya"), mv("2026-11-02", 50, "แก้ไขความผิดพลาด"), mv("2026-11-02", -9, "โอนให้สาขาอื่น → Shiro", "b")];
+    const c = cellsOf(counts, sales, P, SKUS, moves).get("a")!;
+    expect(c.moves).toBe(2000);
+    expect(c.bigDays?.[0].matchesMove).toBe(true);
+    expect(diffMatchesMoves(-2060, -2000)).toBe(true); // that day's own small gap on top
+    expect(diffMatchesMoves(-50, -40)).toBe(false);
+    expect(diffMatchesMoves(-0.4, -40)).toBe(false);
+  });
+
+  it("moves outside the judged windows are left out (before the period's first window)", () => {
+    const counts = week.map((d) => cnt(d, "a"));
+    const c = cellsOf(counts, sales, P, SKUS, [mv("2026-10-31", -40, "โอนให้สาขาอื่น → Shiro")]).get("a")!;
+    expect(c.moves ?? 0).toBe(0);
+    expect(c.moveLines).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import Reconcile from "@/pages/Reconcile";
 import type { ReconcileLoader, ReconcileMasters } from "@/hooks/use-reconcile";
-import { kitchenRows, type RcCount, type RcSale } from "@/lib/reconcile";
+import { kitchenRows, type RcCount, type RcMove, type RcSale } from "@/lib/reconcile";
 import type { KitchenResult } from "@/lib/reconcile-kitchen";
 import { daysBetween } from "@/lib/team-score";
 import type { SKU } from "@/types/sku";
@@ -80,7 +80,19 @@ const OFF: Record<string, Record<string, number>> = {
   s6: { b1: -0.12, b2: 0.06, b3: 0.04 },
 };
 
-function makeRows(from: string, to: string): { counts: RcCount[]; sales: RcSale[] } {
+/**
+ * Moves (the notes): Thaniya passes ไข่ดอง 2,000 ก. to Shiro on 5 Nov, and its count that day
+ * was saved without it (−2,000: the "= โอนวันนั้น" case); Shiro's side was saved right.
+ * Thaniya also puts 300 ก. ชาชู into a WIP batch on 6 Nov (recorded right: just a note).
+ */
+const MOVES: RcMove[] = [
+  { branch_id: "b1", sku_id: "s3", adjustment_date: "2026-11-05", quantity: -2000, reason: "โอนให้สาขาอื่น → Shiro: ของขาด" },
+  { branch_id: "b2", sku_id: "s3", adjustment_date: "2026-11-05", quantity: 2000, reason: "รับโอนจากสาขาอื่น → Thaniya: ของขาด" },
+  { branch_id: "b1", sku_id: "s2", adjustment_date: "2026-11-06", quantity: -300, reason: "WIP: ใช้ทำชาชูรวม [wip demo]" },
+];
+const STALE = { branch_id: "b1", sku_id: "s3", count_date: "2026-11-05", missed: -2000 };
+
+function makeRows(from: string, to: string): { counts: RcCount[]; sales: RcSale[]; moves: RcMove[] } {
   const counts: RcCount[] = [];
   const sales: RcSale[] = [];
   for (const b of BRANCHES) {
@@ -98,7 +110,7 @@ function makeRows(from: string, to: string): { counts: RcCount[]; sales: RcSale[
           count_date: d,
           sku_id: id,
           physical_count: 500,
-          variance: -expected * OFF[id][b.id],
+          variance: -expected * OFF[id][b.id] + (b.id === STALE.branch_id && id === STALE.sku_id && d === STALE.count_date ? STALE.missed : 0),
           waste: id === "s2" ? 40 : id === "s4" ? 15 : 0,
           expected_usage: expected,
           is_submitted: true,
@@ -110,7 +122,7 @@ function makeRows(from: string, to: string): { counts: RcCount[]; sales: RcSale[
       }
     }
   }
-  return { counts, sales };
+  return { counts, sales, moves: MOVES.filter((m) => m.adjustment_date >= from && m.adjustment_date <= to) };
 }
 
 const KITCHEN: KitchenResult = {

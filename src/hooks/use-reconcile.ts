@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { perBranchRows } from "@/lib/per-branch";
 import { shiftDay } from "@/lib/day-follow";
 import { sharedRead } from "@/lib/page-cache";
-import { buildReconcile, LOOKBACK_DAYS, type RcBranch, type RcCount, type RcPeriod, type RcSale, type RcView } from "@/lib/reconcile";
+import { buildReconcile, LOOKBACK_DAYS, type RcBranch, type RcCount, type RcMove, type RcPeriod, type RcSale, type RcView } from "@/lib/reconcile";
+import { isTransferReason } from "@/lib/wip";
 import type { SKU } from "@/types/sku";
 import type { Price } from "@/types/price";
 import type { Menu } from "@/types/menu";
@@ -27,14 +28,15 @@ export interface ReconcileMasters {
 }
 
 export interface ReconcileLoader {
-  load(branchIds: string[], from: string, to: string): Promise<{ counts: RcCount[]; sales: RcSale[] }>;
+  /** moves: branch transfers / returns / WIP batches (the notes); left out = no notes */
+  load(branchIds: string[], from: string, to: string): Promise<{ counts: RcCount[]; sales: RcSale[]; moves?: RcMove[] }>;
 }
 
-const TABLES = ["daily_stock_counts", "sales_entries"];
+const TABLES = ["daily_stock_counts", "sales_entries", "stock_adjustments"];
 
 export const supabaseReconcileLoader: ReconcileLoader = {
   async load(branchIds, from, to) {
-    const [counts, sales] = await Promise.all([
+    const [counts, sales, moves] = await Promise.all([
       perBranchRows<RcCount & { id: string }>(branchIds, (id, a, b) =>
         supabase
           .from("daily_stock_counts")
@@ -48,6 +50,10 @@ export const supabaseReconcileLoader: ReconcileLoader = {
       perBranchRows<RcSale & { id: string }>(branchIds, (id, a, b) =>
         supabase.from("sales_entries").select("id, branch_id, sale_date, created_at, net_amount, menu_code, qty").eq("branch_id", id).gte("sale_date", from).lte("sale_date", to).order("id").range(a, b) as never,
       ),
+      // Notes only: a failed read leaves them out, never the page
+      perBranchRows<RcMove & { id: string }>(branchIds, (id, a, b) =>
+        supabase.from("stock_adjustments").select("id, branch_id, sku_id, adjustment_date, quantity, reason").eq("branch_id", id).gte("adjustment_date", from).lte("adjustment_date", to).order("id").range(a, b) as never,
+      ).catch(() => [] as (RcMove & { id: string })[]),
     ]);
     return {
       counts: counts.map((c) => ({
@@ -60,6 +66,7 @@ export const supabaseReconcileLoader: ReconcileLoader = {
         received_external: Number(c.received_external) || 0,
       })),
       sales: sales.map((s) => ({ ...s, net_amount: Number(s.net_amount) || 0, qty: Number(s.qty) || 0, menu_code: s.menu_code ?? "" })),
+      moves: moves.filter((m) => isTransferReason(m.reason)).map((m) => ({ ...m, quantity: Number(m.quantity) || 0, reason: m.reason ?? "" })),
     };
   },
 };
@@ -76,7 +83,7 @@ export function useReconcile(masters: ReconcileMasters, period: RcPeriod, loader
   const readFrom = shiftDay(period.from, -LOOKBACK_DAYS);
   const ids = branches.map((b) => b.id).join(",");
   const key = ids ? `reconcile|${ids}|${readFrom}|${period.to}` : null;
-  const [raw, setRaw] = useState<{ for: string; counts: RcCount[]; sales: RcSale[] } | null>(null);
+  const [raw, setRaw] = useState<{ for: string; counts: RcCount[]; sales: RcSale[]; moves?: RcMove[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [tick, setTick] = useState(0);
@@ -114,6 +121,7 @@ export function useReconcile(masters: ReconcileMasters, period: RcPeriod, loader
             branches,
             counts: shown.counts,
             sales: shown.sales,
+            moves: shown.moves,
             skus: masters.skus.map((s) => ({ id: s.id, code: s.skuId, name: s.name, purchaseUom: s.purchaseUom, usageUom: s.usageUom, converter: s.converter })),
             price,
             menus: masters.menus,

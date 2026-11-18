@@ -23,6 +23,7 @@ const NAME_MIN = 160;
 const RC_MIN = tableMinWidth([88, 88], 160);
 
 const LABEL_TONE: Record<Label, string> = {
+  move: "bg-warning-soft text-warning",
   bad: "bg-destructive-soft text-destructive",
   bom: "bg-warning-soft text-warning",
   shop: "bg-brand-soft text-brand-soft-foreground",
@@ -40,6 +41,17 @@ const VERDICT_TONE: Record<Cell["verdict"], string> = {
 const n0 = (v: number) => Math.round(v).toLocaleString("th-TH");
 const qty = (v: number, unit: string) => `${n0(v)} ${unit}`.trim();
 const thb = (v: number) => `฿${n0(Math.max(0, v))}`;
+const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${n0(Math.abs(v))}`;
+
+/** The cell's moves in a few words: "โอนออก −60" · "รับโอน +60" · "ใส่ทำ WIP −120" · "ทำ WIP +900" */
+function moveChip(cell: Cell): string | null {
+  const net = cell.moves ?? 0;
+  if (Math.abs(net) < 0.5) return null;
+  const lines = cell.moveLines ?? [];
+  const allWip = lines.length > 0 && lines.every((l) => l.wip);
+  const word = net < 0 ? (allWip ? "ใส่ทำ WIP" : "โอนออก") : allWip ? "ทำ WIP" : "รับโอน";
+  return `${word} ${signed(net)}`;
+}
 
 export function LabelPill({ label }: { label: Label }) {
   return <span className={cn("inline-block rounded-lg px-2 py-0.5 text-xs font-semibold leading-snug", LABEL_TONE[label])}>{LABEL_TEXT[label]}</span>;
@@ -125,6 +137,7 @@ export function ReconcileTable({ rows, columns, kitchen, onEditRecipe }: Props) 
                           <>
                             <span className={cn("block whitespace-nowrap text-[13px] font-semibold", VERDICT_TONE[cell.verdict])}>{t.head}</span>
                             {t.sub && <span className="block whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">{t.sub}</span>}
+                            {moveChip(cell) && <span className="mt-1 inline-block whitespace-nowrap rounded-md bg-brand-soft px-1.5 py-px text-[11px] text-brand-soft-foreground">{moveChip(cell)}</span>}
                           </>
                         )}
                       </td>
@@ -194,6 +207,7 @@ function Details({ row, columns, kitchen, onEditRecipe }: { row: RcRow; columns:
                   </dd>
                 </dl>
               )}
+              {cell && !kitchen && <MoveNotes cell={cell} unit={u} />}
               {serving && (
                 <div className="mt-2 border-t border-secondary pt-2 text-[13px]">
                   <p className="break-words font-medium">
@@ -215,5 +229,58 @@ function Details({ row, columns, kitchen, onEditRecipe }: { row: RcRow; columns:
         แก้สูตรวัตถุดิบนี้ ›
       </button>
     </div>
+  );
+}
+
+/** What moved that isn't use, and the counts with the biggest differences next to that day's moves and waste */
+function MoveNotes({ cell, unit }: { cell: Cell; unit: string }) {
+  const lines = cell.moveLines ?? [];
+  // The days only matter where the item is off (or a day matches a move): a near item's ±20 is noise
+  const days = cell.verdict !== "near" || cell.moveMatch ? (cell.bigDays ?? []) : [];
+  if (!lines.length && !days.length) return null;
+  return (
+    <>
+      {lines.length > 0 && (
+        <div className="mt-2 border-t border-secondary pt-2 text-[13px]">
+          <p className="font-medium">
+            โอน/ย้าย <span className="font-normal text-muted-foreground">(ไม่นับเป็นการใช้)</span>
+          </p>
+          <ul className="mt-1 flex flex-col gap-1">
+            {lines.map((l) => (
+              <li key={`${l.date}|${l.text}`} className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 break-words">
+                  {thDay(l.date)} {l.text}
+                </span>
+                <span className="whitespace-nowrap font-mono tabular-nums">{`${signed(l.qty)} ${unit}`.trim()}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {days.length > 0 && (
+        <div className="mt-2 border-t border-secondary pt-2 text-[13px]">
+          <p className="font-medium">วันที่ส่วนต่างเยอะสุด</p>
+          <ul className="mt-1 flex flex-col gap-1.5">
+            {days.map((d) => (
+              <li key={d.date}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="whitespace-nowrap">
+                    {thDay(d.date)} ส่วนต่าง <span className={cn("font-mono font-semibold tabular-nums", d.diff < 0 ? "text-destructive" : "text-foreground")}>{signed(d.diff)}</span>
+                  </span>
+                  {d.matchesMove ? (
+                    <span className="whitespace-nowrap rounded-md bg-warning-soft px-1.5 py-px text-xs font-semibold text-warning">ตรงกับยอดโอน</span>
+                  ) : (
+                    <span className="min-w-0 text-right text-xs text-muted-foreground">
+                      {[Math.abs(d.moves) >= 0.5 && `โอน/ย้าย ${signed(d.moves)}`, d.waste >= 0.5 && `ของเสีย ${n0(d.waste)}`].filter(Boolean).join(" · ") || "ไม่มีโอน/ของเสีย"}
+                    </span>
+                  )}
+                </div>
+                {d.matchesMove && <p className="mt-0.5 text-xs text-muted-foreground">ส่วนต่างใกล้เคียงยอดโอนวันนั้น น่าจะเป็นตัวเลขโอนค้าง ไม่ใช่ใช้เกิน · แจ้งผู้ดูแลให้เช็ค</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
   );
 }
