@@ -545,13 +545,19 @@ export function useDailyStockCount({
         };
       });
 
-      // Update DB in background for any changed rows
+      // Update DB in background for any changed rows. The saved balance and difference are
+      // compared too: a move recorded after the count was typed (a transfer, a WIP batch)
+      // changes only them, and it used to leave the old difference saved (Thaniya, 13 Nov:
+      // a 40-piece transfer to Shiro stayed in the record as −40 used, while the sheet showed 0)
+      const off = (a: number, b: unknown) => Math.abs(a - Number(b)) > 0.001;
       const updates = patched.filter(
         (p, i) =>
           p.opening_balance !== Number(data[i].opening_balance) ||
           p.received_external !== Number(data[i].received_external) ||
           p.received_from_ck !== Number(data[i].received_from_ck) ||
-          p.expected_usage !== Number(data[i].expected_usage),
+          p.expected_usage !== Number(data[i].expected_usage) ||
+          off(p.calculated_balance, data[i].calculated_balance) ||
+          off(p.variance, data[i].variance),
       );
       if (stale()) return;
       if (updates.length > 0) {
@@ -759,7 +765,8 @@ export function useDailyStockCount({
       const variance = physicalCount !== null ? physicalCount - row.calculatedBalance : 0;
       // Shown at once; saved (or queued) behind it
       setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, physicalCount, variance } : r)));
-      await enqueue(rowId, { physical_count: physicalCount, variance });
+      // The balance it was compared with is saved beside it, so the two never disagree
+      await enqueue(rowId, { physical_count: physicalCount, calculated_balance: row.calculatedBalance, variance });
     },
     [rows, enqueue],
   );

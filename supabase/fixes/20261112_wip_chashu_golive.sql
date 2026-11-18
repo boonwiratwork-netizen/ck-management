@@ -12,7 +12,7 @@
 -- ═══ STEP 1 · preview ═══════════════════════════════════════════════
 -- Before go-live: RM-0202 should have no open kitchen requests / transfers and no kitchen stock
 select 'ใบโอน/ใบขอเบิกที่ยังค้าง' as เช็ค, count(*) as จำนวน
-from transfer_order_lines l join transfer_orders o on o.id = l.transfer_order_id
+from transfer_order_lines l join transfer_orders o on o.id = l.to_id
 where l.sku_id = (select id from skus where sku_id = 'RM-0202') and o.status in ('Draft', 'Sent');
 select 'ชาชูรวม' as เรื่อง, s.sku_id as รหัส, s.name as ชื่อ, s.type as ประเภทตอนนี้, null::numeric as yield_ตอนนี้, null::numeric as ตัดต่อจาน_ตอนนี้, null::numeric as ตัดต่อจาน_ใหม่
 from skus s where s.sku_id = 'RM-0202'
