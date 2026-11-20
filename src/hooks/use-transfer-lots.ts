@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { SKU } from "@/types/sku";
 import type { TOLine } from "@/hooks/use-transfer-order";
 import { kitchenStockForSkus } from "@/lib/kitchen-stock";
-import { isUnknownLot, lotKey, packsOf, reconcileLots, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
+import { byproductLots, isUnknownLot, recordIdOfReason, lotKey, packsOf, reconcileLots, takenKey, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
 import { newRowId, noAnswer, writeError, writeTimeout } from "@/lib/write-timeout";
 import { toast } from "sonner";
 
@@ -204,7 +204,7 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
       if (stale) return;
       const skuIds = skuKey.split(",").filter(Boolean);
       const smIds = skuIds.filter(isLotLine);
-      const [prodRes, stockMap, lotRes, takenRes] = await Promise.all([
+      const [prodRes, stockMap, lotRes, takenRes, bpRes] = await Promise.all([
         // Paged: every SM's runs since March add up past the 1,000-row cap
         smIds.length
           ? fetchAllRows<{ id: string; sm_sku_id: string; production_date: string; actual_output_g: number; batches_produced: number }>((a, b) =>
@@ -213,26 +213,54 @@ export function useTransferLots(toId: string | null, lines: TOLine[], skus: SKU[
           : Promise.resolve({ data: [] as never[], error: null }),
         kitchenStockForSkus(skus, skuIds),
         supabase.from("transfer_order_lot_lines").select("id, to_line_id, production_record_id, production_date, packs, pack_weight_g").in("to_line_id", lineKey.split(",")).order("production_date").order("id"),
-        fetchAllRows<{ to_line_id: string; production_record_id: string | null; packs: number; pack_weight_g: number }>((a, b) =>
-          supabase.from("transfer_order_lot_lines").select("id, to_line_id, production_record_id, packs, pack_weight_g").order("id").range(a, b) as never,
+        // With each line's item: one run is a lot of several items (its by-products), and what
+        // was taken is counted per item
+        fetchAllRows<{ to_line_id: string; production_record_id: string | null; packs: number; pack_weight_g: number; transfer_order_lines: { sku_id: string } | null }>((a, b) =>
+          supabase.from("transfer_order_lot_lines").select("id, to_line_id, production_record_id, packs, pack_weight_g, transfer_order_lines(sku_id)").order("id").range(a, b) as never,
         ),
+        // By-products these items came out of other runs as (น้ำมันไก่ from น้ำสต๊อก): kitchen rows only
+        smIds.length
+          ? fetchAllRows<{ sku_id: string; quantity: number; reason: string | null }>((a, b) =>
+              supabase.from("stock_adjustments").select("id, sku_id, quantity, reason").is("branch_id", null).in("sku_id", smIds).like("reason", "Production by-product%").order("id").range(a, b) as never,
+            )
+          : Promise.resolve({ data: [] as never[], error: null }),
       ]);
       if (stale) return;
       // A failed read would show lots as all still there, or a line's saved lots as none (and
       // fill it again on top): say so and fill nothing
-      const failedRead = prodRes.error || lotRes.error || takenRes.error;
+      const failedRead = prodRes.error || lotRes.error || takenRes.error || bpRes.error;
       if (failedRead) throw failedRead;
+      // The runs those by-products came from (their day and batches), by id, a page at a time
+      const runIds = [...new Set((bpRes.data || []).map((r) => recordIdOfReason(r.reason)).filter((x): x is string => !!x))];
+      const runs = new Map<string, { productionDate: string; batchesProduced: number; smSkuId: string }>();
+      const chunks: string[][] = [];
+      for (let i = 0; i < runIds.length; i += 100) chunks.push(runIds.slice(i, i + 100));
+      const runPages = await Promise.all(chunks.map((ids) => supabase.from("production_records").select("id, sm_sku_id, production_date, batches_produced").in("id", ids)));
+      for (const { data, error } of runPages) {
+        if (error) throw error;
+        for (const r of data || []) runs.set(r.id, { productionDate: r.production_date, batchesProduced: Number(r.batches_produced) || 0, smSkuId: r.sm_sku_id });
+      }
+      if (stale) return;
       // What other orders already took from each lot (this order's own lines don't count)
       const thisOrder = new Set(lineKey.split(","));
       const taken = new Map<string, number>();
       for (const t of takenRes.data) {
         if (!t.production_record_id || thisOrder.has(t.to_line_id)) continue;
-        taken.set(t.production_record_id, (taken.get(t.production_record_id) ?? 0) + (Number(t.packs) || 0) * (Number(t.pack_weight_g) || 0));
+        // A line whose item couldn't be read counts against the run's own product (as before)
+        const k = takenKey(t.production_record_id, t.transfer_order_lines?.sku_id ?? "?");
+        taken.set(k, (taken.get(k) ?? 0) + (Number(t.packs) || 0) * (Number(t.pack_weight_g) || 0));
       }
+      const takenFrom = (runId: string, skuId: string, ownRun: boolean) => (taken.get(takenKey(runId, skuId)) ?? 0) + (ownRun ? (taken.get(takenKey(runId, "?")) ?? 0) : 0);
       const bySku: Record<string, ProdRecord[]> = {};
       for (const r of prodRes.data || []) {
         const out = Number(r.actual_output_g) || 0;
-        (bySku[r.sm_sku_id] ||= []).push({ id: r.id, productionDate: r.production_date, actualOutputG: out, batchesProduced: r.batches_produced, remainingG: out - (taken.get(r.id) ?? 0) });
+        (bySku[r.sm_sku_id] ||= []).push({ id: r.id, productionDate: r.production_date, actualOutputG: out, batchesProduced: r.batches_produced, remainingG: out - takenFrom(r.id, r.sm_sku_id, true) });
+      }
+      // By-product lots join the item's own runs (oldest-first ordering is visibleRecords' job)
+      const bp = byproductLots(bpRes.data || [], runs, (id) => skuOf(id)?.name ?? "");
+      for (const [skuId, list] of Object.entries(bp)) {
+        const own = new Set((bySku[skuId] || []).map((r) => r.id));
+        for (const r of list) if (!own.has(r.id)) (bySku[skuId] ||= []).push({ ...r, remainingG: r.actualOutputG - takenFrom(r.id, skuId, false) });
       }
       // Saved lots, one entry per production lot (old duplicates are added up)
       const saved: Record<string, Map<string, SavedRow[]>> = {};

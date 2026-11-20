@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SKU } from "@/types/sku";
 import type { PendingTR, TOHistoryRow, TOLine } from "@/hooks/use-transfer-order";
-import { isUnknownLot, packsOf, reconcileLots, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
+import { byproductLots, isUnknownLot, packsOf, reconcileLots, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "@/lib/transfer-lines";
 import { DeclineDialog, PackSheet, useSendCheck, type LotsApi, type PackForm } from "@/components/transfer/PackSheet";
 import { ReviewSend, SentDone, TransferHistory, TransferHome, sentMessage, type Kind, type OrderDetail } from "@/components/transfer/TransferViews";
 import { GuideTour } from "@/components/GuideTour";
@@ -19,6 +19,8 @@ const SKUS = [
   sku("sm3", "สันคอหมูชาชู ซูวีด์ รมควัน", "SM", 350),
   sku("sm4", "อกไก่ชาชู ซูวีด์", "SM", 350),
   sku("sm5", "ซุปทงคตสึ", "SM", 3000),
+  sku("sm6", "น้ำมันไก่", "SM", 1000),
+  sku("sm7", "น้ำสต๊อก", "SM", 5000),
   sku("rm1", "ทาเระ ชิโอะ", "RM", 5500),
   sku("pk1", "ชามกระดาษ Eco พร้อมฝา PP 850 ml", "PK", 50, "ชิ้น"),
   sku("pk2", "ถ้วยน้ำจิ้ม PET ฝาพับ 2 Oz", "PK", 50, "ชิ้น"),
@@ -33,6 +35,7 @@ const LINES: TOLine[] = [
   line("l3", "sm3", 1400, 1400, 4),
   line("l4", "sm4", 1750, 1880, 5),
   line("l5", "sm5", 9000, 9000, 3),
+  line("l9", "sm6", 2000, 2000, 2),
   line("l6", "rm1", 5500, 5500, 1),
   line("l7", "pk1", 50, 50, 1),
   line("l8", "pk2", 50, 50, 1),
@@ -44,8 +47,29 @@ const RECORDS: Record<string, ProdRecord[]> = {
   sm3: [rec("r4", "2026-10-02", 3000), rec("r5", "2026-10-21", 1050)],
   sm4: [rec("r6", "2026-10-15", 2000)],
   sm5: [rec("r7", "2026-10-14", 12000)],
+  // น้ำมันไก่: its own runs until 23 Oct, then only out of pots of น้ำสต๊อก (by-product lots).
+  // The 11 Nov pot's oil: 2 of its 5 packs went on another order already
+  sm6: [
+    rec("r8", "2026-09-21", 2000),
+    rec("r9", "2026-10-23", 1000),
+    ...(byproductLots(
+      [
+        { sku_id: "sm6", quantity: 5000, reason: "Production by-product: 0.93 batches of sm7 [rec 00000000-0000-0000-0000-000000000029]" },
+        { sku_id: "sm6", quantity: 3000, reason: "Production by-product: 0.94 batches of sm7 [rec 00000000-0000-0000-0000-000000000106]" },
+        { sku_id: "sm6", quantity: 5000, reason: "Production by-product: 1 batches of sm7 [rec 00000000-0000-0000-0000-000000000111]" },
+        { sku_id: "sm6", quantity: 5000, reason: "Production by-product: 1 batches of sm7 [rec 00000000-0000-0000-0000-000000000118]" },
+      ],
+      new Map([
+        ["00000000-0000-0000-0000-000000000029", { productionDate: "2026-10-29", batchesProduced: 0.93, smSkuId: "sm7" }],
+        ["00000000-0000-0000-0000-000000000106", { productionDate: "2026-11-06", batchesProduced: 0.94, smSkuId: "sm7" }],
+        ["00000000-0000-0000-0000-000000000111", { productionDate: "2026-11-11", batchesProduced: 1, smSkuId: "sm7" }],
+        ["00000000-0000-0000-0000-000000000118", { productionDate: "2026-11-18", batchesProduced: 1, smSkuId: "sm7" }],
+      ]),
+      (id) => SKUS.find((x) => x.id === id)?.name ?? "",
+    ).sm6 ?? []).map((r) => ({ ...r, remainingG: r.actualOutputG - (r.productionDate === "2026-11-11" ? 2000 : 0) })),
+  ],
 };
-const STOCK: Record<string, number> = { sm1: 400, sm2: 2400, sm3: 1050, sm4: 2100, sm5: 12000, rm1: 20000, pk1: 500, pk2: 500 };
+const STOCK: Record<string, number> = { sm6: 8000, sm1: 400, sm2: 2400, sm3: 1050, sm4: 2100, sm5: 12000, rm1: 20000, pk1: 500, pk2: 500 };
 const PENDING: PendingTR[] = [
   { trId: "t1", trNumber: "TR-2026-10-016", branchId: "b1", branchName: "Shiro", requestedDate: "2026-10-24", requiredDate: new Date().toISOString().slice(0, 10), createdAt: "2026-10-24T11:30:00Z", itemCount: 9, lines: [], draft: null },
   { trId: "t2", trNumber: "TR-2026-10-017", branchId: "b2", branchName: "Thaniya", requestedDate: "2026-10-25", requiredDate: "2026-10-27", createdAt: "2026-10-25T00:50:00Z", itemCount: 9, lines: [], draft: null },

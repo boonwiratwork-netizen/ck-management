@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UNKNOWN_LOT_DATE, UNKNOWN_LOT_LABEL, branchShortCount, checkBeforeSend, isShort, isUnknownLot, kitchenShortCount, lotDateLabel, lotKey, lotsCanCover, packsOf, packsAfterWeight, reconcileLots, transferBadges, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "./transfer-lines";
+import { byproductLots, recordIdOfReason, takenKey, UNKNOWN_LOT_DATE, UNKNOWN_LOT_LABEL, branchShortCount, checkBeforeSend, isShort, isUnknownLot, kitchenShortCount, lotDateLabel, lotKey, lotsCanCover, packsOf, packsAfterWeight, reconcileLots, transferBadges, visibleRecords, withUnknownLot, type LotLine, type ProdRecord } from "./transfer-lines";
 
 const rec = (id: string, date: string, out: number): ProdRecord => ({ id, productionDate: date, actualOutputG: out, batchesProduced: 1 });
 const RECORDS = [rec("a", "2026-09-01", 2000), rec("b", "2026-10-16", 800), rec("c", "2026-10-22", 1200)];
@@ -191,5 +191,74 @@ describe("ไม่ทราบล็อต (no production record to pick)", () 
     expect(lotsCanCover([], 1, 400)).toBe(false);
     expect(lotsCanCover([{ ...RECORDS[1], remainingG: 790 }], 2, 400)).toBe(false); // 1 whole pack
     expect(lotsCanCover([RECORDS[1]], 2, 400)).toBe(true);
+  });
+});
+
+describe("by-product lots (น้ำมันไก่ out of a pot of น้ำสต๊อก)", () => {
+  const RUN = "11111111-1111-1111-1111-111111111111";
+  const RUN2 = "22222222-2222-2222-2222-222222222222";
+  const runs = new Map([
+    [RUN, { productionDate: "2026-11-11", batchesProduced: 1, smSkuId: "stock" }],
+    [RUN2, { productionDate: "2026-11-18", batchesProduced: 1, smSkuId: "stock" }],
+  ]);
+  const name = (id: string) => (id === "stock" ? "น้ำสต๊อก" : "?");
+  const row = (sku: string, qty: number, reason: string) => ({ sku_id: sku, quantity: qty, reason });
+
+  it("one lot per run and item, dated by the run, named after the run's product", () => {
+    const out = byproductLots(
+      [row("oil", 5000, `Production by-product: 1 batches of stock [rec ${RUN}]`), row("tori", 25000, `Production by-product: 1 batches of stock [rec ${RUN}]`)],
+      runs,
+      name,
+    );
+    expect(out.oil).toEqual([{ id: RUN, productionDate: "2026-11-11", actualOutputG: 5000, batchesProduced: 1, fromName: "น้ำสต๊อก" }]);
+    expect(out.tori?.[0]).toMatchObject({ id: RUN, actualOutputG: 25000 });
+  });
+
+  it("an edit's correction (same tag) nets in; a run edited down to nothing stays as an empty lot", () => {
+    const out = byproductLots(
+      [
+        row("oil", 5000, `Production by-product: 1 batches of stock [rec ${RUN}]`),
+        row("oil", -1000, `Production by-product correction: 0.8 batches of stock [rec ${RUN}] legacy=1`),
+        row("oil", 5000, `Production by-product: 1 batches of stock [rec ${RUN2}]`),
+        row("oil", -5000, `Production by-product correction (record deleted) [rec ${RUN2}]`),
+      ],
+      runs,
+      name,
+    );
+    expect(out.oil.map((r) => [r.id, r.actualOutputG])).toEqual([[RUN, 4000], [RUN2, 0]]);
+    // ...and visibleRecords hides it unless a line already picked it
+    const withLeft = out.oil.map((r) => ({ ...r, remainingG: r.actualOutputG }));
+    expect(visibleRecords(withLeft, 4000, new Set()).map((r) => r.id)).toEqual([RUN]);
+    expect(visibleRecords(withLeft, 4000, new Set([RUN2])).map((r) => r.id)).toEqual([RUN, RUN2]);
+  });
+
+  it("untagged rows (before 25 Oct), a deleted run (record gone) and other reasons give no lot; no name → การผลิตอื่น", () => {
+    expect(byproductLots([row("oil", 10, `Production by-product: x [rec ${RUN}]`)], runs, () => "").oil[0].fromName).toBe("การผลิตอื่น");
+    const out = byproductLots(
+      [
+        row("oil", 8000, "Production by-product: 1 batches of stock"),
+        row("oil", 5000, "Production by-product: 1 batches of stock [rec 33333333-3333-3333-3333-333333333333]"),
+        row("oil", 5000, `Production: 1 batches of stock [rec ${RUN}]`),
+      ],
+      runs,
+      name,
+    );
+    expect(out).toEqual({});
+  });
+
+  it("taken is per run AND item: the same pot's oil sent doesn't use up its stock lot", () => {
+    expect(takenKey(RUN, "oil")).not.toBe(takenKey(RUN, "stock"));
+    expect(recordIdOfReason(`Production by-product: 1 batches of x [rec ${RUN}] legacy=2`)).toBe(RUN);
+    expect(recordIdOfReason("Production by-product: 1 batches of x")).toBeNull();
+  });
+
+  it("mixed with the item's old own runs: the newest lots cover today's stock, old runs hide", () => {
+    const own: ProdRecord[] = [{ id: "own-0921", productionDate: "2026-09-21", actualOutputG: 2000, batchesProduced: 2, remainingG: 2000 }];
+    const bp = byproductLots(
+      [row("oil", 5000, `Production by-product: 1 batches of stock [rec ${RUN}]`), row("oil", 5000, `Production by-product: 1 batches of stock [rec ${RUN2}]`)],
+      runs,
+      name,
+    ).oil.map((r) => ({ ...r, remainingG: r.actualOutputG }));
+    expect(visibleRecords([...own, ...bp], 8000, new Set()).map((r) => r.productionDate)).toEqual(["2026-11-11", "2026-11-18"]);
   });
 });

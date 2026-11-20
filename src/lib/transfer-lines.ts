@@ -23,6 +23,56 @@ export interface ProdRecord {
   batchesProduced: number;
   /** Output less what other transfer orders already took from this lot (packs × pack weight) */
   remainingG?: number;
+  /**
+   * A by-product lot: the item came out of another product's run (น้ำมันไก่ from a pot of
+   * น้ำสต๊อก), so `id` is that run's record and this is the run's product name
+   */
+  fromName?: string;
+}
+
+// ─── By-product lots ───
+
+/** The record tag every production stock move carries ("[rec <uuid>]", since 25 Oct 2026) */
+const REC_TAG = /\[rec ([0-9a-f-]{36})\]/;
+export const recordIdOfReason = (reason: string | null | undefined): string | null => REC_TAG.exec(reason ?? "")?.[1] ?? null;
+
+/**
+ * What other orders took from a lot is counted per lot AND item: one pot of น้ำสต๊อก is a lot
+ * of น้ำสต๊อก, of น้ำมันไก่ and of น้ำสต๊อกโทริ ไพตัน at once, under the same record.
+ */
+export const takenKey = (recordId: string, skuId: string) => `${recordId}|${skuId}`;
+
+/**
+ * By-product lots per item, from the kitchen's "Production by-product …" stock rows: their
+ * net amount per run (an edit or a deleted run writes its correction under the same tag, so
+ * the sum is what the run gave now), dated and counted by that run's record. Rows without a
+ * tag (before 25 Oct 2026) or whose run is gone give no lot. A run edited down to nothing
+ * stays as an empty lot (as an own run would): a line that already picked it can still step
+ * it off; visibleRecords hides it otherwise.
+ */
+export function byproductLots(
+  rows: { sku_id: string; quantity: number; reason: string | null }[],
+  runs: Map<string, { productionDate: string; batchesProduced: number; smSkuId: string }>,
+  nameOf: (skuId: string) => string,
+): Record<string, ProdRecord[]> {
+  const net = new Map<string, number>(); // takenKey(run, item) → amount
+  for (const r of rows) {
+    if (!(r.reason ?? "").startsWith("Production by-product")) continue;
+    const run = recordIdOfReason(r.reason);
+    if (!run) continue;
+    const k = takenKey(run, r.sku_id);
+    net.set(k, (net.get(k) ?? 0) + (Number(r.quantity) || 0));
+  }
+  const out: Record<string, ProdRecord[]> = {};
+  for (const [k, qty] of net) {
+    const [runId, skuId] = k.split("|");
+    const run = runs.get(runId);
+    if (!run) continue;
+    // Under half a gram is rounding left by edits: nothing
+    const made = qty < 0.5 ? 0 : qty;
+    (out[skuId] ||= []).push({ id: runId, productionDate: run.productionDate, actualOutputG: made, batchesProduced: run.batchesProduced, fromName: nameOf(run.smSkuId) || "การผลิตอื่น" });
+  }
+  return out;
 }
 
 export interface LotLine {

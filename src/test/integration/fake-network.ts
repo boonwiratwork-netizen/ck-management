@@ -86,7 +86,13 @@ function matches(row: Row, col: string, expr: string): boolean {
     case "lte": ok = s !== null && s <= arg; break;
     case "gt": ok = s !== null && s > arg; break;
     case "lt": ok = s !== null && s < arg; break;
-    default: ok = true; // like/or/… : not modelled, let the row through
+    case "like": {
+      // PostgREST takes * or % as "anything"
+      const re = new RegExp("^" + arg.split(/[*%]/).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "s");
+      ok = s !== null && re.test(s);
+      break;
+    }
+    default: ok = true; // or/… : not modelled, let the row through
   }
   return negate ? !ok : ok;
 }

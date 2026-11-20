@@ -123,3 +123,38 @@ describe("ไม่ทราบล็อต", () => {
     }
   });
 });
+
+describe("by-product lots (the oil out of a pot of stock)", () => {
+  const RUN = "11111111-1111-1111-1111-111111111111";
+  it("a pot's by-product is a lot of the oil, dated by the pot; only the oil's own sends use it up", async () => {
+    net.seed("production_records", [{ id: RUN, sm_sku_id: "stock", production_date: "2026-11-11", actual_output_g: 30000, batches_produced: 1 }]);
+    net.seed("stock_adjustments", [
+      { id: "a1", branch_id: null, sku_id: "oil", quantity: 5000, reason: `Production by-product: 1 batches of stock [rec ${RUN}]` },
+      { id: "a2", branch_id: null, sku_id: "oil", quantity: -1000, reason: `Production by-product correction: 0.8 batches of stock [rec ${RUN}]` },
+      // A branch's row, and the pot's own ingredient row: not by-product lots
+      { id: "a3", branch_id: "b1", sku_id: "oil", quantity: 999, reason: `Production by-product: 1 batches of stock [rec ${RUN}]` },
+      { id: "a4", branch_id: null, sku_id: "oil", quantity: -50, reason: `Production: 1 batches of stock [rec ${RUN}]` },
+    ]);
+    // Another order sent 2 packs of the pot's STOCK and 1 pack of its OIL (the line's item comes embedded)
+    net.seed("transfer_order_lot_lines", [
+      { id: "x1", to_line_id: "o1", production_record_id: RUN, production_date: "2026-11-11", packs: 2, pack_weight_g: 5000, transfer_order_lines: { sku_id: "stock" } },
+      { id: "x2", to_line_id: "o2", production_record_id: RUN, production_date: "2026-11-11", packs: 1, pack_weight_g: 400, transfer_order_lines: { sku_id: "oil" } },
+    ]);
+    const skus = [...SKUS, { id: "stock", skuId: "SM-STOCK", name: "น้ำสต๊อก", type: "SM", packSize: 5000, status: "Active", converter: 1 } as unknown as SKU];
+    const h = renderHook(() => useTransferLots("to-1", [line], skus));
+    await waitFor(() => expect(h.result.current.loading).toBe(false));
+    expect(h.result.current.records.oil).toEqual([expect.objectContaining({ id: RUN, productionDate: "2026-11-11", actualOutputG: 4000, remainingG: 3600, fromName: "น้ำสต๊อก" })]);
+    // Filled from it, and saved pointing at the pot's run (traceable back to it)
+    expect(h.result.current.lots.l1).toEqual([expect.objectContaining({ productionRecordId: RUN, productionDate: "2026-11-11", packs: 1 })]);
+    await waitFor(() => expect(net.sent("transfer_order_lot_lines", "POST")).toHaveLength(1));
+    expect(net.sent("transfer_order_lot_lines", "POST")[0].body).toMatchObject({ production_record_id: RUN, production_date: "2026-11-11", packs: 1 });
+  });
+
+  it("the by-product read failing says so and fills nothing (never lots as if all were there)", async () => {
+    net.seed("production_records", [{ id: "rec-1", sm_sku_id: "oil", production_date: "2026-11-01", actual_output_g: 2000, batches_produced: 1 }]);
+    net.fault({ kind: "refuse", code: "500", message: "down" }, FakeNetwork.to("stock_adjustments"));
+    const h = await mount();
+    expect(h.result.current.error).toMatch(/โหลดสต๊อกและล็อตในครัวไม่สำเร็จ/);
+    expect(net.sent("transfer_order_lot_lines", "POST")).toHaveLength(0);
+  });
+});
