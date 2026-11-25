@@ -957,6 +957,39 @@ export type Database = {
           },
         ]
       }
+      line_bot_log: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          kind: string
+          message_id: string | null
+          meta: Json | null
+          text: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          kind: string
+          message_id?: string | null
+          meta?: Json | null
+          text?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          kind?: string
+          message_id?: string | null
+          meta?: Json | null
+          text?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       menu_bom: {
         Row: {
           branch_id: string | null
