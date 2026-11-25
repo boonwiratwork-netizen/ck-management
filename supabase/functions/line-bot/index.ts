@@ -9,7 +9,7 @@
 // questions and answers (the conversation the bot remembers, and the trail to debug with).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { answer, getImage, stripMentions, verifySignature, type LineMention } from "./line.ts";
+import { answer, askedBot, getImage, verifySignature, type LineMention } from "./line.ts";
 import { ask, RateLimited, type Part, type Turn } from "./gemini.ts";
 import { runTool } from "./tools.ts";
 import { supabaseStore } from "./data.ts";
@@ -24,12 +24,12 @@ const MEMORY_HOURS = 3;
 const IMAGE_WORDS = /ภาพ|รูป|ในบิล|ตามนี้|image|photo|pic/i;
 
 const HELP = [
-  "ถามต้นทุนได้โดย @ผม แล้วพิมพ์คำถาม เช่น",
+  "ถามต้นทุนได้โดยพิมพ์ \"บอท\" นำหน้าคำถาม (หรือ @ผม) เช่น",
   "• ราคาอกเป็ดตอนนี้เท่าไหร่ ขึ้นมาเท่าไหร่",
   "• ต้นทุนต่อจาน Signature ชิโอะ",
   "• food cost เดือนนี้ Thaniya",
   "• ถ้า Standard 289 Signature 339 food cost เป็นเท่าไหร่",
-  "• ส่งรูปสูตร/ต้นทุนในกลุ่ม แล้วตอบกลับรูปนั้นว่า @ผม เช็คต้นทุนตามรูปนี้",
+  "• ส่งรูปสูตร/ต้นทุนในกลุ่ม แล้วตอบกลับรูปนั้นว่า บอท เช็คต้นทุนตามรูปนี้",
 ].join("\n");
 
 function systemPrompt(today: string, branches: string) {
@@ -81,7 +81,7 @@ async function handle(e: LineEvent) {
   const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
   if (!env("LINE_GROUP_ID") || groupId !== env("LINE_GROUP_ID")) {
     // Someone @mentioned it in another group: noted (once per group) so the right group id can be found
-    if (e.message.type === "text" && e.message.mention?.mentionees?.some((x) => x.isSelf)) {
+    if (e.message.type === "text" && askedBot(e.message.text ?? "", e.message.mention?.mentionees).asked) {
       const { data } = await db.from("line_bot_log").select("id").eq("group_id", groupId).eq("kind", "error").limit(1);
       if (!data?.length) await db.from("line_bot_log").insert({ group_id: groupId, kind: "error", text: "asked from a group that is not LINE_GROUP_ID" });
     }
@@ -92,10 +92,11 @@ async function handle(e: LineEvent) {
   if (e.message.type === "image") return void (await log("image", { message_id: e.message.id }));
   if (e.message.type !== "text" || !e.message.text) return;
   const mentions = e.message.mention?.mentionees ?? [];
-  if (!mentions.some((m) => m.isSelf)) return;
+  const call = askedBot(e.message.text, mentions);
+  if (!call.asked) return;
 
   const token = env("LINE_CHANNEL_ACCESS_TOKEN");
-  const question = stripMentions(e.message.text, mentions);
+  const question = call.question;
   const started = Date.now();
   if (!question || /^(help|ช่วย|ช่วยด้วย|ทำอะไรได้|ใช้ยังไง)\??$/i.test(question)) {
     await answer(token, e.replyToken, groupId, [{ type: "text", text: HELP }]);

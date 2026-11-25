@@ -67,6 +67,19 @@ export interface LineMention {
   type?: string;
 }
 
+/**
+ * Is the bot being asked? An @mention of it (LINE's picker doesn't list bots on every app),
+ * or the message starting with "บอท" (Thai runs on without a space) or "bot" / "livetoeat"
+ * followed by a space. Returns the question without the call.
+ */
+const CALL = /^\s*@?\s*(?:บอท|(?:bot|livetoeat)(?=[\s:,.!?]|$))[\s:,.!?]*/i;
+export function askedBot(text: string, mentionees: LineMention[] = []): { asked: boolean; question: string } {
+  const mentioned = mentionees.some((m) => m.isSelf);
+  const rest = stripMentions(text, mentionees);
+  const called = CALL.test(rest);
+  return { asked: mentioned || called, question: called ? rest.replace(CALL, "").trim() : rest };
+}
+
 /** The question without the @mentions in it */
 export function stripMentions(text: string, mentionees: LineMention[] = []): string {
   let out = text;

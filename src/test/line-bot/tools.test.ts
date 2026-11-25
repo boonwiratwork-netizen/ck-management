@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
 import { compareItems, foodCost, gramsPerPiece, matchByName, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
-import { stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
+import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
 
 // A small shop: ramen R (100 g noodle + 50 g pork), gyoza G (6 pcs), pork topping "2 ชิ้น"
@@ -152,6 +152,15 @@ describe("LINE plumbing", () => {
   });
   it("mentions are taken out of the question", () => {
     expect(stripMentions("@ต้นทุนบอท ถ้า Standard 289", [{ index: 0, length: 10, isSelf: true }])).toBe("ถ้า Standard 289");
+  });
+  it("called by @mention or by starting with บอท / bot; ordinary messages left alone", () => {
+    expect(askedBot("บอท food cost เดือนนี้")).toEqual({ asked: true, question: "food cost เดือนนี้" });
+    expect(askedBot("บอทต้นทุนเป็ดเท่าไหร่")).toEqual({ asked: true, question: "ต้นทุนเป็ดเท่าไหร่" });
+    expect(askedBot("@บอท ถ้า Standard 289")).toEqual({ asked: true, question: "ถ้า Standard 289" });
+    expect(askedBot("Bot: food cost")).toEqual({ asked: true, question: "food cost" });
+    expect(askedBot("bottle of sauce").asked).toBe(false);
+    expect(askedBot("ส่งผิดกลุ่ม").asked).toBe(false);
+    expect(askedBot("@Livetoeat ต้นทุน", [{ index: 0, length: 10, isSelf: true }])).toEqual({ asked: true, question: "ต้นทุน" });
   });
   it("a wrong signature is refused, the right one accepted", async () => {
     const body = '{"events":[]}';
