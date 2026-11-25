@@ -97,6 +97,39 @@ const periodText = (from: string, to: string) => (from === to ? thDay(from) : `$
 export const shiftDay = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 const monthStart = (d: string) => `${d.slice(0, 7)}-01`;
 
+/** A year written in the Thai calendar (2569) back to 2026 */
+const ceDate = (d?: string | null) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && Number(d.slice(0, 4)) > 2400 ? `${Number(d.slice(0, 4)) - 543}${d.slice(4)}` : d);
+
+export type NamedPeriod = "today" | "yesterday" | "this_week" | "last_week" | "last_7_days" | "this_month" | "last_month" | "last_30_days";
+/** "เมื่อวาน", "สัปดาห์ที่แล้ว", "เดือนที่แล้ว"… worked out here, never by the model */
+export function namedPeriod(today: string, name: NamedPeriod): { from: string; to: string } {
+  const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday = 0
+  const ms = monthStart(today);
+  switch (name) {
+    case "today":
+      return { from: today, to: today };
+    case "yesterday":
+      return { from: shiftDay(today, -1), to: shiftDay(today, -1) };
+    case "this_week":
+      return { from: shiftDay(today, -dow), to: today };
+    case "last_week":
+      return { from: shiftDay(today, -dow - 7), to: shiftDay(today, -dow - 1) };
+    case "last_7_days":
+      return { from: shiftDay(today, -7), to: shiftDay(today, -1) };
+    case "last_30_days":
+      return { from: shiftDay(today, -30), to: shiftDay(today, -1) };
+    case "last_month":
+      return { from: monthStart(shiftDay(ms, -1)), to: shiftDay(ms, -1) };
+    default:
+      return { from: ms, to: today };
+  }
+}
+/** The period a tool was given: a named one, dates, or this month so far */
+export function periodOf(today: string, a: { period?: NamedPeriod | null; from?: string | null; to?: string | null }): { from: string; to: string } {
+  if (a.period && ["today", "yesterday", "this_week", "last_week", "last_7_days", "this_month", "last_month", "last_30_days"].includes(a.period)) return namedPeriod(today, a.period);
+  return resolvePeriod(today, ceDate(a.from), ceDate(a.to));
+}
+
 /**
  * The period asked for, or by default this month so far (yesterday is the last full day);
  * on the 1st, last month. A date after today is pulled back to today.
@@ -207,7 +240,7 @@ const PREPARED = /สุก|ต้ม|นึ่ง|หุง|ทอด|ย่า
 
 const UNIT: Record<string, { to: "g" | "ml" | "pc"; times: number }> = {
   g: { to: "g", times: 1 }, gram: { to: "g", times: 1 }, กรัม: { to: "g", times: 1 }, "ก.": { to: "g", times: 1 }, ก: { to: "g", times: 1 },
-  kg: { to: "g", times: 1000 }, "กก.": { to: "g", times: 1000 }, กก: { to: "g", times: 1000 }, กิโล: { to: "g", times: 1000 },
+  kg: { to: "g", times: 1000 }, "กก.": { to: "g", times: 1000 }, กก: { to: "g", times: 1000 }, กิโล: { to: "g", times: 1000 }, กิโลกรัม: { to: "g", times: 1000 }, โล: { to: "g", times: 1000 }, ขีด: { to: "g", times: 100 },
   ml: { to: "ml", times: 1 }, "มล.": { to: "ml", times: 1 }, มล: { to: "ml", times: 1 }, l: { to: "ml", times: 1000 }, ลิตร: { to: "ml", times: 1000 },
   ชิ้น: { to: "pc", times: 1 }, pc: { to: "pc", times: 1 }, pcs: { to: "pc", times: 1 }, piece: { to: "pc", times: 1 }, ฟอง: { to: "pc", times: 1 }, ลูก: { to: "pc", times: 1 }, แผ่น: { to: "pc", times: 1 }, ea: { to: "pc", times: 1 },
 };
@@ -527,16 +560,33 @@ export interface MenuMix {
 }
 
 /** The period through the app's own engine, plus each menu's ingredients (for what-ifs) */
-export async function workPeriod(store: Store, m: Masters, branchIds: string[], from: string, to: string, withMix = true): Promise<{ std: Standard; mix: Map<string, MenuMix>; corrected: boolean }> {
-  const [sales, corrections] = await Promise.all([store.sales(branchIds, from, to), store.corrections(branchIds, from, to)]);
+export interface PeriodWork {
+  std: Standard;
+  mix: Map<string, MenuMix>;
+  corrected: boolean;
+  lastSaleDay: string | null;
+  /** Each branch's last day with sales in the period (absent = none) */
+  lastByBranch: Map<string, string>;
+  branchIds: string[];
+}
+
+export async function workPeriod(store: Store, m: Masters, branchIds: string[], from: string, to: string, withMix = true, onlyCodes?: Set<string>): Promise<PeriodWork> {
+  const [allSales, allCorrections] = await Promise.all([store.sales(branchIds, from, to), store.corrections(branchIds, from, to)]);
+  // Only some menus: their sales, and no usage corrections (those are per item, not per menu)
+  const sales = onlyCodes ? allSales.filter((x) => onlyCodes.has(x.menu_code)) : allSales;
+  const corrections = onlyCodes ? [] : allCorrections;
+  const lastByBranch = new Map<string, string>();
+  for (const x of allSales) if (!lastByBranch.has(x.branch_id) || x.sale_date > lastByBranch.get(x.branch_id)!) lastByBranch.set(x.branch_id, x.sale_date);
   const menuByCode = new Map(m.menus.map((x) => [x.code, { code: x.code, name: x.name, category: x.category }]));
   const skuById = new Map(m.skus.map((s) => [s.id, { id: s.id, code: s.code, name: s.name, type: s.type, uom: s.uom }]));
   const std = computeStandard({ sales, ctx: m.ctx, ctxAt: m.ctxAt, stdPrice: m.stdPrice, priceAt: m.priceAt, menuByCode, skuById, corrections, branchIds: new Set(branchIds), from, to });
   const corrected = std.skus.some((s) => s.correction);
+  // The last day with sales in: sales are imported after the day, so "this month" may stop short
+  const lastSaleDay = sales.reduce<string | null>((d, x) => (d === null || x.sale_date > d ? x.sale_date : d), null);
   // The same sales again, keeping each menu's ingredients apart (computeStandard sums them)
   const priceOn = priceOnOf(m.priceAt, m.stdPrice);
   const mix = new Map<string, MenuMix>();
-  if (!withMix) return { std, mix, corrected };
+  if (!withMix) return { std, mix, corrected, lastSaleDay, lastByBranch, branchIds };
   for (const s of sales) {
     const shop = !isDeliverySale(s);
     const row = mix.get(s.menu_code) ?? { code: s.menu_code, name: menuByCode.get(s.menu_code)?.name ?? s.menu_name ?? s.menu_code, qty: 0, revenue: 0, revenueShop: 0, cost: 0, sku: new Map() };
@@ -554,7 +604,7 @@ export async function workPeriod(store: Store, m: Masters, branchIds: string[], 
     if (shop) row.revenueShop += n(s.net_amount);
     mix.set(s.menu_code, row);
   }
-  return { std, mix, corrected };
+  return { std, mix, corrected, lastSaleDay, lastByBranch, branchIds };
 }
 
 /** The period before: the same days of last month when the period starts on the 1st, else the same length just before */
@@ -581,15 +631,38 @@ export function menuCodesFor(m: Masters, group: string): Set<string> {
   return codes;
 }
 
+/**
+ * What the reader must know about the numbers: no sales at all; a branch whose sales stop
+ * before yesterday (today's are imported tomorrow, so today never counts as missing); a branch
+ * name not known; items used with no price (cost understated).
+ */
+export function dataNotes(m: Masters, p: { from: string; to: string }, w: Pick<PeriodWork, "std" | "lastSaleDay" | "lastByBranch" | "branchIds">, unknownBranch?: string): string[] {
+  const out: string[] = [];
+  const expected = p.to < m.today ? p.to : shiftDay(m.today, -1);
+  if (!w.lastSaleDay) {
+    out.push(expected < p.from ? "วันนี้ยังไม่มียอดขาย (ยอดของวันนี้นำเข้าพรุ่งนี้)" : `ยังไม่มียอดขายในระบบช่วง ${periodText(p.from, p.to)}`);
+  } else if (expected >= p.from) {
+    // Each open branch that sold before but stops short (or a closed day: says both)
+    const short = w.branchIds
+      .map((id) => ({ b: m.branches.find((x) => x.id === id), last: w.lastByBranch.get(id) }))
+      .filter((x) => x.b && x.b.active !== false && x.last && x.last < expected);
+    for (const x of short.slice(0, 3)) out.push(`${x.b!.name}: ยอดขายในระบบมีถึง ${thDay(x.last!)} (ยังไม่ได้นำเข้า หรือร้านปิด)`);
+  }
+  if (unknownBranch) out.push(`ไม่รู้จักสาขา "${unknownBranch}" เลยใช้ทุกสาขา`);
+  const noPrice = w.std.skus.filter((x) => x.stdQty > 0 && x.stdCost <= 0 && !(m.stdPrice.get(x.skuId) ?? 0));
+  if (noPrice.length) out.push(`วัตถุดิบไม่มีราคา ${noPrice.length} ตัว (${noPrice.slice(0, 3).map((x) => x.name).join(", ")}${noPrice.length > 3 ? "…" : ""}) ต้นทุนอาจต่ำกว่าจริง`);
+  return out;
+}
+
 type FcSort = "revenue" | "fc_high" | "fc_low" | "qty" | "profit";
 const SORT_LABEL: Record<FcSort, string> = { revenue: "ขายดีสุด (บาท)", fc_high: "FC สูงสุด", fc_low: "FC ต่ำสุด", qty: "ขายได้กี่จาน", profit: "กำไรหลังหักวัตถุดิบ" };
 
 export async function foodCost(
   store: Store,
-  args: { from?: string | null; to?: string | null; branch?: string | null; top?: number | null; menus?: string | null; sort?: FcSort | null; compare?: "branches" | "previous_period" | null },
+  args: { period?: NamedPeriod | null; from?: string | null; to?: string | null; branch?: string | null; top?: number | null; menus?: string | null; sort?: FcSort | null; compare?: "branches" | "previous_period" | null; by_day?: boolean | null },
 ): Promise<ToolResult> {
   const m = await store.masters();
-  const p = resolvePeriod(m.today, args.from, args.to);
+  const p = periodOf(m.today, args);
   const br = resolveBranches(m, args.branch);
   const fcOf = (cost: number, rev: number) => (pct(cost, rev) === null ? null : r1(pct(cost, rev)!));
 
@@ -603,10 +676,13 @@ export async function foodCost(
             { label: "ช่วงก่อน", ids: br.ids, period: previousPeriod(p) },
           ];
     const groupCodes = args.menus ? menuCodesFor(m, args.menus) : null;
+    const sideNotes: string[] = br.unknown ? [`ไม่รู้จักสาขา "${br.unknown}" เลยใช้ทุกสาขา`] : [];
     if (groupCodes && !groupCodes.size) return { data: { found: false, menus: args.menus, note: "ไม่พบเมนูกลุ่มนี้ในระบบ" } };
     const rows = await Promise.all(
       sides.map(async (side) => {
-        const { std } = await workPeriod(store, m, side.ids, side.period.from, side.period.to, false);
+        const w = await workPeriod(store, m, side.ids, side.period.from, side.period.to, false);
+        const { std } = w;
+        if (side.period === p) sideNotes.push(...dataNotes(m, side.period, w));
         const pool = groupCodes ? std.menus.filter((x) => groupCodes.has(x.code)) : null;
         const rev = pool ? pool.reduce((t, x) => t + x.revenue, 0) : std.revenue;
         const cost = pool ? pool.reduce((t, x) => t + x.stdCost, 0) : std.stdCost;
@@ -615,17 +691,44 @@ export async function foodCost(
     );
     const shown = rows.filter((r) => r.revenue > 0 || args.compare === "previous_period");
     return {
-      data: { compare: args.compare, branches: br.label, only_menus: args.menus ?? "ทุกเมนู", rows: shown, note: "ต้นทุนตามสูตร (เหมือนหน้าต้นทุนอาหารในแอป)" },
+      data: { compare: args.compare, branches: br.label, only_menus: args.menus ?? "ทุกเมนู", rows: shown, data_notes: sideNotes, note: "ต้นทุนตามสูตร (เหมือนหน้าต้นทุนอาหารในแอป)" },
       card: {
         title: `${args.compare === "branches" ? "Food cost แยกสาขา" : `Food cost เทียบช่วงก่อน · ${br.label}`}${args.menus ? ` · ${args.menus}` : " · ทุกเมนู"}`,
         subtitle: args.compare === "branches" ? `${periodText(p.from, p.to)} · ตามสูตร` : "ตามสูตร · ช่วงก่อน = วันเดียวกันของเดือนก่อน",
         columns: ["", "ยอดขาย", "FC"],
         rows: shown.map((r) => [args.compare === "branches" ? r.label : `${r.label} (${periodText(r.period.from, r.period.to)})`, baht(r.revenue), pctText(r.food_cost_pct)]),
+        notes: [...new Set(sideNotes)].slice(0, 5),
       },
     };
   }
 
-  const { std } = await workPeriod(store, m, br.ids, p.from, p.to, false);
+  // Day by day ("FC รายวันสัปดาห์นี้", "FC ราเมนรายวัน")
+  if (args.by_day) {
+    const codes = args.menus ? menuCodesFor(m, args.menus) : undefined;
+    if (codes && !codes.size) return { data: { found: false, menus: args.menus, note: "ไม่พบเมนูกลุ่มนี้ในระบบ" } };
+    const wd = await workPeriod(store, m, br.ids, p.from, p.to, false, codes);
+    const notesDay = dataNotes(m, p, wd, br.unknown);
+    const days = wd.std.days.map((d) => ({ day: d.date, revenue: r0(d.revenue), recipe_cost: r0(d.stdCost), food_cost_pct: fcOf(d.stdCost, d.revenue), bills: d.bills }));
+    // The headline from the same daily figures (before usage corrections), so the rows add up to it
+    const sumRev = wd.std.days.reduce((t, d) => t + d.revenue, 0);
+    const sumCost = wd.std.days.reduce((t, d) => t + d.stdCost, 0);
+    if (wd.corrected) notesDay.push(`รายวันยังไม่หักรายการปรับยอดใช้ (ทั้งช่วงหลังปรับ FC ${pctText(pct(wd.std.stdCost, wd.std.revenue))})`);
+    if (days.length > 20) notesDay.push(`แสดง 20 วันล่าสุด จาก ${days.length} วัน`);
+    return {
+      data: { period: p, branches: br.label, only_menus: args.menus ?? "ทุกเมนู", days, food_cost_pct: fcOf(sumCost, sumRev), data_notes: notesDay },
+      card: {
+        title: `Food cost รายวัน · ${br.label} · ${args.menus ?? "ทุกเมนู"}`,
+        subtitle: `${periodText(p.from, p.to)} · ตามสูตร`,
+        headline: pctText(pct(sumCost, sumRev)),
+        columns: ["วัน", "ยอดขาย", "FC"],
+        rows: days.slice(-20).map((d) => [thDay(d.day), baht(d.revenue), pctText(d.food_cost_pct)]),
+        notes: notesDay,
+      },
+    };
+  }
+  const w = await workPeriod(store, m, br.ids, p.from, p.to, false);
+  const { std } = w;
+  const notesData = dataNotes(m, p, w, br.unknown);
   const top = Math.max(3, Math.min(n(args.top) || 10, 20));
   const sort: FcSort = args.sort && SORT_LABEL[args.sort] ? args.sort : "revenue";
   // Only some menus ("ราเมน", "ด้ง", "Standard"): by name, else by category
@@ -658,6 +761,8 @@ export async function foodCost(
       menus: menus.map((x) => ({ code: x.code, name: x.name, qty: r0(x.qty), revenue: r0(x.revenue), cost: r0(x.stdCost), food_cost_pct: r1(x.pct), cost_per_plate: r2(x.perServing), profit_after_ingredients: r0(x.revenue - x.stdCost) })),
       menus_not_set_up: std.unknownMenus.slice(0, 5).map((u) => ({ code: u.code, name: u.name, revenue: r0(u.revenue) })),
       menus_not_set_up_revenue: r0(unknownRevenue),
+      average_bill: std.bills > 0 ? r0(std.revenue / std.bills) : null,
+      data_notes: notesData,
       note: "ต้นทุนตามสูตร (เหมือนหน้าต้นทุนอาหารในแอป) ไม่ใช่ต้นทุนจริงจากการนับสต๊อก",
     },
     card: {
@@ -669,6 +774,7 @@ export async function foodCost(
       columns: [`เมนู (${SORT_LABEL[sort]})`, sort === "qty" ? "จาน" : sort === "profit" ? "กำไร" : "ยอดขาย", "FC"],
       rows: menus.map((x) => [x.name, sort === "qty" ? baht(x.qty) : sort === "profit" ? baht(x.revenue - x.stdCost) : baht(x.revenue), pctText(x.pct)]),
       notes: [
+        ...notesData,
         "ตัวเลขเดียวกับหน้าต้นทุนอาหาร (ตามสูตร) ในแอป",
         ...(sort.startsWith("fc") ? ["ไม่นับเมนูที่ขายได้ไม่ถึง 5 จาน"] : []),
         ...(unknownRevenue > 0 && !args.menus ? [`เมนูที่ยังไม่ตั้งในระบบ ขายได้ ฿${baht(unknownRevenue)} (ไม่มีต้นทุน)`] : []),
@@ -680,6 +786,7 @@ export async function foodCost(
 // ─── 4. What-if ───
 
 export interface ScenarioArgs {
+  period?: NamedPeriod | null;
   from?: string | null;
   to?: string | null;
   branch?: string | null;
@@ -692,9 +799,10 @@ export interface ScenarioArgs {
 
 export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolResult> {
   const m = await store.masters();
-  const p = resolvePeriod(m.today, args.from, args.to);
+  const p = periodOf(m.today, args);
   const br = resolveBranches(m, args.branch);
-  const { std, mix, corrected } = await workPeriod(store, m, br.ids, p.from, p.to);
+  const w = await workPeriod(store, m, br.ids, p.from, p.to);
+  const { std, mix, corrected } = w;
   const menuByCode = new Map(m.menus.map((x) => [x.code, x]));
   const unmatched: string[] = [];
   const notes: string[] = [];
@@ -788,6 +896,7 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
     newPrice.size ? "ส่วนลดคิดตามสัดส่วนเดิม" : "",
     newSkuPrice.size ? "ราคาวัตถุดิบใหม่ใช้ทั้งช่วง" : "",
     corrected && (newSkuPrice.size || volume.size) ? "ช่วงนี้มีรายการปรับยอดใช้ ส่วนที่เปลี่ยนคิดจากยอดใช้ตามสูตรก่อนปรับ" : "",
+    ...dataNotes(m, p, w, br.unknown),
   ].filter(Boolean);
   const fc0 = pct(cost0, rev0);
   const fc1 = pct(cost1, rev1);
@@ -1159,6 +1268,130 @@ export async function priceMovers(store: Store, args: { days?: number | null; to
   };
 }
 
+// ─── 9. Menu engineering: which dishes earn, which sell ───
+
+export type MenuClass = "star" | "plowhorse" | "puzzle" | "dog";
+const CLASS_TEXT: Record<MenuClass, { th: string; act: string }> = {
+  star: { th: "ดาวเด่น", act: "ขายดีและกำไรต่อจานสูง: รักษาไว้" },
+  plowhorse: { th: "ขายดี กำไรต่ำ", act: "พิจารณาปรับราคาหรือลดต้นทุน" },
+  puzzle: { th: "กำไรดี ขายน้อย", act: "ดันการขาย / จัดวางเมนูให้เห็นง่าย" },
+  dog: { th: "ขายน้อย กำไรต่ำ", act: "ทบทวนว่าควรเก็บไว้ไหม" },
+};
+/**
+ * Menu engineering (Kasavana & Smith): popularity = share of plates ≥ 70% of an even share;
+ * profit = baht left per plate after ingredients ≥ the plate-weighted average. Menus with no
+ * recipe cost or almost no sales are left out.
+ */
+export function classifyMenus(rows: { code: string; name: string; qty: number; revenue: number; stdCost: number }[]) {
+  const pool = rows.filter((x) => x.qty >= 5 && x.stdCost > 0 && x.revenue > 0);
+  const plates = pool.reduce((t, x) => t + x.qty, 0);
+  const cmAll = pool.reduce((t, x) => t + (x.revenue - x.stdCost), 0);
+  const avgCm = plates > 0 ? cmAll / plates : 0;
+  const popBar = pool.length ? 0.7 / pool.length : 0;
+  return pool
+    .map((x) => {
+      const cm = (x.revenue - x.stdCost) / x.qty;
+      const popular = plates > 0 && x.qty / plates >= popBar;
+      const earns = cm >= avgCm;
+      const cls: MenuClass = popular && earns ? "star" : popular ? "plowhorse" : earns ? "puzzle" : "dog";
+      return { ...x, cm, share: plates > 0 ? x.qty / plates : 0, cls };
+    })
+    .sort((a, b) => b.qty - a.qty);
+}
+
+export async function menuEngineering(store: Store, args: { period?: NamedPeriod | null; from?: string | null; to?: string | null; branch?: string | null; menus?: string | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  const p = periodOf(m.today, args);
+  const br = resolveBranches(m, args.branch);
+  const w = await workPeriod(store, m, br.ids, p.from, p.to, false);
+  // One dish = its shop code and its Line Man alias (MN-001 + MN-001L)
+  const known = new Set(m.menus.map((x) => x.code));
+  const merged = new Map<string, { code: string; name: string; qty: number; revenue: number; stdCost: number }>();
+  for (const x of w.std.menus) {
+    const base = /L$/i.test(x.code) && known.has(x.code.slice(0, -1)) ? x.code.slice(0, -1) : x.code;
+    const e = merged.get(base) ?? { code: base, name: m.menus.find((y) => y.code === base)?.name ?? x.name, qty: 0, revenue: 0, stdCost: 0 };
+    e.qty += x.qty;
+    e.revenue += x.revenue;
+    e.stdCost += x.stdCost;
+    merged.set(base, e);
+  }
+  let rows = [...merged.values()];
+  if (args.menus) {
+    const codes = menuCodesFor(m, args.menus);
+    if (!codes.size) return { data: { found: false, menus: args.menus, note: "ไม่พบเมนูกลุ่มนี้ในระบบ" } };
+    rows = rows.filter((x) => codes.has(x.code));
+  }
+  const out = classifyMenus(rows);
+  const notes = dataNotes(m, p, w, br.unknown);
+  const byClass = (c: MenuClass) => out.filter((x) => x.cls === c);
+  return {
+    data: {
+      period: p,
+      branches: br.label,
+      method: "ขายดี = สัดส่วนจาน ≥ 70% ของค่าเฉลี่ย · กำไรดี = เงินเหลือต่อจานหลังหักวัตถุดิบ ≥ ค่าเฉลี่ย (ไม่นับเมนูที่ไม่มีสูตรหรือขายไม่ถึง 5 จาน)",
+      menus: out.map((x) => ({ code: x.code, name: x.name, plates: r0(x.qty), left_per_plate: r2(x.cm), food_cost_pct: r1((x.stdCost / x.revenue) * 100), group: CLASS_TEXT[x.cls].th, suggestion: CLASS_TEXT[x.cls].act })),
+      data_notes: notes,
+    },
+    card: out.length
+      ? {
+          title: `เมนูไหนทำเงิน · ${br.label}${args.menus ? ` · ${args.menus}` : ""}`,
+          subtitle: `${periodText(p.from, p.to)} · เงินเหลือต่อจาน = ราคาขายจริง − ต้นทุนตามสูตร`,
+          columns: ["เมนู", "กลุ่ม", "เหลือ/จาน"],
+          rows: (["star", "plowhorse", "puzzle", "dog"] as MenuClass[]).flatMap((c) => byClass(c).slice(0, 5).map((x) => [`${x.name} (${baht(x.qty)} จาน)`, CLASS_TEXT[c].th, baht2(x.cm)])),
+          notes: [...(["star", "plowhorse", "puzzle", "dog"] as MenuClass[]).filter((c) => byClass(c).length).map((c) => `${CLASS_TEXT[c].th}: ${CLASS_TEXT[c].act}`), ...notes],
+        }
+      : undefined,
+  };
+}
+
+// ─── 10. How much of an item the recipes used ───
+
+export async function ingredientUsage(store: Store, args: { query: string; period?: NamedPeriod | null; from?: string | null; to?: string | null; branch?: string | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  const hit = matchSku(m.skus.filter((s) => s.active), args.query, 1)[0];
+  if (!hit) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
+  const p = periodOf(m.today, args);
+  const br = resolveBranches(m, args.branch);
+  const w = await workPeriod(store, m, br.ids, p.from, p.to, false);
+  const u = unitText(hit.item.uom);
+  let qty = 0;
+  let cost = 0;
+  const extra: string[] = [];
+  if (m.ctx.skuType.get(hit.item.id) === "SP") {
+    // A sub-recipe (ทาเระ, sauce) is broken into its ingredients by the engine: counted here
+    // from the menus' own lines × plates sold (option rules not included)
+    const sales = await store.sales(br.ids, p.from, p.to);
+    const menuId = new Map(m.menus.map((x) => [x.code, x.id]));
+    for (const x of sales) {
+      const id = menuId.get(x.menu_code);
+      if (!id) continue;
+      for (const l of m.bom) if (l.menuId === id && l.skuId === hit.item.id && !l.deliveryOnly && (l.branchId === null || l.branchId === x.branch_id)) qty += (l.effectiveQty ?? l.qtyPerServing) * n(x.qty);
+    }
+    cost = qty * unitCostOf(m, hit.item.id);
+    extra.push("สูตรย่อย: นับจากสูตรเมนู × จานที่ขาย (ไม่รวมกฎพิเศษ)");
+  } else {
+    const row = w.std.skus.find((x) => x.skuId === hit.item.id);
+    qty = row?.stdQty ?? 0;
+    cost = row?.stdCost ?? 0;
+  }
+  const days = Math.max(1, Math.round((Date.parse(w.lastSaleDay ?? p.to) - Date.parse(p.from)) / 86_400_000) + 1);
+  // Kilos / litres from 1,000 up; grams below (20 g a day isn't "0 กก.")
+  const big = (v: number) => (u === "ก." && v >= 1000 ? `${r1(v / 1000)} กก.` : u === "มล." && v >= 1000 ? `${r1(v / 1000)} ลิตร` : `${r1(v)} ${u}`);
+  return {
+    data: {
+      item: `${hit.item.name} (${hit.item.code})`,
+      period: p,
+      branches: br.label,
+      used_by_recipe: big(qty),
+      per_day: big(qty / days),
+      days_counted: days,
+      cost: r0(cost),
+      data_notes: [...dataNotes(m, p, w, br.unknown), ...extra],
+      note: "ปริมาณตามสูตร × ยอดขาย (ไม่ใช่ที่ใช้จริงจากการนับสต๊อก)",
+    },
+  };
+}
+
 // ─── The menu Gemini picks from ───
 
 export const TOOLS = {
@@ -1170,6 +1403,8 @@ export const TOOLS = {
   ingredient_in_menus: ingredientInMenus,
   recipe_whatif: recipeWhatIf,
   price_movers: priceMovers,
+  menu_engineering: menuEngineering,
+  ingredient_usage: ingredientUsage,
   // No tool fits: noted for Bucci's review (index.ts logs it); the model then says so plainly
   cannot_answer: async (_s: Store, a: { reason?: string; closest?: string }) => ({ data: { noted: true, reason: a?.reason ?? "", closest: a?.closest ?? "" } }),
 } as const;

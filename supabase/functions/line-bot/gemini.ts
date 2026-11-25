@@ -24,7 +24,12 @@ export interface Turn {
 const S = (description: string) => ({ type: "STRING", description });
 const N = (description: string) => ({ type: "NUMBER", description });
 const PERIOD = {
-  from: S("วันแรก yyyy-mm-dd (ไม่ระบุ = ต้นเดือนนี้)"),
+  period: {
+    type: "STRING",
+    enum: ["today", "yesterday", "this_week", "last_week", "last_7_days", "this_month", "last_month", "last_30_days"],
+    description: "ช่วงเวลาที่พูดเป็นคำ (วันนี้ เมื่อวาน สัปดาห์นี้ สัปดาห์ที่แล้ว 7 วันล่าสุด เดือนนี้ เดือนที่แล้ว 30 วันล่าสุด) ใช้แทน from/to",
+  },
+  from: S("วันแรก yyyy-mm-dd (ค.ศ.; ไม่ระบุ = ต้นเดือนนี้)"),
   to: S("วันสุดท้าย yyyy-mm-dd (ไม่ระบุ = วันนี้)"),
   branch: S("ชื่อสาขา เช่น Shiro, Thaniya (ไม่ระบุ = ทุกสาขา)"),
 };
@@ -71,6 +76,7 @@ export const DECLARATIONS = [
         menus: S("เฉพาะกลุ่มเมนู เช่น ราเมน, ด้ง, Standard"),
         sort: { type: "STRING", enum: ["revenue", "fc_high", "fc_low", "qty", "profit"], description: "เรียงเมนูตาม: ยอดขาย / FC สูงสุด / FC ต่ำสุด / จำนวนจาน / กำไรหลังหักวัตถุดิบ" },
         compare: { type: "STRING", enum: ["branches", "previous_period"], description: "เทียบแยกสาขา หรือเทียบกับช่วงก่อน (เดือนก่อนวันเดียวกัน)" },
+        by_day: { type: "BOOLEAN", description: "แสดงรายวัน" },
       },
     },
   },
@@ -139,6 +145,16 @@ export const DECLARATIONS = [
     name: "price_movers",
     description: "วัตถุดิบตัวไหนราคาขึ้น/ลงในช่วงที่ผ่านมา และกระทบต้นทุนเท่าไหร่ (คิดจากปริมาณที่ใช้จริงตามสูตร)",
     parameters: { type: "OBJECT", properties: { days: N("ย้อนดูกี่วัน (ไม่ระบุ = 30, สูงสุด 60)"), this_month: { type: "BOOLEAN", description: "ตั้งแต่ต้นเดือนนี้" }, top: N("แสดงกี่ตัว (ไม่ระบุ = 10)"), branch: PERIOD.branch } },
+  },
+  {
+    name: "menu_engineering",
+    description: "เมนูไหนทำเงิน: จัดกลุ่มเมนูเป็น ดาวเด่น / ขายดีกำไรต่ำ / กำไรดีขายน้อย / ขายน้อยกำไรต่ำ จากยอดขายจริงและต้นทุนตามสูตร พร้อมข้อแนะนำ",
+    parameters: { type: "OBJECT", properties: { ...PERIOD, menus: S("เฉพาะกลุ่มเมนู เช่น ราเมน") } },
+  },
+  {
+    name: "ingredient_usage",
+    description: "ช่วงเวลานี้ใช้วัตถุดิบนี้ไปเท่าไหร่ตามสูตร (รวมและต่อวัน) และคิดเป็นเงินเท่าไหร่",
+    parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสวัตถุดิบ"), ...PERIOD }, required: ["query"] },
   },
   {
     name: "cannot_answer",

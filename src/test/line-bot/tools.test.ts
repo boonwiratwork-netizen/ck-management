@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
-import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, matchSku, previousPeriod, priceForFc, priceMovers, recipeWhatIf, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
+import { classifyMenus, menuEngineering, ingredientUsage, namedPeriod, periodOf, compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, matchSku, previousPeriod, priceForFc, priceMovers, recipeWhatIf, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
 import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
@@ -12,6 +12,8 @@ const MENUS = [
   { id: "mT", code: "MN-025", name: "อกเป็ดชาชู 2 ชิ้น (ท็อปปิ้ง)", brand: "Sendo", category: "Top", price: 60, active: true },
   { id: "mS", code: "MN-002", name: "Standard โชยุ ราเมน", brand: "Sendo", category: "Ramen", price: 300, active: true },
   { id: "mD", code: "MN-008", name: "มินิชาชูด้ง ข้าวโคชิฮิคาริ", brand: "Sendo", category: "Appetizer", price: 139, active: true },
+  // A Line Man alias (no recipe of its own; its cost comes by an option rule in real data)
+  { id: "mRL", code: "MN-001L", name: "Standard Shio Ramen (Line Man)", brand: "Sendo", category: "Ramen", price: 339, active: true },
 ];
 const SKUS = [
   { id: "noodle", code: "SM-0001", name: "เส้นราเมน", type: "SM", uom: "g", purchaseUom: "g", active: true },
@@ -294,6 +296,71 @@ describe("the upgrade: questions near the ones that failed", () => {
     expect(matchSku(SKUS, undefined)).toEqual([]);
     expect(matchSku(SKUS, "duck breast")[0].item.id).toBe("duck");
     expect(matchSku(SKUS, "japanese rice")[0].item.id).toBe("rice");
+  });
+});
+
+describe("false-proofing and the next use cases", () => {
+  it("periods in words are worked out by the tool; Thai-calendar years are read as such", () => {
+    // 25 Nov 2026 is a Wednesday
+    expect(namedPeriod("2026-11-25", "yesterday")).toEqual({ from: "2026-11-24", to: "2026-11-24" });
+    expect(namedPeriod("2026-11-25", "this_week")).toEqual({ from: "2026-11-23", to: "2026-11-25" });
+    expect(namedPeriod("2026-11-25", "last_week")).toEqual({ from: "2026-11-16", to: "2026-11-22" });
+    expect(namedPeriod("2026-11-25", "last_month")).toEqual({ from: "2026-10-01", to: "2026-10-31" });
+    expect(namedPeriod("2026-03-10", "last_month")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(periodOf("2026-11-25", { from: "2569-11-01", to: "2569-11-10" })).toEqual({ from: "2026-11-01", to: "2026-11-10" });
+  });
+
+  it("the card says when sales stop short, when there are none, and when a branch isn't known", async () => {
+    const r = await foodCost(store(), { branch: "สีลม" });
+    const notes = r.card!.notes!.join(" | ");
+    expect(notes).toMatch(/ยอดขายในระบบมีถึง 10 พ.ย./);
+    expect(notes).toMatch(/ไม่รู้จักสาขา "สีลม"/);
+    const none = await foodCost(store([]), {});
+    expect(none.card!.notes!.join(" ")).toMatch(/ยังไม่มียอดขาย/);
+  });
+
+  it("today's sales arriving tomorrow is not 'missing'; a branch two days behind is, by name", async () => {
+    const m = masters();
+    const fresh = [sale("MN-001", 1, 300, { sale_date: "2026-11-24" }), sale("MN-001", 1, 300, { sale_date: "2026-11-24", branch_id: "b2" })];
+    const r = await foodCost(store(fresh), {});
+    expect(r.card!.notes!.join(" ")).not.toMatch(/มีถึง/);
+    const behind = [sale("MN-001", 1, 300, { sale_date: "2026-11-24" }), sale("MN-001", 1, 300, { sale_date: "2026-11-22", branch_id: "b2" })];
+    const r2 = await foodCost(store(behind), {});
+    expect(r2.card!.notes!.join(" ")).toMatch(/Shiro: ยอดขายในระบบมีถึง 22 พ.ย./);
+    expect(m.today).toBe("2026-11-25");
+  });
+
+  it("menu engineering counts a dish and its Line Man alias as one; FC by day for one group", async () => {
+    const sales = [...SALES, sale("MN-001L", 5, 1500, { channel: "LINE MAN เดลิเวอรี" })];
+    const e = await menuEngineering(store(sales), {});
+    expect((e.data as { menus: { code: string; plates: number }[] }).menus.find((x) => x.code === "MN-001")?.plates).toBe(17);
+    expect((e.data as { menus: { code: string }[] }).menus.map((x) => x.code)).not.toContain("MN-001L");
+    const d = await foodCost(store(), { by_day: true, menus: "เกี๊ยวซ่า" });
+    expect((d.data as { days: { revenue: number }[] }).days[0].revenue).toBe(1000);
+  });
+
+  it("ขีด / โล are units too", async () => {
+    const r = await compareItems(store(), { items: [{ name: "อกเป็ดชาชู", qty: 1, unit: "ขีด", stated_cost: 50 }] });
+    expect((r.data as { items: { system_cost: number }[] }).items[0].system_cost).toBe(50);
+  });
+
+  it("menu engineering: stars, plowhorses, puzzles, dogs", () => {
+    const out = classifyMenus([
+      { code: "A", name: "ขายดีกำไรดี", qty: 100, revenue: 30000, stdCost: 9000 },
+      { code: "B", name: "ขายดีกำไรน้อย", qty: 100, revenue: 15000, stdCost: 9000 },
+      { code: "C", name: "ขายน้อยกำไรดี", qty: 10, revenue: 4000, stdCost: 800 },
+      { code: "D", name: "ขายน้อยกำไรน้อย", qty: 10, revenue: 1000, stdCost: 700 },
+      { code: "E", name: "ไม่มีสูตร", qty: 50, revenue: 5000, stdCost: 0 },
+    ]);
+    expect(Object.fromEntries(out.map((x) => [x.code, x.cls]))).toEqual({ A: "star", B: "plowhorse", C: "puzzle", D: "dog" });
+  });
+
+  it("ingredient usage by recipe for a period, and food cost day by day", async () => {
+    const r = await ingredientUsage(store(), { query: "อกเป็ด" });
+    // 12 ramen × 50 g = 600 g = 0.6 kg, ฿300
+    expect(r.data).toMatchObject({ used_by_recipe: "600 ก.", cost: 300 });
+    const d = await foodCost(store(), { by_day: true });
+    expect((d.data as { days: { day: string; revenue: number }[] }).days).toEqual([expect.objectContaining({ day: "2026-11-10", revenue: 4600 })]);
   });
 });
 

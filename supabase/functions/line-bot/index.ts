@@ -20,6 +20,7 @@ declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 const env = (k: string) => Deno.env.get(k) ?? "";
 const bangkokToday = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
 const IMAGE_MINUTES = 30;
+const MAX_PER_HOUR = 40;
 const MEMORY_HOURS = 3;
 const IMAGE_WORDS = /ภาพ|รูป|ในบิล|ตามนี้|นี้|ข้างบน|ด้านบน|image|photo|pic/i;
 
@@ -58,7 +59,13 @@ function systemPrompt(today: string, branches: string) {
     "- ถ้าแก้สูตร: เอาวัตถุดิบออก ลดปริมาณ เปลี่ยนเป็นของอื่น เพิ่มของ → recipe_whatif",
     "- ต้องขายเท่าไหร่ถึงได้ FC เป้า → menu_cost target_fc",
     "- วัตถุดิบไหนขึ้นราคา กระทบต้นทุนเท่าไหร่ → price_movers",
+    "- เมนูไหนทำเงิน / ควรปรับราคาเมนูไหน / เมนูไหนควรดัน → menu_engineering",
+    "- ใช้วัตถุดิบไปเท่าไหร่ (ตามสูตร) → ingredient_usage",
+    "- food cost รายวัน → food_cost by_day=true",
     "- ต้นทุนจริงจากการนับสต๊อก / ของเสีย / ใช้เกินสูตร → ยังไม่มีเครื่องมือ: cannot_answer แล้วแนะนำให้ดูหน้าต้นทุนอาหารในแอป (เลือกสาขาเดียว)",
+    "",
+    "ช่วงเวลา: ถ้าพูดเป็นคำ (วันนี้ เมื่อวาน สัปดาห์นี้ สัปดาห์ที่แล้ว เดือนนี้ เดือนที่แล้ว 7/30 วันล่าสุด) ให้ใส่ period แทนการคำนวณวันที่เอง ถ้าเป็นวันที่ ใช้ปี ค.ศ.",
+    "ถ้าผลเครื่องมือมี data_notes (เช่น ยอดขายยังไม่ครบ วัตถุดิบไม่มีราคา) ให้บอกผู้ถามสั้นๆ ด้วยเสมอ",
     "- ถ้าเปลี่ยนราคาขาย ราคาวัตถุดิบ หรือยอดขาย FC รวมจะเป็นเท่าไหร่ → scenario (ชื่อกลุ่ม เช่น 'Standard' ใส่ใน menu ได้เลย ระบบจะรวมทุกเมนูในกลุ่ม)",
     "- ภาพหรือรายการวัตถุดิบที่มีคนส่งมา → compare_items (อ่านชื่อ ปริมาณ หน่วย ต้นทุนในภาพ; ถ้าผู้ถามบอกให้ตัดรายการไหนออก ไม่ต้องใส่รายการนั้น)",
     "",
@@ -77,6 +84,10 @@ function systemPrompt(today: string, branches: string) {
     "- 'Shiro กับ Thaniya FC ต่างกันยังไง' → food_cost compare='branches'",
     "- 'FC เดือนนี้เทียบเดือนก่อน' → food_cost compare='previous_period'",
     "- 'เดือนนี้วัตถุดิบไหนขึ้นราคาเยอะสุด' → price_movers this_month=true",
+    "- 'เมนูไหนควรปรับราคา' → menu_engineering",
+    "- 'เดือนที่แล้วใช้อกเป็ดไปกี่กิโล' → ingredient_usage query='อกเป็ด' period='last_month'",
+    "- 'FC สัปดาห์ที่แล้วรายวัน' → food_cost period='last_week' by_day=true",
+    "- 'เมื่อวาน Thaniya ขายได้เท่าไหร่' → food_cost period='yesterday' branch='Thaniya'",
     "- 'ราเมน Shiro กับ Thaniya FC ต่างกันยังไง' → food_cost compare='branches' menus='ราเมน'",
     "- 'ยอดขายพนักงานคนไหนเยอะสุด' → cannot_answer (ระบบนี้มีแต่ต้นทุน)",
     "",
@@ -138,6 +149,14 @@ async function handle(e: LineEvent) {
     return;
   }
 
+  // Flood guard: the free AI quota is shared by the whole group
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const { count } = await db.from("line_bot_log").select("id", { count: "exact", head: true }).eq("group_id", groupId).eq("kind", "question").gte("created_at", hourAgo);
+  if ((count ?? 0) >= MAX_PER_HOUR) {
+    await answer(token, e.replyToken, groupId, [{ type: "text", text: `ชั่วโมงนี้ถามไปแล้ว ${MAX_PER_HOUR} คำถาม เต็มโควตาฟรีของ AI ลองใหม่ชั่วโมงหน้านะครับ` }]);
+    return;
+  }
+
   // The photo: the one this message answers (quoted), else one sent in the last 30 minutes
   // when the question talks about a picture
   let imageId: string | null = null;
@@ -160,7 +179,11 @@ async function handle(e: LineEvent) {
 
   // What was asked and answered in this group lately (follow-ups build on it)
   const since = new Date(Date.now() - MEMORY_HOURS * 3_600_000).toISOString();
-  const { data: past } = await db.from("line_bot_log").select("kind, text, created_at").eq("group_id", groupId).in("kind", ["question", "answer"]).gte("created_at", since).order("created_at", { ascending: false }).limit(8);
+  // This person's own conversation (two people asking at once don't mix their follow-ups)
+  // Without a LINE user id (some apps don't send it) there's no telling whose turns are whose: no memory
+  const { data: past } = e.source?.userId
+    ? await db.from("line_bot_log").select("kind, text, created_at").eq("group_id", groupId).eq("user_id", e.source.userId).in("kind", ["question", "answer"]).gte("created_at", since).order("created_at", { ascending: false }).limit(8)
+    : { data: [] };
   const turns: Turn[] = (past ?? [])
     .reverse()
     .filter((r: { text: string | null }) => r.text)
