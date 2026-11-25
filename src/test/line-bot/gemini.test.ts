@@ -8,6 +8,18 @@ const modelOf = (url: string) => decodeURIComponent(url.split("/models/")[1].spl
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Gemini calls", () => {
+  it("only the last round's tables are shown (earlier tries aren't)", async () => {
+    const replies = [
+      { candidates: [{ content: { parts: [{ functionCall: { name: "food_cost", args: {} } }] } }] },
+      { candidates: [{ content: { parts: [{ functionCall: { name: "menu_cost", args: { query: "x" } } }] } }] },
+      { candidates: [{ content: { parts: [{ text: "คำตอบ" }] } }] },
+    ];
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify(replies.shift()), { status: 200 }));
+    const r = await ask({ ...base, models: ["a"], runTool: async (name) => ({ data: {}, card: { title: name, columns: [], rows: [] } }) });
+    expect(r.cards.map((c) => c.title)).toEqual(["menu_cost"]);
+    expect(r.calls.map((c) => c.name)).toEqual(["food_cost", "menu_cost"]);
+  });
+
   it("a model that times out passes the question to the next one", async () => {
     const seen: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {

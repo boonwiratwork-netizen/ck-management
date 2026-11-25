@@ -166,9 +166,75 @@ const unitText = (u: string) => {
   return u ?? "";
 };
 
+// ─── House facts: how much heavier an item gets once cooked ───
+
+/**
+ * Cooked weight ÷ raw weight, for items the shops serve cooked while the system prices and
+ * recipes them raw. Bucci, 25 Nov 2026: ข้าวญี่ปุ่นหุงสุกหนัก 2 เท่าของข้าวดิบ (สุก 180 ก. = ดิบ 90 ก.).
+ */
+export const HOUSE_YIELDS: { item: RegExp; cookedPerRaw: number; note: string }[] = [
+  { item: /ข้าวญี่ปุ่น|โคชิฮิคาริ|มุเซนมัย|ข้าวสาร/i, cookedPerRaw: 2, note: "ข้าวญี่ปุ่นหุงสุกหนัก 2 เท่าของข้าวดิบ" },
+];
+export const cookedYieldOf = (sku: { name: string }) => HOUSE_YIELDS.find((y) => y.item.test(sku.name)) ?? null;
+/** Cooked / prepared forms: the system's item is usually the raw one (weights differ) */
+const PREPARED = /สุก|ต้ม|นึ่ง|หุง|ทอด|ย่าง|ปรุง|cooked|steamed|boiled/i;
+
+const UNIT: Record<string, { to: "g" | "ml" | "pc"; times: number }> = {
+  g: { to: "g", times: 1 }, gram: { to: "g", times: 1 }, กรัม: { to: "g", times: 1 }, "ก.": { to: "g", times: 1 }, ก: { to: "g", times: 1 },
+  kg: { to: "g", times: 1000 }, "กก.": { to: "g", times: 1000 }, กก: { to: "g", times: 1000 }, กิโล: { to: "g", times: 1000 },
+  ml: { to: "ml", times: 1 }, "มล.": { to: "ml", times: 1 }, มล: { to: "ml", times: 1 }, l: { to: "ml", times: 1000 }, ลิตร: { to: "ml", times: 1000 },
+  ชิ้น: { to: "pc", times: 1 }, pc: { to: "pc", times: 1 }, pcs: { to: "pc", times: 1 }, piece: { to: "pc", times: 1 }, ฟอง: { to: "pc", times: 1 }, ลูก: { to: "pc", times: 1 }, แผ่น: { to: "pc", times: 1 }, ea: { to: "pc", times: 1 },
+};
+const skuUnit = (uom: string) => UNIT[(uom ?? "").trim().toLowerCase()] ?? null;
+
+/**
+ * A quantity someone wrote ("180 ก.", "6 ชิ้น", "ข้าวสุก 180 ก.") in the item's own unit, the
+ * way the system prices it. Pieces → grams from 'N ชิ้น' menus; cooked → raw by HOUSE_YIELDS.
+ * An unknown unit is never guessed.
+ */
+export function inItemUnit(m: Masters, sku: BotSku, qty: number, unit: string | null | undefined, cooked: boolean): { qty: number; notes: string[] } | { error: "unit_unknown" } {
+  const written = (unit ?? "").trim();
+  const given = UNIT[written.toLowerCase()];
+  const target = skuUnit(sku.uom);
+  const notes: string[] = [];
+  let q: number | null = null;
+  if (given && target && given.to === target.to) q = (qty * given.times) / target.times;
+  else if (given?.to === "pc" && target?.to === "g") {
+    const gp = gramsPerPiece(m, sku.id);
+    if (gp) {
+      q = (qty * gp.grams) / target.times;
+      notes.push(`${r1(gp.grams)} ก./ชิ้น จาก ${gp.from}`);
+    }
+  } else if (!written && target) q = qty;
+  if (q === null) return { error: "unit_unknown" };
+  const y = cookedYieldOf(sku);
+  if (cooked && y) {
+    notes.push(`${y.note}: สุก ${r1(q)} → ดิบ ${r1(q / y.cookedPerRaw)} ${unitText(sku.uom)}`);
+    q = q / y.cookedPerRaw;
+  } else if (cooked) notes.push(`ในระบบไม่มีสัดส่วนสุก/ดิบของ ${sku.name} ใช้น้ำหนักตามที่แจ้ง`);
+  return { qty: q, notes };
+}
+
+/**
+ * Menus a name points at: a code; else every menu whose name contains it ("Standard" → the
+ * three Standard ramens, "ด้ง" → every donburi); else the closest one.
+ */
+export function matchMenus(pool: BotMenu[], query: string): BotMenu[] {
+  const q = norm(query);
+  if (!q) return [];
+  const byCode = pool.find((x) => x.code.toLowerCase() === query.trim().toLowerCase());
+  if (byCode) return [byCode];
+  const exact = pool.find((x) => norm(x.name) === q);
+  if (exact) return [exact];
+  const containing = q.length >= 2 ? pool.filter((x) => norm(x.name).includes(q) && !/ของแถม/.test(x.name)) : [];
+  if (containing.length) return containing;
+  const best = matchByName(pool, query, 1, 0.5)[0];
+  return best ? [best.item] : [];
+}
+
 // ─── 1. Ingredient prices ───
 
-export async function ingredientPrice(store: Store, args: { query: string; days?: number }): Promise<ToolResult> {
+export async function ingredientPrice(store: Store, args: { query: string; days?: number; qty?: number | null; unit?: string | null; cooked?: boolean | null }): Promise<ToolResult> {
   const m = await store.masters();
   const found = matchByName(m.skus.filter((s) => s.active), args.query, 5);
   if (!found.length) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
@@ -194,13 +260,25 @@ export async function ingredientPrice(store: Store, args: { query: string; days?
       match: r2(score),
     };
   });
+  // A quantity asked about ("ข้าวสุก 180 ก. กี่บาท"): worked out here, never by the model
+  let forQty: unknown = null;
+  if (args.qty != null && n(args.qty) > 0) {
+    const sku = hits[0].item;
+    const price = m.stdPrice.get(sku.id) ?? 0;
+    const cooked = !!args.cooked || PREPARED.test(args.query);
+    const conv = inItemUnit(m, sku, n(args.qty), args.unit, cooked);
+    forQty =
+      "error" in conv
+        ? { item: sku.name, error: `หน่วย "${args.unit}" แปลงไม่ได้ ระบุเป็นกรัม/มล./ชิ้น` }
+        : { item: `${sku.name} (${sku.code})`, asked: `${n(args.qty)} ${args.unit ?? unitText(sku.uom)}${cooked ? " (สุก)" : ""}`, qty_in_system_unit: r1(conv.qty), system_unit: unitText(sku.uom), cost: r2(conv.qty * price), how: conv.notes };
+  }
   const perText = (r: (typeof rows)[number]) =>
     r.unit === "ก." ? `฿${baht2(r.price_per_1000_units)} / กก.` : r.unit === "มล." ? `฿${baht2(r.price_per_1000_units)} / ลิตร` : `฿${baht2(r.price_per_unit)} / ${r.unit || "หน่วย"}`;
   return {
-    data: { found: true, items: rows.map((r) => ({ ...r, price_text: perText(r) })), others_not_shown: found.length - hits.length },
+    data: { found: true, cost_for_qty: forQty, items: rows.map((r) => ({ ...r, price_text: perText(r) })), others_not_shown: found.length - hits.length, cooked_yield: cookedYieldOf(hits[0].item)?.note ?? null },
     // One item: the text answers it; a table only when there are items to compare
     card:
-      rows.length < 2
+      rows.length < 2 || forQty
         ? undefined
         : {
             title: "ราคาวัตถุดิบในระบบ",
@@ -225,12 +303,31 @@ export function plateCost(m: Masters, menu: BotMenu, branchId: string, delivery 
 
 export async function menuCost(store: Store, args: { query: string; branch?: string | null; new_price?: number | null }): Promise<ToolResult> {
   const m = await store.masters();
-  const hits = matchByName(m.menus.filter((x) => x.active), args.query, 3);
-  if (!hits.length) return { data: { found: false, query: args.query, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
-  const menu = hits[0].item;
+  const group = matchMenus(m.menus.filter((x) => x.active), args.query);
+  if (!group.length) return { data: { found: false, query: args.query, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
   const br = resolveBranches(m, args.branch);
   const open = m.branches.filter((b) => b.active !== false);
-  const branch = open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0] ?? m.branches[0];
+  const branchFor = (menu: BotMenu) => open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0] ?? m.branches[0];
+  // Several menus ("Standard", "ด้ง"): one line each
+  if (group.length > 1) {
+    const list = group.slice(0, 12).map((menu) => {
+      const total = plateCost(m, menu, branchFor(menu)?.id ?? "").total;
+      const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
+      return { code: menu.code, name: menu.name, cost_per_plate: r2(total), price, food_cost_pct: pct(total, price) === null ? null : r1(pct(total, price)!) };
+    });
+    return {
+      data: { found: true, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
+      card: {
+        title: `ต้นทุนต่อจาน · "${args.query}" ${group.length} เมนู`,
+        subtitle: `ตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้${args.new_price ? ` · เทียบราคา ${baht(args.new_price)}` : ""}`,
+        columns: ["เมนู", "ต้นทุน/ราคา", "FC"],
+        rows: list.map((x) => [x.name, `${baht2(x.cost_per_plate)} / ${baht(x.price)}`, pctText(x.food_cost_pct)]),
+      },
+    };
+  }
+  const menu = group[0];
+  const hits = [{ item: menu }];
+  const branch = branchFor(menu);
   const plate = plateCost(m, menu, branch?.id ?? "");
   const skuOf = new Map(m.skus.map((s) => [s.id, s]));
   const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
@@ -383,9 +480,9 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
       targets = sold.filter((x) => norm(x.category).includes(q) || (q === "drinks" && /drink|beer|soft/i.test(x.category)));
       if (!targets.length) unmatched.push(`หมวด ${c.category}`);
     } else if (c.menu) {
-      const hit = matchByName(sold, c.menu, 1, 0.5)[0] ?? matchByName(m.menus.filter((x) => x.active), c.menu, 1, 0.5)[0];
-      if (hit) targets = [hit.item];
-      else unmatched.push(c.menu);
+      targets = matchMenus(sold, c.menu);
+      if (!targets.length) targets = matchMenus(m.menus.filter((x) => x.active), c.menu);
+      if (!targets.length) unmatched.push(c.menu);
     }
     for (const t of targets) {
       if (!(t.price > 0)) {
@@ -501,16 +598,6 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
 
 // ─── 5. Lines someone sent (a photo, a list) against the system ───
 
-const UNIT: Record<string, { to: "g" | "ml" | "pc"; times: number }> = {
-  g: { to: "g", times: 1 }, gram: { to: "g", times: 1 }, กรัม: { to: "g", times: 1 }, "ก.": { to: "g", times: 1 }, ก: { to: "g", times: 1 },
-  kg: { to: "g", times: 1000 }, "กก.": { to: "g", times: 1000 }, กก: { to: "g", times: 1000 }, กิโล: { to: "g", times: 1000 },
-  ml: { to: "ml", times: 1 }, "มล.": { to: "ml", times: 1 }, มล: { to: "ml", times: 1 }, l: { to: "ml", times: 1000 }, ลิตร: { to: "ml", times: 1000 },
-  ชิ้น: { to: "pc", times: 1 }, pc: { to: "pc", times: 1 }, pcs: { to: "pc", times: 1 }, piece: { to: "pc", times: 1 }, ฟอง: { to: "pc", times: 1 }, ลูก: { to: "pc", times: 1 }, แผ่น: { to: "pc", times: 1 }, ea: { to: "pc", times: 1 },
-};
-const skuUnit = (uom: string) => UNIT[(uom ?? "").trim().toLowerCase()] ?? null;
-/** Cooked / prepared forms: the system's item is usually the raw one (weights differ) */
-const PREPARED = /สุก|ต้ม|นึ่ง|หุง|ทอด|ย่าง|ปรุง|cooked|steamed|boiled/i;
-
 /**
  * Grams per piece of an item, from menus sold by the piece ("อกเป็ดชาชู 2 ชิ้น (ท็อปปิ้ง)"):
  * that menu's shop line of the item ÷ the pieces in its name. Middle value if several.
@@ -546,22 +633,10 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
     const sku = hit.item;
     const price = m.stdPrice.get(sku.id) ?? 0;
     if (!price) return { ...base, status: "no_price" as const, matched: `${sku.name} (${sku.code})` };
-    const unitWritten = (it.unit ?? "").trim();
-    const given = UNIT[unitWritten.toLowerCase()];
-    const target = skuUnit(sku.uom);
-    let usageQty: number | null = null;
-    let via = "";
-    // In the item's own unit (a kg item takes 180 g as 0.18)
-    if (given && target && given.to === target.to) usageQty = (n(it.qty) * given.times) / target.times;
-    else if (given?.to === "pc" && target?.to === "g") {
-      const gp = gramsPerPiece(m, sku.id);
-      if (gp) {
-        usageQty = (n(it.qty) * gp.grams) / target.times;
-        via = `${r1(gp.grams)} ก./ชิ้น จาก ${gp.from}`;
-      }
-    } else if (!unitWritten && target) usageQty = n(it.qty); // no unit written at all: the item's own unit
-    // A unit written but not known (ช้อนโต๊ะ, ถ้วย, oz): never guessed
-    if (usageQty === null) return { ...base, status: "unit_unknown" as const, matched: `${sku.name} (${sku.code})`, system_unit: unitText(sku.uom) };
+    const conv = inItemUnit(m, sku, n(it.qty), it.unit, PREPARED.test(it.name));
+    if ("error" in conv) return { ...base, status: "unit_unknown" as const, matched: `${sku.name} (${sku.code})`, system_unit: unitText(sku.uom) };
+    const usageQty = conv.qty;
+    const via = conv.notes.join(" · ");
     const cost = usageQty * price;
     return {
       ...base,
@@ -571,7 +646,7 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
       qty_in_system_unit: r1(usageQty),
       system_unit: unitText(sku.uom),
       converted_via: via || null,
-      warning: PREPARED.test(it.name) && !PREPARED.test(sku.name) ? `ในภาพเป็น "${it.name}" แต่ในระบบเป็น ${sku.name} (ของดิบ) น้ำหนักไม่เท่ากัน` : null,
+      warning: PREPARED.test(it.name) && !PREPARED.test(sku.name) && !cookedYieldOf(sku) ? `ในภาพเป็น "${it.name}" แต่ในระบบเป็น ${sku.name} (ของดิบ) น้ำหนักไม่เท่ากัน` : null,
       system_cost: r2(cost),
       difference: stated === null ? null : r2(stated - cost),
     };
@@ -611,6 +686,48 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
   };
 }
 
+// ─── 6. Which menus use an ingredient, and how much ───
+
+export async function ingredientInMenus(store: Store, args: { query: string; menus?: string | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  const hit = matchByName(m.skus.filter((s) => s.active), args.query, 1)[0];
+  if (!hit) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
+  const sku = hit.item;
+  const price = m.stdPrice.get(sku.id) ?? 0;
+  const pool = m.menus.filter((x) => x.active && !/^MN-\d+L$/i.test(x.code) && !/ของแถม/.test(x.name));
+  const menus = args.menus ? matchMenus(pool, args.menus) : pool;
+  const open = m.branches.filter((b) => b.active !== false);
+  const y = cookedYieldOf(sku);
+  const rows: { code: string; name: string; qty: number; cooked: number | null; cost: number }[] = [];
+  for (const menu of menus) {
+    const branch = open.find((b) => b.brand === menu.brand) ?? open[0];
+    const q = plateCost(m, menu, branch?.id ?? "").lines.find((l) => l.skuId === sku.id)?.qty ?? 0;
+    if (q > 1e-9) rows.push({ code: menu.code, name: menu.name, qty: q, cooked: y ? q * y.cookedPerRaw : null, cost: q * price });
+  }
+  rows.sort((a, b) => b.qty - a.qty);
+  const u = unitText(sku.uom);
+  return {
+    data: {
+      item: `${sku.name} (${sku.code})`,
+      price_per_unit: Number(price.toFixed(4)),
+      unit: u,
+      recipe_weight_is: y ? "ดิบ (ก่อนหุง)" : "ตามหน่วยของวัตถุดิบ",
+      cooked_yield: y?.note ?? null,
+      menus: rows.map((r) => ({ code: r.code, name: r.name, qty: r1(r.qty), cooked_qty: r.cooked === null ? null : r1(r.cooked), cost: r2(r.cost) })),
+      filter: args.menus ?? null,
+    },
+    card: rows.length
+      ? {
+          title: `${sku.name} ใช้ในเมนูไหนบ้าง`,
+          subtitle: `${args.menus ? `เมนู "${args.menus}" · ` : ""}ราคา ${u === "ก." ? `฿${baht2(price * 1000)} / กก.` : u === "มล." ? `฿${baht2(price * 1000)} / ลิตร` : `฿${baht2(price)} / ${u}`}`,
+          columns: ["เมนู", y ? "ดิบ (≈สุก)" : "ใช้", "บาท"],
+          rows: rows.slice(0, 15).map((r) => [r.name, y ? `${r1(r.qty)} (≈${r0(r.cooked!)}) ${u}` : `${r1(r.qty)} ${u}`, baht2(r.cost)]),
+          notes: [...(y ? [`สูตรในระบบเป็นน้ำหนักดิบ · ${y.note}`] : []), ...(rows.length > 15 ? [`และอีก ${rows.length - 15} เมนู`] : [])],
+        }
+      : undefined,
+  };
+}
+
 // ─── The menu Gemini picks from ───
 
 export const TOOLS = {
@@ -619,6 +736,9 @@ export const TOOLS = {
   food_cost: foodCost,
   scenario,
   compare_items: compareItems,
+  ingredient_in_menus: ingredientInMenus,
+  // No tool fits: noted for Bucci's review (index.ts logs it); the model then says so plainly
+  cannot_answer: async (_s: Store, a: { reason?: string; closest?: string }) => ({ data: { noted: true, reason: a?.reason ?? "", closest: a?.closest ?? "" } }),
 } as const;
 export type ToolName = keyof typeof TOOLS;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
-import { compareItems, foodCost, gramsPerPiece, matchByName, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
+import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
 import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
@@ -10,6 +10,8 @@ const MENUS = [
   { id: "mR", code: "MN-001", name: "Standard ชิโอะ ราเมน", brand: "Sendo", category: "Ramen", price: 300, active: true },
   { id: "mG", code: "MN-060", name: "เกี๊ยวซ่า", brand: "Sendo", category: "App", price: 100, active: true },
   { id: "mT", code: "MN-025", name: "อกเป็ดชาชู 2 ชิ้น (ท็อปปิ้ง)", brand: "Sendo", category: "Top", price: 60, active: true },
+  { id: "mS", code: "MN-002", name: "Standard โชยุ ราเมน", brand: "Sendo", category: "Ramen", price: 300, active: true },
+  { id: "mD", code: "MN-008", name: "มินิชาชูด้ง ข้าวโคชิฮิคาริ", brand: "Sendo", category: "Appetizer", price: 139, active: true },
 ];
 const SKUS = [
   { id: "noodle", code: "SM-0001", name: "เส้นราเมน", type: "SM", uom: "g", purchaseUom: "g", active: true },
@@ -25,6 +27,9 @@ const BOM = [
   { menuId: "mR", skuId: "duck", qty: 50 },
   { menuId: "mG", skuId: "gyoza", qty: 6 },
   { menuId: "mT", skuId: "duck", qty: 40 },
+  { menuId: "mS", skuId: "noodle", qty: 100 },
+  { menuId: "mD", skuId: "rice", qty: 55 },
+  { menuId: "mD", skuId: "duck", qty: 20 },
 ];
 const PRICE = new Map([["noodle", 0.1], ["duck", 0.5], ["gyoza", 3], ["rice", 0.045], ["fish", 0.08], ["soy", 0.02], ["salt", 20]]);
 const BRANCHES = [{ id: "b1", name: "Thaniya", brand: "Sendo", active: true }, { id: "b2", name: "Shiro", brand: "Sendo", active: true }, { id: "b0", name: "Sendo Old", brand: "Sendo", active: false }];
@@ -133,9 +138,30 @@ describe("tools", () => {
     const d = r.data as { items: { status: string; system_cost?: number; warning?: string | null }[]; estimated_total: number };
     expect(d.items.map((i) => i.status)).toEqual(["ok", "ok", "not_in_system"]);
     expect(d.items[0].system_cost).toBe(60); // 6 × 20 g × 0.5
-    expect(d.items[1].system_cost).toBe(8.1); // 180 g × 0.045
-    expect(d.items[1].warning).toMatch(/ของดิบ/); // cooked rice vs the raw item
-    expect(d.estimated_total).toBe(73.1);
+    // cooked rice: 180 g cooked = 90 g raw (house yield ×2) × 0.045
+    expect(d.items[1].system_cost).toBe(4.05);
+    expect(d.estimated_total).toBe(69.05);
+  });
+
+  it("ingredient_price: a cooked quantity is costed raw by the house yield, worked out by the tool", async () => {
+    const r = await ingredientPrice(store(), { query: "ข้าวญี่ปุ่น", qty: 180, unit: "g", cooked: true });
+    expect((r.data as { cost_for_qty: unknown }).cost_for_qty).toMatchObject({ qty_in_system_unit: 90, cost: 4.05 });
+    expect(r.card).toBeUndefined();
+  });
+
+  it("ingredient_in_menus: which menus use rice, raw and ≈cooked, filtered to ด้ง", async () => {
+    const r = await ingredientInMenus(store(), { query: "ข้าวญี่ปุ่น", menus: "ด้ง" });
+    expect((r.data as { menus: unknown[] }).menus).toEqual([{ code: "MN-008", name: "มินิชาชูด้ง ข้าวโคชิฮิคาริ", qty: 55, cooked_qty: 110, cost: 2.48 }]);
+  });
+
+  it("a group name means every menu in it: menu_cost and scenario", async () => {
+    expect(matchMenus(MENUS, "Standard").map((x) => x.code)).toEqual(["MN-001", "MN-002"]);
+    expect(matchMenus(MENUS, "Standard ชิโอะ").map((x) => x.code)).toEqual(["MN-001"]);
+    const c = await menuCost(store(), { query: "Standard" });
+    expect((c.data as { menus: { code: string }[] }).menus.map((x) => x.code)).toEqual(["MN-001", "MN-002"]);
+    const sales = [...SALES, sale("MN-002", 10, 3000)];
+    const r = await scenario(store(sales), { menu_prices: [{ menu: "Standard", new_price: 270 }] });
+    expect((r.data as { repriced_menus: { code: string }[] }).repriced_menus.map((x) => x.code).sort()).toEqual(["MN-001", "MN-002"]);
   });
 
   it("compare_items: a generic name asks, an unknown unit is never guessed, a kg item takes grams right", async () => {

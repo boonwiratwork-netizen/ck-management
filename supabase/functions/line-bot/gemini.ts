@@ -33,11 +33,21 @@ export const DECLARATIONS = [
   {
     name: "ingredient_price",
     description: "ราคาวัตถุดิบในระบบตอนนี้ และราคาที่เปลี่ยนในช่วงที่ผ่านมา ค้นด้วยชื่อหรือรหัส (RM-/SM-)",
-    parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสวัตถุดิบ"), days: N("ย้อนดูการเปลี่ยนราคากี่วัน (ไม่ระบุ = 90)") }, required: ["query"] },
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        query: S("ชื่อหรือรหัสวัตถุดิบ"),
+        days: N("ย้อนดูการเปลี่ยนราคากี่วัน (ไม่ระบุ = 90)"),
+        qty: N("ถ้าถามต้นทุนตามปริมาณ: ปริมาณ"),
+        unit: S("หน่วยของปริมาณ เช่น g, กก., ml, ชิ้น"),
+        cooked: { type: "BOOLEAN", description: "ปริมาณนั้นเป็นน้ำหนักหลังปรุง/หุงสุกแล้ว (เช่น ข้าวสุก)" },
+      },
+      required: ["query"],
+    },
   },
   {
     name: "menu_cost",
-    description: "ต้นทุนต่อจานของเมนูเดียว ตามสูตรหน้าร้านวันนี้ (รวมกฎพิเศษ) และ food cost % เทียบราคาขาย หรือเทียบราคาใหม่ที่ถาม",
+    description: "ต้นทุนต่อจานตามสูตรหน้าร้านวันนี้ (รวมกฎพิเศษ) และ food cost % เทียบราคาขายหรือราคาใหม่ ใส่ชื่อกลุ่มได้ เช่น Standard, Signature, ด้ง จะได้ทุกเมนูในกลุ่ม",
     parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสเมนู (MN-)"), branch: PERIOD.branch, new_price: N("ราคาขายใหม่ที่อยากเทียบ (ถ้ามี)") }, required: ["query"] },
   },
   {
@@ -76,6 +86,16 @@ export const DECLARATIONS = [
     },
   },
   {
+    name: "ingredient_in_menus",
+    description: "วัตถุดิบนี้อยู่ในเมนูไหนบ้าง แต่ละเมนูใช้เท่าไหร่ ต้นทุนเท่าไหร่ (ข้าวบอกทั้งน้ำหนักดิบและสุก)",
+    parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสวัตถุดิบ"), menus: S("เฉพาะเมนูที่ชื่อมีคำนี้ เช่น ด้ง, ราเมน (ไม่ระบุ = ทุกเมนู)") }, required: ["query"] },
+  },
+  {
+    name: "cannot_answer",
+    description: "ใช้เมื่อไม่มีเครื่องมือไหนตอบคำถามนี้ได้ หรือข้อมูลในระบบไม่พอ (ห้ามเดาเรียกเครื่องมืออื่นแทน)",
+    parameters: { type: "OBJECT", properties: { reason: S("ทำไมตอบไม่ได้ ขาดข้อมูลอะไร"), closest: S("สิ่งที่ใกล้เคียงที่สุดที่ตอบได้ (ถ้ามี)") }, required: ["reason"] },
+  },
+  {
     name: "compare_items",
     description: "เทียบรายการวัตถุดิบ ปริมาณ และต้นทุนที่มีคนแจ้งมา (จากภาพหรือข้อความ) กับราคาในระบบ",
     parameters: {
@@ -102,7 +122,7 @@ export async function ask(opts: {
 }): Promise<{ text: string; cards: Card[]; calls: { name: string; args: unknown }[]; model: string }> {
   const turns = [...opts.turns];
   const calls: { name: string; args: unknown }[] = [];
-  const cards: Card[] = [];
+  let lastCards: Card[] = [];
   let models = [...opts.models];
   /** Models that refused the thinking setting (older ones): asked without it */
   const plainConfig = new Set<string>();
@@ -166,17 +186,19 @@ export async function ask(opts: {
     const fc = parts.filter((p): p is { functionCall: { name: string; args: unknown } } => "functionCall" in p);
     if (!fc.length) {
       const text = parts.map((p) => ("text" in p ? p.text : "")).join("").trim();
-      return { text, cards: cards.slice(-3), calls, model };
+      return { text, cards: lastCards.slice(-3), calls, model };
     }
     turns.push({ role: "model", parts });
     const responses: Part[] = [];
+    // The tables shown are the ones the answer rests on: the last round of calls, not every try
+    lastCards = [];
     for (const c of fc) {
       calls.push({ name: c.functionCall.name, args: c.functionCall.args });
       const r = await opts.runTool(c.functionCall.name, c.functionCall.args);
-      if (r.card) cards.push(r.card);
+      if (r.card) lastCards.push(r.card);
       responses.push({ functionResponse: { name: c.functionCall.name, response: { result: r.data } } });
     }
     turns.push({ role: "user", parts: responses });
   }
-  return { text: "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ", cards: cards.slice(-3), calls, model: models[0] ?? "" };
+  return { text: "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ", cards: [], calls, model: models[0] ?? "" };
 }
