@@ -205,6 +205,7 @@ export async function ask(opts: {
       calls.push({ name: c.functionCall.name, args: c.functionCall.args });
       const r = await opts.runTool(c.functionCall.name, c.functionCall.args);
       if (r.card) lastCards.push(r.card);
+      if (r.moreCards) lastCards.push(...r.moreCards);
       responses.push({ functionResponse: { name: c.functionCall.name, response: { result: r.data } } });
     }
     turns.push({ role: "user", parts: responses });

@@ -174,6 +174,9 @@ describe("tools", () => {
     expect(r.data).toMatchObject({ only_cost: 25, cost_per_plate: 35 });
     const g = await menuCost(store(), { query: "ราเมน", only: "โปรตีน" });
     expect((g.data as { menus: { code: string; only_cost: number }[] }).menus.map((x) => [x.code, x.only_cost])).toEqual([["MN-001", 25], ["MN-002", 0]]);
+    // Item by item per serving, and the per-menu table after it
+    expect((g.data as { items_per_serving: unknown[] }).items_per_serving).toEqual([{ item: "อกเป็ดชาชู ซูวีด์ รมควัน", in_menus: 1, qty: "50 ก.", cost: "25.00" }]);
+    expect(g.moreCards?.length).toBe(1);
   });
 
   it("compare_items: a generic name asks, an unknown unit is never guessed, a kg item takes grams right", async () => {

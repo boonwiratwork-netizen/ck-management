@@ -62,7 +62,7 @@ function systemPrompt(today: string, branches: string) {
     "- 'ถ้า Standard 289 Signature 339 food cost เป็นเท่าไหร่' → scenario menu_prices=[{menu:'Standard',new_price:289},{menu:'Signature',new_price:339}]",
     "- 'ข้าวญี่ปุ่นหุงแล้ว 180 ก. ต้นทุนกี่บาท' → ingredient_price query='ข้าวญี่ปุ่น' qty=180 unit='g' cooked=true",
     "- 'เมนูด้งใช้ข้าวกี่กรัม' → ingredient_in_menus query='ข้าวญี่ปุ่น' menus='ด้ง'",
-    "- 'ขอต้นทุนโปรตีนทุกชนิดในราเมน' → menu_cost query='ราเมน' only='protein'",
+    "- 'ขอต้นทุนโปรตีนทุกชนิดในราเมน' / 'สันคอใส่กี่กรัม ต้นทุนเท่าไหร่ต่อเสิร์ฟ กางโปรตีนทั้งหมด' → menu_cost query='ราเมน' only='protein' (ได้ทั้งรายวัตถุดิบต่อเสิร์ฟ และรวมต่อเมนู)",
     "- 'ต้นทุนโปรตีนใน Shoyu Signature' → menu_cost query='Signature โชยุ' only='protein'",
     "- 'ยอดขายพนักงานคนไหนเยอะสุด' → cannot_answer (ระบบนี้มีแต่ต้นทุน)",
     "",

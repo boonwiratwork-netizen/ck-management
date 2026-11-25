@@ -73,6 +73,8 @@ export interface ToolResult {
   data: unknown;
   /** Shown in the chat as a card, exactly as worked out (never retyped by the model) */
   card?: Card;
+  /** More tables after the first (an item-by-item breakdown next to the per-menu one) */
+  moreCards?: Card[];
 }
 
 // ─── Small helpers ───
@@ -359,16 +361,47 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
       const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
       return { code: menu.code, name: menu.name, cost_per_plate: r2(total), price, food_cost_pct: pct(total, price) === null ? null : r1(pct(total, price)!) };
     });
-    if (only)
+    if (only) {
+      // Item by item: how much of each goes in a serving and what it costs (a range across menus)
+      const items = new Map<string, { name: string; unit: string; menus: number; qMin: number; qMax: number; cMin: number; cMax: number }>();
+      for (const menu of group) {
+        for (const l of partOf(plateCost(m, menu, branchFor(menu)?.id ?? "").lines) ?? []) {
+          const sku = m.skus.find((x) => x.id === l.skuId);
+          const e = items.get(l.skuId) ?? { name: sku?.name ?? l.skuId, unit: unitText(sku?.uom ?? ""), menus: 0, qMin: Infinity, qMax: 0, cMin: Infinity, cMax: 0 };
+          e.menus++;
+          e.qMin = Math.min(e.qMin, l.qty);
+          e.qMax = Math.max(e.qMax, l.qty);
+          e.cMin = Math.min(e.cMin, l.cost);
+          e.cMax = Math.max(e.cMax, l.cost);
+          items.set(l.skuId, e);
+        }
+      }
+      const itemRows = [...items.values()].sort((a, b) => b.cMax - a.cMax);
+      const range = (a: number, b: number, f: (v: number) => string) => (Math.abs(a - b) < 0.005 ? f(a) : `${f(a)}–${f(b)}`);
       return {
-        data: { found: true, only: only.label, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
+        data: {
+          found: true,
+          only: only.label,
+          items_per_serving: itemRows.map((e) => ({ item: e.name, in_menus: e.menus, qty: range(e.qMin, e.qMax, (v) => `${r1(v)}`) + ` ${e.unit}`, cost: range(e.cMin, e.cMax, (v) => baht2(v)) })),
+          menus: list,
+          more: Math.max(0, group.length - 12),
+          note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด · ช่วงตัวเลข = แต่ละเมนูใส่ไม่เท่ากัน",
+        },
         card: {
+          title: `${only.label}ใน "${args.query}" · ต่อเสิร์ฟ`,
+          subtitle: "ปริมาณและต้นทุนต่อจาน ตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้",
+          columns: ["วัตถุดิบ", "ใส่", "บาท"],
+          rows: itemRows.map((e) => [`${e.name} (${e.menus} เมนู)`, `${range(e.qMin, e.qMax, (v) => `${r1(v)}`)} ${e.unit}`, range(e.cMin, e.cMax, baht2)]),
+          notes: ["ช่วงตัวเลข = แต่ละเมนูใส่ไม่เท่ากัน"],
+        },
+        moreCards: [{
           title: `ต้นทุน${only.label} · "${args.query}" ${group.length} เมนู`,
           subtitle: "ตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้",
           columns: ["เมนู", only.label, "ทั้งจาน"],
           rows: list.map((x) => [x.name, baht2((x as { only_cost: number }).only_cost), baht2(x.cost_per_plate)]),
-        },
+        }],
       };
+    }
     return {
       data: { found: true, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
       card: {
