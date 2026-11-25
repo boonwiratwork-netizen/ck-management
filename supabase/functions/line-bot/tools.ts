@@ -170,8 +170,10 @@ const unitText = (u: string) => {
 
 export async function ingredientPrice(store: Store, args: { query: string; days?: number }): Promise<ToolResult> {
   const m = await store.masters();
-  const hits = matchByName(m.skus.filter((s) => s.active), args.query, 5);
-  if (!hits.length) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
+  const found = matchByName(m.skus.filter((s) => s.active), args.query, 5);
+  if (!found.length) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
+  // Only the items about as close as the best one (a far match is noise, not an answer)
+  const hits = found.filter((h) => h.score >= found[0].score - 0.1);
   const since = shiftDay(m.today, -(args.days && args.days > 0 ? Math.min(args.days, 365) : 90));
   const rows = hits.map(({ item, score }) => {
     const now = m.stdPrice.get(item.id) ?? 0;
@@ -192,19 +194,21 @@ export async function ingredientPrice(store: Store, args: { query: string; days?
       match: r2(score),
     };
   });
+  const perText = (r: (typeof rows)[number]) =>
+    r.unit === "ก." ? `฿${baht2(r.price_per_1000_units)} / กก.` : r.unit === "มล." ? `฿${baht2(r.price_per_1000_units)} / ลิตร` : `฿${baht2(r.price_per_unit)} / ${r.unit || "หน่วย"}`;
   return {
-    data: { found: true, items: rows },
-    card: {
-      title: "ราคาวัตถุดิบในระบบ",
-      subtitle: `ราคามาตรฐานวันนี้ · เทียบตั้งแต่ ${thDay(since)}`,
-      columns: ["วัตถุดิบ", "ต่อ 1 กก./ลิตร", "เปลี่ยน"],
-      rows: rows.map((r) => [
-        `${r.name} (${r.code})`,
-        r.unit === "ก." || r.unit === "มล." ? `฿${baht2(r.price_per_1000_units)}` : `฿${baht2(r.price_per_unit)}/${r.unit}`,
-        r.change_pct === null ? "–" : `${r.change_pct > 0 ? "+" : ""}${r.change_pct}%`,
-      ]),
-      notes: rows.length > 1 ? ["เจอหลายรายการ เลือกตัวที่ตรง แล้วถามต่อได้"] : [],
-    },
+    data: { found: true, items: rows.map((r) => ({ ...r, price_text: perText(r) })), others_not_shown: found.length - hits.length },
+    // One item: the text answers it; a table only when there are items to compare
+    card:
+      rows.length < 2
+        ? undefined
+        : {
+            title: "ราคาวัตถุดิบในระบบ",
+            subtitle: `ราคามาตรฐานวันนี้ · ราคาขยับเทียบกับ ${thDay(since)}`,
+            columns: ["วัตถุดิบ", "ราคา", "ขยับ"],
+            rows: rows.map((r) => [`${r.name} (${r.code})`, perText(r), r.change_pct === null ? "–" : r.change_pct === 0 ? "เท่าเดิม" : `${r.change_pct > 0 ? "+" : ""}${r.change_pct}%`]),
+            notes: ["หลายรายการชื่อใกล้กัน ระบุให้ชัดแล้วถามต่อได้"],
+          },
   };
 }
 
@@ -350,7 +354,8 @@ export interface ScenarioArgs {
   from?: string | null;
   to?: string | null;
   branch?: string | null;
-  menu_prices?: { menu: string; new_price: number }[] | null;
+  /** One menu (menu) or a whole category (category, e.g. "ramen"); a new price or a % change */
+  menu_prices?: { menu?: string | null; category?: string | null; new_price?: number | null; change_pct?: number | null }[] | null;
   ingredient_prices?: { item: string; new_price_per_kg?: number | null; change_pct?: number | null }[] | null;
   volume?: { menus?: string[] | null; group?: "price_changed" | "all" | null; change_pct: number }[] | null;
   include_delivery?: boolean | null;
@@ -367,19 +372,28 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
 
   // Menus whose price changes (matched against the menus sold, then all menus)
   const newPrice = new Map<string, number>();
+  const sold = m.menus.filter((x) => mix.has(x.code));
   for (const c of args.menu_prices ?? []) {
-    if (!(c?.new_price > 0)) continue;
-    const pool = m.menus.filter((x) => mix.has(x.code));
-    const hit = matchByName(pool, c.menu, 1, 0.5)[0] ?? matchByName(m.menus.filter((x) => x.active), c.menu, 1, 0.5)[0];
-    if (!hit) {
-      unmatched.push(c.menu);
-      continue;
+    const pctChange = c?.change_pct != null && Number.isFinite(Number(c.change_pct)) ? Number(c.change_pct) : null;
+    if (!(n(c?.new_price) > 0) && pctChange === null) continue;
+    // A whole category ("ราเมน" / "ramen" matches Ramen, Signature Ramen, Special Ramen…): the menus sold in it
+    let targets: BotMenu[] = [];
+    if (c.category) {
+      const q = norm(c.category).replace(/^ราเมน$/, "ramen").replace(/^ของทานเล่น$/, "appetizer").replace(/^เครื่องดื่ม$/, "drinks");
+      targets = sold.filter((x) => norm(x.category).includes(q) || (q === "drinks" && /drink|beer|soft/i.test(x.category)));
+      if (!targets.length) unmatched.push(`หมวด ${c.category}`);
+    } else if (c.menu) {
+      const hit = matchByName(sold, c.menu, 1, 0.5)[0] ?? matchByName(m.menus.filter((x) => x.active), c.menu, 1, 0.5)[0];
+      if (hit) targets = [hit.item];
+      else unmatched.push(c.menu);
     }
-    if (!(hit.item.price > 0)) {
-      notes.push(`${hit.item.name} ไม่มีราคาขายในระบบ เลยคิดราคาใหม่ไม่ได้`);
-      continue;
+    for (const t of targets) {
+      if (!(t.price > 0)) {
+        notes.push(`${t.name} ไม่มีราคาขายในระบบ เลยคิดราคาใหม่ไม่ได้`);
+        continue;
+      }
+      newPrice.set(t.code, n(c.new_price) > 0 && !c.category ? n(c.new_price) : Math.round(t.price * (1 + (pctChange ?? 0) / 100)));
     }
-    newPrice.set(hit.item.code, c.new_price);
   }
   // Ingredients whose price changes (per usage unit)
   const newSkuPrice = new Map<string, number>();

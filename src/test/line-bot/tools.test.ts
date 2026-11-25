@@ -107,6 +107,14 @@ describe("tools", () => {
     expect(d.scenario.recipe_cost).toBe(720);
   });
 
+  it("scenario: a whole category up 10% (ราเมน → every Ramen menu sold), rounded to the baht", async () => {
+    const r = await scenario(store(), { menu_prices: [{ category: "ราเมน", change_pct: 10 }] });
+    const d = r.data as { repriced_menus: { code: string; new_price: number }[]; scenario: { revenue: number } };
+    expect(d.repriced_menus).toEqual([expect.objectContaining({ code: "MN-001", new_price: 330 })]);
+    // shop ramen 3,000 × 1.1 = 3,300; gyoza and delivery unchanged
+    expect(d.scenario.revenue).toBe(4900);
+  });
+
   it("scenario: a menu that can't be found is listed, never guessed", async () => {
     const r = await scenario(store(), { menu_prices: [{ menu: "White Crema", new_price: 289 }] });
     expect((r.data as { not_found: string[] }).not_found).toEqual(["White Crema"]);

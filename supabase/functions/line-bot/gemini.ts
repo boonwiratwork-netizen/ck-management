@@ -6,6 +6,15 @@ import type { ToolResult } from "./tools.ts";
 
 export class RateLimited extends Error {}
 
+/** One Gemini call; a slower one moves on to the next model */
+const PER_CALL_MS = 20_000;
+const timeoutSignal = (ms: number): AbortSignal => {
+  if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(new DOMException("Signal timed out.", "TimeoutError")), ms);
+  return c.signal;
+};
+
 export type Part = { text: string } | { inlineData: { mimeType: string; data: string } } | { functionCall: { name: string; args: unknown } } | { functionResponse: { name: string; response: unknown } };
 export interface Turn {
   role: "user" | "model";
@@ -43,7 +52,11 @@ export const DECLARATIONS = [
       type: "OBJECT",
       properties: {
         ...PERIOD,
-        menu_prices: { type: "ARRAY", description: "เมนูที่เปลี่ยนราคาขาย", items: { type: "OBJECT", properties: { menu: S("ชื่อหรือรหัสเมนู"), new_price: N("ราคาใหม่") }, required: ["menu", "new_price"] } },
+        menu_prices: {
+          type: "ARRAY",
+          description: "เมนูที่เปลี่ยนราคาขาย: ทีละเมนู (menu) หรือทั้งหมวด (category เช่น ramen) ใส่ราคาใหม่ หรือเปลี่ยนกี่ %",
+          items: { type: "OBJECT", properties: { menu: S("ชื่อหรือรหัสเมนู"), category: S("หรือทั้งหมวด เช่น ramen, appetizer, drinks"), new_price: N("ราคาใหม่ (บาท)"), change_pct: N("หรือขึ้น/ลงกี่ % เช่น 10 หรือ -5") } },
+        },
         ingredient_prices: {
           type: "ARRAY",
           description: "วัตถุดิบที่ราคาเปลี่ยน",
@@ -91,18 +104,46 @@ export async function ask(opts: {
   const calls: { name: string; args: unknown }[] = [];
   const cards: Card[] = [];
   let models = [...opts.models];
+  /** Models that refused the thinking setting (older ones): asked without it */
+  const plainConfig = new Set<string>();
+  // The whole answer has to fit the function's time (LINE also wants the reply soon)
+  const deadline = Date.now() + 100_000;
   for (let step = 0; step < (opts.maxSteps ?? 6); step++) {
     let res: Response | null = null;
     let model = models[0];
     let retried = false;
     while (models.length) {
       model = models[0];
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": opts.key },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: opts.system }] }, contents: turns, tools: [{ functionDeclarations: DECLARATIONS }], generationConfig: { temperature: 0.2 } }),
-        signal: AbortSignal.timeout(25_000),
-      });
+      if (Date.now() > deadline) throw new RateLimited("out of time");
+      const generationConfig: Record<string, unknown> = { temperature: 0.2 };
+      // Short thinking: these questions only need a tool picked (Gemini 3.x thinkingLevel;
+      // a model that doesn't know it says so with a 400, and is asked again without it)
+      if (!plainConfig.has(model)) generationConfig.thinkingConfig = { thinkingLevel: "low" };
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": opts.key },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: opts.system }] }, contents: turns, tools: [{ functionDeclarations: DECLARATIONS }], generationConfig }),
+          signal: timeoutSignal(PER_CALL_MS),
+        });
+      } catch (e) {
+        // Too slow (or the connection dropped): the next model, never a silent failure
+        console.warn("[line-bot] gemini call failed", model, (e as Error).message);
+        res = null;
+        if (models.length > 1) {
+          models = models.slice(1);
+          retried = false;
+          continue;
+        }
+        throw new RateLimited(`timeout ${model}`);
+      }
+      if (res.status === 400 && !plainConfig.has(model)) {
+        const body = await res.clone().text();
+        if (/thinking/i.test(body)) {
+          plainConfig.add(model);
+          continue;
+        }
+      }
       // Busy for a moment (503 "high demand", 500): once more on the same model after a pause
       if ((res.status === 503 || res.status === 500) && !retried) {
         retried = true;
