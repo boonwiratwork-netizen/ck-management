@@ -34,6 +34,22 @@ const PERIOD = {
   branch: S("ชื่อสาขา เช่น Shiro, Thaniya (ไม่ระบุ = ทุกสาขา)"),
 };
 
+/** A recipe change on the menu's own lines (recipe_whatif and scenario) */
+const CHANGES = {
+  type: "ARRAY",
+  items: {
+    type: "OBJECT",
+    properties: {
+      item: S("วัตถุดิบในเมนูที่จะแก้ (หรือที่จะเพิ่ม)"),
+      action: { type: "STRING", enum: ["remove", "set_qty", "replace", "add"], description: "เอาออก / เปลี่ยนปริมาณ / เปลี่ยนเป็นของอื่น / เพิ่มใหม่" },
+      qty: N("ปริมาณใหม่ (set_qty, add หรือ replace ถ้าปริมาณไม่เท่าเดิม)"),
+      unit: S("หน่วยของปริมาณ เช่น g, ml, ชิ้น"),
+      replace_with: S("วัตถุดิบที่ใส่แทน (replace)"),
+    },
+    required: ["item", "action"],
+  },
+};
+
 export const DECLARATIONS = [
   {
     name: "ingredient_price",
@@ -82,7 +98,7 @@ export const DECLARATIONS = [
   },
   {
     name: "scenario",
-    description: "ถ้าเปลี่ยนราคาขาย ราคาวัตถุดิบ หรือจำนวนที่ขาย food cost และกำไรหลังหักวัตถุดิบจะเป็นเท่าไหร่ คิดจากยอดขายจริงของช่วงเวลา ใส่เงื่อนไขทุกข้อที่คุยกันมาในครั้งเดียว",
+    description: "ถ้าเปลี่ยนราคาขาย ราคาวัตถุดิบ จำนวนที่ขาย แก้สูตร หรือเพิ่มเมนูใหม่ food cost และกำไรหลังหักวัตถุดิบของทั้งร้านจะเป็นเท่าไหร่ คิดจากยอดขายจริงของช่วงเวลา ใส่เงื่อนไขทุกข้อที่คุยกันมาในครั้งเดียว",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -107,6 +123,26 @@ export const DECLARATIONS = [
           },
         },
         include_delivery: { type: "BOOLEAN", description: "ราคาใหม่ใช้กับเดลิเวอรี่ด้วยไหม (ไม่ระบุ = ไม่)" },
+        recipe_changes: {
+          type: "ARRAY",
+          description: "แก้สูตรเมนู (ใช้กับทุกจานที่ขายในช่วงนั้น)",
+          items: { type: "OBJECT", properties: { menu: S("ชื่อเมนูหรือกลุ่มเมนู"), changes: CHANGES }, required: ["menu", "changes"] },
+        },
+        new_menus: {
+          type: "ARRAY",
+          description: "เมนูใหม่ที่ยังไม่มีในระบบ: ราคา จานต่อวัน (รวมทุกสาขาที่ถาม) และต้นทุนต่อจาน หรือรายการวัตถุดิบ",
+          items: {
+            type: "OBJECT",
+            properties: {
+              name: S("ชื่อเมนูใหม่"),
+              price: N("ราคาขาย (บาท)"),
+              plates_per_day: N("ขายได้กี่จานต่อวัน"),
+              cost: N("ต้นทุนต่อจาน (บาท) ถ้ารู้แล้ว"),
+              items: { type: "ARRAY", description: "หรือวัตถุดิบต่อจาน", items: { type: "OBJECT", properties: { name: S("วัตถุดิบ"), qty: N("ปริมาณ"), unit: S("หน่วย"), stated_cost: N("ต้นทุนที่แจ้ง (ถ้าไม่มีในระบบ)") }, required: ["name", "qty"] } },
+            },
+            required: ["name", "price", "plates_per_day"],
+          },
+        },
       },
     },
   },
@@ -123,20 +159,7 @@ export const DECLARATIONS = [
       properties: {
         menu: S("ชื่อเมนูหรือกลุ่มเมนู"),
         branch: PERIOD.branch,
-        changes: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              item: S("วัตถุดิบในเมนูที่จะแก้ (หรือที่จะเพิ่ม)"),
-              action: { type: "STRING", enum: ["remove", "set_qty", "replace", "add"], description: "เอาออก / เปลี่ยนปริมาณ / เปลี่ยนเป็นของอื่น / เพิ่มใหม่" },
-              qty: N("ปริมาณใหม่ (set_qty, add หรือ replace ถ้าปริมาณไม่เท่าเดิม)"),
-              unit: S("หน่วยของปริมาณ เช่น g, ml, ชิ้น"),
-              replace_with: S("วัตถุดิบที่ใส่แทน (replace)"),
-            },
-            required: ["item", "action"],
-          },
-        },
+        changes: CHANGES,
       },
       required: ["menu", "changes"],
     },
@@ -194,11 +217,13 @@ export const DECLARATIONS = [
   },
   {
     name: "compare_items",
-    description: "เทียบรายการวัตถุดิบ ปริมาณ และต้นทุนที่มีคนแจ้งมา (จากภาพหรือข้อความ) กับราคาในระบบ",
+    description: "คิดต้นทุนจานจากรายการวัตถุดิบและปริมาณที่แจ้งมา (จากภาพหรือข้อความ หรือเมนูใหม่ที่ยังไม่มีในระบบ) ด้วยราคาในระบบ ได้ FC ที่ราคาขาย และราคาที่ควรขายตาม FC เป้าหมาย",
     parameters: {
       type: "OBJECT",
       properties: {
         dish: S("ชื่อจาน (ถ้ามี)"),
+        selling_price: N("ราคาขาย (บาท) ถ้ารู้ → ได้ FC"),
+        target_fc: N("FC เป้าหมาย % เช่น 30 → ได้ราคาที่ควรขาย"),
         items: {
           type: "ARRAY",
           items: { type: "OBJECT", properties: { name: S("ชื่อวัตถุดิบตามที่เขียน"), qty: N("ปริมาณ"), unit: S("หน่วย เช่น g, กก., ชิ้น, ml"), stated_cost: N("ต้นทุนที่เขียนไว้ (บาท) ถ้ามี"), code: S("รหัสในระบบ ถ้ารู้") }, required: ["name", "qty"] },
@@ -209,6 +234,63 @@ export const DECLARATIONS = [
   },
 ];
 
+export type Answer = { text: string; cards: Card[]; calls: { name: string; args: unknown }[]; model: string };
+
+const LITE = "gemini-flash-lite-latest";
+const STEP_LIMIT_TEXT = "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ";
+const STRONG = ["gemini-flash-latest", "gemini-3.5-flash"];
+
+/**
+ * A question with several conditions in it (prices + recipe + volume, or a long costing):
+ * the light model tends to answer only part of it, so a stronger model goes first.
+ */
+export function isHard(question: string): boolean {
+  const q = question.replace(/@\S+/g, " ");
+  // Dates ("1/11 - 15/11") are one thing each, not several conditions
+  const numbers = (q.replace(/\d{1,2}\/\d{1,2}(?:\/\d{2,4})?/g, " ").match(/\d+(?:[.,]\d+)?/g) ?? []).length;
+  return numbers >= 3 || (q.length > 120 && /ถ้า|สมมติ|scenario|เมนูใหม่|ราคาที่ควร/i.test(q));
+}
+
+/**
+ * The answer gave up: called cannot_answer, came back empty, ran out of steps, or said it
+ * can't with no table to show. ("ขาย 259 ไม่สามารถถึง FC 30%" with a table is an answer.)
+ */
+export function gaveUp(a: Answer): boolean {
+  if (a.calls.some((c) => c.name === "cannot_answer")) return true;
+  if (!a.text.trim() && !a.cards.length) return true;
+  if (a.text === STEP_LIMIT_TEXT) return true;
+  if (a.cards.length) return false;
+  return /ขออภัย|ระบบไม่สามารถ|ไม่รองรับ|ตอบไม่ได้|รบกวนระบุชื่อ/.test(a.text);
+}
+
+/**
+ * Two tiers: the light model first (fast, the tools do the sums). If it gives up, a stronger
+ * model thinks the question through again from the start, when there is time left. A question
+ * with many conditions goes to the stronger model first. `envModel` (GEMINI_MODEL) leads both.
+ */
+export async function askTiered(opts: Omit<Parameters<typeof ask>[0], "models" | "deadline"> & { question: string; envModel?: string }): Promise<Answer & { tier: "lite" | "strong" | "escalated"; firstCalls?: Answer["calls"] }> {
+  const now = () => Date.now();
+  const deadline = now() + 100_000;
+  const lead = opts.envModel ? [opts.envModel] : [];
+  if (isHard(opts.question)) {
+    const out = await ask({ ...opts, models: [...new Set([...lead, ...STRONG, LITE])], deadline });
+    return { ...out, tier: "strong" };
+  }
+  const first = await ask({ ...opts, models: [...new Set([...lead, LITE, ...STRONG])], deadline });
+  // A second go needs room for a few slow calls; otherwise the light answer stands
+  if (!gaveUp(first) || deadline - now() < 40_000) return { ...first, tier: "lite" };
+  const strong = STRONG.filter((m) => m !== first.model);
+  if (!strong.length) return { ...first, tier: "lite" };
+  try {
+    const second = await ask({ ...opts, models: strong, deadline });
+    if (gaveUp(second)) return { ...first, tier: "lite" };
+    return { ...second, firstCalls: first.calls, tier: "escalated" };
+  } catch (e) {
+    console.warn("[line-bot] stronger model failed", (e as Error).message);
+    return { ...first, tier: "lite" };
+  }
+}
+
 export async function ask(opts: {
   key: string;
   models: string[];
@@ -216,7 +298,9 @@ export async function ask(opts: {
   turns: Turn[];
   runTool: (name: string, args: unknown) => Promise<ToolResult>;
   maxSteps?: number;
-}): Promise<{ text: string; cards: Card[]; calls: { name: string; args: unknown }[]; model: string }> {
+  /** Absolute time (ms) the answer must be done by; default 100 s from now */
+  deadline?: number;
+}): Promise<Answer> {
   const turns = [...opts.turns];
   const calls: { name: string; args: unknown }[] = [];
   let lastCards: Card[] = [];
@@ -224,7 +308,7 @@ export async function ask(opts: {
   /** Models that refused the thinking setting (older ones): asked without it */
   const plainConfig = new Set<string>();
   // The whole answer has to fit the function's time (LINE also wants the reply soon)
-  const deadline = Date.now() + 100_000;
+  const deadline = opts.deadline ?? Date.now() + 100_000;
   for (let step = 0; step < (opts.maxSteps ?? 6); step++) {
     let res: Response | null = null;
     let model = models[0];
@@ -298,5 +382,5 @@ export async function ask(opts: {
     }
     turns.push({ role: "user", parts: responses });
   }
-  return { text: "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ", cards: [], calls, model: models[0] ?? "" };
+  return { text: STEP_LIMIT_TEXT, cards: [], calls, model: models[0] ?? "" };
 }

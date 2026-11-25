@@ -122,6 +122,84 @@ describe("tools", () => {
     expect(d.scenario.revenue).toBe(4900);
   });
 
+  it("scenario: price, recipe and volume in one go (recipe on every plate, delivery too)", async () => {
+    const r = await scenario(store(), {
+      menu_prices: [{ category: "ราเมน", change_pct: 10 }],
+      recipe_changes: [{ menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "set_qty", qty: 30, unit: "g" }] }],
+      volume: [{ group: "all", change_pct: 20 }],
+    });
+    const d = r.data as { scenario: { revenue: number; recipe_cost: number }; recipe_changes_done: string[] };
+    // duck 50 → 30 g: −10 a plate × 12 plates (10 shop + 2 delivery) → 600 − 120 = 480; then everything × 1.2
+    expect(d.scenario.recipe_cost).toBe(576);
+    expect(d.scenario.revenue).toBe(5880);
+    expect(d.recipe_changes_done[0]).toMatch(/Standard ชิโอะ/);
+  });
+
+  it("scenario: a recipe change alone, and the Line Man alias plates follow the menu", async () => {
+    const sales = [...SALES, sale("MN-001L", 3, 900, { menu_name: "Standard Shio Ramen (Line Man)", channel: "LINE MAN เดลิเวอรี" })];
+    const r = await scenario(store(sales), { recipe_changes: [{ menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "remove" }] }] });
+    // −25 a plate × 15 plates
+    expect((r.data as { now: { recipe_cost: number }; scenario: { recipe_cost: number } }).scenario.recipe_cost).toBe(600 - 375);
+  });
+
+  it("scenario: a new menu not in the system, costed from its items, added to the whole shop", async () => {
+    const r = await scenario(store(), {
+      new_menus: [
+        { name: "ข้าวหน้าแซลมอน", price: 200, plates_per_day: 5, items: [{ name: "อกเป็ดชาชู", qty: 100, unit: "g" }, { name: "เส้นราเมน", qty: 100, unit: "g" }, { name: "แซลมอนนอร์เวย์", qty: 80, unit: "g", stated_cost: 40 }] },
+        { name: "เมนูลอง", price: 100, plates_per_day: 2, items: [{ name: "ทรัฟเฟิลขาว", qty: 5, unit: "g" }] },
+      ],
+    });
+    const d = r.data as { scenario: { revenue: number; recipe_cost: number }; new_menus: { name: string; cost_per_plate: number; food_cost_pct: number }[]; assumptions: string[] };
+    // 50 + 10 + 40 stated = 100 a plate; sales on 1 day → 5 plates
+    expect(d.new_menus).toEqual([expect.objectContaining({ name: "ข้าวหน้าแซลมอน", cost_per_plate: 100, food_cost_pct: 50 })]);
+    // a menu whose cost isn't known stays out of the totals (at ฿0 it would lower the shop's FC)
+    expect(d.scenario.revenue).toBe(4600 + 1000);
+    expect(d.scenario.recipe_cost).toBe(600 + 500);
+    expect(d.assumptions.join(" ")).toMatch(/เมนูลอง: ยังไม่ได้รวม.*ทรัฟเฟิลขาว/);
+    const bare = await scenario(store(), { new_menus: [{ name: "X", price: 200, plates_per_day: 10 }] });
+    expect((bare.data as { scenario: { revenue: number } }).scenario.revenue).toBe(4600);
+    const quiet = await scenario(store([]), { new_menus: [{ name: "X", price: 200, plates_per_day: 10, cost: 60 }] });
+    expect((quiet.data as { assumptions: string[] }).assumptions.join(" ")).toMatch(/ไม่มียอดขาย/);
+  });
+
+  it("scenario: a recipe change and a price change on the same item cost the item once, at its new price", async () => {
+    const out = await scenario(store(), {
+      recipe_changes: [{ menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "remove" }] }],
+      ingredient_prices: [{ item: "อกเป็ด", change_pct: 20 }],
+    });
+    // ramen without duck: 10 noodle × 12 = 120; gyoza 180 → 300 (duck's price rise no longer in the ramen)
+    expect((out.data as { scenario: { recipe_cost: number } }).scenario.recipe_cost).toBe(300);
+    const less = await scenario(store(), {
+      recipe_changes: [{ menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "set_qty", qty: 30, unit: "g" }] }],
+      ingredient_prices: [{ item: "อกเป็ด", change_pct: 50 }],
+    });
+    // 30 g at 0.75 = 22.5 + 10 noodle = 32.5 a plate × 12 = 390; + gyoza 180
+    expect((less.data as { scenario: { recipe_cost: number } }).scenario.recipe_cost).toBe(570);
+  });
+
+  it("scenario: the same change said twice (a group, then the menu) is made once", async () => {
+    const twice = { item: "อกเป็ด", action: "set_qty" as const, qty: 30, unit: "g" };
+    const r = await scenario(store(), { recipe_changes: [{ menu: "Standard", changes: [twice] }, { menu: "Standard ชิโอะ", changes: [twice] }] });
+    expect((r.data as { scenario: { recipe_cost: number } }).scenario.recipe_cost).toBe(480);
+  });
+
+  it("scenario: break-even counts only the repriced menus' own profit", async () => {
+    const r = await scenario(store(), { menu_prices: [{ menu: "Standard ชิโอะ", new_price: 240 }], recipe_changes: [{ menu: "เกี๊ยวซ่า", changes: [{ item: "เกี๊ยว", action: "remove" }] }] });
+    expect((r.data as { break_even_volume_pct_on_repriced: number }).break_even_volume_pct_on_repriced).toBe(23.3);
+  });
+
+  it("compare_items: a new dish's FC at its price, and the price for a target FC", async () => {
+    const r = await compareItems(store(), { dish: "ราเมนใหม่", selling_price: 200, target_fc: 30, items: [{ name: "อกเป็ดชาชู", qty: 100, unit: "g" }, { name: "เส้นราเมน", qty: 100, unit: "g" }] });
+    expect(r.data).toMatchObject({ estimated_total: 60, food_cost_pct: 30, price_for_target_fc: 200 });
+    // 0.3 meant as 30%
+    const frac = await compareItems(store(), { selling_price: 200, target_fc: 0.3, items: [{ name: "อกเป็ดชาชู", qty: 100, unit: "g" }] });
+    expect(frac.data).toMatchObject({ target_fc: 30, price_for_target_fc: 167 });
+    // an item that can't be priced: no FC from a part of the dish
+    const part = await compareItems(store(), { selling_price: 200, target_fc: 30, items: [{ name: "อกเป็ดชาชู", qty: 100, unit: "g" }, { name: "ทรัฟเฟิลขาว", qty: 5, unit: "g" }] });
+    expect(part.data).toMatchObject({ food_cost_pct: null, price_for_target_fc: null, not_costed: ["ทรัฟเฟิลขาว"] });
+    expect(part.card?.notes?.join(" ")).toMatch(/ยังคิด FC ไม่ได้/);
+  });
+
   it("scenario: a menu that can't be found is listed, never guessed", async () => {
     const r = await scenario(store(), { menu_prices: [{ menu: "White Crema", new_price: 289 }] });
     expect((r.data as { not_found: string[] }).not_found).toEqual(["White Crema"]);

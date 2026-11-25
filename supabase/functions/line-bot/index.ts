@@ -10,7 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { answer, askedBot, getImage, verifySignature, type LineMention } from "./line.ts";
-import { ask, RateLimited, type Part, type Turn } from "./gemini.ts";
+import { askTiered, RateLimited, type Part, type Turn } from "./gemini.ts";
 import { runTool } from "./registry.ts";
 import { supabaseStore } from "./data.ts";
 import { toFlex } from "./cards.ts";
@@ -82,6 +82,10 @@ function systemPrompt(today: string, branches: string) {
     "- 'ถ้าเอาซอสบาร์บีคิวออกจากข้าวหน้าเป็ด ต้นทุนเหลือเท่าไหร่' → recipe_whatif menu='ข้าวหน้าเป็ด' changes=[{item:'ซอสบาร์บีคิว',action:'remove'}]",
     "- 'ถ้าลดสันคอใน Signature เหลือ 15 ก.' → recipe_whatif menu='Signature' changes=[{item:'สันคอ',action:'set_qty',qty:15,unit:'g'}]",
     "- 'ถ้าเปลี่ยนอกเป็ดเป็นอกไก่ใน Signature โชยุ' → recipe_whatif menu='Signature โชยุ' changes=[{item:'อกเป็ด',action:'replace',replace_with:'อกไก่'}]",
+    "- คำถามหลายเงื่อนไขพร้อมกัน (ราคาขาย + แก้สูตร + ยอดขาย + เมนูใหม่) → scenario ครั้งเดียว ใส่ครบทุกข้อ ห้ามแยกตอบทีละข้อ ห้ามคิดเลขรวมเอง",
+    "- 'ถ้าราเมนขึ้น 10% ลดสันคอใน Signature เหลือ 15 ก. แล้วขายเพิ่ม 20% FC ทั้งร้านเท่าไหร่' → scenario menu_prices=[{category:'ramen',change_pct:10}] recipe_changes=[{menu:'Signature',changes:[{item:'สันคอ',action:'set_qty',qty:15,unit:'g'}]}] volume=[{group:'all',change_pct:20}]",
+    "- เมนูใหม่ที่ยังไม่มีในระบบ: 'ข้าวหน้าแซลมอน ข้าวสุก 180 ก. แซลมอน 80 ก. ไข่ 1 ฟอง ขาย 259 FC เท่าไหร่ ถ้าอยากได้ 30% ควรขายเท่าไหร่' → compare_items dish='ข้าวหน้าแซลมอน' items=[...] selling_price=259 target_fc=30",
+    "- 'ถ้าเพิ่มเมนูนั้นขายวันละ 20 จาน FC ทั้งร้านเป็นยังไง' → scenario new_menus=[{name,price,plates_per_day:20,items:[...รายการเดิมจากคำถามก่อน]}]",
     "- 'Signature ชิโอะ ต้องขายเท่าไหร่ถึงได้ FC 30%' → menu_cost query='Signature ชิโอะ' target_fc=30",
     "- 'เมนูไหน FC สูงสุดเดือนนี้' → food_cost sort='fc_high'",
     "- 'ราเมนขายได้กี่ชามเดือนนี้' → food_cost menus='ราเมน' sort='qty'",
@@ -212,17 +216,16 @@ async function handle(e: LineEvent) {
   let meta: Record<string, unknown> = {};
   try {
     const m = await store.masters();
-    // Several free models: when one is busy or out of quota the next answers. The light one
-    // first: it only has to pick a tool (the tools do the sums), and on 25 Nov it was the one
-    // that answered (in 14 s) while gemini-flash-latest was busy (503) or ran past 25 s.
-    const models = [...new Set([env("GEMINI_MODEL"), "gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.5-flash"].filter(Boolean))];
-    const out = await ask({ key: env("GEMINI_API_KEY"), models, system: systemPrompt(today, m.branches.filter((b) => b.active !== false).map((b) => `${b.name} (${b.brand})`).join(", ")), turns, runTool: (name, args) => runTool(store, name, args) });
+    // Two tiers (askTiered): the light model first (on 25 Nov it answered in 14 s while
+    // gemini-flash-latest was busy or ran past 25 s); a stronger one when the light one gives
+    // up, or first when the question has many conditions. Each falls back to the next if busy.
+    const out = await askTiered({ question, envModel: env("GEMINI_MODEL") || undefined, key: env("GEMINI_API_KEY"), system: systemPrompt(today, m.branches.filter((b) => b.active !== false).map((b) => `${b.name} (${b.brand})`).join(", ")), turns, runTool: (name, args) => runTool(store, name, args) });
     // LINE shows text as typed: no markdown (**bold** would show its stars)
     const plain = out.text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/(^|\s)\*(\S.*?)\*(?=\s|$)/g, "$1$2").replace(/^#+\s*/gm, "").trim();
     const text = plain || (out.cards.length ? "ตามตารางนี้ครับ" : "ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกแบบได้ไหมครับ");
     reply = [{ type: "text", text: text.slice(0, 4900) }, ...out.cards.slice(0, 3).map(toFlex)];
     const gaveUp = out.calls.find((c) => c.name === "cannot_answer");
-    meta = { calls: out.calls, model: out.model, cards: out.cards.length, ...(gaveUp ? { unanswered: gaveUp.args } : {}) };
+    meta = { calls: out.calls, model: out.model, tier: out.tier, ...(out.firstCalls ? { first_calls: out.firstCalls } : {}), cards: out.cards.length, ...(gaveUp ? { unanswered: gaveUp.args } : {}) };
     await log("answer", { text, meta: { ...meta, ms: Date.now() - started } });
   } catch (err) {
     const busy = err instanceof RateLimited;

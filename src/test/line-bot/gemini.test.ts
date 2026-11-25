@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ask, RateLimited } from "../../../supabase/functions/line-bot/gemini.ts";
+import { ask, askTiered, gaveUp, isHard, RateLimited } from "../../../supabase/functions/line-bot/gemini.ts";
 
 const ok = (text: string) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
 const base = { key: "k", system: "s", turns: [{ role: "user" as const, parts: [{ text: "q" }] }], runTool: async () => ({ data: {} }) };
@@ -54,5 +54,62 @@ describe("Gemini calls", () => {
     expect(await p).toBeInstanceOf(RateLimited);
     expect(n).toBe(4); // a, a again, b, b again
     vi.useRealTimers();
+  });
+
+  it("two tiers: the light model first; a stronger one only when the light one gives up", async () => {
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      const m = modelOf(url);
+      seen.push(m);
+      return ok(m === "gemini-flash-lite-latest" ? "ขออภัยครับ ระบบไม่สามารถคำนวณได้" : "ต้นทุน 35 บาท");
+    });
+    const r = await askTiered({ ...base, question: "ต้นทุนโปรตีนในราเมน" });
+    expect(seen).toEqual(["gemini-flash-lite-latest", "gemini-flash-latest"]);
+    expect(r).toMatchObject({ text: "ต้นทุน 35 บาท", tier: "escalated", model: "gemini-flash-latest" });
+    expect(r.firstCalls).toEqual([]);
+
+    seen.length = 0;
+    vi.stubGlobal("fetch", async (url: string) => (seen.push(modelOf(url)), ok("ต้นทุน 35 บาท")));
+    const easy = await askTiered({ ...base, question: "ต้นทุนสันคอ" });
+    expect(seen).toEqual(["gemini-flash-lite-latest"]);
+    expect(easy.tier).toBe("lite");
+  });
+
+  it("two tiers: many conditions go to the stronger model first; a failed second try keeps the first answer", async () => {
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => (seen.push(modelOf(url)), ok("FC 31%")));
+    const r = await askTiered({ ...base, question: "ถ้าราเมนขึ้น 10% ลดสันคอเหลือ 15 ก. ขายเพิ่ม 20%" });
+    expect(seen[0]).toBe("gemini-flash-latest");
+    expect(r.tier).toBe("strong");
+
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (modelOf(url) === "gemini-flash-lite-latest") return ok("ตอบไม่ได้ครับ");
+      throw new DOMException("Signal timed out.", "TimeoutError");
+    });
+    const kept = await askTiered({ ...base, question: "ต้นทุนโปรตีน" });
+    expect(kept).toMatchObject({ text: "ตอบไม่ได้ครับ", tier: "lite" });
+  });
+
+  it("two tiers: no second try when there's no time left for it", async () => {
+    const seen: string[] = [];
+    let t = 1_000_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => t);
+    vi.stubGlobal("fetch", async (url: string) => (seen.push(modelOf(url)), (t += 70_000), ok("ขออภัย ตอบไม่ได้")));
+    const r = await askTiered({ ...base, question: "ต้นทุนโปรตีน" });
+    clock.mockRestore();
+    expect(seen).toEqual(["gemini-flash-lite-latest"]);
+    expect(r.tier).toBe("lite");
+  });
+
+  it("what counts as hard, and as giving up", () => {
+    expect(isHard("ต้นทุนสันคอ 10 ก.")).toBe(false);
+    expect(isHard("FC Shiro 1/11 - 15/11")).toBe(false);
+    expect(isHard("ถ้า Standard 289 Signature 339 ขายเพิ่ม 20% FC เท่าไหร่")).toBe(true);
+    expect(gaveUp({ text: "", cards: [], calls: [], model: "a" })).toBe(true);
+    expect(gaveUp({ text: "ok", cards: [], calls: [{ name: "cannot_answer", args: {} }], model: "a" })).toBe(true);
+    expect(gaveUp({ text: "FC 31.0%", cards: [], calls: [], model: "a" })).toBe(false);
+    expect(gaveUp({ text: "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ", cards: [], calls: [], model: "a" })).toBe(true);
+    // a real answer with a table, even with a "can't" in it
+    expect(gaveUp({ text: "ขาย 259 ไม่สามารถถึง FC 30%", cards: [{ title: "x", columns: [], rows: [] }], calls: [], model: "a" })).toBe(false);
   });
 });

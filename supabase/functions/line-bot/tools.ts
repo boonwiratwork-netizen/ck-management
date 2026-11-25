@@ -797,6 +797,10 @@ export interface ScenarioArgs {
   ingredient_prices?: { item: string; new_price_per_kg?: number | null; change_pct?: number | null }[] | null;
   volume?: { menus?: string[] | null; group?: "price_changed" | "all" | null; change_pct: number }[] | null;
   include_delivery?: boolean | null;
+  /** Recipe changes on a menu or a group, worked into those menus' cost over the period */
+  recipe_changes?: { menu: string; changes: RecipeChange[] }[] | null;
+  /** Menus not on sale yet: their plates over the period added (cost from given items, or a cost) */
+  new_menus?: { name: string; price: number; plates_per_day: number; cost?: number | null; items?: { name: string; qty: number; unit?: string | null; stated_cost?: number | null }[] | null }[] | null;
 }
 
 export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolResult> {
@@ -861,27 +865,93 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
     }
   }
 
+  // The scenario's ingredient prices: a recipe change and a new menu are costed with them, so
+  // taking out an item that also gets dearer takes out its new price (not the old one)
+  const ms: Masters = newSkuPrice.size ? { ...m, stdPrice: new Map([...m.stdPrice, ...newSkuPrice]) } : m;
+  // Recipe changes: one per-plate change for each menu (every plate sold, both channels). The
+  // same menu named twice (a group, then the menu) is changed once, its changes together.
+  const perMenu = new Map<string, { menu: BotMenu; changes: RecipeChange[]; keys: Set<string> }>();
+  for (const rc of args.recipe_changes ?? []) {
+    if (!rc?.menu) continue;
+    const targets = matchMenus(m.menus.filter((x) => x.active), rc.menu);
+    if (!targets.length) unmatched.push(rc.menu);
+    for (const t of targets) {
+      const e = perMenu.get(t.code) ?? { menu: t, changes: [], keys: new Set<string>() };
+      for (const c of rc.changes ?? []) {
+        const key = JSON.stringify([norm(c.item ?? ""), c.action, n(c.qty), c.unit ?? "", norm(c.replace_with ?? "")]);
+        if (e.keys.has(key)) continue;
+        e.keys.add(key);
+        e.changes.push(c);
+      }
+      perMenu.set(t.code, e);
+    }
+  }
+  const plateDelta = new Map<string, number>();
+  const recipeDone: string[] = [];
+  const recipeNotDone: string[] = [];
+  const openB = m.branches.filter((b) => b.active !== false);
+  for (const { menu: t, changes } of perMenu.values()) {
+    const b = openB.find((x) => br.ids.includes(x.id) && x.brand === t.brand) ?? openB.find((x) => x.brand === t.brand) ?? openB[0];
+    const r = changedPlate(ms, t, b?.id ?? "", changes);
+    const d = r.now - r.was;
+    plateDelta.set(t.code.toLowerCase(), d);
+    plateDelta.set(`${t.code}L`.toLowerCase(), (plateDelta.get(`${t.code}L`.toLowerCase()) ?? 0) + d);
+    recipeDone.push(...r.done.map((x) => `${t.name}: ${x}`));
+    recipeNotDone.push(...r.notes);
+  }
   const delivery = !!args.include_delivery;
   let dRev = 0;
   let dCost = 0;
   let repricedGpNew = 0;
+  let repricedGpOld = 0;
   const changed: { code: string; name: string; fcNow: number | null; fcNew: number | null; perPlate: number; perPlateNew: number; oldPrice: number; newPrice: number }[] = [];
   for (const [code, row] of mix) {
     const ratio = newPrice.has(code) ? newPrice.get(code)! / (menuByCode.get(code)?.price || newPrice.get(code)!) : 1;
     const f = volume.get(code) ?? 1;
     const rev = (row.revenueShop * ratio + (row.revenue - row.revenueShop) * (delivery ? ratio : 1)) * f;
-    let cost = row.cost;
+    let cost = row.cost + (plateDelta.get(code.toLowerCase()) ?? 0) * row.qty;
     for (const [id, e] of row.sku) if (newSkuPrice.has(id)) cost += e.qty * newSkuPrice.get(id)! - e.cost;
     cost *= f;
     dRev += rev - row.revenue;
     dCost += cost - row.cost;
     if (newPrice.has(code)) {
       repricedGpNew += (rev - cost) / f;
+      repricedGpOld += row.revenue - row.cost;
       const menu = menuByCode.get(code)!;
       const plate = row.qty > 0 ? row.cost / row.qty : 0;
       const plateNew = row.qty > 0 ? cost / f / row.qty : 0;
       changed.push({ code, name: menu.name, fcNow: pct(plate, menu.price), fcNew: pct(plateNew, newPrice.get(code)!), perPlate: plate, perPlateNew: plateNew, oldPrice: menu.price, newPrice: newPrice.get(code)! });
     }
+  }
+  // New menus: plates per day × the days the period sold anything, costed like compare_items.
+  // One whose cost is unknown (no cost, no items, or an item not priced) stays out of the
+  // totals: at ฿0 it would make the whole shop look cheaper.
+  const saleDays = new Set(std.days.filter((d) => d.revenue > 0).map((d) => d.date)).size;
+  const added: { name: string; price: number; plates: number; perPlate: number }[] = [];
+  const newMenuNotes: string[] = [];
+  for (const nm of args.new_menus ?? []) {
+    if (!nm?.name) continue;
+    if (!(n(nm.price) > 0) || !(n(nm.plates_per_day) > 0)) {
+      newMenuNotes.push(`${nm.name}: ต้องมีราคาขายและจำนวนจานต่อวัน`);
+      continue;
+    }
+    if (!saleDays) {
+      newMenuNotes.push(`${nm.name}: ช่วงนี้ไม่มียอดขาย เลยคิดเมนูใหม่รวมไม่ได้`);
+      continue;
+    }
+    let perPlate = n(nm.cost);
+    if (!(perPlate > 0)) {
+      const c = nm.items?.length ? costItems(ms, nm.items) : null;
+      if (!c || c.notCosted.length || !(c.total > 0)) {
+        newMenuNotes.push(`${nm.name}: ยังไม่ได้รวม เพราะยังไม่รู้ต้นทุน${c?.notCosted.length ? ` ${c.notCosted.join(", ")}` : ""} (บอกต้นทุนต่อจาน หรือวัตถุดิบที่ใช้)`);
+        continue;
+      }
+      perPlate = c.total;
+    }
+    const plates = n(nm.plates_per_day) * saleDays;
+    added.push({ name: nm.name, price: n(nm.price), plates, perPlate });
+    dRev += n(nm.price) * plates;
+    dCost += perPlate * plates;
   }
   const rev0 = std.revenue;
   const cost0 = std.stdCost;
@@ -891,12 +961,17 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
   const gp1 = rev1 - cost1;
   // Break-even: how much more the repriced menus must sell for the same baht after ingredients
   const noVolumeOnRepriced = ![...newPrice.keys()].some((c) => volume.has(c));
-  const breakEven = newPrice.size && noVolumeOnRepriced && repricedGpNew > 0 && gp1 < gp0 ? (gp0 - gp1) / repricedGpNew : null;
+  // (the repriced menus' own profit, so a recipe change or a new menu elsewhere doesn't move it)
+  const breakEven = newPrice.size && noVolumeOnRepriced && repricedGpNew > 0 && repricedGpNew < repricedGpOld ? (repricedGpOld - repricedGpNew) / repricedGpNew : null;
   const assumptions = [
     volume.size ? "เมนูที่ไม่ได้ระบุ ขายเท่าเดิม" : "ขายได้จำนวนจานเท่าเดิม",
     newPrice.size ? (delivery ? "ราคาใหม่ใช้กับเดลิเวอรี่ด้วย" : "เดลิเวอรี่คงราคาเดิม") : "",
     newPrice.size ? "ส่วนลดคิดตามสัดส่วนเดิม" : "",
     newSkuPrice.size ? "ราคาวัตถุดิบใหม่ใช้ทั้งช่วง" : "",
+    plateDelta.size ? "สูตรที่แก้ใช้กับทุกจานที่ขายในช่วงนี้ (รวมเดลิเวอรี่) คิดจากสูตรและราคาวันนี้" : "",
+    added.length ? `เมนูใหม่: จานต่อวัน × ${saleDays} วันที่มียอดขายในช่วงนี้ ราคาเต็มไม่หักส่วนลด` : "",
+    ...newMenuNotes,
+    ...recipeNotDone,
     corrected && (newSkuPrice.size || volume.size) ? "ช่วงนี้มีรายการปรับยอดใช้ ส่วนที่เปลี่ยนคิดจากยอดใช้ตามสูตรก่อนปรับ" : "",
     ...dataNotes(m, p, w, br.unknown),
   ].filter(Boolean);
@@ -911,6 +986,8 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
       change_in_gross_after_ingredients: r0(gp1 - gp0),
       repriced_menus: changed.map((c) => ({ code: c.code, name: c.name, old_price: c.oldPrice, new_price: c.newPrice, cost_per_plate: r2(c.perPlate), cost_per_plate_new: r2(c.perPlateNew), food_cost_now: c.fcNow === null ? null : r1(c.fcNow), food_cost_new: c.fcNew === null ? null : r1(c.fcNew) })),
       ingredients_changed: [...newSkuPrice.keys()].map((id) => m.skus.find((s) => s.id === id)?.name),
+      recipe_changes_done: recipeDone,
+      new_menus: added.map((x) => ({ name: x.name, price: x.price, cost_per_plate: r2(x.perPlate), food_cost_pct: pct(x.perPlate, x.price) === null ? null : r1(pct(x.perPlate, x.price)!), plates_in_period: r0(x.plates) })),
       break_even_volume_pct_on_repriced: breakEven === null ? null : r1(breakEven * 100),
       not_found: unmatched,
       assumptions,
@@ -927,11 +1004,14 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
           .sort((a, b) => (b.fcNew ?? 0) - (a.fcNew ?? 0))
           .slice(0, 10)
           .map((c) => [`${c.name} ${baht(c.oldPrice)}→${baht(c.newPrice)}`, "", `${pctText(c.fcNow)}→${pctText(c.fcNew)}`]),
+        ...added.map((x) => [`ใหม่: ${x.name} ${baht(x.price)} (${baht(x.plates)} จาน)`, baht(x.price * x.plates), pctText(pct(x.perPlate, x.price))]),
       ],
       notes: [
         `กำไรหลังหักวัตถุดิบ ${signed(gp1 - gp0)} บาท เทียบตอนนี้`,
         ...(breakEven !== null ? [`เมนูที่ปรับราคาต้องขายเพิ่ม ${r1(breakEven * 100)}% ถึงจะเท่าเดิม`] : []),
         ...assumptions,
+        ...recipeDone.slice(0, 4),
+        ...newMenuNotes.slice(0, 2),
         ...(unmatched.length ? [`หาไม่เจอ: ${unmatched.join(", ")}`] : []),
         ...notes,
       ],
@@ -961,10 +1041,16 @@ export function gramsPerPiece(m: Masters, skuId: string): { grams: number; from:
   return { grams: mid.g, from: mid.from };
 }
 
-export async function compareItems(store: Store, args: { dish?: string | null; items: { name: string; qty: number; unit?: string | null; stated_cost?: number | null; code?: string | null }[] }): Promise<ToolResult> {
-  const m = await store.masters();
+type GivenItem = { name: string; qty: number; unit?: string | null; stated_cost?: number | null; code?: string | null };
+
+/**
+ * A dish's items as someone wrote them, priced with the system's prices (a sub-recipe at its
+ * ingredients' cost). Items that can't be priced keep the cost stated, if any; the rest are
+ * listed as not costed. compare_items and a new menu in scenario both cost a dish this way.
+ */
+export function costItems(m: Masters, items: GivenItem[]) {
   const pool = m.skus.filter((s) => s.active);
-  const rows = (args.items ?? []).map((it) => {
+  const rows = (items ?? []).map((it) => {
     const stated = it.stated_cost != null && Number.isFinite(Number(it.stated_cost)) ? Number(it.stated_cost) : null;
     const base = { name: it.name, qty: n(it.qty), unit: it.unit ?? "", stated_cost: stated };
     const byCode = it.code ? matchByName(pool, it.code, 1)[0] : undefined;
@@ -974,7 +1060,7 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
     // A generic name ("น้ำ", "ซอส", "หมู") fits several items about equally: ask, never pick one
     if (!byCode && cands.length > 1 && cands[1].score >= hit.score - 0.05) return { ...base, status: "ambiguous" as const, candidates: cands.map((c) => `${c.item.name} (${c.item.code})`) };
     const sku = hit.item;
-    const price = m.stdPrice.get(sku.id) ?? 0;
+    const price = unitCostOf(m, sku.id);
     if (!price) return { ...base, status: "no_price" as const, matched: `${sku.name} (${sku.code})` };
     const conv = inItemUnit(m, sku, n(it.qty), it.unit, PREPARED.test(it.name));
     if ("error" in conv) return { ...base, status: "unit_unknown" as const, matched: `${sku.name} (${sku.code})`, system_unit: unitText(sku.uom) };
@@ -998,6 +1084,18 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
   const statedOk = ok.reduce((t, r) => t + (r.stated_cost ?? 0), 0);
   const systemOk = ok.reduce((t, r) => t + (r.system_cost ?? 0), 0);
   const statedRest = rows.filter((r) => r.status !== "ok").reduce((t, r) => t + (r.stated_cost ?? 0), 0);
+  /** Items left out of the total: not priced in the system and no cost stated */
+  const notCosted = rows.filter((r) => r.status !== "ok" && r.stated_cost === null).map((r) => r.name);
+  return { rows, ok, statedOk, systemOk, statedRest, total: systemOk + statedRest, notCosted };
+}
+
+export async function compareItems(store: Store, args: { dish?: string | null; selling_price?: number | null; target_fc?: number | null; items: GivenItem[] }): Promise<ToolResult> {
+  const m = await store.masters();
+  const { rows, ok, statedOk, systemOk, statedRest, total, notCosted } = costItems(m, args.items);
+  const target = n(args.target_fc) > 0 && n(args.target_fc) < 1 ? n(args.target_fc) * 100 : n(args.target_fc);
+  // FC and a price only from a whole cost: an item left out would make the dish look cheaper
+  const whole = notCosted.length === 0 && total > 0;
+  const partial = notCosted.length ? `ยังไม่รวม ${notCosted.join(", ")} (ไม่มีราคาในระบบ บอกต้นทุนมาได้)` : "";
   const why = (s: string) => (s === "not_in_system" ? "ไม่มีในระบบ" : s === "no_price" ? "ไม่มีราคา" : s === "ambiguous" ? "ชื่อกว้างไป" : "หน่วยแปลงไม่ได้");
   return {
     data: {
@@ -1006,6 +1104,9 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
       checked_total: { stated: r2(statedOk), system: r2(systemOk) },
       unchecked_stated_total: r2(statedRest),
       estimated_total: r2(systemOk + statedRest),
+      ...(n(args.selling_price) > 0 ? { selling_price: n(args.selling_price), food_cost_pct: whole ? r1((total / n(args.selling_price)) * 100) : null } : {}),
+      ...(target > 0 ? { target_fc: target, price_for_target_fc: whole ? priceForFc(total, target) : null } : {}),
+      ...(notCosted.length ? { not_costed: notCosted, fc_needs: partial } : {}),
       note: "ราคามาตรฐานล่าสุดในระบบ ต่อหน่วยที่สูตรใช้",
     },
     card: {
@@ -1024,6 +1125,9 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
         ...ok.filter((r) => r.warning).map((r) => `⚠ ${r.warning}`),
         ...rows.filter((r) => r.status === "ambiguous").map((r) => `${r.name}: ระบุให้ชัดกว่านี้ เช่น ${(r as { candidates: string[] }).candidates.slice(0, 2).join(" หรือ ")}`),
         ...(statedRest > 0 ? [`รายการที่เช็คไม่ได้ ใช้ตัวเลขที่แจ้งไปก่อน → รวมประมาณ ${baht2(systemOk + statedRest)}`] : []),
+        ...(whole && n(args.selling_price) > 0 ? [`ขาย ${baht(n(args.selling_price))} → FC ${pctText((total / n(args.selling_price)) * 100)}`] : []),
+        ...(whole && target > 0 ? [`ถ้าต้องการ FC ${r1(target)}% ควรขาย ${baht(priceForFc(total, target)!)} บาท`] : []),
+        ...(!whole && (n(args.selling_price) > 0 || target > 0) ? [`ยังคิด FC ไม่ได้: ${partial || "ไม่มีรายการที่คิดต้นทุนได้"}`] : []),
       ],
     },
   };
@@ -1104,27 +1208,21 @@ export function recipeLines(m: Masters, menu: BotMenu, branchId: string) {
     });
 }
 
-export async function recipeWhatIf(store: Store, args: { menu: string; changes: RecipeChange[]; branch?: string | null }): Promise<ToolResult> {
-  const m = await store.masters();
-  const group = matchMenus(m.menus.filter((x) => x.active), args.menu ?? "");
-  const menus = group.slice(0, 6);
-  if (!menus.length) return { data: { found: false, query: args.menu, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
-  const br = resolveBranches(m, args.branch);
-  const open = m.branches.filter((b) => b.active !== false);
+/**
+ * One plate with a recipe changed (take out / set an amount / swap / add) on the menu's own
+ * lines (a sauce is one line; amounts are serving amounts, the recipe's yield applies): the
+ * plate before (option rules included) and after. Shared by recipe_whatif and scenario.
+ */
+export function changedPlate(m: Masters, menu: BotMenu, branchId: string, changes: RecipeChange[]): { was: number; now: number; done: string[]; notes: string[] } {
   const skus = m.skus.filter((s) => s.active);
   const skuOf = new Map(m.skus.map((s) => [s.id, s]));
-  // Plates sold this month, Line Man aliases (MN-001L) included
-  const period = resolvePeriod(m.today);
-  const sales = await store.sales(br.ids, period.from, period.to);
-  const results = menus.map((menu) => {
-    const branch = open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0];
-    // The plate as everything counts it (option rules included): the baseline
-    const was = plateCost(m, menu, branch?.id ?? "").total;
-    const lines = recipeLines(m, menu, branch?.id ?? "");
+  const branch = { id: branchId };
+  const was = plateCost(m, menu, branch.id).total;
+  const lines = recipeLines(m, menu, branch.id);
     let delta = 0;
     const done: string[] = [];
     const notes: string[] = [];
-    for (const c of args.changes ?? []) {
+    for (const c of changes ?? []) {
       if (!c?.item) continue;
       if (c.action === "add") {
         const add = matchSku(skus, c.item, 1, 0.4)[0]?.item;
@@ -1187,7 +1285,23 @@ export async function recipeWhatIf(store: Store, args: { menu: string; changes: 
         line.serving = conv.qty;
       }
     }
-    const now = was + delta;
+  return { was, now: was + delta, done, notes };
+}
+
+export async function recipeWhatIf(store: Store, args: { menu: string; changes: RecipeChange[]; branch?: string | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  const group = matchMenus(m.menus.filter((x) => x.active), args.menu ?? "");
+  const menus = group.slice(0, 6);
+  if (!menus.length) return { data: { found: false, query: args.menu, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
+  const br = resolveBranches(m, args.branch);
+  const open = m.branches.filter((b) => b.active !== false);
+  // Plates sold this month, Line Man aliases (MN-001L) included
+  const period = resolvePeriod(m.today);
+  const sales = await store.sales(br.ids, period.from, period.to);
+  const results = menus.map((menu) => {
+    const branch = open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0];
+    // The plate as everything counts it (option rules included): the baseline
+    const { was, now, done, notes } = changedPlate(m, menu, branch?.id ?? "", args.changes ?? []);
     const alias = `${menu.code}L`.toLowerCase();
     const sold = sales.filter((x) => x.menu_code === menu.code || (x.menu_code ?? "").toLowerCase() === alias).reduce((t, x) => t + n(x.qty), 0);
     return { menu, was, now, done, notes, sold };
