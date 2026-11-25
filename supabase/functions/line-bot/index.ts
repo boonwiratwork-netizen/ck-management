@@ -11,7 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { answer, askedBot, getImage, verifySignature, type LineMention } from "./line.ts";
 import { ask, RateLimited, type Part, type Turn } from "./gemini.ts";
-import { runTool } from "./tools.ts";
+import { runTool } from "./registry.ts";
 import { supabaseStore } from "./data.ts";
 import { toFlex } from "./cards.ts";
 
@@ -62,6 +62,10 @@ function systemPrompt(today: string, branches: string) {
     "- เมนูไหนทำเงิน / ควรปรับราคาเมนูไหน / เมนูไหนควรดัน → menu_engineering",
     "- ใช้วัตถุดิบไปเท่าไหร่ (ตามสูตร) → ingredient_usage",
     "- food cost รายวัน → food_cost by_day=true",
+    "- สต๊อกหน้าร้าน / ของใกล้หมดที่สาขา / ควรขอเบิกเท่าไหร่ → branch_stock",
+    "- สต๊อกครัวกลาง / ของใกล้หมดที่ครัว / ควรสั่งซื้อหรือผลิตเท่าไหร่ → kitchen_stock",
+    "- ต้นทุนของกฎพิเศษ / add-on / ท็อปปิ้ง / ของในเซ็ต → rule_cost",
+    "- ครัวกลางส่งของให้สาขา มูลค่า ราคาโอน → transfers",
     "- ต้นทุนจริงจากการนับสต๊อก / ของเสีย / ใช้เกินสูตร → ยังไม่มีเครื่องมือ: cannot_answer แล้วแนะนำให้ดูหน้าต้นทุนอาหารในแอป (เลือกสาขาเดียว)",
     "",
     "ช่วงเวลา: ถ้าพูดเป็นคำ (วันนี้ เมื่อวาน สัปดาห์นี้ สัปดาห์ที่แล้ว เดือนนี้ เดือนที่แล้ว 7/30 วันล่าสุด) ให้ใส่ period แทนการคำนวณวันที่เอง ถ้าเป็นวันที่ ใช้ปี ค.ศ.",
@@ -89,6 +93,15 @@ function systemPrompt(today: string, branches: string) {
     "- 'FC สัปดาห์ที่แล้วรายวัน' → food_cost period='last_week' by_day=true",
     "- 'เมื่อวาน Thaniya ขายได้เท่าไหร่' → food_cost period='yesterday' branch='Thaniya'",
     "- 'ราเมน Shiro กับ Thaniya FC ต่างกันยังไง' → food_cost compare='branches' menus='ราเมน'",
+    "- 'Thaniya เหลืออกเป็ดเท่าไหร่ พอใช้กี่วัน' → branch_stock item='อกเป็ด' branch='Thaniya'",
+    "- 'สาขาไหนของใกล้หมดบ้าง' → branch_stock",
+    "- 'ควรขอเบิกสันคอให้พอ 3 วันเท่าไหร่' → branch_stock item='สันคอ' cover_days=3",
+    "- 'ครัวกลางเหลือน้ำสต๊อกกี่กิโล' → kitchen_stock item='น้ำสต๊อก'",
+    "- 'ครัวต้องสั่งอะไรบ้าง ให้พอ 7 วัน' → kitchen_stock cover_days=7",
+    "- 'add-on โค้กซีโร่ในเซ็ตเดลิเวอรี่เดือนนี้กี่บาท' → rule_cost query='โค้กซีโร่'",
+    "- 'กฎพิเศษไหนเพิ่มต้นทุนเยอะสุด' → rule_cost",
+    "- 'เดือนนี้ครัวส่งของให้ Thaniya มูลค่าเท่าไหร่' → transfers branch='Thaniya'",
+    "- 'ส่งน้ำสต๊อกให้ Shiro ไปกี่กิโล ราคาโอนเท่าไหร่' → transfers item='น้ำสต๊อก' branch='Shiro'",
     "- 'ยอดขายพนักงานคนไหนเยอะสุด' → cannot_answer (ระบบนี้มีแต่ต้นทุน)",
     "",
     "ข้อมูลบ้านเรา: ข้าวญี่ปุ่นหุงสุกหนัก 2 เท่าของข้าวดิบ (สุก 180 ก. = ดิบ 90 ก.) สูตรเมนูในระบบใส่ข้าวเป็นน้ำหนักดิบ",

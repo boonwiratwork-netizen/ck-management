@@ -27,6 +27,8 @@ export interface BotSku {
   /** Usage unit (what prices and recipes are in) */
   uom: string;
   purchaseUom: string;
+  /** Usage units per purchase unit (skus.converter) */
+  converter?: number;
   active: boolean;
 }
 export interface BotBranch {

@@ -8,9 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { writeError, writeTimeout } from "@/lib/write-timeout";
 import { toast } from "sonner";
 import { bulkResult, type BulkResult } from "@/lib/bulk-write";
+import { USAGE_WINDOW_DAYS, kitchenUsePerDay } from "@/lib/kitchen-stock";
+import { shiftDay } from "@/lib/day-follow";
 
 /** Days of real outflow behind "uses per day" (production + sent to branches) */
-export const USAGE_WINDOW_DAYS = 28;
+export { USAGE_WINDOW_DAYS } from "@/lib/kitchen-stock";
 
 interface Receipt {
   skuId: string;
@@ -231,14 +233,9 @@ export function useKitchenItemStock(type: "RM" | "PK", skus: SKU[], prices: Pric
   /** What really went out per day: into production + sent to branches, last 28 days */
   const usagePerDay = useCallback(
     (skuId: string, today: string): number => {
-      const from = new Date(today + "T00:00:00");
-      from.setDate(from.getDate() - USAGE_WINDOW_DAYS);
-      const fromIso = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
-      // Net of production rows (its corrections give back what an edit or delete undid)
-      // and deliveries; by-product rows aren't use
-      const isUse = (r: string) => (r.startsWith("Production") && !r.startsWith("Production by-product")) || r.startsWith("Distribution:");
-      const net = (adjBySku.get(skuId) ?? []).filter((a) => a.date > fromIso && a.date <= today && isUse(a.reason ?? "")).reduce((s, a) => s + a.quantity, 0);
-      return Math.max(0, -net) / USAGE_WINDOW_DAYS;
+      // Net of production rows (their corrections give back what an edit or delete undid) and
+      // deliveries; by-product rows aren't use (the shared rule: the LINE bot reads it too)
+      return kitchenUsePerDay(adjBySku.get(skuId) ?? [], shiftDay(today, -USAGE_WINDOW_DAYS), today);
     },
     [adjBySku],
   );
