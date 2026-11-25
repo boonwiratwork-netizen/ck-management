@@ -103,7 +103,7 @@ async function loadMasters(db: Db, today: string): Promise<Masters> {
     menus: menus.map((m) => ({ id: m.id, code: m.menu_code, name: m.menu_name, brand: m.brand_name, category: m.category ?? "", price: n(m.selling_price), active: m.status === "Active" })),
     skus: skus.map((s) => ({ id: s.id, code: s.sku_id, name: s.name, type: s.type, uom: s.usage_uom, purchaseUom: s.purchase_uom, active: s.status === "Active" })),
     branches: branches.map((b) => ({ id: b.id, name: b.branch_name, brand: b.brand_name, active: b.status === "Active" })),
-    bom: bom.map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, qtyPerServing: n(l.qty_per_serving), branchId: l.branch_id, deliveryOnly: l.delivery_only === true })),
+    bom: bom.map((l) => ({ menuId: l.menu_id, skuId: l.sku_id, qtyPerServing: n(l.qty_per_serving), effectiveQty: n(l.effective_qty), branchId: l.branch_id, deliveryOnly: l.delivery_only === true })),
     stdPrice,
     priceAt: buildPriceAt(changes, bangkokDay),
     priceChanges: changes.map((c) => ({ skuId: c.skuId, day: bangkokDay(c.validFrom), price: c.pricePerUsageUom })),

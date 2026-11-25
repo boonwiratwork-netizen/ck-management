@@ -41,6 +41,8 @@ export interface BotBomLine {
   menuId: string;
   skuId: string;
   qtyPerServing: number;
+  /** What the recipe takes after yield (menu_bom.effective_qty); absent = the serving amount */
+  effectiveQty?: number;
   branchId: string | null;
   deliveryOnly: boolean;
 }
@@ -145,6 +147,28 @@ export function matchByName<T extends { code: string; name: string }>(list: T[],
     .filter((x) => x.score >= floor)
     .sort((a, b) => b.score - a.score || a.item.name.length - b.item.name.length)
     .slice(0, limit);
+}
+
+/** English ingredient words people type ("duck breast" → อกเป็ด) */
+const ITEM_WORDS: [RegExp, string][] = [
+  [/pork\s*belly/gi, "สามชั้น"], [/pork\s*(shoulder|collar|neck)/gi, "สันคอ"], [/pork\s*loin/gi, "สันนอก"], [/minced\s*pork|ground\s*pork/gi, "หมูสับ"],
+  [/chicken\s*breast/gi, "อกไก่"], [/chicken\s*thigh/gi, "สะโพกไก่"], [/duck\s*breast/gi, "อกเป็ด"], [/chashu/gi, "ชาชู"], [/\begg\b/gi, "ไข่"],
+  [/\bnoodles?\b/gi, "เส้น"], [/japanese\s*rice|sushi\s*rice|koshihikari/gi, "ข้าวญี่ปุ่น"], [/\brice\b/gi, "ข้าว"], [/\bnori\b/gi, "สาหร่าย"], [/green\s*onion|scallion/gi, "ต้นหอม"], [/\bgarlic\b/gi, "กระเทียม"],
+  [/\bchicken\b/gi, "ไก่"], [/\bpork\b/gi, "หมู"], [/\bduck\b/gi, "เป็ด"], [/\bbeef\b/gi, "เนื้อ"], [/\bvinegar\b/gi, "น้ำส้มสายชู"], [/\bsauce\b/gi, "ซอส"], [/\boil\b/gi, "น้ำมัน"],
+  [/\btruffle\b/gi, "ทรัฟเฟิล"], [/\bwagyu\b/gi, "วากิว"], [/\bshrimp\b/gi, "กุ้ง"], [/\bmentaiko\b/gi, "เมนไทโกะ"], [/\btare\b/gi, "ทาเระ"], [/\bstock\b/gi, "น้ำสต๊อก"],
+];
+export const itemWords = (q: string | null | undefined) => ITEM_WORDS.reduce((s, [re, th]) => s.replace(re, th), q ?? "");
+/** An ingredient by name in Thai or English, or code */
+export function matchSku<T extends { code: string; name: string }>(list: T[], query: string | null | undefined, limit = 5, floor = 0.34): { item: T; score: number }[] {
+  const q = (query ?? "").trim();
+  if (!q) return [];
+  const a = matchByName(list, q, limit, floor);
+  const t = itemWords(q);
+  const b = t === q ? a : matchByName(list, t, limit, floor);
+  // Every word in the name, any order ("chicken stock" → ไก่ + น้ำสต๊อก = "น้ำสต๊อกไก่")
+  const words = t.split(/\s+/).map(norm).filter((w) => w.length >= 2);
+  const c = words.length > 1 ? list.filter((x) => words.every((w) => norm(x.name).includes(w))).map((item) => ({ item, score: 0.9 })).slice(0, limit) : [];
+  return [c, b, a].sort((x, y) => (y[0]?.score ?? 0) - (x[0]?.score ?? 0))[0];
 }
 
 /** Branches named ("Shiro", "ธนิยะ" → Thaniya…); none named = every active branch */
@@ -272,7 +296,7 @@ export function itemFilter(only?: string | null): { test: (name: string) => bool
 
 export async function ingredientPrice(store: Store, args: { query: string; days?: number; qty?: number | null; unit?: string | null; cooked?: boolean | null }): Promise<ToolResult> {
   const m = await store.masters();
-  const found = matchByName(m.skus.filter((s) => s.active), args.query, 5);
+  const found = matchSku(m.skus.filter((s) => s.active), args.query, 5);
   if (!found.length) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
   // Only the items about as close as the best one (a far match is noise, not an answer)
   const hits = found.filter((h) => h.score >= found[0].score - 0.1);
@@ -337,7 +361,14 @@ export function plateCost(m: Masters, menu: BotMenu, branchId: string, delivery 
   return { lines, total: lines.reduce((t, l) => t + l.cost, 0) };
 }
 
-export async function menuCost(store: Store, args: { query: string; branch?: string | null; new_price?: number | null; only?: string | null }): Promise<ToolResult> {
+/** The list price that gives a target food cost (rounded up to the baht) */
+export const priceForFc = (cost: number, targetPct: number) => {
+  // 0.3 meant as 30%
+  const t = targetPct > 0 && targetPct < 1 ? targetPct * 100 : targetPct;
+  return t > 0 ? Math.ceil(Math.round(cost * 100) / t - 1e-9) : null;
+};
+
+export async function menuCost(store: Store, args: { query: string; branch?: string | null; new_price?: number | null; only?: string | null; target_fc?: number | null }): Promise<ToolResult> {
   const m = await store.masters();
   const group = matchMenus(m.menus.filter((x) => x.active), args.query);
   if (!group.length) return { data: { found: false, query: args.query, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
@@ -359,7 +390,8 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
       }
       const total = plate.total;
       const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
-      return { code: menu.code, name: menu.name, cost_per_plate: r2(total), price, food_cost_pct: pct(total, price) === null ? null : r1(pct(total, price)!) };
+      const target = n(args.target_fc) > 0 ? priceForFc(total, n(args.target_fc)) : null;
+      return { code: menu.code, name: menu.name, cost_per_plate: r2(total), price, food_cost_pct: pct(total, price) === null ? null : r1(pct(total, price)!), ...(target !== null ? { price_for_target_fc: target } : {}) };
     });
     if (only) {
       // Item by item: how much of each goes in a serving and what it costs (a range across menus)
@@ -402,6 +434,16 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
         }],
       };
     }
+    if (n(args.target_fc) > 0)
+      return {
+        data: { found: true, target_fc: n(args.target_fc), menus: list, note: "ราคาที่ต้องขาย = ต้นทุนต่อจาน ÷ FC เป้า ปัดขึ้นเป็นบาท" },
+        card: {
+          title: `ต้องขายเท่าไหร่ถึงได้ FC ${n(args.target_fc)}% · "${args.query}"`,
+          subtitle: "ต้นทุนตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้",
+          columns: ["เมนู", "ราคาตอนนี้", "ต้องขาย"],
+          rows: list.map((x) => [`${x.name} (FC ${pctText(x.food_cost_pct)})`, baht(x.price), baht((x as { price_for_target_fc: number }).price_for_target_fc)]),
+        },
+      };
     return {
       data: { found: true, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
       card: {
@@ -421,7 +463,7 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
   const fc = pct(plate.total, price);
   const missing = plate.lines.filter((l) => !(m.stdPrice.get(l.skuId) ?? 0)).map((l) => skuOf.get(l.skuId)?.name ?? l.skuId);
   const part = partOf(plate.lines);
-  if (part && only) {
+  if (part && only && !(n(args.target_fc) > 0)) {
     const sum = part.reduce((t, l) => t + l.cost, 0);
     return {
       data: { found: true, menu: { code: menu.code, name: menu.name }, only: only.label, only_cost: r2(sum), cost_per_plate: r2(plate.total), only_share_pct: plate.total > 0 ? r1((sum / plate.total) * 100) : null, lines: part.map((l) => ({ item: skuOf.get(l.skuId)?.name ?? l.skuId, qty: r2(l.qty), unit: unitText(skuOf.get(l.skuId)?.uom ?? ""), cost: r2(l.cost) })) },
@@ -445,6 +487,7 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
       priced_at: price,
       cost_per_plate: r2(plate.total),
       food_cost_pct: fc === null ? null : r1(fc),
+      ...(n(args.target_fc) > 0 ? { target_fc: n(args.target_fc), price_for_target_fc: priceForFc(plate.total, n(args.target_fc)) } : {}),
       lines: plate.lines.map((l) => ({ item: skuOf.get(l.skuId)?.name ?? l.skuId, qty: r2(l.qty), unit: unitText(skuOf.get(l.skuId)?.uom ?? ""), cost: r2(l.cost) })),
       items_without_price: missing,
       other_matches: hits.slice(1).map((h) => `${h.item.name} (${h.item.code})`),
@@ -461,6 +504,7 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
       total: ["ต้นทุนต่อจาน", "", baht2(plate.total)],
       notes: [
         `ราคาขาย ${baht(price)}${args.new_price ? " (ราคาใหม่)" : ""} · food cost ${pctText(fc)}`,
+        ...(n(args.target_fc) > 0 ? [`ถ้าต้องการ FC ${n(args.target_fc)}% ต้องขาย ${baht(priceForFc(plate.total, n(args.target_fc))!)} บาท`] : []),
         ...(plate.lines.length > 14 ? [`และอีก ${plate.lines.length - 14} รายการ`] : []),
         ...(missing.length ? [`ยังไม่มีราคา: ${missing.join(", ")}`] : []),
       ],
@@ -513,15 +557,93 @@ export async function workPeriod(store: Store, m: Masters, branchIds: string[], 
   return { std, mix, corrected };
 }
 
-export async function foodCost(store: Store, args: { from?: string | null; to?: string | null; branch?: string | null; top?: number | null }): Promise<ToolResult> {
+/** The period before: the same days of last month when the period starts on the 1st, else the same length just before */
+export function previousPeriod(p: { from: string; to: string }): { from: string; to: string } {
+  if (p.from.slice(8) === "01" && p.from.slice(0, 7) === p.to.slice(0, 7)) {
+    const d = new Date(`${p.from}T00:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() - 1);
+    const from = d.toISOString().slice(0, 10);
+    const end = shiftDay(p.from, -1);
+    const to = `${from.slice(0, 8)}${p.to.slice(8)}`;
+    return { from, to: to > end ? end : to };
+  }
+  const days = Math.round((Date.parse(p.to) - Date.parse(p.from)) / 86_400_000) + 1;
+  return { from: shiftDay(p.from, -days), to: shiftDay(p.from, -1) };
+}
+
+/** Menu codes a group name means: by name, else by category; their Line Man aliases (MN-001L) too */
+export function menuCodesFor(m: Masters, group: string): Set<string> {
+  const q = norm(menuWords(group)).replace(/^ราเมน$/, "ramen");
+  if (!q) return new Set();
+  const codes = new Set(matchMenus(m.menus, group).map((x) => x.code));
+  for (const x of m.menus) if (norm(x.category).includes(q)) codes.add(x.code);
+  for (const c of [...codes]) if (!/L$/i.test(c)) codes.add(`${c}L`);
+  return codes;
+}
+
+type FcSort = "revenue" | "fc_high" | "fc_low" | "qty" | "profit";
+const SORT_LABEL: Record<FcSort, string> = { revenue: "ขายดีสุด (บาท)", fc_high: "FC สูงสุด", fc_low: "FC ต่ำสุด", qty: "ขายได้กี่จาน", profit: "กำไรหลังหักวัตถุดิบ" };
+
+export async function foodCost(
+  store: Store,
+  args: { from?: string | null; to?: string | null; branch?: string | null; top?: number | null; menus?: string | null; sort?: FcSort | null; compare?: "branches" | "previous_period" | null },
+): Promise<ToolResult> {
   const m = await store.masters();
   const p = resolvePeriod(m.today, args.from, args.to);
   const br = resolveBranches(m, args.branch);
+  const fcOf = (cost: number, rev: number) => (pct(cost, rev) === null ? null : r1(pct(cost, rev)!));
+
+  // Side by side: each branch, or this period against the one before
+  if (args.compare === "branches" || args.compare === "previous_period") {
+    const sides =
+      args.compare === "branches"
+        ? br.ids.map((id) => ({ label: m.branches.find((b) => b.id === id)?.name ?? id, ids: [id], period: p }))
+        : [
+            { label: "ช่วงนี้", ids: br.ids, period: p },
+            { label: "ช่วงก่อน", ids: br.ids, period: previousPeriod(p) },
+          ];
+    const groupCodes = args.menus ? menuCodesFor(m, args.menus) : null;
+    if (groupCodes && !groupCodes.size) return { data: { found: false, menus: args.menus, note: "ไม่พบเมนูกลุ่มนี้ในระบบ" } };
+    const rows = await Promise.all(
+      sides.map(async (side) => {
+        const { std } = await workPeriod(store, m, side.ids, side.period.from, side.period.to, false);
+        const pool = groupCodes ? std.menus.filter((x) => groupCodes.has(x.code)) : null;
+        const rev = pool ? pool.reduce((t, x) => t + x.revenue, 0) : std.revenue;
+        const cost = pool ? pool.reduce((t, x) => t + x.stdCost, 0) : std.stdCost;
+        return { label: side.label, period: side.period, revenue: r0(rev), recipe_cost: r0(cost), food_cost_pct: fcOf(cost, rev), ...(pool ? { plates: r0(pool.reduce((t, x) => t + x.qty, 0)) } : {}) };
+      }),
+    );
+    const shown = rows.filter((r) => r.revenue > 0 || args.compare === "previous_period");
+    return {
+      data: { compare: args.compare, branches: br.label, only_menus: args.menus ?? "ทุกเมนู", rows: shown, note: "ต้นทุนตามสูตร (เหมือนหน้าต้นทุนอาหารในแอป)" },
+      card: {
+        title: `${args.compare === "branches" ? "Food cost แยกสาขา" : `Food cost เทียบช่วงก่อน · ${br.label}`}${args.menus ? ` · ${args.menus}` : " · ทุกเมนู"}`,
+        subtitle: args.compare === "branches" ? `${periodText(p.from, p.to)} · ตามสูตร` : "ตามสูตร · ช่วงก่อน = วันเดียวกันของเดือนก่อน",
+        columns: ["", "ยอดขาย", "FC"],
+        rows: shown.map((r) => [args.compare === "branches" ? r.label : `${r.label} (${periodText(r.period.from, r.period.to)})`, baht(r.revenue), pctText(r.food_cost_pct)]),
+      },
+    };
+  }
+
   const { std } = await workPeriod(store, m, br.ids, p.from, p.to, false);
   const top = Math.max(3, Math.min(n(args.top) || 10, 20));
-  const menus = [...std.menus].sort((a, b) => b.revenue - a.revenue).slice(0, top);
+  const sort: FcSort = args.sort && SORT_LABEL[args.sort] ? args.sort : "revenue";
+  // Only some menus ("ราเมน", "ด้ง", "Standard"): by name, else by category
+  let pool = [...std.menus];
+  if (args.menus) {
+    const codes = menuCodesFor(m, args.menus);
+    if (!codes.size) return { data: { found: false, menus: args.menus, note: "ไม่พบเมนูกลุ่มนี้ในระบบ" } };
+    pool = pool.filter((x) => codes.has(x.code));
+  }
+  const key = (x: (typeof pool)[number]) => (sort === "fc_high" ? x.pct : sort === "fc_low" ? -x.pct : sort === "qty" ? x.qty : sort === "profit" ? x.revenue - x.stdCost : x.revenue);
+  // FC rankings skip what barely sold (a 1-plate menu at 60% isn't the story)
+  // …and menus without a recipe cost (0% isn't a cheap dish, it's a missing recipe)
+  const ranked = pool.filter((x) => x.revenue > 0 && (sort.startsWith("fc") || sort === "profit" ? x.qty >= 5 && x.stdCost > 0 : true)).sort((a, b) => key(b) - key(a));
+  const menus = ranked.slice(0, top);
   const unknownRevenue = std.unknownMenus.reduce((t, u) => t + u.revenue, 0);
   const fc = pct(std.stdCost, std.revenue);
+  const subRev = pool.reduce((t, x) => t + x.revenue, 0);
+  const subCost = pool.reduce((t, x) => t + x.stdCost, 0);
   return {
     data: {
       period: p,
@@ -531,20 +653,25 @@ export async function foodCost(store: Store, args: { from?: string | null; to?: 
       recipe_cost: r0(std.stdCost),
       food_cost_pct: fc === null ? null : r1(fc),
       bills: std.bills,
-      top_menus_by_revenue: menus.map((x) => ({ code: x.code, name: x.name, qty: r0(x.qty), revenue: r0(x.revenue), cost: r0(x.stdCost), food_cost_pct: r1(x.pct), cost_per_plate: r2(x.perServing) })),
+      ...(args.menus ? { only_menus: args.menus, only_menus_revenue: r0(subRev), only_menus_qty: r0(pool.reduce((t, x) => t + x.qty, 0)), only_menus_food_cost_pct: fcOf(subCost, subRev) } : {}),
+      sorted_by: SORT_LABEL[sort],
+      menus: menus.map((x) => ({ code: x.code, name: x.name, qty: r0(x.qty), revenue: r0(x.revenue), cost: r0(x.stdCost), food_cost_pct: r1(x.pct), cost_per_plate: r2(x.perServing), profit_after_ingredients: r0(x.revenue - x.stdCost) })),
       menus_not_set_up: std.unknownMenus.slice(0, 5).map((u) => ({ code: u.code, name: u.name, revenue: r0(u.revenue) })),
       menus_not_set_up_revenue: r0(unknownRevenue),
       note: "ต้นทุนตามสูตร (เหมือนหน้าต้นทุนอาหารในแอป) ไม่ใช่ต้นทุนจริงจากการนับสต๊อก",
     },
     card: {
-      title: `Food cost ตามสูตร · ${br.label}`,
-      subtitle: `${periodText(p.from, p.to)} · ยอดขาย ฿${baht(std.revenue)} · ต้นทุน ฿${baht(std.stdCost)}`,
-      headline: pctText(fc),
-      columns: ["เมนู (ขายดีสุด)", "ยอดขาย", "FC"],
-      rows: menus.map((x) => [x.name, baht(x.revenue), pctText(x.pct)]),
+      title: `Food cost ตามสูตร · ${br.label}${args.menus ? ` · ${args.menus}` : ""}`,
+      subtitle: args.menus
+        ? `${periodText(p.from, p.to)} · ยอดขายกลุ่มนี้ ฿${baht(subRev)} · ทั้งร้าน FC ${pctText(fc)}`
+        : `${periodText(p.from, p.to)} · ยอดขาย ฿${baht(std.revenue)} · ต้นทุน ฿${baht(std.stdCost)}`,
+      headline: args.menus ? pctText(fcOf(subCost, subRev)) : pctText(fc),
+      columns: [`เมนู (${SORT_LABEL[sort]})`, sort === "qty" ? "จาน" : sort === "profit" ? "กำไร" : "ยอดขาย", "FC"],
+      rows: menus.map((x) => [x.name, sort === "qty" ? baht(x.qty) : sort === "profit" ? baht(x.revenue - x.stdCost) : baht(x.revenue), pctText(x.pct)]),
       notes: [
         "ตัวเลขเดียวกับหน้าต้นทุนอาหาร (ตามสูตร) ในแอป",
-        ...(unknownRevenue > 0 ? [`เมนูที่ยังไม่ตั้งในระบบ ขายได้ ฿${baht(unknownRevenue)} (ไม่มีต้นทุน)`] : []),
+        ...(sort.startsWith("fc") ? ["ไม่นับเมนูที่ขายได้ไม่ถึง 5 จาน"] : []),
+        ...(unknownRevenue > 0 && !args.menus ? [`เมนูที่ยังไม่ตั้งในระบบ ขายได้ ฿${baht(unknownRevenue)} (ไม่มีต้นทุน)`] : []),
       ],
     },
   };
@@ -600,7 +727,7 @@ export async function scenario(store: Store, args: ScenarioArgs): Promise<ToolRe
   // Ingredients whose price changes (per usage unit)
   const newSkuPrice = new Map<string, number>();
   for (const c of args.ingredient_prices ?? []) {
-    const hit = matchByName(m.skus.filter((s) => s.active), c.item, 1, 0.5)[0];
+    const hit = matchSku(m.skus.filter((s) => s.active), c.item, 1, 0.5)[0];
     if (!hit) {
       unmatched.push(c.item);
       continue;
@@ -730,7 +857,7 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
     const stated = it.stated_cost != null && Number.isFinite(Number(it.stated_cost)) ? Number(it.stated_cost) : null;
     const base = { name: it.name, qty: n(it.qty), unit: it.unit ?? "", stated_cost: stated };
     const byCode = it.code ? matchByName(pool, it.code, 1)[0] : undefined;
-    const cands = byCode ? [byCode] : matchByName(pool, it.name, 4, 0.4);
+    const cands = byCode ? [byCode] : matchSku(pool, it.name, 4, 0.4);
     const hit = cands[0];
     if (!hit) return { ...base, status: "not_in_system" as const };
     // A generic name ("น้ำ", "ซอส", "หมู") fits several items about equally: ask, never pick one
@@ -795,7 +922,7 @@ export async function compareItems(store: Store, args: { dish?: string | null; i
 
 export async function ingredientInMenus(store: Store, args: { query: string; menus?: string | null }): Promise<ToolResult> {
   const m = await store.masters();
-  const hit = matchByName(m.skus.filter((s) => s.active), args.query, 1)[0];
+  const hit = matchSku(m.skus.filter((s) => s.active), args.query, 1)[0];
   if (!hit) return { data: { found: false, query: args.query, note: "ไม่พบวัตถุดิบชื่อนี้ในระบบ" } };
   const sku = hit.item;
   const price = m.stdPrice.get(sku.id) ?? 0;
@@ -833,6 +960,205 @@ export async function ingredientInMenus(store: Store, args: { query: string; men
   };
 }
 
+// ─── 7. A recipe changed: take out, swap, change the amount ───
+
+export interface RecipeChange {
+  item: string;
+  action: "remove" | "set_qty" | "replace" | "add";
+  qty?: number | null;
+  unit?: string | null;
+  replace_with?: string | null;
+}
+
+/** An item's cost per unit: its standard price, or a sub-recipe (SP) worked out from its ingredients */
+export function unitCostOf(m: Masters, skuId: string, depth = 0): number {
+  if (m.ctx.skuType.get(skuId) === "SP" && depth < 4) {
+    return (m.ctx.spBySku.get(skuId) ?? []).reduce((t, l) => t + (l.qtyPerBatch / (l.batchYieldQty || 1)) * unitCostOf(m, l.ingredientSkuId, depth + 1), 0);
+  }
+  return m.stdPrice.get(skuId) ?? 0;
+}
+
+/**
+ * The menu's recipe as the menu page shows it: its own lines (shared + this branch's, shop
+ * only), sub-recipes kept whole (ทาเระ, a sauce), the serving amount and the yield factor.
+ */
+export function recipeLines(m: Masters, menu: BotMenu, branchId: string) {
+  return m.bom
+    .filter((l) => l.menuId === menu.id && !l.deliveryOnly && (l.branchId === null || l.branchId === branchId))
+    .map((l) => {
+      const eff = l.effectiveQty ?? l.qtyPerServing;
+      // effective ÷ serving: what a gram served takes from stock (1.25 at 80% yield)
+      const factor = l.qtyPerServing > 0 && eff > 0 ? eff / l.qtyPerServing : 1;
+      return { skuId: l.skuId, serving: l.qtyPerServing, factor, cost: eff * unitCostOf(m, l.skuId) };
+    });
+}
+
+export async function recipeWhatIf(store: Store, args: { menu: string; changes: RecipeChange[]; branch?: string | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  const group = matchMenus(m.menus.filter((x) => x.active), args.menu ?? "");
+  const menus = group.slice(0, 6);
+  if (!menus.length) return { data: { found: false, query: args.menu, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
+  const br = resolveBranches(m, args.branch);
+  const open = m.branches.filter((b) => b.active !== false);
+  const skus = m.skus.filter((s) => s.active);
+  const skuOf = new Map(m.skus.map((s) => [s.id, s]));
+  // Plates sold this month, Line Man aliases (MN-001L) included
+  const period = resolvePeriod(m.today);
+  const sales = await store.sales(br.ids, period.from, period.to);
+  const results = menus.map((menu) => {
+    const branch = open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0];
+    // The plate as everything counts it (option rules included): the baseline
+    const was = plateCost(m, menu, branch?.id ?? "").total;
+    const lines = recipeLines(m, menu, branch?.id ?? "");
+    let delta = 0;
+    const done: string[] = [];
+    const notes: string[] = [];
+    for (const c of args.changes ?? []) {
+      if (!c?.item) continue;
+      if (c.action === "add") {
+        const add = matchSku(skus, c.item, 1, 0.4)[0]?.item;
+        const conv = add && c.qty ? inItemUnit(m, add, n(c.qty), c.unit, false) : null;
+        if (!add || !conv || "error" in conv) {
+          notes.push(`เพิ่ม "${c.item}" ไม่ได้ (หาไม่เจอหรือไม่มีปริมาณ)`);
+          continue;
+        }
+        const cost = conv.qty * unitCostOf(m, add.id);
+        delta += cost;
+        done.push(`เพิ่ม ${add.name} ${r1(conv.qty)} ${unitText(add.uom)} (+${baht2(cost)})`);
+        continue;
+      }
+      // The item among this menu's own lines (a sauce or ทาเระ is one line, not its ingredients)
+      const pool = lines.map((l) => ({ code: skuOf.get(l.skuId)?.code ?? "", name: skuOf.get(l.skuId)?.name ?? "", line: l }));
+      const hits = matchSku(pool, c.item, 3, 0.4);
+      if (!hits.length) {
+        notes.push(`สูตรของ ${menu.name} ไม่มี "${c.item}"`);
+        continue;
+      }
+      if (hits.length > 1 && hits[1].score >= hits[0].score - 0.05) {
+        notes.push(`"${c.item}" ใน ${menu.name} มีหลายตัว (${hits.map((h) => h.item.name).join(", ")}) ระบุให้ชัด`);
+        continue;
+      }
+      const line = hits[0].item.line;
+      const sku = skuOf.get(line.skuId)!;
+      if (c.action === "remove") {
+        delta -= line.cost;
+        done.push(`เอา ${sku.name} ออก (−${baht2(line.cost)})`);
+        line.cost = 0;
+        line.serving = 0;
+      } else if (c.action === "set_qty") {
+        // The new amount is a serving amount: the recipe's yield applies to it as before
+        const conv = c.qty != null ? inItemUnit(m, sku, n(c.qty), c.unit, false) : null;
+        if (!conv || "error" in conv) {
+          notes.push(`ปริมาณใหม่ของ ${sku.name} แปลงหน่วยไม่ได้`);
+          continue;
+        }
+        const cost = conv.qty * line.factor * unitCostOf(m, sku.id);
+        delta += cost - line.cost;
+        done.push(`${sku.name} ${r1(line.serving)} → ${r1(conv.qty)} ${unitText(sku.uom)} (${signed(cost - line.cost)})`);
+        line.cost = cost;
+        line.serving = conv.qty;
+      } else if (c.action === "replace") {
+        const to = c.replace_with ? matchSku(skus, c.replace_with, 1, 0.4)[0]?.item : undefined;
+        if (!to) {
+          notes.push(`หา "${c.replace_with ?? ""}" ที่จะใส่แทนไม่เจอ`);
+          continue;
+        }
+        // The amount given, else the same serving amount, in the new item's own unit (g → kg…)
+        const conv = c.qty != null ? inItemUnit(m, to, n(c.qty), c.unit, false) : inItemUnit(m, to, line.serving, sku.uom, false);
+        if ("error" in conv) {
+          notes.push(`ใส่ ${to.name} แทน ${sku.name} ต้องบอกปริมาณ (หน่วยไม่เหมือนกัน)`);
+          continue;
+        }
+        const cost = conv.qty * line.factor * unitCostOf(m, to.id);
+        delta += cost - line.cost;
+        done.push(`${sku.name} → ${to.name} ${r1(conv.qty)} ${unitText(to.uom)} (${signed(cost - line.cost)})`);
+        line.cost = cost;
+        line.serving = conv.qty;
+      }
+    }
+    const now = was + delta;
+    const alias = `${menu.code}L`.toLowerCase();
+    const sold = sales.filter((x) => x.menu_code === menu.code || (x.menu_code ?? "").toLowerCase() === alias).reduce((t, x) => t + n(x.qty), 0);
+    return { menu, was, now, done, notes, sold };
+  });
+  return {
+    data: {
+      period_for_plates_sold: period,
+      menus: results.map((r) => ({
+        code: r.menu.code,
+        name: r.menu.name,
+        cost_before: r2(r.was),
+        cost_after: r2(r.now),
+        change_per_plate: r2(r.now - r.was),
+        food_cost_before: pct(r.was, r.menu.price) === null ? null : r1(pct(r.was, r.menu.price)!),
+        food_cost_after: pct(r.now, r.menu.price) === null ? null : r1(pct(r.now, r.menu.price)!),
+        plates_sold_this_month: r0(r.sold),
+        change_this_month: r0((r.now - r.was) * r.sold),
+        changes_made: r.done,
+        not_done: r.notes,
+      })),
+      more_menus_not_shown: Math.max(0, group.length - menus.length),
+      note: "ต้นทุนตามสูตรหน้าร้าน ราคาวัตถุดิบวันนี้ · ปริมาณที่แก้เป็นปริมาณเสิร์ฟ (คิด yield ของสูตรเดิม) · ผลต่อเดือน = ส่วนต่างต่อจาน × จานที่ขายเดือนนี้ (รวม Line Man)",
+    },
+    card: {
+      title: `ถ้าแก้สูตร · ${args.menu}`,
+      subtitle: `ต้นทุนตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้ · จานที่ขาย ${periodText(period.from, period.to)}`,
+      columns: ["เมนู", "ต้นทุน/จาน", "FC"],
+      rows: results.map((r) => [r.menu.name, `${baht2(r.was)} → ${baht2(r.now)}`, `${pctText(pct(r.was, r.menu.price))} → ${pctText(pct(r.now, r.menu.price))}`]),
+      notes: [
+        ...[...new Set(results.flatMap((r) => r.done))].slice(0, 4),
+        ...results.filter((r) => r.sold > 0).map((r) => `${r.menu.name}: ขาย ${baht(r.sold)} จาน → ${signed((r.now - r.was) * r.sold)} บาท/เดือนนี้`).slice(0, 3),
+        ...[...new Set(results.flatMap((r) => r.notes))].slice(0, 3),
+        ...(group.length > menus.length ? [`แสดง ${menus.length} จาก ${group.length} เมนู`] : []),
+      ],
+    },
+  };
+}
+
+// ─── 8. Which ingredients moved in price, and what it costs ───
+
+export async function priceMovers(store: Store, args: { days?: number | null; top?: number | null; branch?: string | null; this_month?: boolean | null }): Promise<ToolResult> {
+  const m = await store.masters();
+  // Up to 60 days: longer reads too many sales for the function's time
+  const monthDays = Math.round((Date.parse(m.today) - Date.parse(`${m.today.slice(0, 8)}01`)) / 86_400_000) + 1;
+  const days = Math.max(7, Math.min(args.this_month ? monthDays : n(args.days) || 30, 60));
+  const since = shiftDay(m.today, -days);
+  const br = resolveBranches(m, args.branch);
+  // What each item is used per the recipes over those days (the shops; the kitchen buys for them)
+  const { std } = await workPeriod(store, m, br.ids, since, m.today, false);
+  const used = new Map(std.skus.map((x) => [x.skuId, x.stdQty]));
+  const rows = [];
+  for (const sku of m.skus.filter((s) => s.active)) {
+    // Both from the price history, so a gap between the two price tables isn't read as a change
+    const now = m.priceAt(sku.id, m.today) ?? m.stdPrice.get(sku.id);
+    const then = m.priceAt(sku.id, shiftDay(since, -1));
+    if (!now || !then || Math.abs(now - then) < 1e-9) continue;
+    const q = used.get(sku.id) ?? 0;
+    rows.push({ sku, then, now, pct: ((now - then) / then) * 100, impact: q * (now - then), used: q });
+  }
+  rows.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact) || Math.abs(b.pct) - Math.abs(a.pct));
+  const top = rows.slice(0, Math.max(3, Math.min(n(args.top) || 10, 20)));
+  const per = (sku: BotSku, v: number) => (unitText(sku.uom) === "ก." ? `${baht2(v * 1000)}/กก.` : unitText(sku.uom) === "มล." ? `${baht2(v * 1000)}/ลิตร` : `${baht2(v)}/${unitText(sku.uom)}`);
+  return {
+    data: {
+      since,
+      branches: br.label,
+      items: top.map((r) => ({ item: `${r.sku.name} (${r.sku.code})`, price_then: per(r.sku, r.then), price_now: per(r.sku, r.now), change_pct: r1(r.pct), used_in_period: r1(r.used), unit: unitText(r.sku.uom), cost_effect_in_period: r0(r.impact) })),
+      total_cost_effect: r0(rows.reduce((t, r) => t + r.impact, 0)),
+      note: "ผลต่อต้นทุน = ปริมาณที่ใช้ตามสูตรในช่วงนี้ × ราคาที่เปลี่ยน (ถ้าใช้ราคาใหม่ทั้งช่วง)",
+    },
+    card: top.length
+      ? {
+          title: `วัตถุดิบที่ราคาเปลี่ยน · ${days} วัน`,
+          subtitle: `ตั้งแต่ ${thDay(since)} · ผลต่อต้นทุนตามปริมาณที่ใช้จริงในช่วงนี้ · ${br.label}`,
+          columns: ["วัตถุดิบ", "ราคา", "ผล/ช่วงนี้"],
+          rows: top.map((r) => [`${r.sku.name} (${r.pct > 0 ? "+" : ""}${r1(r.pct)}%)`, `${per(r.sku, r.then)} → ${per(r.sku, r.now)}`, signed(r.impact)]),
+          total: ["รวมทุกตัวที่เปลี่ยน", "", signed(rows.reduce((t, r) => t + r.impact, 0))],
+        }
+      : undefined,
+  };
+}
+
 // ─── The menu Gemini picks from ───
 
 export const TOOLS = {
@@ -842,6 +1168,8 @@ export const TOOLS = {
   scenario,
   compare_items: compareItems,
   ingredient_in_menus: ingredientInMenus,
+  recipe_whatif: recipeWhatIf,
+  price_movers: priceMovers,
   // No tool fits: noted for Bucci's review (index.ts logs it); the model then says so plainly
   cannot_answer: async (_s: Store, a: { reason?: string; closest?: string }) => ({ data: { noted: true, reason: a?.reason ?? "", closest: a?.closest ?? "" } }),
 } as const;

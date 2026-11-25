@@ -55,6 +55,7 @@ export const DECLARATIONS = [
         branch: PERIOD.branch,
         new_price: N("ราคาขายใหม่ที่อยากเทียบ (ถ้ามี)"),
         only: S("เฉพาะวัตถุดิบบางกลุ่ม: protein (โปรตีน/เนื้อสัตว์), noodle (เส้น), soup (ซุป/ทาเระ), oil, vegetable หรือคำในชื่อวัตถุดิบคั่นด้วยจุลภาค"),
+        target_fc: N("ถ้าถามว่าต้องขายเท่าไหร่ถึงได้ FC เป้า: FC เป้า % เช่น 30"),
       },
       required: ["query"],
     },
@@ -62,7 +63,16 @@ export const DECLARATIONS = [
   {
     name: "food_cost",
     description: "Food cost ตามสูตรของช่วงเวลา (เหมือนหน้าต้นทุนอาหารในแอป): ยอดขาย ต้นทุน % และเมนูขายดี",
-    parameters: { type: "OBJECT", properties: { ...PERIOD, top: N("จำนวนเมนูที่แสดง (ไม่ระบุ = 10)") } },
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        ...PERIOD,
+        top: N("จำนวนเมนูที่แสดง (ไม่ระบุ = 10)"),
+        menus: S("เฉพาะกลุ่มเมนู เช่น ราเมน, ด้ง, Standard"),
+        sort: { type: "STRING", enum: ["revenue", "fc_high", "fc_low", "qty", "profit"], description: "เรียงเมนูตาม: ยอดขาย / FC สูงสุด / FC ต่ำสุด / จำนวนจาน / กำไรหลังหักวัตถุดิบ" },
+        compare: { type: "STRING", enum: ["branches", "previous_period"], description: "เทียบแยกสาขา หรือเทียบกับช่วงก่อน (เดือนก่อนวันเดียวกัน)" },
+      },
+    },
   },
   {
     name: "scenario",
@@ -98,6 +108,37 @@ export const DECLARATIONS = [
     name: "ingredient_in_menus",
     description: "วัตถุดิบนี้อยู่ในเมนูไหนบ้าง แต่ละเมนูใช้เท่าไหร่ ต้นทุนเท่าไหร่ (ข้าวบอกทั้งน้ำหนักดิบและสุก)",
     parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสวัตถุดิบ"), menus: S("เฉพาะเมนูที่ชื่อมีคำนี้ เช่น ด้ง, ราเมน (ไม่ระบุ = ทุกเมนู)") }, required: ["query"] },
+  },
+  {
+    name: "recipe_whatif",
+    description: "ถ้าแก้สูตรเมนู (เอาวัตถุดิบออก เปลี่ยนปริมาณ เปลี่ยนเป็นของอื่น หรือเพิ่ม) ต้นทุนต่อจาน FC และผลต่อเดือนเป็นเท่าไหร่",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        menu: S("ชื่อเมนูหรือกลุ่มเมนู"),
+        branch: PERIOD.branch,
+        changes: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              item: S("วัตถุดิบในเมนูที่จะแก้ (หรือที่จะเพิ่ม)"),
+              action: { type: "STRING", enum: ["remove", "set_qty", "replace", "add"], description: "เอาออก / เปลี่ยนปริมาณ / เปลี่ยนเป็นของอื่น / เพิ่มใหม่" },
+              qty: N("ปริมาณใหม่ (set_qty, add หรือ replace ถ้าปริมาณไม่เท่าเดิม)"),
+              unit: S("หน่วยของปริมาณ เช่น g, ml, ชิ้น"),
+              replace_with: S("วัตถุดิบที่ใส่แทน (replace)"),
+            },
+            required: ["item", "action"],
+          },
+        },
+      },
+      required: ["menu", "changes"],
+    },
+  },
+  {
+    name: "price_movers",
+    description: "วัตถุดิบตัวไหนราคาขึ้น/ลงในช่วงที่ผ่านมา และกระทบต้นทุนเท่าไหร่ (คิดจากปริมาณที่ใช้จริงตามสูตร)",
+    parameters: { type: "OBJECT", properties: { days: N("ย้อนดูกี่วัน (ไม่ระบุ = 30, สูงสุด 60)"), this_month: { type: "BOOLEAN", description: "ตั้งแต่ต้นเดือนนี้" }, top: N("แสดงกี่ตัว (ไม่ระบุ = 10)"), branch: PERIOD.branch } },
   },
   {
     name: "cannot_answer",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
-import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
+import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, matchSku, previousPeriod, priceForFc, priceMovers, recipeWhatIf, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
 import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
@@ -190,6 +190,110 @@ describe("tools", () => {
     const d = r.data as { items: { status: string; system_cost?: number }[] };
     expect(d.items.map((i) => i.status)).toEqual(["ambiguous", "unit_unknown", "ok"]);
     expect(d.items[2].system_cost).toBe(0.2); // 10 g = 0.01 kg × ฿20/kg
+  });
+});
+
+describe("the upgrade: questions near the ones that failed", () => {
+  it("recipe what-if: take an item out, change an amount, swap; per plate, FC and this month", async () => {
+    const r = await recipeWhatIf(store(), { menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "set_qty", qty: 30, unit: "g" }] });
+    const m0 = (r.data as { menus: { cost_before: number; cost_after: number; plates_sold_this_month: number; change_this_month: number }[] }).menus[0];
+    // 50 g → 30 g duck at 0.5: 35 → 25 per plate; 12 plates sold → −120
+    expect(m0).toMatchObject({ cost_before: 35, cost_after: 25, plates_sold_this_month: 12, change_this_month: -120 });
+    const out = await recipeWhatIf(store(), { menu: "Standard ชิโอะ", changes: [{ item: "เส้น", action: "remove" }, { item: "ซอสบาร์บีคิว", action: "remove" }] });
+    const m1 = (out.data as { menus: { cost_after: number; not_done: string[] }[] }).menus[0];
+    expect(m1.cost_after).toBe(25);
+    expect(m1.not_done[0]).toMatch(/ไม่มี "ซอสบาร์บีคิว"/);
+    const sw = await recipeWhatIf(store(), { menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "replace", replace_with: "เกลือทะเล" }] });
+    // same 50 (g) of salt at ฿20/kg = 1.00, plus 10 noodle
+    expect((sw.data as { menus: { cost_after: number }[] }).menus[0].cost_after).toBe(11);
+  });
+
+  it("target FC → the price to sell at, rounded up", async () => {
+    expect(priceForFc(35, 30)).toBe(117);
+    const r = await menuCost(store(), { query: "Standard ชิโอะ", target_fc: 30 });
+    expect(r.data).toMatchObject({ price_for_target_fc: 117 });
+  });
+
+  it("food_cost: highest FC first (≥5 plates), only a group, plates sold", async () => {
+    const r = await foodCost(store(), { sort: "fc_high" });
+    expect((r.data as { menus: { code: string }[] }).menus.map((x) => x.code)).toEqual(["MN-060", "MN-001"]);
+    const g = await foodCost(store(), { menus: "ราเมน", sort: "qty" });
+    expect(g.data).toMatchObject({ only_menus_qty: 12, only_menus_revenue: 3600 });
+  });
+
+  it("food_cost: side by side for branches and against last month's same days", async () => {
+    const b = await foodCost(store(), { compare: "branches" });
+    expect((b.data as { rows: { label: string }[] }).rows.map((x) => x.label)).toEqual(["Thaniya", "Shiro", "Sendo Old"]);
+    expect(previousPeriod({ from: "2026-11-01", to: "2026-11-25" })).toEqual({ from: "2026-10-01", to: "2026-10-25" });
+    expect(previousPeriod({ from: "2026-03-01", to: "2026-03-31" })).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(previousPeriod({ from: "2026-11-10", to: "2026-11-16" })).toEqual({ from: "2026-11-03", to: "2026-11-09" });
+  });
+
+  it("price movers: what moved and what it cost over the period's usage", async () => {
+    const m = masters();
+    // history: duck 0.4 until 1 Nov, 0.5 after
+    const moved: Store = { ...store(), masters: async () => ({ ...m, priceAt: (id, day) => (id === "duck" ? (day < "2026-11-01" ? 0.4 : 0.5) : undefined) }) };
+    const r = await priceMovers(moved, { days: 30 });
+    const it = (r.data as { items: { item: string; change_pct: number; cost_effect_in_period: number }[] }).items[0];
+    // duck 0.4 → 0.5 (+25%); used 12 × 50 g = 600 g → +60
+    expect(it).toMatchObject({ item: "อกเป็ดชาชู ซูวีด์ รมควัน (SM-0005)", change_pct: 25, cost_effect_in_period: 60 });
+  });
+
+  it("recipe what-if sees sub-recipes as one line and keeps the recipe's yield", async () => {
+    const m = masters();
+    // Ramen gets a sauce (SP: 10 g sauce = 5 g salt-ish item at 0.02 + ...) and the duck is served 40 g at 80% yield (50 g taken)
+    const ctx = buildUsageContext({
+      menus: MENUS.map((x) => ({ id: x.id, menuCode: x.code })),
+      bomLines: [
+        { menuId: "mR", skuId: "noodle", effectiveQty: 100, deliveryEffectiveQty: null, deliveryOnly: false, branchId: null },
+        { menuId: "mR", skuId: "duck", effectiveQty: 50, deliveryEffectiveQty: null, deliveryOnly: false, branchId: null },
+        { menuId: "mR", skuId: "bbq", effectiveQty: 15, deliveryEffectiveQty: null, deliveryOnly: false, branchId: null },
+      ],
+      rules: [],
+      spLines: [{ spSkuId: "bbq", ingredientSkuId: "soy", qtyPerBatch: 100, batchYieldQty: 100 }],
+      skus: [...SKUS, { id: "bbq", type: "SP" }].map((x) => ({ id: x.id, type: x.type })),
+    });
+    const withSauce: Masters = {
+      ...m,
+      skus: [...m.skus, { id: "bbq", code: "SP-0001", name: "ซอสบาร์บีคิว", type: "SP", uom: "g", purchaseUom: "g", active: true }],
+      bom: [
+        { menuId: "mR", skuId: "noodle", qtyPerServing: 100, effectiveQty: 100, branchId: null, deliveryOnly: false },
+        { menuId: "mR", skuId: "duck", qtyPerServing: 40, effectiveQty: 50, branchId: null, deliveryOnly: false },
+        { menuId: "mR", skuId: "bbq", qtyPerServing: 15, effectiveQty: 15, branchId: null, deliveryOnly: false },
+      ],
+      ctx,
+    };
+    const st: Store = { ...store(), masters: async () => withSauce };
+    // plate: noodle 10 + duck 25 + sauce 15 × 0.02 = 0.30 → 35.30
+    const out = await recipeWhatIf(st, { menu: "Standard ชิโอะ", changes: [{ item: "ซอสบาร์บีคิว", action: "remove" }] });
+    expect((out.data as { menus: { cost_before: number; cost_after: number }[] }).menus[0]).toMatchObject({ cost_before: 35.3, cost_after: 35 });
+    // duck served 40 → 20 g: at 80% yield takes 25 g → 12.50 (was 25)
+    const less = await recipeWhatIf(st, { menu: "Standard ชิโอะ", changes: [{ item: "duck", action: "set_qty", qty: 20, unit: "g" }] });
+    expect((less.data as { menus: { cost_after: number }[] }).menus[0].cost_after).toBe(22.8);
+  });
+
+  it("Line Man aliases count as the same menu's plates; groups that match nothing say so", async () => {
+    const sales = [...SALES, sale("MN-001L", 3, 900, { menu_name: "Standard Shio Ramen (Line Man)", channel: "LINE MAN เดลิเวอรี" })];
+    const r = await recipeWhatIf(store(sales), { menu: "Standard ชิโอะ", changes: [{ item: "อกเป็ด", action: "remove" }] });
+    expect((r.data as { menus: { plates_sold_this_month: number }[] }).menus[0].plates_sold_this_month).toBe(15);
+    const none = await foodCost(store(), { menus: "พิซซ่า" });
+    expect(none.data).toMatchObject({ found: false });
+  });
+
+  it("FC rankings skip menus without a recipe cost; a 0.3 target means 30%; previous period only within one month", async () => {
+    const sales = [...SALES, ...Array.from({ length: 6 }, () => sale("MN-999", 1, 50, { menu_name: "น้ำเปล่า" }))];
+    const lo = await foodCost(store(sales), { sort: "fc_low" });
+    expect((lo.data as { menus: { code: string }[] }).menus.map((x) => x.code)).not.toContain("MN-999");
+    expect(priceForFc(30.000000000000004, 30)).toBe(100);
+    expect(priceForFc(35, 0.3)).toBe(117);
+    expect(previousPeriod({ from: "2026-10-01", to: "2026-11-15" })).toEqual({ from: "2026-08-16", to: "2026-09-30" });
+  });
+
+  it("English ingredient names", () => {
+    expect(matchSku(SKUS, "fish sauce").length).toBeGreaterThanOrEqual(0);
+    expect(matchSku(SKUS, undefined)).toEqual([]);
+    expect(matchSku(SKUS, "duck breast")[0].item.id).toBe("duck");
+    expect(matchSku(SKUS, "japanese rice")[0].item.id).toBe("rice");
   });
 });
 
