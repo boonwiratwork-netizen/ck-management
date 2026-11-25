@@ -48,7 +48,16 @@ export const DECLARATIONS = [
   {
     name: "menu_cost",
     description: "ต้นทุนต่อจานตามสูตรหน้าร้านวันนี้ (รวมกฎพิเศษ) และ food cost % เทียบราคาขายหรือราคาใหม่ ใส่ชื่อกลุ่มได้ เช่น Standard, Signature, ด้ง จะได้ทุกเมนูในกลุ่ม",
-    parameters: { type: "OBJECT", properties: { query: S("ชื่อหรือรหัสเมนู (MN-)"), branch: PERIOD.branch, new_price: N("ราคาขายใหม่ที่อยากเทียบ (ถ้ามี)") }, required: ["query"] },
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        query: S("ชื่อหรือรหัสเมนู (MN-) หรือชื่อกลุ่ม เช่น Standard, Signature, ราเมน, ด้ง"),
+        branch: PERIOD.branch,
+        new_price: N("ราคาขายใหม่ที่อยากเทียบ (ถ้ามี)"),
+        only: S("เฉพาะวัตถุดิบบางกลุ่ม: protein (โปรตีน/เนื้อสัตว์), noodle (เส้น), soup (ซุป/ทาเระ), oil, vegetable หรือคำในชื่อวัตถุดิบคั่นด้วยจุลภาค"),
+      },
+      required: ["query"],
+    },
   },
   {
     name: "food_cost",

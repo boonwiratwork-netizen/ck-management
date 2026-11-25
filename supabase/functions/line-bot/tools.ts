@@ -219,17 +219,51 @@ export function inItemUnit(m: Masters, sku: BotSku, qty: number, unit: string | 
  * Menus a name points at: a code; else every menu whose name contains it ("Standard" → the
  * three Standard ramens, "ด้ง" → every donburi); else the closest one.
  */
+/** English names people type for the Thai menu words ("Shoyu Signature" → โชยุ Signature) */
+const MENU_WORDS: [RegExp, string][] = [
+  [/\bshoyu\b/gi, "โชยุ"], [/\bshio\b/gi, "ชิโอะ"], [/\btori\s*paitan\b/gi, "โทริไพตัน"], [/\bpaitan\b/gi, "ไพตัน"], [/\btonkotsu\b/gi, "ทงคตสึ"],
+  [/\bgyoza\b/gi, "เกี๊ยวซ่า"], [/\bkaraage\b/gi, "คาราเกะ"], [/\bdon\b/gi, "ด้ง"], [/\bramen\b/gi, "ราเมน"], [/\bwagyu\b/gi, "วากิว"], [/\bfoie\s*gras\b/gi, "ฟัวกราส์"],
+];
+const menuWords = (q: string) => MENU_WORDS.reduce((s, [re, th]) => s.replace(re, th), q);
+
 export function matchMenus(pool: BotMenu[], query: string): BotMenu[] {
-  const q = norm(query);
-  if (!q) return [];
-  const byCode = pool.find((x) => x.code.toLowerCase() === query.trim().toLowerCase());
+  const raw = (query ?? "").trim();
+  if (!raw) return [];
+  const byCode = pool.find((x) => x.code.toLowerCase() === raw.toLowerCase());
   if (byCode) return [byCode];
-  const exact = pool.find((x) => norm(x.name) === q);
-  if (exact) return [exact];
-  const containing = q.length >= 2 ? pool.filter((x) => norm(x.name).includes(q) && !/ของแถม/.test(x.name)) : [];
-  if (containing.length) return containing;
-  const best = matchByName(pool, query, 1, 0.5)[0];
+  // Shop menus only, unless the shop has none by that name (Line Man aliases and freebies repeat them)
+  const shop = pool.filter((x) => !/^MN-\d+L$/i.test(x.code) && !/ของแถม/.test(x.name));
+  for (const list of [shop, pool]) {
+    for (const q of [raw, menuWords(raw)]) {
+      const nq = norm(q);
+      const exact = list.find((x) => norm(x.name) === nq);
+      if (exact) return [exact];
+      // Every word of the query in the name, any order ("Shoyu Signature" = "Signature โชยุ ราเมน")
+      const words = q.split(/\s+/).map(norm).filter((w) => w.length >= 2);
+      const containing = words.length ? list.filter((x) => words.every((w) => norm(x.name).includes(w))) : [];
+      if (containing.length) return containing;
+    }
+  }
+  const best = matchByName(shop, menuWords(raw), 1, 0.5)[0] ?? matchByName(pool, menuWords(raw), 1, 0.5)[0];
   return best ? [best.item] : [];
+}
+
+/** Ingredient groups people ask about ("ต้นทุนโปรตีน"); anything else = the words given */
+const ITEM_GROUPS: Record<string, RegExp> = {
+  protein: /หมู|ไก่|เป็ด|เนื้อ|วากิว|ชาชู|กุ้ง|ปลา|ปู|หอย|หมึก|ไข่|แซลมอน|เบคอน|ฟัวกรา|ทูน่า|สันคอ|สันนอก|สามชั้น|อก|โปรตีน/i,
+  noodle: /เส้น|noodle/i,
+  soup: /ซุป|น้ำสต๊อก|ทาเระ|soup|tare/i,
+  oil: /น้ำมัน|oil/i,
+  vegetable: /ผัก|ต้นหอม|หอม|กะหล่ำ|ถั่วงอก|เห็ด|หน่อไม้|สาหร่าย|ข้าวโพด|veg/i,
+};
+const GROUP_WORDS: Record<string, string> = { โปรตีน: "protein", เนื้อสัตว์: "protein", เส้น: "noodle", ซุป: "soup", น้ำซุป: "soup", น้ำมัน: "oil", ผัก: "vegetable" };
+export function itemFilter(only?: string | null): { test: (name: string) => boolean; label: string } | null {
+  const o = (only ?? "").trim();
+  if (!o) return null;
+  const key = ITEM_GROUPS[o.toLowerCase()] ? o.toLowerCase() : GROUP_WORDS[o];
+  if (key) return { test: (name) => ITEM_GROUPS[key].test(name), label: o };
+  const words = o.split(/[,،\s]+/).map(norm).filter(Boolean);
+  return { test: (name) => words.some((w) => norm(name).includes(w)), label: o };
 }
 
 // ─── 1. Ingredient prices ───
@@ -301,20 +335,40 @@ export function plateCost(m: Masters, menu: BotMenu, branchId: string, delivery 
   return { lines, total: lines.reduce((t, l) => t + l.cost, 0) };
 }
 
-export async function menuCost(store: Store, args: { query: string; branch?: string | null; new_price?: number | null }): Promise<ToolResult> {
+export async function menuCost(store: Store, args: { query: string; branch?: string | null; new_price?: number | null; only?: string | null }): Promise<ToolResult> {
   const m = await store.masters();
   const group = matchMenus(m.menus.filter((x) => x.active), args.query);
   if (!group.length) return { data: { found: false, query: args.query, note: "ไม่พบเมนูชื่อนี้ในระบบ" } };
   const br = resolveBranches(m, args.branch);
   const open = m.branches.filter((b) => b.active !== false);
   const branchFor = (menu: BotMenu) => open.find((b) => br.ids.includes(b.id) && b.brand === menu.brand) ?? open.find((b) => b.brand === menu.brand) ?? open[0] ?? m.branches[0];
+  const only = itemFilter(args.only);
+  const skuName = new Map(m.skus.map((s) => [s.id, s.name]));
+  /** The part of a plate the question is about ("only protein"): its lines and their sum, worked out here */
+  const partOf = <L extends { skuId: string; cost: number }>(lines: L[]): L[] | null => (only ? lines.filter((l) => only.test(skuName.get(l.skuId) ?? "")) : null);
   // Several menus ("Standard", "ด้ง"): one line each
   if (group.length > 1) {
     const list = group.slice(0, 12).map((menu) => {
-      const total = plateCost(m, menu, branchFor(menu)?.id ?? "").total;
+      const plate = plateCost(m, menu, branchFor(menu)?.id ?? "");
+      const part = partOf(plate.lines);
+      if (part) {
+        const sum = part.reduce((t, l) => t + l.cost, 0);
+        return { code: menu.code, name: menu.name, cost_per_plate: r2(plate.total), price: menu.price, food_cost_pct: null as number | null, only_cost: r2(sum), only_items: part.map((l) => skuName.get(l.skuId) ?? l.skuId) };
+      }
+      const total = plate.total;
       const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
       return { code: menu.code, name: menu.name, cost_per_plate: r2(total), price, food_cost_pct: pct(total, price) === null ? null : r1(pct(total, price)!) };
     });
+    if (only)
+      return {
+        data: { found: true, only: only.label, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
+        card: {
+          title: `ต้นทุน${only.label} · "${args.query}" ${group.length} เมนู`,
+          subtitle: "ตามสูตรหน้าร้าน · ราคาวัตถุดิบวันนี้",
+          columns: ["เมนู", only.label, "ทั้งจาน"],
+          rows: list.map((x) => [x.name, baht2((x as { only_cost: number }).only_cost), baht2(x.cost_per_plate)]),
+        },
+      };
     return {
       data: { found: true, menus: list, more: Math.max(0, group.length - 12), note: "ต้นทุนตามสูตรหน้าร้านวันนี้ ราคาวัตถุดิบล่าสุด" },
       card: {
@@ -333,6 +387,24 @@ export async function menuCost(store: Store, args: { query: string; branch?: str
   const price = args.new_price && args.new_price > 0 ? args.new_price : menu.price;
   const fc = pct(plate.total, price);
   const missing = plate.lines.filter((l) => !(m.stdPrice.get(l.skuId) ?? 0)).map((l) => skuOf.get(l.skuId)?.name ?? l.skuId);
+  const part = partOf(plate.lines);
+  if (part && only) {
+    const sum = part.reduce((t, l) => t + l.cost, 0);
+    return {
+      data: { found: true, menu: { code: menu.code, name: menu.name }, only: only.label, only_cost: r2(sum), cost_per_plate: r2(plate.total), only_share_pct: plate.total > 0 ? r1((sum / plate.total) * 100) : null, lines: part.map((l) => ({ item: skuOf.get(l.skuId)?.name ?? l.skuId, qty: r2(l.qty), unit: unitText(skuOf.get(l.skuId)?.uom ?? ""), cost: r2(l.cost) })) },
+      card: {
+        title: `${menu.name} · ต้นทุน${only.label}`,
+        subtitle: `ตามสูตรหน้าร้าน · ${branch?.name ?? ""} · ราคาวัตถุดิบวันนี้`,
+        columns: ["วัตถุดิบ", "ปริมาณ", "บาท"],
+        rows: part.map((l) => {
+          const s = skuOf.get(l.skuId);
+          return [s?.name ?? l.skuId, `${r1(l.qty)} ${unitText(s?.uom ?? "")}`, baht2(l.cost)];
+        }),
+        total: [`รวม${only.label}`, "", baht2(sum)],
+        notes: [`ทั้งจาน ${baht2(plate.total)} บาท · ${only.label} ${plate.total > 0 ? r1((sum / plate.total) * 100) : 0}% ของต้นทุน`],
+      },
+    };
+  }
   return {
     data: {
       found: true,

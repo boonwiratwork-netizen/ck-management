@@ -39,7 +39,7 @@ function systemPrompt(today: string, branches: string) {
     "",
     "กติกา:",
     "1. ตัวเลขทุกตัวต้องมาจากผลของเครื่องมือเท่านั้น ห้ามคูณ หาร หรือประมาณเอง ถ้าต้องคิดต้นทุนตามปริมาณ ให้ส่งปริมาณให้เครื่องมือคิด",
-    "2. ตารางแสดงเป็นการ์ดให้อัตโนมัติ ข้อความของคุณสรุป 1–4 บรรทัด: คำตอบหลัก + สมมติฐานสำคัญ",
+    "2. ตารางแสดงเป็นการ์ดให้อัตโนมัติ ข้อความของคุณสรุป 1–4 บรรทัด: คำตอบหลัก + สมมติฐานสำคัญ เขียนข้อความธรรมดา ไม่ใช้ markdown (ไม่มี ** หรือ #)",
     "3. คำถามใหม่ใช้เฉพาะเงื่อนไขในคำถามนั้น จะเอาเงื่อนไขจากคำถามก่อนมาใช้เฉพาะเมื่อผู้ถามพูดต่อจากเรื่องเดิมชัดเจน (เช่น 'แล้วถ้า…ล่ะ', 'ต่อจากเมื่อกี้')",
     "4. ถ้าไม่ระบุช่วงเวลา ใช้เดือนนี้ถึงวันนี้ และบอกช่วงที่ใช้",
     "5. food cost ที่ตอบคือ 'ตามสูตร' (เหมือนหน้าต้นทุนอาหารในแอป) ไม่ใช่ต้นทุนจริงจากการนับสต๊อก",
@@ -53,7 +53,7 @@ function systemPrompt(today: string, branches: string) {
     "เลือกเครื่องมือ:",
     "- ราคาวัตถุดิบ / ต้นทุนวัตถุดิบตามปริมาณ → ingredient_price (ใส่ qty, unit; ถ้าเป็นน้ำหนักหลังหุงหรือปรุงแล้ว ใส่ cooked=true)",
     "- วัตถุดิบนี้อยู่ในเมนูไหน ใช้กี่กรัม → ingredient_in_menus (กรองเมนูด้วย menus เช่น 'ด้ง')",
-    "- ต้นทุนต่อจาน / FC ของเมนู หรือกลุ่มเมนู (Standard, Signature, ด้ง) → menu_cost",
+    "- ต้นทุนต่อจาน / FC ของเมนู หรือกลุ่มเมนู (Standard, Signature, ราเมน, ด้ง) → menu_cost; ถามเฉพาะบางส่วน เช่น ต้นทุนโปรตีน เส้น ซุป → ใส่ only",
     "- food cost รวมของช่วงเวลา → food_cost",
     "- ถ้าเปลี่ยนราคาขาย ราคาวัตถุดิบ หรือยอดขาย FC รวมจะเป็นเท่าไหร่ → scenario (ชื่อกลุ่ม เช่น 'Standard' ใส่ใน menu ได้เลย ระบบจะรวมทุกเมนูในกลุ่ม)",
     "- ภาพหรือรายการวัตถุดิบที่มีคนส่งมา → compare_items (อ่านชื่อ ปริมาณ หน่วย ต้นทุนในภาพ; ถ้าผู้ถามบอกให้ตัดรายการไหนออก ไม่ต้องใส่รายการนั้น)",
@@ -62,6 +62,8 @@ function systemPrompt(today: string, branches: string) {
     "- 'ถ้า Standard 289 Signature 339 food cost เป็นเท่าไหร่' → scenario menu_prices=[{menu:'Standard',new_price:289},{menu:'Signature',new_price:339}]",
     "- 'ข้าวญี่ปุ่นหุงแล้ว 180 ก. ต้นทุนกี่บาท' → ingredient_price query='ข้าวญี่ปุ่น' qty=180 unit='g' cooked=true",
     "- 'เมนูด้งใช้ข้าวกี่กรัม' → ingredient_in_menus query='ข้าวญี่ปุ่น' menus='ด้ง'",
+    "- 'ขอต้นทุนโปรตีนทุกชนิดในราเมน' → menu_cost query='ราเมน' only='protein'",
+    "- 'ต้นทุนโปรตีนใน Shoyu Signature' → menu_cost query='Signature โชยุ' only='protein'",
     "- 'ยอดขายพนักงานคนไหนเยอะสุด' → cannot_answer (ระบบนี้มีแต่ต้นทุน)",
     "",
     "ข้อมูลบ้านเรา: ข้าวญี่ปุ่นหุงสุกหนัก 2 เท่าของข้าวดิบ (สุก 180 ก. = ดิบ 90 ก.) สูตรเมนูในระบบใส่ข้าวเป็นน้ำหนักดิบ",
@@ -165,7 +167,9 @@ async function handle(e: LineEvent) {
     // that answered (in 14 s) while gemini-flash-latest was busy (503) or ran past 25 s.
     const models = [...new Set([env("GEMINI_MODEL"), "gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.5-flash"].filter(Boolean))];
     const out = await ask({ key: env("GEMINI_API_KEY"), models, system: systemPrompt(today, m.branches.filter((b) => b.active !== false).map((b) => `${b.name} (${b.brand})`).join(", ")), turns, runTool: (name, args) => runTool(store, name, args) });
-    const text = out.text || (out.cards.length ? "ตามตารางนี้ครับ" : "ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกแบบได้ไหมครับ");
+    // LINE shows text as typed: no markdown (**bold** would show its stars)
+    const plain = out.text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/(^|\s)\*(\S.*?)\*(?=\s|$)/g, "$1$2").replace(/^#+\s*/gm, "").trim();
+    const text = plain || (out.cards.length ? "ตามตารางนี้ครับ" : "ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกแบบได้ไหมครับ");
     reply = [{ type: "text", text: text.slice(0, 4900) }, ...out.cards.slice(0, 3).map(toFlex)];
     const gaveUp = out.calls.find((c) => c.name === "cannot_answer");
     meta = { calls: out.calls, model: out.model, cards: out.cards.length, ...(gaveUp ? { unanswered: gaveUp.args } : {}) };

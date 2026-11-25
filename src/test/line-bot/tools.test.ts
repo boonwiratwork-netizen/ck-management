@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
-import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
+import { compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
 import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
@@ -162,6 +162,18 @@ describe("tools", () => {
     const sales = [...SALES, sale("MN-002", 10, 3000)];
     const r = await scenario(store(sales), { menu_prices: [{ menu: "Standard", new_price: 270 }] });
     expect((r.data as { repriced_menus: { code: string }[] }).repriced_menus.map((x) => x.code).sort()).toEqual(["MN-001", "MN-002"]);
+  });
+
+  it("English menu words, any order, shop menu before the Line Man alias; protein-only cost summed by the tool", async () => {
+    const pool = [...MENUS, { id: "mSL", code: "MN-002L", name: "Signature Shoyu Ramen (Line Man)", brand: "Sendo", category: "Ramen", price: 389, active: true }, { id: "mSig", code: "MN-005", name: "Signature โชยุ ราเมน", brand: "Sendo", category: "Signature Ramen", price: 389, active: true }];
+    expect(matchMenus(pool, "Shoyu Signature").map((x) => x.code)).toEqual(["MN-005"]);
+    expect(itemFilter("โปรตีน")!.test("อกเป็ดชาชู ซูวีด์")).toBe(true);
+    expect(itemFilter("protein")!.test("เส้นราเมน")).toBe(false);
+    const r = await menuCost(store(), { query: "Standard ชิโอะ", only: "protein" });
+    // ramen: 50 g duck × 0.5 = 25 of the plate's 35
+    expect(r.data).toMatchObject({ only_cost: 25, cost_per_plate: 35 });
+    const g = await menuCost(store(), { query: "ราเมน", only: "โปรตีน" });
+    expect((g.data as { menus: { code: string; only_cost: number }[] }).menus.map((x) => [x.code, x.only_cost])).toEqual([["MN-001", 25], ["MN-002", 0]]);
   });
 
   it("compare_items: a generic name asks, an unknown unit is never guessed, a kg item takes grams right", async () => {
