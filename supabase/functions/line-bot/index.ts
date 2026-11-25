@@ -135,7 +135,8 @@ async function handle(e: LineEvent) {
   let meta: Record<string, unknown> = {};
   try {
     const m = await store.masters();
-    const models = [env("GEMINI_MODEL"), "gemini-flash-latest", "gemini-2.5-flash"].filter(Boolean);
+    // Several free models: when one is busy or out of quota the next answers
+    const models = [...new Set([env("GEMINI_MODEL"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-flash-lite"].filter(Boolean))];
     const out = await ask({ key: env("GEMINI_API_KEY"), models, system: systemPrompt(today, m.branches.filter((b) => b.active !== false).map((b) => `${b.name} (${b.brand})`).join(", ")), turns, runTool: (name, args) => runTool(store, name, args) });
     const text = out.text || (out.cards.length ? "ตามตารางนี้ครับ" : "ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกแบบได้ไหมครับ");
     reply = [{ type: "text", text: text.slice(0, 4900) }, ...out.cards.slice(0, 3).map(toFlex)];
@@ -143,7 +144,7 @@ async function handle(e: LineEvent) {
     await log("answer", { text, meta: { ...meta, ms: Date.now() - started } });
   } catch (err) {
     const busy = err instanceof RateLimited;
-    reply = [{ type: "text", text: busy ? "ตอนนี้มีคนถามเยอะเกินโควตาฟรีของ AI ลองใหม่อีกสักครู่นะครับ" : "ขอโทษครับ ตอนนี้คิดไม่สำเร็จ ลองถามใหม่อีกครั้งนะครับ" }];
+    reply = [{ type: "text", text: busy ? "ตอนนี้ AI ของ Google คนใช้เยอะ ตอบไม่ทัน ลองถามใหม่อีกสักครู่นะครับ" : "ขอโทษครับ ตอนนี้คิดไม่สำเร็จ ลองถามใหม่อีกครั้งนะครับ" }];
     await log("error", { text: String((err as Error)?.message ?? err).slice(0, 1000), meta: { ms: Date.now() - started } });
   }
   const sent = await answer(token, e.replyToken, groupId, reply);

@@ -94,6 +94,7 @@ export async function ask(opts: {
   for (let step = 0; step < (opts.maxSteps ?? 6); step++) {
     let res: Response | null = null;
     let model = models[0];
+    let retried = false;
     while (models.length) {
       model = models[0];
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -102,15 +103,22 @@ export async function ask(opts: {
         body: JSON.stringify({ systemInstruction: { parts: [{ text: opts.system }] }, contents: turns, tools: [{ functionDeclarations: DECLARATIONS }], generationConfig: { temperature: 0.2 } }),
         signal: AbortSignal.timeout(25_000),
       });
-      // A model name Google no longer serves, or this model's free quota used up: try the next
-      if ((res.status === 404 || res.status === 429) && models.length > 1) {
+      // Busy for a moment (503 "high demand", 500): once more on the same model after a pause
+      if ((res.status === 503 || res.status === 500) && !retried) {
+        retried = true;
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      // Still busy, a model name Google no longer serves, or its free quota used up: the next model
+      if ((res.status === 404 || res.status === 429 || res.status === 503 || res.status === 500) && models.length > 1) {
         models = models.slice(1);
+        retried = false;
         continue;
       }
       break;
     }
     if (!res) throw new Error("ไม่มีรุ่น Gemini ที่ใช้ได้");
-    if (res.status === 429) throw new RateLimited("rate limited");
+    if (res.status === 429 || res.status === 503) throw new RateLimited(`busy ${res.status}`);
     if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const json = await res.json();
     const parts: Part[] = json?.candidates?.[0]?.content?.parts ?? [];
