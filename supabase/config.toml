@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.alerts-run]
 verify_jwt = false
+
+[functions.line-bot]
+verify_jwt = false
