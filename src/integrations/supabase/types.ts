@@ -789,6 +789,77 @@ export type Database = {
         }
         Relationships: []
       }
+      food_cost_menu_monthly: {
+        Row: {
+          branch_id: string
+          branch_name: string
+          brand_name: string
+          category: string
+          computed_at: string
+          cost_pct: number | null
+          cost_per_serving: number | null
+          has_recipe_cost: boolean
+          id: string
+          is_closed_month: boolean
+          menu_code: string
+          menu_name: string
+          month: string
+          qty: number
+          revenue: number
+          std_cost: number | null
+          uncosted_qty: number
+          uncosted_revenue: number
+        }
+        Insert: {
+          branch_id: string
+          branch_name?: string
+          brand_name?: string
+          category?: string
+          computed_at?: string
+          cost_pct?: number | null
+          cost_per_serving?: number | null
+          has_recipe_cost?: boolean
+          id?: string
+          is_closed_month?: boolean
+          menu_code: string
+          menu_name?: string
+          month: string
+          qty?: number
+          revenue?: number
+          std_cost?: number | null
+          uncosted_qty?: number
+          uncosted_revenue?: number
+        }
+        Update: {
+          branch_id?: string
+          branch_name?: string
+          brand_name?: string
+          category?: string
+          computed_at?: string
+          cost_pct?: number | null
+          cost_per_serving?: number | null
+          has_recipe_cost?: boolean
+          id?: string
+          is_closed_month?: boolean
+          menu_code?: string
+          menu_name?: string
+          month?: string
+          qty?: number
+          revenue?: number
+          std_cost?: number | null
+          uncosted_qty?: number
+          uncosted_revenue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_cost_menu_monthly_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_settings: {
         Row: {
           id: string
@@ -2472,6 +2543,135 @@ export type Database = {
           },
         ]
       }
+      wip_batch_lines: {
+        Row: {
+          batch_id: string
+          id: string
+          qty: number
+          sku_id: string
+          unit_cost: number
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          qty: number
+          sku_id: string
+          unit_cost?: number
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          qty?: number
+          sku_id?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wip_batch_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "wip_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wip_batch_lines_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wip_batches: {
+        Row: {
+          branch_id: string
+          cost_per_unit: number
+          created_at: string
+          created_by: string | null
+          id: string
+          input_qty: number
+          made_date: string
+          note: string
+          output_qty: number
+          wip_sku_id: string
+        }
+        Insert: {
+          branch_id: string
+          cost_per_unit?: number
+          created_at?: string
+          created_by?: string | null
+          id: string
+          input_qty: number
+          made_date: string
+          note?: string
+          output_qty: number
+          wip_sku_id: string
+        }
+        Update: {
+          branch_id?: string
+          cost_per_unit?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_qty?: number
+          made_date?: string
+          note?: string
+          output_qty?: number
+          wip_sku_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wip_batches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wip_batches_wip_sku_id_fkey"
+            columns: ["wip_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wip_inputs: {
+        Row: {
+          created_at: string
+          id: string
+          sku_id: string
+          wip_sku_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sku_id: string
+          wip_sku_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sku_id?: string
+          wip_sku_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wip_inputs_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wip_inputs_wip_sku_id_fkey"
+            columns: ["wip_sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       suppliers_safe: {
@@ -2564,6 +2764,7 @@ export type Database = {
         Args: { p_reason: string; p_to_id: string }
         Returns: Json
       }
+      delete_wip_batch: { Args: { p_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2597,8 +2798,26 @@ export type Database = {
         Args: { p_lines: Json; p_to_id: string }
         Returns: Json
       }
+      save_wip_batch: {
+        Args: {
+          p_branch: string
+          p_date: string
+          p_id: string
+          p_lines: Json
+          p_note?: string
+          p_output: number
+          p_wip: string
+        }
+        Returns: Json
+      }
       sync_transfer_distribution: { Args: { p_to_id: string }; Returns: number }
       transfer_order_receipts: { Args: { p_to_id: string }; Returns: Json }
+      wip_can_write: { Args: { p_branch: string }; Returns: boolean }
+      wip_day_closed: {
+        Args: { p_branch: string; p_date: string }
+        Returns: boolean
+      }
+      wip_reprice: { Args: { p_wip: string }; Returns: number }
     }
     Enums: {
       app_role:
