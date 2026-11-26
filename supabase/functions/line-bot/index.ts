@@ -90,6 +90,9 @@ Deno.serve(async (req) => {
   return new Response("ok", { status: 200 });
 });
 
+/** What someone types 1:1 to get their own LINE user id */
+const MY_ID = /^\s*(รหัส|รหัสของฉัน|ไอดี|my\s*id|id|userid)\s*$/i;
+
 interface LineEvent {
   type: string;
   replyToken?: string;
@@ -99,6 +102,15 @@ interface LineEvent {
 
 async function handle(e: LineEvent) {
   if (e.type !== "message" || !e.message) return;
+  // A 1:1 chat with the bot: "รหัส" answers with the sender's own LINE user id, to put in
+  // the LINE_REPORT_TO secret so the daily reports come to that chat. Nothing else is
+  // answered 1:1 (the cost questions stay in the group).
+  if (e.source?.type === "user" && e.source.userId && e.message.type === "text" && MY_ID.test(e.message.text ?? "")) {
+    await answer(env("LINE_CHANNEL_ACCESS_TOKEN"), e.replyToken, e.source.userId, [
+      { type: "text", text: `รหัส LINE ของคุณคือ\n${e.source.userId}\n\nจะรับรายงานยอดประจำวันที่แชทนี้: ใส่รหัสนี้ใน Lovable → Cloud → Secrets ชื่อ LINE_REPORT_TO` },
+    ]);
+    return;
+  }
   const groupId = e.source?.groupId;
   // Only the Live to Eat group (fails closed if the group isn't set)
   if (!groupId) return;

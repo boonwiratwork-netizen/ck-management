@@ -61,16 +61,22 @@ export function formatNum(n: number): string {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
+/**
+ * Daily reports (sales, production, transfers sent) go to one person's LINE chat, not the
+ * Live to Eat group (Bucci, 26 Nov 2026). LINE_REPORT_TO = that person's LINE user id (U…),
+ * which the bot tells anyone who sends it "รหัส" in a 1:1 chat. Not set: nothing is sent,
+ * never the group.
+ */
 export async function pushLineMessage(text: string): Promise<{ ok: boolean; error?: string }> {
   const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
-  const groupId = Deno.env.get("LINE_GROUP_ID");
-  if (!token || !groupId) {
-    return { ok: false, error: "LINE_CHANNEL_ACCESS_TOKEN / LINE_GROUP_ID not configured" };
+  const to = Deno.env.get("LINE_REPORT_TO")?.trim();
+  if (!token || !to) {
+    return { ok: false, error: "LINE_CHANNEL_ACCESS_TOKEN / LINE_REPORT_TO not configured (reports no longer go to the group)" };
   }
   const resp = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ to: groupId, messages: [{ type: "text", text }] }),
+    body: JSON.stringify({ to, messages: [{ type: "text", text }] }),
   });
   if (!resp.ok) {
     const txt = await resp.text();
