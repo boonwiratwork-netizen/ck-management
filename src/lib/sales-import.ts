@@ -118,6 +118,8 @@ export const cleanBase = (menuName: string) => posBase(menuName).replace(PROMO, 
 
 /** Compare key: no promo decorations, no case, no spaces */
 const nameKey = (text: string) => text.replace(PROMO, " ").toLowerCase().replace(/\s+/g, "");
+/** Compare key with the promo words kept: one deal line exactly as FoodStory names it */
+const exactKey = (text: string) => text.toLowerCase().replace(/\s+/g, "");
 
 /** A key that maps to two different codes is not trusted */
 function addKey(map: Map<string, Set<string>>, k: string, code: string) {
@@ -127,7 +129,9 @@ function addKey(map: Map<string, Set<string>>, k: string, code: string) {
 }
 
 /**
- * Code for a no-code POS line: (b) the code this branch's past lines with the same
+ * Code for a no-code POS line: (b0) the code this branch's past lines with exactly this
+ * name carried (promo words and all: a deal someone picked a menu for once is found
+ * again, even when the plain name carries two codes); (b) the code this branch's past lines with the same
  * base carried ("Black Garlic Ramen" ↔ MN-056 "แบล็ค การ์ลิค ราเมน"), when one code has
  * ≥ 80% of them; else (a) the one menu with a recipe whose name — whole, without the
  * part in brackets, or the part in brackets — equals the base. Menus without a recipe
@@ -143,24 +147,31 @@ export function codeResolver(menus: { id: string; menuCode: string; menuName: st
     addKey(byMenu, nameKey(m.menuName.replace(/\([^)]*\)/g, " ")), m.menuCode);
     for (const inner of m.menuName.matchAll(/\(([^)]*)\)/g)) addKey(byMenu, nameKey(inner[1]), m.menuCode);
   }
-  const counts = new Map<string, Map<string, number>>();
-  for (const h of history) {
-    if (!h.menu_code || !menuCodes.has(h.menu_code)) continue;
-    const k = nameKey(posBase(h.menu_name || ""));
-    if (k.length < 3) continue;
-    const c = counts.get(k) ?? new Map<string, number>();
-    c.set(h.menu_code, (c.get(h.menu_code) ?? 0) + 1);
-    counts.set(k, c);
-  }
-  const byHistory = new Map<string, string>();
-  counts.forEach((c, k) => {
-    const total = [...c.values()].reduce((s, n) => s + n, 0);
-    const [code, n] = [...c.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (n / total >= 0.8) byHistory.set(k, code);
-  });
+  const tally = (keyOf: (base: string) => string) => {
+    const counts = new Map<string, Map<string, number>>();
+    for (const h of history) {
+      if (!h.menu_code || !menuCodes.has(h.menu_code)) continue;
+      const k = keyOf(posBase(h.menu_name || ""));
+      if (k.length < 3) continue;
+      const c = counts.get(k) ?? new Map<string, number>();
+      c.set(h.menu_code, (c.get(h.menu_code) ?? 0) + 1);
+      counts.set(k, c);
+    }
+    const out = new Map<string, string>();
+    counts.forEach((c, k) => {
+      const total = [...c.values()].reduce((s, n) => s + n, 0);
+      const [code, n] = [...c.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (n / total >= 0.8) out.set(k, code);
+    });
+    return out;
+  };
+  const byExact = tally(exactKey);
+  const byHistory = tally(nameKey);
   return (menuName) => {
     const k = nameKey(posBase(menuName));
     if (k.length < 3) return null;
+    const e = byExact.get(exactKey(posBase(menuName)));
+    if (e) return e;
     const h = byHistory.get(k);
     if (h) return h;
     const m = byMenu.get(k);
@@ -194,11 +205,23 @@ export function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<
   });
 }
 
+/** How a no-code line is grouped on the check screen, and keyed when someone picks its menu */
+export const skippedName = (menuName: string) => posBase(menuName) || menuName || "(ไม่มีชื่อ)";
+
+/**
+ * Menus picked by hand on the check screen (group name → code) go first; the rest as
+ * `resolve` finds them. Saved, the line carries the code under its full POS name, so the
+ * next paste finds it again from past sales (codeResolver b0).
+ */
+export function withPicked(resolve: CodeResolver | undefined, picked: Record<string, string>): CodeResolver {
+  return (menuName) => picked[skippedName(menuName)] ?? resolve?.(menuName) ?? null;
+}
+
 /** Unimported lines grouped by their POS menu part, biggest amount first (the warning on the check screen) */
 export function skippedByName(skipped: SkippedRow[]): { name: string; lines: number; amount: number }[] {
   const m = new Map<string, { name: string; lines: number; amount: number }>();
   for (const s of skipped) {
-    const name = posBase(s.menuName) || s.menuName || "(ไม่มีชื่อ)";
+    const name = skippedName(s.menuName);
     const g = m.get(name) ?? { name, lines: 0, amount: 0 };
     g.lines++;
     g.amount += s.netAmount;

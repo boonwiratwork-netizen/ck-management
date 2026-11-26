@@ -3,6 +3,8 @@ import { AlertTriangle, CheckCircle2, ClipboardList, Pencil, Plus, Upload } from
 import type { POSMappingProfile, SkippedRow } from "@/hooks/use-sales-entry-data";
 import type { DayMode, DayPlan, ReadResult } from "@/lib/sales-import";
 import { isReadable, skippedByName } from "@/lib/sales-import";
+import type { Menu } from "@/types/menu";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { POSProfileModal } from "@/components/POSProfileModal";
 import { ActionFooter, baht } from "@/components/receive/parts";
 import { Button } from "@/components/ui/button";
@@ -82,6 +84,9 @@ export function CheckView({
   saving,
   onSave,
   onAgain,
+  menus = [],
+  picked = {},
+  onPickMenu,
 }: {
   reads: ReadResult[];
   pick: number;
@@ -92,6 +97,11 @@ export function CheckView({
   saving: boolean;
   onSave: () => void;
   onAgain: () => void;
+  /** Menus a no-code line can be given (this brand's, with a recipe) */
+  menus?: Menu[];
+  /** Lines given a menu by hand: POS name → menu code */
+  picked?: Record<string, string>;
+  onPickMenu?: (name: string, code: string | null) => void;
 }) {
   const read = reads[pick];
   const others = reads.map((r, i) => ({ r, i })).filter(({ i }) => i !== pick);
@@ -225,7 +235,7 @@ export function CheckView({
         })}
       </ul>
 
-      {read.skipped.length > 0 && <NoCodeWarning skipped={read.skipped} />}
+      {(read.skipped.length > 0 || Object.keys(picked).length > 0) && <NoCodeWarning skipped={read.skipped} menus={menus} picked={picked} onPick={onPickMenu} busy={saving} />}
 
       <ActionFooter
         tour="sales-save"
@@ -241,32 +251,72 @@ export function CheckView({
 }
 
 /**
- * Priced lines that still have no menu code are not saved; say so with the money, so
- * staff fix the code in FoodStory or Cost Center. The rest of the paste saves as usual.
+ * Priced lines that still have no menu code are not saved; say so with the money. Each can
+ * be given its menu right here (the line then saves under that code with its full POS name,
+ * and the next paste finds it from past sales); left as it is, it stays out.
  */
-function NoCodeWarning({ skipped }: { skipped: SkippedRow[] }) {
+function NoCodeWarning({ skipped, menus, picked, onPick, busy }: { skipped: SkippedRow[]; menus: Menu[]; picked: Record<string, string>; onPick?: (name: string, code: string | null) => void; busy: boolean }) {
   const groups = skippedByName(skipped);
   const total = skipped.reduce((t, r) => t + r.netAmount, 0);
+  const options = menus.map((m) => ({ value: m.menuCode, label: m.menuName, sublabel: m.menuCode }));
+  const nameOf = (code: string) => menus.find((m) => m.menuCode === code)?.menuName ?? code;
+  const done = Object.entries(picked);
   return (
-    <section className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-warning bg-card p-4">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold">
-            มีรายการขายที่ไม่มีรหัสเมนู {skipped.length} บรรทัด · {baht(total)} · ไม่ได้นำเข้า
-          </h3>
-          <p className="text-sm text-muted-foreground">ยอดนี้ไม่เข้ายอดขายและไม่ตัดสต๊อก ให้ใส่รหัสเมนูใน FoodStory หรือ Cost Center แล้ววางวันนั้นใหม่ เลือก “ใช้ข้อมูลนี้แทนทั้งวัน” รายการอื่นบันทึกได้ตามปกติ</p>
+    <section className={cn("flex flex-col gap-2 rounded-2xl border-[1.5px] bg-card p-4", groups.length ? "border-warning" : "border-border")}>
+      {groups.length > 0 && (
+        <>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[15px] font-semibold">
+                มีรายการขายที่ไม่มีรหัสเมนู {skipped.length} บรรทัด · {baht(total)} · ยังไม่นำเข้า
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {onPick ? "เลือกเมนูให้แต่ละรายการ แล้วบันทึกได้เลย ครั้งหน้าระบบจะจำชื่อนี้เอง " : ""}ถ้าไม่เลือก ยอดนี้ไม่เข้ายอดขายและไม่ตัดสต๊อก รายการอื่นบันทึกได้ตามปกติ
+              </p>
+            </div>
+          </div>
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border text-sm">
+            {groups.map((g) => (
+              <li key={g.name} className="flex flex-col gap-2 px-3 py-2.5">
+                <div className="flex gap-3">
+                  <span className="min-w-0 flex-1 break-words">{g.name}</span>
+                  {g.lines > 1 && <span className="shrink-0 text-muted-foreground">{g.lines} บรรทัด</span>}
+                  <span className="shrink-0 text-right font-mono">{baht(g.amount)}</span>
+                </div>
+                {onPick && (
+                  <SearchableSelect value="" onValueChange={(code) => code && onPick(g.name, code)} options={options} placeholder="เลือกเมนูให้รายการนี้" triggerClassName="h-11 w-full" disabled={busy} />
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {done.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-success">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            เลือกเมนูให้แล้ว {done.length} รายการ · นำเข้าพร้อมรายการอื่น
+          </div>
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border text-sm">
+            {done.map(([name, code]) => (
+              <li key={name} className="flex items-center gap-3 px-3 py-2">
+                <span className="min-w-0 flex-1 break-words">
+                  {name}
+                  <span className="block text-muted-foreground">
+                    → {nameOf(code)} ({code})
+                  </span>
+                </span>
+                {onPick && (
+                  <Button variant="outline" size="sm" className="h-9 shrink-0" disabled={busy} onClick={() => onPick(name, null)}>
+                    ยกเลิก
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border text-sm">
-        {groups.map((g) => (
-          <li key={g.name} className="flex gap-3 px-3 py-2">
-            <span className="min-w-0 flex-1 break-words">{g.name}</span>
-            {g.lines > 1 && <span className="shrink-0 text-muted-foreground">{g.lines} บรรทัด</span>}
-            <span className="shrink-0 text-right font-mono">{baht(g.amount)}</span>
-          </li>
-        ))}
-      </ul>
+      )}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { POSMappingProfile } from "@/hooks/use-sales-entry-data";
-import { cleanBase, codeResolver, dayWrites, defaultMode, isReadable, manualRow, planDays, posBase, readWithEachFormat, noCodeBases, rowsNotInDb, shortName, skippedByName, withTimeout, writeDay, type DayWrites, type SalesWriter, type ExistingRow } from "./sales-import";
+import { cleanBase, codeResolver, dayWrites, defaultMode, isReadable, manualRow, planDays, posBase, readWithEachFormat, noCodeBases, rowsNotInDb, shortName, skippedByName, withPicked, withTimeout, writeDay, type DayWrites, type SalesWriter, type ExistingRow } from "./sales-import";
 
 // The two formats saved on the live site (25 Oct 2026)
 const FOODSTORY: POSMappingProfile = {
@@ -213,6 +213,22 @@ describe("priced lines without a menu code", () => {
   it("asks past sales for every priced no-code name, cleaned", () => {
     const reads = readWithEachFormat(text, [FOODSTORY], codes, "paste");
     expect(noCodeBases(reads)).toEqual(["Black Garlic Ramen", "Red Spicy Ramen", "White Crema Truffle Ramen", "Chashu Don with Truffle Sauce", "Delivery Set A ราเมน x1+ของทานเล่น x1", "Standard Tori Paitan Ramen", "Thai Wagyu Mini Don Sendo Recipe"]);
+  });
+
+  it("a menu picked by hand imports the line under it; saved, the next paste finds it by its exact name", () => {
+    const [before] = readWithEachFormat(text, [FOODSTORY], codes, "paste", resolver(history));
+    expect(before.skipped.map((x) => x.menuName)).toContain(RED);
+    const [after] = readWithEachFormat(text, [FOODSTORY], codes, "paste", withPicked(resolver(history), { [RED]: "MN-001" }));
+    expect(after.skipped.map((x) => x.menuName)).not.toContain(RED);
+    expect(after.rows.find((r) => r.menuName === RED)).toMatchObject({ menuCode: "MN-001", netAmount: 329, codeFromName: true });
+    // Next time: the saved line teaches its exact name, even where the plain name has two codes
+    const mixed = [
+      { menu_code: "MN-001", menu_name: RED },
+      { menu_code: "MN-001", menu_name: "Red Spicy Ramen" },
+      { menu_code: "MN-060", menu_name: "Red Spicy Ramen" },
+    ];
+    expect(resolver(mixed)(RED)).toBe("MN-001");
+    expect(resolver(mixed)("Red Spicy Ramen [ดีลใหม่]")).toBeNull();
   });
 
   it("never picks a menu without a recipe: Tori Paitan goes to MN-003 from history, else stays unresolved", () => {

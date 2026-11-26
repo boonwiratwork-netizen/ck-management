@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { addDays, format } from "date-fns";
 import { ArrowLeft, HelpCircle, History, Plus } from "lucide-react";
@@ -7,7 +7,7 @@ import type { Menu } from "@/types/menu";
 import type { ModifierRule } from "@/types/modifier-rule";
 import { useAuth } from "@/hooks/use-auth";
 import { useSalesData, type SalesData } from "@/hooks/use-sales-data";
-import { codeResolver, dayWrites, defaultMode, isReadable, planDays, readWithEachFormat, noCodeBases, withTimeout, type DayMode, type DayPlan, type ReadResult } from "@/lib/sales-import";
+import { codeResolver, dayWrites, defaultMode, isReadable, planDays, readWithEachFormat, noCodeBases, withPicked, withTimeout, type CodeResolver, type DayMode, type DayPlan, type ReadResult } from "@/lib/sales-import";
 import { DayStrip, MonthCalendar, RecentDays } from "@/components/sales/SalesDays";
 import { CheckView, ImportCard, ProfilesDialog } from "@/components/sales/SalesImport";
 import { SalesDay } from "@/components/sales/SalesDay";
@@ -123,10 +123,14 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
   const [profilesOpen, setProfilesOpen] = useState(false);
   // Bumped after a save so the paste box starts empty again
   const [importKey, setImportKey] = useState(0);
+  // The paste being checked, and what found codes from names, so a menu picked by hand for a
+  // no-code line reads the same paste again without asking the database again
+  const pasteRef = useRef<{ text: string; source: "paste" | "csv"; resolve: CodeResolver; withRecipe: Set<string> | null } | null>(null);
+  const [picked, setPicked] = useState<Record<string, string>>({});
   const menuCodes = useMemo(() => new Set(menus.map((m) => m.menuCode)), [menus]);
   const brandMenus = useMemo(() => menus.filter((m) => m.status === "Active" && (!branch || m.brandName === branch.brandName)), [menus, branch]);
 
-  const planFor = async (r: ReadResult | undefined) => {
+  const planFor = async (r: ReadResult | undefined, keepModes = false) => {
     if (!isReadable(r)) {
       setPlans([]);
       return true;
@@ -135,8 +139,26 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
     if (!existing) return false;
     const p = planDays(r!.rows, existing);
     setPlans(p);
-    setModes(Object.fromEntries(p.map((d) => [d.date, defaultMode(d)])));
+    // A menu picked for a no-code line keeps what was chosen for each day
+    setModes((was) => Object.fromEntries(p.map((d) => [d.date, keepModes && was[d.date] ? was[d.date] : defaultMode(d)])));
     return true;
+  };
+  /** A menu picked (or unpicked) for a no-code line: the same paste read again with it */
+  const pickMenu = async (name: string, code: string | null) => {
+    const paste = pasteRef.current;
+    if (!paste) return;
+    const next = { ...picked };
+    if (code) next[name] = code;
+    else delete next[name];
+    setPicked(next);
+    const profileId = reads[pick]?.profile.id;
+    const r = readWithEachFormat(paste.text, data.profiles, menuCodes, paste.source, withPicked(paste.resolve, next));
+    const i = Math.max(0, r.findIndex((x) => x.profile.id === profileId));
+    setReads(r);
+    setPick(i);
+    setChecking(true);
+    await planFor(r[i], true);
+    setChecking(false);
   };
   const check = async (text: string, source: "paste" | "csv") => {
     if (!data.profiles.length) {
@@ -152,7 +174,10 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
       // teaches nothing (the line shows as not imported) instead of spinning.
       const bases = noCodeBases(readWithEachFormat(text, data.profiles, menuCodes, source).filter((x) => x.known > 0));
       const [history, withRecipe] = bases.length ? await Promise.all([withTimeout(data.codeHistory(bases), 8000, []), withTimeout(data.recipeMenuIds(), 8000, null)]) : [[], null];
-      const r = readWithEachFormat(text, data.profiles, menuCodes, source, codeResolver(brandMenus, history, menuCodes, withRecipe));
+      const resolve = codeResolver(brandMenus, history, menuCodes, withRecipe);
+      pasteRef.current = { text, source, resolve, withRecipe };
+      setPicked({});
+      const r = readWithEachFormat(text, data.profiles, menuCodes, source, resolve);
       setReads(r);
       setPick(0);
       const ok = await planFor(r[0]);
@@ -172,6 +197,8 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
       toast.success(`บันทึกยอดขาย ${res.inserted.toLocaleString()} รายการแล้ว`, onNavigate ? { action: { label: "ไปนับสต๊อก", onClick: () => onNavigate("daily-stock-count") }, duration: 10000 } : undefined);
       setReads([]);
       setPlans([]);
+      setPicked({});
+      pasteRef.current = null;
       setImportKey((k) => k + 1);
       go("", true);
     }
@@ -198,6 +225,11 @@ export default function SalesPage({ branches, menus, modifierRules, onNavigate, 
         saving={saving || checking}
         onSave={save}
         onAgain={() => go("", true)}
+        // Menus a no-code line can be given: this brand's menus with a recipe (a sale under
+        // a menu with none takes no stock); all of the brand's menus if recipes didn't load
+        menus={brandMenus.filter((m) => !pasteRef.current?.withRecipe || pasteRef.current.withRecipe.has(m.id))}
+        picked={picked}
+        onPickMenu={pickMenu}
       />
     ) : (
       <Empty text="ยังไม่ได้วางข้อมูล กลับไปวางยอดจากเครื่องขายก่อน" />
