@@ -147,15 +147,20 @@ export function codeResolver(menus: { id: string; menuCode: string; menuName: st
     addKey(byMenu, nameKey(m.menuName.replace(/\([^)]*\)/g, " ")), m.menuCode);
     for (const inner of m.menuName.matchAll(/\(([^)]*)\)/g)) addKey(byMenu, nameKey(inner[1]), m.menuCode);
   }
+  // A past line also teaches its name's parts: FoodStory names dine-in menus "แบล็ค การ์ลิค
+  // ราเมน (Black Garlic Ramen)" (Shiro, Nov 2026) while the LINE MAN deal says "Black Garlic
+  // Ramen", so the English in brackets, and the name without it, count as names too
+  const parts = (base: string) => [base, base.replace(/\([^)]*\)/g, " ").trim(), ...[...base.matchAll(/\(([^)]*)\)/g)].map((x) => x[1])];
   const tally = (keyOf: (base: string) => string) => {
     const counts = new Map<string, Map<string, number>>();
     for (const h of history) {
       if (!h.menu_code || !menuCodes.has(h.menu_code)) continue;
-      const k = keyOf(posBase(h.menu_name || ""));
-      if (k.length < 3) continue;
-      const c = counts.get(k) ?? new Map<string, number>();
-      c.set(h.menu_code, (c.get(h.menu_code) ?? 0) + 1);
-      counts.set(k, c);
+      for (const k of new Set(parts(posBase(h.menu_name || "")).map(keyOf))) {
+        if (k.length < 3) continue;
+        const c = counts.get(k) ?? new Map<string, number>();
+        c.set(h.menu_code, (c.get(h.menu_code) ?? 0) + 1);
+        counts.set(k, c);
+      }
     }
     const out = new Map<string, string>();
     counts.forEach((c, k) => {

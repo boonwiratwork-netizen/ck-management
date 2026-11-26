@@ -215,6 +215,18 @@ describe("priced lines without a menu code", () => {
     expect(noCodeBases(reads)).toEqual(["Black Garlic Ramen", "Red Spicy Ramen", "White Crema Truffle Ramen", "Chashu Don with Truffle Sauce", "Delivery Set A ราเมน x1+ของทานเล่น x1", "Standard Tori Paitan Ramen", "Thai Wagyu Mini Don Sendo Recipe"]);
   });
 
+  it("learns from past lines named 'Thai (English)': the LINE MAN deal's English name finds the code", () => {
+    // Shiro, 26 Nov 2026: dine-in lines carry "แบล็ค การ์ลิค ราเมน (Black Garlic Ramen)", the deal just "Black Garlic Ramen"
+    const shiro = [
+      { menu_code: "MN-056", menu_name: "แบล็ค การ์ลิค ราเมน (Black Garlic Ramen) เลือกเส้น : เส้นหนาหนึบ x 1" },
+      { menu_code: "MN-056", menu_name: "แบล็ค การ์ลิค ราเมน (Black Garlic Ramen)" },
+    ];
+    expect(resolver(shiro, null)(BLACK)).toBe("MN-056");
+    // the same English in brackets of two different menus is not guessed
+    const two = [...shiro, { menu_code: "MN-001", menu_name: "ชิโอะ ราเมน (Black Garlic Ramen)" }, { menu_code: "MN-001", menu_name: "ชิโอะ ราเมน (Black Garlic Ramen)" }];
+    expect(resolver(two, null)(BLACK)).toBeNull();
+  });
+
   it("a menu picked by hand imports the line under it; saved, the next paste finds it by its exact name", () => {
     const [before] = readWithEachFormat(text, [FOODSTORY], codes, "paste", resolver(history));
     expect(before.skipped.map((x) => x.menuName)).toContain(RED);
