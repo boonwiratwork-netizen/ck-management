@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildUsageContext } from "../../../supabase/functions/_shared/sale-usage.ts";
-import { classifyMenus, menuEngineering, ingredientUsage, namedPeriod, periodOf, compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, matchSku, previousPeriod, priceForFc, priceMovers, recipeWhatIf, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
+import { calc, calculate, classifyMenus, menuEngineering, ingredientUsage, namedPeriod, periodOf, compareItems, foodCost, gramsPerPiece, ingredientInMenus, itemFilter, matchSku, previousPeriod, priceForFc, priceMovers, recipeWhatIf, ingredientPrice, matchByName, matchMenus, menuCost, resolveBranches, resolvePeriod, scenario, similarity, type Masters, type Store } from "../../../supabase/functions/line-bot/tools.ts";
 import { toFlex } from "../../../supabase/functions/line-bot/cards.ts";
-import { askedBot, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
+import { askedBot, IMAGE_WORDS, stripMentions, verifySignature } from "../../../supabase/functions/line-bot/line.ts";
 import type { FcSale } from "../../../supabase/functions/_shared/food-cost.ts";
 
 // A small shop: ramen R (100 g noodle + 50 g pork), gyoza G (6 pcs), pork topping "2 ชิ้น"
@@ -467,5 +467,33 @@ describe("LINE plumbing", () => {
     expect(await verifySignature(body, sig, "s3cret")).toBe(true);
     expect(await verifySignature(body, sig, "other")).toBe(false);
     expect(await verifySignature(body, null, "s3cret")).toBe(false);
+  });
+});
+
+describe("the calculator and the photo words", () => {
+  it("sums with brackets, %, commas and ×; anything else is refused, never guessed", async () => {
+    expect(calc("(85.2 + 18) / 399 * 100")).toBeCloseTo(25.8647, 3);
+    expect(calc("1,200 × 30")).toBe(36000);
+    expect(calc("300 * 0.1 - -5")).toBe(35);
+    expect(calc(".5 * 2")).toBe(1);
+    // % is refused (people mean 289 + 10% = 317.9); a comma only as thousands
+    expect(() => calc("289 + 10%")).toThrow(/ทศนิยม/);
+    expect(() => calc("(1,2)")).toThrow();
+    expect(() => calc("85.20,18")).toThrow();
+    expect(calc("-(2 + 3) * 4")).toBe(-20);
+    expect(() => calc("85 บาท + 18")).toThrow(/อ่านไม่ออก/);
+    expect(() => calc("1/0")).toThrow(/ศูนย์/);
+    expect(() => calc("(1 + 2")).toThrow(/วงเล็บ/);
+    expect(() => calc("process.exit()")).toThrow();
+    const r = await calculate(store(), { expression: "(85.2 + 18) / 399 * 100", about: "FC เซ็ต" });
+    expect(r.data).toMatchObject({ result: 25.864662, shown: 25.86, about: "FC เซ็ต" });
+    // a per-gram price stays exact for the next step
+    expect((await calculate(store(), { expression: "85 / 1000" })).data).toMatchObject({ result: 0.085 });
+    expect((await calculate(store(), { expression: "ราเมน + 18" })).data).toMatchObject({ error: expect.stringMatching(/คิดไม่ได้/) });
+  });
+
+  it("'เดือนนี้' / 'วันนี้' don't pull in a photo; 'เมนูนี้' / 'ในรูป' do", () => {
+    for (const q of ["FC เดือนนี้เท่าไหร่", "วันนี้ขายได้เท่าไหร่", "สัปดาห์นี้ของใกล้หมดไหม", "ขอภาพรวม food cost เดือนนี้", "ต้นทุน Red Spicy Ramen", "รูปแบบการคิด"]) expect(IMAGE_WORDS.test(q)).toBe(false);
+    for (const q of ["เมนูนี้ต้นทุนเท่าไหร่", "ต้นทุนในรูปถูกไหม", "จานนี้ FC เท่าไหร่", "อันนี้คิดยังไง", "ใบนี้ถูกไหม", "เซทนี้ FC เท่าไหร่", "ตามภาพข้างล่าง", "เช็คอันที่ส่งไป", "see the pic"]) expect(IMAGE_WORDS.test(q)).toBe(true);
   });
 });

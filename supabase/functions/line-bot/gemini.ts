@@ -6,8 +6,14 @@ import type { ToolResult } from "./tools.ts";
 
 export class RateLimited extends Error {}
 
-/** One Gemini call; a slower one moves on to the next model */
-const PER_CALL_MS = 20_000;
+/**
+ * One Gemini call; a slower one moves on to the next model. The light model thinks briefly
+ * (it only has to pick a tool, the tools do the sums); a stronger one is there for the hard
+ * questions, so it may think properly and gets longer for it.
+ */
+const isLite = (model: string) => /lite/i.test(model);
+const perCallMs = (model: string) => (isLite(model) ? 20_000 : 35_000);
+const thinkingOf = (model: string) => (isLite(model) ? "low" : "medium");
 const timeoutSignal = (ms: number): AbortSignal => {
   if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
   const c = new AbortController();
@@ -211,6 +217,11 @@ export const DECLARATIONS = [
     parameters: { type: "OBJECT", properties: { item: S("เฉพาะของนี้ (ไม่ระบุ = ทุกอย่าง)"), ...PERIOD } },
   },
   {
+    name: "calculate",
+    description: "คิดเลขรวมผลจากหลายเครื่องมือ: ตัวเลข + - * / และวงเล็บ เท่านั้น (เปอร์เซ็นต์เขียนเป็นทศนิยม เช่น ขึ้น 10% = * 1.1, 30% = 0.3) เช่น '(85.20 + 18) / 399 * 100' ห้ามใช้แทนเครื่องมือที่คิดจากข้อมูลจริง และห้ามใช้คิดต้นทุนตามปริมาณ (ส่งปริมาณให้เครื่องมือ)",
+    parameters: { type: "OBJECT", properties: { expression: S("นิพจน์ตัวเลขล้วน ไม่มีหน่วยหรือชื่อ"), about: S("คิดอะไร เช่น FC เซ็ตราเมน") }, required: ["expression"] },
+  },
+  {
     name: "cannot_answer",
     description: "ใช้เมื่อไม่มีเครื่องมือไหนตอบคำถามนี้ได้ หรือข้อมูลในระบบไม่พอ (ห้ามเดาเรียกเครื่องมืออื่นแทน)",
     parameters: { type: "OBJECT", properties: { reason: S("ทำไมตอบไม่ได้ ขาดข้อมูลอะไร"), closest: S("สิ่งที่ใกล้เคียงที่สุดที่ตอบได้ (ถ้ามี)") }, required: ["reason"] },
@@ -273,12 +284,19 @@ export async function askTiered(opts: Omit<Parameters<typeof ask>[0], "models" |
   const deadline = now() + 100_000;
   const lead = opts.envModel ? [opts.envModel] : [];
   if (isHard(opts.question)) {
-    const out = await ask({ ...opts, models: [...new Set([...lead, ...STRONG, LITE])], deadline });
-    return { ...out, tier: "strong" };
+    // The stronger models get 70 s; if they're busy or too slow, the light one answers in what's left
+    try {
+      const out = await ask({ ...opts, models: [...new Set([...lead, ...STRONG])], deadline: now() + 70_000 });
+      return { ...out, tier: "strong" };
+    } catch (e) {
+      console.warn("[line-bot] stronger model failed on a hard question", (e as Error).message);
+      const out = await ask({ ...opts, models: [...new Set([...lead, LITE])], deadline });
+      return { ...out, tier: "lite" };
+    }
   }
   const first = await ask({ ...opts, models: [...new Set([...lead, LITE, ...STRONG])], deadline });
   // A second go needs room for a few slow calls; otherwise the light answer stands
-  if (!gaveUp(first) || deadline - now() < 40_000) return { ...first, tier: "lite" };
+  if (!gaveUp(first) || deadline - now() < 50_000) return { ...first, tier: "lite" };
   const strong = STRONG.filter((m) => m !== first.model);
   if (!strong.length) return { ...first, tier: "lite" };
   try {
@@ -305,27 +323,31 @@ export async function ask(opts: {
   const calls: { name: string; args: unknown }[] = [];
   let lastCards: Card[] = [];
   let models = [...opts.models];
-  /** Models that refused the thinking setting (older ones): asked without it */
-  const plainConfig = new Set<string>();
+  /** A model that refused a thinking level steps down: medium → low → none (older models) */
+  const level = new Map<string, string | null>();
   // The whole answer has to fit the function's time (LINE also wants the reply soon)
   const deadline = opts.deadline ?? Date.now() + 100_000;
-  for (let step = 0; step < (opts.maxSteps ?? 6); step++) {
+  for (let step = 0; step < (opts.maxSteps ?? 7); step++) {
     let res: Response | null = null;
     let model = models[0];
     let retried = false;
     while (models.length) {
       model = models[0];
-      if (Date.now() > deadline) throw new RateLimited("out of time");
+      // Each call gets what's left of the time, never more: a call started late can't run past it
+      const left = deadline - Date.now();
+      if (left < 3_000) throw new RateLimited("out of time");
       const generationConfig: Record<string, unknown> = { temperature: 0.2 };
-      // Short thinking: these questions only need a tool picked (Gemini 3.x thinkingLevel;
-      // a model that doesn't know it says so with a 400, and is asked again without it)
-      if (!plainConfig.has(model)) generationConfig.thinkingConfig = { thinkingLevel: "low" };
+      // Gemini 3.x thinkingLevel; a model that doesn't know it (or the level) says so with a
+      // 400, and is asked again without it
+      if (!level.has(model)) level.set(model, thinkingOf(model));
+      const think = level.get(model);
+      if (think) generationConfig.thinkingConfig = { thinkingLevel: think };
       try {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": opts.key },
           body: JSON.stringify({ systemInstruction: { parts: [{ text: opts.system }] }, contents: turns, tools: [{ functionDeclarations: DECLARATIONS }], generationConfig }),
-          signal: timeoutSignal(PER_CALL_MS),
+          signal: timeoutSignal(Math.min(perCallMs(model), left)),
         });
       } catch (e) {
         // Too slow (or the connection dropped): the next model, never a silent failure
@@ -338,10 +360,10 @@ export async function ask(opts: {
         }
         throw new RateLimited(`timeout ${model}`);
       }
-      if (res.status === 400 && !plainConfig.has(model)) {
+      if (res.status === 400 && think) {
         const body = await res.clone().text();
         if (/thinking/i.test(body)) {
-          plainConfig.add(model);
+          level.set(model, think === "medium" ? "low" : null);
           continue;
         }
       }
@@ -367,19 +389,25 @@ export async function ask(opts: {
     const fc = parts.filter((p): p is { functionCall: { name: string; args: unknown } } => "functionCall" in p);
     if (!fc.length) {
       const text = parts.map((p) => ("text" in p ? p.text : "")).join("").trim();
+      // Up to 3 tables; a sum's card always among them (it is the last thing worked out)
       return { text, cards: lastCards.slice(-3), calls, model };
     }
     turns.push({ role: "model", parts });
     const responses: Part[] = [];
-    // The tables shown are the ones the answer rests on: the last round of calls, not every try
-    lastCards = [];
+    // The tables shown are the ones the answer rests on: the last round of calls, not every
+    // try. A round that only does sums on earlier results (calculate) or shows nothing keeps the
+    // tables those numbers came from, with the sum added after them.
+    const round: Card[] = [];
     for (const c of fc) {
       calls.push({ name: c.functionCall.name, args: c.functionCall.args });
       const r = await opts.runTool(c.functionCall.name, c.functionCall.args);
-      if (r.card) lastCards.push(r.card);
-      if (r.moreCards) lastCards.push(...r.moreCards);
+      if (r.card) round.push(r.card);
+      if (r.moreCards) round.push(...r.moreCards);
       responses.push({ functionResponse: { name: c.functionCall.name, response: { result: r.data } } });
     }
+    const onlySums = fc.every((c) => c.functionCall.name === "calculate" || c.functionCall.name === "cannot_answer");
+    if (onlySums) lastCards = [...lastCards, ...round];
+    else if (round.length) lastCards = round;
     turns.push({ role: "user", parts: responses });
   }
   return { text: STEP_LIMIT_TEXT, cards: [], calls, model: models[0] ?? "" };

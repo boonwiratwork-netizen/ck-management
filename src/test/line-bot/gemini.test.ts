@@ -42,7 +42,7 @@ describe("Gemini calls", () => {
     });
     const r = await ask({ ...base, models: ["old"] });
     expect(r.text).toBe("ตอบแล้ว");
-    expect(bodies).toEqual([{ temperature: 0.2, thinkingConfig: { thinkingLevel: "low" } }, { temperature: 0.2 }]);
+    expect(bodies).toEqual([{ temperature: 0.2, thinkingConfig: { thinkingLevel: "medium" } }, { temperature: 0.2, thinkingConfig: { thinkingLevel: "low" } }, { temperature: 0.2 }]);
   });
 
   it("busy once: retried; busy everywhere: says busy (the group gets 'try again')", async () => {
@@ -111,5 +111,53 @@ describe("Gemini calls", () => {
     expect(gaveUp({ text: "คำถามนี้ต้องคิดหลายขั้นเกินไป ลองถามแยกเป็นทีละเรื่องได้ไหมครับ", cards: [], calls: [], model: "a" })).toBe(true);
     // a real answer with a table, even with a "can't" in it
     expect(gaveUp({ text: "ขาย 259 ไม่สามารถถึง FC 30%", cards: [{ title: "x", columns: [], rows: [] }], calls: [], model: "a" })).toBe(false);
+  });
+
+  it("the light model thinks briefly; a stronger one thinks properly", async () => {
+    const levels: Record<string, string> = {};
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      levels[modelOf(url)] = JSON.parse(String(init.body)).generationConfig.thinkingConfig?.thinkingLevel;
+      return modelOf(url).includes("lite") ? ok("ขออภัย ตอบไม่ได้") : ok("FC 31%");
+    });
+    await askTiered({ ...base, question: "ต้นทุนโปรตีน" });
+    expect(levels).toEqual({ "gemini-flash-lite-latest": "low", "gemini-flash-latest": "medium" });
+  });
+
+  it("a sum at the end keeps the tables its numbers came from", async () => {
+    const replies = [
+      { candidates: [{ content: { parts: [{ functionCall: { name: "menu_cost", args: { query: "ราเมน" } } }, { functionCall: { name: "menu_cost", args: { query: "เกี๊ยวซ่า" } } }] } }] },
+      { candidates: [{ content: { parts: [{ functionCall: { name: "calculate", args: { expression: "(85.2 + 18) / 399 * 100" } } }] } }] },
+      { candidates: [{ content: { parts: [{ text: "FC เซ็ต 25.9%" }] } }] },
+    ];
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify(replies.shift()), { status: 200 }));
+    const r = await ask({ ...base, models: ["a"], runTool: async (name, args) => ({ data: {}, card: { title: `${name} ${(args as { query?: string }).query ?? ""}`.trim(), columns: [], rows: [] } }) });
+    expect(r.cards.map((c) => c.title)).toEqual(["menu_cost ราเมน", "menu_cost เกี๊ยวซ่า", "calculate"]);
+  });
+
+  it("a model that won't take 'medium' steps down to 'low' before going without", async () => {
+    const levels: (string | undefined)[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const t = JSON.parse(String(init.body)).generationConfig.thinkingConfig?.thinkingLevel;
+      levels.push(t);
+      if (t === "medium") return new Response('{"error":{"message":"thinking level medium is not supported"}}', { status: 400 });
+      return ok("ตอบแล้ว");
+    });
+    await ask({ ...base, models: ["gemini-3.5-flash"] });
+    expect(levels).toEqual(["medium", "low"]);
+  });
+
+  it("a hard question whose stronger models are all busy is still answered by the light one", async () => {
+    vi.useFakeTimers();
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      seen.push(modelOf(url));
+      return modelOf(url).includes("lite") ? ok("FC 31%") : new Response("{}", { status: 503 });
+    });
+    const p = askTiered({ ...base, question: "ถ้าราเมนขึ้น 10% ลดสันคอเหลือ 15 ก. ขายเพิ่ม 20%" });
+    await vi.runAllTimersAsync();
+    const r = await p;
+    vi.useRealTimers();
+    expect(r).toMatchObject({ text: "FC 31%", tier: "lite" });
+    expect(seen.at(-1)).toBe("gemini-flash-lite-latest");
   });
 });

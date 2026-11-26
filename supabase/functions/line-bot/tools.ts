@@ -1510,6 +1510,89 @@ export async function ingredientUsage(store: Store, args: { query: string; perio
 
 // ─── The menu Gemini picks from ───
 
+// ─── Arithmetic on numbers the tools gave (the model never does sums in its head) ───
+
+/**
+ * + − × ÷ and brackets. A small parser, never eval: anything else in the text (names, units,
+ * %) is refused rather than guessed.
+ */
+export function calc(expression: string): number {
+  const raw = String(expression ?? "");
+  // % reads differently to people ("289 + 10%" = 317.9) and to a parser (289.1): refused, the
+  // model writes 1.1 or 0.1 instead. A comma only as thousands (1,200); "(1,2)" is refused.
+  if (raw.includes("%")) throw new Error("ใช้ % ไม่ได้ เขียนเป็นทศนิยม เช่น ขึ้น 10% = * 1.1");
+  const src = raw
+    .replace(/(\d),(?=\d{3}(?!\d))/g, "$1")
+    .replace(/[×xX]/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/[−–]/g, "-")
+    .replace(/\s/g, " ");
+  let i = 0;
+  const peek = () => src[i];
+  const skip = () => {
+    while (src[i] === " ") i++;
+  };
+  const num = (): number => {
+    skip();
+    if (peek() === "(") {
+      i++;
+      const v = sum();
+      skip();
+      if (peek() !== ")") throw new Error("วงเล็บไม่ครบ");
+      i++;
+      return v;
+    }
+    if (peek() === "-") return (i++, -num());
+    if (peek() === "+") return (i++, num());
+    const m = /^(?:\d+(?:\.\d+)?|\.\d+)/.exec(src.slice(i));
+    if (!m) throw new Error(`อ่านไม่ออกตรง "${src.slice(i, i + 12)}"`);
+    i += m[0].length;
+    return Number(m[0]);
+  };
+  const product = (): number => {
+    let v = num();
+    for (;;) {
+      skip();
+      const op = peek();
+      if (op !== "*" && op !== "/") return v;
+      i++;
+      const r = num();
+      if (op === "/" && r === 0) throw new Error("หารด้วยศูนย์");
+      v = op === "*" ? v * r : v / r;
+    }
+  };
+  const sum = (): number => {
+    let v = product();
+    for (;;) {
+      skip();
+      const op = peek();
+      if (op !== "+" && op !== "-") return v;
+      i++;
+      v = op === "+" ? v + product() : v - product();
+    }
+  };
+  const v = sum();
+  skip();
+  if (i < src.length) throw new Error(`อ่านไม่ออกตรง "${src.slice(i, i + 12)}"`);
+  if (!Number.isFinite(v)) throw new Error("ผลไม่ใช่ตัวเลข");
+  return v;
+}
+
+export async function calculate(_s: Store, a: { expression: string; about?: string | null }): Promise<ToolResult> {
+  try {
+    const v = calc(a?.expression);
+    // Full precision for a next step (0.085 a gram stays 0.085); 2 decimals only to show
+    const result = Math.round(v * 1e6) / 1e6;
+    const shown = Math.abs(v) >= 1 ? r2(v) : Number(v.toPrecision(3));
+    return {
+      data: { about: a?.about ?? null, expression: a?.expression, result, shown },
+      card: { title: a?.about ? `คิดเลข · ${a.about}` : "คิดเลข", columns: ["", ""], rows: [[String(a?.expression ?? ""), shown.toLocaleString("en-US", { maximumFractionDigits: 4 })]] },
+    };
+  } catch (e) {
+    return { data: { error: `คิดไม่ได้: ${(e as Error).message} (ใช้ได้แค่ตัวเลข + - * / วงเล็บ และ %)`, expression: a?.expression } };
+  }
+}
+
 export const TOOLS = {
   ingredient_price: ingredientPrice,
   menu_cost: menuCost,
@@ -1521,6 +1604,7 @@ export const TOOLS = {
   price_movers: priceMovers,
   menu_engineering: menuEngineering,
   ingredient_usage: ingredientUsage,
+  calculate,
   // No tool fits: noted for Bucci's review (index.ts logs it); the model then says so plainly
   cannot_answer: async (_s: Store, a: { reason?: string; closest?: string }) => ({ data: { noted: true, reason: a?.reason ?? "", closest: a?.closest ?? "" } }),
 } as const;

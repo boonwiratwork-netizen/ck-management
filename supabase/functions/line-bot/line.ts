@@ -86,3 +86,8 @@ export function stripMentions(text: string, mentionees: LineMention[] = []): str
   for (const m of [...mentionees].sort((a, b) => b.index - a.index)) out = out.slice(0, m.index) + out.slice(m.index + m.length);
   return out.replace(/\s+/g, " ").trim();
 }
+
+// A question about a photo sent earlier. Not a bare "นี้": "เดือนนี้", "วันนี้" are about time,
+// and would pull in a photo someone sent for something else.
+// Not "ภาพรวม" (overview) or "รูปแบบ" (format), and "pic" only as a word ("Red Spicy Ramen").
+export const IMAGE_WORDS = /ภาพ(?!รวม)|รูป(?!แบบ)|ในบิล|ตามนี้|ข้างบน|ด้านบน|ข้างล่าง|ด้านล่าง|ที่ส่งไป|ที่ส่งมา|(?:เมนู|จาน|อัน|บิล|สูตร|ตัว|รายการ|ชาม|เซ็ต|เซท|เซต|ใบ|ตาราง|ชุด|ไฟล์)\s*นี้|\b(?:image|photo|pic|picture)s?\b/i;
